@@ -46,6 +46,7 @@ import { empowered, relicPassives, snapshotRelic, type ReliquaryRelic } from './
 import { bondXpForFight, bondsConfig, type RunBond } from './bonds';
 import { fitTechniques, noVariants, variantsConfig, type Techniques } from './variants';
 import { starlightForFight } from './loom';
+import { echoDef, echoRoute, type EchoRouteLeg } from './atlas';
 import {
   FINALE_BOSS,
   countsRunWide,
@@ -545,52 +546,27 @@ export function roadOf(def: AnyMovementDef): RoadVariant | undefined {
 
 // ── Echoes (docs/phase-6.md, "Design: the Atlas of Echoes") ─────────────────────────────
 
-/** An Echo by id; undefined for one the content doesn't have (a save from another build). */
-export function echoDef(id: string): EchoDef | undefined {
-  return CONTENT.echoes.find((e) => e.id === id);
-}
-
-/** An Echo leg's own def and the content Movement (its number, 1 the first) it is built over. */
-const LEGS = new WeakMap<AnyMovementDef, { leg: EchoLeg; movement: number }>();
-/** `echoRouteDefs(echo)`, built once per Echo (content is fixed). */
-const ECHO_ROUTES = new WeakMap<EchoDef, readonly MovementDef[]>();
+export { echoDef };
 
 /**
- * One Echo leg as a Movement def (docs/phase-6.md, "Contracts"), built like the Finale route's
- * road: the field Movement it names, with its pools, lessons, opening, biome and rewards, and the
- * leg's rows, fixed rows, mini-boss and boss. A leg without `fixed` keeps its Movement's fixed
- * rows, its Movement's mini-boss and boss swapped for the leg's; a leg with its own `rows` and no
- * `fixed` has none (the Movement's fixed rows name rows of the Movement's own map).
+ * Each Echo leg's def as `echoRoute` (meta/atlas.ts) builds it, the leg's route entry (its own
+ * rewards and scale) and the number of the content Movement it is built over. Filled as an Echo's
+ * defs are first asked for (`echoRouteDefs`), as `routeDefs` fills ROADS for the Finale's road.
  */
-function legDef(leg: EchoLeg): MovementDef {
-  const index = CONTENT.movements.findIndex((m) => m.id === leg.movement);
-  const base = CONTENT.movements[index];
-  if (!base || !isFieldMovement(base))
-    throw new Error(`an Echo leg's "${leg.movement}" is not a field Movement`);
-  const miniboss = leg.miniboss ?? base.miniboss;
-  const swap = (id: string) => (id === base.boss ? leg.boss : id === base.miniboss ? miniboss : id);
-  const fixed =
-    leg.fixed?.map((f) => ({ ...f })) ??
-    (leg.rows ? [] : base.fixed.map((f) => ({ row: f.row, encounter: swap(f.encounter) })));
-  const def: MovementDef = {
-    ...base,
-    rows: (leg.rows ?? base.rows).map((r) => [...r]),
-    fixed,
-    miniboss,
-    boss: leg.boss,
-  };
-  LEGS.set(def, { leg, movement: index + 1 });
-  return def;
-}
+const LEGS = new WeakMap<AnyMovementDef, { route: EchoRouteLeg; movement: number }>();
 
-/** The Movements an Echo plays, one per leg, in order: `defs[i]` plays as the run's Movement i + 1. */
+/**
+ * The Movements an Echo plays, one per leg, in order (`defs[i]` plays as the run's Movement i + 1):
+ * the Atlas's `echoRoute`, its defs registered with their legs.
+ */
 export function echoRouteDefs(echo: EchoDef): MovementDef[] {
-  let route = ECHO_ROUTES.get(echo);
-  if (!route) {
-    route = echo.legs.map(legDef);
-    ECHO_ROUTES.set(echo, route);
-  }
-  return [...route];
+  return echoRoute(echo).map((route) => {
+    if (!LEGS.has(route.def)) {
+      const movement = CONTENT.movements.findIndex((m) => m.id === route.leg.movement) + 1;
+      LEGS.set(route.def, { route, movement });
+    }
+    return route.def;
+  });
 }
 
 /** An Echo's map for a seed: its legs as Movements (`generateMapFrom`). */
@@ -598,10 +574,13 @@ export function generateEchoMap(seed: number, echo: EchoDef): RunMap {
   return generateMapFrom(seed >>> 0, echoRouteDefs(echo));
 }
 
-/** The leg a def of `echoRouteDefs` plays, and the content Movement's number it is built over. */
+/**
+ * The Echo leg a def of `echoRouteDefs` plays (its rewards and scale), and the number of the
+ * content Movement it is built over; undefined for every other def.
+ */
 export function echoLegOf(
   def: AnyMovementDef | undefined,
-): { leg: EchoLeg; movement: number } | undefined {
+): { route: EchoRouteLeg; movement: number } | undefined {
   return def ? LEGS.get(def) : undefined;
 }
 
@@ -686,7 +665,9 @@ function buildMovement(
 ): MapNode[][] {
   if (!isFieldMovement(def)) return buildFinale(def, movement, firstRow);
   const rng = rngFor(seed, movement === 1 ? 'map' : `map:m${movement}`);
-  // An Echo leg (docs/phase-6.md) plays its content Movement's events and pays its own rewards.
+  // An Echo leg (docs/phase-6.md) plays the events of the content Movement it is built over, and
+  // pays its own rewards. Its stream's label stays its place on the route ('map', 'map:m2', …), so
+  // two legs over one Movement draw apart, and every other route draws exactly as before.
   const leg = LEGS.get(def);
   const pools = leg?.movement ?? movement;
   // The finale's road (docs/phase-5d.md): its rows take the full Movement's Threat, and a
@@ -760,7 +741,7 @@ function buildMovement(
           road
             ? roadPlace(road, row, def, next)
             : leg
-              ? legPlace(leg.leg, row, def, next)
+              ? legPlace(leg.route.rewards, row, def, next)
               : { row, movement: def, next },
         ),
         movement,
@@ -782,12 +763,12 @@ function roadPlace(
 
 /** An Echo leg's row's place (docs/phase-6.md): the leg's own reward for it, if it pays one. */
 function legPlace(
-  leg: EchoLeg,
+  rewards: EchoLeg['rewards'],
   row: number,
   movement: AnyMovementDef,
   next: AnyMovementDef | null,
 ): NodePlace {
-  const bonus = leg.rewards?.find((b) => b.row === row);
+  const bonus = rewards?.find((b) => b.row === row);
   return { row, ...(bonus ? { bonus, echo: true as const } : {}), movement, next };
 }
 
@@ -1635,9 +1616,8 @@ export function combatConfig(run: RunState, assists?: SimConfig['assists']): Sim
  */
 function echoScale(run: RunState, node: MapNode): Pick<SimConfig, 'movement'> {
   if (run.echo === undefined) return {};
-  const scale = echoLegOf(runRoute(run)[node.movement - 1])?.leg.scale;
-  const def = scale !== undefined ? CONTENT.movements[scale - 1] : undefined;
-  return def ? { movement: { life: def.scale.life, damage: def.scale.damage } } : {};
+  const scale = echoLegOf(runRoute(run)[node.movement - 1])?.route.scale;
+  return scale ? { movement: { life: scale.life, damage: scale.damage } } : {};
 }
 
 /**

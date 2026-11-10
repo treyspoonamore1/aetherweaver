@@ -112,7 +112,8 @@ beforeAll(() => {
   (CONTENT.echoes as EchoDef[]).push(...FIXTURES);
 });
 afterAll(() => {
-  (CONTENT.echoes as EchoDef[]).splice(0);
+  const echoes = CONTENT.echoes as EchoDef[];
+  echoes.splice(echoes.length - FIXTURES.length, FIXTURES.length);
 });
 
 beforeEach(() => {
@@ -289,7 +290,7 @@ describe('an Echo’s route and map', () => {
     }
   });
 
-  it('a leg with its own rows has none of its Movement’s fixed rows', () => {
+  it('a leg with its own rows plays them, its boss rows the leg’s', () => {
     const run = Run.newEchoRun(9, BOSSES.id);
     expect(run.movements).toBe(4);
     expect(run.map.rows.map((r) => r.map((n) => n.encounterId ?? n.kind).sort())).toEqual([
@@ -593,9 +594,7 @@ describe('an Echo plays from Prep to Summary', () => {
   });
 
   it('through the stores: no Dissonance best, no run-wide Deed, its fight Deeds; resumes', () => {
-    useSettings.getState().update((s) => ({ ...s, unlockAll: true }));
-    useProfile.getState().award(RANK_XP[19]!);
-    useProfile.getState().setDissonance([L('brisk_foes')]);
+    veteran([L('brisk_foes')]);
     useRun.getState().newEchoRun(BLOOD.id, 31);
     const store = () => useRun.getState();
     expect(store().run!.echo).toBe(BLOOD.id);
@@ -609,59 +608,193 @@ describe('an Echo plays from Prep to Summary', () => {
     const loaded = loadRun(mem)!;
     expect(loaded.echo).toBe(BLOOD.id);
     expect(loaded.map).toStrictEqual(store().run!.map);
-    for (let i = 0; i < 400 && store().run!.phase !== 'summary'; i++) {
-      const run = store().run!;
-      switch (run.phase) {
-        case 'map':
-          store().chooseNode(Run.reachable(run)[0]!.id);
-          break;
-        case 'combat':
-          store().finishFight(outcome(run), null);
-          break;
-        case 'result':
-          store().continueFromResult();
-          break;
-        case 'calling':
-          store().pickCalling(0);
-          break;
-        case 'relic':
-          store().pickRelic(0);
-          break;
-        case 'draft':
-          store().pickDraft(0);
-          break;
-        case 'respite':
-          store().respite('rest');
-          break;
-        case 'merchant':
-          store().leaveShop();
-          break;
-        case 'forge':
-          store().leaveForge();
-          break;
-        case 'event':
-          useRun.setState({ run: step(run) });
-          break;
-        case 'scene':
-          store().endScene(0);
-          break;
-        default:
-          throw new Error(run.phase);
-      }
-    }
-    const end = store().run!;
-    expect(end.phase).toBe('summary');
+    const end = playStore();
     expect(end.outcome).toBe('victory');
     const p = useProfile.getState().profile;
     // Decision 10: an Echo sets no Dissonance best and earns no run-wide Deed…
     expect(end.dissonanceEnd).toStrictEqual({ opened: false, best: false });
     expect(p.dissonance.best).toStrictEqual({});
     expect('finale' in p.dissonance).toBe(false);
-    for (const id of ['through_the_prelude', 'flawless', 'unbowed'])
-      expect(p.deeds.includes(id) && id !== 'unbowed' ? id : null).toBeNull();
     expect(p.deeds).not.toContain('through_the_prelude');
     expect(p.deeds).not.toContain('flawless');
     // …but its fight Deeds count: Vharun beaten with nobody down.
     expect(p.deeds).toContain('crimson_crowned');
+  });
+});
+
+/** A Rank 20 profile with Skip the unlocks, Dissonance at these levels. */
+function veteran(levels: DissonanceChoice[] = []): void {
+  useSettings.getState().update((s) => ({ ...s, unlockAll: true }));
+  useProfile.getState().award(RANK_XP[19]!);
+  useProfile.getState().setDissonance(levels);
+}
+
+/** Plays the store's run to its Summary (first option everywhere, every fight won). */
+function playStore(): RunState {
+  const store = () => useRun.getState();
+  if (store().run!.phase === 'prep') store().embark();
+  for (let i = 0; i < 400 && store().run!.phase !== 'summary'; i++) {
+    const run = store().run!;
+    switch (run.phase) {
+      case 'map':
+        store().chooseNode(Run.reachable(run)[0]!.id);
+        break;
+      case 'combat':
+        store().finishFight(outcome(run), null);
+        break;
+      case 'result':
+        store().continueFromResult();
+        break;
+      case 'calling':
+        store().pickCalling(0);
+        break;
+      case 'relic':
+        store().pickRelic(0);
+        break;
+      case 'draft':
+        store().pickDraft(0);
+        break;
+      case 'respite':
+        store().respite('rest');
+        break;
+      case 'merchant':
+        store().leaveShop();
+        break;
+      case 'forge':
+        store().leaveForge();
+        break;
+      case 'event': {
+        const next = step(run);
+        if (next.phase === 'event') store().leaveEvent();
+        else {
+          const ch = next.event!.choice!;
+          store().chooseEvent(ch, {
+            ...(run.motifs[0] ? { motifId: run.motifs[0].id } : {}),
+            chords: run.chords,
+          });
+        }
+        break;
+      }
+      case 'scene':
+        store().endScene(0);
+        break;
+      default:
+        throw new Error(run.phase);
+    }
+  }
+  expect(store().run!.phase).toBe('summary');
+  return store().run!;
+}
+
+describe('the real Echoes', () => {
+  const real = () => CONTENT.echoes.filter((e) => !FIXTURES.includes(e));
+  const echo = (id: string) => CONTENT.echoes.find((e) => e.id === id)!;
+
+  it('nine, each a legal map on its seeds: every stop reachable, the last leg’s boss last', () => {
+    expect(real()).toHaveLength(9);
+    for (const e of real())
+      for (let seed = 1; seed <= 25; seed++) {
+        const run = Run.newEchoRun(seed, e.id);
+        expect(run.movements).toBe(e.legs.length);
+        const last = run.map.rows.at(-1)!;
+        expect(last.map((n) => n.encounterId)).toEqual([e.legs.at(-1)!.boss]);
+        expect(Run.isFinalNode(last[0]!)).toBe(true);
+        const reached = reachableIds(run);
+        for (const n of nodes(run)) expect(reached.has(n.id), `${e.id} ${seed}`).toBe(true);
+      }
+  });
+
+  it('each plays from Prep to Summary through the run functions', () => {
+    for (const e of real()) {
+      const end = playOut(Run.newEchoRun(7, e.id)).at(-1)!;
+      expect(end.outcome, e.id).toBe('victory');
+      expect(end.results.at(-1)!.encounterId).toBe(e.legs.at(-1)!.boss);
+      expect(Run.runKind(end)).toBe('echo');
+    }
+  });
+
+  it('a leg’s own rewards are on the map (A Cappella’s first leg)', () => {
+    const run = Run.newEchoRun(3, 'a_cappella');
+    const leg = echo('a_cappella').legs[0]!;
+    for (const bonus of leg.rewards!) {
+      const row = Run.rowsOfMovement(run.map, 1)[bonus.row]!;
+      const skirmishes = row.filter((n) => n.kind === 'skirmish');
+      expect(skirmishes.length).toBeGreaterThan(0);
+      for (const n of skirmishes) {
+        expect(n.reward.draft).toBe(bonus.draft);
+        if (bonus.relics) expect(n.reward.relics).toBe(bonus.relics);
+      }
+    }
+    // The second leg names no rewards: its skirmishes pay a common motif.
+    for (const n of Run.rowsOfMovement(run.map, 2)
+      .flat()
+      .filter((x) => x.kind === 'skirmish'))
+      expect(n.reward.draft).toBe('common');
+  });
+
+  it('a leg’s scale reaches only its own fights (Retrograde; Choir of Blood has none)', () => {
+    const run = Run.embark(Run.newEchoRun(5, 'retrograde'));
+    const legs = echo('retrograde').legs;
+    for (const n of fightsOf(run)) {
+      const config = Run.combatConfig(at(run, n))!;
+      const scale = legs[n.movement - 1]!.scale!;
+      expect(config.movement, n.id).toStrictEqual({ ...CONTENT.movements[scale - 1]!.scale });
+    }
+    const blood = Run.embark(Run.newEchoRun(5, 'choir_of_blood'));
+    for (const n of fightsOf(blood))
+      expect('movement' in Run.combatConfig(at(blood, n))!).toBe(false);
+    // Retrograde's first leg is Movement III's: its offers are, though it is the run's first.
+    expect(Run.offerMovement({ ...run, path: [run.map.rows[0]![0]!.id] })).toBe(3);
+  });
+
+  it('The Last Rehearsal ends at the Finale (True Dissonance plays there); Retrograde doesn’t', () => {
+    expect(Run.routeHasFinale({ echo: 'last_rehearsal' })).toBe(true);
+    expect(Run.routeHasFinale({ echo: 'retrograde' })).toBe(false);
+    expect(Run.routeHasFinale({ movements: 1 })).toBe(false);
+    expect(Run.routeHasFinale({ movements: CONTENT.movements.length })).toBe(true);
+  });
+
+  it('A Cappella: no Calling, no Astrolabe, no carried relics', () => {
+    veteran();
+    useRun.getState().newEchoRun('a_cappella', 2);
+    useRun.getState().setCalling('luminary');
+    useRun.getState().followAstrolabe(['silk_t1']);
+    useRun.getState().embark();
+    const run = useRun.getState().run!;
+    expect(run.calling).toBeNull();
+    expect(run.astrolabe).toEqual([]);
+    expect(run.carried).toEqual([]);
+  });
+
+  it('Strangers: Brann, Seren and Oro, with only the default party recruited', () => {
+    useRun.getState().newEchoRun('strangers', 2);
+    expect(useProfile.getState().roster()).toEqual(['kael', 'lyra', 'vexis']);
+    useRun.getState().setParty(['kael', 'lyra', 'vexis']);
+    useRun.getState().followParty();
+    useRun.getState().embark();
+    expect(useRun.getState().run!.party.map((h) => h.heroId)).toEqual(['brann', 'seren', 'oro']);
+  });
+
+  it('The Unrested through the stores: its levels forced, no points; stars and rewards', () => {
+    veteran([L('hardened', 2), L('wounding_strikes', 2)]);
+    useRun.getState().newEchoRun('the_unrested', 4);
+    const prep = useRun.getState().run!;
+    expect(prep.dissonance.filter((l) => l.forced).map((l) => l.id)).toEqual([
+      'restless_dead',
+      'unforgiving',
+    ]);
+    expect(dissonancePoints(prep.dissonance)).toBe(10);
+    const shards = useProfile.getState().profile.reliquary.shards;
+    const end = playStore();
+    expect(end.outcome).toBe('victory');
+    const p = useProfile.getState().profile;
+    // 10 chosen points light the first two stars; the forced levels count for nothing.
+    expect(p.atlas).toStrictEqual({ stars: { the_unrested: 2 }, best: { the_unrested: 10 } });
+    const notice = useProfile.getState().atlasNotice!;
+    expect(notice.lit).toEqual([1, 2]);
+    expect(p.reliquary.shards).toBe(shards + notice.shards + (end.reliquary?.shards ?? 0));
+    expect(notice.shards).toBeGreaterThan(0);
+    // No Dissonance best from an Echo (decision 10).
+    expect(p.dissonance.best).toStrictEqual({});
   });
 });
