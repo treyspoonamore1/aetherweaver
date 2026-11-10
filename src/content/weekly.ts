@@ -28,12 +28,16 @@ export const WEEKLY_ROTATION_DESIGNED: readonly Entry[] = [
       { id: 'wounding_strikes', rank: 2 },
     ],
   },
-  // 1: five points.
+  // 1: seven points.
   {
     route: 'expedition',
     calling: 'conductor',
     party: ['kael', 'lyra', 'brann'],
-    dissonance: [{ id: 'restless_dead', rank: 1 }],
+    dissonance: [
+      { id: 'brisk_foes', rank: 1 },
+      { id: 'short_fuse', rank: 1 },
+      { id: 'restless_dead', rank: 1 },
+    ],
   },
   // 2: no Calling, five points.
   {
@@ -58,7 +62,7 @@ export const WEEKLY_ROTATION_DESIGNED: readonly Entry[] = [
     calling: 'martyr',
     party: ['kael', 'lyra', 'seren'],
     dissonance: [
-      { id: 'brisk_foes', rank: 1 },
+      { id: 'silent_cues', rank: 1 },
       { id: 'tyrant', rank: 1 },
     ],
   },
@@ -92,34 +96,38 @@ export const WEEKLY_ROTATION_DESIGNED: readonly Entry[] = [
       { id: 'wounding_strikes', rank: 1 },
     ],
   },
-  // 8: an Echo whose party is fixed (Strangers' twist); five points.
+  // 8: an Echo whose party is fixed (Strangers' twist); eight points.
   {
     route: 'strangers',
     calling: 'conductor',
     party: ['brann', 'seren', 'oro'],
     dissonance: [
-      { id: 'hardened', rank: 1 },
+      { id: 'hardened', rank: 2 },
       { id: 'short_fuse', rank: 2 },
     ],
   },
-  // 9: True Dissonance (Expeditions only); five points.
+  // 9: True Dissonance (Expeditions only); eight points.
   {
     route: 'expedition',
     calling: 'conductor',
     party: ['kael', 'lyra', 'vexis'],
-    dissonance: [{ id: 'true_dissonance', rank: 1 }],
+    dissonance: [
+      { id: 'hardened', rank: 1 },
+      { id: 'true_dissonance', rank: 1 },
+    ],
   },
   // 10: an Echo; one point (tuned: Bells in the Rift opens on the Descent's first fight at its
   // full strength, which no bot survived on the level field).
   {
-    route: 'last_rehearsal',
+    route: 'choir_of_blood',
     calling: 'martyr',
     party: ['kael', 'lyra', 'seren'],
     dissonance: [{ id: 'unforgiving', rank: 1 }],
   },
-  // 11: an Echo with its own fixed levels (The Unrested's twist), and two points more.
+  // 11: an Echo; two points (tuned: The Unrested, at the Descent's strength with its fixed
+  // levels, was won by a fifth of the level field's runs).
   {
-    route: 'the_unrested',
+    route: 'retrograde',
     calling: 'luminary',
     party: ['kael', 'lyra', 'vexis'],
     dissonance: [{ id: 'blind_score', rank: 1 }],
