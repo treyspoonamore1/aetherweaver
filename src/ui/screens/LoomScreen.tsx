@@ -53,6 +53,7 @@ import {
   type StationView,
 } from './loomModel';
 import { XpBar } from './Rank';
+import { AtlasScreenView } from './AtlasParts';
 import { useAllowance } from './PrepScreen';
 
 export interface LoomViewProps {
@@ -521,9 +522,24 @@ export function LoomScreen() {
   const codexRoster = useCodexRoster();
   const [run] = useState(savedRun);
   const [codex, setCodex] = useState<'deeds' | 'dissonance' | null>(null);
+  // Phase 6: the Atlas of Echoes opens in place, as the Codex's pages do.
+  const [atlasOpen, setAtlasOpen] = useState(false);
   const [focusOn, setFocusOn] = useState<StationId | null>(lastStation);
   // The Atelier's items as this profile sees them (its station's badge), as the store's `shop()`.
   const shop = shopItems(profile, rankOf(profile.xp), unlockAll);
+  if (atlasOpen) {
+    return (
+      <AtlasScreenView
+        atlas={profile.atlas}
+        weekly={null}
+        canBegin={!run}
+        onBack={() => {
+          setFocusOn('atlas');
+          setAtlasOpen(false);
+        }}
+      />
+    );
+  }
   if (codex) {
     return (
       <CodexView
@@ -535,7 +551,8 @@ export function LoomScreen() {
         allowance={allowance}
         seen={profile.seen}
         rank={rankOf(profile.xp)}
-        deeds={{ earned: profile.deeds, best: profile.deedBest }}
+        deeds={{ earned: profile.deeds, best: profile.deedBest, atlas: profile.atlas }}
+        atlas={profile.atlas ?? null}
         dissonance={dissonance}
         bonds={bonds}
         techniques={techniques}
@@ -557,6 +574,9 @@ export function LoomScreen() {
       case 'deeds':
       case 'dissonance':
         setCodex(id);
+        return;
+      case 'atlas':
+        setAtlasOpen(true);
         return;
       default:
         setScreen(id);

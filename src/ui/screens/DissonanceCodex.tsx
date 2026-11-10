@@ -9,7 +9,8 @@ import { SHARD_LOOK, TEAR_LOOK } from '../kit/reliquaryLook';
 import { DiscordDisc } from './DissonanceParts';
 import { TierBadge } from './ReliquaryParts';
 import {
-  LATER_LEVELS,
+  laterLevels,
+  EXPEDITIONS_ONLY,
   bandsSentence,
   bestRecords,
   closedLines,
@@ -65,6 +66,8 @@ export function DissonanceCodexPage({
     );
   }
   const rows = levelRows([]);
+  // Phase 6: the levels content doesn't hold yet (none, once all three have landed).
+  const later = laterLevels();
   const max = maxDissonance();
   const bands = codexBands();
   const totals = exampleTotals();
@@ -152,7 +155,17 @@ export function DissonanceCodexPage({
               {rows.map((r) => (
                 <tr key={r.id} className="border-t border-ink-600/70" data-level={r.id}>
                   <td className="py-1.5 pr-3 font-semibold text-text">{r.name}</td>
-                  <td className="py-1.5 pr-3 text-muted">{r.text}</td>
+                  <td className="py-1.5 pr-3 text-muted">
+                    {r.text}
+                    {r.expeditionsOnly && (
+                      <span
+                        className="ml-1 text-xs font-semibold text-text"
+                        data-testid="level-expeditions"
+                      >
+                        {EXPEDITIONS_ONLY}
+                      </span>
+                    )}
+                  </td>
                   <td className="py-1.5 pr-3 text-right font-mono text-text">{r.ranks}</td>
                   <td className="py-1.5 pr-3 text-right font-mono text-text">
                     {r.points}
@@ -166,19 +179,21 @@ export function DissonanceCodexPage({
             </tbody>
           </table>
         </div>
-        <p className="mt-3 flex items-start gap-1.5 text-xs text-muted" data-testid="codex-later">
-          <Icon name="hourglass" size={13} className="mt-px shrink-0" />
-          <span>
-            Still to come, with new bosses and affixes:{' '}
-            {LATER_LEVELS.map((l, i) => (
-              <span key={l.name}>
-                {i > 0 && (i === LATER_LEVELS.length - 1 ? ' and ' : ', ')}
-                <b className="text-text">{l.name}</b> ({l.text})
-              </span>
-            ))}
-            .
-          </span>
-        </p>
+        {later.length > 0 && (
+          <p className="mt-3 flex items-start gap-1.5 text-xs text-muted" data-testid="codex-later">
+            <Icon name="hourglass" size={13} className="mt-px shrink-0" />
+            <span>
+              Still to come, with new bosses and affixes:{' '}
+              {later.map((l, i) => (
+                <span key={l.name}>
+                  {i > 0 && (i === later.length - 1 ? ' and ' : ', ')}
+                  <b className="text-text">{l.name}</b> ({l.text})
+                </span>
+              ))}
+              .
+            </span>
+          </p>
+        )}
       </Panel>
 
       <div className="grid gap-4 lg:grid-cols-2">

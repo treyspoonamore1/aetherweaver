@@ -19,6 +19,7 @@ import {
   dissonanceBlurb,
   foundLine,
   levelRows,
+  EXPEDITIONS_ONLY,
   openedLines,
   rememberLine,
   rewardView,
@@ -163,11 +164,19 @@ function LevelCard({
         role="switch"
         aria-checked={row.on}
         aria-label={row.label}
-        onClick={onToggle}
+        onClick={row.forced ? undefined : onToggle}
+        aria-disabled={row.forced || undefined}
         className="flex w-full items-start gap-2.5 rounded-lg text-left"
         data-testid="level-switch"
       >
-        <SwitchTrack on={row.on} />
+        {row.forced ? (
+          // Phase 6: an Echo's own level, locked on (it adds no points).
+          <span className="mt-0.5 flex h-5 w-9 shrink-0 items-center justify-center rounded-full border border-ink-500 bg-ink-700 text-muted">
+            <Icon name="lock" size={12} />
+          </span>
+        ) : (
+          <SwitchTrack on={row.on} />
+        )}
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline justify-between gap-2">
             <b className="text-sm font-semibold text-text">{row.name}</b>
@@ -182,6 +191,19 @@ function LevelCard({
             )}
           </span>
           <span className="mt-0.5 block text-xs leading-snug text-muted">{row.text}</span>
+          {row.forced && (
+            <span className="mt-1 block text-xs font-semibold text-text" data-testid="level-forced">
+              Set by the Echo · no points
+            </span>
+          )}
+          {row.expeditionsOnly && !row.idle && (
+            <span
+              className="mt-1 block text-xs font-semibold text-text"
+              data-testid="level-expeditions"
+            >
+              {EXPEDITIONS_ONLY}
+            </span>
+          )}
           {row.idle && (
             <span
               className="mt-1 flex items-start gap-1 text-xs font-semibold leading-snug text-orange-200"
@@ -193,7 +215,7 @@ function LevelCard({
           )}
         </span>
       </button>
-      {row.ranks > 1 && (
+      {row.ranks > 1 && !row.forced && (
         <div className="mt-1.5 flex items-center justify-between gap-2 pl-[2.875rem]">
           <span className="text-[11px] text-muted">{row.pointsLine}</span>
           <RankStepper name={row.name} rank={row.rank} ranks={row.ranks} onRank={onRank} />

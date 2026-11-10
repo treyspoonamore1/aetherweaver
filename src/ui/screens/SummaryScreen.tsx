@@ -27,6 +27,9 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { CONTENT } from '../../content';
 import { SONG_GOES_ON } from '../../content/crucibleIds';
 import { finaleCleared } from '../../meta/runEnd';
+import type { AtlasRecord } from '../../meta/atlas';
+import { SummaryAtlasCard, SummaryWeeklyCard } from './AtlasParts';
+import { laterPieces, type SummaryWeeklyInput } from './atlasModel';
 import { EpilogueView, epilogueDue, markEpilogueSeen, useSkipKeysHeld } from './EpilogueView';
 import { ScreenFrame } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
@@ -149,11 +152,28 @@ export function firstClearLines(open: boolean, rank?: number): { title: string; 
     rank !== undefined && opensAt(rank)
       ? `Dissonance opens with a Finale clear at Weaver Rank ${openRank} or above: you’re Rank ${rank}, so your next one does it`
       : `Dissonance opens with a Finale clear at Weaver Rank ${openRank} or above`;
+  // Phase 6: what content now holds is named as open (or opening with Dissonance); only what it
+  // doesn't hold yet is "coming later".
+  const built = laterPieces();
+  const later = [
+    built.atlas ? null : 'the Atlas of Echoes',
+    built.trueDissonance ? null : 'True Dissonance',
+  ].filter((x): x is string => x !== null);
+  const atlas = built.atlas
+    ? open
+      ? 'The Atlas of Echoes is open: find it in the Loom'
+      : 'The Atlas of Echoes opens with Dissonance'
+    : null;
+  const deepest = built.trueDissonance
+    ? `True Dissonance ${open ? 'waits in Prep' : 'is among its levels'}: the Finale gains a fourth phase, on Expeditions`
+    : null;
   return {
     title: 'The Song Goes On — your first Finale clear',
     lines: [
       open ? 'Dissonance is open' : closed,
-      'Coming later: the Atlas of Echoes and True Dissonance',
+      ...(atlas ? [atlas] : []),
+      ...(deepest ? [deepest] : []),
+      ...(later.length > 0 ? [`Coming later: ${later.join(' and ')}`] : []),
     ],
   };
 }
@@ -250,6 +270,13 @@ export interface SummaryViewProps {
   dissonanceOpen?: boolean;
   /** UI lab: the epilogue shown with every line, and no timers (omitted: once per victory). */
   epilogueStill?: boolean;
+  /**
+   * Phase 6: what the run's end did in the Atlas (`recordStars`' record). Omitted, or a record of
+   * no Echo: no Atlas card.
+   */
+  atlas?: AtlasRecord | null;
+  /** Phase 6: a weekly run's score, its code and Share. Omitted: no weekly card. */
+  weekly?: SummaryWeeklyInput | null;
 }
 
 /** The run summary, "proof of support" (docs/plan/04 §6.1). */
@@ -270,6 +297,8 @@ export function SummaryView({
   loom = null,
   dissonanceOpen,
   epilogueStill = false,
+  atlas = null,
+  weekly = null,
 }: SummaryViewProps) {
   useMood('map');
   const totals = runTotals(run);
@@ -391,6 +420,9 @@ export function SummaryView({
             rank={loom?.rank}
           />
         )}
+
+        {atlas && atlas.echo !== null && <SummaryAtlasCard record={atlas} />}
+        {weekly && <SummaryWeeklyCard input={weekly} />}
 
         {profileXp !== undefined && <RunRankPanel run={run} profileXp={profileXp} />}
 

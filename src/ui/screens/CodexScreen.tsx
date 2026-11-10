@@ -82,6 +82,9 @@ import { atelierUnlock } from './loomModel';
 import { movementInSentence, movementLabel, sightedMovement } from './routeText';
 import { attackDamage } from './codexAttack';
 import { wakesLabel } from './reliquaryModel';
+import { AtlasCodexPage } from './AtlasParts';
+import { atlasInContent, atlasStationOpen } from './atlasModel';
+import type { ProfileAtlas } from '../../meta/profile';
 
 const TABS = [
   { id: 'heroes', label: 'Heroes' },
@@ -96,6 +99,8 @@ const TABS = [
   { id: 'deeds', label: 'Deeds' },
   { id: 'reliquary', label: 'The Reliquary' },
   { id: 'dissonance', label: 'Dissonance' },
+  // Phase 6: the Atlas of Echoes (shown once content has Echoes).
+  { id: 'atlas', label: 'Atlas of Echoes' },
   { id: 'callings', label: 'Callings' },
   { id: 'calls', label: 'Calls' },
   { id: 'motifs', label: 'Motifs' },
@@ -136,6 +141,7 @@ export function CodexView({
   techniques = NO_TECHNIQUES,
   seen,
   roster,
+  atlas,
 }: {
   onBack(): void;
   initialTab?: TabId;
@@ -170,6 +176,11 @@ export function CodexView({
    * show yet (docs/phase-5b.md). Omitted: the starters, or every hero with Skip the unlocks.
    */
   roster?: readonly string[];
+  /**
+   * Phase 6: the Atlas's stars (`profile.atlas`, null while none is lit). Omitted (undefined): no
+   * Atlas tab, as before Phase 6 (the UI lab's and tests' older views).
+   */
+  atlas?: ProfileAtlas | null;
 }) {
   useMood('title');
   const [tab, setTab] = useState<TabId>(initialTab);
@@ -192,14 +203,18 @@ export function CodexView({
   const bondHeroes = bondedHeroes().filter((h) => heroes.includes(h));
   // Phase 4e: Bonds' too, until a hero's first Bond rank-up (or Skip the unlocks).
   const bonded = bondsOpen(bonds ?? NO_BONDS, allowance.all, bondHeroes);
+  // Phase 6: the Atlas opens with Dissonance; its tab shows only once content has Echoes.
+  const atlasOpen = atlasStationOpen(dissonant, false);
+  const tabs = TABS.filter((t) => t.id !== 'atlas' || (atlas !== undefined && atlasInContent()));
   const locked = (id: TabId) =>
     (id === 'reliquary' && !reliquary) ||
     (id === 'dissonance' && !dissonant) ||
+    (id === 'atlas' && !atlasOpen) ||
     (id === 'bonds' && !bonded);
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-    const i = TABS.findIndex((t) => t.id === tab);
-    const next = TABS[(i + (e.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length]!;
+    const i = tabs.findIndex((t) => t.id === tab);
+    const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length]!;
     setTab(next.id);
     e.currentTarget.querySelector<HTMLElement>(`#tab-${next.id}`)?.focus();
     e.preventDefault();
@@ -222,7 +237,7 @@ export function CodexView({
           onKeyDown={onKey}
           className="mt-6 flex flex-wrap gap-2 border-b border-ink-600/60 pb-3"
         >
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <button
               key={t.id}
               id={`tab-${t.id}`}
@@ -268,6 +283,7 @@ export function CodexView({
           {tab === 'dissonance' && (
             <DissonanceCodexPage open={dissonant} rank={rank} best={dissonance?.best} />
           )}
+          {tab === 'atlas' && <AtlasCodexPage open={atlasOpen} atlas={atlas ?? undefined} />}
           {tab === 'callings' && <Callings allowance={allowance} />}
           {tab === 'calls' && <Calls roster={heroes} />}
           {tab === 'motifs' && <Motifs roster={heroes} />}
@@ -285,6 +301,7 @@ export function CodexScreen() {
   const xp = useProfile((s) => s.profile.xp);
   const earned = useProfile((s) => s.profile.deeds);
   const best = useProfile((s) => s.profile.deedBest);
+  const atlas = useProfile((s) => s.profile.atlas);
   const dissonance = useCodexDissonance();
   const bonds = useCodexBonds();
   const techniques = useCodexTechniques();
@@ -295,7 +312,8 @@ export function CodexScreen() {
       onBack={back}
       allowance={allowance}
       rank={rankOf(xp)}
-      deeds={{ earned, best }}
+      deeds={{ earned, best, atlas }}
+      atlas={atlas ?? null}
       dissonance={dissonance}
       bonds={bonds}
       techniques={techniques}

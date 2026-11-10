@@ -44,7 +44,8 @@ export type StationId =
   | 'reliquary'
   | 'bonds'
   | 'deeds'
-  | 'dissonance';
+  | 'dissonance'
+  | 'atlas';
 
 export interface StationLook {
   /** Its rim, its glyph and its name's accent when lit. */
@@ -66,7 +67,36 @@ export const STATION_LOOK: Readonly<Record<StationId, StationLook>> = {
   bonds: { color: BOND_LOOK.color, light: BOND_LOOK.light, icon: 'bond' },
   deeds: { color: '#f6c655', light: '#fff0c2', icon: 'banner' },
   dissonance: { color: DISCORD_LOOK.color, light: DISCORD_LOOK.light, icon: 'dissonance' },
+  // Phase 6: the Atlas of Echoes (decision 13), beside Dissonance, in its own echo-mint.
+  atlas: { color: '#7fe0c8', light: '#d6fbf0', icon: 'atlas' },
 };
+
+/**
+ * The Atlas of Echoes (docs/phase-6.md): a lit star (the station's light, warmer than its lines),
+ * an unlit one (slate, with a dashed rim, so a lit star never relies on colour alone: it is
+ * filled, an unlit one is an outline), and its lines.
+ */
+export const ATLAS_LOOK = {
+  /** A lit star: filled. */
+  star: '#fff1b8',
+  /** An unlit star: an outline. */
+  unlit: '#5b6a96',
+  /** A constellation's line, lit and not. */
+  line: '#7fe0c8',
+  dim: '#2f3a60',
+} as const;
+
+/** The Atlas's UI sounds (audio/ui.ts, Phase 6). */
+export const ATLAS_SOUNDS = {
+  /** Stars lit at a run's end (pass `{ stars }`, 1-3). */
+  star: 'atlasStar',
+  /** A constellation's last star lit. */
+  constellation: 'atlasConstellation',
+  /** A replay verified (the result shown). */
+  verified: 'runVerified',
+  /** A replay that didn't match. */
+  mismatch: 'runMismatch',
+} as const satisfies Record<string, UiSound>;
 
 /** A robe's colours: its body, its trim (hem, sash, cuffs) and its glow (halo, hands). */
 export interface RobeColors {

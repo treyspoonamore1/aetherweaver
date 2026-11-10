@@ -14,6 +14,9 @@ import {
 import type { ChordLoadout, RunState } from '../../meta/types';
 import { canonicalChords, type ReservePool } from '../../sim';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
+import type { ProfileAtlas } from '../../meta/profile';
+import { PrepEchoPanel, PrepWeeklyPanel } from './AtlasParts';
+import { prepEchoView, prepWeeklyView, type PrepWeeklyInput } from './atlasModel';
 import { Button } from '../kit/Button';
 import { Chip } from '../kit/Chip';
 import { Icon } from '../kit/Icon';
@@ -151,6 +154,13 @@ export interface PrepViewProps {
    * in content order). Omitted (or null): no picker, as before the roster.
    */
   party?: { roster: readonly string[]; onChange(heroIds: string[]): void } | null;
+  /**
+   * Phase 6: This Week's Song's fixed choices (the weekly model's week and entry), shown locked.
+   * Omitted (or null): no panel. An Echo's panel needs no prop: it shows from `run.echo`.
+   */
+  weekly?: PrepWeeklyInput | null;
+  /** Phase 6: the Atlas's stars, for an Echo's panel (omitted: none lit). */
+  atlas?: ProfileAtlas;
 }
 
 /**
@@ -274,8 +284,11 @@ export function PrepView({
   mastery = null,
   route = null,
   party = null,
+  weekly = null,
+  atlas,
 }: PrepViewProps) {
   useMood('map');
+  const echoPanel = run.echo === undefined ? null : prepEchoView(run.echo, atlas);
   // Always the content's two at Prep (the path is empty), but read from the run like Retune.
   const slots = runFieldAuraSlots(run);
   // The Calling chosen above decides the pool (the Martyr's songs reserve Life), and so does the
@@ -361,6 +374,10 @@ export function PrepView({
             {poolBlurb(run)}
           </p>
         </ScreenHeader>
+
+        {/* Phase 6: an Echo's twists, or the weekly's fixed choices (absent on every other run). */}
+        {echoPanel && <PrepEchoPanel view={echoPanel} />}
+        {weekly && <PrepWeeklyPanel view={prepWeeklyView(weekly)} />}
 
         {reliquary && (
           <PrepReliquaryRow
@@ -767,6 +784,7 @@ export function PrepScreen() {
   const codexTechniques = useCodexTechniques();
   // Phase 5b: the roster (the profile's, or every hero with Skip the unlocks) for the picker.
   const recruited = useProfile((s) => s.profile.recruited);
+  const atlas = useProfile((s) => s.profile.atlas);
   // As the store's `roster()` reckons it (`heroRoster`), following both.
   const roster = useMemo(() => heroRoster({ recruited }, unlockAll), [recruited, unlockAll]);
   const pickable = prepParty(roster);
@@ -790,6 +808,7 @@ export function PrepScreen() {
   return (
     <PrepView
       run={run}
+      atlas={atlas}
       onChords={setChords}
       onCalling={setCalling}
       onEmbark={embark}
