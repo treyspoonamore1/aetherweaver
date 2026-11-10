@@ -889,7 +889,7 @@ Echo lengths are read by `--echoes`, not `tools/pacing.ts`. Recorded Expert Echo
 - **The golden dry run**: up to date.
 - **13 baseline checks byte-equal**: `tools/m1-baseline.ts --check` for Movements I-IV (270, 270, 240 and 30 fights), `tools/expedition-baseline.ts --check` for 2, 3 and 4 Movements (10 runs each), and parties A, SB and OC (Movement IV fights and four-Movement runs for each).
 - **e2e, on the UI branch**: the five Phase 6 tests passed (9.1 min): the Atlas station with every Echo and an Echo begun to Prep; This Week's Song from the panel to Prep with its choices locked; the UI lab's Phase 6 groups; a weekly played by the Skilled bot in a page worker, verified in the page and played twice bit for bit (every fight's hash and the digest equal); and a real weekly's first fight played through the combat screen, its replay handed to the run. Measured in that run (one run, week 44, under software rendering): 51,654 ticks, 3,704 ms to play and 2,761 ms to verify in the page, and in Node "Verified on this device: Week 44, won, 2,665 points, 14 min of fighting."
-- **The whole e2e suite on main** (36 tests) was still running when this was written: the first 10 had passed. Its result is not recorded here.
+- **The whole e2e suite on main** at the landing commit: 36 of 36 passed in 39.7 min (31 earlier tests and Phase 6's five). It ran once, before tuning; it was not re-run after the tuned values.
 
 ### Not verified
 
