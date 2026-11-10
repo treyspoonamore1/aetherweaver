@@ -1062,25 +1062,21 @@ export function newWeeklyRun(
   const { entry } = start;
   const levels = fitLevels(entry.dissonance.map((l) => ({ id: l.id, rank: l.rank })));
   const variants = fitTechniques(techniques, [], true);
-  const base =
+  let run =
     entry.route === 'expedition'
-      ? newRun(start.seed, chords, [], [], levels, [], variants, CONTENT.movements.length)
-      : newEchoRun(start.seed, entry.route, chords, [], [], levels, [], variants);
+      ? newRun(start.seed, undefined, [], [], levels, [], variants, CONTENT.movements.length)
+      : newEchoRun(start.seed, entry.route, undefined, [], [], levels, [], variants);
+  // The entry's heroes (its Echo's twist or not), and its Calling with every path tier open.
   const party = canonicalParty(entry.party);
-  const calling =
-    entry.calling !== null && !echoTwists(base).noCalling && callingKnown(entry.calling)
-      ? { id: entry.calling, path: callingDef(entry.calling).tiers.map(() => null) }
-      : null;
-  const run: RunState = {
-    ...base,
-    party: freshParty(party),
-    bonds: [],
-    calling,
-    weekly: { week: start.week },
-  };
-  return chordsLegal(run.chords, fieldAuraSlots(run), reservePool(run), reserveMult(run))
-    ? run
-    : { ...run, chords: canonicalChords(DEFAULT_CHORDS) };
+  if (party.join() !== partyIds(run).join()) run = { ...run, party: freshParty(party), bonds: [] };
+  if (entry.calling !== null && !echoTwists(run).noCalling && callingKnown(entry.calling))
+    run = {
+      ...run,
+      calling: { id: entry.calling, path: callingDef(entry.calling).tiers.map(() => null) },
+    };
+  // Its Chords under the full allowance, judged with its Calling's slots and pool.
+  run = setChords(run, chords, EVERYTHING);
+  return { ...run, weekly: { week: start.week } };
 }
 
 function callingKnown(id: string): boolean {

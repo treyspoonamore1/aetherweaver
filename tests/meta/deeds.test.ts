@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { useProfile } from '../../src/app/profileStore';
 import { useRun } from '../../src/app/runStore';
 import { useSettings } from '../../src/app/settings';
+import { encodeShareCode } from '../../src/meta/shareCode';
 import { CONTENT, deedText, type DeedDef } from '../../src/content';
 import { astrolabePoints } from '../../src/meta/astrolabe';
 import {
@@ -85,15 +86,18 @@ function holds(on: Judged, d: DeedDef): boolean {
   return 'results' in on ? deedHolds(on, d) : profileDeedHolds(on, d);
 }
 
-/** A share code whose won bit (docs/phase-6.md, "Share codes", MSB first) is as said. */
+/** A share code (meta/shareCode.ts) whose run was won or not. */
 function shareCode(won: boolean): string {
-  const bits = new Array<number>(140).fill(0);
-  if (won) bits[54] = 1;
-  const abc = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
-  let chars = '';
-  for (let i = 0; i < 140; i += 5)
-    chars += abc[bits.slice(i, i + 5).reduce((v, b) => v * 2 + b, 0)];
-  return `AW1-${chars.match(/.{4}/g)!.join('-')}`;
+  return encodeShareCode({
+    week: 40,
+    build: '00000000',
+    simVersion: 22,
+    won,
+    fightsWon: 3,
+    score: 1200,
+    seconds: 600,
+    digest: '0000000000',
+  });
 }
 
 /** A Finale clear (docs/phase-5d.md): the Silent Conductor beaten, ending the run. */

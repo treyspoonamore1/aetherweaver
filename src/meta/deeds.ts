@@ -9,6 +9,7 @@ import { treeKeystones } from '../sim';
 import { dissonancePoints, fitLevels } from './dissonance';
 import { movementSpan, type Profile } from './profile';
 import { countsRunWide, endsRun, finaleCleared } from './runEnd';
+import { decodeShareCode } from './shareCode';
 import type { EncounterResult, RunState } from './types';
 
 /** The most Astrolabe points Deeds give (the ten point Deeds). */
@@ -250,29 +251,12 @@ export function deedsEarned(run: RunState, earned: readonly string[]): string[] 
 
 // ── Profile Deeds (docs/phase-6.md, "Design: Deeds") ──────────────────────────────────────
 // The Atlas's and the weekly's: judged from the profile when its Atlas or weekly record changes.
-// The Atlas's reads are meta/atlas.ts's; the weekly's is the minimal one the rule needs, on W0's
-// shape (`Profile.weekly`).
+// The Atlas's reads are meta/atlas.ts's; the weekly's reads a code with meta/shareCode.ts.
 
-/** Crockford base32 (docs/phase-6.md, "Share codes"): a typed I or L reads 1, an O reads 0. */
-const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
-
-/**
- * Does a share code say its run was won? Read by the doc's field table, most significant bit
- * first: week (14 bits), build (32), sim version (8), then the won bit. False for a code that
- * doesn't read. A stand-in for the share code's own decoder (meta/shareCode.ts), which replaces it.
- */
+/** Does a share code say its run was won? False for a code that doesn't read (`decodeShareCode`). */
 export function shareCodeWon(code: string): boolean {
-  const body = code.trim().toUpperCase();
-  if (!body.startsWith('AW1-')) return false;
-  const chars = body.slice(4).replace(/-/g, '').replace(/[IL]/g, '1').replace(/O/g, '0');
-  if (chars.length !== 28) return false;
-  const bits: number[] = [];
-  for (const c of chars) {
-    const v = CROCKFORD.indexOf(c);
-    if (v < 0) return false;
-    for (let b = 4; b >= 0; b--) bits.push((v >> b) & 1);
-  }
-  return bits[14 + 32 + 8] === 1;
+  const read = decodeShareCode(code);
+  return read.ok && read.claim.won;
 }
 
 /**
