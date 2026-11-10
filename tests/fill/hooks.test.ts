@@ -197,6 +197,36 @@ describe('every call site N1-N30 reaches its stub, behind its guard', () => {
     );
   });
 
+  it('N20 Concert Pitch adds into the party damage factor (Heavy Score’s), not a factor of its own', () => {
+    /** What Kael's 100 does to a Chorister, with the party factor at `party` and the ring at `ring`. */
+    const hit = (party: number, ring: number | null): number => {
+      const w = world();
+      set(w, { partyDamageMult: party, ...(ring !== null ? { ringingPct: ring } : {}) });
+      const kael = heroAt(w, 0);
+      const enemy = foe(w, 'hollow_chorister', kael.x, kael.z - 2, { hp: 1e6 });
+      const r = dealDamage(w, enemy, { source: kael.id, sourceName: 'test', amount: 100 });
+      return r.dealt + r.absorbed;
+    };
+    const mult = vi.mocked(harmonies.concertPitchMult);
+    const real = mult.getMockImplementation()!;
+    const plain = hit(1.2, null);
+    // Ringing (the stub's contract: 1 + ringingPct while it rings): 1.2 + 0.15, not 1.2 × 1.15.
+    mult.mockImplementation(() => 1.15);
+    try {
+      expect(hit(1.2, 0.15) / plain).toBeCloseTo((1.2 + 0.15) / 1.2, 9);
+      expect(hit(1, 0.15) / hit(1, null)).toBeCloseTo(1.15, 9);
+    } finally {
+      mult.mockImplementation(real);
+    }
+    // Held, not ringing (exactly 1): exactly the factor alone.
+    mult.mockImplementation(() => 1);
+    try {
+      expect(hit(1.2, 0.15)).toBe(plain);
+    } finally {
+      mult.mockImplementation(real);
+    }
+  });
+
   it('N20 Concert Pitch rings on a Perfect Ward', () => {
     for (const ring of [false, true]) {
       spy(harmonies.concertPitchRing).mockClear();
