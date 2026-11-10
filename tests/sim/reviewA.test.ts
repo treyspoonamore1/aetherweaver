@@ -9,8 +9,13 @@ import { makeBot } from '../../src/bots';
 import { createSim, type Command, type SimConfig } from '../../src/sim';
 import type { Entity } from '../../src/sim/state';
 import type { World } from '../../src/sim/world';
-import { SCENARIO_BELLWARDEN, SCENARIO_VHARUN, type Scenario } from '../../tools/scenarios';
-import { worldOf } from './helpers';
+import {
+  SCENARIO_BELLWARDEN,
+  SCENARIO_POSTLUDE,
+  SCENARIO_VHARUN,
+  type Scenario,
+} from '../../tools/scenarios';
+import { ofType, worldOf } from './helpers';
 
 const TYRANT = [{ id: 'tyrant', rank: 1 }];
 const CHRONOMANCER = { id: 'chronomancer', path: ['foresight'] } as const;
@@ -170,4 +175,57 @@ describe('review A, F3: Foresight shows the borrowed attack before it begins', (
       if (f) expect(f.special).toBeGreaterThanOrEqual(-1);
     }
   }, 60_000);
+});
+
+describe('review A, F1: the Postlude never has more than two damaging telegraphs live', () => {
+  /**
+   * `SCENARIO_POSTLUDE`'s fight on `seed` with the Skilled bot, the most damaging telegraphs live
+   * at once in the Postlude (checked every tick). `staged`: once it has risen, its side and the
+   * party are kept standing, so the Postlude runs `staged` s (its pressure after 90 s too).
+   */
+  function postludeMax(seed: number, extra: Partial<SimConfig> = {}, staged = 0) {
+    const sim = createSim({ ...SCENARIO_POSTLUDE.config, seed, ...extra });
+    const w = worldOf(sim);
+    const bot = makeBot('skilled', seed);
+    let max = 0;
+    let ticks = 0;
+    let solos = 0;
+    for (let t = 0; t < 60 * 600; t++) {
+      const p = w.field.finale?.postlude;
+      if (p && staged > 0) {
+        for (const e of w.entities.list())
+          if (e.enemy && e.health && !e.health.dead)
+            e.health.hp = Math.max(e.health.hp, e.health.maxHp * 0.25);
+        for (const id of w.party) {
+          const h = w.entities.get(id)!.health!;
+          if (!h.downed && !h.dead) h.hp = h.maxHp;
+        }
+      }
+      sim.step(bot.decide(sim.state));
+      solos += ofType(sim.drainEvents(), 'enemyCued').length;
+      if (w.field.finale?.postlude) {
+        ticks++;
+        max = Math.max(max, w.telegraphs.filter((x) => x.effect === 'damage').length);
+      }
+      if (w.encounter.status === 'victory' || w.encounter.status === 'defeat') break;
+      if (staged > 0 && ticks > 60 * staged) break;
+    }
+    return { max, seconds: ticks / 60, solos };
+  }
+
+  for (const seed of [2000, 7777])
+    it(`seed ${seed}: the Skilled bot’s Postlude`, () => {
+      const r = postludeMax(seed);
+      expect(r.seconds).toBeGreaterThan(10);
+      expect(r.max).toBeLessThanOrEqual(2);
+    }, 120_000);
+
+  it('a long staged Postlude (past its pressure), with Tyrant’s cadences too', () => {
+    for (const extra of [{}, { dissonance: [...TYRANT, { id: 'true_dissonance', rank: 1 }] }]) {
+      const r = postludeMax(3535, extra, 150);
+      expect(r.seconds).toBeGreaterThan(140);
+      expect(r.solos).toBeGreaterThan(10);
+      expect(r.max).toBeLessThanOrEqual(2);
+    }
+  }, 240_000);
 });
