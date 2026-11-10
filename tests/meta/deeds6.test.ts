@@ -7,11 +7,15 @@
  * Deed is judged exactly as the Phase 5 rules judged it: a frozen copy of those rules below runs
  * against the current ones on hundreds of generated runs.
  */
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { useProfile } from '../../src/app/profileStore';
 import { useSettings } from '../../src/app/settings';
 import { encodeShareCode } from '../../src/meta/shareCode';
 import { CONTENT, type DeedDef } from '../../src/content';
+import { PHASE6_DEEDS } from '../../src/content/deeds';
+
+const PHASE6_IDS = new Set(PHASE6_DEEDS.map((d) => d.id));
+import { starlightForDeeds } from '../../src/meta/loom';
 import { endsRun } from '../../src/meta/runEnd';
 import {
   deedHolds,
@@ -373,32 +377,134 @@ describe('the profile rules', () => {
     expect(profileDeedHolds({ weekly: more }, FOUR)).toBe(true);
   });
 
-  describe('as content Deeds, through the profile store', () => {
-    const FIXTURE: DeedDef = { ...STAR, id: 'fx_faint_star', text: 'Light a star.' };
-    beforeAll(() => {
-      (CONTENT.deeds as DeedDef[]).push(FIXTURE);
+  it('Faint Star through the profile store: newly earned once, paying Starlight, with a notice', () => {
+    expect(profileDeedsEarned(newProfile())).toEqual([]);
+    expect(profileDeedsEarned({ ...newProfile(), ...withStars({ retrograde: 1 }) })).toEqual([
+      'faint_star',
+    ]);
+    useProfile.setState({
+      profile: { ...useProfile.getState().profile, ...withStars({ retrograde: 1 }) },
     });
-    afterAll(() => {
-      (CONTENT.deeds as DeedDef[]).pop();
+    const starlight = useProfile.getState().profile.starlight;
+    expect(useProfile.getState().recordProfileDeeds()).toEqual(['faint_star']);
+    expect(useProfile.getState().profile.deeds).toContain('faint_star');
+    expect(useProfile.getState().profile.starlight).toBe(
+      starlight + starlightForDeeds(['faint_star']),
+    );
+    expect(useProfile.getState().deedNotices).toEqual(['faint_star']);
+    expect(useProfile.getState().recordProfileDeeds()).toEqual([]);
+    // A run never earns it.
+    expect(deedsEarned(runOf([CONDUCTOR()]), [])).not.toContain('faint_star');
+  });
+});
+
+describe('the fourteen Deeds (docs/phase-6.md, "Design: Deeds")', () => {
+  const real = (id: string) => CONTENT.deeds.find((d) => d.id === id)!;
+  const every = () => CONTENT.dissonance.map((d) => L(d.id, d.ranks));
+  const party = ['kael', 'lyra', 'brann'].map((heroId) => ({ heroId, hpPct: 1, shaken: false }));
+  const brann = (peakAfterLow: number) => ({
+    heroId: 'brann',
+    hpPct: 0.3,
+    downed: false,
+    dead: false,
+    damage: 0,
+    amplified: 0,
+    blood: { lifesteal: 0, lowTime: 1, low30Time: 0, aliveTime: 1, peakAfterLow, spent: 0 },
+  });
+  const atlas = (stars: Record<string, number>) => ({ atlas: { stars, best: {} } });
+  const allStars = Object.fromEntries(CONTENT.echoes.map((e) => [e.id, 3]));
+  const weeks = (n: number) => ({
+    weekly: Array.from({ length: n }, (_, i) => ({
+      week: 30 + i,
+      entries: [{ code: code(true), mine: true as const, status: 'verified' as const }],
+    })),
+  });
+  type Judged = RunState | Pick<Profile, 'atlas' | 'weekly'>;
+  const holds = (on: Judged, d: DeedDef) =>
+    'results' in on ? deedHolds(on, d) : profileDeedHolds(on, d);
+  const tierRun = (points: number, over: Partial<RunState> = {}) => {
+    // Hardened (3 a rank) and Brisk Foes (1) make up any total up to 7; past it, every level.
+    const levels =
+      points <= 1
+        ? [L('brisk_foes')]
+        : points >= 30
+          ? every()
+          : [
+              L('hardened', 2),
+              L('wounding_strikes', 2),
+              ...(points >= 20 ? [L('restless_dead'), L('elite_vanguard')] : []),
+            ];
+    return runOf([CONDUCTOR()], { dissonance: levels, ...over });
+  };
+  const cases: Record<string, [Judged, Judged]> = {
+    absolute_pitch: [
+      runOf([fight({}, { perfects: 30 }), fight({}, { perfects: 20 })]),
+      runOf([fight({}, { perfects: 30 }), fight({}, { perfects: 19 })]),
+    ],
+    silent_bell: [
+      runOf([fight({ movement: 3 }), UNWEAVER()]),
+      runOf([fight({ movement: 3 }, { cleanses: 1 }), UNWEAVER()]),
+    ],
+    red_all_the_way: [
+      runOf([fight({ heroes: [brann(0.4)] }), CONDUCTOR({ heroes: [brann(-1)] })], { party }),
+      runOf([fight({ heroes: [brann(0.45)] }), CONDUCTOR({ heroes: [brann(-1)] })], { party }),
+    ],
+    out_of_tune: [tierRun(10), tierRun(1)],
+    wolf_interval: [tierRun(20), tierRun(10)],
+    tritone: [tierRun(30), tierRun(20)],
+    resolution: [
+      runOf([CONDUCTOR()], { dissonance: every() }),
+      runOf([CONDUCTOR()], { dissonance: every().filter((l) => l.id !== 'mimicry') }),
+    ],
+    final_bar: [
+      runOf([CONDUCTOR()], { dissonance: [L('true_dissonance')] }),
+      runOf([CONDUCTOR()], { dissonance: [L('tyrant')] }),
+    ],
+    crownbreaker: [
+      runOf([CONDUCTOR()], { dissonance: [L('tyrant')] }),
+      runOf([CONDUCTOR({ outcome: 'defeat', wonRun: false })], { dissonance: [L('tyrant')] }),
+    ],
+    faint_star: [atlas({ retrograde: 1 }), atlas({})],
+    whole_constellation: [
+      atlas({ a_cappella: 3, strangers: 3, the_unrested: 3 }),
+      atlas({ a_cappella: 3, strangers: 3, the_unrested: 2, retrograde: 3 }),
+    ],
+    atlas_walker: [atlas(allStars), atlas({ ...allStars, retrograde: 2 })],
+    same_song: [weeks(1), weeks(0)],
+    every_week_a_song: [weeks(4), weeks(3)],
+  };
+
+  it('fourteen badges, appended last: no Astrolabe point, a badge’s Starlight each', () => {
+    expect(PHASE6_DEEDS.map((d) => d.id)).toEqual(Object.keys(cases));
+    expect(CONTENT.deeds.slice(-14)).toStrictEqual(PHASE6_DEEDS);
+    expect(PHASE6_DEEDS.every((d) => d.points === 0)).toBe(true);
+    expect(deedPoints(CONTENT.deeds.map((d) => d.id))).toBe(10);
+    expect(starlightForDeeds(['faint_star'])).toBe(starlightForDeeds(['curtain_call']));
+    expect(real('silent_bell')).toMatchObject({ movement: 3, stat: 'cleanses' });
+    expect(real('final_bar').level).toBe('true_dissonance');
+    expect(real('crownbreaker').level).toBe('tyrant');
+    for (const d of PHASE6_DEEDS) expect(deedLine(d)).not.toMatch(/[{}]/);
+  });
+
+  for (const [id, [yes, no]] of Object.entries(cases))
+    it(`${id}: holds on its built run or profile, fails on its near miss`, () => {
+      expect(holds(yes, real(id))).toBe(true);
+      expect(holds(no, real(id))).toBe(false);
     });
 
-    it('newly earned once, paying Starlight, with a notice', () => {
-      expect(profileDeedsEarned(newProfile())).toEqual([]);
-      expect(profileDeedsEarned({ ...newProfile(), ...withStars({ retrograde: 1 }) })).toEqual([
-        'fx_faint_star',
-      ]);
-      useProfile.setState({
-        profile: { ...useProfile.getState().profile, ...withStars({ retrograde: 1 }) },
-      });
-      const starlight = useProfile.getState().profile.starlight;
-      expect(useProfile.getState().recordProfileDeeds()).toEqual(['fx_faint_star']);
-      expect(useProfile.getState().profile.deeds).toContain('fx_faint_star');
-      expect(useProfile.getState().profile.starlight).toBeGreaterThan(starlight);
-      expect(useProfile.getState().deedNotices).toEqual(['fx_faint_star']);
-      expect(useProfile.getState().recordProfileDeeds()).toEqual([]);
-      // A run never earns it.
-      expect(deedsEarned(runOf([CONDUCTOR()]), [])).not.toContain('fx_faint_star');
-    });
+  it('the run-wide ones never on an Echo; Final Bar on one too', () => {
+    for (const id of [
+      'absolute_pitch',
+      'red_all_the_way',
+      'out_of_tune',
+      'resolution',
+      'crownbreaker',
+    ]) {
+      const yes = cases[id]![0] as RunState;
+      expect(deedHolds({ ...yes, echo: 'last_rehearsal' }, real(id)), id).toBe(false);
+    }
+    const bar = cases.final_bar![0] as RunState;
+    expect(deedHolds({ ...bar, echo: 'last_rehearsal' }, real('final_bar'))).toBe(true);
   });
 });
 
@@ -590,7 +696,7 @@ function generated(seed: number): RunState {
 
 describe('every earlier Deed is judged the same', () => {
   it('on 600 generated Preludes and Expeditions: holds, progress and what is newly earned', () => {
-    const earlier = CONTENT.deeds;
+    const earlier = CONTENT.deeds.filter((d) => !PHASE6_IDS.has(d.id));
     let held = 0;
     for (let seed = 1; seed <= 600; seed++) {
       const run = generated(seed);
@@ -601,7 +707,7 @@ describe('every earlier Deed is judged the same', () => {
         expect(deedProgress(run, d), `${seed} ${d.id}`).toBe(oldProgress(run, d));
       }
       const have = earlier.filter((_, i) => (seed + i) % 4 === 0).map((d) => d.id);
-      expect(deedsEarned(run, have)).toEqual(
+      expect(deedsEarned(run, have).filter((id) => !PHASE6_IDS.has(id))).toEqual(
         earlier.filter((d) => !have.includes(d.id) && oldHolds(run, d)).map((d) => d.id),
       );
     }
@@ -613,8 +719,14 @@ describe('every earlier Deed is judged the same', () => {
     const earned = new Set<string>();
     for (let seed = 1; seed <= 600; seed++) {
       const run = generated(seed);
-      for (const d of CONTENT.deeds) if (oldHolds(run, d)) earned.add(d.id);
+      for (const d of CONTENT.deeds.filter((x) => !PHASE6_IDS.has(x.id)))
+        if (oldHolds(run, d)) earned.add(d.id);
     }
-    expect([...earned].sort()).toEqual(CONTENT.deeds.map((d) => d.id).sort());
+    expect([...earned].sort()).toEqual(
+      CONTENT.deeds
+        .filter((d) => !PHASE6_IDS.has(d.id))
+        .map((d) => d.id)
+        .sort(),
+    );
   });
 });

@@ -232,8 +232,10 @@ describe('the new content (docs/phase-5e.md)', () => {
     // ROSTER_DEEDS is concatenated last (W3 filled it): the 27 keep their order.
     expect(ROSTER_DEEDS.map((d) => d.id)).toEqual(['debt_paid', 'not_a_leaf_lost']);
     // The Conductor's badge (docs/phase-5f.md) comes after them.
-    expect(CONTENT.deeds).toHaveLength(30);
+    // …and Phase 6's fourteen (docs/phase-6.md) after that.
+    expect(CONTENT.deeds).toHaveLength(44);
     expect(CONTENT.deeds.slice(27, 29)).toStrictEqual(ROSTER_DEEDS);
+    expect(CONTENT.deeds[29]!.id).toBe('curtain_call');
   });
 
   it('the shared constants', () => {
