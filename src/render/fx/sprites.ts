@@ -55,6 +55,11 @@ export const SPRITE = {
   note: 19,
   /** The Conductor's baton across a thin ring: the Cue's sigil over a soloist (never gold). */
   baton: 20,
+  /**
+   * Phase 6 (docs/phase-6.md, Tyrant). A crown: a band under three points, a bead on each point,
+   * inside a thin ring: the boss's crown sigil over a cast of the attack it borrowed.
+   */
+  crown: 21,
 } as const;
 
 /** SPRITE.mode's `param` for Unravel's 'minus' (Mend reversed): a bar alone. */
@@ -259,6 +264,20 @@ void main() {
     float e = min(rod, grip);
     float tip = exp(-dot(vUv - vec2(0.62, 0.62), vUv - vec2(0.62, 0.62)) * 40.0);
     a = max(ring * 0.75, 1.0 - smoothstep(-0.03, 0.03, e)) + tip * 0.8 + exp(-d * d * 3.0) * 0.12;
+    a *= 1.0 - smoothstep(0.95, 1.0, d);
+  } else if (style == 21) {
+    // The Tyrant's crown: a band under three points (the middle one tallest), a bead on each
+    // point, inside a thin ring.
+    float ring = 1.0 - smoothstep(0.03, 0.07, abs(d - 0.86));
+    float ax = abs(vUv.x);
+    float top = ax < 0.25 ? 0.42 - 0.42 * (ax / 0.25) : 0.32 * ((ax - 0.25) / 0.25);
+    float body = (1.0 - smoothstep(0.46, 0.52, ax)) * smoothstep(-0.42, -0.36, vUv.y)
+      * (1.0 - smoothstep(top - 0.03, top + 0.03, vUv.y));
+    float rim = 1.0 - smoothstep(0.02, 0.05, abs(vUv.y + 0.24));
+    vec2 t0 = vUv - vec2(0.0, 0.47);
+    vec2 t1 = vec2(ax, vUv.y) - vec2(0.5, 0.37);
+    float beads = exp(-dot(t0, t0) * 90.0) + exp(-dot(t1, t1) * 110.0);
+    a = max(ring * 0.7, body * (0.8 - 0.35 * rim)) + beads * 0.9 + exp(-d * d * 3.0) * 0.14;
     a *= 1.0 - smoothstep(0.95, 1.0, d);
   } else {
     // Sigil: a rotating star in a ring (Cue / leitmotif).

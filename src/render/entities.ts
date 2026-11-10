@@ -126,6 +126,7 @@ import {
   emptyRiseShape,
   riseShape,
 } from './dissonanceCues';
+import { postludeRise, postludeShape, type PostludeView } from './postludeCues';
 import {
   C,
   approach,
@@ -591,6 +592,15 @@ export class EntityLayer {
   stilledOverride: ReadonlySet<EntityId> | null = null;
   /** A Finale fight this frame (`field.finale`, or the lab's override): stilled is read only then. */
   private finaleLive = false;
+  /**
+   * Phase 6, the Postlude (docs/phase-6.md, postludeCues.ts): what was drawn last frame (the
+   * Conductor's rise pose), the lab's stand-in Postlude (never written into the sim), and the
+   * rise this frame with its Conductor (null: none; every fight but a True Dissonance Finale).
+   */
+  readonly drawn6 = { postludeRise: 0 };
+  postludeOverride: { postlude: PostludeView; boss: EntityId } | null = null;
+  private postlude: PostludeView | null = null;
+  private postludeBoss: EntityId | null = null;
   /** A hero's Rift statuses this frame (reused); the stitched pairs (id pairs, reused). */
   private readonly m3Look = emptyRiftLook();
   private readonly pairs: EntityId[] = [];
@@ -1199,6 +1209,14 @@ export class EntityLayer {
     for (const k of Object.keys(m3) as (keyof typeof m3)[]) m3[k] = 0;
     this.drawnFinale.stilled = 0;
     this.finaleLive = state.field.finale !== undefined || this.stilledOverride !== null;
+    this.drawn6.postludeRise = 0;
+    this.postlude = null;
+    this.postludeBoss = null;
+    const postlude = this.postludeOverride?.postlude ?? state.field.finale?.postlude;
+    if (postlude !== undefined && state.time < postlude.riseUntil) {
+      this.postlude = postlude;
+      this.postludeBoss = this.postludeOverride?.boss ?? state.encounter.bossId ?? null;
+    }
     this.hub = null;
     this.champHub = null;
     this.tetherRecs.length = 0;
@@ -1573,7 +1591,20 @@ export class EntityLayer {
     const enemy = e.enemy;
     let riseGlow = 0;
     rec.rising = 0;
-    if (enemy?.state === 'spawning' && enemy.risen) {
+    if (this.postlude !== null && e.id === this.postludeBoss) {
+      // Phase 6, the Postlude: the Conductor falls and stands back up over its rise, as Restless
+      // Dead's risen do (postludeShape: their pose stretched to the rise), its colour coming back
+      // as it stands (it is not marked risen).
+      const r = postludeShape(this.postlude, time, this.riseOut);
+      const back = 1 - clamp01((postludeRise(this.postlude, time) - 0.85) / 0.15);
+      pitch = r.pitch;
+      roll = 0;
+      y += rec.radius * 0.42 * r.lie;
+      dissolve = r.dissolve;
+      desat = Math.max(desat, r.desat * back);
+      rec.rising = Math.max(0.001, r.lie);
+      this.drawn6.postludeRise++;
+    } else if (enemy?.state === 'spawning' && enemy.risen) {
       const r = riseShape(enemy.stateTime, this.riseOut);
       pitch = r.pitch;
       roll = 0;
