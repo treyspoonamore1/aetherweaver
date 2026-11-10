@@ -185,7 +185,7 @@ function standingBoss(world: World): Entity | null {
 }
 
 /** An entity's current target if it can still be hit. */
-export function currentTarget(world: World, e: Entity): Entity | null {
+function currentTarget(world: World, e: Entity): Entity | null {
   const id = e.enemy!.targetId;
   const target = id === null ? undefined : world.entities.get(id);
   return isActive(target) ? target : null;
@@ -204,7 +204,7 @@ export function liveDamaging(world: World): number {
   return n;
 }
 
-export function soloLive(world: World): boolean {
+function soloLive(world: World): boolean {
   return world.telegraphs.some((t) => SOLO_IDS.has(t.attackId));
 }
 
