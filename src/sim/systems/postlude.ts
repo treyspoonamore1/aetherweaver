@@ -15,7 +15,8 @@
  *   first, through the Finale's gate (fewer than two damaging telegraphs live, no Fortissimo).
  * - **Discord returns** at `discordRate` a second; failed telegraphs feed it as before; at 100
  *   comes Fortissimo Silence, which any Crescendo cancels (the Conductor's own hooks, unchanged).
- * - **The closing attacks continue** on the last burn's clocks (`closingEvery`: Tyrant's too).
+ * - **The closing attacks continue** on the last burn's clocks (`closingEvery`: Tyrant's too),
+ *   through the same gate, where a Cue in flight counts as the Solo it will begin (`burnWaits`).
  * - After `enrageAfter` s, the pairs come every `enragedCueEvery` s and Discord × `enragedDiscord`.
  *
  * The rise is not a new fight: nothing once-a-fight is refreshed. Its state is
@@ -186,6 +187,16 @@ function postludeTick(world: World, boss: Entity): boolean {
   return false;
 }
 
+/**
+ * The closing attacks (the script's own `burn`, after this tick) wait while a Cue is in flight
+ * and its Solo would make a third damaging telegraph live: the Cue counts as the damaging
+ * telegraph it will begin (Every Finale rule holds: at most two live). A Cue whose cast ended this
+ * tick lands after the script's tick, so the burn would otherwise begin first.
+ */
+function burnWaits(world: World, boss: Entity): boolean {
+  return inFlight(world, boss, CUE) && liveDamaging(world) + 1 >= LIVE_CAP;
+}
+
 // ── The choir ────────────────────────────────────────────────────────────────────────
 
 /** The voices in the order the Postlude Raises them: by the party slot of the hero each sings. */
@@ -285,7 +296,8 @@ function cuePair(world: World, boss: Entity, f: FinaleField, m4: M4, clocks: Pos
 /**
  * The pair's second Cue: another idle voice, once the first Cue has landed and the gate lets it
  * (a second that would make a third damaging telegraph live waits). With no other voice to Cue,
- * the pair ends at one.
+ * the pair ends at one. `postludePair` names the two voices as the second begins, only while the
+ * first still stands.
  */
 function cueSecond(world: World, boss: Entity, f: FinaleField, m4: M4, clocks: PostludeClocks) {
   if (inFlight(world, boss, CUE) || !cueGate(world, f, m4)) return false;
@@ -301,11 +313,10 @@ function cueSecond(world: World, boss: Entity, f: FinaleField, m4: M4, clocks: P
     return false;
   }
   if (!beginCue(world, boss, f, second)) return false;
-  world.events.push({
-    type: 'postludePair',
-    tick: world.tick,
-    voices: firstId === undefined ? [second.id] : [firstId, second.id],
-  });
+  // A pair of two standing voices: with the first gone, the second Cue is an ordinary Cue.
+  const first = firstId === undefined ? undefined : world.entities.get(firstId);
+  if (first?.health && !first.health.dead)
+    world.events.push({ type: 'postludePair', tick: world.tick, voices: [first.id, second.id] });
   endPair(clocks);
   return true;
 }
@@ -425,7 +436,7 @@ export function withPostlude(script: BossScript): BossScript {
       else update?.(world, boss);
     },
     tick(world, boss) {
-      if (inPostlude(world) && postludeTick(world, boss)) return;
+      if (inPostlude(world) && (postludeTick(world, boss) || burnWaits(world, boss))) return;
       tick?.(world, boss);
     },
     resolved(world, boss, t) {

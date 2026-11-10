@@ -8,16 +8,17 @@
  * after the phase begins. A phase shift replaces it with the next phase's.
  *
  * The Silent Conductor borrows nothing (the Finale's Weaver faces only its choir's answers): it
- * plays its own closing attacks earlier instead, Sforzando in the Overture and Downbeat in the
- * Mirror Choir on their own cadences, nothing in the Grand Silence, and in the last burn (and the
- * Postlude) the Downbeat and Sforzando on `TYRANT_BURN`'s cadences (`closingEvery`).
+ * plays one of its own closing attacks more often instead, Sforzando in the Overture and Downbeat
+ * in the Mirror Choir, on one clock (`TYRANT_OWN`: its own picker leaves that attack to the hold,
+ * `ownHeld`), nothing in the Grand Silence, and in the last burn (and the Postlude) the Downbeat
+ * and Sforzando on `TYRANT_BURN`'s cadences (`closingEvery`).
  *
  * Nothing borrowed silences, steals, shrinks or weakens an aura, and nothing summons (decision 5:
  * no Mute's dome, no Silencing, no Steal Verse). Every call site is behind `world.mods.tyrant`, so
  * no other fight has the key, the event or a draw.
  */
 import { attackDef, enemyDef } from '../../content';
-import { BURN_EVERY, TYRANT_BURN } from '../../content/crucible';
+import { BURN_EVERY, TYRANT_BURN, TYRANT_OWN } from '../../content/crucible';
 import { CONDUCTOR, DOWNBEAT, SFORZANDO } from '../../content/crucibleIds';
 import { tyrantDecree } from '../../content/dissonance';
 import type { Entity, TyrantHold } from '../state';
@@ -49,22 +50,24 @@ export const TYRANT_TABLE: Readonly<Record<string, readonly (TyrantEntry | null)
     { attack: 'acolyte_mending_hymn', from: 'cantor_acolyte' },
   ],
   // Movement II
-  // The doc's Leech · Latch (phase 2 here, phase 1 for Vharun) is swapped for the Hemomancer's
-  // Blood Pact: its 1.8 m reach never meets a boss's tank, who stands at the boss's own longer
-  // basic reach, so it was never cast (checked in a scenario, tests/sim/tyrant.test.ts).
   gorehound_matriarch: [
     { attack: 'impaler_charge', from: 'impaler' },
-    { attack: 'hemomancer_blood_pact', from: 'hemomancer' },
+    { attack: 'leech_latch', from: 'leech' },
   ],
   vharun_crimson_warden: [
-    { attack: 'hemomancer_blood_pact', from: 'hemomancer' },
+    // Not the doc's Leech · Latch: its 1.8 m reach never meets Vharun's tank, who stands at
+    // Vharun's own longer basic reach, so it is never cast; nor the Hemomancer's Pact, which
+    // Vharun casts as its own. The road's one other attack (tests/sim/reviewA.test.ts).
+    { attack: 'impaler_charge', from: 'impaler' },
     { attack: 'impaler_charge', from: 'impaler' },
     // Not the Hemomancer's Pact: Vharun's Judgement stops Pacts on purpose.
     { attack: 'lamenter_dirge', from: 'lamenter' },
   ],
   // Movement III
   the_seamstress: [
-    { attack: 'shears_dash', from: 'shears' },
+    // Not the doc's Shears · Shearing Dash, which cuts the Thread (and the songs that ride it):
+    // Movement III's other charge at a hero, which cuts nothing.
+    { attack: 'impaler_charge', from: 'impaler' },
     { attack: 'wraith_doubt', from: 'doubt_wraith' },
   ],
   the_unweaver: [
@@ -72,13 +75,22 @@ export const TYRANT_TABLE: Readonly<Record<string, readonly (TyrantEntry | null)
     { attack: 'maw_inhale', from: 'void_maw' },
     { attack: 'wraith_doubt', from: 'doubt_wraith' },
   ],
-  // The Finale: its own closing attacks, earlier; the Grand Silence stays as built.
+  // The Finale: one of its own closing attacks more often, on one clock; the Grand Silence as built.
   [CONDUCTOR]: [
-    { attack: SFORZANDO, from: CONDUCTOR, every: BURN_EVERY.sforzando },
-    { attack: DOWNBEAT, from: CONDUCTOR, every: BURN_EVERY.downbeat },
+    { attack: SFORZANDO, from: CONDUCTOR, every: TYRANT_OWN.sforzando },
+    { attack: DOWNBEAT, from: CONDUCTOR, every: TYRANT_OWN.downbeat },
     null,
   ],
 };
+
+/**
+ * The boss's own special `attackId` is its phase's hold (the Silent Conductor's): the generic
+ * picker and Foresight leave it to the hold's clock (enemies.ts), so it has one cadence.
+ */
+export function ownHeld(e: Entity, attackId: string): boolean {
+  const c = e.enemy!;
+  return c.tyrant !== undefined && c.tyrant.from === c.defId && c.tyrant.attack === attackId;
+}
 
 /** A borrowed attack that the cap holds back is tried again this long after (as the picker's). */
 const CAP_RETRY = 1.5;
@@ -127,19 +139,46 @@ export function enterTyrantPhase(world: World, boss: Entity, phase: number): voi
 }
 
 /**
+ * Foresight's mark for the borrowed attack (`Foreseen.special`): -1 is a boss script's scheduled
+ * attack, an index from 0 one of its own specials.
+ */
+export const TYRANT_FORESEEN = -2;
+
+/**
+ * Foresight's candidate for the hold (enemies.ts, `foresee`, on a Tyrant run only): the borrowed
+ * attack, due once it is ready and the boss is free (`free`), as `tryTyrant` would begin it; none
+ * while the cap on damaging telegraphs would hold it back as things stand.
+ */
+export function tyrantForeseeable(
+  world: World,
+  e: Entity,
+  free: number,
+): { special: number; attackId: string; at: number } | null {
+  const hold = e.enemy!.tyrant;
+  if (!hold) return null;
+  const attack = attackDef(hold.attack);
+  if (attack.effect === 'damage' && liveDamaging(world) >= READABILITY_CAP) return null;
+  return { special: TYRANT_FORESEEN, attackId: hold.attack, at: Math.max(free, hold.readyAt) };
+}
+
+/**
  * The generic picker's first try for a boss on a Tyrant run (enemies.ts, `trySpecial`): its
  * borrowed attack once it is ready, unless the cap on damaging telegraphs shown at once holds it
- * back (it is tried again `CAP_RETRY` s on). True if it began.
+ * back (it is tried again `CAP_RETRY` s on). What Foresight showed of it is kept (its target, if
+ * rolled early). True if it began.
  */
 export function tryTyrant(world: World, e: Entity, target: Entity): boolean {
-  const hold = e.enemy!.tyrant;
+  const c = e.enemy!;
+  const hold = c.tyrant;
   if (!hold || world.time < hold.readyAt - 1e-9) return false;
   const attack = attackDef(hold.attack);
   if (attack.effect === 'damage' && liveDamaging(world) >= READABILITY_CAP) {
     hold.readyAt = world.time + CAP_RETRY;
     return false;
   }
-  if (!beginAttack(world, e, attack, target)) return false;
+  const f = c.foreseen;
+  const promised = f?.special === TYRANT_FORESEEN && f.attackId === hold.attack ? f : null;
+  if (!beginAttack(world, e, attack, target, promised)) return false;
   const entry = tyrantAttackOf(e.enemy!.defId, hold.phase);
   hold.readyAt = world.time + (entry?.every ?? attack.cooldown * world.mods.tyrantCooldownMult);
   return true;
@@ -173,5 +212,6 @@ export function tyrantDecreeOf(bossDefId: string, hold: Pick<TyrantHold, 'attack
     enemyDef(hold.from).name,
     attack.name,
     attack.answers,
+    attack.interruptible,
   );
 }
