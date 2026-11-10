@@ -56,15 +56,12 @@ export const WEEKLY_ROTATION_DESIGNED: readonly Entry[] = [
       { id: 'short_fuse', rank: 1 },
     ],
   },
-  // 4: Tyrant; five points.
+  // 4: Tyrant; four points.
   {
     route: 'expedition',
     calling: 'martyr',
     party: ['kael', 'lyra', 'seren'],
-    dissonance: [
-      { id: 'silent_cues', rank: 1 },
-      { id: 'tyrant', rank: 1 },
-    ],
+    dissonance: [{ id: 'tyrant', rank: 1 }],
   },
   // 5: an Echo with no Calling (A Cappella's twist); four points.
   {
