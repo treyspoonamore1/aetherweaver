@@ -1317,7 +1317,9 @@ export function playedDissonance(
 ): DissonanceChoice[] {
   let levels = fitLevels(run.dissonance);
   if (hasEffect(levels, 'true_dissonance') && !routeHasFinale(run))
-    levels = levels.filter((l) => dissonanceLevel(l.id).effect !== 'true_dissonance');
+    levels = levels.filter(
+      (l) => CONTENT.dissonance.find((d) => d.id === l.id)?.effect !== 'true_dissonance',
+    );
   // A run that doesn't say its route is taken as a Prelude's (docs/phase-5g.md, ground rule 6).
   return hasEffect(levels, 'cursed_start') &&
     pactRelic(run.seed, run.carried, run.movements ?? 1, run.echo) === null
