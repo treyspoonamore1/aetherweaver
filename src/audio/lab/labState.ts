@@ -124,6 +124,8 @@ interface FakeEntity {
     defId?: string;
     /** Phase 4d, Restless Dead: it has fallen and risen once already. */
     risen?: boolean;
+    /** Phase 6, Tyrant: the attack its phase borrowed (the sim's `TyrantHold`). */
+    tyrant?: { attack: string; from: string; phase: number; readyAt: number };
   };
 }
 
@@ -223,6 +225,11 @@ export class FakeWorld {
    */
   conducting: ConductingField | undefined = undefined;
   timeScale = 1;
+  /**
+   * Phase 6, True Dissonance: the Postlude (`field.finale.postlude`), absent unless a lab button
+   * sets one (`setPostlude`).
+   */
+  postlude: { since: number; riseUntil: number; enraged?: true } | undefined = undefined;
 
   constructor(opts: { party?: readonly LabHero[] } = {}) {
     this.party = [...(opts.party ?? HERO_IDS)];
@@ -276,6 +283,7 @@ export class FakeWorld {
           stasis: self.stasis,
           ...(self.zones ? { zones: self.zones } : {}),
           ...(self.conducting ? { conducting: self.conducting } : {}),
+          ...(self.postlude ? { finale: { postlude: self.postlude } } : {}),
         } as unknown as WorldState['field'];
       },
       get calling() {
@@ -752,6 +760,58 @@ export class FakeWorld {
       enemy: { role, tier, state: 'spawning', phase: 0, risen: true },
     });
     return id;
+  }
+  /**
+   * Phase 6, Tyrant: a boss or mini-boss (a content def id) standing at x, holding `attack`
+   * borrowed from `from` for its phase 1 (as the sim's `enemy.tyrant`). Returns its id.
+   */
+  addTyrant(defId: string, from: string, attack: string, x = 0): number {
+    const id = IDS.enemyBase + 300 + this.entities.size;
+    const def = CONTENT.enemies.find((e) => e.id === defId);
+    const role = def?.role ?? 'boss';
+    this.entities.set(id, {
+      id,
+      kind: 'enemy',
+      x,
+      z: 6,
+      health: health(1000, 1000),
+      enemy: {
+        role,
+        tier: role === 'miniboss' ? 'miniboss' : 'boss',
+        state: 'idle',
+        phase: 1,
+        defId,
+        tyrant: { attack, from, phase: 1, readyAt: 0 },
+      },
+    });
+    return id;
+  }
+  /** Phase 6: a standing enemy of a content def at x (a mirror-choir voice a pair Cues). */
+  addStanding(defId: string, x: number): number {
+    const id = IDS.enemyBase + 400 + this.entities.size;
+    const def = CONTENT.enemies.find((e) => e.id === defId);
+    this.entities.set(id, {
+      id,
+      kind: 'enemy',
+      x,
+      z: 6,
+      health: health(500, 500),
+      enemy: { role: def?.role ?? 'caster', tier: 'normal', state: 'idle', phase: 0, defId },
+    });
+    return id;
+  }
+  /**
+   * Phase 6: the Postlude as the state would hold it: the Conductor's rise beginning now and
+   * lasting `rise` seconds (null: no Postlude).
+   */
+  setPostlude(rise: number | null, enraged = false): void {
+    if (rise === null) this.postlude = undefined;
+    else
+      this.postlude = {
+        since: this.time,
+        riseUntil: this.time + rise,
+        ...(enraged ? { enraged: true as const } : {}),
+      };
   }
   /**
    * Adds one enemy of a role at x (kill sounds read the role from the entity). Phase 5a: or a

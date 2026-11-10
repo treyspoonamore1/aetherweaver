@@ -171,6 +171,11 @@ const GROUPS: {
     title:
       'Phase 5d · The Finale (Discord, Fortissimo Silence, the Cues, the Grand Silence and its eight notes, the Reignite, the Coda, glass kills, the stinger)',
   },
+  {
+    id: 'phase6',
+    title:
+      'Phase 6 · Tyrant’s edict and the boss’s voice under a borrowed cast, the Postlude’s rise, stems and pair Cues, the Atlas’s UI sounds',
+  },
   { id: 'world', title: 'World, enemies and telegraphs' },
   { id: 'ui', title: 'UI' },
 ];

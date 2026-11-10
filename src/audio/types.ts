@@ -137,7 +137,17 @@ export type UiSound =
   | 'drillLate'
   | 'drillMiss'
   | 'drillStreak'
-  | 'drillBest';
+  | 'drillBest'
+  /**
+   * Phase 6 (docs/phase-6.md): the Atlas of Echoes and shared runs. A star lit on an Echo (pass
+   * `{ stars }`, the Echo's stars now lit, 1-3: each higher and fuller); a constellation completed
+   * (its lines filled); a shared run verified on this device (its fights and digest matched); a
+   * shared run that didn't match (a fight or the digest came out otherwise).
+   */
+  | 'atlasStar'
+  | 'atlasConstellation'
+  | 'runVerified'
+  | 'runMismatch';
 
 /**
  * Additive (Phase 4d): what a UI sound is about, beyond its name. The Dissonance sounds read
@@ -176,6 +186,8 @@ export interface UiSoundDetail {
   ms?: number;
   /** Phase 4g, `drillStreak`: the streak reached (25 and over is the grandest, then 10, then 5). */
   streak?: number;
+  /** Phase 6, `atlasStar`: the Echo's stars now lit (1-3). Left out: the first. */
+  stars?: number;
 }
 
 export interface Volumes {

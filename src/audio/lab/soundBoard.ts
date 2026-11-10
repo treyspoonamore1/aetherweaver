@@ -5,9 +5,11 @@ import {
   BASS,
   BASSO_OSTINATO,
   CADENZA,
+  CONDUCTOR,
   DOWNBEAT,
   FORTISSIMO,
   LAMENT,
+  SFORZANDO,
   SHATTER_ARIA,
   SOPRANO,
   TENOR,
@@ -67,6 +69,11 @@ export interface SoundButton {
      * notes, the Reignite and the Coda, glass kills, the Finale's stinger).
      */
     | 'finale'
+    /**
+     * Phase 6: Dissonance's last levels (Tyrant's edict and the boss's voice under a borrowed
+     * cast; the Postlude's rise, its stems and a pair Cue answering) and the Atlas's UI sounds.
+     */
+    | 'phase6'
     | 'world'
     | 'ui';
   /** Fires the sound. Receives the director and a world to read/mutate. */
@@ -3668,6 +3675,10 @@ export const SOUNDS: SoundButton[] = [
       'drillMiss',
       'drillStreak',
       'drillBest',
+      'atlasStar',
+      'atlasConstellation',
+      'runVerified',
+      'runMismatch',
     ] as UiSound[]
   ).map((s): SoundButton => ({
     id: `ui-${s}`,
@@ -4484,6 +4495,8 @@ export const SOUNDS: SoundButton[] = [
   ...conductorSounds(),
   ...fillSounds(),
   ...fillStateSounds(),
+  // ── Phase 6: Tyrant, the Postlude, the Atlas ───────────────────────────────────
+  ...phase6Sounds(),
 ];
 
 /**
@@ -4775,6 +4788,152 @@ function fillSounds(): SoundButton[] {
       group: 'fill',
       length: 1.5,
       fire: (d, w) => fire(d, w, ev('motifTriggered', { source: 'unnamed_source' })),
+    },
+  ];
+}
+
+/**
+ * Phase 6 (docs/phase-6.md): Tyrant's edict and the boss's voice under a cast of its borrowed
+ * attack (one boss of each material: the attack's own sound is the foe's, as for any cast of it),
+ * the Postlude's rise (the music's stems reopening as it rises when the Crucible plays), its stems
+ * after the rise and once enraged, a pair Cue's two voices answering, and the Atlas's UI sounds.
+ */
+function phase6Sounds(): SoundButton[] {
+  const tyrantCast =
+    (boss: string, from: string, attack: string, windup = 1.6) =>
+    (d: SynthDirector, w: FakeWorld) => {
+      const id = w.addTyrant(boss, from, attack, 2);
+      const t = w.addTelegraph(700, windup, { attackId: attack, name: attack });
+      t.owner = id;
+      fire(
+        d,
+        w,
+        ev('telegraphStarted', {
+          telegraph: 700,
+          owner: id,
+          target: IDS.kael,
+          name: attack,
+          kind: t.kind,
+          shape: t.shape,
+          start: t.start,
+          impact: t.impact,
+          perfectFrom: t.perfectFrom,
+          damage: t.damage,
+          pctMaxHp: 0,
+          answers: t.answers,
+          effect: 'damage',
+        }),
+      );
+    };
+  const casts: [string, string, string, string][] = [
+    ['the_bellwarden', 'glass_lancer', 'lancer_lance', 'porcelain: a low bell'],
+    ['vharun_crimson_warden', 'leech', 'leech_latch', 'iron: an anvil’s thump'],
+    ['the_unweaver', 'null_priest', 'null_rune', 'cloth: a bowed string'],
+    [CONDUCTOR, CONDUCTOR, SFORZANDO, 'glass: low glass'],
+  ];
+  return [
+    {
+      id: 'p6-edict',
+      label:
+        'Tyrant: the edict (a boss takes up a road foe’s attack: a horn fifth, a struck crown)',
+      group: 'phase6',
+      length: 2.5,
+      fire: (d, w) =>
+        fire(
+          d,
+          w,
+          ev('tyrantEdict', {
+            boss: w.addTyrant('the_bellwarden', 'glass_lancer', 'lancer_lance', 2),
+            phase: 1,
+            attack: 'lancer_lance',
+            from: 'glass_lancer',
+          }),
+        ),
+    },
+    ...casts.map(([boss, from, attack, label]): SoundButton => ({
+      id: `p6-tyrant-${boss}`,
+      label: `Tyrant: ${boss} casts ${attack} (the foe’s sound, under the boss’s voice, ${label})`,
+      group: 'phase6',
+      length: 3,
+      fire: tyrantCast(boss, from, attack),
+    })),
+    {
+      id: 'p6-postlude-rise',
+      label:
+        'The Postlude: the Conductor rises (the shatter drawn back in, eight glass notes D4-D5 as the rings re-light, the choir on D)',
+      group: 'phase6',
+      length: 6,
+      fire: (d, w) => {
+        w.setPostlude(3);
+        fire(
+          d,
+          w,
+          ev('postludeRose', { boss: w.addTyrant(CONDUCTOR, CONDUCTOR, 'none', 0), hp: 300 }),
+        );
+      },
+    },
+    {
+      id: 'p6-postlude-stems',
+      label:
+        'The Postlude, risen (with the Crucible playing: the whole choir, the melody sung in pairs); press "No Postlude" to end it',
+      group: 'phase6',
+      length: 8,
+      fire: (_d, w) => w.setPostlude(0),
+    },
+    {
+      id: 'p6-postlude-enraged',
+      label: 'The Postlude, enraged after 90 s (the top layer too)',
+      group: 'phase6',
+      length: 8,
+      fire: (_d, w) => w.setPostlude(0, true),
+    },
+    {
+      id: 'p6-postlude-off',
+      label: 'No Postlude',
+      group: 'phase6',
+      length: 1,
+      fire: (_d, w) => w.setPostlude(null),
+    },
+    {
+      id: 'p6-postlude-pair',
+      label:
+        'The Postlude: a pair Cue (the Alto’s mirrored phrase, the Bass answering a third higher)',
+      group: 'phase6',
+      length: 4,
+      fire: (d, w) =>
+        fire(
+          d,
+          w,
+          ev('postludePair', { voices: [w.addStanding(ALTO, -6), w.addStanding(BASS, 6)] }),
+        ),
+    },
+    ...([1, 2, 3] as const).map((n): SoundButton => ({
+      id: `p6-atlas-star-${n}`,
+      label: `UI: atlasStar, the Echo’s ${n === 1 ? 'first' : n === 2 ? 'second' : 'third'} star lit`,
+      group: 'phase6',
+      length: 2,
+      fire: (d) => d.playUi('atlasStar', null, { stars: n }),
+    })),
+    {
+      id: 'p6-atlas-constellation',
+      label: 'UI: atlasConstellation, a constellation completed',
+      group: 'phase6',
+      length: 3,
+      fire: (d) => d.playUi('atlasConstellation'),
+    },
+    {
+      id: 'p6-run-verified',
+      label: 'UI: runVerified, a shared run verified on this device',
+      group: 'phase6',
+      length: 2,
+      fire: (d) => d.playUi('runVerified'),
+    },
+    {
+      id: 'p6-run-mismatch',
+      label: 'UI: runMismatch, a shared run that didn’t match',
+      group: 'phase6',
+      length: 2,
+      fire: (d) => d.playUi('runMismatch'),
     },
   ];
 }

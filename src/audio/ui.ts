@@ -99,6 +99,10 @@ export const UI_SOUND_NAMES = Object.keys({
   drillMiss: 0,
   drillStreak: 0,
   drillBest: 0,
+  atlasStar: 0,
+  atlasConstellation: 0,
+  runVerified: 0,
+  runMismatch: 0,
 } satisfies Record<UiSound, 0>) as UiSound[];
 
 /** Phase 3e: the UI sounds voiced per Calling (the Chronomancer's are its own). */
@@ -192,6 +196,24 @@ export const DRILL_LIMITS: Readonly<Partial<Record<UiSound, readonly [number, nu
   drillStreak: [0.5, 1],
   drillBest: [0.8, 1],
 };
+
+/**
+ * Phase 6, the Atlas of Echoes and shared runs: each sound's rate gate (seconds) and voice cap. A
+ * Summary can light up to three stars at once (shown one after another), so a star holds two; a
+ * constellation and a verdict ring long and come once.
+ */
+export const ATLAS_LIMITS: Readonly<Partial<Record<UiSound, readonly [number, number]>>> = {
+  atlasStar: [0.2, 2],
+  atlasConstellation: [0.8, 1],
+  runVerified: [0.6, 1],
+  runMismatch: [0.6, 1],
+};
+
+/** Phase 6, `atlasStar`: the stars lit (1-3); unknown or out of range reads as the nearest. */
+export function starsLit(stars: number | undefined | null): 1 | 2 | 3 {
+  if (typeof stars !== 'number' || !Number.isFinite(stars)) return 1;
+  return stars >= 3 ? 3 : stars >= 2 ? 2 : 1;
+}
 
 /** A keepsake's kind by its content id (robe, Thread look or title), or null for an unknown id. */
 export function keepsakeKind(id: string | undefined | null): 'robe' | 'thread' | 'title' | null {
@@ -293,7 +315,8 @@ export function playUiSound(
     BOND_LIMITS[sound] ??
     VARIANT_LIMITS[sound] ??
     LOOM_LIMITS[sound] ??
-    DRILL_LIMITS[sound];
+    DRILL_LIMITS[sound] ??
+    ATLAS_LIMITS[sound];
   // The Deed sounds share one gate: two at once (a point Deed and a badge) make one.
   const gate = sound in DEED_LIMITS ? 'ui:deed' : `ui:${sound}`;
   if (sound === 'hover' && !e.gate('ui:hover', 0.045)) return;
@@ -524,6 +547,18 @@ export function playUiSound(
       break;
     case 'drillBest':
       drillBest(v, t);
+      break;
+    case 'atlasStar':
+      atlasStar(v, t, detail);
+      break;
+    case 'atlasConstellation':
+      atlasConstellation(v, t);
+      break;
+    case 'runVerified':
+      runVerified(v, t);
+      break;
+    case 'runMismatch':
+      runMismatch(v, t);
       break;
     case 'wheelOpen':
       // A soft bloom: a breath opening upwards and a quiet A4.
@@ -1911,4 +1946,63 @@ function drillBest(v: Voice, t: number): void {
   twin(v, t + 0.3, 18, 0.022, 0.8);
   whoosh(v, t, 0.6, 0.014, 800, 3800, 1);
   v.extend(t + 2);
+}
+
+// ── Phase 6: the Atlas of Echoes and shared runs ────────────────────────────────────────
+// Starlight's cool glass (the Loom's voice), a night sky: each star a twin sparkle, the
+// constellation the Weaver's open fifth under them. A verdict on a shared run is short and plain:
+// a cadence that lands for a match, a bare tritone that doesn't resolve for a run that didn't.
+
+/**
+ * A star lit on an Echo, 0.7 to 1.3 s: a twin sparkle that climbs with the stars lit (A5, then
+ * D6, then A6), a soft glass note under it, and for the third a handbell D6 and a breath rising.
+ */
+function atlasStar(v: Voice, t: number, detail?: UiSoundDetail | null): void {
+  const n = starsLit(detail?.stars);
+  const top = [11, 14, 18][n - 1]!;
+  for (let i = 0; i < n; i++) twin(v, t + i * 0.09, top - 4 * (n - 1 - i), 0.02 + 0.003 * i, 0.5);
+  const land = t + (n - 1) * 0.09;
+  glassNote(v, land, hz(top), 0.026 + 0.004 * n, 1.0 + 0.15 * n, 0.85);
+  if (n === 3) {
+    handbell(v, land + 0.05, hz(14), 0.05, 1.3, 0.6);
+    whoosh(v, t, 0.6, 0.014, 900, 4200, 1);
+  }
+  v.extend(land + 1.3);
+}
+
+/**
+ * A constellation completed, about 2.4 s: its three stars sparkle one after another (D6, A6, D7)
+ * as its lines fill, over the Weaver's open fifth hummed (D4 A4 D5), landing on a brass bell D5
+ * and a long glass A6.
+ */
+function atlasConstellation(v: Voice, t: number): void {
+  choirChord(v, t, [hz(0), hz(4), hz(7)], 1.6, 0.07, 0.4, 1.1);
+  [14, 18, 21].forEach((idx, i) => twin(v, t + 0.12 + i * 0.22, idx, 0.022, 0.7));
+  whoosh(v, t + 0.1, 0.8, 0.014, 700, 4400, 1);
+  brassBell(v, t + 0.8, hz(7), 0.07, 1.6, 0.55);
+  glassNote(v, t + 0.86, hz(18), 0.03, 1.6, 0.85);
+  v.extend(t + 2.4);
+}
+
+/**
+ * A shared run verified, about 1.2 s: a plucked step down onto the tonic (E5, then D5) over a
+ * held D4 A4, with a glass D6 ringing over the D. Plain and sure.
+ */
+function runVerified(v: Voice, t: number): void {
+  choirChord(v, t, [hz(0), hz(4)], 0.9, 0.05, 0.15, 0.8);
+  pluck(v, t, hz(8), 0.08, 0.3, 0.7);
+  pluck(v, t + 0.14, hz(7), 0.09, 0.5, 0.7);
+  glassNote(v, t + 0.14, hz(14), 0.03, 1.0, 0.8);
+  v.extend(t + 1.2);
+}
+
+/**
+ * A shared run that didn't match, about 1 s: two low plucks a tritone apart (F3, then B3) that
+ * don't resolve, over a muted thump on D3. Not the error buzz (nothing went wrong on this device).
+ */
+function runMismatch(v: Voice, t: number): void {
+  thump(v, t, hz(-7), 0.12, 0.16, 0.6);
+  pluck(v, t, hz(-5), 0.08, 0.5, 0.35);
+  pluck(v, t + 0.16, hz(-2), 0.08, 0.6, 0.35);
+  v.extend(t + 1);
 }
