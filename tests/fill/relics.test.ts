@@ -310,7 +310,7 @@ describe('rare relics', () => {
     );
     stepUntil(sim, () => sim.state.time >= t.perfectFrom + 0.05);
     // Sand Glass has a clock to move only while one of the three is recovering.
-    const wv = weaverEntity(sim.state).weaver!;
+    const wv = weaverEntity(worldOf(sim)).weaver!;
     wv.cooldowns.reel = 5;
     stepFor(sim, 1, [{ t: 'tech', id: 'ward', slot: 0 }]);
     const { events } = resolvedOf(sim, t.id);
