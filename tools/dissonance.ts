@@ -27,6 +27,26 @@
  *
  * Each row: wins, the runs that reached the Finale, wins ÷ reached, minutes of combat, and where
  * the lost runs ended (the fight they lost), against the tier's band.
+ *
+ * `--echoes` (docs/phase-6.md, "Bands": Echoes) plays whole Echoes at the Dissonance its stars
+ * ask (`ECHO_TIERS`: 0 for ★, Tier I's 10 for ★★, Tier II's 20 for ★★★; `--only` picks), with
+ * the Rank 20 build for the Echo's party (its twists drop what they forbid), the Calling rotating
+ * by seed as `--tiers` (an Echo with no Calling plays none) and, for the Expert, its run policy
+ * (`--policy` as `--tiers`). `--echo` names some (default: all nine). Rows: wins, where lost runs
+ * ended, minutes of combat, against the star's band and the 12-22 min length band.
+ *
+ *   npx tsx tools/dissonance.ts --echoes --seeds 2 --bots expert,skilled
+ *   npx tsx tools/dissonance.ts --echoes --seeds 20 --echo strangers,the_unrested --only 0
+ *
+ * `--weekly` (docs/phase-6.md, "Bands": the weekly rotation) plays each rotation entry (`--entry`
+ * picks by index, default all twelve) on `--seeds` weeks holding it, from `--week-base` (44) on
+ * (the first such week, then every 12th): the level field (no tree, carry or Bonds; the
+ * `--loadout` preset as the picks), the Expert with its run policy and its path for the entry's
+ * Calling. Rows: wins, mean score (`weeklyScore`), minutes, where lost runs ended, against the
+ * entry's band (Expert 50-85%, Skilled 25-70%).
+ *
+ *   npx tsx tools/dissonance.ts --weekly --seeds 2 --bots expert,skilled
+ *   npx tsx tools/dissonance.ts --weekly --seeds 8 --entry 3,8 --bots expert
  */
 import type { BotKind } from '../src/bots';
 import {
@@ -45,6 +65,8 @@ import { CHORD_PRESETS } from '../src/meta/run';
 import type { ChordLoadout } from '../src/meta/types';
 import { buildTree, TREES } from './astrolabe';
 import { FINALE_SEED_SETS, playRun, type RunSummary } from './harness-core';
+import { weeklyEntry, weeklyScore, weeklySeed } from '../src/meta/weekly';
+import type { RunState } from '../src/meta/types';
 import { SETS } from './reliquary';
 
 type Levels = { id: string; rank: number }[];
@@ -146,6 +168,171 @@ export function tierRun(
   });
 }
 
+/** The Dissonance an Echo's stars ask (docs/phase-6.md, "Stars"): the tier sets 0, I and II. */
+export const ECHO_TIERS: readonly { stars: number; tier: (typeof TIERS)[number] }[] = [
+  { stars: 1, tier: TIERS[0]! },
+  { stars: 2, tier: TIERS[1]! },
+  { stars: 3, tier: TIERS[2]! },
+];
+
+/** The Echo bands (docs/phase-6.md, "Bands": Echoes, the Expert at Rank 20), by stars. */
+function echoBand(echo: string, stars: number): string {
+  const length = 'length 12-22 min';
+  if (stars === 1) return `${echo === 'strangers' ? 'Expert ≥40%' : 'Expert 60-95%'} · ${length}`;
+  if (stars === 3) return `Expert 10-45% · ${length}`;
+  return `none set · ${length}`;
+}
+
+/** The party an Echo plays: its twist's, or the default. */
+export function echoParty(echo: string): readonly string[] {
+  const def = CONTENT.echoes.find((e) => e.id === echo);
+  if (!def) throw new Error(`Unknown Echo "${echo}" (${CONTENT.echoes.map((e) => e.id)})`);
+  return def.twists.party
+    ? CONTENT.heroes.map((h) => h.id).filter((id) => def.twists.party!.includes(id))
+    : DEFAULT_PARTY;
+}
+
+/**
+ * One whole Echo at seed index `i`: the Rank 20 build for its party, `levels` chosen, the Calling
+ * by `TIER_CALLINGS` (none on an Echo whose twists forbid one), the Expert's policy if `policy`.
+ */
+export function echoRun(
+  echo: string,
+  seed: number,
+  i: number,
+  bot: BotKind,
+  chords: readonly ChordLoadout[],
+  levels: Levels,
+  policy: boolean,
+): RunSummary {
+  const def = CONTENT.echoes.find((e) => e.id === echo)!;
+  const calling = def.twists.noCalling ? null : TIER_CALLINGS[i % TIER_CALLINGS.length]!;
+  return playRun(seed, bot, chords, {
+    ...rank20Build(echoParty(echo)),
+    echo,
+    dissonance: levels,
+    ...(calling ? { calling } : {}),
+    ...(policy ? expertPolicy(calling) : {}),
+  });
+}
+
+/**
+ * One weekly run of `week`, as everyone plays it (the level field), with `chords` as the picks,
+ * the Expert's policy (and its path for the entry's Calling) if `policy`. Its score with it.
+ */
+export function weeklyRun(
+  week: number,
+  bot: BotKind,
+  chords: readonly ChordLoadout[],
+  policy: boolean,
+): { summary: RunSummary; score: number } {
+  const entry = weeklyEntry(week);
+  if (!entry) throw new Error('no weekly rotation');
+  let end: RunState | null = null;
+  const summary = playRun(weeklySeed(week), bot, chords, {
+    week,
+    ...(policy ? expertPolicy(entry.calling) : {}),
+    onEnd: (run) => (end = run),
+  });
+  return { summary, score: weeklyScore(end!) };
+}
+
+/** The runs' line: wins, then whatever `extra` adds, minutes and where lost runs ended. */
+function runsLine(runs: readonly RunSummary[], extra = ''): string {
+  const pct = (x: number) => `${Math.round(x * 100)}%`;
+  const won = runs.filter((r) => r.outcome === 'victory').length;
+  const endedAt: Record<string, number> = {};
+  for (const r of runs)
+    if (r.outcome === 'defeat') endedAt[r.lastEncounter] = (endedAt[r.lastEncounter] ?? 0) + 1;
+  const minutes = runs.reduce((s, r) => s + r.minutes, 0) / Math.max(1, runs.length);
+  return `won ${pct(won / Math.max(1, runs.length)).padStart(4)} (${won}/${runs.length})${extra} · ${minutes.toFixed(1)} min of combat · lost at ${JSON.stringify(endedAt)}`;
+}
+
+/** The run policy `--policy` gives `bot` (the Expert's, by default, to the Expert only). */
+function policyFor(policy: string, bot: BotKind): boolean {
+  return policy === 'all' || (policy === 'expert' && bot === 'expert');
+}
+
+function policyArg(): string {
+  const policy = get('policy') ?? 'expert';
+  if (!['all', 'expert', 'none'].includes(policy))
+    throw new Error(`--policy is all, expert or none, not "${policy}"`);
+  return policy;
+}
+
+function echoes(): void {
+  const loadout = CHORD_PRESETS.find((p) => p.id === (get('loadout') ?? 'guardian'))!;
+  const seeds = Number(get('seeds') ?? 20);
+  const bots = (get('bots') ?? 'expert').split(',') as BotKind[];
+  const policy = policyArg();
+  const only = get('only')?.split(',').map(Number);
+  const base = Number(get('seed-base') ?? 2000);
+  const ids = get('echo')?.split(',') ?? CONTENT.echoes.map((e) => e.id);
+  for (const id of ids) echoParty(id);
+  const t0 = Date.now();
+  console.log(
+    `dissonance echoes · ${bots.join(', ')} · Rank 20 build for each Echo's party (${loadout.name}) · run policy: ${policy === 'all' ? 'the Expert’s for every bot' : policy === 'expert' ? 'the Expert’s for the Expert' : 'the harness’s'} · ${seeds} seeds from ${base} · Calling by seed: ${TIER_CALLINGS.map((c) => c ?? 'none').join(', ')}`,
+  );
+  for (const id of ids) {
+    const name = CONTENT.echoes.find((e) => e.id === id)!.name;
+    for (const { stars, tier } of ECHO_TIERS) {
+      if (only && !only.includes(tier.points)) continue;
+      console.log(
+        `${name} · ${'★'.repeat(stars)} (${tier.points} pts) · band ${echoBand(id, stars)}`,
+      );
+      for (const bot of bots) {
+        const runs = Array.from({ length: seeds }, (_, i) =>
+          echoRun(
+            id,
+            base + i * 104729,
+            i,
+            bot,
+            loadout.chords,
+            tier.levels,
+            policyFor(policy, bot),
+          ),
+        );
+        console.log(`  ${bot.padEnd(8)} ${runsLine(runs)}`);
+      }
+    }
+  }
+  console.log(`done in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
+}
+
+function weekly(): void {
+  const loadout = CHORD_PRESETS.find((p) => p.id === (get('loadout') ?? 'guardian'))!;
+  const seeds = Number(get('seeds') ?? 20);
+  const bots = (get('bots') ?? 'expert').split(',') as BotKind[];
+  const policy = policyArg();
+  const from = Number(get('week-base') ?? 44);
+  const n = CONTENT.weekly.length;
+  const entries = get('entry')?.split(',').map(Number) ?? Array.from({ length: n }, (_, i) => i);
+  const t0 = Date.now();
+  console.log(
+    `dissonance weekly · ${bots.join(', ')} · the level field, ${loadout.name} as the picks · run policy: ${policy === 'all' ? 'the Expert’s for every bot' : policy === 'expert' ? 'the Expert’s for the Expert' : 'the harness’s'} · ${seeds} weeks an entry from week ${from} · band Expert 50-85%, Skilled 25-70%`,
+  );
+  for (const e of entries) {
+    const entry = CONTENT.weekly[e];
+    if (!entry) throw new Error(`no rotation entry ${e} (0-${n - 1})`);
+    const first = from + ((((e - from) % n) + n) % n);
+    const weeks = Array.from({ length: seeds }, (_, k) => first + k * n);
+    console.log(
+      `entry ${e} · ${entry.route} · ${entry.calling ?? 'no Calling'} · ${entry.party.join(', ')} · ${dissonancePoints(entry.dissonance)} pts${entry.dissonance.length ? ` (${entry.dissonance.map((l) => (l.rank > 1 ? `${l.id}×${l.rank}` : l.id)).join(', ')})` : ''} · weeks ${weeks.join(', ')}`,
+    );
+    for (const bot of bots) {
+      const runs = weeks.map((w) => weeklyRun(w, bot, loadout.chords, policyFor(policy, bot)));
+      const score = runs.reduce((s, r) => s + r.score, 0) / Math.max(1, runs.length);
+      console.log(
+        `  ${bot.padEnd(8)} ${runsLine(
+          runs.map((r) => r.summary),
+          ` · score ${Math.round(score)}`,
+        )}`,
+      );
+    }
+  }
+  console.log(`done in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
+}
+
 function tiers(): void {
   const loadout = CHORD_PRESETS.find((p) => p.id === (get('loadout') ?? 'guardian'))!;
   const seeds = Number(get('seeds') ?? 20);
@@ -213,6 +400,14 @@ const logit = (p: number) => {
 function main(): void {
   if (argv.includes('--tiers')) {
     tiers();
+    return;
+  }
+  if (argv.includes('--echoes')) {
+    echoes();
+    return;
+  }
+  if (argv.includes('--weekly')) {
+    weekly();
     return;
   }
   const loadout = CHORD_PRESETS.find((p) => p.id === (get('loadout') ?? 'guardian'))!;
