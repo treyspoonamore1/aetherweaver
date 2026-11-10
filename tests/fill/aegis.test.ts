@@ -135,10 +135,12 @@ describe('the Aegis content', () => {
           check(m, v);
           expect(m.triggers, id).toBe(NO_MODS.triggers);
         } else {
+          // Safe Harbour and Light Step hold a second rule for the variants that skip their event.
+          const rules = id === 'safe_harbour' || id === 'light_step' ? 2 : 1;
           expect(
             m.triggers.map((t) => t.source),
             id,
-          ).toEqual([id]);
+          ).toEqual(Array.from({ length: rules }, () => id));
           const numbers = JSON.stringify(m.triggers[0]!.def.effects);
           expect(numbers, `${id} L${level}`).toContain(String(v));
         }
@@ -582,5 +584,80 @@ describe('Second Toll with Everbell', () => {
     updateTriggers(w, mark, 1 / 60);
     expect(ww.chimeRecharge!).toBeCloseTo(recharge - value('second_toll', 3), 9);
     expect(w.ledger.triggers).toEqual({ second_toll: 1 });
+  });
+});
+
+describe('Safe Harbour and Light Step work with every variant of their technique', () => {
+  it('Safe Harbour: the default Reel, Swap and Anchor each leave the hero a barrier, once', () => {
+    for (const reel of [null, 'swap', 'anchor'] as const) {
+      const s = sim('safe_harbour', 3, reel ? { techniques: { reel } } : {});
+      const lyra = entity(s, 1);
+      const events = stepFor(s, 90, [{ t: 'tech', id: 'reel', slot: 1 }]);
+      expect(
+        ofType(events, 'techniqueCast').filter((e) => e.technique === 'reel'),
+        `${reel}`,
+      ).toHaveLength(1);
+      const b = shieldOf(lyra.health!, 'overshield');
+      expect(b, `${reel}`).toBeDefined();
+      expect(b!.amount).toBeCloseTo((lyra.health!.maxHp * value('safe_harbour', 3)) / 100, 6);
+      expect(tally(s, 'safe_harbour'), `${reel}`).toBe(1);
+    }
+  });
+
+  it('Light Step: the default Glide and Phase Step each heal the heroes where she lands, once', () => {
+    for (const glide of [null, 'phase_step'] as const) {
+      const s = sim('light_step', 3, glide ? { techniques: { glide } } : {});
+      const w = worldOf(s);
+      for (const id of w.party) {
+        const h = w.entities.get(id)!.health!;
+        h.hp = h.maxHp * 0.5;
+      }
+      const me = weaver(s);
+      const kael = hero(s, 0);
+      if (glide) {
+        // Kael stands where the blink lands: straight ahead of her, its metres away.
+        const metres = CONTENT.techniqueVariants.find((v) => v.id === glide)!.values.metres!;
+        const k = entity(s, 0);
+        k.x = me.x;
+        k.z = me.z - metres;
+      }
+      const events = stepFor(s, 60, [
+        glide ? { t: 'glide', x: 0, z: -1 } : { t: 'glide', x: kael.x - me.x, z: kael.z - me.z },
+      ]);
+      const healed = ofType(events, 'healApplied').filter((e) => e.via === 'other');
+      expect(healed.length, `${glide}`).toBeGreaterThan(0);
+      expect(tally(s, 'light_step'), `${glide}`).toBe(1);
+    }
+  });
+
+  it('without them, the variants emit what they always did and heal or shield no one', () => {
+    for (const techniques of [
+      { reel: 'swap' },
+      { reel: 'anchor' },
+      { glide: 'phase_step' },
+    ] as const) {
+      const s = sim('safe_harbour', null, { techniques });
+      const events = stepFor(s, 60, [
+        'reel' in techniques ? { t: 'tech', id: 'reel', slot: 1 } : { t: 'glide', x: 0, z: -1 },
+      ]);
+      expect(ofType(events, 'motifTriggered')).toEqual([]);
+      expect(ofType(events, 'reeled')).toEqual([]);
+      expect(ofType(events, 'glided')).toEqual([]);
+      expect(s.state.ledger.triggers).toBeUndefined();
+    }
+  });
+});
+
+describe('Last Bastion on a Chorale', () => {
+  it('a Chorale’s Ward on a hero below the line is larger; above it, as without it', () => {
+    const amount = (level: Level, share: number) => {
+      const s = sim('last_bastion', level, { techniques: { ward: 'chorale' } });
+      lifeAt(s, 0, share);
+      stepFor(s, 1, [{ t: 'tech', id: 'ward', slot: 0 }]);
+      return shieldOf(entity(s, 0).health!, 'ward')!.amount;
+    };
+    const v = value('last_bastion', 3) / 100;
+    expect(amount(3, 0.2) / amount(null, 0.2)).toBeCloseTo(1 + v, 9);
+    expect(amount(3, 0.9)).toBeCloseTo(amount(null, 0.9), 9);
   });
 });

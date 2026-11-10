@@ -201,6 +201,10 @@ function holds(
   if (def.shield !== undefined && !(e?.type === 'shieldBroken' && e.shield === def.shield))
     return false;
   if (def.usedUp && !(e?.type === 'shieldBroken' && !perfectedIn(tick, e.target))) return false;
+  if (def.variant !== undefined) {
+    if (e?.type !== 'techniqueCast' || e.variant === undefined) return false;
+    if (!def.variant.includes(e.variant)) return false;
+  }
   if (def.moved) {
     if (e?.type !== 'threadAttached') return false;
     if (state.lastThread === undefined || state.lastThread === e.hero) return false;
