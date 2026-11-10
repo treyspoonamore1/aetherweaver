@@ -1,4 +1,5 @@
 import type { Command } from '../sim';
+import { ExpertBot } from './expert';
 import { NoviceBot } from './novice';
 import { SkilledBot } from './skilled';
 import type { Bot, BotKind } from './types';
@@ -20,9 +21,9 @@ export function makeBot(kind: BotKind, seed: number): Bot {
     case 'skilled':
       return new SkilledBot(seed);
     case 'expert':
-      throw new Error('The Expert bot is not built yet (docs/phase-6.md, W7).');
+      return new ExpertBot(seed);
   }
 }
 
-export { NoviceBot, SkilledBot };
+export { ExpertBot, NoviceBot, SkilledBot };
 export type { Bot, BotKind };

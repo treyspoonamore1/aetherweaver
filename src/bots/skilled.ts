@@ -179,6 +179,39 @@ export interface SkilledOptions {
    * unchanged.
    */
   skip?: ReadonlySet<M3Rule | FinaleRule | RosterRule | ConductingRule | FillRule>;
+  /**
+   * The Expert's rules (docs/phase-6.md, "Design: the expert bot"; `ExpertBot`, expert.ts): read
+   * once a decision and applied at the few places below. Absent (the Skilled bot, every existing
+   * caller), every one of those places decides exactly as before.
+   */
+  expert?: ExpertHooks;
+}
+
+/**
+ * What the Expert's rules tell the Skilled bot's decision (expert.ts reads them; every flag is
+ * false, and `focus` null, when its rule is off or its mechanic is not on the field).
+ */
+export interface ExpertRead {
+  /** Keep the last Ward charge: no call-answer or low-life Ward (`tyrantWard`, `postludePair`). */
+  keepWard: boolean;
+  /** Bank Resonance for Fortissimo Silence's cancel, the Grand Finale too (`postludeBank`). */
+  bank: boolean;
+  /** No damage Cue, no Grand Finale and no last-burn Cue while the boss is untouchable (`postludeRise`). */
+  holdDamage: boolean;
+  /** Focus this enemy now, without the gap between Focuses (`tyrantFocus`, `mimicFocus`). */
+  focus: ReadonlyEntity | null;
+  /** The Thread to Empower for a mirror's last moment, so it cracks (`mimicCrack`). */
+  empower: boolean;
+}
+
+/** The Expert's side of the Skilled bot's decision (built by expert.ts). */
+export interface ExpertHooks {
+  /** The salt of the bot's own generator (the Skilled bot's is `0x5eed`). */
+  readonly salt: number;
+  /** Read once a decision, before any rule. */
+  read(state: WorldState): ExpertRead;
+  /** Last: takes out of `out` what the Expert's rules never send (`restlessHold`). */
+  filter(state: WorldState, out: Command[]): void;
 }
 
 /**
@@ -519,7 +552,7 @@ export class SkilledBot implements Bot {
     private readonly opts: SkilledOptions = { every: 4, attention: 1, callReaction: 0.4 },
     name = 'skilled',
   ) {
-    this.rng = new Rng(seed ^ 0x5eed);
+    this.rng = new Rng(seed ^ (opts.expert?.salt ?? 0x5eed));
     this.name = name;
   }
 
@@ -573,6 +606,8 @@ export class SkilledBot implements Bot {
     const guardFortissimo = fortissimo !== null && !crescendoReady && this.on('fortissimoGuard');
     if (silence) this.seeCadence(state);
     else this.lastCadence = null;
+    // The Expert (docs/phase-6.md): null for the Skilled bot, so every `ex?.` below is inert.
+    const ex = this.opts.expert?.read(state) ?? null;
 
     // ── Movement: cover the party with the field, stay out of danger, keep off melee. ──
     const desired = this.position(
@@ -739,6 +774,7 @@ export class SkilledBot implements Bot {
         call!.answer === 'ward' &&
         !(duel && calling!.slot === duel.seren.slot && !this.on('serenCall')) &&
         !bigHitSoon &&
+        ex?.keepWard !== true &&
         dist(calling!.e, w) < tech.ward.range - 0.3 &&
         !mimicWard &&
         this.notice()
@@ -750,7 +786,7 @@ export class SkilledBot implements Bot {
         const need = (h: HeroView) => (blood ? mendNeed(h, blood) : effectiveFraction(h.e));
         const low = party.filter((h) => need(h) < 0.3 && dist(h.e, w) < tech.ward.range - 0.3);
         const soon = party.some((h) => threatsOn(state, h.e).some((t) => t.impact - now < 1.6));
-        if (low.length > 0 && !soon && affords(state, 'ward', 15)) {
+        if (low.length > 0 && !soon && ex?.keepWard !== true && affords(state, 'ward', 15)) {
           low.sort((a, b) => need(a) - need(b));
           out.push({ t: 'tech', id: 'ward', slot: low[0]!.slot });
           acted = true;
@@ -1156,6 +1192,9 @@ export class SkilledBot implements Bot {
       mimics.some((m) => m.copy === 'empower')
     )
       want = 'mend';
+    // The Expert's `mimicCrack` (expert.ts): a mirror copying a Ward or a Chime meets the Thread
+    // in Empower as it lands, and cracks. Never under Unravel or Iron Mask (it reads them).
+    else if (ex?.empower === true && want === 'mend' && !unravel) want = 'empower';
     out.push(...modeCommands(wc.threadMode, want));
 
     // ── Cues and the Crescendo. ──
@@ -1173,12 +1212,17 @@ export class SkilledBot implements Bot {
     const cueNeed = cueCostNow(state);
     // The Finale (docs/phase-5d.md): Discord will meet Fortissimo Silence before Resonance spent
     // now could come back, so hold the Cues and the Crescendo for its cancel. False without it.
+    // The Expert's `postludeBank` (expert.ts) banks in the Postlude past its line, whatever the
+    // Calling (the Grand Finale too, which `BANK_WITH_FINALE` leaves alone). False for the Skilled.
     const bank =
-      (cond === null || BANK_WITH_FINALE) &&
-      discord !== null &&
-      fortissimo === null &&
-      this.on('bankCrescendo') &&
-      banking(discord, wc.resonance, segment, crescendoCost);
+      ((cond === null || BANK_WITH_FINALE) &&
+        discord !== null &&
+        fortissimo === null &&
+        this.on('bankCrescendo') &&
+        banking(discord, wc.resonance, segment, crescendoCost)) ||
+      ex?.bank === true;
+    /** The Expert's `postludeRise`: the boss is untouchable, so no damage goes into it. */
+    const holdDamage = ex?.holdDamage === true;
     // Fortissimo Silence with the Crescendo to cancel it: no Cue spends the Resonance it needs
     // (commands run in order, so a Cue sent beside it would leave it short).
     const cancelling = crescendoReady && fortissimo !== null && this.on('crescendoCancel');
@@ -1187,6 +1231,7 @@ export class SkilledBot implements Bot {
       cond !== null &&
       !cancelling &&
       !bank &&
+      !holdDamage &&
       this.on('conductFinale') &&
       this.finaleWanted(state, party, enemies, wc.resonance, wc.crescendo, crescendoCost);
     /**
@@ -1260,9 +1305,17 @@ export class SkilledBot implements Bot {
         !(discord !== null && this.on('bankCrescendo'))
       )
         go = false;
+      if (holdDamage && !GUARDING.has(c.soloId)) go = false;
       return go;
     };
-    if (!cancelling && wc.resonance >= cueNeed && burn && this.on('reigniteCue')) {
+    if (
+      !cancelling &&
+      wc.resonance >= cueNeed &&
+      burn &&
+      !holdDamage &&
+      ex?.bank !== true &&
+      this.on('reigniteCue')
+    ) {
       // The last burn (after Reignite or the Coda): every ready Solo, damage Solos first.
       const ready = party.filter(
         (h) => h.e.hero!.solo >= 100 && h.e.hero!.soloActive <= 0 && !isStilled(h.e),
@@ -1416,7 +1469,15 @@ export class SkilledBot implements Bot {
       grove.tending &&
       state.focusTarget === null &&
       now - this.lastFocus > ORO_REFOCUS;
-    if (now - this.lastFocus > 4 || nextSpindle || oroWake) {
+    // The Expert's `tyrantFocus` and `mimicFocus` (expert.ts): at once, ahead of every other
+    // pick. Null for the Skilled bot.
+    const exFocus = ex?.focus ?? null;
+    if (exFocus) {
+      if (state.focusTarget !== exFocus.id) {
+        out.push({ t: 'directive', kind: 'focus', target: exFocus.id });
+        this.lastFocus = now;
+      }
+    } else if (now - this.lastFocus > 4 || nextSpindle || oroWake) {
       const caster =
         enemies.find((e) => e.enemy!.cast?.interruptible) ??
         // The Finale's Cued soloist (docs/phase-5d.md): undefined without a live Cue.
@@ -1469,6 +1530,8 @@ export class SkilledBot implements Bot {
     }
     // The Conductor's Marcato: a Directive gives it, so with it ready she sends one (a Focus).
     if (cond && !link && this.on('conductMarcato')) this.conductMarcato(state, party, out);
+    // The Expert's `restlessHold` (expert.ts); absent for the Skilled bot.
+    this.opts.expert?.filter(state, out);
     return out;
   }
 
