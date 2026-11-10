@@ -60,4 +60,24 @@ export const a11y = {
   'a11y.quality.low': 'Low',
   'a11y.quality.medium': 'Medium',
   'a11y.quality.high': 'High',
+
+  // Captions (src/ui/hud/captions.ts): each shown in brackets.
+  'a11y.captions.hint':
+    'Key sounds in words, two at a time: attacks winding up and from which side, a hero falling low, a boss taking up a crown, and the Finale’s music stopping and returning.',
+  'a11y.caption.windup': '{sound}, {side}',
+  'a11y.caption.style.brass': 'Brass wind-up',
+  'a11y.caption.style.glass': 'Glass wind-up',
+  'a11y.caption.style.swell': 'Rising swell',
+  'a11y.caption.style.taut': 'Thread drawn taut',
+  'a11y.caption.style.invert': 'Swell turned over',
+  'a11y.caption.side.left': 'left',
+  'a11y.caption.side.right': 'right',
+  'a11y.caption.side.centre': 'ahead',
+  'a11y.caption.side.around': 'all around',
+  'a11y.caption.edict': 'A crown taken up: {boss} borrows the {foe}’s attack',
+  'a11y.caption.postludeRose': 'The Conductor rises: glass notes climbing',
+  'a11y.caption.postludePair': 'Two voices answer each other',
+  'a11y.caption.mimic': 'A mirror’s shimmer: the {name} copies a spell',
+  'a11y.caption.lowLife': 'Low-life tone: {name}',
+  'a11y.caption.someone': 'someone',
 } satisfies Catalogue;

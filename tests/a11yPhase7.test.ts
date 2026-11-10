@@ -11,7 +11,16 @@ import { gameSpeed } from '../src/app/gameSpeed';
 import { DEFAULT_SETTINGS, optionsOf, useSettings, type Settings } from '../src/app/settings';
 import { createSim } from '../src/sim/api';
 import { FixedStepper } from '../src/sim/core/fixedStep';
-import type { ChordConfig, Command } from '../src/sim';
+import type {
+  AnswerTag,
+  ChordConfig,
+  Command,
+  SimEvent,
+  SimEventOf,
+  TelegraphShape,
+} from '../src/sim';
+import { captionFor, windupSide, windupStyle } from '../src/ui/hud/captions';
+import { worldOf } from './sim/helpers';
 import { CallView } from '../src/render/calls';
 import { CameraRig } from '../src/render/camera';
 import { EntityLayer } from '../src/render/entities';
@@ -495,3 +504,159 @@ describe('W2: reduced motion in the UI', () => {
     );
   });
 });
+
+// ── Captions (src/ui/hud/captions.ts) ────────────────────────────────────────────────────
+
+describe('W2: captions', () => {
+  /** A sandbox fight's state with an enemy on each side of the Weaver. */
+  function stage() {
+    const sim = createSim({ seed: 7, encounter: 'sandbox', debug: true });
+    sim.step([
+      { t: 'debug', op: { op: 'spawnEnemy', defId: 'bell_brute', x: -9, z: -2 } },
+      { t: 'debug', op: { op: 'spawnEnemy', defId: 'hollow_chorister', x: 9, z: -2 } },
+    ] as Command[]);
+    sim.drainEvents();
+    const enemies = worldOf(sim)
+      .entities.list()
+      .filter((e) => e.enemy);
+    return { sim, state: sim.state, enemies };
+  }
+  const tg = (
+    shape: TelegraphShape,
+    answers: AnswerTag[],
+    owner: number,
+    effect: SimEventOf<'telegraphStarted'>['effect'] = 'damage',
+  ): SimEvent =>
+    ({
+      type: 'telegraphStarted',
+      tick: 0,
+      telegraph: 1,
+      owner,
+      target: null,
+      name: 'Test',
+      kind: shape.kind === 'mark' ? 'mark' : 'ground',
+      shape,
+      start: 0,
+      impact: 1,
+      perfectFrom: 0.8,
+      damage: 10,
+      pctMaxHp: 0,
+      answers,
+      effect,
+    }) as SimEvent;
+
+  it('a wind-up: its timbre and its side, as the effects engine picks them', () => {
+    const { state, enemies } = stage();
+    const left = captionFor(
+      tg({ kind: 'circle', x: -9, z: -2, r: 2 }, ['ward'], enemies[0]!.id),
+      state,
+    );
+    expect(left?.callout.text).toBe('[Brass wind-up, left]');
+    const w = memoAdvance(state);
+    const right = captionFor(
+      tg({ kind: 'circle', x: 9, z: -2, r: 2 }, ['chime'], enemies[1]!.id),
+      w,
+    );
+    expect(right?.callout.text).toBe('[Glass wind-up, right]');
+    expect(windupStyle('ground', ['mend'])).toBe('swell');
+    expect(windupStyle('ground', ['thread'])).toBe('taut');
+    expect(windupStyle('ground', ['empower'])).toBe('invert');
+    expect(windupStyle('mark', ['ward'])).toBe('glass');
+    expect(windupSide({ kind: 'raid' } as TelegraphShape, state)).toBe('around');
+    expect(windupSide({ kind: 'circle', x: 0.5, z: 0, r: 1 } as TelegraphShape, state)).toBe(
+      'centre',
+    );
+  });
+
+  it('never more than two at a time: captions take turns between two keys', () => {
+    const { state } = stage();
+    const keys: string[] = [];
+    for (const e of [
+      { type: 'silenceBegan', tick: 0, boss: 1, until: 9 },
+      { type: 'discordRose', tick: 0 },
+      { type: 'reignited', tick: 0 },
+      { type: 'postludePair', tick: 0, voices: [] },
+    ] as unknown as SimEvent[])
+      keys.push(captionFor(e, state)!.callout.key!);
+    expect(keys).toEqual(['caption:a', 'caption:b', 'caption:a', 'caption:b']);
+    // The store keeps one callout a key (the runtime drops the last with it first): two live.
+    expect(new Set(keys).size).toBe(2);
+  });
+
+  it('one each for the edict, the Postlude, a Mimic’s first mirror; the Finale’s four as before', () => {
+    const { state, enemies } = stage();
+    const boss = enemies[0]!.id;
+    const text = (e: object) => captionFor(e as SimEvent, state)?.callout.text ?? null;
+    expect(
+      text({ type: 'tyrantEdict', tick: 0, boss, phase: 1, attack: 'x', from: 'hollow_chorister' }),
+    ).toMatch(/^\[A crown taken up: .+ borrows the .+’s attack\]$/);
+    expect(text({ type: 'postludeRose', tick: 0, boss, hp: 0.4 })).toBe(
+      '[The Conductor rises: glass notes climbing]',
+    );
+    expect(text({ type: 'postludePair', tick: 0, voices: [] })).toBe(
+      '[Two voices answer each other]',
+    );
+    const mimic = tg({ kind: 'circle', x: 0, z: 0, r: 1 }, [], boss, 'mimic');
+    expect(text(mimic)).toMatch(/^\[A mirror’s shimmer: the .+ copies a spell\]$/);
+    expect(text(mimic)).toBeNull(); // only the first in a fight
+    expect(text({ type: 'silenceBegan', tick: 0, boss, until: 9 })).toBe('[The music stops]');
+    expect(text({ type: 'discordRose', tick: 0 })).toBe('[Discord rises]');
+    expect(text({ type: 'reignited', tick: 0 })).toBe('[The song returns]');
+  });
+
+  it('wind-ups come at most every 0.6 s; none under Stasis; a non-damage cast has none', () => {
+    const { sim, state, enemies } = stage();
+    const e = tg({ kind: 'circle', x: -9, z: -2, r: 2 }, ['ward'], enemies[0]!.id);
+    expect(captionFor(e, state)).not.toBeNull();
+    expect(captionFor(e, state)).toBeNull();
+    for (let i = 0; i < 40; i++) sim.step();
+    expect(captionFor(e, state)).not.toBeNull();
+    for (let i = 0; i < 40; i++) sim.step();
+    expect(
+      captionFor(tg({ kind: 'circle', x: 0, z: 0, r: 1 }, [], enemies[0]!.id, 'summon'), state),
+    ).toBeNull();
+  });
+
+  it('the low-life tone: once as a hero crosses under a quarter, again only after 40%; off with the sound', () => {
+    const { sim, state } = stage();
+    const id = state.party[0]!;
+    const h = worldOf(sim).entities.get(id)!.health!;
+    const hit: SimEvent = {
+      type: 'damageTaken',
+      tick: 0,
+      target: id,
+      source: null,
+      amount: 1,
+      absorbed: 0,
+    } as unknown as SimEvent;
+    const heal: SimEvent = {
+      type: 'healApplied',
+      tick: 0,
+      target: id,
+      source: null,
+      amount: 1,
+      overheal: 0,
+      via: 'mend',
+    } as SimEvent;
+    h.hp = h.maxHp * 0.2;
+    expect(captionFor(hit, state)?.callout.text).toMatch(/^\[Low-life tone: .+\]$/);
+    expect(captionFor(hit, state)).toBeNull(); // not re-armed
+    h.hp = h.maxHp * 0.5;
+    expect(captionFor(heal, state)).toBeNull(); // re-arms
+    for (let i = 0; i < 100; i++) sim.step();
+    h.hp = h.maxHp * 0.2;
+    expect(captionFor(hit, state)).not.toBeNull();
+    h.hp = h.maxHp * 0.5;
+    captionFor(heal, state);
+    for (let i = 0; i < 100; i++) sim.step();
+    withSettings({ hud: { ...DEFAULT_SETTINGS.hud, lowHealthSound: false } });
+    h.hp = h.maxHp * 0.2;
+    expect(captionFor(hit, state)).toBeNull();
+  });
+});
+
+/** The same state, its clock moved on past the wind-up gap (captions remember by state). */
+function memoAdvance<S extends { time: number }>(state: S): S {
+  (state as { time: number }).time += 1;
+  return state;
+}

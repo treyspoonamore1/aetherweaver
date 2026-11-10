@@ -151,7 +151,7 @@ export function SettingsPanel({
         />
         <Toggle
           label="Captions"
-          hint="Key sounds in words: when the music stops, each note you play, Discord rising."
+          hint={t('a11y.captions.hint')}
           checked={settings.captions}
           onChange={(v) => update((d) => ({ ...d, captions: v }))}
         />
