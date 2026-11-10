@@ -26,7 +26,7 @@ import {
   silencePips,
   silenceText,
 } from './finaleLook';
-import { t as txt } from '../text';
+import { simText, t as txt } from '../text';
 
 /**
  * Phase 6, Tyrant: the boss's borrowed attack for this phase, as its decree words it (cut to its
@@ -385,7 +385,9 @@ function BlindAnswer() {
 }
 
 function DecreeLine({ decree, blind }: { decree: { name: string; text: string }; blind: boolean }) {
-  const text = blind ? blindDecree(decree.text) : decree.text;
+  // The sim's words, shown by their content source (src/ui/text/simText.ts).
+  const said = simText(decree.text);
+  const text = blind ? blindDecree(said) : said;
   return (
     <p
       className="mt-1.5 rounded-lg border border-ailment/50 bg-ink-900/85 px-3 py-1.5 text-xs leading-snug text-violet-200 backdrop-blur-sm"
@@ -395,7 +397,7 @@ function DecreeLine({ decree, blind }: { decree: { name: string; text: string };
       <span className="mr-1.5 font-display text-sm font-bold text-violet-100">
         {txt('hud.bossBar.decree')}
       </span>
-      <span className="line-clamp-2">{text || decree.name}</span>
+      <span className="line-clamp-2">{text || simText(decree.name)}</span>
     </p>
   );
 }

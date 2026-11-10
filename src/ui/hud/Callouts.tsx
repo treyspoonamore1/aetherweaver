@@ -6,7 +6,7 @@ import { AnswerGlyph } from './AnswerGlyph';
 import { allyDef, allyOf, sightingDef, sightingOf } from './sighting';
 import { shownDecree } from './legionLook';
 import { heroInk } from '../kit/bondLook';
-import { t as txt } from '../text';
+import { simText, t as txt } from '../text';
 
 /** The party as the decree banner reads it (docs/phase-5b.md): who is in it, who is condemned. */
 type CalloutParty = readonly Pick<HeroHud, 'defId' | 'execute'>[];
@@ -240,7 +240,9 @@ export function Toast({ c, small = false }: { c: Callout; small?: boolean }) {
           {c.speaker}:
         </span>
       )}
-      <span style={c.speaker ? undefined : { color: c.color }}>{c.text}</span>
+      <span style={c.speaker ? undefined : { color: c.color }}>
+        {c.kind === 'bark' ? simText(c.text) : c.text}
+      </span>
       {c.detail && <span className="ml-2 text-muted">{c.detail}</span>}
     </div>
   );

@@ -22,6 +22,7 @@ export { clockText, num, percent, plural, possessive, seconds } from './format';
 export { currentLocale, setLocale, useLocale } from './locale';
 export { LOCALES, type Locale } from './locales';
 export { pseudo } from './pseudo';
+export { simText, simTextSource } from './simText';
 export { EN, EN_AREAS, type TextKey } from './en';
 export type { Catalogue } from './catalogue';
 

@@ -23,6 +23,9 @@ import {
   type TextKey,
 } from '../src/ui/text';
 import { installLocale, localeFromSearch, localeFromSettings } from '../src/ui/text/install';
+import { simText, simTextSource } from '../src/ui/text/simText';
+import { CONTENT } from '../src/content';
+import { CONDUCTOR_DECREES, POSTLUDE_DECREE } from '../src/content/crucible';
 import {
   ROOT,
   counts,
@@ -224,5 +227,43 @@ describe('the locale’s wiring (src/ui/text/install.ts)', () => {
     const stop = installLocale('');
     expect('locale' in useSettings.getState().settings).toBe(false);
     stop();
+  });
+});
+
+describe('sim text by its content source (src/ui/text/simText.ts)', () => {
+  const bark = CONTENT.heroes.flatMap((h) => Object.values(h.barks).flat())[0]!;
+  const decree = CONTENT.attacks.find((a) => a.decree)!.decree!;
+
+  it('English shows every sim line as the sim wrote it', () => {
+    for (const line of [bark, decree, CONDUCTOR_DECREES.overture, 'Cracked Bell', 'anything'])
+      expect(simText(line, 'en')).toBe(line);
+  });
+
+  it('a bark and a decree are found in CONTENT and pseudo-localized in en-XA', () => {
+    expect(simTextSource(bark)).toMatch(/^CONTENT\.heroes\[\d+\]\{\w+\}\.barks\./);
+    expect(simTextSource(decree)).toMatch(/^CONTENT\.attacks\[\d+\]\{\w+\}\.decree$/);
+    expect(simTextSource(POSTLUDE_DECREE)).toBe('POSTLUDE_DECREE');
+    expect(simText(bark, 'en-XA')).toBe(pseudo(bark));
+    expect(simText(CONDUCTOR_DECREES.grandSilence, 'en-XA')).toBe(
+      pseudo(CONDUCTOR_DECREES.grandSilence),
+    );
+  });
+
+  it('the sim’s own words, with no content source, stay English (the listed exceptions)', () => {
+    // Decree names and texts written in src/sim/systems/bosses.ts, not in content.
+    const simOnly = [
+      'Cracked Bell',
+      'Blood Frenzy',
+      'Unpicking',
+      'Overture',
+      'Mirror Choir',
+      'Postlude',
+      'The bell cracks — every Toll Outward now rings back Inward. Out, then in!',
+      'The Matriarch hunts faster. Cleanse the bleeding; Focus the pack.',
+    ];
+    for (const line of simOnly) {
+      expect(simTextSource(line), line).toBeNull();
+      expect(simText(line, 'en-XA')).toBe(line);
+    }
   });
 });
