@@ -10,12 +10,18 @@ import { createSim, type Command, type Sim, type SimConfig } from '../../src/sim
 import { dealDamage } from '../../src/sim/combat/health';
 import type { Entity } from '../../src/sim/state';
 import type { World } from '../../src/sim/world';
+import { TYRANT_OWN } from '../../src/content/crucible';
+import { CONDUCTOR, DOWNBEAT, SFORZANDO } from '../../src/content/crucibleIds';
+import { tyrantDecreeOf } from '../../src/sim/systems/tyrant';
+import { runScenario } from '../../tools/runScenario';
 import {
   SCENARIO_BELLWARDEN,
+  SCENARIO_CONDUCTOR,
   SCENARIO_POSTLUDE,
   SCENARIO_VHARUN,
   type Scenario,
 } from '../../tools/scenarios';
+import golden from './golden.json';
 import { ofType, worldOf } from './helpers';
 
 const TYRANT = [{ id: 'tyrant', rank: 1 }];
@@ -299,5 +305,55 @@ describe('review A, F5: a Postlude pair names only voices standing', () => {
       expect(p[0]).toBe(first);
       expect(p.length).toBe(2);
     }
+  }, 120_000);
+});
+
+describe('review A, F4: one clock for the Silent Conductor’s held attack', () => {
+  it('in the Overture every Sforzando, in the Mirror Choir every Downbeat, is the hold’s, on its cadence', () => {
+    const s = SCENARIO_CONDUCTOR;
+    const sim = createSim({ seed: s.seed, ...s.config, dissonance: TYRANT });
+    const w = worldOf(sim);
+    const bot = makeBot('skilled', s.seed);
+    const seen = new Set<number>();
+    const starts: Record<number, number[]> = { 1: [], 2: [] };
+    let maxLive = 0;
+    for (let t = 0; t < 60 * 400; t++) {
+      sim.step(bot.decide(sim.state));
+      sim.drainEvents();
+      const b = bossOf(w);
+      const phase = b?.enemy?.phase ?? 0;
+      maxLive = Math.max(maxLive, w.telegraphs.filter((x) => x.effect === 'damage').length);
+      for (const tg of w.telegraphs) {
+        if (seen.has(tg.id) || tg.owner !== b?.id) continue;
+        seen.add(tg.id);
+        const held = phase === 1 ? SFORZANDO : phase === 2 ? DOWNBEAT : null;
+        if (tg.attackId !== held) continue;
+        // Its hold names it (the crown marks every one of them).
+        expect(b.enemy!.tyrant?.attack).toBe(held);
+        starts[phase]!.push(w.time);
+      }
+      if (w.encounter.status === 'victory' || w.encounter.status === 'defeat') break;
+    }
+    expect(maxLive).toBeLessThanOrEqual(2);
+    const every = { 1: TYRANT_OWN.sforzando, 2: TYRANT_OWN.downbeat } as const;
+    for (const phase of [1, 2] as const) {
+      const at = starts[phase]!;
+      expect(at.length, `phase ${phase}`).toBeGreaterThan(3);
+      // One clock: no cast sooner than the cadence after the one before.
+      for (let i = 1; i < at.length; i++)
+        expect(at[i]! - at[i - 1]!, `phase ${phase} cast ${i}`).toBeGreaterThan(
+          every[phase] - 1e-6,
+        );
+    }
+  }, 120_000);
+
+  it('the Decree says it plays that attack more often', () => {
+    expect(tyrantDecreeOf(CONDUCTOR, { attack: DOWNBEAT, from: CONDUCTOR })).toMatch(
+      /^Tyrant — the Silent Conductor plays its Downbeat more often\./,
+    );
+  });
+
+  it('without Tyrant the Conductor is as it was (its golden)', () => {
+    expect(runScenario(SCENARIO_CONDUCTOR).hash).toBe(golden.scenarios['skilled-conductor']);
   }, 120_000);
 });

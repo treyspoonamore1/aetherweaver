@@ -94,6 +94,14 @@ export const POSTLUDE = {
 
 /** Tyrant: the last burn's (and the Postlude's) Downbeat and Sforzando cadences (s). */
 export const TYRANT_BURN = { downbeat: 7, sforzando: 9 } as const;
+/**
+ * Tyrant: the Silent Conductor's own attack that it plays more often, on one clock (s from one
+ * cast's start to the next's ready): its Sforzando in the Overture, its Downbeat in the Mirror
+ * Choir. Its own picker leaves that attack to this cadence in that phase. Set so the rate it is
+ * really cast at, after its other casts and the cap on damaging telegraphs, stays the one measured
+ * on Tyrant's first build (whose two clocks this replaces).
+ */
+export const TYRANT_OWN = { sforzando: 5.5, downbeat: 4.5 } as const;
 
 /** The Postlude's Decree: what's coming, then its answer (Principle 4). */
 export const POSTLUDE_DECREE =

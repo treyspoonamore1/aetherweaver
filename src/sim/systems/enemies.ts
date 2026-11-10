@@ -57,7 +57,7 @@ import {
 } from '../../content/unstitched';
 import { FINALE_MIN_WINDUP } from '../../content/crucible';
 import { enemyRooted, untauntedTarget } from './grove';
-import { tryTyrant, tyrantForeseeable } from './tyrant';
+import { ownHeld, tryTyrant, tyrantForeseeable } from './tyrant';
 
 /** Normal enemies may have at most this many telegraphs up at once (readability cap). */
 export const READABILITY_CAP = 2;
@@ -507,6 +507,8 @@ function trySpecial(world: World, e: Entity, def: EnemyDef, target: Entity): boo
     if (c.specialCooldowns[i]! > 0) continue;
     const id = specials[i]!;
     if (SCRIPTED.has(id)) continue;
+    // Tyrant: an attack of its own that the phase's hold plays is the hold's alone (one clock).
+    if (world.mods.tyrant && boss && ownHeld(e, id)) continue;
     const attack = attackDef(id);
     if (!pickable(attack, rules)) continue;
     if (!boss && attack.effect === 'damage' && activeNormalTelegraphs(world) >= READABILITY_CAP) {
@@ -1082,6 +1084,7 @@ function foresee(world: World, e: Entity, def: EnemyDef): void {
     for (let i = 0; i < specials.length; i++) {
       const id = specials[i]!;
       if (SCRIPTED.has(id)) continue;
+      if (world.mods.tyrant && boss && ownHeld(e, id)) continue;
       const attack = attackDef(id);
       if (!pickable(attack, rules) || !canBegin(world, e, attack)) continue;
       const at = Math.max(free, world.time + stun + Math.max(0, c.specialCooldowns[i]!));
