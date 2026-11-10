@@ -2,7 +2,9 @@
  * CONTRACT v15 — the Loom (docs/phase-4g.md): Starlight, the Atelier's keepsakes and Calling
  * mastery. Pure: the profile store keeps the state.
  */
-import { CONTENT } from '../content';
+import { CONTENT, type KeepsakeEarned } from '../content';
+import { atlasKeepsakes } from './atlas';
+import type { ProfileAtlas } from './profile';
 import type { EncounterResult, RunState } from './types';
 
 /** What the Weaver wears and is called: a robe, a Thread look, a title (null: the default). */
@@ -28,6 +30,11 @@ export interface LoomState {
   variants: string[];
   /** Deeds earned (a Deed's title is earned with it). */
   deeds: string[];
+  /**
+   * The Atlas of Echoes (docs/phase-6.md): a complete constellation, or the whole Atlas, earns
+   * its keepsake. Absent: no star lit.
+   */
+  atlas?: ProfileAtlas;
 }
 
 const S = () => CONTENT.starlight;
@@ -108,10 +115,11 @@ export interface ShopItem {
   id: string;
   kind: ShopKind;
   name: string;
-  /** Starlight; null for a title that's earned, not bought. */
+  /** Starlight; null for a keepsake that's earned, not bought (a title, or an Atlas look). */
   price: number | null;
   /**
-   * `owned`, `earned` (a title, by mastery or a Deed), `buyable`, `open` (a variant Skip the
+   * `owned`, `earned` (a title, by mastery or a Deed; a title, robe or Thread look by the Atlas
+   * of Echoes), `buyable`, `open` (a variant Skip the
    * unlocks lets you play; it's bought only where it's sold without Skip) or `locked`.
    */
   state: 'owned' | 'earned' | 'buyable' | 'open' | 'locked';
@@ -121,18 +129,43 @@ export interface ShopItem {
 
 const TOP = () => CONTENT.mastery.levels.length;
 
-/** The titles this profile has earned: its Callings' top masteries and its Deeds'. */
-export function earnedTitles(state: Pick<LoomState, 'mastery' | 'deeds'>): string[] {
+/**
+ * The titles this profile has earned: its Callings' top masteries, its Deeds', and since Phase 6
+ * (docs/phase-6.md) a complete constellation's or the whole Atlas's.
+ */
+export function earnedTitles(
+  state: Pick<LoomState, 'mastery' | 'deeds'> & Pick<Partial<LoomState>, 'atlas'>,
+): string[] {
+  const atlas = new Set(atlasKeepsakes(state.atlas));
   return CONTENT.cosmetics.titles
     .filter((t) => {
       if (!t.earned) return false;
       if ('mastery' in t.earned) return masteryLevel(state.mastery[t.earned.mastery] ?? 0) >= TOP();
       if ('deed' in t.earned) return state.deeds.includes(t.earned.deed);
-      // Phase 6 (docs/phase-6.md): a constellation's or the Atlas's title; W3 judges them by
-      // the Atlas's stars. No title is earned that way yet.
-      return false;
+      return atlas.has(t.id);
     })
     .map((t) => t.id);
+}
+
+/**
+ * The robes and Thread looks this profile has earned in the Atlas of Echoes (docs/phase-6.md,
+ * "Rewards"): never sold, never kept in `cosmetics`, worn while earned.
+ */
+export function earnedLooks(state: Pick<Partial<LoomState>, 'atlas'>): string[] {
+  const c = CONTENT.cosmetics;
+  const looks = new Set([...c.robes, ...c.threads].filter((k) => k.earned).map((k) => k.id));
+  return atlasKeepsakes(state.atlas).filter((id) => looks.has(id));
+}
+
+/** How an earned keepsake is earned, in the Atelier's words. */
+function earnedHow(earned: KeepsakeEarned): string {
+  if ('mastery' in earned)
+    return `Earned with the ${CONTENT.callings.find((c) => c.id === earned.mastery)?.name ?? 'Calling'}'s top mastery.`;
+  if ('deed' in earned)
+    return `Earned with the Deed ${CONTENT.deeds.find((d) => d.id === earned.deed)?.name ?? ''}.`;
+  if ('constellation' in earned)
+    return `Earned by lighting every star of ${CONTENT.constellations.find((k) => k.id === earned.constellation)?.name ?? 'a constellation'} in the Atlas of Echoes.`;
+  return 'Earned by lighting every star in the Atlas of Echoes.';
 }
 
 /** Everything the Atelier shows, in order: variants, robes, Thread looks, titles. */
@@ -173,26 +206,32 @@ export function shopItems(state: LoomState, rank: number, all: boolean): ShopIte
       state: state.cosmetics.includes(id) ? 'owned' : open ? 'buyable' : 'locked',
       reason: state.cosmetics.includes(id) || open ? null : closed,
     });
-  for (const r of CONTENT.cosmetics.robes) sell(r.id, 'robe', r.name, r.price);
-  for (const t of CONTENT.cosmetics.threads) sell(t.id, 'thread', t.name, t.price);
+  // An earned keepsake is never sold (docs/phase-6.md): no price, earned or locked, and how.
+  const earn = (id: string, kind: ShopKind, name: string, how: KeepsakeEarned, has: boolean) =>
+    items.push({
+      id,
+      kind,
+      name,
+      price: null,
+      state: has ? 'earned' : 'locked',
+      reason: earnedHow(how),
+    });
+  // An Atlas robe or Thread look is shown only once earned: the Atelier's views read a locked
+  // robe as the Atelier being closed (src/ui/screens/loomModel.ts, `atelierShelves`).
+  const looks = earnedLooks(state);
+  for (const r of CONTENT.cosmetics.robes)
+    if (!r.earned) sell(r.id, 'robe', r.name, r.price);
+    else if (looks.includes(r.id)) earn(r.id, 'robe', r.name, r.earned, true);
+  for (const t of CONTENT.cosmetics.threads)
+    if (!t.earned) sell(t.id, 'thread', t.name, t.price);
+    else if (looks.includes(t.id)) earn(t.id, 'thread', t.name, t.earned, true);
   const earned = earnedTitles(state);
   for (const t of CONTENT.cosmetics.titles) {
     if (t.price !== undefined) {
       sell(t.id, 'title', t.text, t.price);
       continue;
     }
-    const how =
-      t.earned && 'mastery' in t.earned
-        ? `Earned with the ${CONTENT.callings.find((c) => c.id === (t.earned as { mastery: string }).mastery)?.name ?? 'Calling'}'s top mastery.`
-        : `Earned with the Deed ${CONTENT.deeds.find((d) => d.id === (t.earned as { deed: string }).deed)?.name ?? ''}.`;
-    items.push({
-      id: t.id,
-      kind: 'title',
-      name: t.text,
-      price: null,
-      state: earned.includes(t.id) ? 'earned' : 'locked',
-      reason: how,
-    });
+    if (t.earned) earn(t.id, 'title', t.text, t.earned, earned.includes(t.id));
   }
   return items;
 }
@@ -231,16 +270,17 @@ export function equip(state: LoomState, slot: keyof Look, id: string | null): Lo
         : CONTENT.cosmetics.titles;
   if (!list.some((x) => x.id === id)) return state.look;
   const mine =
-    state.cosmetics.includes(id) || (slot === 'title' && earnedTitles(state).includes(id));
+    state.cosmetics.includes(id) ||
+    (slot === 'title' ? earnedTitles(state) : earnedLooks(state)).includes(id);
   return mine ? { ...state.look, [slot]: id } : state.look;
 }
 
-/** Owned keepsakes the content still knows, each once (earned titles aren't kept here). */
+/** Owned keepsakes the content still knows, each once (earned keepsakes aren't kept here). */
 export function fitCosmetics(owned: readonly string[]): string[] {
   const c = CONTENT.cosmetics;
   const known = new Set([
-    ...c.robes.map((r) => r.id),
-    ...c.threads.map((t) => t.id),
+    ...c.robes.filter((r) => !r.earned).map((r) => r.id),
+    ...c.threads.filter((t) => !t.earned).map((t) => t.id),
     ...c.titles.filter((t) => t.price !== undefined).map((t) => t.id),
   ]);
   return [...new Set(owned.filter((id) => known.has(id)))];
