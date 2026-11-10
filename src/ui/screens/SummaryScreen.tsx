@@ -41,7 +41,13 @@ import { HeroDisc, Pips, SectionTitle } from './shared';
 import { ContributionBar } from './ContributionBar';
 import { RankUpCard, XpBar, useRankUps } from './Rank';
 import { rankPanel, runRank, xpGain, xpHeadline } from './rankText';
-import { HIGHLIGHT_COLOR, contributionOf, runDownAdvice, songLines } from './resultText';
+import {
+  HIGHLIGHT_COLOR,
+  contributionOf,
+  runDownAdvice,
+  songLines,
+  triggerLines,
+} from './resultText';
 import { HpTimeline, TimelineLegend } from './Timeline';
 import { RelicGlyph } from '../kit/RelicGlyph';
 import { aetherEarned, ownedRelicInfo } from './interlude';
@@ -418,6 +424,28 @@ export function SummaryView({
             <ContributionBar parts={contributionOf(totals)} className="mb-3" />
             <ul className="flex flex-col gap-2">
               {songLines(totals).map((l, i) => (
+                <li
+                  key={i}
+                  className={`flex items-start gap-3 text-sm leading-relaxed ${l.muted ? 'text-muted' : 'text-text'}`}
+                >
+                  <Icon
+                    name={l.icon}
+                    size={18}
+                    className={`mt-0.5 shrink-0 ${l.muted ? 'text-ink-500' : 'text-gold-300'}`}
+                  />
+                  {l.text}
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        )}
+
+        {triggerLines(totals).length > 0 && (
+          // Phase 5g: the run's triggers, named from content ("Clean Strike triggered 14 times.").
+          <Panel tone="solid" className="mt-6 p-5" data-testid="summary-triggers">
+            <SectionTitle>Your motifs and relics at work</SectionTitle>
+            <ul className="flex flex-col gap-2">
+              {triggerLines(totals).map((l, i) => (
                 <li
                   key={i}
                   className={`flex items-start gap-3 text-sm leading-relaxed ${l.muted ? 'text-muted' : 'text-text'}`}

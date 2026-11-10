@@ -4,6 +4,7 @@
  */
 import { relicDef, relicValues, type RelicRarity } from '../../content';
 import { relicAwake } from '../../sim';
+import { glyphKey } from '../kit/iconPaths';
 import { movementPlace } from '../screens/routeText';
 
 export interface RelicHud {
@@ -53,7 +54,16 @@ export interface RelicSource {
     triggers?: Readonly<Record<string, number>>;
   };
   time: number;
-  ledger: { perfects: number; downs: number };
+  /**
+   * `triggers` (Phase 5g): the trigger system's fires this fight by source (the sim's
+   * `ledger.triggers`), the pulse of a relic whose rule is a trigger.
+   */
+  ledger: { perfects: number; downs: number; triggers?: Readonly<Record<string, number>> };
+  /**
+   * Phase 5g: once-a-fight relics the sim tracks outside `relics` (Spare Strings, Water Clock),
+   * by id: true while still available this fight. Absent: none.
+   */
+  once?: Readonly<Record<string, boolean>>;
   /** The fight's Movement (the sim's `fightMovement`); absent: every relic reads awake. */
   movement?: number;
 }
@@ -83,7 +93,7 @@ export function relicHuds(src: RelicSource): RelicHud[] {
     const base = {
       id,
       name: def.name,
-      icon: def.icon,
+      icon: glyphKey(def),
       rarity: def.rarity,
       cleansed: src.relics.cleansed.includes(id),
       empowered,
@@ -120,6 +130,20 @@ export function relicHuds(src: RelicSource): RelicHud[] {
       });
       continue;
     }
+    // Phase 5g: Spare Strings and the Water Clock act once a fight, as the Veil does.
+    const once = src.once?.[id];
+    if (once !== undefined) {
+      out.push({
+        ...base,
+        kind: 'once',
+        ready: once,
+        remaining: 0,
+        total: 0,
+        pulse: once ? 0 : 1,
+        label: `${def.name}: ${once ? 'ready, once this fight' : 'spent this fight'}`,
+      });
+      continue;
+    }
     if (id === 'martyrs_veil') {
       out.push({
         ...base,
@@ -133,8 +157,10 @@ export function relicHuds(src: RelicSource): RelicHud[] {
       continue;
     }
     // The sim counts each relic's moments; without them (mocks), Perfects and downs stand in.
+    // A trigger relic (Phase 5g) pulses on its fires (`ledger.triggers`).
     const pulse =
       src.relics.triggers?.[id] ??
+      src.ledger.triggers?.[id] ??
       (id === 'tuning_fork' || id === 'glass_halo'
         ? src.ledger.perfects
         : id === 'lantern_of_the_lost'

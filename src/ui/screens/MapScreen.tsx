@@ -16,6 +16,7 @@ import { useMood } from '../kit/sound';
 import { clock } from '../kit/format';
 import { PartyHealth, Pips, SectionTitle } from './shared';
 import { Glyph } from '../kit/RelicGlyph';
+import { glyphKey } from '../kit/iconPaths';
 import { eventPreview, rewardChips, threatLine, type RewardChip } from './interlude';
 import { RunStrip } from './RelicCard';
 import { useAllowance } from './PrepScreen';
@@ -436,7 +437,7 @@ function MapNodeView({
   // The fight's par at the run's Dissonance (Phase 4d: its extra life lengthens it).
   const par = enc ? Math.round(enc.par * parMult(run.dissonance ?? [], enc.kind)) : 0;
   const ev = node.kind === 'event' ? eventPreview(node.eventId) : null;
-  const eventIcon = node.eventId ? runEventDef(node.eventId).icon : null;
+  const eventIcon = node.eventId ? glyphKey(runEventDef(node.eventId)) : null;
   const title = enc?.name ?? ev?.name ?? look.label;
   // Phase 5e: an event's Rank-gated recruiting fight, when your Rank shows it, names its Threat.
   const threat = threatLine(nodeThreat(run, node, allowance), node.kind === 'event');

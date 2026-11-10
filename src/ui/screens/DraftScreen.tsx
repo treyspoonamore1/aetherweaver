@@ -13,7 +13,14 @@ import { playUi, useMood } from '../kit/sound';
 import { Pips } from './shared';
 import { unforgivingLine } from './dissonanceModel';
 import { draftCopy } from './interlude';
-import { harmonyHint, harmonyNeeds, isHarmony } from './rosterModel';
+import {
+  harmonyLeads,
+  harmonyNeeds,
+  harmonyPrereqs,
+  isHarmony,
+  type HarmonyHave,
+  type HarmonyNeed,
+} from './rosterModel';
 
 export interface DraftViewProps {
   run: RunState;
@@ -68,6 +75,7 @@ export function DraftView({ run, onPick, onReroll }: DraftViewProps) {
                 index={i}
                 onPick={() => onPick(i)}
                 party={run.party.map((h) => h.heroId)}
+                have={harmonyHave(run)}
               />
             </li>
           ))}
@@ -95,6 +103,17 @@ export function DraftView({ run, onPick, onReroll }: DraftViewProps) {
   );
 }
 
+/** " Needs: Blood Tithe (owned), Taut Release (missing)." for a Harmony card's label. */
+export function needsSentence(needs: readonly HarmonyNeed[]): string {
+  if (needs.length === 0) return '';
+  return ` Needs: ${needs.map((n) => `${n.text} (${n.owned ? 'owned' : 'missing'})`).join(', ')}.`;
+}
+
+/** What a Harmony's prerequisites are checked against: the run's motifs, songs and party. */
+export function harmonyHave(run: Pick<RunState, 'motifs' | 'chords' | 'party'>): HarmonyHave {
+  return { motifs: run.motifs, chords: run.chords, party: run.party.map((h) => h.heroId) };
+}
+
 /**
  * A motif offer as a card (draft, merchant): category, name, rarity, new or upgrade, the line
  * at its new level. `action` replaces the gold call to action; `disabled` keeps it focusable
@@ -109,7 +128,14 @@ export function MotifCard({
   dim = false,
   label,
   party,
+  have,
 }: {
+  /**
+   * Phase 5g: what the run holds (`harmonyHave`). A Harmony's card lists its prerequisites, each
+   * owned or missing; a prerequisite's card marks the other needs of every Harmony it leads to.
+   * Omitted: the Harmony's card names its prerequisites only in its ribbon's tooltip.
+   */
+  have?: HarmonyHave;
   /**
    * Phase 5b: the run's party (hero ids). A Harmony's prerequisite says what it would enable once
    * its hero is in it (docs/phase-5b.md). Omitted: no hint.
@@ -132,7 +158,8 @@ export function MotifCard({
   const req = def.requires;
   // Phase 5b: a Harmony wears a ribbon; its prerequisites say what they'd enable.
   const harmony = isHarmony(def.id);
-  const enables = party ? harmonyHint(def.id, party) : null;
+  const leads = party ? harmonyLeads(def.id, party, have) : [];
+  const needs = harmony && have ? harmonyPrereqs(def.id, have) : [];
   return (
     <button
       type="button"
@@ -140,7 +167,7 @@ export function MotifCard({
       aria-disabled={disabled || undefined}
       aria-label={
         label ??
-        `${def.name}, ${rarity.label} ${cat.label} motif${option.upgrade ? `, upgrade to level ${option.level}` : ''}. ${motifLine(def.id, option.level)}`
+        `${def.name}, ${rarity.label} ${cat.label} motif${option.upgrade ? `, upgrade to level ${option.level}` : ''}. ${motifLine(def.id, option.level)}${needsSentence(needs)}`
       }
       className={`group flex h-full w-full flex-col rounded-2xl border-2 bg-ink-800/90 p-5 text-left shadow-xl shadow-black/40 transition-all ${disabled ? 'cursor-not-allowed' : 'hover:-translate-y-1.5 hover:bg-ink-700/90'} ${dim ? 'opacity-55 saturate-50' : ''}`}
       style={{ borderColor: rarity.color }}
@@ -188,16 +215,43 @@ export function MotifCard({
       <div className="mt-3 flex items-center gap-2 text-xs text-muted">
         Level <Pips level={option.level} max={max} color={cat.color} />
       </div>
+      {needs.length > 0 && (
+        // Phase 5g: what the Harmony needs, each owned (a check) or missing (a cross), in words.
+        <div className="mt-3" data-testid="harmony-needs">
+          <p className="text-xs font-semibold uppercase tracking-wider text-gold-200">Needs</p>
+          <ul className="mt-1 flex flex-col gap-0.5">
+            {needs.map((n) => (
+              <li
+                key={`${n.kind}:${n.id}`}
+                className={`flex items-center gap-1.5 text-xs ${n.owned ? 'text-heal' : 'text-muted'}`}
+                data-need={n.id}
+                data-owned={n.owned}
+              >
+                <Icon name={n.owned ? 'check' : 'close'} size={13} />
+                {n.text}
+                {!n.owned && <span className="text-[0.7rem] italic">missing</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="mt-auto pt-4">
-        {enables && (
-          <p
-            className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-gold-200"
-            data-testid="harmony-hint"
-          >
-            <Icon name="link" size={13} />
-            {enables}
-          </p>
-        )}
+        {leads.map((l) => {
+          const ready = have !== undefined && l.others.every((n) => n.owned);
+          return (
+            <p
+              key={l.harmony.id}
+              className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-gold-200"
+              data-testid="harmony-hint"
+              data-harmony={l.harmony.id}
+              data-ready={ready || undefined}
+            >
+              <Icon name={ready ? 'check' : 'link'} size={13} />
+              {l.text}
+              {ready && <span className="font-normal text-heal">· you have the rest</span>}
+            </p>
+          );
+        })}
         {(req.aura || req.hero) && (
           <p className="mb-2 flex items-center gap-1.5 text-xs text-heal">
             <Icon name="check" size={13} />
