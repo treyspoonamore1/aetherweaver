@@ -1066,3 +1066,22 @@ function playOneStore(run: RunState): void {
       throw new Error(run.phase);
   }
 }
+
+describe('a weekly sitting in Prep', () => {
+  it('follows nothing the profile or the settings change', () => {
+    const entry: WeeklyEntry = {
+      route: 'expedition',
+      calling: 'chronomancer',
+      party: ['kael', 'lyra', 'oro'],
+      dissonance: [L('hardened', 1)],
+    };
+    useRun.getState().newWeeklyRun(50, entry);
+    const before = useRun.getState().run!;
+    veteran([L('brisk_foes'), L('restless_dead')]);
+    useProfile.getState().takeNode('silk_t1');
+    useProfile.getState().setTechnique('ward', CONTENT.techniqueVariants[0]!.id);
+    useSettings.getState().update((s) => ({ ...s, unlockAll: false }));
+    useSettings.getState().update((s) => ({ ...s, unlockAll: true }));
+    expect(useRun.getState().run).toStrictEqual(before);
+  });
+});
