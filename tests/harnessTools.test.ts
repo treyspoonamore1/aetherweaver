@@ -2725,7 +2725,7 @@ describe('Echoes and weeklies in the harness (docs/phase-6.md, W7 part B)', () =
     }
   }, 300_000);
 
-  it('a recorded Expert Echo run and Echo-route weekly verify, and recording changes nothing', () => {
+  it('a recorded Expert Echo run plays back and an Echo-route weekly verifies, and recording changes nothing', () => {
     const week = 51;
     const entry = weeklyEntry(week)!;
     expect(entry.route).not.toBe('expedition');
@@ -2745,7 +2745,10 @@ describe('Echoes and weeklies in the harness (docs/phase-6.md, W7 part B)', () =
       expect(file.kind).toBe(name === 'echo' ? 'echo' : 'weekly');
       expect(file.steps.filter((s) => s.k === 'fight')).toHaveLength(recorded.fights);
       const result = verifyRunReplay(file);
-      expect(result.status, `${name}: ${result.message}`).toBe('verified');
+      // Only a weekly's start can be rebuilt, so only a weekly reads Verified; an Echo plays back.
+      expect(result.status, `${name}: ${result.message}`).toBe(
+        name === 'echo' ? 'playsBack' : 'verified',
+      );
       expect(result.played!.won).toBe(recorded.outcome === 'victory');
     }
     expect(() =>
