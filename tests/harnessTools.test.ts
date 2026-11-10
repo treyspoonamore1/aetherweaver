@@ -2024,6 +2024,45 @@ describe('playRun’s draftPrefer and relicPrefer (docs/phase-5g.md, W10)', () =
     expect(bought(8, ['glass_halo'])).toEqual(['glass_halo']);
   }, 120_000);
 
+  it('buys a motif the draft list names first at a merchant (docs/phase-5g.md, W11)', () => {
+    // Seed 8's first cloth: Black Ribbon 50, Glass Halo 30, Hollow Bell 80, Whiplash 35, Spindle
+    // Turn 35, with 60 Aether. With no list the dearest relic it can afford goes first, and no
+    // motif is bought; with a list naming Spindle Turn, Spindle Turn goes first.
+    const bought = (seed: number, draftPrefer?: string[]) => {
+      let before: { motifs: string[]; relics: string[] } | null = null;
+      let after: { motifs: string[]; relics: string[] } | null = null;
+      let shopping = false;
+      const held = (run: RunState) => ({
+        motifs: run.motifs.map((m) => m.id),
+        relics: run.relics.map((r) => r.id),
+      });
+      playRun(seed, 'skilled', undefined, {
+        ...route,
+        ...(draftPrefer ? { draftPrefer } : {}),
+        onPhase: (phase, run) => {
+          if (shopping && after === null) after = held(run);
+          if (phase === 'merchant' && before === null) {
+            const cloth = run.shop!.items.filter((i) => i.kind === 'motif').map((i) => i.id);
+            if (draftPrefer) expect(cloth).toContain(draftPrefer[0]);
+            before = held(run);
+            shopping = true;
+          }
+        },
+      });
+      const b = before!;
+      const a = after!;
+      return {
+        motifs: a.motifs.filter((id) => !b.motifs.includes(id)),
+        relics: a.relics.filter((id) => !b.relics.includes(id)),
+      };
+    };
+    expect(bought(8)).toEqual({ motifs: [], relics: ['black_ribbon'] });
+    expect(bought(8, ['spindle_turn', 'whiplash'])).toEqual({
+      motifs: ['spindle_turn'],
+      relics: [],
+    });
+  }, 120_000);
+
   it('takes an event choice that asks for a motif by the draft preference (review B8)', () => {
     const def = (id: string) => CONTENT.motifs.find((m) => m.id === id)!;
     const reweave = {
