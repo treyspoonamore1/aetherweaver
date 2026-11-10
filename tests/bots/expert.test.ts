@@ -10,8 +10,15 @@ import { describe, expect, it } from 'vitest';
 import { makeBot, type Bot } from '../../src/bots';
 import { EXPERT_RULES, ExpertBot, ExpertPlay, type ExpertRule } from '../../src/bots/expert';
 import { SkilledBot } from '../../src/bots/skilled';
+import { attackDef } from '../../src/content';
 import { CONDUCTOR } from '../../src/content/crucibleIds';
-import { createSim, type Command, type SimConfig, type WorldState } from '../../src/sim';
+import {
+  createSim,
+  tyrantAttackOf,
+  type Command,
+  type SimConfig,
+  type WorldState,
+} from '../../src/sim';
 import { StateHasher, hashValue } from '../../src/sim/core/hash';
 import { ARRIVAL4_KIT, ARRIVAL_KIT, kitConfig } from '../../tools/kits';
 
@@ -161,7 +168,9 @@ describe('each Expert rule acts in a fight staged for it, and changes it when le
         each: (state) => {
           const id = state.encounter.bossId;
           const cast = id === null ? null : state.entities.get(id)?.enemy?.cast;
-          if (staged || cast?.attackId !== 'acolyte_mending_hymn') return;
+          // The Cantor's phase 3 borrowed attack, as the sim's own table names it.
+          if (staged || !cast || cast.attackId !== tyrantAttackOf('the_hollow_cantor', 3)?.attack)
+            return;
           if (state.time < cast.start + 1 || state.focusTarget === null) return;
           (state as { focusTarget: number | null }).focusTarget = null;
           staged = true;
@@ -171,8 +180,15 @@ describe('each Expert rule acts in a fight staged for it, and changes it when le
     );
   }, 60_000);
 
-  it('tyrantWard: Vharun with Tyrant, the borrowed attack due', () => {
-    actsIn('tyrantWard', VHARUN_TYRANT, { ticks: 60 * 120 });
+  it('tyrantWard: Vharun with Tyrant, a borrowed telegraph a Ward answers live', () => {
+    // The whole fight: its three phases' borrowed attacks, whichever of them a Ward answers.
+    expect(
+      [1, 2, 3].some((ph) => {
+        const entry = tyrantAttackOf('vharun_crimson_warden', ph);
+        return entry !== null && attackDef(entry.attack).answers.includes('ward');
+      }),
+    ).toBe(true);
+    actsIn('tyrantWard', VHARUN_TYRANT);
   }, 60_000);
 
   it('mimicFocus: the Shattered Choir with Mimicry, the Mimicking foe casting its mirror', () => {
