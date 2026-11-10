@@ -44,9 +44,14 @@ const REGISTRY: readonly Factor[] = [
     from: [{ always: true }],
   },
   {
-    name: 'Heavy Score’s `partyDamageMult` (health.ts); the boons Steadied and Faltering fold into it',
+    name: 'Heavy Score’s `partyDamageMult` (health.ts); the boons Steadied and Faltering, and Concert Pitch’s ring (a Harmony, N20, added into the factor), fold into it',
     stat: 'heroDamage',
-    from: [{ relic: 'heavy_score' }, { boon: 'steadied' }, { boon: 'faltering' }],
+    from: [
+      { relic: 'heavy_score' },
+      { boon: 'steadied' },
+      { boon: 'faltering' },
+      { motif: 'concert_pitch' },
+    ],
   },
   {
     name: 'the Luminary’s group and Crescendo: Radiance (Searing Hymns) and Eclipse, one factor (health.ts)',
@@ -57,11 +62,6 @@ const REGISTRY: readonly Factor[] = [
     name: 'the Conductor’s group and Crescendo: Duets, Trios, the Grand Finale, Marcato, Ensemble (`conductingMult`)',
     stat: 'heroDamage',
     from: [{ calling: 'conductor' }],
-  },
-  {
-    name: 'Concert Pitch (a Harmony, N20: health.ts beside Anthem)',
-    stat: 'heroDamage',
-    from: [{ motif: 'concert_pitch' }],
   },
   {
     name: 'Cutting Chorus on Razor Silk (a Harmony, N1: Razor Silk’s own damage)',
