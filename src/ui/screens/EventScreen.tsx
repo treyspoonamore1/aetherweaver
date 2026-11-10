@@ -11,6 +11,7 @@ import { Icon } from '../kit/Icon';
 import { KeyCap } from '../kit/KeyCap';
 import { Panel } from '../kit/Panel';
 import { Glyph } from '../kit/RelicGlyph';
+import { glyphKey } from '../kit/iconPaths';
 import { playUi, useMood } from '../kit/sound';
 import {
   choiceInfo,
@@ -170,7 +171,7 @@ export function EventView({
           tone="solid"
           className={`anim-rise mt-5 flex items-center gap-5 p-5 ${chosen !== null ? 'opacity-80' : ''}`}
         >
-          <EventGlyph icon={def.icon} size={chosen !== null ? 56 : 76} />
+          <EventGlyph icon={glyphKey(def)} size={chosen !== null ? 56 : 76} />
           <p className="max-w-3xl text-lg leading-relaxed text-text">{def.text}</p>
         </Panel>
 

@@ -7,6 +7,7 @@
  */
 import {
   CONTENT,
+  auraDef,
   bloodRageOf,
   encounterDef,
   heroDef,
@@ -14,6 +15,7 @@ import {
   motifDef,
   partyTaunts,
   type HeroDef,
+  type MotifDef,
 } from '../../content';
 import { HEAL_CUT } from '../../content/legion';
 import { HEAVY_LIFE, PARRY_REACH } from '../../content/rosterIds';
@@ -630,19 +632,103 @@ export function isHarmony(motifId: string): boolean {
   return motifDef(motifId).tags.includes('harmony');
 }
 
+/** What a Harmony's offer checks, from the run (Phase 5g): motifs owned, songs, party. */
+export interface HarmonyHave {
+  motifs: readonly { id: string }[];
+  /** The run's Chords (`run.chords`): an aura gate reads its auras. */
+  chords?: readonly { auras: readonly string[] }[];
+  /** The party's hero ids. */
+  party?: readonly string[];
+}
+
+/** One thing a Harmony needs, and whether the run has it. */
+export interface HarmonyNeed {
+  kind: 'hero' | 'motif' | 'aura';
+  id: string;
+  /** "Kael in your party", "Iron Answer", "Fortissimo in your songs". */
+  text: string;
+  owned: boolean;
+}
+
 /**
- * On a prerequisite's card, when the Harmony's hero is in the party: "Harmony: with Taut Release →
- * Blood and Silk". Null for any other card, or a party without that hero.
+ * Phase 5g (docs/phase-5g.md): everything a Harmony needs, in the doc's order (its hero, its
+ * motifs, an aura in your songs), each marked owned or missing for this run. Empty for a motif
+ * that isn't a Harmony (no `requires.motifs`). The draft offers one only once all are owned
+ * (`run.ts` `eligible`); a merchant, or a prerequisite lost after, can show one missing.
  */
-export function harmonyHint(motifId: string, party: readonly string[]): string | null {
+export function harmonyPrereqs(motifId: string, have: HarmonyHave): HarmonyNeed[] {
+  const req = motifDef(motifId).requires;
+  if (!req.motifs) return [];
+  const needs: HarmonyNeed[] = [];
+  if (req.hero)
+    needs.push({
+      kind: 'hero',
+      id: req.hero,
+      text: `${heroDef(req.hero).name} in your party`,
+      owned: (have.party ?? []).includes(req.hero),
+    });
+  for (const id of req.motifs)
+    needs.push({
+      kind: 'motif',
+      id,
+      text: motifDef(id).name,
+      owned: have.motifs.some((m) => m.id === id),
+    });
+  if (req.aura)
+    needs.push({
+      kind: 'aura',
+      id: req.aura,
+      text: `${auraDef(req.aura).name} in your songs`,
+      owned: (have.chords ?? []).some((c) => c.auras.includes(req.aura!)),
+    });
+  return needs;
+}
+
+/** A Harmony a prerequisite's card points at, with what else it needs. */
+export interface HarmonyLead {
+  harmony: MotifDef;
+  /** "Harmony: with Taut Release → Blood and Silk". */
+  text: string;
+  /** The Harmony's other needs (its hero aside), owned or missing when `have` is given. */
+  others: HarmonyNeed[];
+}
+
+/**
+ * Every Harmony this motif is a prerequisite of (Razor Silk leads to two), in content order,
+ * skipping one whose hero isn't in the party. The text names the other motifs, then an aura gate
+ * ("with Fortissimo in your songs"). With `have`, each other need says whether the run has it;
+ * without, every one reads missing.
+ */
+export function harmonyLeads(
+  motifId: string,
+  party: readonly string[],
+  have?: HarmonyHave,
+): HarmonyLead[] {
+  const out: HarmonyLead[] = [];
   for (const h of CONTENT.motifs) {
     const pre = h.requires.motifs;
     if (!pre?.includes(motifId)) continue;
     if (h.requires.hero && !party.includes(h.requires.hero)) continue;
-    const others = pre.filter((id) => id !== motifId).map((id) => motifDef(id).name);
-    return `Harmony: ${others.length > 0 ? `with ${others.join(' and ')} ` : ''}→ ${h.name}`;
+    const others = harmonyPrereqs(h.id, have ?? { motifs: [], party }).filter(
+      (n) => n.kind !== 'hero' && !(n.kind === 'motif' && n.id === motifId),
+    );
+    const named = others.map((n) => n.text);
+    out.push({
+      harmony: h,
+      text: `Harmony: ${named.length > 0 ? `with ${named.join(' and ')} ` : ''}→ ${h.name}`,
+      others,
+    });
   }
-  return null;
+  return out;
+}
+
+/**
+ * On a prerequisite's card, when the Harmony's hero is in the party: "Harmony: with Taut Release →
+ * Blood and Silk". Null for any other card, or a party without that hero. The first of
+ * `harmonyLeads`.
+ */
+export function harmonyHint(motifId: string, party: readonly string[]): string | null {
+  return harmonyLeads(motifId, party)[0]?.text ?? null;
 }
 
 /** A Harmony's prerequisites, by name ("Blood Tithe and Taut Release"); empty for others. */

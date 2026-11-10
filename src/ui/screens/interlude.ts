@@ -34,7 +34,7 @@ import type {
 import { auraDef } from '../../content';
 import { songName } from '../../sim';
 import { plural } from '../kit/format';
-import type { IconName } from '../kit/iconPaths';
+import { glyphKey, type IconName } from '../kit/iconPaths';
 import { callingTierAt } from './callingText';
 import { choiceText } from './rosterModel';
 
@@ -114,7 +114,7 @@ export function relicInfo(
   return {
     id,
     name: def.name,
-    icon: def.icon,
+    icon: glyphKey(def),
     rarity: def.rarity,
     rarityLabel: RARITY_LABEL[def.rarity],
     rule: relicText(def, empowered),
@@ -164,7 +164,7 @@ export function boonInfo(active: Pick<ActiveBoon, 'id' | 'fights'>): BoonInfo {
   return {
     id: def.id,
     name: def.name,
-    icon: def.icon,
+    icon: glyphKey(def),
     kind: def.kind,
     text: boonText(def),
     left: n === null ? 'The rest of the run' : `${n} ${plural(n, 'fight')} left`,
@@ -627,7 +627,7 @@ export function gainLines(gains: EventGains, run: Pick<RunState, 'chords' | 'par
     const def = boonDef(id);
     lines.push({
       icon: 'glyph',
-      glyph: def.icon,
+      glyph: glyphKey(def),
       text: `${def.name} ${boonDuration(id)}: ${boonText(def)}`,
       tone: def.kind === 'bane' ? 'bad' : 'good',
     });

@@ -185,3 +185,98 @@ export const PATHS = {
 } as const;
 
 export type IconName = keyof typeof PATHS;
+
+/**
+ * Phase 5g (docs/phase-5g.md): the fill's relic, event and boon glyphs, in the relic kit's style
+ * (24×24, stroked, round caps; drawn by `Glyph` in `RelicGlyph.tsx`). Keyed by the entry's
+ * content id, not its `icon`, so each new entry draws its own glyph whatever `icon` its content
+ * names (`glyphKey`).
+ */
+export const FILL_GLYPHS: Readonly<Record<string, string>> = {
+  // ── Relics (the doc's table order) ──
+  // An oil lamp on its dish, its flame lit.
+  pilgrims_lamp:
+    'M4 15.5h11c0 2.5-2.5 4-5.5 4S4 18 4 15.5z M15 15.5l4.5-2.5 M9.5 15.5v-2 M9.5 6c1.4 1.6 2 2.8 1.6 3.9a1.6 1.6 0 0 1-3.2 0c-.4-1.1.2-2.3 1.6-3.9z M6 21.5h7',
+  // A tin whistle, slanted, its three holes.
+  tin_whistle:
+    'M3.5 17.5L16 5 M6.5 20.5L19 8 M16 5l3 3 M3.5 17.5l3 3 M9.5 14.5h.01 M11.5 12.5h.01 M13.5 10.5h.01 M17.5 3.5l3 3',
+  // A mourning ribbon, looped and crossed.
+  black_ribbon:
+    'M12 3.5c-2 0-3.5 1.5-3.5 3.5 0 2.5 3.5 6.5 3.5 6.5s3.5-4 3.5-6.5c0-2-1.5-3.5-3.5-3.5z M10.2 11L5.5 20.5l2.5-.8 1 2.3 3-6.2 M13.8 11l4.7 9.5-2.5-.8-1 2.3-3-6.2',
+  // A ledger with its ruled lines, and a coin beside it.
+  pedlars_ledger:
+    'M4 4.5h11v16H4z M7 8.5h5 M7 11.5h5 M7 14.5h3 M18.5 12.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z M18.5 14v2',
+  // A coil of spare string, its end loose.
+  spare_strings:
+    'M12 6a6 6 0 1 0 6 6 M12 9a3 3 0 1 0 3 3 M12 11.2a.8.8 0 1 0 .8.8 M18 12h3.5 M21.5 12l-1.5-1.5',
+  // A spiral shell, and the echo it holds.
+  echoing_shell:
+    'M11 20.5a8 8 0 1 1 8-8 5.5 5.5 0 0 1-5.5 5.5 3.5 3.5 0 0 1-3.5-3.5 2 2 0 0 1 2-2 M20.5 17.5a6 6 0 0 1-2 2.5 M22 14a9 9 0 0 1-.6 2',
+  // A pin whose head is a tear.
+  lament_pin:
+    'M4 20l6.5-6.5 M14.5 3.5c2.6 3.2 4 5.4 4 7.4a4 4 0 0 1-8 0c0-2 1.4-4.2 4-7.4z M4 20l-.5 1.5L5 21',
+  // An hourglass in its frame, the sand settled.
+  sand_glass:
+    'M5.5 3.5h13 M5.5 20.5h13 M7.5 3.5c0 4.5 4.5 5.5 4.5 8.5s-4.5 4-4.5 8.5 M16.5 3.5c0 4.5-4.5 5.5-4.5 8.5s4.5 4 4.5 8.5 M9.5 18.5h5 M12 13.5v2',
+  // A prompt book with its marker ribbon.
+  prompt_book:
+    'M5 4.5h11.5A2.5 2.5 0 0 1 19 7v13.5H7.5A2.5 2.5 0 0 1 5 18z M5 18a2.5 2.5 0 0 1 2.5-2.5H19 M8.5 8.5h4 M8.5 11.5h6 M15 4.5v4.5l1-1 1 1V4.5',
+  // A ring of thorns.
+  thornwreath:
+    'M12 5.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z M12 5.5l1.6-2.2 M18.5 12l2.2 1.6 M12 18.5l-1.6 2.2 M5.5 12l-2.2-1.6 M16.6 7.4l2.6-.4 M16.6 16.6l.4 2.6 M7.4 16.6l-2.6.4 M7.4 7.4l-.4-2.6',
+  // A bell's clapper, ringing out.
+  bell_clapper:
+    'M12 3.5v10 M12 13.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z M9.5 3.5h5 M5 8.5l2.2 1 M19 8.5l-2.2 1 M4.5 14l2.4-.4 M19.5 14l-2.4-.4',
+  // A needle, its eye, and a loop of thread.
+  menders_needle:
+    'M4.5 19.5L16.5 7.5 M16.5 7.5l1.8-1.8a1.5 1.5 0 0 1 2.1 2.1L18.6 9.6 M16.5 7.5l2.1 2.1 M18.4 7.6h.01 M8.5 15.5c-3.5-.2-4.8-3-3-4.6s5-.8 5.6 1.4',
+  // Two bells, one behind the other: a Chime with a second charge.
+  everbell:
+    'M9 3.5a.8.8 0 0 1 .8.8v.5a4.5 4.5 0 0 1 3.7 4.4v3.3l1.5 2H3l1.5-2V9.2a4.5 4.5 0 0 1 3.7-4.4v-.5A.8.8 0 0 1 9 3.5z M7.5 17a1.5 1.5 0 0 0 3 0 M15.5 7.6a4.5 4.5 0 0 1 3 4.2v3.3l1.5 2h-5 M14 19.5a1.5 1.5 0 0 0 3 0',
+  // A lute of heartwood: its round body, sound hole and neck.
+  heartwood_lute:
+    'M9.5 21a5.5 5.5 0 0 1-5.5-5.5c0-3.3 2.6-5.5 5.5-5.5s5.5 2.2 5.5 5.5A5.5 5.5 0 0 1 9.5 21z M13.3 11.7L19.5 5.5 M18 3.5l2.5 2.5 M9.5 14a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z',
+  // A water clock: one bowl dripping into the next.
+  water_clock: 'M5 4h14l-2 5.5H7z M12 9.5v2.5 M12 14v.01 M5 16h14l-1.5 4.5h-11z M8.5 18.2h7',
+  // An iron mask, its eye slits and its rivets.
+  iron_mask:
+    'M5 5.5c4.5-1.5 9.5-1.5 14 0v6c0 5-3.5 8.5-7 9.5-3.5-1-7-4.5-7-9.5z M7.5 10.5h3 M13.5 10.5h3 M12 12.5v3 M9.5 17.5h5 M7 7.5h.01 M17 7.5h.01',
+  // An ink bottle and a quill.
+  red_ink:
+    'M5.5 12h9v8.5h-9z M7.5 12V9.5h5V12 M20.5 3.5c-3.5.5-6 3-7 6.5 M20.5 3.5c-.5 3-2.5 5-5.5 6 M8 16.5h4',
+  // A crown with a hollow at its heart.
+  hollow_crown:
+    'M4 8l3.5 3.5L12 5l4.5 6.5L20 8v10H4z M4 21h16 M10.2 14.5a1.8 1.8 0 1 0 3.6 0 1.8 1.8 0 0 0-3.6 0z',
+  // ── Events ──
+  // A hero, and the question they ask.
+  heros_doubt:
+    'M9 3.5a2.8 2.8 0 1 0 0 5.6 2.8 2.8 0 0 0 0-5.6z M3.5 20.5c0-4.6 2.4-8 5.5-8s5.5 3.4 5.5 8 M16.5 6a2.3 2.3 0 1 1 3.2 2.1c-.6.3-.9.8-.9 1.4v.5 M18.8 12.8h.01',
+  // The quartermaster's cart: its crate and two wheels.
+  quartermaster:
+    'M2.5 5.5h13v9h-13z M2.5 5.5l13 9 M15.5 5.5l-13 9 M15.5 9h3.5l2.5 3v2.5h-6 M6.5 15a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z M17 15a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z',
+  // A bell, and the drop of blood that rings it.
+  bleeding_bell:
+    'M12 2.5a.9.9 0 0 1 .9.9v.6A5.2 5.2 0 0 1 17.2 9v3.4l1.8 2.2H5l1.8-2.2V9a5.2 5.2 0 0 1 4.3-5v-.6a.9.9 0 0 1 .9-.9z M12 16.5c1.3 1.7 2 2.8 2 3.7a2 2 0 0 1-4 0c0-.9.7-2 2-3.7z',
+  // A cracked mirror, and the Weaver in it.
+  lost_weavers_echo:
+    'M6.5 3h11v18h-11z M12 7a1.8 1.8 0 1 0 0 3.6A1.8 1.8 0 0 0 12 7z M9.5 16.5c0-2.2 1.1-3.8 2.5-3.8s2.5 1.6 2.5 3.8 M15 3l-1.6 3.4 2.1 1.6-1.4 2.8',
+  // A tapestry on its rod, its threads hanging loose.
+  unravelled_tapestry:
+    'M3.5 4h17 M5.5 4v10.5h13V4 M8.5 7.5h7 M8.5 10.5h7 M8 14.5c0 2 1 3.2 0 6 M12 14.5c0 2-1 3.5 0 6 M16 14.5c0 1.5 1 2.5.5 4.5',
+  // A clock face with no hands, on its stand.
+  stopped_clock:
+    'M12 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14z M12 5.5v1 M12 13.5v1 M7.5 10h1 M15.5 10h1 M12 17v3.5 M8.5 20.5h7 M12 10h.01',
+  // ── Boons and banes ──
+  // Steadied: a straight arrow rising from firm ground.
+  steadied: 'M12 4v11.5 M7.5 8.5L12 4l4.5 4.5 M4.5 19.5h15 M8 16.5h8',
+  // Faltering: a wavering line falling.
+  faltering: 'M12 3.5c-2 2.5 2 4 0 6.5s2 4 0 6.5 M8 14.5l4 4 4-4 M4.5 21h15',
+};
+
+/**
+ * The glyph key a content relic, boon or event draws with: its own fill glyph when it has one
+ * (by id), else the `icon` its content names.
+ */
+export function glyphKey(def: { id: string; icon: string }): string {
+  return FILL_GLYPHS[def.id] !== undefined ? def.id : def.icon;
+}
