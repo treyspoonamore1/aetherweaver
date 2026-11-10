@@ -85,7 +85,8 @@ export function canCall(world: World, e: Entity, def: HeroDef): boolean {
     case 'chime':
       return w.cooldowns.chime <= t && spiritBy(slotCost(world, 'chime', tech.chime.cost));
     case 'empower':
-      return w.threadLock <= t;
+      // Iron Mask's curse (Phase 5g): the Thread can't Empower, so no one asks for it.
+      return !world.mods.noEmpower && w.threadLock <= t;
   }
 }
 
