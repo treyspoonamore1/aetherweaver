@@ -315,7 +315,7 @@ describe('Grand Finale', () => {
     weaverOf(w).weaver!.resonance = 100;
     stepFor(sim, 1, [CRESCENDO]);
     heroAt(w, 2).hero!.solo = 100;
-    weaverOf(w).weaver!.resonance = 15;
+    weaverOf(w).weaver!.resonance = 20;
     const cued = stepFor(sim, 1, [{ t: 'cue', slot: 2 }]);
     expect(ofType(cued, 'cued')).toHaveLength(1);
     expect(finaleView(w)!.next).toBe(w.party[1]);

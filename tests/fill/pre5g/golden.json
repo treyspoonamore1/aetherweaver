@@ -1,6 +1,6 @@
 {
   "simVersion": 22,
-  "contentVersion": "c-cc413f9ff5775748",
+  "contentVersion": "c-e05cbcf5f5775748",
   "scenarios": {
     "patrol": "2626acee5ce8d584",
     "crowd": "323bd3a88aea3f1b",
@@ -27,8 +27,8 @@
     "skilled-red-line-vharun": "7cb1ccd3bf32f746",
     "skilled-oro-conductor": "48db24c60f4424d8",
     "novice-grove-mirror-hall": "3c1d02049ef29ef6",
-    "skilled-conducting-bellwarden": "c11be67e55bfb7df",
-    "novice-conducting-first-light": "3841213b5513b682",
-    "skilled-conducting-silent": "e5a4591944bfaf5f"
+    "skilled-conducting-bellwarden": "013e676d2eaa8f74",
+    "novice-conducting-first-light": "c3408b85068381ef",
+    "skilled-conducting-silent": "d200c6af6720f641"
   }
 }

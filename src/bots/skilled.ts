@@ -418,8 +418,15 @@ const HOLD_FILL = 2;
 const HOLD_MAX = 2;
 /** `conductHold`: a Cue's answer (a raid or a big hit) landing this soon is never waited past. */
 const HOLD_URGENT = 2;
-/** `conductBeat`: wait for the downbeat's window only if it opens within this many seconds. */
-const BEAT_AHEAD = 0.6;
+/**
+ * `conductBeat`: wait for the downbeat's window only if it opens within this many seconds. A bar
+ * is 2.73 s, so a Cue that isn't urgent always waits for the next downbeat: without the autonomy
+ * assist a held Solo isn't lost. Measured (the six boss fights before the Finale, A Tempo path
+ * 1111, Skilled, 20 seeds, tools/verbs.ts): at 0.6 s the bot gave 17-95% of its Cues on the beat
+ * (four fights under 50%), at 2.8 s 78-100%, with the same wins, fights within 2 s or 5-10 s
+ * shorter, and the Hollow Cantor's downs 0.65 → 0.20.
+ */
+const BEAT_AHEAD = 2.8;
 /** `conductBeat`: in a chain, the window must open this long (s) before the chain's window shuts. */
 const BEAT_CHAIN_SLACK = 0.1;
 /** `conductChain`: a damage Solo has work while an enemy stands within its reach plus this (m). */
@@ -437,11 +444,19 @@ const MARCATO_ENGAGED = 2;
  * (sent again, so the heroes' targets don't change); 'boss': else the boss; 'kael': else Kael's
  * target (the doc's rule). A Focus holds every hero on its target until it falls, whatever the
  * Weaver's other work, so the wider two cost fights. Measured (Movement I, path 0000, Skilled,
- * 50 seeds a fight, tools/verbs.ts): 'kael' lost the Tolling Halls 100% → 86% (downs 0.02 → 1.16)
- * and the Hollow Cantor 98% → 86%; 'boss' kept the Hollow Cantor loss; 'standing' lost nothing,
- * and whole Preludes (Guardian, 10 seeds a path) went from Marcato 69% to 90% (none 86%).
+ * 50 seeds a fight, tools/verbs.ts): 'kael' lost the Tolling Halls 100% → 86% (downs 0.02 → 1.16),
+ * the Shattered Choir 92% → 80% and the Hollow Cantor 98% → 86%; 'boss' kept the Hollow Cantor
+ * loss; 'standing' lost nothing, and whole Preludes (Guardian, 10 seeds a path) went from Marcato
+ * 69% to 90% (none 86%). Kept 'standing' after the tuning pass re-measured the cells.
  */
 const MARCATO_FOCUS: 'standing' | 'boss' | 'kael' = 'standing';
+/**
+ * The Finale's `bankCrescendo` on a Conductor run: false, so it never holds the Cues and the
+ * Grand Finale for Fortissimo Silence's cancel (the Finale comes round often enough to meet it).
+ * Measured at the Silent Conductor (Skilled, 50 seeds on each of two sets, tools/verbs.ts): the
+ * bank cost 8-10 s with the Triad path and 27-28 s with Maestro, and won nothing.
+ */
+const BANK_WITH_FINALE = false;
 
 /** Focus a guarded Sentinel once no more than this many enemies stand (the pack first). */
 const SENTINEL_FOCUS_AT = 3;
@@ -1119,6 +1134,7 @@ export class SkilledBot implements Bot {
     // The Finale (docs/phase-5d.md): Discord will meet Fortissimo Silence before Resonance spent
     // now could come back, so hold the Cues and the Crescendo for its cancel. False without it.
     const bank =
+      (cond === null || BANK_WITH_FINALE) &&
       discord !== null &&
       fortissimo === null &&
       this.on('bankCrescendo') &&
