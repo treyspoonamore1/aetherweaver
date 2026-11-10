@@ -16,6 +16,7 @@ import type { ConductingField, SimEvent } from '../../sim';
 import type { SynthDirector } from '../director';
 import type { UiSound, UiSoundDetail } from '../types';
 import { dissonanceMax } from '../ui';
+import { TRIGGER_EFFECT_KINDS, TRIGGER_KINDS } from '../../render/fillCues';
 import type { FakeTelegraph, FakeWorld } from './labState';
 import { IDS, ev, nodeWith, type HeroKey, type LabHero } from './labState';
 
@@ -46,6 +47,11 @@ export interface SoundButton {
      * path's Reprise, Marcato, Ensemble, Spotlight and Triad, his Calling's UI voicings).
      */
     | 'conductor'
+    /**
+     * Phase 5g: the content fill (Razor Silk's bite, Thread the Needle's catch, a trigger firing,
+     * one button for each kind of effect).
+     */
+    | 'fill'
     /**
      * Phase 5c: the Unstitched (cuts, the Maw, the Wraith, the rune, the Mimic, the Seamstress,
      * Doom, the Unweaver, the Retarget and Empower windups, cloth kills).
@@ -4471,6 +4477,7 @@ export const SOUNDS: SoundButton[] = [
   ),
   // ── Phase 5f: the Conductor ────────────────────────────────────────────────────
   ...conductorSounds(),
+  ...fillSounds(),
 ];
 
 /**
@@ -4680,5 +4687,46 @@ function conductorSounds(): SoundButton[] {
       length: 3,
       fire: (d) => d.playUi(s, 'conductor'),
     })),
+  ];
+}
+
+/**
+ * Phase 5g (docs/phase-5g.md, W9): the content fill. Razor Silk's bite is played as its tick
+ * would (the lab world has no Thread); the catch and each trigger kind go through the director as
+ * their events, a trigger kind's from the first entry of the doc's tables that applies it.
+ */
+function fillSounds(): SoundButton[] {
+  const sourceOf = (kind: string) =>
+    Object.keys(TRIGGER_KINDS).find((id) => TRIGGER_KINDS[id] === kind) ?? kind;
+  return [
+    {
+      id: 'fill-razor',
+      label: 'Razor Silk bites what the Thread touches (each 0.5 s tick: a blade’s zing)',
+      group: 'fill',
+      length: 1.5,
+      fire: (d) => d.sfxEngine()?.fill.razor(),
+    },
+    {
+      id: 'fill-needle',
+      label: 'Thread the Needle catches a hit on Lyra (the Thread drawn through, A5 to D6)',
+      group: 'fill',
+      length: 1.5,
+      fire: (d, w) => fire(d, w, ev('needled', { hero: IDS.lyra, telegraph: 1, negated: 60 })),
+    },
+    ...TRIGGER_EFFECT_KINDS.map((kind): SoundButton => ({
+      id: `fill-trigger-${kind}`,
+      label: `A trigger fires: ${kind} (${sourceOf(kind)}, on Kael)`,
+      group: 'fill',
+      length: 1.5,
+      fire: (d, w) =>
+        fire(d, w, ev('motifTriggered', { source: sourceOf(kind), target: IDS.kael })),
+    })),
+    {
+      id: 'fill-trigger-generic',
+      label: 'A trigger fires from a source nothing names (the generic glass ping)',
+      group: 'fill',
+      length: 1.5,
+      fire: (d, w) => fire(d, w, ev('motifTriggered', { source: 'unnamed_source' })),
+    },
   ];
 }

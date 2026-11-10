@@ -298,6 +298,34 @@ export class ThreadView {
     return this.bear;
   }
 
+  /**
+   * Phase 5g (Razor Silk, fill.ts): the point of the Thread as drawn this frame that passes
+   * nearest (x, z) on the ground, into `out`. False when no Thread is drawn. Reads the path only.
+   */
+  nearestPoint(x: number, z: number, out: { x: number; y: number; z: number }): boolean {
+    if (!this.hasPath) return false;
+    const p = this.pts;
+    let best = Infinity;
+    for (let i = 0; i < N; i++) {
+      const o = i * 3;
+      const ax = p[o];
+      const az = p[o + 2];
+      const dx = p[o + 3] - ax;
+      const dz = p[o + 5] - az;
+      const l2 = dx * dx + dz * dz;
+      const u = l2 > 1e-9 ? Math.min(1, Math.max(0, ((x - ax) * dx + (z - az) * dz) / l2)) : 0;
+      const qx = ax + dx * u;
+      const qz = az + dz * u;
+      const d2 = (qx - x) * (qx - x) + (qz - z) * (qz - z);
+      if (d2 >= best) continue;
+      best = d2;
+      out.x = qx;
+      out.y = p[o + 1] + (p[o + 4] - p[o + 1]) * u;
+      out.z = qz;
+    }
+    return true;
+  }
+
   attach(): void {
     this.whipAt = this.now;
     this.whipSign = -this.whipSign;
