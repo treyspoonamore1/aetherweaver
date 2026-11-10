@@ -282,7 +282,7 @@ export const CALLINGS: ContentInput['callings'] = [
     crescendoName: 'Grand Finale',
     flavor: 'On my count. All of you.',
     // gap: seconds between the Finale's turns; wait: the longest it waits for a hero mid-Solo.
-    values: { cue: 15, gain: 20, chain: 3, duet: 25, trio: 50, ramp: 20, gap: 1, wait: 12 },
+    values: { cue: 20, gain: 10, chain: 4, duet: 25, trio: 50, ramp: 20, gap: 1, wait: 12 },
     unlockRank: 12,
     icon: 'conductor',
     tiers: [

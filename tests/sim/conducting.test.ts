@@ -70,20 +70,20 @@ function foe(w: World, defId: string, x: number, z: number, hp = 1e6): Entity {
 }
 
 describe('the passive', () => {
-  it('a Cue costs 15; with Silent Cues 25; on the beat with it, 10', () => {
+  it('a Cue costs 20; with Silent Cues 30; on the beat with it, 10', () => {
     const { sim, w } = stage();
-    expect(passive('cue')).toBe(15);
-    expect(w.dissonance.cueCost).toBe(15);
-    expect(w.calling!.conducting!.cueCost).toBe(15);
+    expect(passive('cue')).toBe(20);
+    expect(w.dissonance.cueCost).toBe(20);
+    expect(w.calling!.conducting!.cueCost).toBe(20);
     heroAt(w, 1).hero!.solo = 100;
     setResonance(w, 50);
     stepFor(sim, 1, [cue(1)]);
-    expect(weaverOf(w).weaver!.resonance).toBeCloseTo(35, 9);
+    expect(weaverOf(w).weaver!.resonance).toBeCloseTo(30, 9);
 
     const silent = stage(['a_tempo'], { dissonance: [{ id: 'silent_cues', rank: 1 }] });
-    expect(silent.w.dissonance.cueCost).toBe(25);
+    expect(silent.w.dissonance.cueCost).toBe(30);
     silent.w.time = 2 * BAR_SECONDS + 0.5;
-    expect(cueCostNow(silent.w)).toBe(25);
+    expect(cueCostNow(silent.w)).toBe(30);
     silent.w.time = 2 * BAR_SECONDS + 0.1;
     expect(cueCostNow(silent.w)).toBe(10);
     heroAt(silent.w, 0).hero!.solo = 100;
@@ -100,10 +100,10 @@ describe('the passive', () => {
     expect(crescendoCostOf(silent)).toBe(CONTENT.resonance.crescendoCost);
   });
 
-  it('a Perfect Ward gives 24, and 28.8 with Standing Ovation III', () => {
+  it('a Perfect Ward gives 22, and 26.4 with Standing Ovation III', () => {
     for (const [motifs, want] of [
-      [[], 24],
-      [[{ id: 'standing_ovation', level: 3 }], 28.8],
+      [[], 22],
+      [[{ id: 'standing_ovation', level: 3 }], 26.4],
     ] as const) {
       const { w } = stage([], { motifs: [...motifs] });
       setResonance(w, 0);
@@ -112,12 +112,13 @@ describe('the passive', () => {
     }
   });
 
-  it('the fade keeps whole Cues: 35 → 30, 40 → 30, 100 stays; without him 35 → 25', () => {
+  it('the fade keeps whole Cues: 45 → 40, 65 → 60, 35 → 25, 100 stays; without him 45 → 25', () => {
     for (const [start, want, calling] of [
-      [35, 30, true],
-      [40, 30, true],
+      [45, 40, true],
+      [65, 60, true],
+      [35, 25, true],
       [100, 100, true],
-      [35, 25, false],
+      [45, 25, false],
     ] as const) {
       const sim = calling ? sandbox(conductor()) : sandbox();
       const w = worldOf(sim);
@@ -129,10 +130,10 @@ describe('the passive', () => {
 });
 
 describe('Duets and Trios', () => {
-  it('2.9 s after the first is a Duet (×1.25); 3.1 s after is a new chain', () => {
+  it('3.9 s after the first is a Duet (×1.25); 4.1 s after is a new chain', () => {
     for (const [ticks, link] of [
-      [174, 2],
-      [186, 1],
+      [234, 2],
+      [246, 1],
     ] as const) {
       const { sim, w } = stage();
       cueNow(sim, w, 0);
@@ -150,17 +151,17 @@ describe('Duets and Trios', () => {
   it('a third 2.9 s after the second (5.8 s after the first) is a Trio (×1.5)', () => {
     const { sim, w } = stage();
     const first = ofType(cueNow(sim, w, 0), 'cueChained')[0]!;
-    expect(first).toMatchObject({ link: 1, power: 1, cost: 15, onBeat: false });
+    expect(first).toMatchObject({ link: 1, power: 1, cost: 20, onBeat: false });
     expect(first.until).toBeCloseTo(w.time - 1 / 60 + passive('chain'), 9);
     stepFor(sim, 173);
     expect(ofType(cueNow(sim, w, 1), 'cueChained')[0]!.link).toBe(2);
     stepFor(sim, 173);
     // What the HUD would show for the third, before it is given.
-    expect(nextCue(w, w.party[2]!)).toMatchObject({ link: 3, power: 1.5, cost: 15 });
+    expect(nextCue(w, w.party[2]!)).toMatchObject({ link: 3, power: 1.5, cost: 20 });
     expect(nextCue(w, w.party[0]!)).toMatchObject({ link: 1, power: 1 });
     const third = ofType(cueNow(sim, w, 2), 'cueChained')[0]!;
     expect(third).toMatchObject({ link: 3, power: 1.5 });
-    expect(w.ledger.conducting).toMatchObject({ duets: 1, trios: 1, saved: 30 });
+    expect(w.ledger.conducting).toMatchObject({ duets: 1, trios: 1, saved: 15 });
     // The running Solos carry their power.
     const powers = Object.fromEntries(w.field.conducting!.solos.map((s) => [s.hero, s.power]));
     expect(powers).toEqual({ [w.party[1]!]: 1.25, [w.party[2]!]: 1.5 });
@@ -201,13 +202,13 @@ describe('Duets and Trios', () => {
     const free = cueNow(sim, w, 1);
     expect(ofType(free, 'cueChained')[0]).toMatchObject({ link: 2, cost: 0, onBeat: true });
     expect(ofType(free, 'resonanceSpent')).toEqual([]);
-    expect(w.ledger.conducting).toMatchObject({ duets: 1, freeCues: 1, saved: 10 + 25 });
+    expect(w.ledger.conducting).toMatchObject({ duets: 1, freeCues: 1, saved: 5 + 25 });
   });
 
   it('the chain is deleted once its window has passed', () => {
     const { sim, w } = stage();
     cueNow(sim, w, 0);
-    stepFor(sim, 179);
+    stepFor(sim, 239);
     expect(w.field.conducting!.chain).toBeDefined();
     stepFor(sim, 2);
     expect(w.field.conducting!.chain).toBeUndefined();
@@ -569,13 +570,13 @@ describe('Marcato', () => {
 });
 
 describe('A Tempo', () => {
-  it('a Cue at k·bar ± 0.149 s is free; at ± 0.151 s it costs 15', () => {
+  it('a Cue at k·bar ± 0.149 s is free; at ± 0.151 s it costs 20', () => {
     expect(value('a_tempo', 'beat')).toBe(0.15);
     for (const [offset, cost] of [
       [0.149, 0],
       [-0.149, 0],
-      [0.151, 15],
-      [-0.151, 15],
+      [0.151, 20],
+      [-0.151, 20],
     ] as const) {
       const { sim, w } = stage(['a_tempo']);
       w.time = 4 * BAR_SECONDS + offset;
@@ -749,9 +750,9 @@ describe('Triad', () => {
     expect(w.party.every((id) => w.entities.get(id)!.hero!.inField)).toBe(true);
     const on = sim.drainEvents();
     void on;
-    setResonance(w, 35);
+    setResonance(w, 45);
     const held = stepFor(sim, 60 * 8);
-    expect(weaverOf(w).weaver!.resonance).toBe(35);
+    expect(weaverOf(w).weaver!.resonance).toBe(45);
     expect(weaverOf(w).weaver!.resonanceIdle).toBe(0);
     expect(w.field.conducting!.triad).toBe(true);
     void held;
@@ -767,9 +768,9 @@ describe('Triad', () => {
     expect(ofType(off, 'triad')).toEqual([expect.objectContaining({ on: false })]);
     expect(w.field.conducting!.triad).toBeUndefined();
     stepFor(sim, 60 * 4);
-    expect(weaverOf(w).weaver!.resonance).toBe(35);
+    expect(weaverOf(w).weaver!.resonance).toBe(45);
     stepFor(sim, 60 * 3);
-    expect(weaverOf(w).weaver!.resonance).toBeCloseTo(30, 9);
+    expect(weaverOf(w).weaver!.resonance).toBeCloseTo(40, 9);
   });
 
   it('the `triad` event marks the edge it starts on', () => {
@@ -827,9 +828,9 @@ describe('the view and the cost of the Crescendo', () => {
     const { w } = stage(['a_tempo', 'upbeat', 'spotlight', 'maestro']);
     expect(w.calling!.crescendo).toBe('finale');
     expect(w.calling!.conducting).toEqual({
-      cueCost: 15,
+      cueCost: 20,
       crescendoCost: 75,
-      chainWindow: 3,
+      chainWindow: 4,
       duet: 1.25,
       trio: 1.5,
       finale: { turns: 2, ramp: 1.2, gap: 1, wait: 12 },
