@@ -8,7 +8,14 @@ import { allocate, astrolabePoints, refund } from '../meta/astrolabe';
 import { recordStars, type AtlasRecord } from '../meta/atlas';
 import { REPLAY_NAME_MAX, shareCodeOf, type RunReplay } from '../meta/runReplay';
 import { decodeShareCode, normalShareCode } from '../meta/shareCode';
-import { withWeeklyEntry } from '../meta/weekly';
+import {
+  WEEKLY_KEEP_WEEKS,
+  WEEKLY_MAX_ENTRIES,
+  addableWeek,
+  weekOf,
+  weeklyHolds,
+  withWeeklyEntry,
+} from '../meta/weekly';
 import { deedPoints, deedProgress, deedsEarned, profileDeedsEarned } from '../meta/deeds';
 import {
   allowanceFor,
@@ -181,11 +188,14 @@ export interface ProfileStore {
   setWeeklyStatus(week: number, code: string, status: WeeklyStatus, replay?: string): void;
   /**
    * Adds a code someone shared (the weekly panel's Add a code), named by the player, Claimed
-   * until its replay is verified. The code's week, or why it can't be added.
+   * until its replay is verified. `now` is the time (milliseconds since 1970, the app's clock):
+   * only a code for one of the last `WEEKLY_KEEP_WEEKS` weeks, ending with this one, is added,
+   * and never in place of a week of the player's own. The code's week, or why it can't be added.
    */
   addWeeklyCode(
     text: string,
-    name?: string,
+    name: string | undefined,
+    now: number,
   ): { ok: true; week: number; code: string } | { ok: false; error: string };
   /** The Atlas or the weekly record changed: records the profile Deeds now earned; returns them. */
   recordProfileDeeds(): string[];
@@ -657,26 +667,33 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       });
       get().recordProfileDeeds();
     },
-    addWeeklyCode: (text, name) => {
+    addWeeklyCode: (text, name, now) => {
       const code = normalShareCode(text);
       const read = decodeShareCode(text);
       if (!read.ok || code === null)
         return { ok: false, error: read.ok ? 'Not a code.' : read.error };
+      const week = read.claim.week;
+      const span = addableWeek(week, weekOf(now));
+      if (!span.ok) return span;
       const profile = get().profile;
       const trimmed = name?.trim().slice(0, REPLAY_NAME_MAX);
-      const held = profile.weekly
-        ?.find((w) => w.week === read.claim.week)
-        ?.entries.find((e) => e.code === code);
-      if (!held)
-        commit({
-          ...profile,
-          weekly: withWeeklyEntry(profile.weekly, read.claim.week, {
-            code,
-            ...(trimmed ? { name: trimmed } : {}),
-            status: 'claimed',
-          }),
-        });
-      return { ok: true, week: read.claim.week, code };
+      if (weeklyHolds(profile.weekly, week, code)) return { ok: true, week, code };
+      const weekly = withWeeklyEntry(profile.weekly, week, {
+        code,
+        ...(trimmed ? { name: trimmed } : {}),
+        status: 'claimed',
+      });
+      // Its week would push out a week of the player's own runs, or its week's table is full of
+      // better results: it isn't added.
+      if (!weeklyHolds(weekly, week, code))
+        return {
+          ok: false,
+          error: weekly.some((w) => w.week === week)
+            ? `Week ${week}’s table is full (${WEEKLY_MAX_ENTRIES} entries), every one above this code.`
+            : `No room for Week ${week}: the ${WEEKLY_KEEP_WEEKS} weeks kept all hold runs of your own.`,
+        };
+      commit({ ...profile, weekly });
+      return { ok: true, week, code };
     },
     recordProfileDeeds: () => {
       const profile = get().profile;
