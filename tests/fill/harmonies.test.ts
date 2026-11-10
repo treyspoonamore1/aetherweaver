@@ -172,7 +172,7 @@ describe('the Harmonies fill: content and resolver', () => {
     const cadence = def('guardians_cadence').triggers![0]!;
     expect(cadence).toMatchObject({ on: 'abilityUsed', hero: 'kael', ability: 'shieldBash' });
     expect(cadence.effects).toEqual([
-      { kind: 'damage', amount: 'v', of: 'riposte', at: 'event', radius: 4 },
+      { kind: 'damage', amount: 'v', of: 'riposte', at: 'hero', radius: 4 },
     ]);
     expect(def('riposte_bloom').text).toContain('within 4 m');
     expect(def('crossed_steel').triggers).toEqual([
@@ -337,26 +337,31 @@ describe('Guardian’s Cadence: Kael’s Shield Bash sets off Riposte Bloom at {
     const s = stage(motifs);
     const kael = s.hero(0);
     place(kael, 0, -4);
-    const near = foe(s.w, 'bell_brute', 0, -5.5, { hp: 1e6, stun: true });
+    const near = foe(s.w, 'bell_brute', 0, -2.6, { hp: 1e6, stun: true });
     const side = foe(s.w, 'bell_brute', 2.5, -6, { hp: 1e6, stun: true });
     const far = foe(s.w, 'bell_brute', 9, -5.5, { hp: 1e6, stun: true });
+    // Within 4 m of Kael, but not of the enemy he bashes.
+    const behind = foe(s.w, 'bell_brute', 0, -8.2, { hp: 1e6, stun: true });
     kael.hero!.abilityCooldowns = [0, 99];
     const events = stepUntil(s.sim, (ev) =>
       ev.some((e) => e.type === 'abilityUsed' && e.ability === 'shieldBash'),
     );
     const used = ofType(events, 'abilityUsed').find((e) => e.ability === 'shieldBash')!;
-    return { s, events, used, near, side, far };
+    return { s, events, used, kael, near, side, far, behind };
   }
 
-  it('held with Riposte Bloom: every enemy within 4 m of the bash takes {v}% of the bloom', () => {
+  it('held with Riposte Bloom: every enemy within 4 m of Kael takes {v}% of the bloom', () => {
     const r = bash(held('riposte_bloom', 'guardians_cadence'));
     const amount = (value('riposte_bloom') * value('guardians_cadence')) / 100;
     const struck = dealtBy(r.events, r.s.w.weaverId);
-    const within = [r.near, r.side, r.far].filter(
-      (e) => Math.hypot(e.x - r.used.x, e.z - r.used.z) <= 4 + e.radius,
-    );
-    expect(within.length).toBeGreaterThanOrEqual(2);
+    const reach = (e: Entity, x: number, z: number) => Math.hypot(e.x - x, e.z - z) <= 4 + e.radius;
+    const all = [r.near, r.side, r.far, r.behind];
+    const within = all.filter((e) => reach(e, r.kael.x, r.kael.z));
+    expect(within.length).toBeGreaterThanOrEqual(3);
     expect(within).not.toContain(r.far);
+    // Centred on Kael, not on the bashed enemy (where the event sits).
+    expect(within).toContain(r.behind);
+    expect(reach(r.behind, r.used.x, r.used.z)).toBe(false);
     expect(struck.map((e) => e.target).sort()).toEqual(within.map((e) => e.id).sort());
     for (const e of struck) expect(e.amount + e.absorbed).toBeCloseTo(amount, 6);
     expect(ofType(r.events, 'motifTriggered').map((e) => e.source)).toEqual(['guardians_cadence']);
