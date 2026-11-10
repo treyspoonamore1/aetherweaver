@@ -67,7 +67,7 @@ function casts(s: Scenario, offset: number, extra: Partial<SimConfig>) {
   let own = 0;
   let borrowed = 0;
   let minutes = 0;
-  let last = -1;
+  let last: number | null = -1;
   for (let t = 0; t < s.ticks; t++) {
     sim.step(bot.decide(sim.state));
     sim.drainEvents();
