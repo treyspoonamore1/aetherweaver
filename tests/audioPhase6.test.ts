@@ -26,13 +26,17 @@ import {
 import { FakeWorld, IDS, ev } from '../src/audio/lab/labState';
 import { SOUNDS } from '../src/audio/lab/soundBoard';
 import { postludeRiseNotes, silenceStems } from '../src/audio/music';
+import { SfxEngine } from '../src/audio/sfx';
 import { isInScale, midiToHz, scaleMidi } from '../src/audio/theory';
 import { ATLAS_LIMITS, UI_SOUND_NAMES, starsLit } from '../src/audio/ui';
 import type { UiSound } from '../src/audio/types';
-import { ALTO, BASS, CONDUCTOR, SFORZANDO } from '../src/content/crucibleIds';
-import type { SimEvent, WorldState } from '../src/sim';
+import { ALTO, BASS, CONDUCTOR, SFORZANDO, SOLOS } from '../src/content/crucibleIds';
+import { createSim, type Sim, type SimEvent, type WorldState } from '../src/sim';
+import { makeBot } from '../src/bots';
+import { dealDamage } from '../src/sim/combat/health';
 import { spawnEnemy } from '../src/sim/systems/enemies';
-import { sandbox, worldOf } from './sim/helpers';
+import { SCENARIO_BELLWARDEN } from '../tools/scenarios';
+import { sandbox, spawn, worldOf } from './sim/helpers';
 
 // ── A recording fake AudioContext (as tests/audioFill.test.ts) ──────────────────────────
 
@@ -259,7 +263,7 @@ describe('Tyrant, heard', () => {
 
   const BOSSES: [string, string, string][] = [
     ['the_bellwarden', 'glass_lancer', 'lancer_lance'],
-    ['vharun_crimson_warden', 'leech', 'leech_latch'],
+    ['vharun_crimson_warden', 'hemomancer', 'hemomancer_blood_pact'],
     ['the_seamstress', 'doubt_wraith', 'wraith_doubt'],
     ['the_unweaver', 'null_priest', 'null_rune'],
     [CONDUCTOR, CONDUCTOR, SFORZANDO],
@@ -356,21 +360,47 @@ describe('the Postlude, heard', () => {
     h.d.dispose();
   });
 
-  it('a pair Cue: the first voice, then the second answering, in two voices of its group', () => {
+  it('a pair Cue in the sim’s order: the first Cue’s own phrase (the call), then the answer in place of the second’s', () => {
     const h = lab();
     const a = h.world.addStanding(ALTO, -6);
     const b = h.world.addStanding(BASS, 6);
-    const out = h.fire(ev('postludePair', { voices: [a, b] }));
-    expect(out.groups).toEqual([DISSONANCE_SOUND_GROUPS.pair]);
-    expect(h.stats().peakVoices[DISSONANCE_SOUND_GROUPS.pair]).toBe(2);
-    for (const f of freqsOf(out.sources)) expect(inKey(f), f.toFixed(1)).toBe(true);
-    // The answer begins as the call ends, never with it.
-    const firstStart = (s: Source[]) => Math.min(...s.flatMap((x) => x.starts));
-    const half = Math.floor(out.sources.length / 2);
-    expect(firstStart(out.sources.slice(half))).toBeGreaterThan(firstStart(out.sources) + 0.4);
-    // A pair needs two voices of the choir.
+    const boss = h.world.addTyrant(CONDUCTOR, CONDUCTOR, 'none', 0);
+    // What the Bass's ordinary Cue sings (the answer is its mirrored phrase lifted a third).
+    const plain = lab();
+    const pb = plain.world.addStanding(BASS, 6);
+    const own = plain.fire(ev('enemyCued', { boss: 0, soloist: pb, solo: SOLOS[BASS]! }));
+    const pitches = (src: Source[]) => new Set(freqsOf(src).map((f) => f.toFixed(1)));
+    plain.d.dispose();
+    const cue = vi.spyOn(SfxEngine.prototype as unknown as { enemyCue: () => void }, 'enemyCue');
+    // The first voice Cued: its ordinary mirrored phrase, and nothing of the pair's.
+    const call = h.fire(ev('enemyCued', { boss, soloist: a, solo: SOLOS[ALTO]! }));
+    expect(call.groups).toEqual(['finale:cue']);
+    expect(cue).toHaveBeenCalledTimes(1);
+    h.advance(1.5);
+    // 1.5 s on: the second's Cue and the pair, in one batch (enemyCued, then postludePair).
+    const answer = h.fire(
+      ev('enemyCued', { boss, soloist: b, solo: SOLOS[BASS]! }),
+      ev('postludePair', { voices: [a, b] }),
+    );
+    expect(answer.groups).toEqual([DISSONANCE_SOUND_GROUPS.pair]);
+    // The second's ordinary phrase is not played: one voice sings it, the answer.
+    expect(cue).toHaveBeenCalledTimes(1);
+    expect(h.stats().peakVoices[DISSONANCE_SOUND_GROUPS.pair]).toBe(1);
+    expect(h.stats().peakVoices['finale:cue']).toBe(1);
+    for (const f of freqsOf(answer.sources)) expect(inKey(f), f.toFixed(1)).toBe(true);
+    // It differs from what the Bass's ordinary Cue sings.
+    expect([...pitches(answer.sources)].some((f) => !pitches(own.sources).has(f))).toBe(true);
+    // A pair of one voice (no other to Cue) is a plain Cue: its phrase plays, no pair.
     h.advance(2);
-    expect(h.fire(ev('postludePair', { voices: [a] })).sources.length).toBe(0);
+    const one = h.fire(
+      ev('enemyCued', { boss, soloist: a, solo: SOLOS[ALTO]! }),
+      ev('postludePair', { voices: [a] }),
+    );
+    expect(one.groups).not.toContain(DISSONANCE_SOUND_GROUPS.pair);
+    expect(one.sources.length).toBeGreaterThan(0);
+    expect(cue).toHaveBeenCalledTimes(2);
+    // Two voices that aren't the choir's: nothing of the pair.
+    h.advance(2);
     expect(h.fire(ev('postludePair', { voices: [IDS.kael, IDS.lyra] })).sources.length).toBe(0);
     h.d.dispose();
   });
@@ -610,5 +640,162 @@ describe('the Atlas’s UI sounds', () => {
     expect(Math.max(...freqsOf(three))).toBeGreaterThan(Math.max(...freqsOf(one)));
     const sig = (m: Source[]) => m.map((x) => x.freqs.map((f) => f.toFixed(1)).join(',')).join('|');
     expect(new Set(ATLAS.map((s) => sig(play(s)))).size).toBe(4);
+  });
+});
+
+// ── With W1's sim: real Tyrant and True Dissonance fights ──────────────────────────────────
+
+/** A real director following a real sim: every batch and every frame, as the runtime does. */
+function follow(sim: Sim) {
+  const ctx = new RecordingContext();
+  const d = new SynthDirector({
+    context: ctx as unknown as BaseAudioContext,
+    autoPump: false,
+    installUnlock: false,
+    followSettings: false,
+  });
+  d.setMood('boss');
+  d.pump();
+  const frame = (events: SimEvent[]) => {
+    const before = { ...d.debugStats().peakVoices };
+    const from = ctx.sources.length;
+    d.onEvents(events, sim.state);
+    ctx.currentTime += 1 / 60;
+    ctx.endDue();
+    d.update(sim.state, 1 / 60);
+    const after = d.debugStats().peakVoices;
+    return {
+      groups: Object.keys(after).filter((k) => (after[k] ?? 0) > (before[k] ?? 0)),
+      sources: ctx.sources.slice(from),
+      now: ctx.currentTime - 1 / 60,
+    };
+  };
+  return { ctx, d, frame, dis: () => d.sfxEngine()!.dissonance };
+}
+
+describe('with the sim: Tyrant, heard', () => {
+  it('the Bellwarden’s real edict and its borrowed Lance: the edict, and the voice under each cast', () => {
+    const s = SCENARIO_BELLWARDEN;
+    const sim = createSim({
+      seed: s.seed,
+      ...s.config,
+      debug: true,
+      dissonance: [{ id: 'tyrant', rank: 1 }],
+    });
+    const bot = makeBot('skilled', s.seed);
+    const a = follow(sim);
+    let borrowed = 0;
+    for (let i = 0; i < 20 * 60; i++) {
+      sim.step(bot.decide(sim.state));
+      const events = sim.drainEvents();
+      const boss = sim.state.encounter.bossId;
+      const hold = boss === null ? undefined : sim.state.entities.get(boss)?.enemy?.tyrant;
+      for (const e of events)
+        if (
+          e.type === 'telegraphStarted' &&
+          e.owner === boss &&
+          sim.state.telegraphs.find((t) => t.id === e.telegraph)?.attackId === hold?.attack
+        )
+          borrowed++;
+      a.frame(events);
+    }
+    expect(a.dis().asked.edict).toBeGreaterThanOrEqual(1);
+    expect(borrowed).toBeGreaterThan(0);
+    expect(a.dis().asked.tyrant).toBe(borrowed);
+    a.d.dispose();
+  });
+});
+
+describe('with the sim: the Postlude, heard', () => {
+  const TD = [{ id: 'true_dissonance', rank: 1 }];
+  /** W1's staging (tests/sim/postlude.test.ts): the Conductor in a sandbox, the party unkillable. */
+  function staged() {
+    const sim = sandbox({ dissonance: TD });
+    sim.step([spawn(CONDUCTOR, 0, -8)]);
+    const w = worldOf(sim);
+    const boss = w.entities.list().find((e) => e.enemy?.defId === CONDUCTOR)!;
+    boss.health!.hp = boss.health!.maxHp = 1e6;
+    for (const id of w.party) {
+      const hh = w.entities.get(id)!.health!;
+      hh.hp = hh.maxHp = 1e6;
+      hh.invulnerable = 1e9;
+    }
+    for (let i = 0; i < 900 && w.field.finale === undefined; i++) sim.step([]);
+    sim.drainEvents();
+    return { sim, w, boss };
+  }
+
+  it('the rise’s batch: the decree announces it low, the rise sounds high over it, no clash', () => {
+    const { sim, w, boss } = staged();
+    const a = follow(sim);
+    a.frame([]);
+    boss.health!.hp = 1;
+    dealDamage(w, boss, { source: w.party[0]!, sourceName: 'test', amount: 50, telegraph: null });
+    const events = sim.drainEvents();
+    const types = events.map((e) => e.type);
+    expect(types).toContain('postludeRose');
+    expect(types).toContain('decree');
+    expect(types).not.toContain('enemyKilled');
+    const out = a.frame(events);
+    expect(out.groups).toContain('decree');
+    expect(out.groups).toContain(DISSONANCE_SOUND_GROUPS.rise);
+    // The decree's horns sit on D2 and F2 for its first 1.4 s; nothing of the rise is pitched
+    // under 250 Hz then (its low D comes as the Conductor stands, 3 s on): the rise alone.
+    const alone = follow(sim);
+    alone.frame([]);
+    const r = alone.frame(events.filter((e) => e.type === 'postludeRose'));
+    const early = r.sources.filter(
+      (src) => src.kind === 'osc' && Math.min(...src.starts) < r.now + 1.4,
+    );
+    expect(early.length).toBeGreaterThan(0);
+    for (const src of early) expect(Math.min(...src.freqs)).toBeGreaterThan(250);
+    const late = r.sources.filter(
+      (src) => src.kind === 'osc' && Math.min(...src.starts) > r.now + 2.5,
+    );
+    expect(late.some((src) => src.freqs.some((f) => f < 100))).toBe(true);
+    alone.d.dispose();
+    const riseEarly = a.dis().asked.rise;
+    expect(riseEarly).toBe(1);
+    const notes = RISE_NOTES.map((i) => midiToHz(scaleMidi(i)));
+    for (const f of notes)
+      expect(
+        out.sources.some((src) => near(src, f)),
+        f.toFixed(1),
+      ).toBe(true);
+    a.d.dispose();
+  });
+
+  it('pairs from the real sim: each pair’s second Cue sings the answer, never its own phrase too', () => {
+    const { sim, w, boss } = staged();
+    const a = follow(sim);
+    const cue = vi.spyOn(
+      SfxEngine.prototype as unknown as { enemyCue: (id: number) => void },
+      'enemyCue',
+    );
+    boss.health!.hp = 1;
+    dealDamage(w, boss, { source: w.party[0]!, sourceName: 'test', amount: 50, telegraph: null });
+    a.frame(sim.drainEvents());
+    const order: string[] = [];
+    let pairs = 0;
+    for (let i = 0; i < 40 * 60; i++) {
+      sim.step([]);
+      const events = sim.drainEvents();
+      for (const e of events) {
+        if (e.type === 'enemyCued') order.push(`cued:${e.soloist}`);
+        if (e.type === 'postludePair') {
+          order.push(`pair:${e.voices.join(',')}`);
+          // It comes in the batch of its second Cue, right after it.
+          expect(order[order.length - 2]).toBe(`cued:${e.voices[e.voices.length - 1]}`);
+          if (e.voices.length >= 2) pairs++;
+        }
+      }
+      a.frame(events);
+    }
+    expect(pairs).toBeGreaterThanOrEqual(2);
+    expect(a.dis().asked.pair).toBe(pairs);
+    // Every Cue's phrase was asked for except each pair's second, which the answer sang.
+    const cued = order.filter((o) => o.startsWith('cued:')).length;
+    expect(cue.mock.calls.length).toBe(cued - pairs);
+    a.d.dispose();
   });
 });

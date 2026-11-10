@@ -921,6 +921,8 @@ export interface PostludeClocks {
   nextPairAt: number;
   secondAt?: number;
   second?: EntityId;
+  /** Phase 6 W1: the pair's first voice, while its second Cue is still to come. */
+  first?: EntityId;
 }
 
 /** A timed zone (docs/phase-5c.md Q4): `pull` drags toward its centre; `null` silences the Weaver. */

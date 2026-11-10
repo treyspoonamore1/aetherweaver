@@ -803,11 +803,13 @@ const SFX: Record<string, string> = {
   'bond-solo-brann': '31:86b153ee:f31c7748:e9c15cd0',
   'bond-scene-brann': '30:0403c63d:392dc96b:19b078e8',
   'bond-reply-brann': '17:ea9ea32e:3680d13a:23e0be88',
-  'dis-toggle-low': '16:a3ce1c51:dcd7d642:66768694',
+  // Phase 6: re-recorded (with dis-toggle-off and dis-toggle-climb), the only entries whose sound
+  // is a share of dissonanceMax(), which the three new levels took from 30 to 42.
+  'dis-toggle-low': '16:00079680:3c5d2a0a:1c46f2ff',
   'dis-toggle-mid': '16:700a2e32:7af372d7:49989309',
   'dis-toggle-max': '20:a200ba62:26710ebe:a1dd9732',
-  'dis-toggle-off': '15:b827003e:4331a73b:0320a991',
-  'dis-toggle-climb': '76:a62bac66:d6c23733:f65f503e',
+  'dis-toggle-off': '15:e11277f0:3b642042:0b75e881',
+  'dis-toggle-climb': '76:399bb535:b1fe2eff:e0ec54a1',
   'dis-best-max': '38:a67817e7:2c3f9abf:f64ef899',
   'loom-buy': '22:672c09bf:2100ec7b:35ebfe16',
   'loom-refused': '14:2908a54a:a09b7549:520eaea8',

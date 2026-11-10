@@ -71,6 +71,34 @@ export const SILENCE_STEPS = { measureLead: 0.5, cadenceLag: 0.5, nextCycle: 2 }
 /** Each note fills this much of every stilled hero's Solo (eight fill it). */
 export const SOLO_PER_NOTE = 100 / NOTES_NEEDED;
 
+// ── Phase 6 (docs/phase-6.md): True Dissonance's Postlude and Tyrant's closing attacks ──────
+
+/**
+ * The Postlude (True Dissonance): the Conductor rises from its fall with `life` of its life,
+ * untouchable for `rise` s; `voices` of its choir are Raised again and Cued in pairs every
+ * `cueEvery` s, the second `pairGap` s after the first; Discord swells at `discordRate` a second.
+ * After `enrageAfter` s of it, the pairs come every `enragedCueEvery` s and Discord swells
+ * × `enragedDiscord`. The level's text reads `life` (as a percentage, `dissonance.ts`).
+ */
+export const POSTLUDE = {
+  life: 0.3,
+  rise: 3,
+  voices: 2,
+  cueEvery: 14,
+  pairGap: 1.5,
+  discordRate: 1.5,
+  enrageAfter: 90,
+  enragedCueEvery: 10,
+  enragedDiscord: 2,
+} as const;
+
+/** Tyrant: the last burn's (and the Postlude's) Downbeat and Sforzando cadences (s). */
+export const TYRANT_BURN = { downbeat: 7, sforzando: 9 } as const;
+
+/** The Postlude's Decree: what's coming, then its answer (Principle 4). */
+export const POSTLUDE_DECREE =
+  'Postlude — The Conductor will not let the song end, and its choir sings in pairs. Answer both voices, and silence its Fortissimo with your Crescendo.';
+
 // ── The numbers the text names ───────────────────────────────────────────────────────
 
 /** The Conductor's Downbeat: a cleave on the tank. */

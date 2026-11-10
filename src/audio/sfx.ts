@@ -958,6 +958,8 @@ export class SfxEngine {
     this.scanBatch(events, state);
     // Phase 5f: a Grand Finale turn's Solo plays the turn's phrase, not the plain Cue's.
     this.conduct.scan(events);
+    // Phase 6: a Postlude pair's second Cue is its answer (DissonanceSounds plays it instead).
+    this.dissonance.scan(events);
     if (this.batchShare) this.linkShare(state);
     for (const ev of events) {
       try {
@@ -1503,7 +1505,8 @@ export class SfxEngine {
         this.fortissimoCancelled(ev.by);
         break;
       case 'enemyCued':
-        this.enemyCue(ev.soloist, ev.solo, state);
+        // Phase 6: a Postlude pair's second Cue sings the pair's answer in place of its phrase.
+        if (!this.dissonance.answers(ev.soloist)) this.enemyCue(ev.soloist, ev.solo, state);
         break;
       case 'silenceBegan':
         this.silenceBegan(ev.until);

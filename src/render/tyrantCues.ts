@@ -18,6 +18,7 @@
  *   is; the attack's own telegraph is drawn as the foe's always is.
  */
 import { enemyDef } from '../content';
+import { FINALE_HEX } from './crucibleCues';
 import type {
   EntityId,
   ReadonlyEntity,
@@ -69,8 +70,37 @@ export function tyrantAccentHex(from: string | undefined | null): string {
   }
 }
 
-/** The borrowed foe's name (its content definition), else its id. */
-export function tyrantFoeName(from: string): string {
+/**
+ * The hold is a foe's attack: `from` is not the boss itself. The Silent Conductor's holds are its
+ * own Sforzando and Downbeat (`from` is the_silent_conductor): it borrows nothing, so it wears no
+ * band (no ring in its own accent pretending to be borrowed) and its edict draws no band closing
+ * in; its crown sigil still marks a Tyrant cast. An unknown boss counts as borrowing.
+ */
+export function isBorrowed(
+  from: string | undefined | null,
+  bossDefId: string | undefined,
+): boolean {
+  return !!from && from !== bossDefId;
+}
+
+/**
+ * The colour Tyrant's marks take: the borrowed foe's accent, or, for a boss holding its own
+ * attack, the Conductor's tarnished brass (its Cue's baton: its own accent is the silence's ash,
+ * which may not mark anything).
+ */
+export function tyrantMarkHex(
+  from: string | undefined | null,
+  bossDefId: string | undefined,
+): string {
+  return isBorrowed(from, bossDefId) ? tyrantAccentHex(from) : FINALE_HEX.baton;
+}
+
+/**
+ * The borrowed foe's name (its content definition), else its id; null for a boss holding its own
+ * attack (there is no foe to name: say "its own …").
+ */
+export function tyrantFoeName(from: string, bossDefId?: string): string | null {
+  if (!isBorrowed(from, bossDefId ?? undefined) && bossDefId !== undefined) return null;
   try {
     return enemyDef(from).name;
   } catch {
