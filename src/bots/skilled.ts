@@ -192,7 +192,7 @@ export interface SkilledOptions {
  * false, and `focus` null, when its rule is off or its mechanic is not on the field).
  */
 export interface ExpertRead {
-  /** Keep the last Ward charge: no call-answer or low-life Ward (`tyrantWard`, `postludePair`). */
+  /** Keep the last Ward charge: no call-answer or low-life Ward (`postludePair`). */
   keepWard: boolean;
   /** Bank Resonance for Fortissimo Silence's cancel, the Grand Finale too (`postludeBank`). */
   bank: boolean;

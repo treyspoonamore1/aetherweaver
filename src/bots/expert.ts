@@ -14,7 +14,6 @@
  * Expert plays exactly as the Skilled bot does at its decision rate. Each can be left off by name
  * (`ExpertOptions.skip`, tools/verbs.ts `--bot expert`).
  */
-import { attackDef } from '../content';
 import { CHOIR } from '../content/crucibleIds';
 import type { Command, ReadonlyEntity, WorldState } from '../sim';
 import {
@@ -49,13 +48,6 @@ export const EXPERT_RULES = [
    * Cantor's Mending Hymn, which heals its side) is Focused at once, ahead of every other pick.
    */
   'tyrantFocus',
-  /**
-   * Tyrant's edict names this phase's borrowed attack (`enemy.tyrant`'s attack and phase, what
-   * the decree shows; never its clock, which a player can't see): while the boss's telegraph of
-   * it is live and it is a damaging attack a Ward answers, the last Ward charge is kept for it
-   * (no call-answer or low-life Ward; its Perfect window takes it as any blow's).
-   */
-  'tyrantWard',
   /**
    * Mimicry's mark on an ordinary foe (or any Mimicking enemy): while it casts its mirror and no
    * more than `MIMIC_FOCUS_AT` enemies stand, it is Focused at once (the affix's own answer).
@@ -172,22 +164,6 @@ export class ExpertPlay implements ExpertHooks {
       ) {
         r.focus = boss;
         fire('tyrantFocus');
-      }
-      const borrowed = attackDef(hold.attack);
-      if (
-        this.on('tyrantWard') &&
-        wc.wardCharges < 2 &&
-        borrowed.effect === 'damage' &&
-        borrowed.answers.includes('ward')
-      ) {
-        // Only what the player sees: the edict's attack, shown as the boss's live telegraph.
-        const live = state.telegraphs.some(
-          (t) => t.owner === boss.id && t.attackId === hold.attack && t.impact > now,
-        );
-        if (live) {
-          r.keepWard = true;
-          fire('tyrantWard');
-        }
       }
     }
 
