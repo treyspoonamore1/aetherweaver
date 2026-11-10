@@ -50,22 +50,24 @@ export const TYRANT_TABLE: Readonly<Record<string, readonly (TyrantEntry | null)
     { attack: 'acolyte_mending_hymn', from: 'cantor_acolyte' },
   ],
   // Movement II
-  // The doc's Leech · Latch (phase 2 here, phase 1 for Vharun) is swapped for the Hemomancer's
-  // Blood Pact: its 1.8 m reach never meets a boss's tank, who stands at the boss's own longer
-  // basic reach, so it was never cast (checked in a scenario, tests/sim/tyrant.test.ts).
   gorehound_matriarch: [
     { attack: 'impaler_charge', from: 'impaler' },
-    { attack: 'hemomancer_blood_pact', from: 'hemomancer' },
+    { attack: 'leech_latch', from: 'leech' },
   ],
   vharun_crimson_warden: [
-    { attack: 'hemomancer_blood_pact', from: 'hemomancer' },
+    // Not the doc's Leech · Latch: its 1.8 m reach never meets Vharun's tank, who stands at
+    // Vharun's own longer basic reach, so it is never cast; nor the Hemomancer's Pact, which
+    // Vharun casts as its own. The road's one other attack (tests/sim/reviewA.test.ts).
+    { attack: 'impaler_charge', from: 'impaler' },
     { attack: 'impaler_charge', from: 'impaler' },
     // Not the Hemomancer's Pact: Vharun's Judgement stops Pacts on purpose.
     { attack: 'lamenter_dirge', from: 'lamenter' },
   ],
   // Movement III
   the_seamstress: [
-    { attack: 'shears_dash', from: 'shears' },
+    // Not the doc's Shears · Shearing Dash, which cuts the Thread (and the songs that ride it):
+    // Movement III's other charge at a hero, which cuts nothing.
+    { attack: 'impaler_charge', from: 'impaler' },
     { attack: 'wraith_doubt', from: 'doubt_wraith' },
   ],
   the_unweaver: [
@@ -210,5 +212,6 @@ export function tyrantDecreeOf(bossDefId: string, hold: Pick<TyrantHold, 'attack
     enemyDef(hold.from).name,
     attack.name,
     attack.answers,
+    attack.interruptible,
   );
 }

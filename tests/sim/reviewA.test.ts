@@ -13,12 +13,18 @@ import { mimicry } from '../../src/sim/systems/director';
 import { createWorld, type World } from '../../src/sim/world';
 import { TYRANT_OWN } from '../../src/content/crucible';
 import { CONDUCTOR, DOWNBEAT, SFORZANDO } from '../../src/content/crucibleIds';
-import { tyrantDecreeOf } from '../../src/sim/systems/tyrant';
+import { tyrantDecree } from '../../src/content/dissonance';
+import type { AnswerTag } from '../../src/content/schema';
+import { bossPhaseTable } from '../../src/sim/systems/bosses';
+import { TYRANT_TABLE, tyrantAttackOf, tyrantDecreeOf } from '../../src/sim/systems/tyrant';
 import { runScenario } from '../../tools/runScenario';
 import {
   SCENARIO_BELLWARDEN,
   SCENARIO_CONDUCTOR,
+  SCENARIO_MATRIARCH,
   SCENARIO_POSTLUDE,
+  SCENARIO_SEAMSTRESS,
+  SCENARIO_TYRANT_VHARUN,
   SCENARIO_VHARUN,
   type Scenario,
 } from '../../tools/scenarios';
@@ -393,4 +399,156 @@ describe('review A, F6a: Mimicry’s text says what the code does', () => {
       }
     expect(only).toBeGreaterThan(0);
   });
+});
+
+describe('review A, F6b: Tyrant’s Decree names only answers the attack’s data supports', () => {
+  /** How the Decree says one answer (its second sentence, with only that answer). */
+  const phrase = (tag: AnswerTag) =>
+    tyrantDecree('The Boss', 'Foe', 'Attack', [tag], true).split('. ')[1]!.replace(/\.$/, '');
+  const TAGS: AnswerTag[] = [
+    'ward',
+    'chime',
+    'reel',
+    'focus',
+    'scatter',
+    'stack',
+    'move',
+    'dome',
+    'mend',
+    'thread',
+    'empower',
+    'crescendo',
+  ];
+
+  it('every table entry: each answer named is one of its own, Focus only if a Focus interrupts it', () => {
+    for (const [boss, rows] of Object.entries(TYRANT_TABLE))
+      for (const row of rows) {
+        if (!row) continue;
+        const attack = attackDef(row.attack);
+        const text = tyrantDecreeOf(boss, row);
+        const answer = text.split('. ').slice(1).join('. ').toLowerCase();
+        for (const tag of TAGS) {
+          const named = answer.includes(phrase(tag).toLowerCase());
+          const supported =
+            attack.answers.includes(tag) && (tag !== 'focus' || attack.interruptible);
+          expect(named, `${boss} ${row.attack} ${tag}`).toBe(supported);
+        }
+      }
+  });
+
+  it('a borrowed attack a Focus doesn’t stop names no Focus; a name ending in s takes the apostrophe', () => {
+    expect(tyrantDecreeOf('the_seamstress', { attack: 'shears_dash', from: 'shears' })).toBe(
+      'Tyrant — the Seamstress takes up the Shears’ Shearing Dash. Re-thread, or step aside.',
+    );
+    expect(tyrantDecreeOf('the_hollow_cantor', TYRANT_TABLE.the_hollow_cantor![2]!)).toBe(
+      'Tyrant — the Hollow Cantor takes up the Cantor Acolyte’s Mending Hymn. Focus the boss.',
+    );
+  });
+});
+
+describe('review A, F6d and Q1: the swapped entries, cast from their bosses, touching no aura', () => {
+  /** The ordinary foes of a Movement's road (its encounters' waves, no boss or mini-boss). */
+  function roadFoes(movement: string): Set<string> {
+    const m = CONTENT.movements.find((x) => x.id === movement)!;
+    const ids = new Set<string>();
+    const walk = (x: unknown): void => {
+      if (typeof x === 'string') {
+        if (CONTENT.encounters.some((e) => e.id === x)) ids.add(x);
+      } else if (Array.isArray(x)) x.forEach(walk);
+      else if (x && typeof x === 'object') Object.values(x).forEach(walk);
+    };
+    walk(m);
+    const foes = new Set<string>();
+    for (const enc of CONTENT.encounters)
+      if (ids.has(enc.id))
+        for (const w of enc.waves)
+          for (const s of w.spawns) {
+            const role = enemyDef(s.enemy).role;
+            if (role !== 'boss' && role !== 'miniboss') foes.add(s.enemy);
+          }
+    return foes;
+  }
+
+  it('no borrowed attack cuts or aims along the Thread, suppresses, silences or steals an aura, or summons', () => {
+    for (const [boss, rows] of Object.entries(TYRANT_TABLE))
+      for (const row of rows) {
+        if (!row) continue;
+        const a = attackDef(row.attack);
+        const where = `${boss} ${row.attack}`;
+        expect(a.cut, where).toBeUndefined();
+        expect(a.targeting, where).not.toBe('threadLine');
+        expect(['damage', 'healAllies', 'zone'], where).toContain(a.effect);
+        expect(a.summon, where).toBeUndefined();
+        expect(a.scripted, where).toBeUndefined();
+        expect('suppressRadius' in a, where).toBe(false);
+        // A rune refuses the Weaver's techniques inside it, never an aura; no zone mutes a song.
+        if (a.zone) expect(['pull', 'null'], where).toContain(a.zone.kind);
+        // Its foe carries no suppression field of its own (a Mute's).
+        expect(enemyDef(row.from).suppressRadius, where).toBe(0);
+        // Nothing borrowed links or stitches heroes to the Thread.
+        expect(a.linkStatus === 'stitch', where).toBe(false);
+      }
+  });
+
+  it('the swapped entries: from their road, none the boss already has', () => {
+    const cases = [
+      ['gorehound_matriarch', 2, 'leech_latch', 'crimson_legion'],
+      ['vharun_crimson_warden', 1, 'impaler_charge', 'crimson_legion'],
+      ['the_seamstress', 1, 'impaler_charge', 'unstitched'],
+    ] as const;
+    for (const [boss, phase, attack, road] of cases) {
+      const row = tyrantAttackOf(boss, phase)!;
+      expect(row.attack).toBe(attack);
+      expect(roadFoes(road)).toContain(row.from);
+      expect(enemyDef(row.from).specials).toContain(attack);
+      expect(enemyDef(boss).specials).not.toContain(attack);
+    }
+    // Vharun's own Pact is not borrowed again.
+    expect(tyrantAttackOf('vharun_crimson_warden', 1)?.attack).not.toBe('hemomancer_blood_pact');
+  });
+
+  /** `s`'s fight with Tyrant, its boss staged into `phase`: casts of `attack` from the boss. */
+  function castsIn(s: Scenario, boss: string, phase: number, attack: string, seconds = 70) {
+    const sim = createSim({ seed: s.seed, ...s.config, debug: true, dissonance: TYRANT });
+    const w = worldOf(sim);
+    const bot = makeBot(s.name.startsWith('novice') ? 'novice' : 'skilled', s.seed);
+    const at = bossPhaseTable(boss)[phase - 1]!.at;
+    let staged = phase === 1;
+    let casts = 0;
+    const seen = new Set<number>();
+    for (let t = 0; t < 60 * seconds; t++) {
+      const commands = bot.decide(sim.state);
+      const b = bossOf(w);
+      if (!staged && b && w.time > 2) {
+        commands.push({ t: 'debug', op: { op: 'setBossHp', pct: at - 0.02 } });
+        staged = true;
+      }
+      sim.step(commands);
+      sim.drainEvents();
+      for (const tg of w.telegraphs)
+        if (!seen.has(tg.id)) {
+          seen.add(tg.id);
+          if (tg.owner === b?.id && b.enemy!.phase === phase && tg.attackId === attack) casts++;
+        }
+      if (w.encounter.status === 'victory' || w.encounter.status === 'defeat') break;
+    }
+    return casts;
+  }
+
+  it('the Matriarch casts the Leech’s Latch in phase 2', () => {
+    expect(castsIn(SCENARIO_MATRIARCH, 'gorehound_matriarch', 2, 'leech_latch')).toBeGreaterThan(1);
+  }, 120_000);
+
+  it('Vharun casts the Impaler’s Charge in phase 1, in its golden fight and in Tyrant’s', () => {
+    expect(castsIn(SCENARIO_VHARUN, 'vharun_crimson_warden', 1, 'impaler_charge')).toBeGreaterThan(
+      2,
+    );
+    expect(
+      castsIn(SCENARIO_TYRANT_VHARUN, 'vharun_crimson_warden', 1, 'impaler_charge'),
+    ).toBeGreaterThan(2);
+  }, 120_000);
+
+  it('the Seamstress casts the Impaler’s Charge in phase 1', () => {
+    expect(castsIn(SCENARIO_SEAMSTRESS, 'the_seamstress', 1, 'impaler_charge')).toBeGreaterThan(1);
+  }, 120_000);
 });
