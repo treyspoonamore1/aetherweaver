@@ -50,10 +50,10 @@ export const EXPERT_RULES = [
    */
   'tyrantFocus',
   /**
-   * Tyrant's edict names the borrowed attack and the boss holds its clock (`enemy.tyrant`): while
-   * a damaging one a Ward answers is due within `TYRANT_WARD_AHEAD` s (or live), the last Ward
-   * charge is kept for it (no call-answer or low-life Ward; its Perfect window takes it as any
-   * blow's).
+   * Tyrant's edict names this phase's borrowed attack (`enemy.tyrant`'s attack and phase, what
+   * the decree shows; never its clock, which a player can't see): while the boss's telegraph of
+   * it is live and it is a damaging attack a Ward answers, the last Ward charge is kept for it
+   * (no call-answer or low-life Ward; its Perfect window takes it as any blow's).
    */
   'tyrantWard',
   /**
@@ -103,10 +103,6 @@ export const EXPERT_EVERY = 2;
 export const EXPERT_CALL_REACTION = 0.25;
 /** The Expert's generator's salt (the Skilled bot's is 0x5eed). */
 export const EXPERT_SALT = 0xe4be47;
-/** `tyrantWard`: the borrowed attack due within this many seconds keeps the last Ward charge. */
-const TYRANT_WARD_AHEAD = 2;
-/** `tyrantWard`: …and for this long past its ready time, while the boss has yet to cast it. */
-const TYRANT_WARD_LATE = 1;
 /** `mimicFocus`: a casting Mimic is Focused only while no more than this many enemies stand. */
 const MIMIC_FOCUS_AT = 4;
 /** `mimicCrack`: the Thread is in Empower for this last part of a mirror's cast (s). */
@@ -184,11 +180,11 @@ export class ExpertPlay implements ExpertHooks {
         borrowed.effect === 'damage' &&
         borrowed.answers.includes('ward')
       ) {
+        // Only what the player sees: the edict's attack, shown as the boss's live telegraph.
         const live = state.telegraphs.some(
           (t) => t.owner === boss.id && t.attackId === hold.attack && t.impact > now,
         );
-        const due = hold.readyAt - now;
-        if (live || (due <= TYRANT_WARD_AHEAD && due >= -TYRANT_WARD_LATE)) {
+        if (live) {
           r.keepWard = true;
           fire('tyrantWard');
         }
