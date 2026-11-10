@@ -988,6 +988,26 @@ describe('the trigger interpreter: every effect and target', () => {
     ]);
   });
 
+  it('at hero: centred on the event’s hero, not where the event sits; the Weaver without one', () => {
+    const w = motifWorld([
+      { on: 'abilityUsed', effects: [{ kind: 'damage', amount: 10, radius: 2, at: 'hero' }] },
+      { on: 'crescendoEnd', effects: [{ kind: 'damage', amount: 10, radius: 2, at: 'hero' }] },
+    ]);
+    const kael = heroAt(w, 0);
+    const me = weaverOf(w);
+    const byKael = addEnemy(w, 'bell_brute', kael.x + 1, kael.z);
+    const atEvent = addEnemy(w, 'bell_brute', kael.x + 10, kael.z + 10);
+    const byWeaver = addEnemy(w, 'bell_brute', me.x - 1, me.z + 1);
+    const hp = (e: Entity) => e.health!.maxHp - e.health!.hp;
+    const at = { x: atEvent.x, z: atEvent.z, radius: 1 };
+    const used = { source: kael.id, ability: 'shieldBash', name: 'x', ...at };
+    tick(w, [ev(w, 'abilityUsed', used)]);
+    expect([hp(byKael), hp(atEvent)]).toEqual([10, 0]);
+    // An event with no hero: at the Weaver, as `threaded` falls back.
+    tick(w, [ev(w, 'crescendoEnd', {})]);
+    expect([hp(byWeaver), hp(byKael)]).toEqual([10, 10]);
+  });
+
   it('damage: every enemy within reach, or the nearest n; or a share of Riposte Bloom’s power', () => {
     const w = motifWorld([
       { on: 'cued', effects: [{ kind: 'damage', amount: 'v', radius: 3, nearest: 1 }] },

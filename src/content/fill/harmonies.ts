@@ -49,7 +49,7 @@ export const FILL_HARMONIES: ContentInput['motifs'] = [
         on: 'abilityUsed',
         hero: 'kael',
         ability: 'shieldBash',
-        effects: [{ kind: 'damage', amount: 'v', of: 'riposte', at: 'event', radius: 4 }],
+        effects: [{ kind: 'damage', amount: 'v', of: 'riposte', at: 'hero', radius: 4 }],
       },
     ],
   },
