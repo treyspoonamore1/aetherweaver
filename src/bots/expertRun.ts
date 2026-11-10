@@ -169,7 +169,7 @@ export function expertShop(items: readonly ShopItem[], run: RunState): number | 
  * one (by the run's seed among them, as the harness picks); else undefined (the harness's own).
  */
 export function expertNode(options: readonly MapNode[], run: RunState): number | undefined {
-  const healthy = partyLife(run) >= ELITE_AT;
+  const healthy = partyLife(run) >= ELITE_AT - 1e-9;
   const elite = options.findIndex((n) => n.kind === 'elite');
   if (healthy) return elite >= 0 ? elite : undefined;
   const safe = options.flatMap((n, i) => (n.kind === 'elite' ? [] : [i]));

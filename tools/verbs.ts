@@ -40,7 +40,8 @@
  *
  * The Expert's rules (docs/phase-6.md, "Design: the expert bot"): `--bot expert` plays the Expert
  * (`ExpertBot`) and ablates its own `EXPERT_RULES` by default (`--rules` may also name any rule it
- * inherits from the Skilled bot); each row adds how often each of its rules acted a fight. Its
+ * inherits from the Skilled bot); each row adds in how many decisions a fight each of its rules
+ * was met (its condition held: a rule met may still change nothing the inherited rules don't). Its
  * rules are met on Phase 6's levels: `--dissonance` (level ids, each `id` or `id:rank`) plays the
  * fights at them; without it the config has no `dissonance` key, as before.
  *
@@ -148,7 +149,7 @@ export interface VerbFight {
     finales: number;
     marcatos: number;
   };
-  /** The Expert's fights (`--bot expert`): how many decisions each of its rules acted in. */
+  /** The Expert's fights (`--bot expert`): in how many decisions each of its rules was met. */
   expert?: Record<ExpertRule, number>;
 }
 
@@ -297,14 +298,14 @@ export function verbFight(
 }
 
 /**
- * The Expert's rules a fight (`--bot expert`): how many decisions each acted in, averaged over
+ * The Expert's rules a fight (`--bot expert`): in how many decisions each was met, averaged over
  * `fights`, as a row's tail ('' for any other bot). A rule left off reads 0.
  */
 export function expertTail(fights: readonly VerbFight[]): string {
   const x = fights.flatMap((f) => (f.expert ? [f.expert] : []));
   if (x.length === 0) return '';
   const m = (r: ExpertRule) => (x.reduce((s, f) => s + f[r], 0) / x.length).toFixed(1);
-  return ` · acted ${EXPERT_RULES.map((r) => `${r} ${m(r)}`).join(' ')}`;
+  return ` · met ${EXPERT_RULES.map((r) => `${r} ${m(r)}`).join(' ')}`;
 }
 
 /** The Conductor's counts a fight, averaged over `fights`, as a row's tail ('' without any). */
@@ -386,7 +387,7 @@ function main(): void {
         off.duration === all.duration &&
         off.downs === all.downs &&
         conductingTail(offFights) === conductingTail(onFights) &&
-        // The Expert's own rule is met where it acted (whatever the fights then showed).
+        // The Expert's own rule is met where its condition held (whatever the fights then showed).
         !onFights.some((f) => (f.expert?.[rule as ExpertRule] ?? 0) > 0);
       console.log(
         `${''.padEnd(18)} −${rule.padEnd(15)} ${same ? 'no change (not met here)' : `win ${pct(off.win).padStart(4)} (${signed(100 * (off.win - all.win))}) · ${off.duration.toFixed(0)} s (${signed(off.duration - all.duration)}) · downs ${off.downs.toFixed(2)} (${signed(off.downs - all.downs, 2)})`}${conductingTail(offFights)}${expertTail(offFights)}`,
