@@ -328,10 +328,15 @@ function razorFight(onTheThread = true) {
     ctx.endDue();
     const asked = d.sfxEngine()!.fill.asked.razor;
     const voices = d.sfxEngine()!.fill.played.razor;
-    d.onEvents(sim.drainEvents(), sim.state);
+    const events = sim.drainEvents();
+    d.onEvents(events, sim.state);
     d.update(sim.state, 1 / 60);
     const fill = d.sfxEngine()!.fill;
-    return { asked: fill.asked.razor - asked, zings: fill.played.razor - voices };
+    // Razor Silk's damage this frame: the Weaver's cut on the enemy.
+    const cut = events.some(
+      (e) => e.type === 'damageTaken' && e.source === w.weaverId && e.target === enemy.id,
+    );
+    return { asked: fill.asked.razor - asked, zings: fill.played.razor - voices, cut };
   };
   return { ctx, d, sim, w, frame, fill: () => d.sfxEngine()!.fill };
 }
@@ -340,14 +345,24 @@ describe('Razor Silk, heard', () => {
   it('one zing each time its damage ticks while the Thread touches an enemy, only then', () => {
     const f = razorFight();
     f.w.mods.razorDps = 30;
-    for (let i = 0; i < 30; i++) expect(f.frame().asked).toBe(0);
-    for (let tick = 0; tick < 4; tick++) {
-      f.w.internal.razorAt = f.w.time + 0.5;
-      expect(f.frame().zings, `tick ${tick}`).toBe(1);
-      for (let i = 0; i < 29; i++) expect(f.frame().asked).toBe(0);
+    // The clock starts on the first frame; its first damage waits a whole tick (0.5 s).
+    const ticks: number[] = [];
+    const zings: number[] = [];
+    for (let i = 0; i < 130; i++) {
+      const r = f.frame();
+      if (r.cut) ticks.push(i);
+      if (r.asked > 0) {
+        expect(r.zings, `frame ${i}`).toBe(1);
+        zings.push(i);
+      }
     }
+    expect(ticks).toHaveLength(4);
+    expect(zings).toEqual(ticks);
     expect(f.fill().asked.razor).toBe(4);
     expect(f.fill().played.razor).toBe(4);
+    // A clock moved by less than a tick (no damage) is no zing.
+    f.w.internal.razorAt = (f.w.internal.razorAt ?? 0) + 1 / 60;
+    expect(f.frame().asked).toBe(0);
     expect(f.d.debugStats().peakVoices[FILL_SOUND_GROUPS.razor]).toBeLessThanOrEqual(
       FILL_SOUND_LIMITS.razor[1],
     );

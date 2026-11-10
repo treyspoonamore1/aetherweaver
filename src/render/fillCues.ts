@@ -10,8 +10,8 @@
  * - **Razor Silk** (N1): on while the run's `mods.razorDps` is above 0 and the Thread is on a
  *   hero. An enemy is in contact while the sim's own test (`onThread`, sim/fill/threadContact.ts)
  *   says the Thread touches it. Its damage ticks are read from its clock,
- *   `world.internal.razorAt` (the sim time of the next tick): each time it moves on, a tick has
- *   bitten whatever the Thread touches.
+ *   `world.internal.razorAt` (the sim time of the next tick): each time it moves on by one tick,
+ *   a tick has bitten whatever the Thread touches (its start bites nothing).
  * - **Thread the Needle** (N4): its catch is the `needled` event; nothing is read from state.
  *
  * Every reader returns its neutral answer on a fight without the fill's state, so nothing here
@@ -20,6 +20,7 @@
 import { CONTENT } from '../content';
 import type { TriggerEffect } from '../content/schema';
 import type { WorldState } from '../sim';
+import { RAZOR_TICK } from '../sim/fill/silk';
 
 /** The kinds of effect a trigger can apply (content's `TriggerEffectSchema`). */
 export type TriggerKind = TriggerEffect['kind'];
@@ -142,10 +143,12 @@ export function razorClock(state: WorldState): number | undefined {
 }
 
 /**
- * Has Razor Silk's clock moved on since `last` (the clock as last seen; undefined: none)? It moves
- * on each time its damage ticks. A clock that goes back (a new fight) is not a tick.
+ * Has Razor Silk's damage ticked since `last` (the clock as last seen; undefined: none)? Each tick
+ * moves the clock on by exactly `RAZOR_TICK` (sim/fill/silk.ts). The clock starting (its first
+ * value, or a fresh start after the Thread was off: more than a tick on) deals nothing, and a
+ * clock that goes back (a new fight) is not a tick either.
  */
 export function razorTicked(last: number | undefined, now: number | undefined): boolean {
-  if (now === undefined) return false;
-  return last === undefined || now > last;
+  if (now === undefined || last === undefined) return false;
+  return Math.abs(now - last - RAZOR_TICK) < 1e-6;
 }
