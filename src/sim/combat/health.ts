@@ -933,13 +933,24 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     ranks = amount * world.mods.closeRanks;
     amount -= ranks;
   }
-  // Phase 5g (N9, N23, N28): Full Chord, Closed Circle, Iron Mask: each returns what it takes off.
-  if (target.hero && world.mods.perAuraGuard > 0)
-    amount -= fullChordGuard(world, target, amount, opts);
-  if (target.hero && world.mods.circleGuard > 0)
-    amount -= closedCircleGuard(world, target, amount, opts);
-  if (target.hero && world.mods.maskGuard > 0)
-    amount -= fillRelics.ironMaskGuard(world, target, amount, opts);
+  // Phase 5g (N9, N23, N28): Full Chord, Closed Circle, Iron Mask: each returns what it takes off,
+  // credited below with the life it kept, as the guards are.
+  let fillGuard = 0;
+  if (target.hero && world.mods.perAuraGuard > 0) {
+    const off = fullChordGuard(world, target, amount, opts);
+    amount -= off;
+    fillGuard += off;
+  }
+  if (target.hero && world.mods.circleGuard > 0) {
+    const off = closedCircleGuard(world, target, amount, opts);
+    amount -= off;
+    fillGuard += off;
+  }
+  if (target.hero && world.mods.maskGuard > 0) {
+    const off = fillRelics.ironMaskGuard(world, target, amount, opts);
+    amount -= off;
+    fillGuard += off;
+  }
 
   let absorbed = 0;
   let absorbedByWeaver = 0;
@@ -1087,6 +1098,12 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   const variantKept = spared + (target.hero ? (opts.linked ?? 0) : 0);
   if (variantKept > 0) {
     const kept = Math.min(variantKept, keptLife);
+    keptLife -= kept;
+    world.ledger.shielded += kept;
+  }
+  // Phase 5g (N9, N23, N28): the fill's guards, the same way.
+  if (fillGuard > 0) {
+    const kept = Math.min(fillGuard, keptLife);
     keptLife -= kept;
     world.ledger.shielded += kept;
   }
@@ -1668,6 +1685,9 @@ function downHero(
   hero.action = 'downed';
   e.vx = 0;
   e.vz = 0;
+  // Phase 5g (N27): Water Clock turns the fall back before it counts (fill/relics.ts): no down,
+  // no death record, no `allyDowned`, no Lantern.
+  if (world.mods.waterClock > 0 && fillRelics.waterClockDowned(world, e)) return;
   world.ledger.downs++;
   const weaver = world.entities.get(world.weaverId)?.weaver;
   const ready: ('ward' | 'chime' | 'reel' | 'glide')[] = [];
@@ -1709,8 +1729,6 @@ function downHero(
   bark(world, e, 'downed', true);
   lantern(world, e);
   // A threaded hero stays threaded: Mend revives them.
-  // Phase 5g (N27): Water Clock may turn time back for them (fill/relics.ts).
-  if (world.mods.waterClock > 0) fillRelics.waterClockDowned(world, e);
 }
 
 function downWeaver(world: World, e: Entity): void {
@@ -1740,8 +1758,6 @@ function downWeaver(world: World, e: Entity): void {
 
 /** Called when a downed hero's bleed-out runs out. */
 export function heroOut(world: World, e: Entity): void {
-  // Phase 5g (N27): Water Clock may turn time back instead (fill/relics.ts).
-  if (world.mods.waterClock > 0 && fillRelics.waterClockOut(world, e)) return;
   const h = e.health!;
   h.dead = true;
   h.downed = true;

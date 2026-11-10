@@ -228,7 +228,6 @@ describe('every new Mods field has a default that does nothing (ground rule 3)',
     expect(harmonies.woundedWardMult(world, hero)).toBe(1);
     expect(harmonies.closedCircleGuard(world, hero, 30, opts)).toBe(0);
     expect(relics.shopRelicBonus([], CONTENT)).toBe(0);
-    expect(relics.waterClockOut(world, hero)).toBe(false);
     expect(relics.ironMaskRefuses(world, undefined)).toBe(false);
     expect(relics.ironMaskGuard(world, hero, 30, opts)).toBe(0);
     expect(relics.cueCostFloor(world, -10)).toBe(-10);
@@ -666,7 +665,7 @@ describe('the trigger interpreter: arming, resolution and the views (docs/phase-
     expect(only && 'target' in only).toBe(false);
   });
 
-  it('reads only the events from the mark on, and never the ones its own effects emit', () => {
+  it('reads the events from the mark on; its own effects’ events only in the next pass, once', () => {
     const w = motifWorld([
       { on: 'cued', effects: [{ kind: 'damage', amount: 1e6, radius: 30 }] },
       { on: 'enemyKilled', effects: RES },
@@ -678,13 +677,36 @@ describe('the trigger interpreter: arming, resolution and the views (docs/phase-
     w.events.push(cue());
     updateTriggers(w, w.events.length, SIM_DT);
     expect(fired(w.events.drain())).toEqual([]);
-    // Its damage kills, and the kill is reported, but no pass reads it: not this one, not the next.
+    // Its damage kills, and the kill is reported; this pass doesn't read the kill.
     addEnemy(w, 'hollow_chorister', 0, -3);
+    const ww = weaverOf(w).weaver!;
+    const before = ww.resonance;
     const out = tick(w, [cue()]);
     expect(out.some((e) => e.type === 'enemyKilled')).toBe(true);
     expect(fired(out)).toHaveLength(1);
+    expect(ww.resonance).toBe(before);
+    expect(w.internal.triggers!.carry!.map((e) => e.type)).toEqual(['enemyKilled']);
+    // The next pass reads it, once, before its own events (none here).
+    expect(fired(tick(w, []))).toHaveLength(1);
+    expect(ww.resonance).toBeGreaterThan(before);
+    expect('carry' in w.internal.triggers!).toBe(false);
+    // And never again.
     expect(fired(tick(w, []))).toEqual([]);
-    expect(w.ledger.triggers).toEqual({ [id]: 1 });
+    expect(w.ledger.triggers).toEqual({ [id]: 2 });
+  });
+
+  it('carries only what a held trigger listens to, and nothing once the fight is over', () => {
+    const w = motifWorld([{ on: 'cued', effects: [{ kind: 'damage', amount: 1e6, radius: 30 }] }]);
+    addEnemy(w, 'hollow_chorister', 0, -3);
+    const out = tick(w, [ev(w, 'cued', { hero: heroAt(w, 0).id })]);
+    // Its kill was reported, but no held trigger hears a kill: nothing is carried.
+    expect(out.some((e) => e.type === 'enemyKilled')).toBe(true);
+    expect('carry' in w.internal.triggers!).toBe(false);
+    // Over: the pass reads nothing.
+    const v = motifWorld([{ on: 'cued', effects: RES }]);
+    (v.encounter as { status: string }).status = 'victory';
+    expect(fired(tick(v, [ev(v, 'cued', { hero: heroAt(v, 0).id })]))).toEqual([]);
+    expect(v.ledger.triggers).toEqual({ [v.config.motifs[0]!.id]: 0 });
   });
 
   it('draws no random number', () => {
@@ -1181,7 +1203,7 @@ describe('the trigger interpreter: a fire counts only when an effect did somethi
     return { w, id, reports: fired(out), tally: w.ledger.triggers![id], clock };
   }
 
-  it('nothing done: no tally and no motifTriggered, but the limits still count the fire', () => {
+  it('nothing done: no tally, no motifTriggered, and its limits spend nothing', () => {
     const full = (w: World) => {
       for (const id of w.party) {
         const h = w.entities.get(id)!.health!;
@@ -1254,9 +1276,9 @@ describe('the trigger interpreter: a fire counts only when an effect did somethi
       const r = once(effects, stage, 'cued', 3);
       expect(r.tally, name).toBe(0);
       expect(r.reports, name).toEqual([]);
-      // The mechanical limits are the fire's, done or not: `every` starts its wait.
-      expect(r.clock.fired, name).toBe(1);
-      expect(r.clock.readyAt, name).toBeCloseTo(r.w.time + 3, 9);
+      // A fire that did nothing spends neither its count nor its wait.
+      expect(r.clock.fired, name).toBe(0);
+      expect(r.clock.readyAt, name).toBe(0);
     }
   });
 
@@ -1298,7 +1320,7 @@ describe('the trigger interpreter: a fire counts only when an effect did somethi
     const counts = [0, 1, 2, 3].map(() => fired(tick(w, [p()])).length);
     expect(counts).toEqual([1, 1, 0, 0]);
     expect(w.ledger.triggers).toEqual({ [id]: 2 });
-    expect(w.internal.triggers!.clocks[0]!.fired).toBe(4);
+    expect(w.internal.triggers!.clocks[0]!.fired).toBe(2);
   });
 });
 

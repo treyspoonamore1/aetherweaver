@@ -238,6 +238,23 @@ describe('The Quartermaster', () => {
     );
   });
 
+  it('with every legendary relic carried, the war chest is refused, never sold as another rarity', () => {
+    const base = inEvent('quartermaster');
+    const legendary = CONTENT.relics
+      .filter((r) => r.rarity === 'legendary' && (r.movement ?? 1) <= 2)
+      .map((r) => r.id);
+    const full: RunState = {
+      ...base,
+      relics: legendary.map((id) => ({ id })) as RunState['relics'],
+    };
+    expect(Run.eventChoiceProblem(full, 'chest')).toBe('No legendary relic is left to buy.');
+    expect(Run.chooseEvent(full, 'chest')).toBe(full);
+    // The crate still sells a rare one.
+    const crate = Run.chooseEvent(full, 'crate');
+    expect(crate.aether).toBe(430);
+    expect(relicDef(crate.relics.at(-1)!.id).rarity).toBe('rare');
+  });
+
   it('Walk on: nothing happens', () => {
     const run = Run.chooseEvent(inEvent('quartermaster'), 'walk');
     expect([run.aether, run.relics]).toEqual([500, []]);
@@ -267,6 +284,22 @@ describe('The Bleeding Bell', () => {
       }
     }
     expect(outcomes.size).toBe(2);
+  });
+
+  it('Ring it yourself: wins at the odds its text gives, from the event’s own stream', () => {
+    const ring = runEventDef('bleeding_bell').choices.find((c) => c.id === 'ring')!;
+    expect(ring.chance).toBeGreaterThan(0);
+    expect(ring.text).toContain(`${Math.round(ring.chance! * 100)}%`);
+    const seeds = 80;
+    let won = 0;
+    for (let seed = 1; seed <= seeds; seed++) {
+      const at = inEvent('bleeding_bell', expedition(seed));
+      const a = Run.chooseEvent(at, 'ring');
+      // The same run, the same roll.
+      expect(Run.chooseEvent(at, 'ring').event!.won).toBe(a.event!.won);
+      if (a.event!.won) won++;
+    }
+    expect(Math.abs(won / seeds - ring.chance!)).toBeLessThan(0.15);
   });
 
   it('Pass by: nothing happens', () => {

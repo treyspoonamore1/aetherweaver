@@ -1070,6 +1070,10 @@ export const TriggerDefSchema = z
      * `perfectWard` on the same holder in the same tick.
      */
     usedUp: z.literal(true).optional(),
+    /** `threadAttached`: to a different hero than the Thread was last on (never the first). */
+    moved: z.literal(true).optional(),
+    /** `techniqueCast`: one of these technique variants (docs/phase-4f.md), never the default. */
+    variant: z.array(IdSchema).min(1).optional(),
     /** `summonFell`: this kind of summon. */
     summon: z.enum(['sapling', 'ancient']).optional(),
     /** The Thread is on a hero, in this mode. */

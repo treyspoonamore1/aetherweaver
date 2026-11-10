@@ -279,18 +279,20 @@ export function waterClockPast(world: World): void {
 }
 
 /**
- * N27, Water Clock (a down): called at the end of `downHero` (combat/health.ts), once the hero
- * is down and every down effect has run, behind `if (world.mods.waterClock > 0)`. Once a fight
+ * N27, Water Clock (a down): called in `downHero` (combat/health.ts) once the hero has fallen and
+ * before anything counts the down, behind `if (world.mods.waterClock > 0)`. Once a fight
  * (`world.internal.waterClockUsed`), time turns back for them: they stand again where they stood
- * and with the life they had as far back as the record reaches. Not when they were already down
- * then (or there is no record): the turn back is then still unspent. The views see it as the
- * `allyDowned` and then the `revived` of the same tick (no `relicTriggered`, as Spare Strings).
+ * and with the life they had as far back as the record reaches, and the fall is no down (no
+ * `ledger.downs`, death record, `allyDowned`, Lantern or down trigger). True when it turned time
+ * back. Not when they were already down then (or there is no record): the turn back is then
+ * still unspent, and the down counts as ever. The views see it as `waterClockUsed` and the
+ * `revived` of the same tick (no `relicTriggered`, as Spare Strings).
  */
-export function waterClockDowned(world: World, hero: Entity): void {
-  if (!(world.mods.waterClock > 0) || world.internal.waterClockUsed) return;
+export function waterClockDowned(world: World, hero: Entity): boolean {
+  if (!(world.mods.waterClock > 0) || world.internal.waterClockUsed) return false;
   const h = hero.health;
   const past = pastOf(hero);
-  if (!h || h.dead || !h.downed || !past || !past.up) return;
+  if (!h || h.dead || !h.downed || !past || !past.up) return false;
   world.internal.waterClockUsed = true;
   reviveHero(world, hero, 0);
   h.hp = Math.min(h.maxHp, Math.max(1, past.hp));
@@ -298,15 +300,7 @@ export function waterClockDowned(world: World, hero: Entity): void {
   hero.z = hero.pz = past.z;
   hero.vx = 0;
   hero.vz = 0;
-}
-
-/**
- * N27, Water Clock (a hero lost): called first in `heroOut` (combat/health.ts), behind
- * `if (world.mods.waterClock > 0)`. The relic acts as a hero goes down (`waterClockDowned`), so a
- * bleed-out running out is never turned back: always false.
- */
-export function waterClockOut(_world: World, _hero: Entity): boolean {
-  return false;
+  return true;
 }
 
 /**

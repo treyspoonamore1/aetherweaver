@@ -62,7 +62,7 @@ export const FILL_RELICS: ContentInput['relics'] = [
     id: 'pedlars_ledger',
     name: 'Pedlar’s Ledger',
     rarity: 'common',
-    text: 'Merchants stock {more} more relic.',
+    text: 'Every merchant’s relic shelf holds {more} more.',
     flavor: 'Every merchant on the road is in it, and what each one keeps under the counter.',
     values: { more: 1 },
     runOnly: true,

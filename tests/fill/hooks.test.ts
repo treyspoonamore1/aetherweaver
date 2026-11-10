@@ -12,7 +12,7 @@ import { CONTENT } from '../../src/content';
 import { MotifDefSchema, RelicDefSchema } from '../../src/content/schema';
 import * as Run from '../../src/meta/run';
 import { techniqueCost } from '../../src/sim/astrolabe';
-import { dealDamage, heroOut, killEnemy } from '../../src/sim/combat/health';
+import { dealDamage, killEnemy } from '../../src/sim/combat/health';
 import { decayResonance } from '../../src/sim/combat/resonance';
 import { SIM_DT } from '../../src/sim/constants';
 import type { Mods } from '../../src/sim/mods';
@@ -373,13 +373,12 @@ describe('every call site N1-N30 reaches its stub, behind its guard', () => {
     expect(calls(relics.everbellCast)).toBe(1);
   });
 
-  it('N27 Water Clock: the record, a down and a hero lost', () => {
+  it('N27 Water Clock: the record and a down', () => {
     guarded([relics.waterClockPast], { waterClock: 3 }, (w) => recordPast(w));
     guarded([relics.waterClockDowned], { waterClock: 3 }, (w) => {
       dealDamage(w, heroAt(w, 0), { source: null, sourceName: 'test', amount: 1e6 });
       expect(heroAt(w, 0).health!.downed).toBe(true);
     });
-    guarded([relics.waterClockOut], { waterClock: 3 }, (w) => heroOut(w, heroAt(w, 0)));
   });
 
   it('N28 Iron Mask’s curse, on the Thread’s mode toggle', () => {

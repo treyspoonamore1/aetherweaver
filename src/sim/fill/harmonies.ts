@@ -289,8 +289,8 @@ function wounded(world: World): boolean {
  * N23, Closed Circle: called in `dealDamage` (combat/health.ts), beside Full Chord, on a hit to a
  * hero, behind `if (target.hero && world.mods.circleGuard > 0)`; returns the damage it takes off
  * `amount`: `circleGuard` of it (at most all of it) on any hit to a standing hero while every
- * standing hero is `inField` (read only). What it takes off is credited to `ledger.shielded`, as
- * Full Chord's and Haloed's guards are, capped at the life the hero has.
+ * standing hero is `inField` (read only). `dealDamage` credits it to `ledger.shielded` as the
+ * guards are: only the life the hero kept, none if the hit downs them anyway. Pure.
  */
 export function closedCircleGuard(
   world: World,
@@ -304,7 +304,5 @@ export function closedCircleGuard(
     const e = world.entities.get(id);
     if (e?.hero && isActive(e) && !e.hero.inField) return 0;
   }
-  const removed = amount * Math.min(1, share);
-  world.ledger.shielded += Math.min(removed, target.health.hp);
-  return removed;
+  return amount * Math.min(1, share);
 }

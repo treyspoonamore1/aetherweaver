@@ -53,6 +53,7 @@ import {
   type SimConfig,
 } from '../sim';
 import { shopRelicBonus } from '../sim/fill/relics';
+import { FILL_EVENTS } from '../content/fill';
 import {
   FIGHT_AETHER,
   FORGE_PRICE,
@@ -1875,6 +1876,9 @@ export function leaveForge(run: RunState): RunState {
 
 // ── Events ────────────────────────────────────────────────────────────────────────────
 
+/** Phase 5g's events (src/content/fill/events.ts): the rule for their paid relics is theirs. */
+const FILL_EVENT_IDS: ReadonlySet<string> = new Set(FILL_EVENTS.map((e) => e.id));
+
 /**
  * Why an event choice can't be made right now (null: it can). A Rank-gated choice
  * (docs/phase-5e.md) needs its recruit in `allowance.recruits`; with no allowance it is
@@ -1895,6 +1899,14 @@ export function eventChoiceProblem(
     if (!allowance || !hero || !allowance.recruits.has(hero)) return `Opens at Rank ${ch.rank}.`;
   }
   if (run.aether < ch.cost) return `Needs ${ch.cost} Aether.`;
+  // Phase 5g's paid relics (the Quartermaster): with nothing of that rarity left to sell, the
+  // choice is refused rather than selling another rarity at its price.
+  if (ch.cost > 0 && FILL_EVENT_IDS.has(run.event.eventId)) {
+    const movement = offerMovement(run);
+    for (const e of ch.effects)
+      if (e.kind === 'relic' && relicPool(run, e.rarity, [], movement).length === 0)
+        return `No ${e.rarity} relic is left to buy.`;
+  }
   if (ch.motif === 'any' && run.motifs.length === 0) return 'Needs a motif.';
   if (ch.motif === 'upgradable' && !run.motifs.some((m) => upgradable(run, m.id)))
     return 'Needs a motif that can still grow.';
