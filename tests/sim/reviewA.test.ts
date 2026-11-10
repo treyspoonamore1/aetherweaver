@@ -4,12 +4,13 @@
  * it shows is what begins (F3).
  */
 import { describe, expect, it } from 'vitest';
-import { attackDef } from '../../src/content';
+import { attackDef, CONTENT, dissonanceLevel, enemyDef } from '../../src/content';
 import { makeBot } from '../../src/bots';
 import { createSim, type Command, type Sim, type SimConfig } from '../../src/sim';
 import { dealDamage } from '../../src/sim/combat/health';
 import type { Entity } from '../../src/sim/state';
-import type { World } from '../../src/sim/world';
+import { mimicry } from '../../src/sim/systems/director';
+import { createWorld, type World } from '../../src/sim/world';
 import { TYRANT_OWN } from '../../src/content/crucible';
 import { CONDUCTOR, DOWNBEAT, SFORZANDO } from '../../src/content/crucibleIds';
 import { tyrantDecreeOf } from '../../src/sim/systems/tyrant';
@@ -356,4 +357,40 @@ describe('review A, F4: one clock for the Silent Conductor’s held attack', () 
   it('without Tyrant the Conductor is as it was (its golden)', () => {
     expect(runScenario(SCENARIO_CONDUCTOR).hash).toBe(golden.scenarios['skilled-conductor']);
   }, 120_000);
+});
+
+describe('review A, F6a: Mimicry’s text says what the code does', () => {
+  it('one enemy a wave that is not a boss or mini-boss, the number from `perWave`', () => {
+    const level = dissonanceLevel('mimicry');
+    expect(level.text).toContain('{perWave}');
+    expect(level.text).not.toMatch(/\d/);
+    expect(level.text).not.toMatch(/every wave/i);
+    expect(level.text).toMatch(/isn’t a boss or a mini-boss/);
+    const world = createWorld({ seed: 1, dissonance: [{ id: 'mimicry', rank: 1 }] });
+    const perWave = level.values.perWave!;
+    let only = 0;
+    for (const enc of CONTENT.encounters)
+      for (const wave of enc.waves) {
+        const out = mimicry(world, wave.spawns);
+        const added = out.filter((s) => s.affixes.includes('mimicking')).length;
+        const before = wave.spawns.filter((s) => s.affixes.includes('mimicking')).length;
+        const ordinary = wave.spawns.some((s) => {
+          const role = enemyDef(s.enemy).role;
+          return role !== 'boss' && role !== 'miniboss' && s.count > 0;
+        });
+        if (!ordinary) {
+          // A wave of a boss or mini-boss alone has none, as the text says.
+          only++;
+          expect(out).toEqual(wave.spawns);
+          continue;
+        }
+        expect(added - before, enc.id).toBeLessThanOrEqual(1);
+        for (const s of out)
+          if (s.affixes.includes('mimicking') && !wave.spawns.includes(s)) {
+            expect(['boss', 'miniboss']).not.toContain(enemyDef(s.enemy).role);
+            expect(s.count).toBe(Math.min(perWave, s.count));
+          }
+      }
+    expect(only).toBeGreaterThan(0);
+  });
 });

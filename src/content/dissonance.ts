@@ -136,7 +136,8 @@ export const DISSONANCE: ContentInput['dissonance'] = [
     ranks: 1,
     points: 3,
     values: { perWave: 1 },
-    text: 'In every wave, {perWave} enemy carries Mimicking: it copies your Empower, Ward or Chime.',
+    // One enemy of each wave that has one besides its boss or mini-boss (director.ts, `mimicry`).
+    text: 'In each wave, {perWave} enemy that isn’t a boss or a mini-boss carries Mimicking: it copies your Empower, Ward or Chime.',
   },
   {
     id: 'true_dissonance',
