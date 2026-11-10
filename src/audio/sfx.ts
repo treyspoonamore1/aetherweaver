@@ -36,6 +36,7 @@ import { BUS_NAMES, busTrim, Voice, type BusName, type Engine, type VoiceHandle 
 import { ConductSounds } from './conduct';
 import { FillSounds } from './fill';
 import { DissonanceSounds } from './dissonance';
+import { HeroVoices } from './barks';
 import {
   bladeStringNote,
   hollowWoodNote,
@@ -886,6 +887,8 @@ export class SfxEngine {
   readonly fill: FillSounds;
   /** Phase 6: Tyrant's edict and its casts, the Postlude's rise, pairs and stems (docs/phase-6.md). */
   readonly dissonance: DissonanceSounds;
+  /** Phase 7: the heroes' voices on the barks bus (docs/phase-7.md, W7), off by default. */
+  readonly barks: HeroVoices;
 
   constructor(
     private readonly e: Engine,
@@ -905,6 +908,11 @@ export class SfxEngine {
       music,
       play: (key, max, bus, build, opts) => this.play(key, max, bus, build, opts),
       mirrorOf: (defId) => VOICE_MIRRORS[defId],
+    });
+    this.barks = new HeroVoices({
+      e,
+      silenced: () => this.silence?.on === true,
+      pan: (state, x) => this.panFor(state, x),
     });
   }
 
@@ -1542,6 +1550,10 @@ export class SfxEngine {
       case 'timeScaleChanged':
         if (ev.scale < 0.9)
           this.e.muffleMusic(clamp(ev.duration / Math.max(0.2, ev.scale), 0.15, 1.2));
+        break;
+      case 'bark':
+        // Phase 7: a hero's voice (nothing at all while hero voices are off, the default).
+        this.barks.bark(ev, state);
         break;
       default:
         break;
@@ -8756,6 +8768,8 @@ export class SfxEngine {
     this.conduct.stop();
     // Phase 6: the Postlude's music input.
     this.dissonance.stop();
+    // Phase 7: the hero voices' cooldowns start afresh.
+    this.barks.stop();
     if (this.drone) this.drone.gain.gain.setTargetAtTime(0, this.e.now, 0.1);
     if (this.harmony)
       for (const g of this.harmony.gains) g.gain.setTargetAtTime(0, this.e.now, 0.1);

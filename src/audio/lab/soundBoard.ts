@@ -1,5 +1,5 @@
 /** Every sound the lab can trigger, grouped. Shared by the buttons and the offline audit. */
-import { CONTENT } from '../../content';
+import { CONTENT, heroDef } from '../../content';
 import {
   ALTO,
   BASS,
@@ -18,6 +18,7 @@ import { tyrantAttackOf, type ConductingField, type SimEvent } from '../../sim';
 import type { SynthDirector } from '../director';
 import type { UiSound, UiSoundDetail } from '../types';
 import { dissonanceMax } from '../ui';
+import { BARK_KINDS, BARK_POOLS, HERO_TIMBRES, type BarkKind } from '../barks';
 import { TRIGGER_EFFECT_KINDS, TRIGGER_KINDS } from '../../render/fillCues';
 import type { FakeTelegraph, FakeWorld } from './labState';
 import { IDS, ev, nodeWith, type HeroKey, type LabHero } from './labState';
@@ -74,6 +75,11 @@ export interface SoundButton {
      * cast; the Postlude's rise, its stems and a pair Cue answering) and the Atlas's UI sounds.
      */
     | 'phase6'
+    /**
+     * Phase 7: hero voices (each hero's every pool, every gesture in turn; and a real bark event
+     * heard with hero voices on for the press).
+     */
+    | 'barks'
     | 'world'
     | 'ui';
   /** Fires the sound. Receives the director and a world to read/mutate. */
@@ -4497,6 +4503,8 @@ export const SOUNDS: SoundButton[] = [
   ...fillStateSounds(),
   // ── Phase 6: Tyrant, the Postlude, the Atlas ───────────────────────────────────
   ...phase6Sounds(),
+  // ── Phase 7: hero voices ───────────────────────────────────────────────────────
+  ...heroVoiceSounds(),
 ];
 
 /**
@@ -4958,5 +4966,71 @@ function phase6Sounds(): SoundButton[] {
       length: 2,
       fire: (d) => d.playUi('runMismatch'),
     },
+  ];
+}
+
+/**
+ * Phase 7 (docs/phase-7.md, W7): every hero voice. One button per hero and pool plays each of the
+ * pool's gestures in turn (the cooldowns are the event path's, so none applies here); one button
+ * per hero fires a real `bark` event (their first Perfect line) with hero voices on for the press,
+ * as a fight would with the option on.
+ */
+function heroVoiceSounds(): SoundButton[] {
+  // (Declared here, not beside the function: SOUNDS calls it while the module is loading.)
+  /** Phase 7: seconds between two gestures of one pool on a hero voice button. */
+  const VOICE_STEP = 0.75;
+
+  /** Phase 7: what each pool is, for the buttons' labels. */
+  const VOICE_LABELS: Record<BarkKind, string> = {
+    quirk: 'a quirk',
+    lowHp: 'low life',
+    saved: 'saved',
+    perfect: 'a Perfect',
+    cued: 'Cued',
+    downed: 'downed',
+    revived: 'revived',
+    defiant: 'defiant (refuses a Rally)',
+    parried: 'a parry',
+    focus: 'a Focus',
+    saplingFelled: 'a Sapling felled',
+    thanks: 'a call answered',
+    directive: 'a Directive',
+    other: 'any other line',
+  };
+  const heroes = Object.keys(HERO_TIMBRES) as LabHero[];
+  const voice = (d: SynthDirector, hero: string, kind: BarkKind, turn: number) =>
+    d.sfxEngine()?.barks.voice(hero, kind, 0, turn);
+  return [
+    ...heroes.flatMap((hero) =>
+      BARK_KINDS.map((kind): SoundButton => {
+        const pool = BARK_POOLS[kind];
+        return {
+          id: `voice-${hero}-${kind}`,
+          label: `${heroDef(hero).name}: ${VOICE_LABELS[kind]}${pool.length > 1 ? ` (${pool.length} in turn)` : ''}`,
+          group: 'barks',
+          length: 1.5 + VOICE_STEP * (pool.length - 1),
+          fire: (d) => voice(d, hero, kind, 0),
+          then: pool.slice(1).map((_, i) => ({
+            delay: VOICE_STEP * (i + 1),
+            fire: (d: SynthDirector) => voice(d, hero, kind, i + 1),
+          })),
+        };
+      }),
+    ),
+    ...heroes.map((hero): SoundButton => ({
+      id: `bark-event-${hero}`,
+      label: `${heroDef(hero).name}: a bark event, hero voices on`,
+      group: 'barks',
+      length: 2,
+      fire: (d, w) => {
+        withHero(w, hero);
+        const was = d.heroVoicesOn();
+        d.setHeroVoices(true);
+        d.sfxEngine()?.barks.stop();
+        const line = heroDef(hero).barks.perfect[0] ?? '';
+        fire(d, w, ev('bark', { speaker: IDS[hero], line }));
+        d.setHeroVoices(was);
+      },
+    })),
   ];
 }

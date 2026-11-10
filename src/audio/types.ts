@@ -196,6 +196,10 @@ export interface Volumes {
   music: number;
   sfx: number;
   ui: number;
+  /** Phase 7: the ambience slider (absent: it follows Effects, `ambienceVolume`). */
+  ambience?: number;
+  /** Phase 7: the barks slider, the heroes' voices (absent: 1, `barksVolume`). */
+  barks?: number;
 }
 
 /** Additive (audio workstream): read-only diagnostics for the audio lab and tests. */
@@ -224,6 +228,12 @@ export interface AudioDebugStats {
   dropped: number;
   skipped: number;
   eventsHandled: number;
+  /** Phase 7: of `skipped`, the voices a saturated mix refused (absent on stand-ins). */
+  saturated?: number;
+  /** Phase 7: live sources on the barks bus (absent on stand-ins). */
+  barkSources?: number;
+  /** Phase 7: hero voices heard / asked for (absent on stand-ins). */
+  heroVoices?: { on: boolean; asked: number; played: number };
 }
 
 export interface AudioDirector {
@@ -250,6 +260,12 @@ export interface AudioDirector {
    * of their life (Settings → Health and the HUD). On by default; absent on stand-ins.
    */
   setLowLifeAlert?(on: boolean): void;
+  /**
+   * Additive (docs/phase-7.md, W7; decision 3): the heroes' synthesised non-verbal voices on the
+   * barks bus. Off by default; the app-wide director follows `optionsOf(settings).heroVoices`.
+   * Absent on stand-ins.
+   */
+  setHeroVoices?(on: boolean): void;
   /**
    * Additive (docs/phase-5a.md): the biome the music and ambience voice (the arena's in a fight,
    * the Movement's on the map). Absent on stand-ins; the Sunlit Reliquary until called.

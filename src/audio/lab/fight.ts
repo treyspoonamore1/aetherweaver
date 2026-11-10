@@ -14,6 +14,35 @@ import {
 export interface FightOptions {
   autoSupport: boolean;
   encounter?: string;
+  /**
+   * Phase 7 (W7): a busy fight. This many enemies more are spawned on the first step (debug
+   * spawns, in a ring around the arena's middle, turning through `CROWD_KINDS`), and the party is
+   * healed every 2 s so the fight stays busy for as long as it is rendered. Absent or 0: the
+   * encounter alone, exactly as before.
+   */
+  crowd?: number;
+}
+
+/** Phase 7: the enemies a busy fight's crowd is made of, in turn (Movement I's road). */
+export const CROWD_KINDS = ['hollow_chorister', 'bell_brute', 'lamenter', 'glass_lancer'] as const;
+
+/** Phase 7: the debug spawns for a crowd of `n`, in a ring of radius 6-8 m. */
+export function crowdCommands(n: number): Command[] {
+  const out: Command[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / Math.max(1, n)) * Math.PI * 2;
+    const r = 6 + (i % 3);
+    out.push({
+      t: 'debug',
+      op: {
+        op: 'spawnEnemy',
+        defId: CROWD_KINDS[i % CROWD_KINDS.length]!,
+        x: Math.round(Math.cos(a) * r * 10) / 10,
+        z: Math.round(Math.sin(a) * r * 10) / 10,
+      },
+    });
+  }
+  return out;
 }
 
 export class Fight {
@@ -21,6 +50,8 @@ export class Fight {
   private acc = 0;
   private wardedTelegraphs = new Set<number>();
   private lastThreadTick = -999;
+  /** Phase 7: the crowd's spawns, sent with the first step (then empty). */
+  private crowd: Command[];
   ended: 'victory' | 'defeat' | null = null;
   eventCount = 0;
 
@@ -31,6 +62,7 @@ export class Fight {
       auras: ['sostenuto', 'fortissimo'],
       debug: true,
     });
+    this.crowd = crowdCommands(options.crowd ?? 0);
   }
 
   /** Advances by real seconds; returns the sim events produced. */
@@ -41,7 +73,14 @@ export class Fight {
     while (this.acc >= SIM_DT && steps < maxSteps) {
       this.acc -= SIM_DT;
       steps++;
-      this.sim.step(this.options.autoSupport ? this.bot() : []);
+      const cmds = this.options.autoSupport ? this.bot() : [];
+      if (this.crowd.length > 0) {
+        cmds.unshift(...this.crowd);
+        this.crowd = [];
+      }
+      if ((this.options.crowd ?? 0) > 0 && this.sim.tick % 120 === 60)
+        cmds.push({ t: 'debug', op: { op: 'healParty' } });
+      this.sim.step(cmds);
       const events = this.sim.drainEvents();
       for (const e of events) {
         if (e.type === 'encounterEnded') this.ended = e.outcome;

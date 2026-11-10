@@ -6,7 +6,7 @@
 import type { Biome } from '../../content';
 import { SynthDirector } from '../director';
 import type { AudioMood, Volumes } from '../types';
-import { Fight } from './fight';
+import { Fight, type FightOptions } from './fight';
 import { FakeWorld, IDS, ev } from './labState';
 import type { SoundButton } from './soundBoard';
 
@@ -235,10 +235,20 @@ export interface FightRender {
   stats: ReturnType<SynthDirector['debugStats']>;
 }
 
-/** Renders a simulated fight (with the auto-support bot) through an offline context. */
-export async function renderFight(seconds = 30, volumes = DEFAULT_VOLUMES): Promise<FightRender> {
+/**
+ * Renders a simulated fight (with the auto-support bot) through an offline context. Phase 7: an
+ * encounter, a crowd (`FightOptions.crowd`, a busy fight) and a biome may be given; left out, the
+ * fight is exactly as before.
+ */
+export async function renderFight(
+  seconds = 30,
+  volumes = DEFAULT_VOLUMES,
+  options: Omit<FightOptions, 'autoSupport'> = {},
+  biome?: Biome,
+): Promise<FightRender> {
   const { ctx, d } = offlineDirector(seconds, volumes);
-  const fight = new Fight({ autoSupport: true });
+  const fight = new Fight({ autoSupport: true, ...options });
+  if (biome) d.setBiome(biome);
   d.setMood('combat');
   const step = 0.05;
   let events = 0;
@@ -270,4 +280,242 @@ export async function renderFight(seconds = 30, volumes = DEFAULT_VOLUMES): Prom
     events,
     stats: d.debugStats(),
   };
+}
+
+// ── Phase 7 (docs/phase-7.md, W7): loudness ─────────────────────────────────────────────
+
+/** The limiter's threshold (engine.ts): a signal over it is being limited. */
+export const LIMITER_THRESHOLD_DB = -8;
+
+/** Before and after the limiter, from one render. */
+export interface PrePost {
+  /** At the master gain's output: what the limiter is given. */
+  pre: LevelReport;
+  /** The final output (after the limiter and soft clip), as `measure` reads every render. */
+  post: LevelReport;
+  /** Share of the pre-limiter samples over the limiter's threshold (0..1). */
+  overThreshold: number;
+}
+
+/** One loudness reading: what was rendered, in which biome, and its levels. */
+export interface LoudnessRow extends PrePost {
+  label: string;
+  biome: Biome;
+  kind: 'mood' | 'fight';
+}
+
+function measureChannels(
+  buffer: AudioBuffer,
+  channels: readonly number[],
+  from: number,
+  to: number,
+  over = 0,
+): LevelReport & { over: number } {
+  let peak = 0;
+  let sum = 0;
+  let n = 0;
+  let above = 0;
+  const a = Math.floor(from * buffer.sampleRate);
+  const b = Math.min(buffer.length, Math.floor(to * buffer.sampleRate));
+  for (const ch of channels) {
+    const data = buffer.getChannelData(ch);
+    for (let i = a; i < b; i++) {
+      const v = data[i] as number;
+      const av = Math.abs(v);
+      if (av > peak) peak = av;
+      if (over > 0 && av > over) above++;
+      sum += v * v;
+      n++;
+    }
+  }
+  const rms = Math.sqrt(sum / Math.max(1, n));
+  return { peak, peakDb: db(peak), rms, rmsDb: db(rms), over: above / Math.max(1, n) };
+}
+
+/**
+ * A director whose render keeps two stereo pairs: the final output on channels 0-1 and the
+ * master gain's output, before the limiter, on channels 2-3.
+ */
+function tappedDirector(seconds: number, volumes: Volumes) {
+  const ctx = new OfflineAudioContext(4, Math.ceil(SAMPLE_RATE * seconds), SAMPLE_RATE);
+  const d = new SynthDirector({
+    context: ctx,
+    autoPump: false,
+    installUnlock: false,
+    followSettings: false,
+  });
+  d.setVolumes(volumes);
+  const e = d.mixer();
+  if (e) {
+    const merge = ctx.createChannelMerger(4);
+    const post = ctx.createChannelSplitter(2);
+    const pre = ctx.createChannelSplitter(2);
+    e.clip.disconnect();
+    e.clip.connect(post);
+    e.master.connect(pre);
+    post.connect(merge, 0, 0);
+    post.connect(merge, 1, 1);
+    pre.connect(merge, 0, 2);
+    pre.connect(merge, 1, 3);
+    merge.connect(ctx.destination);
+  }
+  return { ctx, d };
+}
+
+function prePost(buffer: AudioBuffer, from: number, to = buffer.duration): PrePost {
+  const post = measureChannels(buffer, [0, 1], from, to);
+  const pre = measureChannels(buffer, [2, 3], from, to, 10 ** (LIMITER_THRESHOLD_DB / 20));
+  const strip = (r: LevelReport & { over: number }): LevelReport => ({
+    peak: r.peak,
+    peakDb: r.peakDb,
+    rms: r.rms,
+    rmsDb: r.rmsDb,
+  });
+  return { pre: strip(pre), post: strip(post), overThreshold: pre.over };
+}
+
+/** A mood (music and its layers) for `seconds`, measured before and after the limiter from 2 s. */
+export async function loudnessOfMood(
+  mood: AudioMood,
+  resonance: number,
+  biome: Biome,
+  bossPhase = 0,
+  seconds = 12,
+  volumes = DEFAULT_VOLUMES,
+): Promise<PrePost> {
+  const { ctx, d } = tappedDirector(seconds, volumes);
+  const w = new FakeWorld();
+  w.setResonance(resonance);
+  if (bossPhase > 0) w.setEnemies(1, 'boss', 'boss', bossPhase);
+  else w.setEnemies(resonance >= 50 ? 12 : 0);
+  if (biome !== 'reliquary') d.setBiome(biome);
+  d.setMood(mood);
+  const step = 0.05;
+  for (let t = step; t < seconds - 0.5; t += step) {
+    void ctx.suspend(t).then(() => {
+      d.update(w.state, step);
+      d.pump();
+      void ctx.resume();
+    });
+  }
+  return prePost(await ctx.startRendering(), 2);
+}
+
+/** A real fight (the auto-support bot), measured before and after the limiter from 1 s. */
+export async function loudnessOfFight(
+  options: Omit<FightOptions, 'autoSupport'>,
+  biome: Biome,
+  seconds = 30,
+  volumes = DEFAULT_VOLUMES,
+): Promise<PrePost & { events: number; stats: ReturnType<SynthDirector['debugStats']> }> {
+  const { ctx, d } = tappedDirector(seconds, volumes);
+  const fight = new Fight({ autoSupport: true, ...options });
+  if (biome !== 'reliquary') d.setBiome(biome);
+  const kind = fight.sim.state.encounter.kind;
+  d.setMood(kind === 'boss' || kind === 'miniboss' ? 'boss' : 'combat');
+  const step = 0.05;
+  let events = 0;
+  for (let t = step; t < seconds - 0.5; t += step) {
+    void ctx.suspend(t).then(() => {
+      const evs = fight.advance(step);
+      events += evs.length;
+      if (evs.length) d.onEvents(evs, fight.sim.state);
+      d.update(fight.sim.state, step);
+      d.pump();
+      void ctx.resume();
+    });
+  }
+  const buffer = await ctx.startRendering();
+  return { ...prePost(buffer, 1), events, stats: d.debugStats() };
+}
+
+/** The moods each biome is measured in: the map, a fight at rest and at full Resonance, its boss. */
+export const LOUDNESS_MOODS: readonly {
+  label: string;
+  mood: AudioMood;
+  resonance: number;
+  phase: number;
+}[] = [
+  { label: 'map', mood: 'map', resonance: 0, phase: 0 },
+  { label: 'calm', mood: 'calm', resonance: 40, phase: 0 },
+  { label: 'combat · res 0', mood: 'combat', resonance: 0, phase: 0 },
+  { label: 'combat · res 100', mood: 'combat', resonance: 100, phase: 0 },
+  { label: 'boss p1 · res 50', mood: 'boss', resonance: 50, phase: 1 },
+  { label: 'boss p3 · res 100', mood: 'boss', resonance: 100, phase: 3 },
+];
+
+export const LOUDNESS_BIOMES: readonly Biome[] = [
+  'reliquary',
+  'crimson_spire',
+  'abyssal_rift',
+  'celestial_crucible',
+];
+
+/**
+ * The busy fights: Movement I's first fight with a crowd of 20 more (the scripted busy fight the
+ * voice caps are read on), and each later biome's fight with the most going on.
+ */
+export const LOUDNESS_FIGHTS: readonly {
+  label: string;
+  biome: Biome;
+  options: Omit<FightOptions, 'autoSupport'>;
+}[] = [
+  { label: 'first_light + 20', biome: 'reliquary', options: { crowd: 20 } },
+  {
+    label: 'gorehound_matriarch',
+    biome: 'crimson_spire',
+    options: { encounter: 'gorehound_matriarch' },
+  },
+  { label: 'vharun', biome: 'crimson_spire', options: { encounter: 'vharun' } },
+];
+
+/** Every loudness reading (the lab's Phase 7 button, and the W7 hand-off's tables). */
+export async function loudnessReport(
+  volumes = DEFAULT_VOLUMES,
+  onRow?: (row: LoudnessRow) => void,
+): Promise<LoudnessRow[]> {
+  const rows: LoudnessRow[] = [];
+  const add = (row: LoudnessRow) => {
+    rows.push(row);
+    onRow?.(row);
+  };
+  for (const biome of LOUDNESS_BIOMES)
+    for (const m of LOUDNESS_MOODS)
+      add({
+        label: m.label,
+        biome,
+        kind: 'mood',
+        ...(await loudnessOfMood(m.mood, m.resonance, biome, m.phase, 12, volumes)),
+      });
+  for (const f of LOUDNESS_FIGHTS) {
+    const r = await loudnessOfFight(f.options, f.biome, 30, volumes);
+    add({
+      label: f.label,
+      biome: f.biome,
+      kind: 'fight',
+      pre: r.pre,
+      post: r.post,
+      overThreshold: r.overThreshold,
+    });
+  }
+  return rows;
+}
+
+/**
+ * Each biome's loudness: the energy mean of its moods' RMS (dB, after the limiter), and the
+ * spread between the loudest and the quietest biome.
+ */
+export function biomeSpread(rows: readonly LoudnessRow[]): {
+  byBiome: Record<string, number>;
+  spreadDb: number;
+} {
+  const byBiome: Record<string, number> = {};
+  for (const biome of LOUDNESS_BIOMES) {
+    const mine = rows.filter((r) => r.kind === 'mood' && r.biome === biome);
+    if (mine.length === 0) continue;
+    const energy = mine.reduce((a, r) => a + r.post.rms * r.post.rms, 0) / mine.length;
+    byBiome[biome] = db(Math.sqrt(energy));
+  }
+  const v = Object.values(byBiome);
+  return { byBiome, spreadDb: v.length ? Math.max(...v) - Math.min(...v) : 0 };
 }
