@@ -4,16 +4,20 @@
  * page-side worker. Every choice goes through `applyStep`, every fight through the sim with the
  * run's own config, so the replay is the one a player's run would make.
  *
- * Its choices follow `tools/run-verify.ts`'s `recordBotRun` (which the browser can't import: it
- * reads and writes files): the map node `seed mod options`, the first draft (one reroll a run),
- * the first relic, the Calling's first option, a Respite's rest (the first one a retune to the
- * same Chords), the first affordable Merchant item once, a Forge's temper or cleanse, an event's
- * first choice it can make (never a retune). Deterministic.
+ * `recordBotRun` here is the recorder loop of `tools/run-verify.ts`'s `recordBotRun` (which the
+ * browser can't import: that module reads and writes files), line for line, with the same
+ * signature and result, so the bench records what the command line records
+ * (`tests/weeklyBotParity.test.ts` holds the two equal; docs/phase-6.md, *Open* 4). Its choices:
+ * the map node `seed mod options`, the first draft (one reroll a run, when it can pay), the first
+ * relic, the Calling's first option, a Respite's rest (the first one a retune to the same Chords
+ * instead), the first affordable Merchant item once, a Forge's temper or cleanse, an event's first
+ * choice it can make (with the run's first motif when it asks for one; never a retune); a fight
+ * the bot can't end gives the run up. Deterministic.
  */
 import { makeBot, type BotKind } from '../../bots';
 import { CONTENT } from '../../content';
 import { buildOutcome } from '../../meta/outcome';
-import { EVERYTHING } from '../../meta/profile';
+import { EVERYTHING, type Allowance } from '../../meta/profile';
 import * as Run from '../../meta/run';
 import {
   RunRecorder,
@@ -26,18 +30,22 @@ import type { RunState } from '../../meta/types';
 import { weeklyStart } from '../../meta/weekly';
 import { ReplayRecorder, createSim } from '../../sim';
 
-/** The longest a bot fight runs, in sim seconds. */
+/** The longest a bot fight runs, in sim seconds, before the recorder gives up on it. */
 const MAX_FIGHT_SECONDS = 20 * 60;
-/** The most steps a run may take. */
+/** The most steps a recorded run may take. */
 const MAX_STEPS = 2000;
 
-/** Plays `start` (just embarked) to its Summary with a bot, recording it. */
-export function playRecorded(
+/**
+ * Plays a run from `start` (just embarked) with a bot, through `applyStep` for every choice and
+ * the sim for every fight, recording each as the game's run store would.
+ */
+export function recordBotRun(
   start: RunState,
   bot: BotKind = 'skilled',
-): { replay: RunReplay; ticks: number } {
+  allowance: Allowance = EVERYTHING,
+): { replay: RunReplay; run: RunState; ticks: number } {
   const rec = RunRecorder.begin(start);
-  const allow = allowanceRecord(EVERYTHING);
+  const allow = allowanceRecord(allowance);
   let run = start;
   let ticks = 0;
   let rerolled = false;
@@ -66,13 +74,20 @@ export function playRecorded(
         const sim = createSim(config);
         const recorder = new ReplayRecorder(sim.config);
         const player = makeBot(bot, config.seed);
-        for (let t = 0; t < MAX_FIGHT_SECONDS * 60; t++) {
+        let ended = false;
+        for (let t = 0; t < MAX_FIGHT_SECONDS * 60 && !ended; t++) {
           const tick = sim.tick;
           recorder.record(tick, sim.step(player.decide(sim.state)));
           const s = sim.state.encounter.status;
-          if (s === 'victory' || s === 'defeat') break;
+          ended = s === 'victory' || s === 'defeat';
         }
         ticks += sim.tick;
+        // A fight the bot can't end: the run is given up, as a player would (a fight step must
+        // end its fight, so it is not recorded).
+        if (!ended) {
+          take({ k: 'abandon' });
+          break;
+        }
         const fight = recorder.export(sim.tick, sim.hash());
         const outcome = buildOutcome(
           sim.state,
@@ -142,24 +157,24 @@ export function playRecorded(
         break;
       }
       default:
-        throw new Error(`weekly bench: unexpected phase ${run.phase}`);
+        throw new Error(`recordBotRun: unexpected phase ${run.phase}`);
     }
   }
-  if (run.phase !== 'summary') throw new Error('weekly bench: the run did not end');
-  return { replay: rec.finish(run), ticks };
+  if (run.phase !== 'summary') throw new Error('recordBotRun: the run did not end');
+  return { replay: rec.finish(run), run, ticks };
 }
 
 /** This week's run, as the weekly starts it (the default Chords, no variants), played through. */
 export function playWeekly(
   week: number,
   bot: BotKind = 'skilled',
-): { replay: RunReplay; ticks: number } {
+): { replay: RunReplay; run: RunState; ticks: number } {
   const start = weeklyStart(week, { chords: Run.DEFAULT_CHORDS, techniques: {} });
   if (!start) throw new Error(`week ${week} can't be started`);
-  return playRecorded(start, bot);
+  return recordBotRun(start, bot);
 }
 
 /** A Prelude (seeded), played through: the quick check. */
 export function playPrelude(seed: number, bot: BotKind = 'skilled') {
-  return playRecorded(Run.embark(Run.newRun(seed)), bot);
+  return recordBotRun(Run.embark(Run.newRun(seed)), bot);
 }
