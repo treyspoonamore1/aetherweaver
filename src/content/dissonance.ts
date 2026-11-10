@@ -3,7 +3,11 @@
  * A level's `effect` names what it does (the sim's mods or the run layer read it); `values` are
  * its numbers per rank, in the units the text shows (15 = 15%, 3 = 3 m).
  */
-import type { ContentInput } from './schema';
+import { POSTLUDE } from './crucible';
+import type { AnswerTagSchema, ContentInput } from './schema';
+import type { z } from 'zod';
+
+type AnswerTag = z.infer<typeof AnswerTagSchema>;
 
 export const DISSONANCE: ContentInput['dissonance'] = [
   {
@@ -114,7 +118,74 @@ export const DISSONANCE: ContentInput['dissonance'] = [
     values: {},
     text: 'Start the run with a random cursed relic.',
   },
+  // ── Phase 6 (docs/phase-6.md): the last three, appended so every earlier level keeps its place ──
+  {
+    id: 'tyrant',
+    name: 'Tyrant',
+    effect: 'tyrant',
+    ranks: 1,
+    points: 4,
+    // The borrowed attack's cooldown (% of its own), and its first cast (s into the phase).
+    values: { cooldown: 150, first: 6 },
+    text: 'Bosses and mini-bosses take up one more attack in each phase, borrowed from the foes of their road.',
+  },
+  {
+    id: 'mimicry',
+    name: 'Mimicry',
+    effect: 'mimicry',
+    ranks: 1,
+    points: 3,
+    values: { perWave: 1 },
+    text: 'In every wave, {perWave} enemy carries Mimicking: it copies your Empower, Ward or Chime.',
+  },
+  {
+    id: 'true_dissonance',
+    name: 'True Dissonance',
+    effect: 'true_dissonance',
+    ranks: 1,
+    points: 5,
+    // `life`: the share of its life the Conductor rises with (%). `finalePar`: how much longer the
+    // Silent Conductor's fight's par is on this level (%), read by the run layer as `parMult`.
+    values: { life: Math.round(POSTLUDE.life * 100), finalePar: 40 },
+    text: 'The Silent Conductor rises from its fall with {life}% of its life and plays a fourth phase, the Postlude. Expeditions only.',
+  },
 ];
+
+/**
+ * Tyrant's Decree (docs/phase-6.md): what the boss takes up for its phase, then its answers, each
+ * in a few words. The second sentence is the answer, so Blind Score cuts it as every Decree.
+ * Names come from content (the boss's, the foe's and the attack's); no number is in it.
+ */
+export function tyrantDecree(
+  boss: string,
+  foe: string,
+  attack: string,
+  answers: readonly AnswerTag[],
+): string {
+  const who = boss.startsWith('The ') ? `the ${boss.slice(4)}` : boss;
+  const taken = foe === boss ? `plays its ${attack} early` : `takes up the ${foe}’s ${attack}`;
+  const head = `Tyrant — ${who} ${taken}.`;
+  const said = answers.map((a) => TYRANT_ANSWERS[a]);
+  if (said.length === 0) return head;
+  const list = said.length === 1 ? said[0]! : `${said.slice(0, -1).join(', ')}, or ${said.at(-1)!}`;
+  return `${head} ${list.charAt(0).toUpperCase()}${list.slice(1)}.`;
+}
+
+/** Each answer as Tyrant's Decree says it. */
+const TYRANT_ANSWERS: Readonly<Record<AnswerTag, string>> = {
+  ward: 'Ward it',
+  chime: 'Chime it away',
+  reel: 'Reel the target',
+  focus: 'Focus the boss',
+  scatter: 'scatter',
+  stack: 'stack up',
+  move: 'step aside',
+  dome: 'raise the dome',
+  mend: 'Mend them above it',
+  thread: 're-thread',
+  empower: 'Empower',
+  crescendo: 'Crescendo',
+};
 
 /** When it opens and what its points pay. */
 export const DISSONANCE_RULES: ContentInput['dissonanceRules'] = {

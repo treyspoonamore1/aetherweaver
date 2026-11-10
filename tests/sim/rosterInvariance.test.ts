@@ -44,7 +44,8 @@ const path = fileURLToPath(new URL('./rosterInvariance.keys.json', import.meta.u
  * Keys no default-party fight may carry: Brann's (`blood`, `tithe`, docs/phase-5b.md), Seren's
  * and Oro's (docs/phase-5e.md: `duel`, `grove`, `summon`, `summons`, `parried`,
  * `rootImmuneUntil`, `ancient`), the Conductor's (docs/phase-5f.md: `conducting`, `cuePower`)
- * and Phase 5g's (docs/phase-5g.md: each absent unless its motif or relic is held). A
+ * Phase 5g's (docs/phase-5g.md: each absent unless its motif or relic is held) and Phase 6's
+ * (docs/phase-6.md: Tyrant's and the Postlude's, absent off their levels). A
  * `parent.key` entry names a key under that parent only (`relics.triggers`, the relics' own tally,
  * is always there; `internal.triggers` and `ledger.triggers` are the trigger system's).
  */
@@ -72,6 +73,10 @@ const FORBIDDEN = new Set([
   'chimeCharges',
   'chimeRecharge',
   'ringing',
+  // Phase 6 (docs/phase-6.md, ground rule 3): Tyrant's hold on a boss, and the Postlude's
+  // `field.finale.postlude` and `internal.m4.postlude`, each only on a run at its level.
+  'tyrant',
+  'postlude',
 ]);
 
 /** The key paths named in FORBIDDEN anywhere under `value`. */

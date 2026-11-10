@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { ColorVision } from '../app/colorVision';
 import { CONTENT, bloodRageOf, enemyDef, heroDef } from '../content';
+import { CONDUCTOR } from '../content/crucibleIds';
 import {
   bloodRageBonus,
   possessionVictim,
@@ -1215,7 +1216,11 @@ export class EntityLayer {
     const postlude = this.postludeOverride?.postlude ?? state.field.finale?.postlude;
     if (postlude !== undefined && state.time < postlude.riseUntil) {
       this.postlude = postlude;
+      // The Conductor: the fight's boss (a Finale), else the standing Silent Conductor (a sandbox).
       this.postludeBoss = this.postludeOverride?.boss ?? state.encounter.bossId ?? null;
+      if (this.postludeBoss === null)
+        for (const e of state.entities.list())
+          if (e.enemy?.defId === CONDUCTOR && !e.health?.dead) this.postludeBoss = e.id;
     }
     this.hub = null;
     this.champHub = null;
@@ -2979,7 +2984,12 @@ export class EntityLayer {
       const top = rec.height + (rec.tier === 'elite' ? 0.65 : 0.4);
       // Restless Dead: a risen enemy's life comes back in ash, filling as it stands back up
       // (`riseOut` is this enemy's pose: updateRec worked it out just before calling this).
-      const fill = enemy.risen && enemy.state === 'spawning' ? this.riseOut.fill : 1;
+      // The Postlude's Conductor too (its rise's pose, the same shape): its life comes back as it
+      // stands, to the share the sim gave it.
+      const rising =
+        (enemy.risen && enemy.state === 'spawning') ||
+        (this.postlude !== null && e.id === this.postludeBoss);
+      const fill = rising ? this.riseOut.fill : 1;
       kit.bars.push(
         x,
         top,

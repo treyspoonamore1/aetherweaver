@@ -16,7 +16,7 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { enemyDef } from '../src/content';
-import { CONDUCTOR, ALTO, BASS } from '../src/content/crucibleIds';
+import { CONDUCTOR, ALTO, BASS, SFORZANDO } from '../src/content/crucibleIds';
 import {
   CRUCIBLE_HEX,
   FINALE_HEX,
@@ -46,22 +46,30 @@ import { TelegraphLayer } from '../src/render/telegraphs';
 import { TyrantView } from '../src/render/tyrant';
 import {
   TYRANT_FALLBACK_HEX,
+  isBorrowed,
   isTyrantAttack,
   tyrantAccentHex,
+  tyrantFoeName,
+  tyrantMarkHex,
   tyrantBosses,
   tyrantCasting,
   tyrantEdicts,
   tyrantOf,
 } from '../src/render/tyrantCues';
 import type { FrameInfo } from '../src/render/types';
-import type {
-  EntityId,
-  PostludeField,
-  ReadonlyEntity,
-  Sim,
-  SimEvent,
-  TyrantHold,
+import {
+  TYRANT_TABLE,
+  createSim,
+  type EntityId,
+  type PostludeField,
+  type ReadonlyEntity,
+  type Sim,
+  type SimEvent,
+  type TyrantHold,
 } from '../src/sim';
+import { makeBot } from '../src/bots';
+import { dealDamage } from '../src/sim/combat/health';
+import { SCENARIO_BELLWARDEN, SCENARIO_CONDUCTOR, type Scenario } from '../tools/scenarios';
 import { spawnEnemy } from '../src/sim/systems/enemies';
 import { sandbox, spawn, worldOf } from './sim/helpers';
 
@@ -72,36 +80,18 @@ const SETTINGS: FrameInfo['settings'] = {
   colorVision: 'normal',
 };
 
-/** The doc's Tyrant table (docs/phase-6.md), phase by phase: boss → [foe, attack][]. */
-const TABLE: Record<string, [string, string][]> = {
-  the_bellwarden: [
-    ['glass_lancer', 'lancer_lance'],
-    ['lamenter', 'lamenter_dirge'],
-  ],
-  the_hollow_cantor: [
-    ['bell_brute', 'brute_toll_cleave'],
-    ['glass_lancer', 'lancer_lance'],
-    ['cantor_acolyte', 'acolyte_mending_hymn'],
-  ],
-  gorehound_matriarch: [
-    ['impaler', 'impaler_charge'],
-    ['leech', 'leech_latch'],
-  ],
-  vharun_crimson_warden: [
-    ['leech', 'leech_latch'],
-    ['impaler', 'impaler_charge'],
-    ['lamenter', 'lamenter_dirge'],
-  ],
-  the_seamstress: [
-    ['shears', 'shears_dash'],
-    ['doubt_wraith', 'wraith_doubt'],
-  ],
-  the_unweaver: [
-    ['null_priest', 'null_rune'],
-    ['void_maw', 'maw_inhale'],
-    ['doubt_wraith', 'wraith_doubt'],
-  ],
-};
+/**
+ * The sim's Tyrant table (W1's, with its swaps: the Hemomancer's Blood Pact for the Leech's Latch),
+ * phase by phase, for the Movement I-III bosses: boss → [foe, attack][].
+ */
+const TABLE: Record<string, [string, string][]> = Object.fromEntries(
+  Object.entries(TYRANT_TABLE)
+    .filter(([boss]) => boss !== CONDUCTOR)
+    .map(([boss, rows]) => [
+      boss,
+      rows.flatMap((r) => (r ? [[r.from, r.attack] as [string, string]] : [])),
+    ]),
+);
 
 /** An overlay that records the badges it is asked for (and ignores the rest). */
 class FakeOverlay {
@@ -637,5 +627,131 @@ describe('no new draw calls', () => {
     const p = new PostludeView({ kit, recs: new Map(), finale: () => null });
     expect(Object.values(t).some((v) => v instanceof THREE.Object3D)).toBe(false);
     expect(Object.values(p).some((v) => v instanceof THREE.Object3D)).toBe(false);
+  });
+});
+
+// ── With W1's sim: real Tyrant and True Dissonance fights ──────────────────────────────────
+
+describe('with the sim: Tyrant', () => {
+  const TYRANT = [{ id: 'tyrant', rank: 1 }];
+  /** Plays `s` with Tyrant and the bot for `seconds`, the views fed each tick: what they drew. */
+  function play(s: Scenario, seconds: number) {
+    const sim = createSim({ seed: s.seed, ...s.config, debug: true, dissonance: TYRANT });
+    const h = harness(sim);
+    const bot = makeBot('skilled', s.seed);
+    const seen = { edicts: 0, bands: 0, crowns: 0, castFrames: 0, ownCasts: 0, holds: 0 };
+    for (let i = 0; i < seconds * 60; i++) {
+      const { events } = h.tick(bot.decide(sim.state));
+      seen.edicts += events.filter((e) => e.type === 'tyrantEdict').length;
+      const boss = sim.state.encounter.bossId;
+      const b = boss === null ? undefined : sim.state.entities.get(boss);
+      if (b?.enemy?.tyrant) seen.holds++;
+      if (tyrantCasting(b)) seen.castFrames++;
+      else if (b?.enemy?.cast) seen.ownCasts += h.tyrant.drawn.crowns;
+      seen.bands += h.tyrant.drawn.bands;
+      seen.crowns += h.tyrant.drawn.crowns;
+    }
+    return { sim, h, seen };
+  }
+
+  it('the Bellwarden: its edict, the Lancer’s band from the real hold, the crown over each real borrowed cast only', () => {
+    const { sim, h, seen } = play(SCENARIO_BELLWARDEN, 20);
+    const b = sim.state.entities.get(sim.state.encounter.bossId!)!;
+    expect(b.enemy!.tyrant!.from).toBe(TYRANT_TABLE['the_bellwarden']![0]!.from);
+    expect(seen.edicts).toBeGreaterThanOrEqual(1);
+    expect(h.tyrant.fired.edicts).toBe(seen.edicts);
+    expect(seen.holds).toBeGreaterThan(0);
+    // A band every frame it holds the attack (and once more on the edict's frames).
+    expect(seen.bands).toBeGreaterThanOrEqual(seen.holds);
+    // The borrowed attack was really cast, and the crown shows on exactly those frames.
+    expect(seen.castFrames).toBeGreaterThan(0);
+    expect(seen.crowns).toBe(seen.castFrames + 0);
+    expect(seen.ownCasts).toBe(0);
+  });
+
+  it('the Silent Conductor holds its own Sforzando: no band (nothing borrowed), the crown over it in its baton’s brass', () => {
+    const { sim, seen } = play(SCENARIO_CONDUCTOR, 24);
+    const b = sim.state.entities.get(sim.state.encounter.bossId!)!;
+    expect(b.enemy!.tyrant).toEqual(
+      expect.objectContaining({ attack: SFORZANDO, from: CONDUCTOR }),
+    );
+    expect(isBorrowed(CONDUCTOR, CONDUCTOR)).toBe(false);
+    expect(tyrantMarkHex(CONDUCTOR, CONDUCTOR)).toBe(FINALE_HEX.baton);
+    expect(tyrantFoeName(CONDUCTOR, CONDUCTOR)).toBeNull();
+    expect(tyrantFoeName('glass_lancer', 'the_bellwarden')).toBe(enemyDef('glass_lancer').name);
+    expect(seen.holds).toBeGreaterThan(0);
+    expect(seen.bands).toBe(0);
+    expect(seen.edicts).toBeGreaterThanOrEqual(1);
+    expect(seen.castFrames).toBeGreaterThan(0);
+    expect(seen.crowns).toBe(seen.castFrames);
+  });
+});
+
+describe('with the sim: the Postlude’s rise', () => {
+  it('the Conductor stands up in the rise’s pose, never the ordinary spawn look, while the sim holds it in spawning', () => {
+    const sim = sandbox({ dissonance: [{ id: 'true_dissonance', rank: 1 }] });
+    const h = harness(sim);
+    h.run(60, [spawn(CONDUCTOR, 0, -8)]);
+    const w = worldOf(sim);
+    const boss = w.entities.list().find((e) => e.enemy?.defId === CONDUCTOR)!;
+    boss.health!.hp = boss.health!.maxHp = 1e6;
+    for (const id of w.party) {
+      const hh = w.entities.get(id)!.health!;
+      hh.hp = hh.maxHp = 1e6;
+      hh.invulnerable = 1e9;
+    }
+    for (let i = 0; i < 600 && w.field.finale === undefined; i++) h.tick();
+    expect(w.field.finale).toBeDefined();
+    // The killing blow: the sim raises it (W1's postludeRise).
+    boss.health!.hp = 1;
+    dealDamage(w, boss, { source: w.party[0]!, sourceName: 'test', amount: 50, telegraph: null });
+    const p = w.field.finale!.postlude!;
+    expect(p).toBeDefined();
+    const rec = () => h.entities.recs.get(boss.id)!;
+    const frames: {
+      spawning: boolean;
+      pose: number;
+      rise: number;
+      rising: number;
+      flash: number;
+      lit: number;
+    }[] = [];
+    const sky = emptySky();
+    let rose = 0;
+    while (sim.state.time < p.riseUntil + 0.5) {
+      const { events } = h.tick();
+      rose += events.filter((e) => e.type === 'postludeRose').length;
+      const st = sim.state.entities.get(boss.id)!.enemy!.state;
+      frames.push({
+        spawning: st === 'spawning',
+        pose: h.entities.drawn6.postludeRise,
+        rise: h.postlude.drawn.rising,
+        rising: rec().rising,
+        flash: rec().flash,
+        lit: postludeSky(
+          postludeOf(sim.state.field.finale),
+          sim.state.time,
+          crucibleSky(sim.state.field.finale ?? null, undefined, sim.state.time, sky),
+        ).notes,
+      });
+    }
+    // The sim's real event reached the view (the rise drawn from it and the state).
+    expect(rose + h.postlude.fired.rises).toBeGreaterThanOrEqual(1);
+    const during = frames.filter((f) => f.spawning);
+    // W1 holds it in `spawning` for the rise: every such frame takes the rise's pose (never the
+    // portal's dissolve and flash), and the rise's own view draws.
+    expect(during.length).toBeGreaterThan(150);
+    for (const f of during) {
+      expect(f.pose).toBe(1);
+      expect(f.flash).toBeLessThan(0.05);
+    }
+    expect(during.filter((f) => f.rise === 1).length).toBe(during.length);
+    // Down at its fall, standing at the end.
+    expect(Math.max(...during.map((f) => f.rising))).toBeGreaterThan(0.9);
+    // The sky: dark as it falls, all eight rings by the rise's end, then the stems again.
+    expect(during[0]!.lit).toBeLessThanOrEqual(1);
+    expect(Math.max(...during.map((f) => f.lit))).toBe(ORRERY.rings);
+    expect(frames[frames.length - 1]!.lit).toBe(-1);
+    expect(frames[frames.length - 1]!.pose).toBe(0);
   });
 });

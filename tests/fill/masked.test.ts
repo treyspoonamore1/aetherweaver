@@ -7,7 +7,8 @@
  *
  * `vi.mock` replaces `src/content/index.ts` for everything this file loads (the run layer, the
  * sim, the bots and the harness all read `CONTENT` from it): the real module, its `CONTENT`
- * without any id in `FILL_IDS`, and `CONTENT_VERSION` recomputed by `contentVersionOf`. It checks:
+ * without any id in `FILL_IDS` and without Phase 6's appended entries (docs/phase-6.md, decision
+ * 16), and `CONTENT_VERSION` recomputed by `contentVersionOf`. It checks:
  * - the recomputed version equals the pre-W0 `contentVersion` (golden.json as frozen);
  * - all 40 seeds of `tests/meta/draftSnapshot.json` (`makeDraft`, `makeShop`), as frozen;
  * - `generateMap(seed, route)` for seeds 1-40 on routes 2, 3 and 4, against fingerprints taken
@@ -37,12 +38,34 @@ vi.mock('../../src/content', async (importOriginal) => {
   const drop = new Set(ids);
   const keep = <T extends { id: string }>(list: readonly T[]): T[] =>
     list.filter((x) => !drop.has(x.id));
+  // Phase 6 (docs/phase-6.md, decision 16): its content is only ever appended, so everything
+  // after each list's last entry before Phase 6 goes too: the levels after Discordant Pact, the
+  // Deeds after Curtain Call (`PHASE6_DEEDS`), and the keepsakes after each cosmetic list's last
+  // (the Atlas's robe, Thread look and titles); its three new lists are emptied (an empty one is
+  // left out of the hash, `contentVersionOf`).
+  const upTo = <T extends { id: string }>(list: readonly T[], last: string): T[] => {
+    const i = list.findIndex((x) => x.id === last);
+    if (i < 0) throw new Error(`the mask's anchor "${last}" is gone`);
+    return list.slice(0, i + 1);
+  };
+  const cosmetics = real.CONTENT.cosmetics;
   const masked = {
     ...real.CONTENT,
     motifs: keep(real.CONTENT.motifs),
     relics: keep(real.CONTENT.relics),
     boons: keep(real.CONTENT.boons),
     events: keep(real.CONTENT.events),
+    deeds: upTo(real.CONTENT.deeds, 'curtain_call'),
+    dissonance: upTo(real.CONTENT.dissonance, 'discordant_pact'),
+    cosmetics: {
+      ...cosmetics,
+      robes: upTo(cosmetics.robes, 'robe_bone'),
+      threads: upTo(cosmetics.threads, 'thread_starlit'),
+      titles: upTo(cosmetics.titles, 'title_flawless'),
+    },
+    echoes: [],
+    constellations: [],
+    weekly: [],
   };
   // A tag JSON never sees (not enumerable), so the tests can tell this object reached the sim.
   Object.defineProperty(masked, 'masked', { value: true, enumerable: false });
@@ -59,6 +82,10 @@ describe('the masked replay (docs/phase-5g.md, ground rule 5)', () => {
     for (const list of [CONTENT.motifs, CONTENT.relics, CONTENT.boons, CONTENT.events])
       expect(list.filter((x) => ids.has(x.id)).map((x) => x.id)).toEqual([]);
     expect((CONTENT as unknown as { masked?: boolean }).masked).toBe(true);
+    // ...and every Phase 6 entry (decision 16).
+    expect(CONTENT.dissonance.at(-1)?.id).toBe('discordant_pact');
+    expect(CONTENT.deeds.at(-1)?.id).toBe('curtain_call');
+    expect([CONTENT.echoes, CONTENT.constellations, CONTENT.weekly]).toEqual([[], [], []]);
     // The sim's world holds the content its module imported: the masked one.
     expect(createWorld({ seed: 1 }).content).toBe(CONTENT);
   });

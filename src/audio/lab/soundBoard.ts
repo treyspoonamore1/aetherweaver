@@ -11,6 +11,7 @@ import {
   LAMENT,
   SFORZANDO,
   SHATTER_ARIA,
+  SOLOS,
   SOPRANO,
   TENOR,
 } from '../../content/crucibleIds';
@@ -4827,7 +4828,7 @@ function phase6Sounds(): SoundButton[] {
     };
   const casts: [string, string, string, string][] = [
     ['the_bellwarden', 'glass_lancer', 'lancer_lance', 'porcelain: a low bell'],
-    ['vharun_crimson_warden', 'leech', 'leech_latch', 'iron: an anvil’s thump'],
+    ['vharun_crimson_warden', 'hemomancer', 'hemomancer_blood_pact', 'iron: an anvil’s thump'],
     ['the_unweaver', 'null_priest', 'null_rune', 'cloth: a bowed string'],
     [CONDUCTOR, CONDUCTOR, SFORZANDO, 'glass: low glass'],
   ];
@@ -4894,19 +4895,35 @@ function phase6Sounds(): SoundButton[] {
       length: 1,
       fire: (_d, w) => w.setPostlude(null),
     },
-    {
-      id: 'p6-postlude-pair',
-      label:
-        'The Postlude: a pair Cue (the Alto’s mirrored phrase, the Bass answering a third higher)',
-      group: 'phase6',
-      length: 4,
-      fire: (d, w) =>
-        fire(
-          d,
-          w,
-          ev('postludePair', { voices: [w.addStanding(ALTO, -6), w.addStanding(BASS, 6)] }),
-        ),
-    },
+    (() => {
+      // The pair's voices, made by the first press and Cued again by its follow-up.
+      const ids = { alto: 0, bass: 0, boss: 0 };
+      return {
+        id: 'p6-postlude-pair',
+        label:
+          'The Postlude: a pair Cue as the sim plays it (the Alto Cued: its own phrase, the call; 1.5 s on, the Bass Cued with the pair: the answer, a third higher, in place of its phrase)',
+        group: 'phase6',
+        length: 5,
+        fire: (d: SynthDirector, w: FakeWorld) => {
+          ids.alto = w.addStanding(ALTO, -6);
+          ids.bass = w.addStanding(BASS, 6);
+          ids.boss = w.addTyrant(CONDUCTOR, CONDUCTOR, 'none', 0);
+          fire(d, w, ev('enemyCued', { boss: ids.boss, soloist: ids.alto, solo: SOLOS[ALTO]! }));
+        },
+        then: [
+          {
+            delay: 1.5,
+            fire: (d: SynthDirector, w: FakeWorld) =>
+              fire(
+                d,
+                w,
+                ev('enemyCued', { boss: ids.boss, soloist: ids.bass, solo: SOLOS[BASS]! }),
+                ev('postludePair', { voices: [ids.alto, ids.bass] }),
+              ),
+          },
+        ],
+      } satisfies SoundButton;
+    })(),
     ...([1, 2, 3] as const).map((n): SoundButton => ({
       id: `p6-atlas-star-${n}`,
       label: `UI: atlasStar, the Echo’s ${n === 1 ? 'first' : n === 2 ? 'second' : 'third'} star lit`,

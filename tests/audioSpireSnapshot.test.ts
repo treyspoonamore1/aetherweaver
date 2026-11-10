@@ -781,11 +781,13 @@ const SFX: Record<string, string> = {
   'bond-solo-brann': '30:03b1bf50:63e4d058:c514fffe 30:03b1bf50:63e4d058:00e26774',
   'bond-scene-brann': '29:41ebcf51:0de9aed7:ceca509e 29:41ebcf51:0de9aed7:99ce2730',
   'bond-reply-brann': '16:2a42db90:0055e482:b1876deb 16:2a42db90:0055e482:905fa1b5',
-  'dis-toggle-low': '15:f7e08ad5:e8aca14a:c193716d 15:f7e08ad5:e8aca14a:b7fabbb7',
+  // Phase 6: re-recorded (with dis-toggle-off and dis-toggle-climb), the only entries whose sound
+  // is a share of dissonanceMax(), which the three new levels took from 30 to 42.
+  'dis-toggle-low': '15:2ace6862:2b919712:1adc7728 15:2ace6862:2b919712:29f7ea86',
   'dis-toggle-mid': '15:5878c304:f2ed75e3:c6c451fe 15:5878c304:f2ed75e3:1afbfcac',
   'dis-toggle-max': '19:beca03f4:182dfd66:d4ea403e 19:beca03f4:182dfd66:a40871e8',
-  'dis-toggle-off': '14:aa167fa0:ad5161a7:6d2e9c62 14:aa167fa0:ad5161a7:9d3347e4',
-  'dis-toggle-climb': '74:b5d44b92:e1408f77:0c5c7f8d 82:76e1f216:f1f72330:6711611c',
+  'dis-toggle-off': '14:b39d0e12:4738eb4a:cdffcd6a 14:b39d0e12:4738eb4a:8abae034',
+  'dis-toggle-climb': '74:6db3d845:8b7e7143:537b6a82 82:c08ff415:654a2e24:9966ddf3',
   'dis-best-max': '37:4c1c1643:1f205dab:a080fd98 37:4c1c1643:1f205dab:ea565c5e',
   'loom-buy': '21:b5ad77eb:8b20a6e7:b9a0661c 21:b5ad77eb:8b20a6e7:1a22e7fe',
   'loom-refused': '13:712fad6c:de5e129d:5836faf2 13:712fad6c:de5e129d:28593488',
