@@ -1506,7 +1506,8 @@ export class SfxEngine {
         break;
       case 'enemyCued':
         // Phase 6: a Postlude pair's second Cue sings the pair's answer in place of its phrase.
-        if (!this.dissonance.answers(ev.soloist)) this.enemyCue(ev.soloist, ev.solo, state);
+        if (!this.dissonance.answerCue(ev.soloist, state))
+          this.enemyCue(ev.soloist, ev.solo, state);
         break;
       case 'silenceBegan':
         this.silenceBegan(ev.until);
