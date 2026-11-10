@@ -67,6 +67,22 @@ Each row is a choice that changes what gets built. The rest of the doc follows t
 | 16 | *Added at reconciliation (Phase 5g).* 5g's masked replay (`tests/fill/masked.test.ts`) drops 5g's ids from four lists of `CONTENT` and checks the recomputed `contentVersion` equals the frozen pre-5g one (`tests/fill/pre5g/golden.json`). Phase 6's appended content (levels, Deeds, keepsakes, Echoes, the rotation) would turn that check red although no 5g pin moved. What happens to it? | (a) the first stream that appends Phase 6 content (W1, the three levels) extends the mask in that test so it also drops Phase 6's entries: the levels after `discordant_pact`, `PHASE6_DEEDS`, the Atlas keepsakes, and empties `echoes`, `constellations` and `weekly`; the frozen fixtures are never touched; (b) drop that test's version check once Phase 6 content lands and keep its pin checks; (c) re-freeze `tests/fill/pre5g/**` | **(a).** It keeps 5g's proof whole at no cost, and nothing frozen moves. W1 owns that one edit (the mask, not the checks). |
 | 17 | *Added at reconciliation (not caused by 5f or 5g; found while checking the Deeds' contracts).* *Silent Bell* ("Clear Movement III without a single Chime") needs a per-fight Chime count. Neither the sim's ledger nor the run's `EncounterStats` has one (`src/meta/types.ts:313-371`); a hashed ledger key would move every golden. What does "without" read? | (a) the plan's own words, "Clear Movement III without Cleansing" (02 §10): no Movement III fight records a cleanse (`EncounterStats.cleanses`, which exists); `movementWithout` names a Movement and a stat (`movement`, `stat`), and `DEED_STATS` gains `cleanses`; the text becomes "Clear Movement III without cleansing a hero."; (b) keep "without a Chime": the outcome builder counts the fight's `techniqueCast` Chime events into a new optional `EncounterStats.chimes?`, written only on Movement III fights so no Prelude pin moves | **(a).** No new stat, no pin at risk, and it is what the plan asked for. W0 builds the schema for both readings (`movement` and `stat` on the Deed); W2 writes the Deed. |
 
+**Taken by default while the owner was away (each can be overridden).** Added after the build; *As built* has the detail.
+
+- **The Finale's par is lengthened 40% on True Dissonance** (`finalePar: 40` on the level; reconciliation item 1). To undo: remove `finalePar`.
+- **Silent Bell is judged on Cleansing** (decision 17's default): no Movement III fight records a cleanse.
+- **Echoes draw the Expedition pools** (decision 15's default), whatever their number of legs.
+- **The Tyrant table's changes and the Conductor's single clock**: Vharun's phase 1 and the Seamstress's phase 1 borrow the Impaler's Charge; the Matriarch keeps the Leech's Latch; the Conductor's held attack is cast on one clock (`TYRANT_OWN`: Sforzando every 5.5 s, Downbeat every 4.5 s) with its own picker leaving it alone, instead of a second clock on top.
+- **Echo Calling rows** are derived from each Echo's own route, so all four tiers come before its last boss; on five Echoes one fight brings two tiers.
+- **Echo-route weeklies count as Echoes for run-wide Deeds** (decision 10 had every weekly count).
+- **A replay that isn't a weekly never reads Verified**: only a weekly's start can be rebuilt, so the rest "play back as recorded".
+- **Only weeklies and Echoes are recorded**; Preludes and Expeditions record nothing.
+- **The Dissonance toggle sound's tension is a share of the new 42-point maximum**, so three audio snapshot entries (`dis-toggle-low`, `dis-toggle-off`, `dis-toggle-climb`) were re-recorded in each snapshot file.
+- **Share codes are accepted only for the last 12 weeks**, and an added code never pushes out a week of the player's own.
+- **Changing the clock can earn the weekly Deeds** (accepted: it is out of reach without a server).
+
+**Held for the owner (aura reach).** The design's Tyrant entry for the Seamstress's phase 1, the Shears' Shearing Dash, cuts the Thread, and the beam song rides the Thread, so the threaded hero would lose the song's full strength while it is cut. It was replaced by the Impaler's Charge, which cuts nothing, and a whole-table test now forbids any borrowed attack that cuts or aims along the Thread or touches an aura. The owner can restore the Dash (one entry in `TYRANT_TABLE` and that test). Decision 5's three aura items remain unbuilt.
+
 ## Words used here
 
 - **Dissonance**: opt-in difficulty levels chosen in Prep. Each level is worth **points** per rank; a run's points are its **Dissonance**. A **tier** (decision 1) is a point total measured with a fixed set of levels.
@@ -180,6 +196,8 @@ Each borrowed attack takes the boss's Movement scale for damage, as every attack
 ### Mimicry (3 points)
 
 > *In every wave, one enemy carries Mimicking: it copies your Empower, Ward or Chime.*
+
+[As built the level's text reads "In each wave, {perWave} enemy that isn’t a boss or a mini-boss carries Mimicking: it copies your Empower, Ward or Chime.": see *As built*, *Differs from the design*.]
 
 - **Rule.** In each wave of every fight, one enemy that isn't a boss, a mini-boss or a summon gains the **Mimicking** affix (`unstitched.ts:834-841`), if it doesn't already have it. Which one: the first spawn group of the wave with the most life per enemy (ties to the earlier group), and the first enemy of that group. The group is split into that one and the rest, in the same order, so every spawn point is drawn exactly as without it.
 - **Seeded** like Elite Vanguard: its only roll (none today; kept for later choices) would use its own generator from the fight's seed and the wave, never the world's streams.
@@ -557,7 +575,7 @@ The week, seed and entry; the score; the recorder; the run replay schema; verifi
 
 ### W7: bots and harness
 
-The Expert (above); `--bots expert` in the harness; `tools/dissonance.ts --tiers` (the five tier sets on Finale-route Expeditions); whole Echo and weekly runs in `playRun`; `tools/verbs.ts` ablations for the Expert's rules. **Goldens** appended after the existing ones: `skilled-tyrant-vharun`, `novice-mimicry-first-light`, `skilled-postlude` (the Silent Conductor with True Dissonance), and one Echo fight with a leg scale (`skilled-echo-choir-of-blood`). One joins the replay round-trip.
+The Expert (above); `--bots expert` in the harness; `tools/dissonance.ts --tiers` (the five tier sets on Finale-route Expeditions); whole Echo and weekly runs in `playRun`; `tools/verbs.ts` ablations for the Expert's rules. **Goldens** appended after the existing ones: `skilled-tyrant-vharun`, `novice-mimicry-first-light`, `skilled-postlude` (the Silent Conductor with True Dissonance), and one Echo fight with a leg scale (`skilled-echo-choir-of-blood`) [as built `skilled-echo-bells-in-the-rift`: Choir of Blood has no leg scale; see *As built*]. One joins the replay round-trip.
 
 **Done when** every pin is byte-identical, including the four command snapshots; the new goldens reproduce; vitest green.
 
@@ -655,3 +673,243 @@ At least one per rule:
 - That Phase 5g's per-fight state needs nothing at the Postlude's rise (*True Dissonance*): read from the code at reconciliation, not run. W1's Postlude tests check Water Clock, Spare Strings and a `perFight` trigger across the rise.
 - That the browser's built-in gzip and IndexedDB are available on the target browsers; both have fallbacks above.
 - The tier bands' starting values: they extrapolate 4d's Prelude ladder and 5e's Expedition rates, neither measured with an expert bot.
+
+## As built
+
+Written after the build and the two reviews, before tuning, from the workstreams' and reviewers' hand-backs and checked against the code on main at `4e8bc5f`. The sections above keep the design; where the code differs, *Differs from the design* below says how and why. Every number here is the code's unless it is named as a measurement. Tuning is recorded in the section that follows this one.
+
+### The three levels
+
+Appended after `discordant_pact` in `src/content/dissonance.ts`, effects appended to `DISSONANCE_EFFECTS`. The most points is now **42** (`maxDissonance()`).
+
+| Level | Points × ranks | `values` |
+|---|---|---|
+| `tyrant` | 4 × 1 | `cooldown: 150` (the borrowed attack's own cooldown, %), `first: 6` (s into the phase) |
+| `mimicry` | 3 × 1 | `perWave: 1` |
+| `true_dissonance` | 5 × 1 | `life: 30` (from `POSTLUDE.life`), `finalePar: 40` (% added to the Silent Conductor fight's par) |
+
+**Mods** (`Dissonance6Mods`, defaults in `DISSONANCE6_NO_MODS`, spread into `NO_MODS` after `FILL_NO_MODS`): `tyrant` (false), `tyrantCooldownMult` (1; 1.5 on the level), `tyrantFirst` (0; 6), `mimicryPerWave` (0; 1), `postludeLife` (0; 0.3). Each new branch is behind its own guard.
+
+**State and events.** `EnemyComponent.tyrant?: TyrantHold` (`{ attack, from, phase, readyAt }`), `FinaleField.postlude?: PostludeField` (`{ since, riseUntil, enraged? }`), `internal.m4.postlude?: PostludeClocks` (`{ nextPairAt, secondAt?, second?, first? }`; W1 added `first`). All absent on every other fight. Events appended after `needled`: `tyrantEdict` (`{ tick, boss, phase, attack, from }`), `postludeRose` (`{ boss, hp }`), `postludePair` (`{ voices }`). The edict emits no `decree` event; the HUD reads `tyrantEdict` and `enemy.tyrant`.
+
+**Tyrant** (`src/sim/systems/tyrant.ts`: `TYRANT_TABLE`, `tyrantAttackOf`, `tyrantUpdate`, `enterTyrantPhase`, `tryTyrant`, `closingEvery`, `tyrantDecreeOf`, `tyrantForeseeable`). It applies to the fight's `bossId` (the boss, or the mini-boss of a mini-boss fight). On entering a phase the boss takes up that phase's entry; its first cast comes 6 s into the phase, then the attack's own cooldown × 1.5; it waits while two or more damaging telegraphs are live. Stasis holds its clock as it holds the boss's own cooldowns (`holdEnemyTime` moves `readyAt`). Foresight lists the held attack (marked `special = -2`, `TYRANT_FORESEEN`), and `tryTyrant` honours what Foresight promised. The table as built:
+
+| Boss | Phase 1 | Phase 2 | Phase 3 |
+|---|---|---|---|
+| The Bellwarden | Glass Lancer · `lancer_lance` | Lamenter · `lamenter_dirge` | — |
+| The Hollow Cantor | Bell Brute · `brute_toll_cleave` | Glass Lancer · `lancer_lance` | Cantor Acolyte · `acolyte_mending_hymn` |
+| The Gorehound Matriarch | Impaler · `impaler_charge` | Leech · `leech_latch` | — |
+| Vharun | Impaler · `impaler_charge` | Impaler · `impaler_charge` | Lamenter · `lamenter_dirge` |
+| The Seamstress | Impaler · `impaler_charge` | Doubt Wraith · `wraith_doubt` | — |
+| The Unweaver | Null Priest · `null_rune` | Void Maw · `maw_inhale` | Doubt Wraith · `wraith_doubt` |
+| The Silent Conductor | its own Sforzando, one clock, every `TYRANT_OWN.sforzando` 5.5 s | its own Downbeat, one clock, every `TYRANT_OWN.downbeat` 4.5 s | none in the Grand Silence; the last burn and the Postlude play Downbeat every 7 s and Sforzando every 9 s (`TYRANT_BURN`) |
+
+In a phase where the Conductor holds its own attack, its own picker and `foresee` leave that attack to the hold (`ownHeld`), so every cast of it is Tyrant's and wears the crown. The decree is `tyrantDecree(boss, foe, attack, answers, interruptible)`: "Tyrant — the Bellwarden takes up the Glass Lancer’s Lance." then the answers from the attack's tags ("Ward it, Reel the target, or step aside."); for the Conductor "plays its Sforzando more often"; Focus is named only for an interruptible attack; a name ending in s takes the apostrophe alone ("the Shears’"). A whole-table test forbids any borrowed attack that cuts or aims along the Thread, suppresses, silences or steals an aura, or summons. The Lamenter's Dirge silences a hero's own abilities for 2 s; it touches no aura and the test allows it.
+
+**Mimicry** (`mimicry(world, spawns)` in `director.ts`, after `vanguard()`). In each wave it marks the first enemy of the spawn group with the most life per enemy (ties to the earlier group), never a boss or mini-boss, splitting the group in place so every spawn point is drawn as before. It draws nothing; the enemy's tier is untouched. Text as built: "In each wave, {perWave} enemy that isn’t a boss or a mini-boss carries Mimicking: it copies your Empower, Ward or Chime." Boss and mini-boss waves (7 of the 78 waves, counted by review A) never have one.
+
+**The Postlude** (`src/sim/systems/postlude.ts`; installed in `health.ts` through `setPostludeRise`, a hook that avoids a module cycle, and in the Conductor's script through one `withPostlude` call). The rise is decided before `killEnemy`: no `enemyKilled`, no `onDeath`, the encounter stays `fighting`. It drops the Conductor's live telegraphs, cancels a pending Fortissimo Silence, enters phase 4 (`POSTLUDE_PHASE`) at 30% of its life, in state `spawning` and untouchable for 3 s (no `risen`, no `enemyRose`); emits `phaseChanged`, a ledger phase marker, `postludeRose` and a decree named "Postlude" (`POSTLUDE_DECREE`). Two voices are Raised in the slot order of the heroes they mirror. Pairs: every 14 s, the second voice 1.5 s after the first, through the Finale's gate; `postludePair` is emitted when the second Cue begins and only while the first voice stands, naming `[first, second]` (a pair of one is an ordinary Cue). In the Postlude a Cue in flight counts as the Solo it will start (`burnWaits`), so at most two damaging telegraphs are live. Discord swells at 1.5 a second; after 90 s the pairs come every 10 s and Discord × 2. The second fall is an ordinary death. The constants (`POSTLUDE` in `crucible.ts`): `life 0.3, rise 3, voices 2, cueEvery 14, pairGap 1.5, discordRate 1.5, enrageAfter 90, enragedCueEvery 10, enragedDiscord 2`. The boss bar's fourth pip comes from `bossPhaseTableWith(defId, { postlude: true })`; `bossPhaseTable` is unchanged.
+
+**Par.** `parMult(levels, kind, encounter)` multiplies the Silent Conductor fight's par by 1 + `finalePar`/100 (× 1.4) on True Dissonance, and nothing on any other fight.
+
+### The run layer
+
+- **Echo runs** (`newEchoRun(seed, echoId, …)` in `src/meta/run.ts`, on the Atlas's `echoRoute`). The map is built from the legs (`generateEchoMap`); a leg's rewards are on its map rows; its scale reaches only that leg's fights through `SimConfig.movement`; its events and Movement gates follow the Movement it is built over; map RNG labels stay by position. Fights pay the leg's Movement's XP, Starlight and Aether, and Dissonance's shards and Tears as any run; only a clear may enshrine a relic. An Echo's `node.movement`, `result.movement` and `run.movements` count legs; `runMovementDef(run, n)` gives a leg's biome and title. Decision 15: `expeditionOffered`, `relicPool`, `eligible` and `pactRelic` read `run.echo`, so an Echo draws the Expedition pools.
+- **Twists** hold from Prep through embark. A forced level (`forced: true`) stays forced through `fitLevels`, is worth no points, plays even when Dissonance is closed, and is stripped from the fight's config. A content lint requires an Echo route with `noCalling` to have `calling: null` in a weekly entry, and a fixed party to match.
+- **Echo Calling rows** (`echoCallingRows`): the rows of the Echo's map where every stop is a fight, before its last row; tier k of four falls on the round(k(m − 1)/3)-th of those m rows. Choir of Blood [0, 3, 5, 7]; Strangers and The Unrested [0, 2, 4, 7]; Bells in the Rift [0, 1, 1, 3]; The Seamstress's Court and The Gilded Road [0, 1, 1, 4]; Retrograde [0, 2, 2, 5]; The Last Rehearsal [0, 3, 3, 6]; A Cappella none (no Calling). On the five with a repeated row, one fight brings two tiers, offered one after the other (`callingTierDue`, `pickCalling`). Preludes and Expeditions keep `CALLING_ROWS` and their roads' rows.
+- **True Dissonance** is dropped on any route without the Finale (`routeHasFinale`): a Prelude, and every Echo except The Last Rehearsal.
+- **The weekly start** (`newWeeklyRun({ week, seed, entry }, chords, techniques)`): the entry's route (the whole Expedition, or the Echo), its heroes in content order, its Calling with every path tier open (none on an Echo with `noCalling`), its levels, the player's Chords and variants under the full allowance; no tree, no carried relics, no Bonds; `weekly: { week }`. `weeklyPrep` and the verifier both build through it; Prep's follow subscriptions leave a weekly alone and a weekly's Chords are not remembered. `runAllowance` is everything on a weekly. `weeklyPrep` answers null outside weeks 0 to 16,383.
+- **Run kinds** (`runKind`: `prelude`, `expedition`, `echo`, `weekly`). `countsRunWide(run)` is true when the run has no `echo`: Preludes, Expeditions and Expedition-route weeklies count for run-wide Deeds; Echoes and Echo-route weeklies do not. `setsDissonanceRecords` holds only for Preludes and Expeditions: Echoes and weeklies set no Dissonance best and no Finale record. A Finale clear writes `dissonance.finale[calling]` (`none` for no Calling).
+- **Recording.** Weeklies and Echoes record; Preludes and Expeditions do not (`recordsReplay`), so an ordinary run's save gets no new key. Each store action is recorded as its step (`recordAction`, `STEP_ACTIONS`), with the allowance at the four steps that read it. At a fight's end the combat screen calls `finishFight(outcome, getRuntime()?.exportReplay() ?? null)`; a fight that ends with no replay (`finishCombat`, the test hook's wins) ends that run's recording. A step that cannot be recorded, or one taken before `resumeRecording` has finished, marks the log broken (no replay is made). Logs go to IndexedDB (`aetherweaver-replays`: `logs`, `steps`, `kept`) at node boundaries; the log header carries a fingerprint of the run (`at.fp`, `runFingerprint`) that `logFits` checks on resume. At the Summary the player's own weekly's replay is kept by itself (`keepOwnWeekly`), and own entries left Claimed are re-verified on load (`reverifyClaimedWeeklies`); an Echo's replay has a Keep button.
+- **End of run.** An Echo's end records stars (`recordStars`), pays the stars' shards and Tears into the Reliquary and raises the Atlas notice. A weekly's end records the player's entry as Claimed, re-verifies it in the worker, then marks it Verified.
+- **Saves.** Profile 10 (`atlas?`, `weekly?`, `dissonance.finale?`, each absent until written; v1-v9 load to 10 with none of them). Run save 5 with `echo?`, `weekly?`, `logId?` and `forced?`. Per-key tolerance (`dropAbsentKeys`, `fitPhase6Keys`): a bad `atlas.best` keeps the stars; a bad `logId` is dropped; a bad `weekly` is recovered from the seed, a bad `echo` by matching the saved map, or the run does not load. A run save's `MarkerSchema` now accepts `'rewind'` and drops unknown marker kinds (a pre-Phase-6 defect review B found: a Chronomancer run with a Rewind marker failed to reload).
+
+### The Atlas
+
+Nine Echoes and three constellations in `src/content/echoes.ts`; the rules in `src/meta/atlas.ts`. No twist touches an aura or names a new level.
+
+- **Borrowed Crowns** (keepsake: the robe *Crownless*, `robe_crownless`)
+  - *Choir of Blood*: one leg over Movement I's road with the Gorehound Matriarch as mini-boss and Vharun as boss. No leg scale: each encounter keeps its own Movement's scale.
+  - *Bells in the Rift*: one leg over Movement III's road (Frayed Threshold first, the Bellwarden, the Hollow Cantor last) at scale 3.
+  - *The Seamstress's Court*: one leg over Movement II's road (Crimson Gate first, the Seamstress, the Unweaver last); no leg scale.
+- **Strange Roads** (the Thread look *Wayward*, `thread_wayward`)
+  - *Retrograde*: three short legs, Movement III's road at scale 1 to the Unweaver, Movement II's at 2 to Vharun, Movement I's at 3 to the Hollow Cantor.
+  - *The Last Rehearsal*: four boss legs, the Hollow Cantor, then Respite, Merchant and Vharun, the same before the Unweaver and before the Silent Conductor (that leg is built over Movement III's, since the Finale has no pools; the Conductor keeps its own scale). Each boss but the last pays an epic draft and a relic, the rule for a boss with a leg after it.
+  - *The Gilded Road*: Movement II's road in seven rows, every fight row elites, the Matriarch and Vharun.
+- **Hard Bargains** (the title *Hard Bargainer*): each plays Movement I's shorter road as the Finale route has it, then Movement II shortened to the gate, a fork, the Matriarch, a rest row and Vharun.
+  - *A Cappella*: `noCalling`, `noTree`, `noCarry`.
+  - *Strangers*: the party is Brann, Seren and Oro.
+  - *The Unrested*: Restless Dead and Unforgiving forced on, worth no points.
+
+**Stars** (`ECHO_STARS`, exported beside the lists and outside `CONTENT`, so it moves no content version): ★ at 0 points (40 shards), ★★ at 10 (60 shards), ★★★ at 20 (40 shards and 1 Discord Tear), from the run's chosen levels only (`starPoints` leaves forced ones out); a higher star lights the lower; each pays the first time it lights. The profile keeps `atlas: { stars, best }` per Echo. All nine stars of a constellation earn its keepsake; all 27 earn the title *Atlas-Walker* (`{ atlas: true }`). Earned robes and Thread looks carry `price: 90` (the schema requires one) and are never sold: the Atelier hides an unearned Atlas look, shows an earned one as earned with no price, and `buy` refuses it; `fitCosmetics` keeps earned looks out of the list of bought ones.
+
+### The weekly, run replays and share codes
+
+- **The week** (`src/meta/weekly.ts`): `WEEKLY_EPOCH_MS` is Monday 2026-01-05 00:00 UTC; `weekOf(ms)`; 2026-11-09 begins week 44; `weeklySeed(week)` is `hashString("weekly:" + week)`; `weeklyEntry(week)` is `CONTENT.weekly[week mod 12]` (`WEEKLY_CYCLE` = `WEEKLY_ROTATION_LENGTH` = 12, and a lint requires exactly 12 entries); `daysLeft`, `entryLine` ("The Chronomancer, with Kael, Vexis and Seren, at 10 Dissonance"). Weeks 0 to 16,383 are playable (`LAST_WEEK`, the code's 14 bits).
+- **The rotation** (`WEEKLY_ROTATION`, all twelve designed entries, registered; written by W4, since the design gave only an example; no entry plays Muted Choir). Week 44 is slot 8.
+
+| Slot | Route | Calling | Heroes | Levels | Points |
+|---|---|---|---|---|---|
+| 0 | Expedition | Chronomancer | Kael, Vexis, Seren | Hardened ×2, Wounding Strikes ×2 | 10 |
+| 1 | Expedition | Conductor | Kael, Lyra, Brann | Restless Dead | 5 |
+| 2 | Expedition | none | Kael, Lyra, Vexis | Elite Vanguard | 5 |
+| 3 | Choir of Blood | Luminary | Kael, Lyra, Vexis | Brisk Foes, Short Fuse | 2 |
+| 4 | Expedition | Martyr | Kael, Lyra, Seren | Brisk Foes, Tyrant | 5 |
+| 5 | A Cappella | none | Lyra, Vexis, Oro | Hardened | 3 |
+| 6 | Expedition | Luminary | Lyra, Vexis, Seren | Silent Cues, Mimicry | 4 |
+| 7 | Retrograde | Chronomancer | Kael, Vexis, Brann | Fragile Threads, Wounding Strikes | 3 |
+| 8 | Strangers | Conductor | Brann, Seren, Oro | Short Fuse ×2 | 2 |
+| 9 | Expedition | Conductor | Kael, Seren, Oro | True Dissonance | 5 |
+| 10 | Bells in the Rift | Martyr | Kael, Brann, Oro | Hardened, Unforgiving | 4 |
+| 11 | The Unrested | Luminary | Kael, Lyra, Vexis | Blind Score (and the Echo's forced two) | 2 |
+
+- **The score** (`WEEKLY_SCORE`, `weeklyScore`): 1,000 for a won run; each fight won 100 (mini-boss 200, boss 300) plus S 50, A 35, B 20, C 10, D 0 by its grade. Ties go to less total fight time (`fightSeconds`).
+- **The board** (`weeklyBoard`, `bestScore`, `withWeeklyEntry`): ordered by score, then time, stable; the profile keeps 12 weeks (`WEEKLY_KEEP_WEEKS`) and 30 entries a week (`WEEKLY_MAX_ENTRIES`); a code the player added makes room before their own runs, and never pushes out a week holding one of their own. A code can be added only for a week of the last 12 ending now (`addableWeek`, `addWeeklyCode(text, name, nowMs)`), with words for a week that hasn't begun and for one older than the record keeps.
+- **Share codes** (`src/meta/shareCode.ts`): `AW1-` then 28 Crockford base32 characters in seven groups of four, 38 characters. The 140 bits: week 14, build 32 (the first 8 hex digits of the content version), sim version 8, won 1, fights won 5, score 13, total fight time in whole seconds 13, the run digest's first 40 bits, 4 spare bits (always 0), and a CRC-10 (generator x^10 + x^9 + x^5 + x^4 + x + 1), which catches any one wrong character and any swap of neighbours. A typed I or L reads as 1, O as 0; spaces and dashes are ignored; fields too large are clamped (score and seconds at 8,191, fights at 31). The code holds no name. `shareLine` gives "My Week 44 song: 2,665 points, won. AW1-…".
+- **Run replays** (`src/meta/runReplay.ts`): format `aetherweaver-run`, version 1, extension `.awrun`, gzipped JSON. A file holds `format`, `version`, `simVersion`, `contentVersion`, `kind` (`weekly`, `echo`, `expedition`, `prelude`), `week` for a weekly, `start` (the run as it embarked, without `logId`), `steps` and `claim` (`won`, `fightsWon`, `score`, `seconds`, `digest`), and may hold a `name` of at most 24 characters. A choice step is one of `node`, `continue`, `calling`, `relic`, `draft`, `reroll`, `respite`, `retune`, `scene`, `endScene`, `buy`, `leaveShop`, `forge`, `leaveForge`, `event` (with `motifId` and `chords`), `leaveEvent`, `abandon`; `calling`, `retune`, `forge` and `event` carry the allowance. A fight step holds its assists, its command frames, `finalTick`, `finalHash`, `won`, `restarts` and `debug` if it was played with debug config. The digest (`runDigest`) covers the week, the start, every step and every fight's hash, and none of the fields the profile writes after a fight.
+- **What the verifier checks and refuses** (`verifyRunReplay(file, code?, { onProgress })`, pure and synchronous). It refuses, as "Can’t be read", a file nested deeper than 64, one over the schema's bounds (`simVersion` 0-255, `contentVersion` `c-` and 16 hex digits, `week` ≤ 16,383, at most 20,000 steps, a fight at most an hour of ticks), a start that is not a run of this version as it embarked (unknown encounters or events, a phase other than `map`, steps or results already in it, a `logId`), and anything that throws. Then, in order: the code's check letters and week, and that a code names only a weekly; for a weekly, that the start is exactly what `weeklyStart(week, picks)` builds and that every step had everything open; that every fight's assists are values Settings offer (`ASSIST_VALUES`) and no fight has debug commands or config; that the claim's digest covers the steps. It plays every step through the run functions and every fight from `combatConfig(run, assists)`, never from a config in the file, each to its recorded hash and win at its recorded tick; it refuses a fight still under way at its last tick and one that runs more than 852 ticks (`FIGHT_TAIL_MAX_TICKS`) past its end; it requires the run to finish. Last it compares what the run plays to with the file's claim and with the code (score, won, fights, seconds, build, sim version, digest). Statuses: `verified`, `otherVersion`, `mismatch` (with a `problem`: `file`, `code`, `week`, `start`, `debug`, `claim`, `step`, `fight`, `unfinished`), `claimed` (a code only) and `playsBack` for every replay that is not a weekly ("Plays back as recorded on this device: an Echo, … Its start isn’t checked: only a weekly’s start can be rebuilt.").
+- **Storage and the worker.** `src/app/replayStore.ts` (`openReplayStore`: `saveLog`, `loadLog`, `deleteLog`, `keep`, `kept`, `listKept`, `forget`), `replayFileName`, `replayFileBytes`, `readReplayFile`, which reads in chunks and refuses a file over 32 MiB or one that inflates past 64 MiB of JSON. `src/app/verify.ts` and `verify.worker.ts`: `verifyReplay(file, code?, onProgress?)` returns `{ result, cancel }`; the worker posts `ready`, and the main thread runs the check only when the worker cannot start.
+- **The CLI** (`tools/run-verify.ts`): `npx tsx tools/run-verify.ts run.awrun [code]` verifies as the game does and prints what the player would read, its time and size (exit 0 for verified, another version or plays back; 1 otherwise); `npx tsx tools/run-verify.ts --record out.awrun --week 44 --bot skilled` (or `--prelude --seed N`) records a bot run and prints its code. It exports `recordBotRun`.
+- **Measured** (W4, one Skilled-bot weekly, week 44 on the Expedition route of the three-entry rotation then registered, in Node): won, 15 fights, 4,225 points, 97,421 ticks, 77 steps; 1,169 KB of JSON, 184.9 KB gzipped; verification 2.0-3.0 s warm, 7-10 s cold under load; recording 3.5-7 s.
+
+### Deeds
+
+Fourteen Deeds appended last as `PHASE6_DEEDS` (44 in all). Every one has 0 Astrolabe points and pays a badge's 15 Starlight. Run rules are judged from the run; `stars`, `constellation` and `weeks` from the profile, by `profileDeedsEarned` when the Atlas or the weekly record changes. A frozen copy of the Phase 5 judge agreed with the current one for all 30 earlier Deeds on 600 generated runs (W2). "In sight" is when the Hall and the Codex list it (`deedsInSight`).
+
+| Id | Name | Rule as built | In sight |
+|---|---|---|---|
+| `absolute_pitch` | Absolute Pitch | `runCount` of `perfects` ≥ 50 | from the start |
+| `silent_bell` | Silent Bell | `movementWithout`, Movement 3, `cleanses` | once Movement III is sighted |
+| `red_all_the_way` | Red All the Way | `heroCeiling`, Brann, 40%, no encounter: a won Expedition (also holds if he never fell to the line) | Brann in the roster and Movement II sighted |
+| `out_of_tune` | Out of Tune | `dissonance`, `values.points` 10 | Dissonance open |
+| `wolf_interval` | Wolf Interval | `dissonance`, 20 | Dissonance open |
+| `tritone` | Tritone | `dissonance`, 30 | Dissonance open |
+| `resolution` | Resolution | `dissonance`, `allLevels`; earns `title_resolved` (*the Resolved*) | Dissonance open |
+| `final_bar` | Final Bar | `fight`, the Silent Conductor's encounter, `level: 'true_dissonance'` | Dissonance open and the Finale sighted |
+| `crownbreaker` | Crownbreaker | `dissonance`, `level: 'tyrant'` | Dissonance open |
+| `faint_star` | Faint Star | `stars` ≥ 1 | the Atlas lit |
+| `whole_constellation` | Whole Constellation | `constellation` (any one) | the Atlas lit |
+| `atlas_walker` | Every Star | `stars` ≥ 27 | the Atlas lit |
+| `same_song` | Same Song | `weeks` ≥ 1 (weeks won, read from the codes) | the Atlas lit |
+| `every_week_a_song` | Every Week a Song | `weeks` ≥ 4 | the Atlas lit |
+
+`movementWithout` and `dissonance` are run-wide rules, so Echoes and Echo-route weeklies never earn them. The texts name "Movement III" and "Tyrant" in words (content's `deedText` fills no `{movement}` or `{level}`); Final Bar's reads "Beat {encounter}’s Postlude.". `heroCeiling` without an encounter changed `ceilingHolds`. Each new Deed has its own glyph; four kit icons are new (`forkStar`, `bellSlash`, `crownBreak`, `starsMany`).
+
+### The UI
+
+- **The Atlas station** (`'atlas'` in `STATIONS`, after Dissonance), lit with Dissonance or Skip the unlocks: the star chart (DOM and SVG), Echo cards, constellation panels and keepsakes; beginning an Echo goes to Prep with its twists. Files `atlasModel.ts`, `AtlasParts.tsx`, `atlasActions.ts` (the `AtlasActions` adapter) and `atlasWiring.ts` (it on the stores), with a `useWeeklyVerify` store.
+- **The weekly panel** (`WeeklyPanel` from `weeklyPanelFrom`): week, days left, entry, best, Begin, Share, Add a code, Open a replay, the board with each row's status (Verified, Verified on another version, Claimed, Didn't match) and the verification's progress and message (a replay that isn't a weekly says it plays back). Status colours were re-picked after measuring under the colour-vision rules (Verified and another version had been 2.8 ΔE apart under deuteranopia; now at least 20, each with its own glyph).
+- **Prep**: an Echo's twists and a weekly's fixed choices (shown locked), forced-level rows, the three new levels, "out of 42", True Dissonance's "Expeditions only"; a weekly's open variants are worded for the week; a weekly on an Echo route shows its own panel.
+- **In the fight**: Tyrant's edict as a decree banner and a line under the boss bar (`usePhase6Decrees` on the runtime's listener; `runtime.ts` is untouched), from content's `tyrantDecreeOf`; the Postlude's fourth pip, rise countdown and decree said once; Mimicry's first-sighting id `'mimic'`; an Echo leg's eyebrow ("Retrograde · leg 1 of 3 · step 1 of 3") and its Movement on the Result.
+- **Summary**: the Atlas card (stars lit and their rewards), the weekly card (score, code, Share), the replay line (a weekly's kept by itself, an Echo's Keep), and the first-clear card without "Coming later" for the Atlas.
+- **Codex**: an Atlas page; the Dissonance page's "still to come" is content-driven (`laterLevels()`) and now empty. **Hall of Deeds**: the new Deeds as they come into sight, their glyphs, and the profile Deeds' progress ("4 of 27 stars", weeks won). **Atelier**: earned Atlas looks and earned Atlas and Deed titles.
+- **Labs**: 34 Phase 6 views (`src/ui/lab/phase6Lab.tsx`, `phase6Fixture.ts`) and the weekly bench (`weeklyBench.tsx`, `weeklyBench.worker.ts`, `weeklyBot.ts`), where a bot plays a weekly in a page worker.
+
+### VFX and audio
+
+- **Tyrant**: the boss wears a borrowed accent ring (two dashed hoops in the foe's accent, kept at Flashes 0) for the phase; a crown sigil (`SPRITE.crown`) only while it casts the borrowed attack; an edict visual and sound at `tyrantEdict`; the boss's own voice under the foe's cast sound (`TYRANT_VOICE_PEAK` 0.06, never in Stasis). When the Conductor holds its own attack there is no ring, the crown is in the baton's brass, and the voice still plays (`isBorrowed`, `tyrantMarkHex`, `tyrantFoeName`, which is null for a boss's own attack).
+- **Mimicry**: the Rift mirror gem was drawn only inside the elite-crown block; it now shows on an ordinary marked enemy (checked on the Bell Brute, Glass Lancer, Leech, Impaler and Sanguine Hound).
+- **The Postlude**: the sky rings re-light innermost first over the rise (`postludeSky`); the Conductor's rise pose wins over the spawn look while `spawning` and its life bar refills as it stands; the Finale's stems reopen through the rise, then the full choir with the melody in pairs (`MusicInputs.postlude`); the enraged state adds the top layer (the builder's reading: the design gives it no look); a pair cue line and answering voices at `postludePair`, the answer replacing the second voice's ordinary Cue phrase.
+- **Atlas sounds** through `playUi`: `atlasStar` (`{ stars: 1 | 2 | 3 }`), `atlasConstellation`, `runVerified`, `runMismatch`.
+- No new scene object or batch; the Spire and Rift render snapshots unchanged. In each audio snapshot file three entries moved (`dis-toggle-low`, `dis-toggle-off`, `dis-toggle-climb`), because the toggle's tension is a share of `dissonanceMax()`, now 42; they were re-recorded with a comment. The labs: VfxLab "Phase 6 · Tyrant and the Postlude" (its Tyrant scenarios read `TYRANT_TABLE`), AudioLab group `phase6`, `__VFX__.phase6Scenarios`.
+
+### The Expert and the harness
+
+**The Expert** (`src/bots/expert.ts`) is a `SkilledBot` through `SkilledOptions.expert` hooks (inert when absent), deciding every 2 ticks (`EXPERT_EVERY`), answering calls after 0.25 s, attention 1, with its own generator (`EXPERT_SALT`). With every Expert rule off it sends exactly the commands of `new SkilledBot(seed, { every: 2, attention: 1, callReaction: 0.25 })`. Its rules (`EXPERT_RULES`, each skippable; `ExpertBot.play.fires` counts them):
+
+- `tyrantFocus`: Focus a boss casting an interruptible borrowed attack (the Mending Hymn).
+- `tyrantWard`: while the boss's telegraph of this phase's borrowed attack is live and a Ward answers it, keep the last Ward charge for it (keyed on the live telegraph only; no rule reads an enemy's cooldown).
+- `mimicFocus`, `mimicCrack`: Focus a mimic casting its mirror while few enemies stand; send the Thread to Empower for the cast's last moment so a Ward or Chime copy cracks.
+- `restlessHold`: no Focus onto an enemy standing back up (Restless Dead's or the Postlude's rise); a Chime never aims at an enemy, so only Focus is held.
+- `postludeRise`: no damage Cue, Grand Finale or last-burn Cue into the untouchable Conductor.
+- `postludeBank`: once Discord passes 70 in the Postlude, hold the Crescendo (on a Conductor run the Grand Finale itself) for Fortissimo Silence.
+- `postludePair`: keep the last Ward charge for a pair's Solos.
+
+**Run policy** (`src/bots/expertRun.ts`): `expertNode` takes an elite when the party averages 70% life or more (`ELITE_AT`); `expertRespite` rests when a hero is under 50% or Shaken (`REST_BELOW`); `expertDraft` and `expertMotifOrder` by rarity, then tags shared with the Calling (`CALLING_TAGS`) and Chords, then levelling; `expertRelic` by rarity; `expertShop` a relic it can pay for, else a motif level (healing under 60%); `EXPERT_PATHS` per Calling. **Build**: `rank20Build(party?)` in `tools/dissonance.ts` (the 29-point tree, the carried set, `expertBonds` at rank 10, a Chord preset).
+
+**`playRun`** gains `nodePrefer`, `respitePrefer`, `shopPrefer`, `motifOrder`, `echo`, `week` and `onReplay` (records the run with `RunRecorder`; refuses with `threatMult` or `THREAT_PER_ROW`), each absent meaning as before. The harness modes:
+
+| Tool and flag | What it plays | Example |
+|---|---|---|
+| `tools/dissonance.ts --tiers` | whole Finale-route Expeditions at each tier's fixed set (`TIERS`), Calling rotating by seed, Rank 20 build; `--bots`, `--policy all\|expert\|none`, `--only`, `--sets`, `--seed-base`, `--loadout` | `npx tsx tools/dissonance.ts --tiers --seeds 20 --bots expert,skilled --only 10,20` |
+| `tools/dissonance.ts --echoes` | whole Echoes at each star's points (`ECHO_TIERS` 0, 10, 20); `--echo`, `--only`, `--bots`, `--policy`, `--seed-base`, `--loadout` | `npx tsx tools/dissonance.ts --echoes --seeds 20 --echo strangers,the_unrested --only 0` |
+| `tools/dissonance.ts --weekly` | each rotation entry on weeks holding it; `--entry`, `--bots`, `--policy`, `--loadout`, `--week-base` (44) | `npx tsx tools/dissonance.ts --weekly --seeds 8 --entry 3,8 --bots expert` |
+| `tools/verbs.ts --bot expert`, `--dissonance id[:rank],…` | the Expert's rule ablations, at Phase 6's levels | `npx tsx tools/verbs.ts --bot expert --movement 2 --encounters vharun --dissonance tyrant` |
+| `tools/harness.ts --bots expert` | the Expert in cells and whole runs (its bands are reference lines) | `npx tsx tools/harness.ts --movement 4 --seeds 50 --bots expert,skilled` |
+| `tools/run-verify.ts` | verify or record a run replay (above) | `npx tsx tools/run-verify.ts --record out.awrun --week 44` |
+
+Echo lengths are read by `--echoes`, not `tools/pacing.ts`. Recorded Expert Echo runs and Echo-route weeklies verify. W7's first looks (4 seeds each, not band readings; the bands are read in the section that follows): tiers 0 and I 4 of 4, II 2 of 4, III and IV 0 of 4, most losses in a Movement I or II elite the 70% rule chose; Echoes at ★ 6.6-11 min, under the 12-22 min band but for Strangers (14.3); weekly entries 0, 9 and 10 won 0 of 4 by both bots. `tyrantFocus`, `postludeRise` and `postludeBank` were met rarely or never in those fights.
+
+### Goldens and the Dissonance pins
+
+**32 goldens** in `tests/sim/golden.json` and `m1Unchanged.test.ts`: the 28 earlier ones unchanged, then `skilled-tyrant-vharun` `98edc77c35e67af0` (re-recorded after review A's table fixes; first `9a97b9f283a51ae8`), `novice-mimicry-first-light` `727ddeaca04419a3`, `skilled-postlude` `3ca13e1f0491dc46` (`PHASE6_HASHES`) and `skilled-echo-bells-in-the-rift` `07fd95fcfee7c80b` (the Hollow Cantor at Bells in the Rift's leg scale, `ECHO_HASHES`). `skilled-postlude` joins the fight-replay round-trip in `tests/sim/determinism.test.ts` (ten scenarios).
+
+**The Dissonance pins** (`tests/sim/dissonancePins.json`, recorded by W0 before any source change): 51 fight hashes (the `skilled-bellwarden`, `skilled-vharun` and `skilled-conductor` goldens with no level, each of the 15 level-rank settings, and all twelve levels at their top ranks) and five whole runs pinned by SHA-256 digests (`prelude-30`, `finale-30`, `finale-10`, `prelude-light`, `finale-light`). Levels are listed literally, so appended levels never enter them. They were byte-identical at every merge and in both reviews.
+
+### Versions
+
+- `SIM_VERSION` **22** (unchanged).
+- Fight replay format **6** (unchanged); run replay `aetherweaver-run` **1** (new; no bump and no new field from the review fixes).
+- Run save **5** (four new optional keys); `PROFILE_VERSION` **10** (from 9; the v9 → v10 step changes only the version).
+- `contentVersion` **`c-f12d6774f5775748`** (`tests/sim/golden.json`), from `c-3d16ade0f5775748` before Phase 6. Only that line of the golden file moved for the earlier 28.
+
+### Differs from the design
+
+1. **The Tyrant table.** The design (as first written) had the Leech's Latch for Vharun's phase 1 and the Shears' Shearing Dash for the Seamstress's phase 1. Built: Impaler · Charge for both. The Latch's 1.8 m reach never met Vharun's tank, so it was never cast; the Hemomancer's Blood Pact, W1's first swap, duplicated a Pact Vharun already casts; the Charge is the only other Movement II attack that is really cast, so Vharun's phases 1 and 2 borrow the same attack. The Shearing Dash cuts the Thread (held for the owner, below). W1 had also moved the Matriarch's phase 2 to the Blood Pact; review A found the Latch was cast there, and it went back.
+2. **The Conductor's single clock and `TYRANT_OWN`.** The design had Tyrant "play its own closing attacks earlier", on top of its picker. As first built that was a second clock on attacks it already casts (review A F4: Sforzando roughly every 6.5 s instead of 13 in phase 1, the decree's "early" untrue, the crown on ordinary casts). Built: one clock; its picker leaves the held attack alone, and the hold casts it every 5.5 s (Sforzando) and 4.5 s (Downbeat), set so the rate it is really cast at stays the first build's (measured over five seeds, seconds per cast: before 6.67 and 6.05, after 6.76 and 6.42). The decree says "plays its X more often".
+3. **Tyrant's decree** names Focus only for an interruptible attack (the design's text built answers from every tag).
+4. **`finalePar`.** The design left the Postlude counting against the Finale's par (reconciliation item 1, "nothing built until you say"). Built by default: True Dissonance's `values` gain `finalePar: 40`, and the Silent Conductor fight's par is × 1.4 on that level.
+5. **True Dissonance off the Finale** is dropped on any route without it, Echoes included, not only on Preludes.
+6. **Mimicry's wording**: "In each wave, {perWave} enemy that isn’t a boss or a mini-boss carries Mimicking…", not "In every wave": boss and mini-boss waves have none. The quoted line in the design and the *Contracts* block keep the first text; the *Contracts* block also predates `finalePar`.
+7. **The Echoes.** Choir of Blood has no leg scale (each encounter's own Movement's scale, which is what the design's route describes). Retrograde ends each leg at that Movement's boss (three bosses), not only at the Hollow Cantor. The Hard Bargains Echoes play Movement I's shorter road and a shortened Movement II, not the two whole roads. The Last Rehearsal's Conductor leg is built over Movement III's pools.
+8. **Echo Calling rows** are derived per Echo from its own route; on five Echoes (Bells in the Rift, The Seamstress's Court, Retrograde, The Last Rehearsal, The Gilded Road) one fight brings two tiers. The design did not say; `CALLING_ROWS` would have left some tier unreached on 7 of 9 Echoes (review B M3).
+9. **The Echo golden** is `skilled-echo-bells-in-the-rift`, not `skilled-echo-choir-of-blood`, since Choir of Blood has no leg scale to pin.
+10. **Non-weekly replays never read Verified.** The design's messages assumed a checked start. Only a weekly's start can be rebuilt, so an Echo, Expedition or Prelude replay that plays to its claim reads `playsBack` ("Plays back as recorded…"), and `run-verify` exits 0 for it.
+11. **Adding codes.** A code is accepted only for the last 12 weeks ending now, and never pushes out a week holding the player's own runs. A side effect: with 12 weeks of the player's own kept, no code for a new week can be added until they play one.
+12. **Echo-route weeklies** count as Echoes for run-wide Deeds (decision 10 had every weekly count).
+13. **Recording** is on for weeklies and Echoes only (the design had the run store record every run). The player's own weekly replay is kept by itself at the Summary (the design had files kept only on *Keep*); an Echo's has Keep.
+14. **The Expert's `playRun` options**: the design expected only node and Respite options; built also `shopPrefer` and `motifOrder` (plus `echo`, `week`, `onReplay` for Echo and weekly runs). `tyrantWard` is a rule of the builder's own; `tyrantFocus` keys on any interruptible borrowed attack; `restlessHold` holds Focus only.
+15. **The share code** has 4 spare bits: 140 bits fill the 28 characters, where the design's table totals 136.
+16. **The verifier refuses more** than the design listed: a fight still under way at its last tick, a tail past 852 ticks, assists no setting offers, schema bounds, deep nesting, unknown encounters and events, oversize files (review B).
+17. **The weekly e2e test** plays the current week's real entry in the page (week 44: Strangers, an Echo route), not a Prelude-route test entry, and a real weekly's first fight through the combat screen.
+18. **Unearned Atlas looks** are hidden in the Atelier and shown as locked keepsakes in the Atlas station, not as locked teasers in the Atelier.
+
+### Review
+
+**Review A (the fight)**, at `56129a4`, found 4 major, 6 minor, 3 questions and 1 note. Majors: the Postlude could have three damaging telegraphs live (F1); Stasis did not hold Tyrant's clock (F2); Foresight never showed the borrowed attack (F3); the Conductor's Tyrant row was a second clock (F4). Minors: a pair could name a dead voice (F5); Mimicry's text (F6a); the decree's Focus and possessive (F6b); the doc's table (F6c); the Latch swap held only for Vharun and Vharun's borrowed Pact duplicated its own (F6d); the Expert's `tyrantWard` read a hidden timer (F7). All were fixed: F1-F6d on `p6/fixA` with `tests/sim/reviewA.test.ts`, F7 by W7 (`tests/bots/expert.test.ts`). Q1 (the Seamstress's Dash cutting the Thread) was swapped by default and held for the owner; Q2 (no HUD read the edict) was W5's part B; Q3 (the "without you" reading in the Postlude) was deferred; the note (Tyrant on `bossId` only) was accepted. Determinism, additivity and every pin held.
+
+**Review B (everything outside the fight)**, at `56129a4`, found 2 blockers, 5 major, 6 minor and 4 questions. Blockers: the verifier stepped to any `finalTick`, so idle ticks after a win healed the party (a forged week-44 weekly read Verified at 2,725 against 2,695 honest) (B1); hostile files threw and re-ran on the main thread (B2). Majors: impossible assists accepted (M1); a lost in-place step passed `logFits` (M2); Echo Calling tiers on `CALLING_ROWS` (M3); a run save with a Rewind marker failed to load, from Phase 3e (M4); no limit on inflated size (M5). Minors: non-weekly replays read Verified (m1); `addWeeklyCode` took any week and could evict the player's weeks (m2); weeks outside the code's range could start (m3); an own entry could stay Claimed (m4); recording could lose a step silently (m5); one corrupt key dropped the Atlas or the run (m6). All were fixed on `p6/fixB`, with `tests/meta/reviewB.test.ts` (one describe per finding). Of the questions: the × 1.4 par was kept and listed for the owner (q1); Echo-route weeklies count as Echoes (q2, fixed); changing the clock to earn the weekly Deeds was accepted (q3); a thirteenth rotation entry would never play, so a lint now requires exactly 12 (q4). All twelve rotation entries recorded and verified against their own codes.
+
+**Deferred**: the "without you" reading in the Postlude; the copies `runtime.ts` and `settings.ts` keep of constants the run layer now exports; F5's note that a pair's second Cue overwrites `f.cue` while the first Solo is live; Foresight's limit (a follow-up registered mid-chain still goes first, as for a boss's own specials).
+
+### Verification as run
+
+- **Full suite on the landed tree**: 223 files, 4,857 tests passed, 8 skipped, 2 todo, none failed.
+- **Typecheck and lint** (with `prettier --check`) clean.
+- **The golden dry run**: up to date.
+- **13 baseline checks byte-equal**: `tools/m1-baseline.ts --check` for Movements I-IV (270, 270, 240 and 30 fights), `tools/expedition-baseline.ts --check` for 2, 3 and 4 Movements (10 runs each), and parties A, SB and OC (Movement IV fights and four-Movement runs for each).
+- **e2e, on the UI branch**: the five Phase 6 tests passed (9.1 min): the Atlas station with every Echo and an Echo begun to Prep; This Week's Song from the panel to Prep with its choices locked; the UI lab's Phase 6 groups; a weekly played by the Skilled bot in a page worker, verified in the page and played twice bit for bit (every fight's hash and the digest equal); and a real weekly's first fight played through the combat screen, its replay handed to the run. Measured in that run (one run, week 44, under software rendering): 51,654 ticks, 3,704 ms to play and 2,761 ms to verify in the page, and in Node "Verified on this device: Week 44, won, 2,665 points, 14 min of fighting."
+- **The whole e2e suite on main** (36 tests) was still running when this was written: the first 10 had passed. Its result is not recorded here.
+
+### Not verified
+
+- No person has looked at the new views in play or listened to the new sounds; the labs were not opened in a browser by the owner, and reduced motion was not observed. Screenshots were taken during the build (`/home/user/aw-work/6/w5/shots/`, `shots-b/`).
+- Keeping and loading a replay in real IndexedDB from the panel; the Share button's file download; the Echo Keep button.
+- Two Calling tiers in a row as rendered; an Echo's map and Calling rows in a real browser play-through.
+- Rewind during the Postlude's rise or a pair; Echo legs with the new levels; Foresight's hold beyond two bosses; the Conductor's single clock beyond five seeds; the Tyrant look with the real sim beyond the Bellwarden and the Conductor.
+- Verification time in a browser on the reference laptop (the page figure above is from the test machine), and on a long Finale-route weekly; a person's replay size and tail; the gzip-bomb refusal in a browser (measured in Node: an 80 MB bomb answers "Can’t be read" in 0.1 s); the main-thread fallback when a worker cannot start.
+- The rule-1 report tools byte for byte against a pre-W0 tree (W7 compared 13 modes of the tools it edits, before and after, all byte-identical); the build's chunk-size warning against before.
+- Balance: Echo lengths and win rates, the rotation's entries, the tiers (first looks only; read in the section that follows).
+
+### Open
+
+1. **The "without you" reading in the Postlude** reports the boss "still at 25%" on a timeout although it fell once (review A Q3).
+2. **The content hash's second FNV lane** is still weak (every `contentVersion` ends `f5775748`); share codes use only the first 32 bits.
+3. **`src/app/runtime.ts` and `src/app/settings.ts` could import the shared constants** (`FIGHT_END_DELAY_MS`, `WITHOUT_YOU_GRACE_MS` from `src/meta/runEnd.ts`; `ASSIST_VALUES` from `src/meta/runReplay.ts`) instead of their literals; the values are the same today and a test pins `ASSIST_VALUES` to `SettingsSchema`. Both files had no owner this phase.
+4. **The lab bench's copy of the bot recorder loop** (`src/ui/lab/weeklyBot.ts`) copies `recordBotRun`, which imports Node modules; the two can drift.
+5. **Borrowed Crowns' panel header wraps** (name and "3 of 9 stars" on two lines each) at the lab's width.
+6. **The Atlas station's mint is 4.6 ΔE from Training's cyan under tritanopia**; the stations carry a name and a drawing.
+7. **The borrowed accent ring is not colour-safe by colour alone** (the Acolyte's accent equals the call gold; the Bell Brute's is within 1.0 of Empower under protanopia); its meaning is carried by the band's shape and the crown.
+8. **Vharun borrows the same attack (Impaler · Charge) in two phases.** The other candidate, the Finale road's Toll Cleave, was cast once in 60 s.
+9. **The Seamstress's borrowed attack** is held for the owner (*Decisions for you*, below the table).
+10. **Earned looks carry a price of 90** only because the schema requires one.
