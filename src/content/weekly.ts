@@ -18,13 +18,13 @@ type Entry = ContentInput['weekly'][number];
 
 /** The designed cycle of twelve, in week order (`week mod 12`). */
 export const WEEKLY_ROTATION_DESIGNED: readonly Entry[] = [
-  // 0: Tier I's ten points (Hardened ×2, Wounding Strikes ×2).
+  // 0: five points (tuned from Tier I's ten, which no bot won on the level field).
   {
     route: 'expedition',
     calling: 'chronomancer',
-    party: ['kael', 'vexis', 'seren'],
+    party: ['kael', 'lyra', 'vexis'],
     dissonance: [
-      { id: 'hardened', rank: 2 },
+      { id: 'short_fuse', rank: 1 },
       { id: 'wounding_strikes', rank: 2 },
     ],
   },
@@ -62,12 +62,15 @@ export const WEEKLY_ROTATION_DESIGNED: readonly Entry[] = [
       { id: 'tyrant', rank: 1 },
     ],
   },
-  // 5: an Echo with no Calling (A Cappella's twist); three points.
+  // 5: an Echo with no Calling (A Cappella's twist); four points.
   {
     route: 'a_cappella',
     calling: null,
     party: ['lyra', 'vexis', 'oro'],
-    dissonance: [{ id: 'hardened', rank: 1 }],
+    dissonance: [
+      { id: 'brisk_foes', rank: 1 },
+      { id: 'hardened', rank: 1 },
+    ],
   },
   // 6: Mimicry; four points.
   {
@@ -89,29 +92,30 @@ export const WEEKLY_ROTATION_DESIGNED: readonly Entry[] = [
       { id: 'wounding_strikes', rank: 1 },
     ],
   },
-  // 8: an Echo whose party is fixed (Strangers' twist); two points.
+  // 8: an Echo whose party is fixed (Strangers' twist); five points.
   {
     route: 'strangers',
     calling: 'conductor',
     party: ['brann', 'seren', 'oro'],
-    dissonance: [{ id: 'short_fuse', rank: 2 }],
+    dissonance: [
+      { id: 'hardened', rank: 1 },
+      { id: 'short_fuse', rank: 2 },
+    ],
   },
   // 9: True Dissonance (Expeditions only); five points.
   {
     route: 'expedition',
     calling: 'conductor',
-    party: ['kael', 'seren', 'oro'],
+    party: ['kael', 'lyra', 'vexis'],
     dissonance: [{ id: 'true_dissonance', rank: 1 }],
   },
-  // 10: an Echo; four points.
+  // 10: an Echo; one point (tuned: Bells in the Rift opens on the Descent's first fight at its
+  // full strength, which no bot survived on the level field).
   {
-    route: 'bells_in_the_rift',
+    route: 'last_rehearsal',
     calling: 'martyr',
-    party: ['kael', 'brann', 'oro'],
-    dissonance: [
-      { id: 'hardened', rank: 1 },
-      { id: 'unforgiving', rank: 1 },
-    ],
+    party: ['kael', 'lyra', 'seren'],
+    dissonance: [{ id: 'unforgiving', rank: 1 }],
   },
   // 11: an Echo with its own fixed levels (The Unrested's twist), and two points more.
   {

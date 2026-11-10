@@ -115,7 +115,7 @@ describe('the seed and the entry', () => {
 
   it('says its entry', () => {
     expect(entryLine(WEEKLY_ROTATION_DESIGNED[0]!)).toBe(
-      'The Chronomancer, with Kael, Vexis and Seren, at 10 Dissonance',
+      'The Chronomancer, with Kael, Lyra and Vexis, at 5 Dissonance',
     );
     expect(entryLine(WEEKLY_ROTATION_DESIGNED[2]!)).toBe(
       'No Calling, with Kael, Lyra and Vexis, at 5 Dissonance',
