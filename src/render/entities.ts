@@ -1895,29 +1895,31 @@ export class EntityLayer {
         }
         this.drawnDis.gems += n;
       }
-      // A Rift affix (Movement III) wears a shaped gem at the crown's peak: scissors (Severing),
-      // a rune (Silencing), a mirror (Mimicking), a Doom pip (Doom-touched). Two that sit close
-      // in colour are told apart by shape, as Shielded and Volatile are.
-      const gems = rec.riftGems;
-      if (gems.length > 0 && dissolve < 0.95) {
-        const s = Math.max(0.8, rec.radius * 1.2);
-        for (let i = 0; i < gems.length; i++) {
-          const k = gems.length === 1 ? 0 : i / (gems.length - 1) - 0.5;
-          kit.sprites.push(
-            x + ox + k * 0.5 * s,
-            y + rec.height + 0.62 * s + 0.04 * Math.sin(clock * 2 + i),
-            z + oz,
-            0.2 * s,
-            gems[i]!,
-            rec.riftGemColors[i]!,
-            0.95 * (1 - dissolve),
-            0,
-            1,
-            1,
-          );
-        }
-        this.drawnM3.gems += gems.length;
+    }
+    // A Rift affix (Movement III) wears a shaped gem at the crown's peak: scissors (Severing),
+    // a rune (Silencing), a mirror (Mimicking), a Doom pip (Doom-touched). Two that sit close in
+    // colour are told apart by shape, as Shielded and Volatile are. Every content affix is on an
+    // elite (under its crown); Phase 6's Mimicry gives Mimicking to an ordinary enemy, which
+    // wears the gem where an elite's crown would be (docs/phase-6.md: "its crown gem").
+    const gems = rec.riftGems;
+    if (gems.length > 0 && dissolve < 0.95) {
+      const s = Math.max(0.8, rec.radius * 1.2);
+      for (let i = 0; i < gems.length; i++) {
+        const k = gems.length === 1 ? 0 : i / (gems.length - 1) - 0.5;
+        kit.sprites.push(
+          x + ox + k * 0.5 * s,
+          y + rec.height + 0.62 * s + 0.04 * Math.sin(clock * 2 + i),
+          z + oz,
+          0.2 * s,
+          gems[i]!,
+          rec.riftGemColors[i]!,
+          0.95 * (1 - dissolve),
+          0,
+          1,
+          1,
+        );
       }
+      this.drawnM3.gems += gems.length;
     }
 
     if (isHero) this.heroExtras(rec, e, state, frame, kit, dt, threadedId, threadColor);

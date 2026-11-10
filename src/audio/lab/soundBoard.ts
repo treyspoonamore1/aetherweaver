@@ -4827,7 +4827,7 @@ function phase6Sounds(): SoundButton[] {
     };
   const casts: [string, string, string, string][] = [
     ['the_bellwarden', 'glass_lancer', 'lancer_lance', 'porcelain: a low bell'],
-    ['vharun', 'leech', 'leech_latch', 'iron: an anvil’s thump'],
+    ['vharun_crimson_warden', 'leech', 'leech_latch', 'iron: an anvil’s thump'],
     ['the_unweaver', 'null_priest', 'null_rune', 'cloth: a bowed string'],
     [CONDUCTOR, CONDUCTOR, SFORZANDO, 'glass: low glass'],
   ];

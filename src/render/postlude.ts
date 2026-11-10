@@ -264,7 +264,9 @@ export class PostludeView {
     const eb = state.entities.get(m.b);
     if (!a || !b || !ea || !eb || ea.health?.dead || eb.health?.dead) return;
     const kit = this.d.kit;
-    const fade = seg(m.age, 0, 0.2) * (1 - seg(m.age, PAIR_LINK_SECONDS - 0.5, PAIR_LINK_SECONDS));
+    const fade =
+      (0.3 + 0.7 * seg(m.age, 0, 0.2)) *
+      (1 - seg(m.age, PAIR_LINK_SECONDS - 0.5, PAIR_LINK_SECONDS));
     const ay = a.y + a.height * 0.75;
     const by = b.y + b.height * 0.75;
     kit.beams.push(
