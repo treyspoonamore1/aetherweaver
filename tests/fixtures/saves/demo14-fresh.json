@@ -1,0 +1,17 @@
+{
+  "id": "demo14-fresh",
+  "commit": "6a2b5eb",
+  "subject": "Demo notes: Version 14 published (version 1794333817-e322), what was checked before publishing",
+  "why": "demo Version 14, Start fresh",
+  "writtenBy": "build",
+  "versions": {
+    "run": null,
+    "profile": 10,
+    "settings": null
+  },
+  "notes": ["chooseDemo(\"fresh\") through the build’s own stores"],
+  "keys": {
+    "aetherweaver.profile": "{\"version\":10,\"xp\":0,\"introduced\":[],\"lastChords\":[],\"runs\":0,\"wins\":0,\"astrolabe\":[],\"deeds\":[],\"deedBest\":{},\"reliquary\":{\"relics\":[],\"shards\":0,\"tears\":0,\"carry\":[],\"seed\":842318452,\"next\":1},\"dissonance\":{\"open\":false,\"levels\":[],\"best\":{}},\"bonds\":{},\"variants\":[],\"techniques\":{\"ward\":null,\"chime\":null,\"reel\":null,\"glide\":null},\"starlight\":0,\"cosmetics\":[],\"look\":{\"robe\":null,\"thread\":null,\"title\":null},\"mastery\":{},\"runMode\":\"expedition\",\"seen\":[\"hollow_chorister\",\"bell_brute\",\"lamenter\",\"glass_lancer\",\"mute\",\"cantor_acolyte\",\"the_bellwarden\",\"the_hollow_cantor\"]}",
+    "aetherweaver.demo.start": "fresh"
+  }
+}

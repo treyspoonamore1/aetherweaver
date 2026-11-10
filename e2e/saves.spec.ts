@@ -1,0 +1,187 @@
+/**
+ * Saves through the panel (docs/phase-7.md, W5): export a file and a code from Settings → Progress,
+ * import each over other saves (the page starts again on them, byte for byte as exported, the
+ * replaced saves kept under `.before-import`), garbage refused in words, and a profile that won't
+ * load kept raw and offered for download.
+ */
+import { readFileSync } from 'node:fs';
+import { expect, test, type Page } from '@playwright/test';
+import { newProfile } from '../src/meta/profile';
+
+const START_URL = '/?e2e=1&seed=4242';
+const KEYS = ['aetherweaver.profile', 'aetherweaver.run', 'aetherweaver.settings'] as const;
+
+function trackErrors(page: Page): string[] {
+  const errors: string[] = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') errors.push(msg.text());
+  });
+  page.on('pageerror', (err) => errors.push(err.message));
+  return errors;
+}
+
+async function stored(page: Page): Promise<Record<string, string | null>> {
+  return page.evaluate(
+    (keys) => Object.fromEntries(keys.map((k) => [k, localStorage.getItem(k)])),
+    [...KEYS],
+  );
+}
+
+async function ready(page: Page): Promise<void> {
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+}
+
+/** The Title's Settings, scrolled to the Saves panel. */
+async function openSaves(page: Page): Promise<void> {
+  await page
+    .getByRole('button', { name: /^Settings$/ })
+    .first()
+    .click();
+  await page.getByTestId('saves-panel').scrollIntoViewIfNeeded();
+  await expect(page.getByTestId('saves-panel')).toBeVisible();
+}
+
+/** Replaces this browser's saves with others (a different Weaver, no run), and starts again. */
+async function otherSaves(page: Page): Promise<void> {
+  const other = JSON.stringify({ ...newProfile(9), xp: 40, runs: 1 });
+  await page.evaluate((profile) => {
+    localStorage.clear();
+    localStorage.setItem('aetherweaver.profile', profile);
+  }, other);
+  await page.reload();
+  await ready(page);
+}
+
+/** Confirms the import shown, and waits for the page to start again on it. */
+async function confirmImport(page: Page, withSettings: boolean): Promise<void> {
+  const preview = page.getByTestId('saves-preview');
+  await expect(preview).toContainText('Weaver Rank 10');
+  await expect(preview).toContainText('7 runs, 3 won');
+  await expect(preview).toContainText(/A run in progress: Movement 1 of \d/);
+  if (withSettings) await page.getByTestId('saves-with-settings').check();
+  await Promise.all([page.waitForEvent('load'), page.getByTestId('saves-import-confirm').click()]);
+  await ready(page);
+}
+
+test('export a file and a code, import each through the panel, refuse garbage', async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(240_000);
+  const errors = trackErrors(page);
+  await page.goto(START_URL);
+  await ready(page);
+  // A Weaver some way in: Rank 10, seven runs, a run in progress, a setting changed.
+  const profile = JSON.stringify({ ...newProfile(3), xp: 4400, runs: 7, wins: 3 });
+  await page.evaluate((p) => localStorage.setItem('aetherweaver.profile', p), profile);
+  await page.reload();
+  await ready(page);
+  await page.evaluate(() => {
+    window.__AWRUN__!.newRun(4242);
+    window.__AWRUN__!.embark();
+    window.__AWRUN__!.choose();
+  });
+  // The run is saved; back to the Title (the page saves the run in play as it unloads).
+  await page.reload();
+  await ready(page);
+  await openSaves(page);
+  await page.getByText('Skip the unlocks', { exact: true }).click();
+  const mine = await stored(page);
+  for (const k of KEYS) expect(mine[k], k).not.toBeNull();
+
+  // Export: the file, then the code.
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTestId('saves-export-file').click(),
+  ]);
+  expect(download.suggestedFilename()).toBe('aetherweaver-save.json');
+  const path = testInfo.outputPath('aetherweaver-save.json');
+  await download.saveAs(path);
+  const file = readFileSync(path);
+  expect(JSON.parse(file.toString('utf8'))).toMatchObject({
+    format: 'aetherweaver-save',
+    version: 1,
+  });
+  await page.getByTestId('saves-export-code').click();
+  const code = await page.getByTestId('saves-code-out').inputValue();
+  expect(code).toMatch(/^AWSAVE1\.[0-9a-f]{8}\.[A-Za-z0-9_-]+$/);
+  // Exporting changed nothing.
+  expect(await stored(page)).toEqual(mine);
+
+  // Import the file over other saves: byte for byte as they were, the replaced ones kept.
+  await otherSaves(page);
+  const replaced = await stored(page);
+  await openSaves(page);
+  await page.getByTestId('saves-import-file').setInputFiles(path);
+  await confirmImport(page, true);
+  expect(await stored(page)).toEqual(mine);
+  expect(
+    await page.evaluate(() => localStorage.getItem('aetherweaver.profile.before-import')),
+  ).toBe(replaced['aetherweaver.profile']);
+  // The Title offers the imported run.
+  await expect(page.getByRole('button', { name: /Continue/i }).first()).toBeVisible();
+
+  // Import the code the same way (settings left as they are this time).
+  await otherSaves(page);
+  const settingsBefore = (await stored(page))['aetherweaver.settings'];
+  await openSaves(page);
+  await page.getByTestId('saves-code-in').fill(`${code.slice(0, 50)}\n${code.slice(50)}`);
+  await page.getByTestId('saves-read-code').click();
+  await confirmImport(page, false);
+  const afterCode = await stored(page);
+  expect(afterCode['aetherweaver.profile']).toBe(mine['aetherweaver.profile']);
+  expect(afterCode['aetherweaver.run']).toBe(mine['aetherweaver.run']);
+  expect(afterCode['aetherweaver.settings']).toBe(settingsBefore);
+
+  // Garbage, refused in words, and nothing written.
+  await openSaves(page);
+  const before = await stored(page);
+  await page.getByTestId('saves-import-file').setInputFiles({
+    name: 'notes.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from('{"hello":"world"}'),
+  });
+  await expect(page.getByTestId('saves-error')).toHaveText(
+    'This isn’t an Aetherweaver save, so nothing was imported.',
+  );
+  const typo = code.slice(0, -12) + (code.at(-12) === 'A' ? 'B' : 'A') + code.slice(-11);
+  await page.getByTestId('saves-code-in').fill(typo);
+  await page.getByTestId('saves-read-code').click();
+  await expect(page.getByTestId('saves-error')).toContainText('This code has a typo');
+  await expect(page.getByTestId('saves-preview')).toHaveCount(0);
+  expect(await stored(page)).toEqual(before);
+
+  // Put back the saves from before the import.
+  await page.getByRole('button', { name: 'Put them back…' }).click();
+  await Promise.all([page.waitForEvent('load'), page.getByTestId('saves-restore-confirm').click()]);
+  await ready(page);
+  expect((await stored(page))['aetherweaver.profile']).toBe(replaced['aetherweaver.profile']);
+  expect(errors).toEqual([]);
+});
+
+test('a profile that won’t load is kept raw, and offered for download', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto(START_URL);
+  await ready(page);
+  const raw = '{"version":10,"xp":9001,"broken":';
+  await page.evaluate((r) => {
+    localStorage.clear();
+    localStorage.setItem('aetherweaver.profile', r);
+  }, raw);
+  await page.reload();
+  await ready(page);
+  expect(await page.evaluate(() => localStorage.getItem('aetherweaver.profile.corrupt'))).toBe(raw);
+  await openSaves(page);
+  await expect(page.getByTestId('saves-kept')).toContainText('Your profile couldn’t be loaded');
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTestId('saves-kept-download').click(),
+  ]);
+  expect(download.suggestedFilename()).toBe('aetherweaver-unreadable-profile.json');
+  expect(readFileSync(await download.path()).toString('utf8')).toBe(raw);
+  // Saves after it never overwrite it.
+  await page.getByText('Skip the unlocks', { exact: true }).click();
+  await page.reload();
+  await ready(page);
+  expect(await page.evaluate(() => localStorage.getItem('aetherweaver.profile.corrupt'))).toBe(raw);
+  expect(errors).toEqual([]);
+});

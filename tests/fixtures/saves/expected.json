@@ -1,0 +1,2041 @@
+{
+  "b01-71840ed": {
+    "profile": null,
+    "run": {
+      "from": "main",
+      "phase": "combat",
+      "fight": {
+        "hash": "a74e83abd3ecc948",
+        "tick": 1421,
+        "encounter": "glass_gallery"
+      }
+    },
+    "settings": {
+      "version": 4,
+      "volumes": {
+        "master": 0.8,
+        "music": 0.35,
+        "sfx": 0.9,
+        "ui": 0.7
+      },
+      "screenShake": 0.5,
+      "flashes": 1,
+      "damageNumbers": true,
+      "hints": false,
+      "uiScale": 1,
+      "colorVision": "normal",
+      "bindings": {},
+      "assists": {
+        "perfectWindowBonus": 0,
+        "telegraphLead": 1,
+        "autonomy": false
+      },
+      "unlockAll": false,
+      "hud": {
+        "frames": {
+          "at": null,
+          "scale": 1,
+          "orientation": "vertical"
+        },
+        "weaverBar": {
+          "at": null,
+          "scale": 1
+        },
+        "allyBars": "always",
+        "healthText": "missing",
+        "lowHealthSound": true
+      },
+      "captions": false
+    }
+  },
+  "b02-b2afe4a": {
+    "profile": null,
+    "run": {
+      "from": "main",
+      "phase": "combat",
+      "fight": {
+        "hash": "a74e83abd3ecc948",
+        "tick": 1421,
+        "encounter": "glass_gallery"
+      }
+    },
+    "settings": {
+      "volumes": {
+        "master": 0.8,
+        "music": 0.35,
+        "sfx": 0.9,
+        "ui": 0.7
+      },
+      "screenShake": 0.5,
+      "flashes": 1,
+      "damageNumbers": true,
+      "hints": false,
+      "uiScale": 1,
+      "colorVision": "normal",
+      "bindings": {},
+      "assists": {
+        "perfectWindowBonus": 0,
+        "telegraphLead": 1,
+        "autonomy": false
+      },
+      "captions": false,
+      "version": 4,
+      "unlockAll": false,
+      "hud": {
+        "frames": {
+          "at": null,
+          "scale": 1,
+          "orientation": "vertical"
+        },
+        "weaverBar": {
+          "at": null,
+          "scale": 1
+        },
+        "allyBars": "always",
+        "healthText": "missing",
+        "lowHealthSound": true
+      }
+    }
+  },
+  "b03-05933c4": {
+    "profile": {
+      "from": "main",
+      "json": {
+        "version": 10,
+        "xp": 2600,
+        "introduced": [],
+        "lastChords": [],
+        "runs": 2,
+        "wins": 1,
+        "astrolabe": [],
+        "deeds": [],
+        "reliquary": {
+          "relics": [],
+          "shards": 0,
+          "tears": 0,
+          "carry": [],
+          "seed": 1,
+          "next": 1
+        },
+        "variants": [],
+        "techniques": {
+          "ward": null,
+          "chime": null,
+          "reel": null,
+          "glide": null
+        },
+        "starlight": 0,
+        "cosmetics": [],
+        "look": {
+          "robe": null,
+          "thread": null,
+          "title": null
+        },
+        "mastery": {},
+        "runMode": "expedition",
+        "seen": [
+          "hollow_chorister",
+          "bell_brute",
+          "lamenter",
+          "glass_lancer",
+          "mute",
+          "cantor_acolyte",
+          "the_bellwarden",
+          "the_hollow_cantor"
+        ],
+        "bonds": {},
+        "dissonance": {
+          "open": false,
+          "levels": [],
+          "best": {}
+        },
+        "deedBest": {}
+      }
+    },
+    "run": {
+      "from": "main",
+      "phase": "combat",
+      "fight": {
+        "hash": "a74e83abd3ecc948",
+        "tick": 1421,
+        "encounter": "glass_gallery"
+      }
+    },
+    "settings": {
+      "volumes": {
+        "master": 0.8,
+        "music": 0.35,
+        "sfx": 0.9,
+        "ui": 0.7
+      },
+      "screenShake": 0.5,
+      "flashes": 1,
+      "damageNumbers": true,
+      "hints": false,
+      "uiScale": 1,
+      "colorVision": "normal",
+      "bindings": {},
+      "assists": {
+        "perfectWindowBonus": 0,
+        "telegraphLead": 1,
+        "autonomy": false
+      },
+      "unlockAll": false,
+      "captions": false,
+      "version": 4,
+      "hud": {
+        "frames": {
+          "at": null,
+          "scale": 1,
+          "orientation": "vertical"
+        },
+        "weaverBar": {
+          "at": null,
+          "scale": 1
+        },
+        "allyBars": "always",
+        "healthText": "missing",
+        "lowHealthSound": true
+      }
+    }
+  },
+  "b04-ad36f11": {
+    "profile": {
+      "from": "main",
+      "json": {
+        "version": 10,
+        "xp": 2600,
+        "introduced": [],
+        "lastChords": [],
+        "runs": 2,
+        "wins": 1,
+        "astrolabe": [],
+        "deeds": [],
+        "reliquary": {
+          "relics": [],
+          "shards": 0,
+          "tears": 0,
+          "carry": [],
+          "seed": 1,
+          "next": 1
+        },
+        "variants": [],
+        "techniques": {
+          "ward": null,
+          "chime": null,
+          "reel": null,
+          "glide": null
+        },
+        "starlight": 0,
+        "cosmetics": [],
+        "look": {
+          "robe": null,
+          "thread": null,
+          "title": null
+        },
+        "mastery": {},
+        "runMode": "expedition",
+        "seen": [
+          "hollow_chorister",
+          "bell_brute",
+          "lamenter",
+          "glass_lancer",
+          "mute",
+          "cantor_acolyte",
+          "the_bellwarden",
+          "the_hollow_cantor"
+        ],
+        "bonds": {},
+        "dissonance": {
+          "open": false,
+          "levels": [],
+          "best": {}
+        },
+        "deedBest": {}
+      }
+    },
+    "run": {
+      "from": "main",
+      "phase": "combat",
+      "fight": {
+        "hash": "c998d655e9c1069e",
+        "tick": 1800,
+        "encounter": "glass_gallery"
+      }
+    },
+    "settings": {
+      "volumes": {
+        "master": 0.8,
+        "music": 0.35,
+        "sfx": 0.9,
+        "ui": 0.7
+      },
+      "screenShake": 0.5,
+      "flashes": 1,
+      "damageNumbers": true,
+      "hints": false,
+      "uiScale": 1,
+      "colorVision": "normal",
+      "bindings": {},
+      "assists": {
+        "perfectWindowBonus": 0,
+        "telegraphLead": 1,
+        "autonomy": false
+      },
+      "unlockAll": false,
+      "captions": false,
+      "version": 4,
+      "hud": {
+        "frames": {
+          "at": null,
+          "scale": 1,
+          "orientation": "vertical"
+        },
+        "weaverBar": {
+          "at": null,
+          "scale": 1
+        },
+        "allyBars": "always",
+        "healthText": "missing",
+        "lowHealthSound": true
+      }
+    }
+  },
+  "b05-61a0621": {
+    "profile": {
+      "from": "main",
+      "json": {
+        "version": 10,
+        "xp": 2600,
+        "introduced": [],
+        "lastChords": [],
+        "runs": 2,
+        "wins": 1,
+        "astrolabe": [],
+        "deeds": [],
+        "reliquary": {
+          "relics": [],
+          "shards": 0,
+          "tears": 0,
+          "carry": [],
+          "seed": 1,
+          "next": 1
+        },
+        "variants": [],
+        "techniques": {
+          "ward": null,
+          "chime": null,
+          "reel": null,
+          "glide": null
+        },
+        "starlight": 0,
+        "cosmetics": [],
+        "look": {
+          "robe": null,
+          "thread": null,
+          "title": null
+        },
+        "mastery": {},
+        "runMode": "expedition",
+        "seen": [
+          "hollow_chorister",
+          "bell_brute",
+          "lamenter",
+          "glass_lancer",
+          "mute",
+          "cantor_acolyte",
+          "the_bellwarden",
+          "the_hollow_cantor"
+        ],
+        "bonds": {},
+        "dissonance": {
+          "open": false,
+          "levels": [],
+          "best": {}
+        },
+        "deedBest": {}
+      }
+    },
+    "run": {
+      "from": "main",
+      "phase": "combat",
+      "fight": {
+        "hash": "316d4c29b60c60aa",
+        "tick": 1800,
+        "encounter": "glass_gallery"
+      }
+    },
+    "settings": {
+      "volumes": {
+        "master": 0.8,
+        "music": 0.35,
+        "sfx": 0.9,
+        "ui": 0.7
+      },
+      "screenShake": 0.5,
+      "flashes": 1,
+      "damageNumbers": true,
+      "hints": false,
+      "uiScale": 1,
+      "colorVision": "normal",
+      "bindings": {},
+      "assists": {
+        "perfectWindowBonus": 0,
+        "telegraphLead": 1,
+        "autonomy": false
+      },
+      "unlockAll": false,
+      "captions": false,
+      "version": 4,
+      "hud": {
+        "frames": {
+          "at": null,
+          "scale": 1,
+          "orientation": "vertical"
+        },
+        "weaverBar": {
+          "at": null,
+          "scale": 1
+        },
+        "allyBars": "always",
+        "healthText": "missing",
+        "lowHealthSound": true
+      }
+    }
+  },
+  "b06-ee6b25e": {
+    "profile": {
+      "from": "main",
+      "json": {
+        "version": 10,
+        "xp": 2600,
+        "introduced": [],
+        "lastChords": [],
+        "runs": 2,
+        "wins": 1,
+        "astrolabe": ["silk_t1", "silk_t2"],
+        "deeds": [],
+        "reliquary": {
+          "relics": [],
+          "shards": 0,
+          "tears": 0,
+          "carry": [],
+          "seed": 1,
+          "next": 1
+        },
+        "variants": [],
+        "techniques": {
+          "ward": null,
+          "chime": null,
+          "reel": null,
+          "glide": null
+        },
+        "starlight": 0,
+        "cosmetics": [],
+        "look": {
+          "robe": null,
+          "thread": null,
+          "title": null
+        },
+        "mastery": {},
+        "runMode": "expedition",
+        "seen": [
+          "hollow_chorister",
+          "bell_brute",
+          "lamenter",
+          "glass_lancer",
+          "mute",
+          "cantor_acolyte",
+          "the_bellwarden",
+          "the_hollow_cantor"
+        ],
+        "bonds": {},
+        "dissonance": {
+          "open": false,
+          "levels": [],
+          "best": {}
+        },
+        "deedBest": {}
+      }
+    },
+    "run": {
+      "from": "main",
+      "phase": "combat",
+      "fight": {
+        "hash": "316d4c29b60c60aa",
+        "tick": 1800,
+        "encounter": "glass_gallery"
+      }
+    },
+    "settings": {
+      "volumes": {
+        "master": 0.8,
+        "music": 0.35,
+        "sfx": 0.9,
+        "ui": 0.7
+      },
+      "screenShake": 0.5,
+      "flashes": 1,
+      "damageNumbers": true,
+      "hints": false,
+      "uiScale": 1,
+      "colorVision": "normal",
+      "bindings": {},
+      "assists": {
+        "perfectWindowBonus": 0,
+        "telegraphLead": 1,
+        "autonomy": false
+      },
+      "unlockAll": false,
+      "captions": false,
+      "version": 4,
+      "hud": {
+        "frames": {
+          "at": null,
+          "scale": 1,
+          "orientation": "vertical"
+        },
+        "weaverBar": {
+          "at": null,
+          "scale": 1
+        },
+        "allyBars": "always",
+        "healthText": "missing",
+        "lowHealthSound": true
+      }
+    }
+  },
+  "b07-05f4454": {
+    "profile": {
+      "from": "main",
+      "json": {
+        "version": 10,
+        "xp": 2600,
+        "introduced": [],
+        "lastChords": [],
+        "runs": 2,
+        "wins": 1,
+        "astrolabe": ["silk_t1", "silk_t2"],
+        "deeds": ["through_the_prelude"],
+        "reliquary": {
+          "relics": [],
+          "shards": 0,
+          "tears": 0,
+          "carry": [],
+          "seed": 1,
+          "next": 1
+        },
+        "variants": [],
+        "techniques": {
+          "ward": null,
+          "chime": null,
+          "reel": null,
+          "glide": null
+        },
+        "starlight": 10,
+        "cosmetics": [],
+        "look": {
+          "robe": null,
+          "thread": null,
+          "title": null
+        },
+        "mastery": {},
+        "runMode": "expedition",
+        "seen": [
+          "hollow_chorister",
+          "bell_brute",
+          "lamenter",
+          "glass_lancer",
+          "mute",
+          "cantor_acolyte",
+          "the_bellwarden",
+          "the_hollow_cantor"
+        ],
+        "bonds": {},
+        "dissonance": {
+          "open": false,
+          "levels": [],
+          "best": {}
+        },
+        "deedBest": {
+          "heard": 8,
+          "steady_hands": 8,
+          "encore": 2,
+          "perfect_pitch": 8,
+          "lifeline": 5,
+          "clutch": 2,
+          "pull": 2,
+          "maestro": 4,
+          "every_way": 3
+        }
+      }
+    },
+    "run": {
+      "from": "main",
+      "phase": "combat",
+      "fight": {
+        "hash": "316d4c29b60c60aa",
+        "tick": 1800,
+        "encounter": "glass_gallery"
+      }
+    },
+    "settings": {
+      "volumes": {
+        "master": 0.8,
+        "music": 0.35,
+        "sfx": 0.9,
+        "ui": 0.7
+      },
+      "screenShake": 0.5,
+      "flashes": 1,
+      "damageNumbers": true,
+      "hints": false,
+      "uiScale": 1,
+      "colorVision": "normal",
+      "bindings": {},
+      "assists": {
+        "perfectWindowBonus": 0,
+        "telegraphLead": 1,
+        "autonomy": false
+      },
+      "unlockAll": false,
+      "captions": false,
+      "version": 4,
+      "hud": {
+        "frames": {
+          "at": null,
+          "scale": 1,
+          "orientation": "vertical"
+        },
+        "weaverBar": {
+          "at": null,
+          "scale": 1
+        },
+        "allyBars": "always",
+        "healthText": "missing",
+        "lowHealthSound": true
+      }
+    }
+  },
+  "b08-9e21c4d": {
+    "profile": {
+      "from": "main",
+      "json": {
+        "version": 10,
+        "xp": 2600,
+        "introduced": [],
+        "lastChords": [],
+        "runs": 2,
+        "wins": 1,
+        "astrolabe": ["silk_t1", "silk_t2"],
+        "deeds": ["through_the_prelude"],
+        "reliquary": {
+          "relics": [],
+          "shards": 30,
+          "tears": 1,
+          "carry": [],
+          "seed": 1,
+          "next": 1
+        },
+        "variants": [],
+        "techniques": {
+          "ward": null,
+          "chime": null,
+          "reel": null,
+          "glide": null
+        },
+        "starlight": 10,
+        "cosmetics": [],
+        "look": {
+          "robe": null,
+          "thread": null,
+          "title": null
+        },
+        "mastery": {},
+        "runMode": "expedition",
+        "seen": [
+          "hollow_chorister",
+          "bell_brute",
+          "lamenter",
+          "glass_lancer",
+          "mute",
+          "cantor_acolyte",
+          "the_bellwarden",
+          "the_hollow_cantor"
+        ],
+        "bonds": {},
+        "dissonance": {
+          "open": false,
+          "levels": [],
+          "best": {}
+        },
+        "deedBest": {
+          "heard": 8,
+          "steady_hands": 8,
+          "encore": 2,
+          "perfect_pitch": 8,
+          "lifeline": 5,
+          "clutch": 2,
+          "pull": 2,
+          "maestro": 4,
+          "every_way": 3
+        }
+      }
+    },
+    "run": {
+      "from": "main",
+      "phase": "combat",
+      "fight": {
+        "hash": "316d4c29b60c60aa",
+        "tick": 1800,
+        "encounter": "glass_gallery"
+      }
+    },
+    "settings": {
+      "volumes": {
+        "master": 0.8,
+        "music": 0.35,
+        "sfx": 0.9,
+        "ui": 0.7
+      },
+      "screenShake": 0.5,
+      "flashes": 1,
+      "damageNumbers": true,
+      "hints": false,
+      "uiScale": 1,
+      "colorVision": "normal",
+      "bindings": {},
+      "assists": {
+        "perfectWindowBonus": 0,
+        "telegraphLead": 1,
+        "autonomy": false
+      },
+      "unlockAll": false,
+      "captions": false,
+      "version": 4,
+      "hud": {
+        "frames": {
+          "at": null,
+          "scale": 1,
+          "orientation": "vertical"
+        },
+        "weaverBar": {
+          "at": null,
+          "scale": 1
+        },
+        "allyBars": "always",
+        "healthText": "missing",
+        "lowHealthSound": true
+      }
+    }
+  },
+  "b09-29278e2": {
+    "profile": {
+      "from": "main",
+      "json": {
+        "version": 10,
+        "xp": 2600,
+        "introduced": [],
+        "lastChords": [],
+        "runs": 2,
+        "wins": 1,
+        "astrolabe": ["silk_t1", "silk_t2"],
+        "deeds": ["through_the_prelude"],
+        "reliquary": {
+          "relics": [],
+          "shards": 30,
+          "tears": 1,
+          "carry": [],
+          "seed": 877302443,
+          "next": 1
+        },
+        "variants": [],
+        "techniques": {
+          "ward": null,
+          "chime": null,
+          "reel": null,
+          "glide": null
+        },
+        "starlight": 10,
+        "cosmetics": [],
+        "look": {
+          "robe": null,
+          "thread": null,
+          "title": null
+        },
+        "mastery": {},
+        "runMode": "expedition",
+        "seen": [
+          "hollow_chorister",
+          "bell_brute",
+          "lamenter",
+          "glass_lancer",
+          "mute",
+          "cantor_acolyte",
+          "the_bellwarden",
+          "the_hollow_cantor"
+        ],
+        "bonds": {},
+        "dissonance": {
+          "open": false,
+          "levels": [],
+          "best": {}
+        },
+        "deedBest": {
+          "heard": 8,
+          "steady_hands": 8,
+          "encore": 2,
+          "perfect_pitch": 8,
+          "lifeline": 5,
+          "clutch": 2,
+          "pull": 2,
+          "maestro": 4,
+          "every_way": 3
+        }
+      }
+    },
+    "run": {
+      "from": "main",
+      "phase": "combat",
+      "fight": {
+        "hash": "316d4c29b60c60aa",
+        "tick": 1800,
+        "encounter": "glass_gallery"
+      }
+    },
+    "settings": {
+      "volumes": {
+        "master": 0.8,
+        "music": 0.35,
+        "sfx": 0.9,
+        "ui": 0.7
+      },
+      "screenShake": 0.5,
+      "flashes": 1,
+      "damageNumbers": true,
+      "hints": false,
+      "uiScale": 1,
+      "colorVision": "normal",
+      "bindings": {},
+      "assists": {
+        "perfectWindowBonus": 0,
+        "telegraphLead": 1,
+        "autonomy": false
+      },
+      "unlockAll": false,
+      "captions": false,
+      "version": 4,
+      "hud": {
+        "frames": {
+          "at": null,
+          "scale": 1,
+          "orientation": "vertical"
+        },
+        "weaverBar": {
+          "at": null,
+          "scale": 1
+        },
+        "allyBars": "always",
+        "healthText": "missing",
+        "lowHealthSound": true
+      }
+    }
+  },
+  "b10-21ef501": {
+    "profile": {
+      "from": "main",
+      "json": {
+        "version": 10,
+        "xp": 2600,
+        "introduced": [],
+        "lastChords": [],
+        "runs": 2,
+        "wins": 1,
+        "astrolabe": ["silk_t1", "silk_t2"],
+        "deeds": ["through_the_prelude"],
+        "reliquary": {
+          "relics": [],
+          "shards": 30,
+          "tears": 1,
+          "carry": [],
+          "seed": 354182471,
+          "next": 1
+        },
+        "variants": [],
+        "techniques": {
+          "ward": null,
+          "chime": null,
+          "reel": null,
+          "glide": null
+        },
+        "starlight": 10,
+        "cosmetics": [],
+        "look": {
+          "robe": null,
+          "thread": null,
+          "title": null
+        },
+        "mastery": {},
+        "runMode": "expedition",
+        "seen": [
+          "hollow_chorister",
+          "bell_brute",
+          "lamenter",
+          "glass_lancer",
+          "mute",
+          "cantor_acolyte",
+          "the_bellwarden",
+          "the_hollow_cantor"
+        ],
+        "bonds": {
+          "kael": {
+            "xp": 300,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          },
+          "lyra": {
+            "xp": 120,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          }
+        },
+        "dissonance": {
+          "open": false,
+          "levels": [],
+          "best": {}
+        },
+        "deedBest": {
+          "heard": 8,
+          "steady_hands": 8,
+          "encore": 2,
+          "perfect_pitch": 8,
+          "lifeline": 5,
+          "clutch": 2,
+          "pull": 2,
+          "maestro": 4,
+          "every_way": 3
+        }
+      }
+    },
+    "run": {
+      "from": "main",
+      "phase": "combat",
+      "fight": {
+        "hash": "316d4c29b60c60aa",
+        "tick": 1800,
+        "encounter": "glass_gallery"
+      }
+    },
+    "settings": {
+      "volumes": {
+        "master": 0.8,
+        "music": 0.35,
+        "sfx": 0.9,
+        "ui": 0.7
+      },
+      "screenShake": 0.5,
+      "flashes": 1,
+      "damageNumbers": true,
+      "hints": false,
+      "uiScale": 1,
+      "colorVision": "normal",
+      "bindings": {},
+      "assists": {
+        "perfectWindowBonus": 0,
+        "telegraphLead": 1,
+        "autonomy": false
+      },
+      "unlockAll": false,
+      "captions": false,
+      "version": 4,
+      "hud": {
+        "frames": {
+          "at": null,
+          "scale": 1,
+          "orientation": "vertical"
+        },
+        "weaverBar": {
+          "at": null,
+          "scale": 1
+        },
+        "allyBars": "always",
+        "healthText": "missing",
+        "lowHealthSound": true
+      }
+    }
+  },
+  "b11-7a2bbdd": {
+    "profile": {
+      "from": "main",
+      "json": {
+        "version": 10,
+        "xp": 2600,
+        "introduced": [],
+        "lastChords": [],
+        "runs": 2,
+        "wins": 1,
+        "astrolabe": ["silk_t1", "silk_t2"],
+        "deeds": ["through_the_prelude"],
+        "reliquary": {
+          "relics": [],
+          "shards": 30,
+          "tears": 1,
+          "carry": [],
+          "seed": 476050764,
+          "next": 1
+        },
+        "variants": ["chorale"],
+        "techniques": {
+          "ward": null,
+          "chime": null,
+          "reel": null,
+          "glide": null
+        },
+        "starlight": 10,
+        "cosmetics": [],
+        "look": {
+          "robe": null,
+          "thread": null,
+          "title": null
+        },
+        "mastery": {},
+        "runMode": "expedition",
+        "seen": [
+          "hollow_chorister",
+          "bell_brute",
+          "lamenter",
+          "glass_lancer",
+          "mute",
+          "cantor_acolyte",
+          "the_bellwarden",
+          "the_hollow_cantor"
+        ],
+        "bonds": {
+          "kael": {
+            "xp": 300,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          },
+          "lyra": {
+            "xp": 120,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          }
+        },
+        "dissonance": {
+          "open": false,
+          "levels": [],
+          "best": {}
+        },
+        "deedBest": {
+          "heard": 8,
+          "steady_hands": 8,
+          "encore": 2,
+          "perfect_pitch": 8,
+          "lifeline": 5,
+          "clutch": 2,
+          "pull": 2,
+          "maestro": 4,
+          "every_way": 3
+        }
+      }
+    },
+    "run": {
+      "from": "main",
+      "phase": "combat",
+      "fight": {
+        "hash": "316d4c29b60c60aa",
+        "tick": 1800,
+        "encounter": "glass_gallery"
+      }
+    },
+    "settings": {
+      "volumes": {
+        "master": 0.8,
+        "music": 0.35,
+        "sfx": 0.9,
+        "ui": 0.7
+      },
+      "screenShake": 0.5,
+      "flashes": 1,
+      "damageNumbers": true,
+      "hints": false,
+      "uiScale": 1,
+      "colorVision": "normal",
+      "bindings": {},
+      "assists": {
+        "perfectWindowBonus": 0,
+        "telegraphLead": 1,
+        "autonomy": false
+      },
+      "unlockAll": false,
+      "captions": false,
+      "version": 4,
+      "hud": {
+        "frames": {
+          "at": null,
+          "scale": 1,
+          "orientation": "vertical"
+        },
+        "weaverBar": {
+          "at": null,
+          "scale": 1
+        },
+        "allyBars": "always",
+        "healthText": "missing",
+        "lowHealthSound": true
+      }
+    }
+  },
+  "b12-237094f": {
+    "profile": {
+      "from": "main",
+      "json": {
+        "version": 10,
+        "xp": 2600,
+        "introduced": [],
+        "lastChords": [],
+        "runs": 2,
+        "wins": 1,
+        "astrolabe": ["silk_t1", "silk_t2"],
+        "deeds": ["through_the_prelude"],
+        "reliquary": {
+          "relics": [],
+          "shards": 30,
+          "tears": 1,
+          "carry": [],
+          "seed": 934014934,
+          "next": 1
+        },
+        "variants": ["chorale"],
+        "techniques": {
+          "ward": null,
+          "chime": null,
+          "reel": null,
+          "glide": null
+        },
+        "starlight": 160,
+        "cosmetics": [],
+        "look": {
+          "robe": null,
+          "thread": null,
+          "title": null
+        },
+        "mastery": {
+          "luminary": 600
+        },
+        "runMode": "expedition",
+        "seen": [
+          "hollow_chorister",
+          "bell_brute",
+          "lamenter",
+          "glass_lancer",
+          "mute",
+          "cantor_acolyte",
+          "the_bellwarden",
+          "the_hollow_cantor"
+        ],
+        "bonds": {
+          "kael": {
+            "xp": 300,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          },
+          "lyra": {
+            "xp": 120,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          }
+        },
+        "dissonance": {
+          "open": false,
+          "levels": [],
+          "best": {}
+        },
+        "deedBest": {
+          "heard": 8,
+          "steady_hands": 8,
+          "encore": 2,
+          "perfect_pitch": 8,
+          "lifeline": 5,
+          "clutch": 2,
+          "pull": 2,
+          "maestro": 4,
+          "every_way": 3
+        }
+      }
+    },
+    "run": {
+      "from": "main",
+      "phase": "combat",
+      "fight": {
+        "hash": "316d4c29b60c60aa",
+        "tick": 1800,
+        "encounter": "glass_gallery"
+      }
+    },
+    "settings": {
+      "volumes": {
+        "master": 0.8,
+        "music": 0.35,
+        "sfx": 0.9,
+        "ui": 0.7
+      },
+      "screenShake": 0.5,
+      "flashes": 1,
+      "damageNumbers": true,
+      "hints": false,
+      "uiScale": 1,
+      "colorVision": "normal",
+      "bindings": {},
+      "assists": {
+        "perfectWindowBonus": 0,
+        "telegraphLead": 1,
+        "autonomy": false
+      },
+      "unlockAll": false,
+      "captions": false,
+      "version": 4,
+      "hud": {
+        "frames": {
+          "at": null,
+          "scale": 1,
+          "orientation": "vertical"
+        },
+        "weaverBar": {
+          "at": null,
+          "scale": 1
+        },
+        "allyBars": "always",
+        "healthText": "missing",
+        "lowHealthSound": true
+      }
+    }
+  },
+  "b13-a5c4ea5": {
+    "profile": {
+      "from": "main",
+      "json": {
+        "version": 10,
+        "xp": 2600,
+        "introduced": [],
+        "lastChords": [],
+        "runs": 2,
+        "wins": 1,
+        "astrolabe": ["silk_t1", "silk_t2"],
+        "deeds": ["through_the_prelude"],
+        "reliquary": {
+          "relics": [],
+          "shards": 30,
+          "tears": 1,
+          "carry": [],
+          "seed": 159300415,
+          "next": 1
+        },
+        "variants": ["chorale"],
+        "techniques": {
+          "ward": null,
+          "chime": null,
+          "reel": null,
+          "glide": null
+        },
+        "starlight": 160,
+        "cosmetics": [],
+        "look": {
+          "robe": null,
+          "thread": null,
+          "title": null
+        },
+        "mastery": {
+          "luminary": 600
+        },
+        "runMode": "expedition",
+        "seen": [
+          "hollow_chorister",
+          "bell_brute",
+          "lamenter",
+          "glass_lancer",
+          "mute",
+          "cantor_acolyte",
+          "the_bellwarden",
+          "the_hollow_cantor"
+        ],
+        "bonds": {
+          "kael": {
+            "xp": 300,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          },
+          "lyra": {
+            "xp": 120,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          }
+        },
+        "dissonance": {
+          "open": false,
+          "levels": [],
+          "best": {}
+        },
+        "deedBest": {
+          "heard": 8,
+          "steady_hands": 8,
+          "encore": 2,
+          "perfect_pitch": 8,
+          "lifeline": 5,
+          "clutch": 2,
+          "pull": 2,
+          "maestro": 4,
+          "every_way": 3
+        }
+      }
+    },
+    "run": {
+      "from": "main",
+      "phase": "combat",
+      "fight": {
+        "hash": "316d4c29b60c60aa",
+        "tick": 1800,
+        "encounter": "glass_gallery"
+      }
+    },
+    "settings": {
+      "version": 4,
+      "volumes": {
+        "master": 0.8,
+        "music": 0.35,
+        "sfx": 0.9,
+        "ui": 0.7
+      },
+      "screenShake": 0.5,
+      "flashes": 1,
+      "damageNumbers": true,
+      "hints": false,
+      "uiScale": 1,
+      "colorVision": "normal",
+      "bindings": {},
+      "assists": {
+        "perfectWindowBonus": 0,
+        "telegraphLead": 1,
+        "autonomy": false
+      },
+      "unlockAll": false,
+      "hud": {
+        "frames": {
+          "at": null,
+          "scale": 1,
+          "orientation": "vertical"
+        },
+        "weaverBar": {
+          "at": null,
+          "scale": 1
+        },
+        "allyBars": "always",
+        "healthText": "missing",
+        "lowHealthSound": true
+      },
+      "captions": false
+    }
+  },
+  "b14-5b365b3": {
+    "profile": {
+      "from": "main",
+      "json": {
+        "version": 10,
+        "xp": 2600,
+        "introduced": [],
+        "lastChords": [],
+        "runs": 2,
+        "wins": 1,
+        "astrolabe": ["silk_t1", "silk_t2"],
+        "deeds": ["through_the_prelude"],
+        "reliquary": {
+          "relics": [],
+          "shards": 30,
+          "tears": 1,
+          "carry": [],
+          "seed": 1374425593,
+          "next": 1
+        },
+        "variants": ["chorale"],
+        "techniques": {
+          "ward": null,
+          "chime": null,
+          "reel": null,
+          "glide": null
+        },
+        "starlight": 160,
+        "cosmetics": [],
+        "look": {
+          "robe": null,
+          "thread": null,
+          "title": null
+        },
+        "mastery": {
+          "luminary": 600
+        },
+        "runMode": "expedition",
+        "seen": [
+          "hollow_chorister",
+          "bell_brute",
+          "lamenter",
+          "glass_lancer",
+          "mute",
+          "cantor_acolyte",
+          "the_bellwarden",
+          "the_hollow_cantor"
+        ],
+        "bonds": {
+          "kael": {
+            "xp": 300,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          },
+          "lyra": {
+            "xp": 120,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          }
+        },
+        "dissonance": {
+          "open": false,
+          "levels": [],
+          "best": {}
+        },
+        "deedBest": {
+          "heard": 8,
+          "steady_hands": 8,
+          "encore": 2,
+          "perfect_pitch": 8,
+          "lifeline": 5,
+          "clutch": 2,
+          "pull": 2,
+          "maestro": 4,
+          "every_way": 3
+        }
+      }
+    },
+    "run": {
+      "from": "main",
+      "phase": "combat",
+      "fight": {
+        "hash": "316d4c29b60c60aa",
+        "tick": 1800,
+        "encounter": "glass_gallery"
+      }
+    },
+    "settings": {
+      "version": 4,
+      "volumes": {
+        "master": 0.8,
+        "music": 0.35,
+        "sfx": 0.9,
+        "ui": 0.7
+      },
+      "screenShake": 0.5,
+      "flashes": 1,
+      "damageNumbers": true,
+      "hints": false,
+      "uiScale": 1,
+      "colorVision": "normal",
+      "bindings": {},
+      "assists": {
+        "perfectWindowBonus": 0,
+        "telegraphLead": 1,
+        "autonomy": false
+      },
+      "unlockAll": false,
+      "hud": {
+        "frames": {
+          "at": null,
+          "scale": 1,
+          "orientation": "vertical"
+        },
+        "weaverBar": {
+          "at": null,
+          "scale": 1
+        },
+        "allyBars": "always",
+        "healthText": "missing",
+        "lowHealthSound": true
+      },
+      "captions": false
+    }
+  },
+  "b15-d86b04a": {
+    "profile": {
+      "from": "main",
+      "json": {
+        "version": 10,
+        "xp": 2600,
+        "introduced": [],
+        "lastChords": [],
+        "runs": 2,
+        "wins": 1,
+        "astrolabe": ["silk_t1", "silk_t2"],
+        "deeds": ["through_the_prelude"],
+        "reliquary": {
+          "relics": [],
+          "shards": 30,
+          "tears": 1,
+          "carry": [],
+          "seed": 1735851052,
+          "next": 1
+        },
+        "variants": ["chorale"],
+        "techniques": {
+          "ward": null,
+          "chime": null,
+          "reel": null,
+          "glide": null
+        },
+        "starlight": 160,
+        "cosmetics": [],
+        "look": {
+          "robe": null,
+          "thread": null,
+          "title": null
+        },
+        "mastery": {
+          "luminary": 600
+        },
+        "runMode": "expedition",
+        "seen": [
+          "hollow_chorister",
+          "bell_brute",
+          "lamenter",
+          "glass_lancer",
+          "mute",
+          "cantor_acolyte",
+          "the_bellwarden",
+          "the_hollow_cantor"
+        ],
+        "bonds": {
+          "kael": {
+            "xp": 300,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          },
+          "lyra": {
+            "xp": 120,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          }
+        },
+        "dissonance": {
+          "open": false,
+          "levels": [],
+          "best": {}
+        },
+        "deedBest": {
+          "heard": 8,
+          "steady_hands": 8,
+          "encore": 2,
+          "perfect_pitch": 8,
+          "lifeline": 5,
+          "clutch": 2,
+          "pull": 2,
+          "maestro": 4,
+          "every_way": 3
+        },
+        "recruited": ["brann"]
+      }
+    },
+    "run": {
+      "from": "main",
+      "phase": "combat",
+      "fight": {
+        "hash": "316d4c29b60c60aa",
+        "tick": 1800,
+        "encounter": "glass_gallery"
+      }
+    },
+    "settings": {
+      "version": 4,
+      "volumes": {
+        "master": 0.8,
+        "music": 0.35,
+        "sfx": 0.9,
+        "ui": 0.7
+      },
+      "screenShake": 0.5,
+      "flashes": 1,
+      "damageNumbers": true,
+      "hints": false,
+      "uiScale": 1,
+      "colorVision": "normal",
+      "bindings": {},
+      "assists": {
+        "perfectWindowBonus": 0,
+        "telegraphLead": 1,
+        "autonomy": false
+      },
+      "unlockAll": false,
+      "hud": {
+        "frames": {
+          "at": null,
+          "scale": 1,
+          "orientation": "vertical"
+        },
+        "weaverBar": {
+          "at": null,
+          "scale": 1
+        },
+        "allyBars": "always",
+        "healthText": "missing",
+        "lowHealthSound": true
+      },
+      "captions": false
+    }
+  },
+  "demo13-fresh": {
+    "profile": {
+      "from": "main",
+      "json": {
+        "version": 10,
+        "xp": 0,
+        "introduced": [],
+        "lastChords": [],
+        "runs": 0,
+        "wins": 0,
+        "astrolabe": [],
+        "deeds": [],
+        "reliquary": {
+          "relics": [],
+          "shards": 0,
+          "tears": 0,
+          "carry": [],
+          "seed": 1179813781,
+          "next": 1
+        },
+        "variants": [],
+        "techniques": {
+          "ward": null,
+          "chime": null,
+          "reel": null,
+          "glide": null
+        },
+        "starlight": 0,
+        "cosmetics": [],
+        "look": {
+          "robe": null,
+          "thread": null,
+          "title": null
+        },
+        "mastery": {},
+        "runMode": "expedition",
+        "seen": [
+          "hollow_chorister",
+          "bell_brute",
+          "lamenter",
+          "glass_lancer",
+          "mute",
+          "cantor_acolyte",
+          "the_bellwarden",
+          "the_hollow_cantor"
+        ],
+        "bonds": {},
+        "dissonance": {
+          "open": false,
+          "levels": [],
+          "best": {}
+        },
+        "deedBest": {}
+      }
+    },
+    "run": null,
+    "settings": null
+  },
+  "demo13-veteran": {
+    "profile": {
+      "from": "main",
+      "json": {
+        "version": 10,
+        "xp": 6650,
+        "introduced": [
+          "song.beam",
+          "aura.sostenuto",
+          "aura.fortissimo",
+          "aura.allegro",
+          "song.field",
+          "aura.ostinato",
+          "expedition",
+          "ornamentSlot.1",
+          "ornament.grace_note",
+          "ornament.reverb",
+          "aura.lullaby",
+          "ornament.pedal_point",
+          "astrolabe",
+          "aura.fermata",
+          "ornament.unison",
+          "ornamentSlot.2",
+          "calling.luminary",
+          "calling.martyr",
+          "calling.chronomancer",
+          "calling.conductor",
+          "reliquary",
+          "recruit.seren",
+          "recruit.oro"
+        ],
+        "lastChords": [],
+        "runs": 1,
+        "wins": 1,
+        "astrolabe": [],
+        "deeds": ["through_the_prelude", "flawless"],
+        "reliquary": {
+          "relics": [
+            {
+              "uid": "r1",
+              "id": "prism_loom",
+              "cleansed": false,
+              "inscriptions": [
+                {
+                  "id": "bright_empower",
+                  "tier": 5,
+                  "value": 1
+                },
+                {
+                  "id": "light_reserve",
+                  "tier": 5,
+                  "value": 0.5
+                }
+              ],
+              "instability": 0,
+              "fractured": false,
+              "depth": 0,
+              "dissonance": null
+            },
+            {
+              "uid": "r2",
+              "id": "lantern_of_the_lost",
+              "cleansed": false,
+              "inscriptions": [
+                {
+                  "id": "swift_rescue",
+                  "tier": 3,
+                  "value": 3.5
+                }
+              ],
+              "instability": 0,
+              "fractured": false,
+              "depth": 0,
+              "dissonance": null
+            }
+          ],
+          "shards": 40,
+          "tears": 2,
+          "carry": ["r1"],
+          "seed": 333988121,
+          "next": 3
+        },
+        "variants": ["purge"],
+        "techniques": {
+          "ward": null,
+          "chime": null,
+          "reel": null,
+          "glide": null
+        },
+        "starlight": 366,
+        "cosmetics": [],
+        "look": {
+          "robe": null,
+          "thread": null,
+          "title": null
+        },
+        "mastery": {
+          "luminary": 1500,
+          "martyr": 480
+        },
+        "runMode": "expedition",
+        "seen": [
+          "hollow_chorister",
+          "bell_brute",
+          "lamenter",
+          "glass_lancer",
+          "mute",
+          "cantor_acolyte",
+          "the_bellwarden",
+          "the_hollow_cantor"
+        ],
+        "bonds": {
+          "kael": {
+            "xp": 440,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          },
+          "lyra": {
+            "xp": 440,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          },
+          "vexis": {
+            "xp": 440,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          },
+          "brann": {
+            "xp": 440,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          },
+          "seren": {
+            "xp": 440,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          },
+          "oro": {
+            "xp": 440,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          }
+        },
+        "dissonance": {
+          "open": false,
+          "levels": [],
+          "best": {}
+        },
+        "deedBest": {},
+        "recruited": ["brann", "seren", "oro"]
+      }
+    },
+    "run": null,
+    "settings": null
+  },
+  "demo14-fresh": {
+    "profile": {
+      "from": "main",
+      "json": {
+        "version": 10,
+        "xp": 0,
+        "introduced": [],
+        "lastChords": [],
+        "runs": 0,
+        "wins": 0,
+        "astrolabe": [],
+        "deeds": [],
+        "reliquary": {
+          "relics": [],
+          "shards": 0,
+          "tears": 0,
+          "carry": [],
+          "seed": 842318452,
+          "next": 1
+        },
+        "variants": [],
+        "techniques": {
+          "ward": null,
+          "chime": null,
+          "reel": null,
+          "glide": null
+        },
+        "starlight": 0,
+        "cosmetics": [],
+        "look": {
+          "robe": null,
+          "thread": null,
+          "title": null
+        },
+        "mastery": {},
+        "runMode": "expedition",
+        "seen": [
+          "hollow_chorister",
+          "bell_brute",
+          "lamenter",
+          "glass_lancer",
+          "mute",
+          "cantor_acolyte",
+          "the_bellwarden",
+          "the_hollow_cantor"
+        ],
+        "bonds": {},
+        "dissonance": {
+          "open": false,
+          "levels": [],
+          "best": {}
+        },
+        "deedBest": {}
+      }
+    },
+    "run": null,
+    "settings": null
+  },
+  "demo14-veteran": {
+    "profile": {
+      "from": "main",
+      "json": {
+        "version": 10,
+        "xp": 6650,
+        "introduced": [
+          "song.beam",
+          "aura.sostenuto",
+          "aura.fortissimo",
+          "aura.allegro",
+          "song.field",
+          "aura.ostinato",
+          "expedition",
+          "ornamentSlot.1",
+          "ornament.grace_note",
+          "ornament.reverb",
+          "aura.lullaby",
+          "ornament.pedal_point",
+          "astrolabe",
+          "aura.fermata",
+          "ornament.unison",
+          "ornamentSlot.2",
+          "calling.luminary",
+          "calling.martyr",
+          "calling.chronomancer",
+          "calling.conductor",
+          "reliquary",
+          "recruit.seren",
+          "recruit.oro"
+        ],
+        "lastChords": [],
+        "runs": 1,
+        "wins": 1,
+        "astrolabe": [],
+        "deeds": ["through_the_prelude", "flawless"],
+        "reliquary": {
+          "relics": [
+            {
+              "uid": "r1",
+              "id": "prism_loom",
+              "cleansed": false,
+              "inscriptions": [
+                {
+                  "id": "long_thread",
+                  "tier": 5,
+                  "value": 0.25
+                },
+                {
+                  "id": "bright_empower",
+                  "tier": 4,
+                  "value": 2
+                }
+              ],
+              "instability": 0,
+              "fractured": false,
+              "depth": 0,
+              "dissonance": null
+            },
+            {
+              "uid": "r2",
+              "id": "lantern_of_the_lost",
+              "cleansed": false,
+              "inscriptions": [
+                {
+                  "id": "deep_mend",
+                  "tier": 5,
+                  "value": 1
+                }
+              ],
+              "instability": 0,
+              "fractured": false,
+              "depth": 0,
+              "dissonance": null
+            }
+          ],
+          "shards": 40,
+          "tears": 2,
+          "carry": ["r1"],
+          "seed": 1872296487,
+          "next": 3
+        },
+        "variants": ["purge"],
+        "techniques": {
+          "ward": null,
+          "chime": null,
+          "reel": null,
+          "glide": null
+        },
+        "starlight": 366,
+        "cosmetics": [],
+        "look": {
+          "robe": null,
+          "thread": null,
+          "title": null
+        },
+        "mastery": {
+          "luminary": 1500,
+          "martyr": 480
+        },
+        "runMode": "expedition",
+        "seen": [
+          "hollow_chorister",
+          "bell_brute",
+          "lamenter",
+          "glass_lancer",
+          "mute",
+          "cantor_acolyte",
+          "the_bellwarden",
+          "the_hollow_cantor"
+        ],
+        "bonds": {
+          "kael": {
+            "xp": 440,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          },
+          "lyra": {
+            "xp": 440,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          },
+          "vexis": {
+            "xp": 440,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          },
+          "brann": {
+            "xp": 440,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          },
+          "seren": {
+            "xp": 440,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          },
+          "oro": {
+            "xp": 440,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          }
+        },
+        "dissonance": {
+          "open": false,
+          "levels": [],
+          "best": {}
+        },
+        "deedBest": {},
+        "recruited": ["brann", "seren", "oro"]
+      }
+    },
+    "run": null,
+    "settings": null
+  }
+}
