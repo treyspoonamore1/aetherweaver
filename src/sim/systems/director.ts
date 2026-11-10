@@ -105,7 +105,9 @@ function startWave(world: World, index: number): void {
   const wl = len(wx, wz);
   const awayX = wl > 0.5 ? -wx / wl : 0;
   const awayZ = wl > 0.5 ? -wz / wl : -1;
-  const spawns = vanguard(world, wave.spawns, index);
+  let spawns = vanguard(world, wave.spawns, index);
+  // Mimicry (Dissonance, docs/phase-6.md): one of the wave's enemies carries Mimicking.
+  if (world.mods.mimicryPerWave > 0) spawns = mimicry(world, spawns);
   let n = 0;
   for (const s of spawns) n += s.count;
   let i = 0;
@@ -168,6 +170,36 @@ function vanguard(world: World, spawns: readonly Spawn[], wave: number): readonl
     );
     return { ...s, count, affixes: [...s.affixes, ...extra] };
   });
+}
+
+/** The affix Mimicry marks an enemy with (Movement III's, docs/phase-5c.md). */
+const MIMICKING = 'mimicking';
+
+/**
+ * Mimicry (Dissonance, docs/phase-6.md): in each wave, `mimicryPerWave` enemies that aren't a boss
+ * or a mini-boss gain Mimicking, if they don't already have it: the first enemies of the wave's
+ * spawn group with the most life per enemy (ties to the earlier group). That group is split into
+ * the marked and the rest, in the same order, so every spawn point is drawn as without it, and
+ * an ordinary enemy stays ordinary (its tier is untouched). It draws nothing.
+ */
+function mimicry(world: World, spawns: readonly Spawn[]): readonly Spawn[] {
+  let best = -1;
+  let bestLife = -Infinity;
+  for (const [k, s] of spawns.entries()) {
+    const def = enemyDef(s.enemy);
+    if (def.role === 'boss' || def.role === 'miniboss' || s.count <= 0) continue;
+    const life = def.hp * (s.elite ? 2.2 : 1);
+    if (life > bestLife) {
+      best = k;
+      bestLife = life;
+    }
+  }
+  const group = spawns[best];
+  if (!group || group.affixes.includes(MIMICKING)) return spawns;
+  const n = Math.min(group.count, world.mods.mimicryPerWave);
+  const marked: Spawn = { ...group, count: n, affixes: [...group.affixes, MIMICKING] };
+  const rest: Spawn[] = group.count > n ? [{ ...group, count: group.count - n }] : [];
+  return [...spawns.slice(0, best), marked, ...rest, ...spawns.slice(best + 1)];
 }
 
 /**

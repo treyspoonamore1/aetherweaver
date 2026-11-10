@@ -29,7 +29,6 @@ import {
   CUE_EVERY,
   CUE_RETRY,
   DISCORD_RATE,
-  BURN_EVERY,
   LIVE_CAP,
   RAISE_WARNING,
   SILENCE_STEPS,
@@ -80,6 +79,8 @@ import type { Entity, EntityId, FinaleField, NoteSource, Telegraph } from '../st
 import type { World } from '../world';
 import type { BossScript, ScriptedNext } from './bossScripts';
 import { beginAttack, ensureM2, ensureM4, ringPoint } from './enemies';
+import { withPostlude } from './postlude';
+import { closingEvery } from './tyrant';
 
 type M4 = NonNullable<World['internal']['m4']>;
 
@@ -141,7 +142,8 @@ const CLOCKS = [
 
 /** The Silent Conductor's script. */
 export function conductorScript(): BossScript {
-  return {
+  // True Dissonance (docs/phase-6.md): the Postlude's hooks, which run only once it has begun.
+  return withPostlude({
     update: conductorUpdate,
     tick: conductorTick,
     enter: conductorEnter,
@@ -153,12 +155,12 @@ export function conductorScript(): BossScript {
     cleanup,
     telegraphVerdict: conductorVerdict,
     crescendo: conductorCrescendo,
-  };
+  });
 }
 
 // ── Shared ───────────────────────────────────────────────────────────────────────────
 
-function due(world: World, at: number | undefined): boolean {
+export function due(world: World, at: number | undefined): boolean {
   return at !== undefined && world.time >= at - 1e-9;
 }
 
@@ -183,7 +185,7 @@ function standingBoss(world: World): Entity | null {
 }
 
 /** An entity's current target if it can still be hit. */
-function currentTarget(world: World, e: Entity): Entity | null {
+export function currentTarget(world: World, e: Entity): Entity | null {
   const id = e.enemy!.targetId;
   const target = id === null ? undefined : world.entities.get(id);
   return isActive(target) ? target : null;
@@ -196,13 +198,13 @@ function castTelegraph(world: World, e: Entity): Telegraph | undefined {
 }
 
 /** Damaging telegraphs live now, whoever owns them (the Cue gate and the silence's cap). */
-function liveDamaging(world: World): number {
+export function liveDamaging(world: World): number {
   let n = 0;
   for (const t of world.telegraphs) if (t.effect === 'damage') n++;
   return n;
 }
 
-function soloLive(world: World): boolean {
+export function soloLive(world: World): boolean {
   return world.telegraphs.some((t) => SOLO_IDS.has(t.attackId));
 }
 
@@ -211,7 +213,7 @@ function crescendoRunning(world: World): boolean {
   return (world.entities.get(world.weaverId)?.weaver?.crescendo ?? 0) > 0;
 }
 
-function announce(
+export function announce(
   world: World,
   boss: Entity,
   name: string,
@@ -339,7 +341,7 @@ function conductorUpdate(world: World, boss: Entity): void {
 }
 
 /** The Cue's state ends with its Solo: resolved (the verdict), interrupted, or the voice gone. */
-function trackCue(world: World, f: FinaleField): void {
+export function trackCue(world: World, f: FinaleField): void {
   const cue = f.cue;
   if (!cue) return;
   const live = world.telegraphs.some((t) =>
@@ -351,7 +353,7 @@ function trackCue(world: World, f: FinaleField): void {
 }
 
 /** Fortissimo Silence's pulse and impact follow its telegraphs; after the third, Discord is 0. */
-function trackFortissimo(world: World, boss: Entity, f: FinaleField): void {
+export function trackFortissimo(world: World, boss: Entity, f: FinaleField): void {
   if (!f.fortissimo) return;
   const t = world.telegraphs.find((x) => x.owner === boss.id && FORTISSIMO_IDS.has(x.attackId));
   if (t) {
@@ -374,7 +376,7 @@ function fortissimoPending(world: World, boss: Entity): boolean {
 }
 
 /** Discord's passive swell; it waits through the phase shift and Fortissimo Silence. */
-function swell(world: World, f: FinaleField, m4: M4): void {
+export function swell(world: World, f: FinaleField, m4: M4): void {
   const d = f.discord;
   if (!d || d.value >= DISCORD_MAX || shifting(world) || f.fortissimo || m4.queued) return;
   d.value = Math.min(DISCORD_MAX, d.value + d.rate * SIM_DT * world.timeScale);
@@ -406,7 +408,7 @@ function conductorTick(world: World, boss: Entity): void {
  * after the script's tick, so it waits for that Solo too. One that would begin while a Crescendo
  * runs is cancelled by it at once.
  */
-function beginFortissimo(world: World, boss: Entity, f: FinaleField, m4: M4): boolean {
+export function beginFortissimo(world: World, boss: Entity, f: FinaleField, m4: M4): boolean {
   const full = !!f.discord && f.discord.value >= DISCORD_MAX - 1e-9;
   if ((!full && !m4.queued) || f.fortissimo || f.cue || soloLive(world)) return false;
   if (crescendoRunning(world)) {
@@ -422,12 +424,16 @@ function beginFortissimo(world: World, boss: Entity, f: FinaleField, m4: M4): bo
   return true;
 }
 
-function fortissimoCancelled(world: World, boss: EntityId, by: 'crescendo' | 'phase' | 'boss') {
+export function fortissimoCancelled(
+  world: World,
+  boss: EntityId,
+  by: 'crescendo' | 'phase' | 'boss',
+) {
   world.events.push({ type: 'fortissimoCancelled', tick: world.tick, boss, by });
 }
 
 /** Every pulse still to come is cancelled: its telegraph, the boss's cast and the follow-up. */
-function cancelFortissimo(world: World, boss: Entity | null): void {
+export function cancelFortissimo(world: World, boss: Entity | null): void {
   for (const t of [...world.telegraphs])
     if (FORTISSIMO_IDS.has(t.attackId)) cancelTelegraph(world, t.id);
   const c = boss?.enemy;
@@ -443,7 +449,7 @@ function cancelFortissimo(world: World, boss: Entity | null): void {
 // ── The mirror-choir ─────────────────────────────────────────────────────────────────
 
 /** A voice of the choir that hasn't fallen (spawning or not). */
-function voicesStanding(world: World): Entity[] {
+export function voicesStanding(world: World): Entity[] {
   const out: Entity[] = [];
   for (const e of world.entities.list())
     if (e.enemy && VOICES.has(e.enemy.defId) && e.health && !e.health.dead) out.push(e);
@@ -451,7 +457,7 @@ function voicesStanding(world: World): Entity[] {
 }
 
 /** Voices standing or on their way (a Raise's pending spawns), by def id. */
-function voicesPresent(world: World): Set<string> {
+export function voicesPresent(world: World): Set<string> {
   const ids = new Set(voicesStanding(world).map((e) => e.enemy!.defId));
   for (const p of world.internal.pendingSpawns) if (VOICES.has(p.defId)) ids.add(p.defId);
   return ids;
@@ -533,7 +539,7 @@ function raise(world: World, boss: Entity): void {
 }
 
 /** A voice that can take a Cue now: standing, arrived, not casting and not disabled. */
-function idle(e: Entity): boolean {
+export function idle(e: Entity): boolean {
   const c = e.enemy!;
   return isActive(e) && c.state !== 'spawning' && !c.cast && !isDisabled(e);
 }
@@ -617,13 +623,13 @@ function beginSolo(world: World, f: FinaleField, m4: M4): void {
 }
 
 /** Begins `attack` without its own (unnamed) Decree: the script announces the named one. */
-function beginQuiet(world: World, e: Entity, attack: AttackDef): boolean {
+export function beginQuiet(world: World, e: Entity, attack: AttackDef): boolean {
   const { decree: _unnamed, ...quiet } = attack;
   return beginAttack(world, e, quiet as AttackDef, currentTarget(world, e));
 }
 
 /** A Solo's Decree is due on its first `decreeLimit` casts (counted as `beginAttack` counts). */
-function soloDecreeDue(world: World, attack: AttackDef): boolean {
+export function soloDecreeDue(world: World, attack: AttackDef): boolean {
   if (attack.decreeLimit === undefined) return true;
   const decrees = (ensureM2(world).decrees ??= {});
   const n = decrees[attack.id] ?? 0;
@@ -1053,8 +1059,10 @@ function endProgram(world: World, boss: Entity, m4: M4): void {
 
 /** The last burn: the script's own Downbeat and Sforzando on their cadences. */
 function beginBurn(world: World, m4: M4): void {
-  m4.nextDownbeatAt = world.time + BURN_EVERY.downbeat;
-  m4.nextSforzandoAt = world.time + BURN_EVERY.sforzando;
+  // Tyrant's cadences in a Tyrant fight (docs/phase-6.md), else `BURN_EVERY`.
+  const every = closingEvery(world);
+  m4.nextDownbeatAt = world.time + every.downbeat;
+  m4.nextSforzandoAt = world.time + every.sforzando;
 }
 
 /** The burn's casts, through the same gate as the Cue's (fewer than two damaging live). */
@@ -1064,11 +1072,11 @@ function burn(world: World, boss: Entity, m4: M4): void {
     due(world, m4.nextDownbeatAt) &&
     beginAttack(world, boss, attackDef(DOWNBEAT), currentTarget(world, boss))
   ) {
-    m4.nextDownbeatAt = world.time + BURN_EVERY.downbeat;
+    m4.nextDownbeatAt = world.time + closingEvery(world).downbeat;
     return;
   }
   if (due(world, m4.nextSforzandoAt) && beginAttack(world, boss, attackDef(SFORZANDO), null))
-    m4.nextSforzandoAt = world.time + BURN_EVERY.sforzando;
+    m4.nextSforzandoAt = world.time + closingEvery(world).sforzando;
 }
 
 // ── Foresight, deaths and Stasis ─────────────────────────────────────────────────────
