@@ -14,7 +14,7 @@ import { createWorld, type World } from '../../src/sim/world';
 import { TYRANT_OWN } from '../../src/content/crucible';
 import { CONDUCTOR, DOWNBEAT, SFORZANDO } from '../../src/content/crucibleIds';
 import { tyrantDecree } from '../../src/content/dissonance';
-import type { AnswerTag } from '../../src/content/schema';
+import type { AnswerTag } from '../../src/sim/events';
 import { bossPhaseTable } from '../../src/sim/systems/bosses';
 import { TYRANT_TABLE, tyrantAttackOf, tyrantDecreeOf } from '../../src/sim/systems/tyrant';
 import { runScenario } from '../../tools/runScenario';
