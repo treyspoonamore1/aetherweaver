@@ -1,10 +1,15 @@
 import { expect, test, type Page } from '@playwright/test';
-import { CONTENT, deedText, inscriptionDef } from '../src/content';
+import { CONTENT, deedText, inscriptionDef, relicText } from '../src/content';
+import { FILL_BOONS, FILL_EVENTS, FILL_MOTIFS, FILL_RELICS } from '../src/content/fill';
 import { DEED_POINTS_MAX, deedPoints } from '../src/meta/deeds';
 import { dissonancePoints, fitLevels, xpMult } from '../src/meta/dissonance';
 import { altSoloOf, sceneXp, talentChoices } from '../src/meta/bonds';
 import { newProfile, rankOf } from '../src/meta/profile';
+import * as Run from '../src/meta/run';
+import type { MapNode, RunState } from '../src/meta/types';
+import { createSim, type Replay } from '../src/sim';
 import { runWithoutYou } from '../src/sim/counterfactual';
+import { FILL_GLYPHS } from '../src/ui/kit/iconPaths';
 import { deedsInSight } from '../src/ui/screens/routeText';
 import { parseReplay, runReplay } from '../src/sim/replay';
 
@@ -2022,5 +2027,609 @@ test('Phase 5e: the roster of six — a veteran recruits Brann, Seren and Oro, p
     await page.getByRole('button', { name: /Onward/ }).click();
   await expect(page.getByTestId('duel-line')).toContainText(/^Seren · parries \d+ · kill shots/);
   await expect(page.getByTestId('grove-line')).toContainText(/^Oro · Saplings in your songs/);
+  expect(errors).toEqual([]);
+});
+
+// ── Phase 5g: the content fill (docs/phase-5g.md), all of it Expedition-only ───────────────────
+
+/** Settings → Skip the unlocks, from the Title: Expeditions, every hero and every slot open. */
+async function skipTheUnlocks(page: Page): Promise<void> {
+  await page
+    .getByRole('button', { name: /^Settings$/ })
+    .first()
+    .click();
+  await page.getByText('Skip the unlocks', { exact: true }).click();
+  await expect(page.getByRole('switch', { name: /Skip the unlocks/ })).toBeChecked();
+}
+
+/** A view of the UI lab with its list hidden and the stage at full size. */
+async function openLabView(page: Page, view: string): Promise<void> {
+  await page.goto(`/?lab=ui&view=${view}&nav=0&fit=0`);
+  await expect(page.getByTestId('lab-stage')).toBeVisible();
+}
+
+/** A content name, by id: a motif's, a relic's, an event's or a boon's. */
+function nameOf(id: string): string {
+  const def =
+    CONTENT.motifs.find((m) => m.id === id) ??
+    CONTENT.relics.find((r) => r.id === id) ??
+    CONTENT.events.find((e) => e.id === id) ??
+    CONTENT.boons.find((b) => b.id === id);
+  if (!def) throw new Error(`No content entry ${id}`);
+  return def.name;
+}
+
+/** The relic glyph's fallback: a plain diamond, drawn for a key no table knows. */
+const DEFAULT_GLYPH = 'M12 3l7 9-7 9-7-9z';
+
+test('Phase 5g: the UI lab’s Fill group — each view renders without an error and shows what it is for', async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const errors = trackErrors(page);
+  const stage = page.getByTestId('lab-stage');
+
+  // The glyph sheet: every relic, event and boon of the fill, each drawn, none by the fallback.
+  await openLabView(page, 'fill-glyphs');
+  await expect(stage.locator('li')).toHaveCount(
+    FILL_RELICS.length + FILL_EVENTS.length + FILL_BOONS.length,
+  );
+  for (const def of [...FILL_RELICS, ...FILL_EVENTS, ...FILL_BOONS])
+    await expect(stage.getByText(def.name, { exact: true })).toBeVisible();
+  await expect(stage.locator(`path[d="${DEFAULT_GLYPH}"]`)).toHaveCount(0);
+
+  // The HUD's trigger chips: a motif and two relics, named from content, counting up.
+  await openLabView(page, 'fill-hud-triggers');
+  const chips = stage.getByTestId('trigger-chips');
+  await expect(chips).toBeVisible();
+  await expect(chips.locator('[data-trigger]')).toHaveCount(3);
+  await expect(chips.locator('[data-trigger="clean_strike"]')).toHaveText(
+    `${nameOf('clean_strike')} ×3`,
+  );
+  await expect(chips.locator('[data-trigger="clean_strike"]')).toHaveAttribute('data-count', '3');
+  await expect(chips.locator('[data-trigger="echoing_shell"]')).toHaveText(nameOf('echoing_shell'));
+  await expect(chips.locator('[data-trigger="red_ink"]')).toHaveText(`${nameOf('red_ink')} ×2`);
+  await expect(chips.getByTestId('ringing-chip')).toHaveCount(0);
+
+  // Concert Pitch ringing heads the row, with its seconds; the relic bar shows the fill's
+  // once-a-fight tiles, Spare Strings still to come and the Water Clock spent.
+  await openLabView(page, 'fill-hud-ringing');
+  const ringing = stage.getByTestId('ringing-chip');
+  await expect(ringing).toHaveAttribute('data-seconds', '2.6');
+  await expect(ringing).toHaveText(`${nameOf('concert_pitch')} 2.6 s`);
+  await expect(stage.getByTestId('trigger-chips').locator('> *').first()).toHaveAttribute(
+    'data-testid',
+    'ringing-chip',
+  );
+  const bar = stage.getByTestId('relic-bar');
+  await expect(bar.locator('[data-relic="spare_strings"]')).toHaveAttribute('data-state', 'ready');
+  await expect(bar.locator('[data-relic="spare_strings"] .rotate-45')).toHaveCount(0);
+  await expect(bar.locator('[data-relic="water_clock"]')).toHaveAttribute('data-state', 'waiting');
+  await expect(bar.locator('[data-relic="water_clock"] .rotate-45')).toHaveCount(1);
+
+  // The Result's lines: "X triggered N times.", once, and never (muted); the Summary's panel.
+  const lines = [
+    `${nameOf('clean_strike')} triggered 7 times.`,
+    `${nameOf('tender_guard')} triggered once.`,
+    `${nameOf('saving_grace')} never triggered.`,
+    `${nameOf('echoing_shell')} triggered 4 times.`,
+    `${nameOf('red_ink')} triggered 7 times.`,
+  ];
+  await openLabView(page, 'fill-trigger-lines');
+  await expect(stage.locator('li')).toHaveText(lines);
+  await openLabView(page, 'fill-result');
+  for (const line of lines) await expect(stage.getByText(line, { exact: true })).toBeVisible();
+  await openLabView(page, 'fill-summary');
+  const summary = stage.getByTestId('summary-triggers');
+  await expect(summary).toContainText('Your motifs and relics at work');
+  await expect(summary).toContainText(`${nameOf('clean_strike')} triggered`);
+  await expect(summary).toContainText(`${nameOf('saving_grace')} never triggered.`);
+
+  // A draft offering a Harmony with one prerequisite missing: its Needs list says which, and the
+  // prerequisite beside it names the Harmony it leads to, with the rest already owned.
+  const card = (name: string) =>
+    stage.locator('li').filter({ has: page.getByRole('heading', { name, exact: true }) });
+  const harmony = nameOf('woven_aegis');
+  await openLabView(page, 'fill-draft-harmony-missing');
+  const woven = card(harmony);
+  await expect(woven.getByTestId('harmony-ribbon')).toBeVisible();
+  await expect(woven.getByTestId('harmony-needs')).toContainText('Needs');
+  await expect(woven.locator('[data-need="warded_weft"]')).toHaveAttribute('data-owned', 'true');
+  await expect(woven.locator('[data-need="warded_weft"]')).toContainText(nameOf('warded_weft'));
+  await expect(woven.locator('[data-need="lingering_aegis"]')).toHaveAttribute(
+    'data-owned',
+    'false',
+  );
+  await expect(woven.locator('[data-need="lingering_aegis"]')).toContainText('missing');
+  const lead = card(nameOf('lingering_aegis')).getByTestId('harmony-hint');
+  await expect(lead).toHaveAttribute('data-harmony', 'woven_aegis');
+  await expect(lead).toContainText(`Harmony → ${harmony}`);
+  await expect(lead).toContainText(`with ${nameOf('warded_weft')}`);
+
+  // Every prerequisite owned: both checked, nothing missing.
+  await openLabView(page, 'fill-draft-harmony');
+  const owned = card(harmony);
+  await expect(owned.locator('[data-need]')).toHaveCount(2);
+  await expect(owned.locator('[data-need][data-owned="true"]')).toHaveCount(2);
+  await expect(owned.getByTestId('harmony-needs')).not.toContainText('missing');
+
+  // Cards that lead on: Razor Silk to two Harmonies (one's aura sung, one's not), Lingering Aegis
+  // to one with its other prerequisite owned.
+  await openLabView(page, 'fill-draft-harmony-leads');
+  const razor = card(nameOf('razor_silk')).getByTestId('harmony-hint');
+  await expect(razor).toHaveCount(2);
+  await expect(razor.nth(0)).toHaveAttribute('data-harmony', 'cutting_chorus');
+  await expect(razor.nth(0)).toHaveAttribute('data-ready', 'true');
+  await expect(razor.nth(1)).toHaveAttribute('data-harmony', 'spindle_lullaby');
+  await expect(razor.nth(1)).not.toHaveAttribute('data-ready', 'true');
+  await expect(card(nameOf('lingering_aegis')).getByTestId('harmony-hint')).toHaveAttribute(
+    'data-harmony',
+    'woven_aegis',
+  );
+
+  // The Codex pages: a Harmony names its prerequisites, every new motif and relic says it is for
+  // Expeditions, the events and boons are all there.
+  await openLabView(page, 'fill-codex-motifs');
+  const harmonies = CONTENT.motifs.filter((m) => m.requires.motifs);
+  await expect(stage.getByTestId('codex-harmony')).toHaveCount(harmonies.length);
+  await expect(
+    stage.locator('[data-motif="woven_aegis"] [data-testid="codex-harmony"]'),
+  ).toHaveText(`Harmony · needs ${nameOf('warded_weft')} + ${nameOf('lingering_aegis')}`);
+  await expect(stage.locator('[data-motif="woven_aegis"]')).toContainText('Expeditions only');
+  await expect(stage.getByText('Expeditions only', { exact: true })).toHaveCount(
+    CONTENT.motifs.filter((m) => m.requires.expedition).length,
+  );
+  await openLabView(page, 'fill-codex-relics');
+  await expect(stage.locator('[data-relic]')).toHaveCount(CONTENT.relics.length);
+  await expect(stage.getByText('Expeditions only', { exact: true })).toHaveCount(
+    CONTENT.relics.filter((r) => r.expedition).length,
+  );
+  await openLabView(page, 'fill-codex-events');
+  await expect(stage.locator('[data-event]')).toHaveCount(CONTENT.events.length);
+  for (const e of FILL_EVENTS) await expect(stage.locator(`[data-event="${e.id}"]`)).toBeVisible();
+  for (const b of FILL_BOONS) await expect(stage.locator(`[data-boon="${b.id}"]`)).toBeVisible();
+
+  // Each of the six events on its screen (the lab's purse is 60 Aether): its choices, and a
+  // choice that costs more says so and is disabled.
+  const purse = 60;
+  for (const e of FILL_EVENTS) {
+    await openLabView(page, `fill-event-${e.id}`);
+    await expect(stage.getByRole('heading', { name: e.name, exact: true })).toBeVisible();
+    const choices = stage.getByTestId('event-choices').getByRole('button');
+    await expect(choices).toHaveCount(e.choices.length);
+    for (const c of e.choices) {
+      const button = choices.filter({
+        has: page.getByRole('heading', { name: c.label, exact: true }),
+      });
+      await expect(button).toHaveCount(1);
+      if ((c.cost ?? 0) > purse) {
+        await expect(button).toHaveAttribute('aria-disabled', 'true');
+        await expect(button).toContainText(`Needs ${c.cost} Aether.`);
+      }
+    }
+  }
+  expect(errors).toEqual([]);
+});
+
+test('Phase 5g: the Codex in the app — the 18 relics each with their own glyph, the Harmonies name their prerequisites, the fill says Expeditions only', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const errors = trackErrors(page);
+  await page.goto(START_URL);
+  await skipTheUnlocks(page);
+  await page.getByRole('button', { name: 'Back' }).click();
+  await enterLoom(page);
+  await page.getByRole('button', { name: /^Codex:/ }).click();
+
+  // Relics: all 18, each with its name, its text from content, the Expedition chip and its own
+  // glyph, the badge's first drawing (the fill's table, never the plain diamond a key nobody drew
+  // would fall back to; the rarity pips beside it are diamonds too).
+  await page.getByRole('tab', { name: 'Relics' }).click();
+  expect(FILL_RELICS).toHaveLength(18);
+  for (const relic of FILL_RELICS) {
+    const def = CONTENT.relics.find((r) => r.id === relic.id)!;
+    const panel = page.locator(`[data-relic="${def.id}"]`);
+    await expect(panel, def.id).toHaveCount(1);
+    await expect(panel).toContainText(def.name);
+    await expect(panel).toContainText(relicText(def));
+    await expect(panel).toContainText('Expeditions only');
+    expect(FILL_GLYPHS[def.id], `${def.id} has its glyph`).toBeDefined();
+    await expect(panel.locator('svg').first().locator('path')).toHaveAttribute(
+      'd',
+      FILL_GLYPHS[def.id]!,
+    );
+  }
+  // The pre-fill relics are not Expedition-only: the chip is the fill's alone.
+  await expect(page.getByText('Expeditions only', { exact: true })).toHaveCount(
+    CONTENT.relics.filter((r) => r.expedition).length,
+  );
+
+  // Motifs: all 63 (Skip the unlocks opens every hero's), each Expedition-only; a Harmony names
+  // its two prerequisites.
+  await page.getByRole('tab', { name: 'Motifs' }).click();
+  expect(FILL_MOTIFS).toHaveLength(63);
+  for (const m of FILL_MOTIFS) {
+    const panel = page.locator(`[data-motif="${m.id}"]`);
+    await expect(panel, m.id).toHaveCount(1);
+    await expect(panel).toContainText('Expeditions only');
+    const needs = (CONTENT.motifs.find((x) => x.id === m.id)!.requires.motifs ?? []).map(nameOf);
+    if (needs.length > 0)
+      await expect(panel.getByTestId('codex-harmony')).toContainText(
+        `Harmony · needs ${needs.join(' + ')}`,
+      );
+    else await expect(panel.getByTestId('codex-harmony')).toHaveCount(0);
+  }
+  expect(FILL_MOTIFS.filter((m) => m.requires?.motifs).length).toBe(10);
+
+  // Events: a new profile has met none of the later Movements' enemies, so the six new events
+  // (all of Movements II and III) are not shown, only that they wait; the boons are.
+  await page.getByRole('tab', { name: 'Events' }).click();
+  for (const e of FILL_EVENTS) await expect(page.locator(`[data-event="${e.id}"]`)).toHaveCount(0);
+  await expect(page.getByTestId('codex-events-locked')).toHaveCount(2);
+  for (const b of FILL_BOONS) await expect(page.locator(`[data-boon="${b.id}"]`)).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+/**
+ * Phase 5g: how often a source's trigger fired in a recorded fight, by the sim's own ledger: the
+ * replay stepped through in Node, tick by tick, as the browser played it.
+ */
+function firesIn(replay: Replay, id: string): number {
+  const sim = createSim(replay.config);
+  let f = 0;
+  for (let tick = 0; tick < replay.finalTick; tick++) {
+    const frame = replay.frames[f];
+    if (frame && frame[0] === tick) {
+      sim.step(frame[1]);
+      f++;
+    } else sim.step();
+  }
+  return sim.state.ledger.triggers?.[id] ?? 0;
+}
+
+test('Phase 5g: a trigger in a real fight — Black Ribbon on First Light’s brutes: its chip on the HUD, its line on the Result and the Summary', async ({
+  page,
+}) => {
+  // A whole First Light, autoplayed, under SwiftShader (on a small page, which draws faster).
+  test.setTimeout(240_000);
+  const errors = trackErrors(page);
+  const phase = () => page.evaluate(() => window.__AWRUN__!.phase());
+  const ribbon = CONTENT.relics.find((r) => r.id === 'black_ribbon')!;
+  await page.goto(START_URL);
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+  await skipTheUnlocks(page);
+  // The Reliquary hands the run its relic (the only way to start a run holding a chosen one):
+  // enshrined, carried and attuned, it plays from the first fight.
+  await page.evaluate((seed) => window.__AWRUN__!.seedReliquary(seed), {
+    relics: [{ id: ribbon.id }],
+    carry: ['r1'],
+  });
+  await page.evaluate(() => window.__AWRUN__!.newRun(4242, 'expedition'));
+  await expect.poll(phase).toBe('prep');
+  await page
+    .getByRole('button', { name: /Embark/i })
+    .first()
+    .click();
+  await expect.poll(phase).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.relics())).toEqual([ribbon.id]);
+
+  expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
+  await expect.poll(phase).toBe('combat');
+  await page.waitForFunction(() => window.__AW__ !== undefined);
+  await expect.poll(() => page.evaluate(() => window.__AW__!.encounter().id)).toBe('first_light');
+  const begin = page.getByRole('button', { name: /Begin the fight/i });
+  if (await begin.isVisible().catch(() => false)) await begin.click();
+  // The relic is on the bar, attuned, and no chip yet: nothing has fallen.
+  await expect(
+    page.getByTestId('relic-bar').locator(`[data-relic="${ribbon.id}"][data-carried="attuned"]`),
+  ).toBeVisible();
+  await expect(page.getByTestId('trigger-chips')).toHaveCount(0);
+
+  // Software rendering sets the pace (the sim takes five steps a frame at most): a small page
+  // draws faster, so the fight is over sooner.
+  await page.setViewportSize({ width: 480, height: 270 });
+  // A chip lives 2.2 s of the fight and the fight runs fast here: record what the row shows.
+  await page.evaluate(() => {
+    const seen: Record<string, number> = {};
+    (window as unknown as { __chips: Record<string, number> }).__chips = seen;
+    new MutationObserver(() => {
+      for (const el of document.querySelectorAll('[data-testid="trigger-chips"] [data-trigger]')) {
+        const id = el.getAttribute('data-trigger')!;
+        seen[id] = Math.max(seen[id] ?? 0, Number(el.getAttribute('data-count')));
+      }
+    }).observe(document.body, { subtree: true, childList: true, attributes: true });
+  });
+  await page.evaluate(() => window.__AW__!.autoplay('skilled'));
+  await page.evaluate(() => window.__AW__!.setDevTimeScale(4));
+  // The fight's replay, taken the moment it is won (the sim has fired everything it will).
+  const replay = await page.evaluate(
+    () =>
+      new Promise<Replay>((resolve) => {
+        const timer = setInterval(() => {
+          const hook = window.__AW__;
+          if (hook && hook.encounter().status === 'victory') {
+            clearInterval(timer);
+            resolve(hook.exportReplay());
+          }
+        }, 25);
+      }),
+  );
+  const fires = firesIn(replay, ribbon.id);
+  expect(fires).toBeGreaterThan(0);
+  await expect.poll(phase, { timeout: 120_000 }).toBe('result');
+
+  // The HUD showed its chip, named from content, counting.
+  const chipped = await page.evaluate(
+    () => (window as unknown as { __chips: Record<string, number> }).__chips,
+  );
+  expect(Object.keys(chipped)).toEqual([ribbon.id]);
+  expect(chipped[ribbon.id]).toBeGreaterThanOrEqual(1);
+  expect(chipped[ribbon.id]).toBeLessThanOrEqual(fires);
+
+  // The Result says how many times, as the sim counted it.
+  if ((await page.getByTestId('rank-up').count()) > 0)
+    await page.getByRole('button', { name: /Onward/ }).click();
+  const sentence = fires === 1 ? 'triggered once.' : `triggered ${fires} times.`;
+  await expect(page.getByText(`${ribbon.name} ${sentence}`, { exact: true })).toBeVisible();
+
+  // And the Summary of the run that fight began, with the rest of the run won through the hook.
+  await page.evaluate(() => window.__AWRUN__!.continue());
+  await expect.poll(phase).toBe('relic');
+  await page.evaluate(() => window.__AWRUN__!.pickRelic(0));
+  await expect.poll(phase).toBe('draft');
+  await page.evaluate(() => window.__AWRUN__!.pick(0));
+  await expect.poll(phase).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.winRun())).toBe(true);
+  await expect.poll(phase).toBe('summary');
+  const panel = page.getByTestId('summary-triggers');
+  await expect(panel).toContainText('Your motifs and relics at work');
+  await expect(panel).toContainText(`${ribbon.name} ${sentence}`);
+  expect(errors).toEqual([]);
+});
+
+/** The map node `warp(kind)` reaches first from where a run stands: its breadth-first route. */
+function routeFrom(
+  run: RunState,
+  from: MapNode | null,
+  matches: (node: MapNode) => boolean,
+): string[] | null {
+  const queue: string[][] = (from ? from.next : run.map.rows[0]!.map((n) => n.id)).map((id) => [
+    id,
+  ]);
+  const seen = new Set<string>();
+  while (queue.length > 0) {
+    const route = queue.shift()!;
+    const id = route[route.length - 1]!;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const node = Run.findNode(run, id);
+    if (!node) continue;
+    if (matches(node)) return route;
+    for (const next of node.next) if (!seen.has(next)) queue.push([...route, next]);
+  }
+  return null;
+}
+
+/**
+ * The event a fresh Expedition's first `warp('event')` reaches after `warpMovement(2)`, by seed:
+ * the hook's walk (to the doorstep of Movement II, then to the first event ahead), done on the
+ * seed's map in Node.
+ */
+function firstEventInMovementII(seed: number): string | null {
+  const run = Run.newRun(seed, undefined, [], [], [], [], undefined, CONTENT.movements.length);
+  const door = routeFrom(run, null, (n) => n.movement >= 2);
+  if (!door) return null;
+  const last = door.length > 1 ? Run.findNode(run, door[door.length - 2]!)! : null;
+  const route = routeFrom(run, last, (n) => n.kind === 'event');
+  return route ? (Run.findNode(run, route[route.length - 1]!)!.eventId ?? null) : null;
+}
+
+test('Phase 5g: an event — the Quartermaster’s choices, the one that costs too much is disabled with its price, the free one returns to the map', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const errors = trackErrors(page);
+  const phase = () => page.evaluate(() => window.__AWRUN__!.phase());
+  const event = CONTENT.events.find((e) => e.id === 'quartermaster')!;
+  const choice = (id: string) => event.choices.find((c) => c.id === id)!;
+  const [crate, chest, walk] = [choice('crate'), choice('chest'), choice('walk')];
+  // A purse that buys the crate and not the war chest.
+  const purse = Math.floor((crate.cost + chest.cost) / 2);
+  expect(purse).toBeGreaterThanOrEqual(crate.cost);
+  expect(purse).toBeLessThan(chest.cost);
+  // A seed whose Movement II road reaches the Quartermaster first.
+  let seed = 1;
+  while (firstEventInMovementII(seed) !== event.id) {
+    seed++;
+    if (seed > 2000) throw new Error('No seed reaches the Quartermaster first');
+  }
+
+  await page.goto(START_URL);
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+  await skipTheUnlocks(page);
+  await page.evaluate((s) => window.__AWRUN__!.newRun(s, 'expedition'), seed);
+  await expect.poll(phase).toBe('prep');
+  await page
+    .getByRole('button', { name: /Embark/i })
+    .first()
+    .click();
+  await expect.poll(phase).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.warpMovement(2))).toBe('map');
+  expect(await page.evaluate((a) => window.__AWRUN__!.warp('event', a), purse)).toBe('event');
+  await expect(page.getByRole('heading', { name: event.name, level: 1 })).toBeVisible();
+
+  // Three choices; the war chest is out of reach, and says what it costs.
+  const buttons = page.getByTestId('event-choices').getByRole('button');
+  await expect(buttons).toHaveCount(3);
+  const button = (c: { label: string }) =>
+    buttons.filter({ has: page.getByRole('heading', { name: c.label, exact: true }) });
+  await expect(button(chest)).toHaveAttribute('aria-disabled', 'true');
+  await expect(button(chest)).toContainText(`Needs ${chest.cost} Aether.`);
+  await expect(button(crate)).not.toHaveAttribute('aria-disabled', 'true');
+  await expect(button(walk)).not.toHaveAttribute('aria-disabled', 'true');
+  // Pressing the one it cannot afford changes nothing: no outcome, the purse as it was.
+  // (aria-disabled, so clicked on purpose.)
+  await button(chest).click({ force: true });
+  await expect(page.getByTestId('event-outcome')).toHaveCount(0);
+  expect(await page.evaluate(() => window.__AWRUN__!.aether())).toBe(purse);
+  expect(await phase()).toBe('event');
+
+  // Walking on is free: its outcome reads, and Continue is back on the map with the purse intact.
+  await button(walk).click();
+  await expect(page.getByTestId('event-outcome')).toContainText(walk.outcome);
+  await page.getByRole('button', { name: /^Continue/ }).click();
+  await expect.poll(phase).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.aether())).toBe(purse);
+  expect(await page.evaluate(() => window.__AWRUN__!.relics())).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test('Phase 5g: Expedition only — a Prelude’s drafts and merchant never offer a new entry; an Expedition’s do', async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const errors = trackErrors(page);
+  const phase = () => page.evaluate(() => window.__AWRUN__!.phase());
+  const fillIds = new Set<string>([
+    ...FILL_MOTIFS.map((m) => m.id),
+    ...FILL_RELICS.map((r) => r.id),
+  ]);
+  // The new entries' names, less any a pre-fill entry shares (a screen's text would not tell).
+  const otherNames = new Set<string>([
+    ...CONTENT.motifs.filter((m) => !fillIds.has(m.id)).map((m) => m.name),
+    ...CONTENT.relics.filter((r) => !fillIds.has(r.id)).map((r) => r.name),
+  ]);
+  const fillMotifNames = FILL_MOTIFS.map((m) => m.name).filter((n) => !otherNames.has(n));
+  const fillNames = [...fillMotifNames, ...FILL_RELICS.map((r) => r.name)].filter(
+    (n) => !otherNames.has(n),
+  );
+  expect(fillMotifNames.length).toBe(FILL_MOTIFS.length);
+  await page.goto(START_URL);
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+  // Expeditions open with Skip the unlocks, so the Prelude here is asked for.
+  await skipTheUnlocks(page);
+
+  /** A new run's first fight won through the hook; the draft it pays, as its cards' names. */
+  const firstDraft = async (seed: number, mode: 'prelude' | 'expedition'): Promise<string[]> => {
+    await page.evaluate(
+      ([s, m]) => window.__AWRUN__!.newRun(Number(s), m as typeof mode),
+      [seed, mode],
+    );
+    await expect.poll(phase).toBe('prep');
+    await page.evaluate(() => window.__AWRUN__!.embark());
+    await expect.poll(phase).toBe('map');
+    expect(await page.evaluate(() => window.__AWRUN__!.movement())).toMatchObject({
+      movements: mode === 'prelude' ? 1 : CONTENT.movements.length,
+    });
+    expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
+    // Building the arena under SwiftShader can take a few seconds.
+    await expect.poll(phase, { timeout: 30_000 }).toBe('combat');
+    expect(await page.evaluate(() => window.__AWRUN__!.winFight())).toBe(true);
+    await expect.poll(phase).toBe('result');
+    await page.evaluate(() => window.__AWRUN__!.continue());
+    // An Expedition's First Light pays a relic first, then the draft.
+    await expect.poll(phase).toMatch(/^(relic|draft)$/);
+    if ((await phase()) === 'relic') {
+      await page.evaluate(() => window.__AWRUN__!.pickRelic(0));
+      await expect.poll(phase).toBe('draft');
+    }
+    await expect(page.locator('li h2').first()).toBeVisible();
+    const names = await page.locator('li h2').allInnerTexts();
+    expect(names.length).toBeGreaterThanOrEqual(3);
+    return names;
+  };
+
+  const prelude: string[] = [];
+  for (const seed of [4242, 4243, 4244]) prelude.push(...(await firstDraft(seed, 'prelude')));
+  expect(prelude.filter((n) => fillNames.includes(n))).toEqual([]);
+
+  // The control: the same road as an Expedition does reach the fill (the gate is the route's).
+  const expedition: string[] = [];
+  for (const seed of [4242, 4243, 4244, 4245])
+    expedition.push(...(await firstDraft(seed, 'expedition')));
+  expect(expedition.filter((n) => fillMotifNames.includes(n)).length).toBeGreaterThan(0);
+
+  // A Prelude merchant, flush: its cloth (motifs and relics) names none of them either.
+  await page.evaluate(() => window.__AWRUN__!.newRun(4242, 'prelude'));
+  await expect.poll(phase).toBe('prep');
+  await page.evaluate(() => window.__AWRUN__!.embark());
+  await expect.poll(phase).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.warp('merchant', 900))).toBe('merchant');
+  await expect(page.getByRole('heading', { name: 'The Merchant' })).toBeVisible();
+  const cloth = await page.locator('body').innerText();
+  expect(fillNames.filter((n) => cloth.includes(n))).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test('Phase 5g: the VFX lab’s fill scenarios load, step and draw without an error', async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const errors = trackErrors(page);
+  type Lab = {
+    fillScenarios(): string[];
+    fillScenario(name: string): void;
+    fillStats(): { fired: Record<string, number>; drawn: Record<string, number> };
+    manual(frames: number, ms: number, drawLast?: boolean): void;
+    state(): { time: number; field: { ringing?: number } };
+  };
+  await page.goto('/?lab=vfx');
+  await page.waitForFunction(() => (window as unknown as { __VFX__?: Lab }).__VFX__ !== undefined);
+  const names = await page.evaluate(() =>
+    (window as unknown as { __VFX__: Lab }).__VFX__.fillScenarios(),
+  );
+  expect(names).toEqual([
+    'Trigger cues',
+    'Real triggers on a Perfect Ward',
+    'Razor Silk',
+    'Thread the Needle',
+    'Concert Pitch: Ringing',
+    'Spare Strings',
+    'Water Clock',
+  ]);
+  await expect(page.getByText('Phase 5g · The fill')).toBeVisible();
+  for (const name of names)
+    await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
+
+  for (const name of names) {
+    await page.getByRole('button', { name, exact: true }).click();
+    // Ten sim seconds in 50 ms frames, drawing the last of each run: the scenario stages itself on
+    // the sim's clock and plays its moment. Three seconds in, Concert Pitch should be ringing.
+    const stepped = await page.evaluate(() => {
+      const api = (window as unknown as { __VFX__: Lab }).__VFX__;
+      api.manual(60, 50, true);
+      const at = api.state();
+      const ringingFor = (at.field.ringing ?? 0) - at.time;
+      api.manual(140, 50, true);
+      return { time: api.state().time, ringingFor, ...api.fillStats() };
+    });
+    expect(stepped.time, name).toBeGreaterThan(5);
+    if (name === 'Concert Pitch: Ringing')
+      expect(stepped.ringingFor, `${name} is ringing`).toBeGreaterThan(0);
+    // The others count each moment they play (the ringing has no counter, only its streaks).
+    else
+      expect(
+        Object.values(stepped.fired).reduce((a, b) => a + b, 0),
+        `${name} plays its moment`,
+      ).toBeGreaterThan(0);
+    // The canvas shows a scene, not a blank: many distinct colours in the host.
+    const shot = await page.getByTestId('vfx-host').screenshot();
+    const colours = await page.evaluate(async (b64) => {
+      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(bitmap, 0, 0);
+      const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      const seen = new Set<number>();
+      for (let i = 0; i < data.length; i += 4)
+        seen.add(((data[i]! >> 4) << 8) | ((data[i + 1]! >> 4) << 4) | (data[i + 2]! >> 4));
+      return seen.size;
+    }, shot.toString('base64'));
+    expect(colours, `${name} is not blank`).toBeGreaterThan(20);
+  }
   expect(errors).toEqual([]);
 });
