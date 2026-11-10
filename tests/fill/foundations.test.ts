@@ -995,9 +995,12 @@ describe('the trigger interpreter: every effect and target', () => {
     ]);
     const kael = heroAt(w, 0);
     const me = weaverOf(w);
+    // Kael well away from the Weaver, so the two reaches don't meet.
+    kael.x = me.x + 8;
+    kael.z = me.z;
     const byKael = addEnemy(w, 'bell_brute', kael.x + 1, kael.z);
     const atEvent = addEnemy(w, 'bell_brute', kael.x + 10, kael.z + 10);
-    const byWeaver = addEnemy(w, 'bell_brute', me.x - 1, me.z + 1);
+    const byWeaver = addEnemy(w, 'bell_brute', me.x - 1, me.z);
     const hp = (e: Entity) => e.health!.maxHp - e.health!.hp;
     const at = { x: atEvent.x, z: atEvent.z, radius: 1 };
     const used = { source: kael.id, ability: 'shieldBash', name: 'x', ...at };
