@@ -177,9 +177,8 @@ describe('Phase 6 sim contracts', () => {
     expect(SIM_VERSION).toBe(22);
   });
 
-  it("the 'expert' bot kind is declared and not built: makeBot throws for it alone", () => {
-    expect(() => makeBot('expert', 1)).toThrow(/not built yet/);
-    for (const kind of ['idle', 'novice', 'skilled'] as const)
+  it("the 'expert' bot kind is built: makeBot makes each kind, named after it", () => {
+    for (const kind of ['idle', 'novice', 'skilled', 'expert'] as const)
       expect(makeBot(kind, 1).name).toBe(kind);
   });
 });
