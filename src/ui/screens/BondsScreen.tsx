@@ -243,7 +243,7 @@ export function BondsView({
             {runUnderWay && (
               <p className="flex items-start gap-2 rounded-lg border border-ink-600 bg-ink-900/80 px-3 py-1.5 text-xs text-muted">
                 <Icon name="info" size={14} className="mt-px shrink-0 text-gold-300" />
-                {RUN_UNDER_WAY}
+                {RUN_UNDER_WAY()}
               </p>
             )}
           </div>

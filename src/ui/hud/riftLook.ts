@@ -70,7 +70,7 @@ export function spindleCutPct(): number {
 }
 
 /** The Bloodmoon's healing cut outside the pools (its badge's words). */
-const BLOODMOON_TEXT = 'healing −50% outside the pools';
+const BLOODMOON_TEXT = (): string => t('hud.riftLook.healing50OutsideThe');
 
 /**
  * The boss's conditions, in the order they're drawn: Movement II's Bloodmoon as before, then
@@ -83,7 +83,7 @@ export function bossConditions(boss: BossHud): BossCondition[] {
       id: 'bloodmoon',
       icon: 'moon',
       label: t('hud.riftLook.bloodmoon'),
-      text: BLOODMOON_TEXT,
+      text: BLOODMOON_TEXT(),
       color: '#fca5a5',
     });
   if (boss.spindles !== undefined && boss.spindles > 0)

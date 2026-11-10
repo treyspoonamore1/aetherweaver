@@ -772,7 +772,7 @@ export function BondRankUpCard({ notices, bonds, first, unlockAll, onDismiss }: 
         </ol>
         {unlockAll && (
           <p className="mt-3 flex items-start gap-1.5 text-xs text-muted">
-            <Icon name="info" size={13} className="mt-px shrink-0" /> {SKIP_RANKUP_LINE}
+            <Icon name="info" size={13} className="mt-px shrink-0" /> {SKIP_RANKUP_LINE()}
           </p>
         )}
         <div className="mt-5 flex justify-center">

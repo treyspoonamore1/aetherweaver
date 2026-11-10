@@ -59,4 +59,10 @@ export const bondsModel = {
   'screens.bondsModel.aSceneEach': 'A scene each',
   'screens.bondsModel.aSceneWith': 'A scene with {listAnd}',
   'screens.bondsModel.bondXp2': '{who} ({sceneXp} Bond XP)',
+  'screens.bondsModel.openWithSkipThe': 'Open with Skip the unlocks',
+  'screens.bondsModel.yourRunUnderWay':
+    'Your run under way keeps the talents and Solos it embarked with: what you change here is for the next one.',
+  'screens.bondsModel.onTheBondsScreen': 'on the Bonds screen, from the Loom or from Prep',
+  'screens.bondsModel.skipTheUnlocksEvery':
+    'Skip the unlocks: every talent and Solo can be chosen already. Scenes wait for these ranks.',
 } satisfies Catalogue;

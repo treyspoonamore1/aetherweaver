@@ -20,4 +20,5 @@ export const riftLook = {
   'hud.riftLook.stitched': 'Stitched ×{stitched}',
   'hud.riftLook.stitched2': 'Stitched',
   'hud.riftLook.rootedHeroesChimeEach': 'rooted heroes · Chime each one free',
+  'hud.riftLook.healing50OutsideThe': 'healing −50% outside the pools',
 } satisfies Catalogue;

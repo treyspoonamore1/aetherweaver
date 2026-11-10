@@ -321,7 +321,7 @@ export function soloLockLine(rank: number): string {
 }
 
 /** Open only because of Settings → Skip the unlocks. */
-export const SKIP_NOTE = 'Open with Skip the unlocks';
+export const SKIP_NOTE = (): string => txt('screens.bondsModel.openWithSkipThe');
 
 export interface TierView {
   tier: number;
@@ -359,7 +359,7 @@ export function tierViews(heroId: string, bond: Bond, unlockAll: boolean): TierV
       chosen,
       talents: choices.map((t) => ({ ...talentView(t), chosen: t.id === chosen })),
       lockLine: open ? null : lockLine(at),
-      note: open && !reached ? SKIP_NOTE : null,
+      note: open && !reached ? SKIP_NOTE() : null,
     };
   });
 }
@@ -407,7 +407,7 @@ export function soloChoiceView(
       { key: 'alt', solo: soloView(heroId, alt.id), chosen: chosen === 'alt' },
     ],
     lockLine: open ? null : lockLine(at),
-    note: open && !reached ? SKIP_NOTE : null,
+    note: open && !reached ? SKIP_NOTE() : null,
   };
 }
 
@@ -514,8 +514,7 @@ export function skipLine(): string {
 }
 
 /** The line for a run under way (the screen opened from the Loom mid-run). */
-export const RUN_UNDER_WAY =
-  'Your run under way keeps the talents and Solos it embarked with: what you change here is for the next one.';
+export const RUN_UNDER_WAY = (): string => txt('screens.bondsModel.yourRunUnderWay');
 
 // ── Prep ──────────────────────────────────────────────────────────────────────────────
 
@@ -600,7 +599,7 @@ export interface BondRankUpView {
 }
 
 /** Where talents and Solos are chosen. */
-export const WHERE_TO_CHOOSE = 'on the Bonds screen, from the Loom or from Prep';
+export const WHERE_TO_CHOOSE = (): string => txt('screens.bondsModel.onTheBondsScreen');
 
 /** One Bond rank-up's card: what the rank opened for the hero (`rankOpens`). */
 export function bondRankUpView(n: BondNotice, bond?: Bond): BondRankUpView {
@@ -615,7 +614,7 @@ export function bondRankUpView(n: BondNotice, bond?: Bond): BondRankUpView {
       text: txt('screens.bondsModel.orChooseOneOr', {
         value: a?.name ?? '',
         value2: b?.name ?? '',
-        WHERE_TO_CHOOSE,
+        WHERE_TO_CHOOSE: WHERE_TO_CHOOSE(),
       }),
       detail: null,
     });
@@ -629,7 +628,7 @@ export function bondRankUpView(n: BondNotice, bond?: Bond): BondRankUpView {
       text: txt('screens.bondsModel.alternateSoloChooseWhich', {
         owner: owner(def.name),
         name: def.name,
-        WHERE_TO_CHOOSE,
+        WHERE_TO_CHOOSE: WHERE_TO_CHOOSE(),
       }),
       detail: `${lines.text} ${lines.cued}`,
     });
@@ -694,13 +693,12 @@ export function bondsIntroLines(heroes: readonly string[] = starters()): string[
       countWord: countWord(perHero),
       listAnd2: listAnd(sceneRanks.map(String)),
     }),
-    txt('screens.bondsModel.chooseTalentsAndSolos', { WHERE_TO_CHOOSE }),
+    txt('screens.bondsModel.chooseTalentsAndSolos', { WHERE_TO_CHOOSE: WHERE_TO_CHOOSE() }),
   ];
 }
 
 /** The card's line under Skip the unlocks. */
-export const SKIP_RANKUP_LINE =
-  'Skip the unlocks: every talent and Solo can be chosen already. Scenes wait for these ranks.';
+export const SKIP_RANKUP_LINE = (): string => txt('screens.bondsModel.skipTheUnlocksEvery');
 
 /**
  * The Bond rank-up card is up: the Result, the Summary and the map (after a scene) show it once
