@@ -463,29 +463,30 @@ export class FillView {
         const a = (i * TAU) / RING_STREAKS + 0.6;
         const rad = r.radius * 0.95;
         const y = r.height * (0.2 + 0.95 * p);
-        const alpha = 0.6 * Math.sin(Math.PI * p) * level;
-        // A glow sprite drawn long and thin, stood upright: a streak of light, not a mote.
+        const alpha = 0.8 * Math.sin(Math.PI * p) * level;
+        // A glow sprite drawn long and thin, stood upright: a streak of light, not a mote. (Seen
+        // in the VFX lab: thinner or dimmer than this is lost on the Reliquary's gold floor.)
         kit.sprites.push(
           r.x + Math.cos(a) * rad,
           y,
           r.z + Math.sin(a) * rad,
-          0.075,
+          0.1,
           SPRITE.glow,
           C.gold,
           alpha,
           Math.PI / 2,
-          6,
+          7,
         );
         kit.sprites.push(
           r.x + Math.cos(a) * rad,
           y,
           r.z + Math.sin(a) * rad,
-          0.035,
+          0.045,
           SPRITE.glow,
           C.goldHot,
           alpha * this.flare,
           Math.PI / 2,
-          8,
+          10,
         );
       }
       this.drawn.ringing++;
@@ -789,7 +790,7 @@ export class FillView {
     const kit = this.d.kit;
     const rb = kit.ribbons;
     const hand = 1.02;
-    this.callout(m, 'spare_strings', hand + 1.3, RELIC_HEX.silver, 'rgba(230,236,245,0.8)');
+    this.callout(m, 'spare_strings', hand + 1.8, RELIC_HEX.silver, 'rgba(230,236,245,0.8)');
     const out = easeOut(seg(t, 0, m.life * 0.55));
     const fade = 1 - seg(t, m.life * 0.5, m.life);
     const col = C.weaver;
@@ -798,12 +799,12 @@ export class FillView {
       for (let i = 0; i <= COIL_N; i++) {
         const u = (i / COIL_N) * out;
         const a = u * TAU * COIL_TURNS + t * 6;
-        const rad = 0.08 + 0.22 * u;
+        const rad = 0.12 + 0.34 * u;
         rb.point(
           m.x + Math.cos(a) * rad,
-          hand + 0.9 * u,
+          hand + 1.3 * u,
           m.z + Math.sin(a) * rad,
-          0.03,
+          0.05,
           col,
           0.9 * fade,
           i / COIL_N,
@@ -815,8 +816,8 @@ export class FillView {
     const catchAt = seg(t, m.life * 0.35, m.life * 0.6);
     if (catchAt > 0 && catchAt < 1) {
       const pop = Math.sin(Math.PI * catchAt);
-      kit.sprites.push(m.x, hand + 0.9, m.z, 0.35 * pop, SPRITE.star, C.white, 0.95 * pop, 0.3);
-      kit.sprites.push(m.x, hand + 0.9, m.z, 0.8, SPRITE.glow, col, 0.3 * pop * this.flare);
+      kit.sprites.push(m.x, hand + 1.3, m.z, 0.5 * pop, SPRITE.star, C.white, 0.95 * pop, 0.3);
+      kit.sprites.push(m.x, hand + 1.3, m.z, 1, SPRITE.glow, col, 0.3 * pop * this.flare);
     }
     this.drawn.spares++;
   }
@@ -828,7 +829,7 @@ export class FillView {
   private clock(m: Moment, t: number): void {
     const kit = this.d.kit;
     const y = m.h + 0.8;
-    this.callout(m, 'water_clock', y + 0.6, RELIC_HEX.glass, 'rgba(160,220,255,0.8)');
+    this.callout(m, 'water_clock', y + 1.3, RELIC_HEX.glass, 'rgba(160,220,255,0.8)');
     const fade = 1 - seg(t, m.life * 0.65, m.life);
     const appear = seg(t, 0, 0.12);
     // The long hand, from a full turn back to twelve.
