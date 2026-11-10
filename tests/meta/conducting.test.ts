@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { CONTENT, callingDef } from '../../src/content';
+import { PHASE6_DEEDS } from '../../src/content/deeds';
 import { deedHolds, deedsEarned } from '../../src/meta/deeds';
 import { EVERYTHING, RANK_XP, allowanceFor, rankOf, unlocksBetween } from '../../src/meta/profile';
 import * as Run from '../../src/meta/run';
@@ -150,8 +151,9 @@ describe('his tallies', () => {
 describe('Curtain Call', () => {
   const deed = CONTENT.deeds.find((d) => d.id === 'curtain_call')!;
 
-  it('is the last Deed, a badge for the Conductor', () => {
-    expect(CONTENT.deeds.at(-1)!.id).toBe('curtain_call');
+  it('is the last Deed before Phase 6’s, a badge for the Conductor', () => {
+    // Phase 6's fourteen (docs/phase-6.md) are appended after it.
+    expect(CONTENT.deeds.at(-PHASE6_DEEDS.length - 1)!.id).toBe('curtain_call');
     expect(deed).toMatchObject({ points: 0, test: 'calling', calling: 'conductor' });
   });
 
