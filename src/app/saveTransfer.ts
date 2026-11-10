@@ -34,6 +34,7 @@ import {
   type SavePreviewRead,
   type SaveRead,
 } from '../meta/saveFile';
+import type { RunState } from '../meta/types';
 import { useRun } from './runStore';
 import { migrateSettings, useSettings } from './settings';
 import { storage } from './storage';
@@ -195,14 +196,16 @@ export function applyImport(
 
 /**
  * Starts the game again on the saves now in storage. The save the page makes as it unloads
- * (`runStore.ts`, on `pagehide`) would write the run held in memory over the one just imported,
- * so it is skipped this once: a capturing listener, which runs before it, stops the event. In
- * case a browser runs it anyway, the run held in memory is first made the stored one, so it
- * would write the same run (in the loader's key order).
+ * (`runStore.ts`, on `pagehide`) writes the run held in memory: it would write the run an import
+ * replaced over the imported one. So first a capturing listener, meant to run before it, stops
+ * the event; and in case a browser runs it anyway, the run held in memory is made the stored
+ * one, as parsed from its text, so that save writes the same bytes. (It is never played: the
+ * page starts again at once and loads it through `loadRun`.)
  */
 export function reloadAfterImport(store: KeyValueStore = storage()): void {
   try {
-    useRun.setState({ run: loadRun(store) });
+    const text = loadRun(store) ? store.getItem(SAVE_KEYS.run) : null;
+    useRun.setState({ run: text ? (JSON.parse(text) as RunState) : null });
   } catch {
     // Nothing held: nothing to write over the import.
   }

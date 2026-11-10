@@ -80,6 +80,9 @@ test('export a file and a code, import each through the panel, refuse garbage', 
     window.__AWRUN__!.embark();
     window.__AWRUN__!.choose();
   });
+  // The run is saved; back to the Title (the page saves the run in play as it unloads).
+  await page.reload();
+  await ready(page);
   await openSaves(page);
   await page.getByText('Skip the unlocks', { exact: true }).click();
   const mine = await stored(page);
