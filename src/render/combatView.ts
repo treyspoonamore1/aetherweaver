@@ -23,6 +23,8 @@ import { GroveDiscView } from './groveDisc';
 import { beyondReach } from './serenCues';
 import { OWN_LOOK } from './keepsakeCues';
 import { MartyrView } from './martyr';
+import { PostludeView } from './postlude';
+import { postludeOf, postludeSky } from './postludeCues';
 import { RING } from './fx/rings';
 import { createModelMaterial, type ModelMaterial } from './models/material';
 import { Overlay } from './overlay';
@@ -31,6 +33,7 @@ import { RelicView } from './relics';
 import type { QualityTier } from './stage';
 import { TelegraphLayer } from './telegraphs';
 import { ThreadView } from './thread';
+import { TyrantView } from './tyrant';
 import type { FrameInfo, RenderContext, WorldView } from './types';
 import { VariantsView } from './variants';
 
@@ -68,6 +71,9 @@ export class CombatView implements WorldView {
   readonly groveDisc: GroveDiscView;
   /** The content fill (docs/phase-5g.md): Razor Silk, Thread the Needle, trigger fires. */
   readonly fill: FillView;
+  /** Phase 6 (docs/phase-6.md): Tyrant's borrowed accent and crown, the Postlude's rise and pairs. */
+  readonly tyrant: TyrantView;
+  readonly postlude: PostludeView;
   private quality: QualityTier;
   /** The enemies' clock for the telegraph shaders: it waits while Stasis holds them. */
   private enemyClock = 0;
@@ -162,6 +168,12 @@ export class CombatView implements WorldView {
       thread: this.thread,
       overlay: this.overlay,
     });
+    this.tyrant = new TyrantView({ kit: this.kit, recs: this.entities.recs });
+    this.postlude = new PostludeView({
+      kit: this.kit,
+      recs: this.entities.recs,
+      finale: (s) => this.feedback.crucible.finale(s),
+    });
     this.quality = ctx.quality;
     this.setQuality(ctx.quality);
     void state;
@@ -217,6 +229,8 @@ export class CombatView implements WorldView {
     this.bonds.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.variants.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.fill.sync(state, fxDt, frame.time, frame.settings.flashes);
+    this.tyrant.sync(state, fxDt, frame.time, frame.settings.flashes);
+    this.postlude.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.overlay.setStasis(this.chrono.cool);
     this.offscreen(state);
     this.aimMarker(state, frame);
@@ -224,15 +238,21 @@ export class CombatView implements WorldView {
     this.ctx.stage.renderer.getDrawingBufferSize(this.bufferSize);
     const pointScale = this.bufferSize.y / (2 * Math.tan((camera.fov * Math.PI) / 360));
     // The Celestial Crucible's sky orrery (the Finale): the music's beat and stems, or the sim's,
-    // held at full a while after Reignite.
+    // held at full a while after Reignite. Phase 6: the Postlude's rise darkens it and re-lights
+    // it ring by ring (postludeSky leaves it as it is without one).
+    const finale = this.arena.look === 'crucible' ? this.feedback.crucible.finale(state) : null;
     const sky =
       this.arena.look === 'crucible'
-        ? crucibleSky(
-            this.feedback.crucible.finale(state),
-            frame.music,
+        ? postludeSky(
+            postludeOf(finale),
             state.time,
-            this.sky,
-            this.feedback.crucible.orreryFull,
+            crucibleSky(
+              finale,
+              frame.music,
+              state.time,
+              this.sky,
+              this.feedback.crucible.orreryFull,
+            ),
           )
         : undefined;
     this.arena.update(frame.time, pointScale, this.quality, sky);
@@ -254,6 +274,13 @@ export class CombatView implements WorldView {
     this.bonds.handle(events, state);
     this.variants.handle(events, state);
     this.fill.handle(events, state);
+    this.tyrant.handle(events, state);
+    this.postlude.handle(events, state);
+  }
+
+  /** The sky orrery's rings lit as last drawn (−1: following the stems, or not the Crucible). */
+  orreryNotes(): number {
+    return this.arena.look === 'crucible' ? this.sky.notes : -1;
   }
 
   setQuality(quality: QualityTier): void {

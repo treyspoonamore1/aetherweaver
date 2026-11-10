@@ -19,6 +19,18 @@ export const TENOR = 'mirror_tenor';
 export const SOPRANO = 'mirror_soprano';
 /** The four voices in the order a phase-2 Raise brings the missing ones. */
 export const CHOIR = [TENOR, SOPRANO, ALTO, BASS] as const;
+/**
+ * The hero each voice sings back (its Codex line): the Postlude Raises its voices in the slot
+ * order of these heroes in the party (docs/phase-6.md), the rest after them in `CHOIR` order.
+ */
+export const VOICE_HERO: Readonly<Record<string, string>> = {
+  [TENOR]: 'kael',
+  [ALTO]: 'lyra',
+  [SOPRANO]: 'vexis',
+  [BASS]: 'brann',
+};
+/** True Dissonance's fourth phase, the Postlude (docs/phase-6.md): entered by the rise only. */
+export const POSTLUDE_PHASE = 4;
 
 // ── The Conductor's attacks ───────────────────────────────────────────────────────────
 

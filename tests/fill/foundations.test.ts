@@ -47,6 +47,7 @@ import type { RunState } from '../../src/meta/types';
 import { SIM_DT } from '../../src/sim/constants';
 import type { SimEvent } from '../../src/sim/events';
 import {
+  DISSONANCE6_NO_MODS,
   FILL_NO_MODS,
   KNOWN_BOONS,
   KNOWN_MOTIFS,
@@ -79,6 +80,8 @@ describe('the resolver reproduces the frozen pre-5g resolver (ground rule 4)', (
     readFileSync(fileURLToPath(new URL('./pre5g/resolver.json', import.meta.url)), 'utf8'),
   ) as ResolverFixture;
   const fill = encodeMods(FILL_NO_MODS as unknown as Record<string, unknown>);
+  // Phase 6's levels' defaults (docs/phase-6.md, ground rule 3): no frozen case has one of them.
+  const phase6 = encodeMods(DISSONANCE6_NO_MODS as unknown as Record<string, unknown>);
 
   it('holds every motif at every level, every relic and boon alone, and 200 builds', () => {
     const motifLevels = CONTENT.motifs
@@ -94,12 +97,13 @@ describe('the resolver reproduces the frozen pre-5g resolver (ground rule 4)', (
     expect(builds.filter((c) => c.input.astrolabe.length > 0).length).toBeGreaterThan(150);
   });
 
-  it('NO_MODS keeps every frozen default; its other fields are FILL_NO_MODS', () => {
+  it('NO_MODS keeps every frozen default; its other fields are FILL_NO_MODS and DISSONANCE6_NO_MODS', () => {
     const now = encodeMods(NO_MODS as unknown as Record<string, unknown>);
     for (const [k, v] of Object.entries(fixture.noMods)) expect(now[k], k).toEqual(v);
     const added = Object.keys(now).filter((k) => !(k in fixture.noMods));
-    expect(added.sort()).toEqual(Object.keys(FILL_NO_MODS).sort());
-    for (const k of added) expect(now[k], k).toEqual(fill[k]);
+    // Phase 6's levels (docs/phase-6.md, ground rule 3) group their defaults the same way.
+    expect(added.sort()).toEqual([...Object.keys(FILL_NO_MODS), ...Object.keys(phase6)].sort());
+    for (const k of added) expect(now[k], k).toEqual(k in phase6 ? phase6[k] : fill[k]);
   });
 
   it('every frozen case resolves to exactly the frozen mods, and every new field to its default', () => {
@@ -111,7 +115,7 @@ describe('the resolver reproduces the frozen pre-5g resolver (ground rule 4)', (
           unknown
         >,
       );
-      const want: Record<string, unknown> = { ...fixture.noMods, ...c.mods, ...fill };
+      const want: Record<string, unknown> = { ...fixture.noMods, ...c.mods, ...fill, ...phase6 };
       for (const k of new Set([...Object.keys(want), ...Object.keys(got)]))
         if (JSON.stringify(got[k]) !== JSON.stringify(want[k]))
           wrong.push(`case ${i} ${k}: ${JSON.stringify(got[k])} ≠ ${JSON.stringify(want[k])}`);

@@ -126,6 +126,7 @@ import {
   emptyRiseShape,
   riseShape,
 } from './dissonanceCues';
+import { postludeRise, postludeShape, type PostludeView } from './postludeCues';
 import {
   C,
   approach,
@@ -591,6 +592,15 @@ export class EntityLayer {
   stilledOverride: ReadonlySet<EntityId> | null = null;
   /** A Finale fight this frame (`field.finale`, or the lab's override): stilled is read only then. */
   private finaleLive = false;
+  /**
+   * Phase 6, the Postlude (docs/phase-6.md, postludeCues.ts): what was drawn last frame (the
+   * Conductor's rise pose), the lab's stand-in Postlude (never written into the sim), and the
+   * rise this frame with its Conductor (null: none; every fight but a True Dissonance Finale).
+   */
+  readonly drawn6 = { postludeRise: 0 };
+  postludeOverride: { postlude: PostludeView; boss: EntityId } | null = null;
+  private postlude: PostludeView | null = null;
+  private postludeBoss: EntityId | null = null;
   /** A hero's Rift statuses this frame (reused); the stitched pairs (id pairs, reused). */
   private readonly m3Look = emptyRiftLook();
   private readonly pairs: EntityId[] = [];
@@ -1199,6 +1209,14 @@ export class EntityLayer {
     for (const k of Object.keys(m3) as (keyof typeof m3)[]) m3[k] = 0;
     this.drawnFinale.stilled = 0;
     this.finaleLive = state.field.finale !== undefined || this.stilledOverride !== null;
+    this.drawn6.postludeRise = 0;
+    this.postlude = null;
+    this.postludeBoss = null;
+    const postlude = this.postludeOverride?.postlude ?? state.field.finale?.postlude;
+    if (postlude !== undefined && state.time < postlude.riseUntil) {
+      this.postlude = postlude;
+      this.postludeBoss = this.postludeOverride?.boss ?? state.encounter.bossId ?? null;
+    }
     this.hub = null;
     this.champHub = null;
     this.tetherRecs.length = 0;
@@ -1573,7 +1591,20 @@ export class EntityLayer {
     const enemy = e.enemy;
     let riseGlow = 0;
     rec.rising = 0;
-    if (enemy?.state === 'spawning' && enemy.risen) {
+    if (this.postlude !== null && e.id === this.postludeBoss) {
+      // Phase 6, the Postlude: the Conductor falls and stands back up over its rise, as Restless
+      // Dead's risen do (postludeShape: their pose stretched to the rise), its colour coming back
+      // as it stands (it is not marked risen).
+      const r = postludeShape(this.postlude, time, this.riseOut);
+      const back = 1 - clamp01((postludeRise(this.postlude, time) - 0.85) / 0.15);
+      pitch = r.pitch;
+      roll = 0;
+      y += rec.radius * 0.42 * r.lie;
+      dissolve = r.dissolve;
+      desat = Math.max(desat, r.desat * back);
+      rec.rising = Math.max(0.001, r.lie);
+      this.drawn6.postludeRise++;
+    } else if (enemy?.state === 'spawning' && enemy.risen) {
       const r = riseShape(enemy.stateTime, this.riseOut);
       pitch = r.pitch;
       roll = 0;
@@ -1864,29 +1895,31 @@ export class EntityLayer {
         }
         this.drawnDis.gems += n;
       }
-      // A Rift affix (Movement III) wears a shaped gem at the crown's peak: scissors (Severing),
-      // a rune (Silencing), a mirror (Mimicking), a Doom pip (Doom-touched). Two that sit close
-      // in colour are told apart by shape, as Shielded and Volatile are.
-      const gems = rec.riftGems;
-      if (gems.length > 0 && dissolve < 0.95) {
-        const s = Math.max(0.8, rec.radius * 1.2);
-        for (let i = 0; i < gems.length; i++) {
-          const k = gems.length === 1 ? 0 : i / (gems.length - 1) - 0.5;
-          kit.sprites.push(
-            x + ox + k * 0.5 * s,
-            y + rec.height + 0.62 * s + 0.04 * Math.sin(clock * 2 + i),
-            z + oz,
-            0.2 * s,
-            gems[i]!,
-            rec.riftGemColors[i]!,
-            0.95 * (1 - dissolve),
-            0,
-            1,
-            1,
-          );
-        }
-        this.drawnM3.gems += gems.length;
+    }
+    // A Rift affix (Movement III) wears a shaped gem at the crown's peak: scissors (Severing),
+    // a rune (Silencing), a mirror (Mimicking), a Doom pip (Doom-touched). Two that sit close in
+    // colour are told apart by shape, as Shielded and Volatile are. Every content affix is on an
+    // elite (under its crown); Phase 6's Mimicry gives Mimicking to an ordinary enemy, which
+    // wears the gem where an elite's crown would be (docs/phase-6.md: "its crown gem").
+    const gems = rec.riftGems;
+    if (gems.length > 0 && dissolve < 0.95) {
+      const s = Math.max(0.8, rec.radius * 1.2);
+      for (let i = 0; i < gems.length; i++) {
+        const k = gems.length === 1 ? 0 : i / (gems.length - 1) - 0.5;
+        kit.sprites.push(
+          x + ox + k * 0.5 * s,
+          y + rec.height + 0.62 * s + 0.04 * Math.sin(clock * 2 + i),
+          z + oz,
+          0.2 * s,
+          gems[i]!,
+          rec.riftGemColors[i]!,
+          0.95 * (1 - dissolve),
+          0,
+          1,
+          1,
+        );
       }
+      this.drawnM3.gems += gems.length;
     }
 
     if (isHero) this.heroExtras(rec, e, state, frame, kit, dt, threadedId, threadColor);
