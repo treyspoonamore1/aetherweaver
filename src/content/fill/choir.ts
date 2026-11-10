@@ -53,7 +53,7 @@ export const FILL_CHOIR: ContentInput['motifs'] = [
     name: 'Long Phrase',
     category: 'choir',
     rarity: 'common',
-    values: [8, 12, 16],
+    values: [15, 20, 25],
     text: 'Your Spirit is {v}% larger.',
     requires: { expedition: true },
     tags: ['spirit'],
