@@ -7,6 +7,7 @@ import {
   reachable,
   reservePool,
 } from '../meta/run';
+import { getAudioDebug } from '../audio';
 import { dissonancePoints } from '../meta/dissonance';
 import { bondRank, bondedHeroes, emptyBond, rosterHeroes } from '../meta/bonds';
 import type { Reliquary } from '../meta/reliquary';
@@ -101,10 +102,51 @@ export function installTestHook(runtime: GameRuntime): () => void {
   };
 }
 
+/**
+ * What the full run (`e2e/fullrun.spec.ts`) reads beyond the run hook: the map's reachable stops,
+ * the audio engine's state and the JS heap. Read-only; installed with the run hook.
+ */
+export interface FullRunHook {
+  /** The stops the party can go to next, in map order (empty off the map). */
+  reachable(): { id: string; kind: string; movement: number }[];
+  /** The audio engine's state, or null where audio is unavailable. */
+  audio(): { unlocked: boolean; contextState: string; eventsHandled: number } | null;
+  /** The JS heap in use, in bytes (Chromium only: null elsewhere). */
+  heap(): number | null;
+}
+
+declare global {
+  interface Window {
+    __AWFULL__?: FullRunHook;
+  }
+}
+
 /** Installs the run hook once at startup (dev builds or `?e2e`). */
 export function installRunHook(): void {
   if (!testHookEnabled()) return;
   const run = () => useRun.getState();
+  window.__AWFULL__ = {
+    reachable: () => {
+      const state = run().run;
+      return state
+        ? reachable(state).map((n) => ({ id: n.id, kind: n.kind, movement: n.movement }))
+        : [];
+    },
+    audio: () => {
+      const stats = getAudioDebug();
+      return stats
+        ? {
+            unlocked: stats.unlocked,
+            contextState: stats.contextState,
+            eventsHandled: stats.eventsHandled,
+          }
+        : null;
+    },
+    heap: () => {
+      const memory = (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory;
+      return memory ? memory.usedJSHeapSize : null;
+    },
+  };
   window.__AWRUN__ = {
     phase: () => run().run?.phase ?? null,
     newRun: (seed, mode) => {

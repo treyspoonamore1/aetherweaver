@@ -23,6 +23,8 @@
     "golden:update": "tsx tools/update-golden.ts --write",
     "harness": "tsx tools/harness.ts",
     "loadouts": "tsx tools/loadouts.ts",
+    "licenses": "tsx tools/licenses.ts",
+    "release-check": "tsx tools/release-check.ts",
     "ci": "npm run typecheck && npm run lint && npm run test && npm run build && npm run e2e"
   },
   "dependencies": {
