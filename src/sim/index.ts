@@ -44,7 +44,9 @@ export {
   inSanctuary,
   isAilment,
 } from './combat/health';
-export { bossPhaseTable } from './systems/bosses';
+export { bossPhaseTable, bossPhaseTableWith } from './systems/bosses';
+// Phase 6 (docs/phase-6.md): Tyrant's table and Decree, for the views and the bots.
+export { TYRANT_TABLE, tyrantAttackOf, tyrantDecreeOf, type TyrantEntry } from './systems/tyrant';
 // Movement III's shared rules (docs/phase-5c.md): the sim, bots, render and UI read the same ones.
 export {
   cutWouldLand,

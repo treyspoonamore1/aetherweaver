@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { makeBot } from '../../src/bots';
 import { CONTENT } from '../../src/content';
 import { createSim, type SimConfig, type SimEvent, type WorldState } from '../../src/sim';
-import { FILL_NO_MODS, NO_MODS, resolveMods } from '../../src/sim/mods';
+import { DISSONANCE6_NO_MODS, FILL_NO_MODS, NO_MODS, resolveMods } from '../../src/sim/mods';
 import { parseReplay, runReplay } from '../../src/sim/replay';
 import { resolveConfig } from '../../src/sim/world';
 import { runScenario } from '../../tools/runScenario';
@@ -194,8 +194,9 @@ describe('the mods', () => {
   };
 
   it('NO_MODS keeps every existing value, and the new ones do nothing', () => {
-    // Phase 5g's fields (docs/phase-5g.md) follow, each at a default that does nothing.
-    expect(NO_MODS).toEqual({ ...BEFORE, ...NEW, ...FILL_NO_MODS });
+    // Phase 5g's fields (docs/phase-5g.md) and Phase 6's (docs/phase-6.md) follow, each at a
+    // default that does nothing.
+    expect(NO_MODS).toEqual({ ...BEFORE, ...NEW, ...FILL_NO_MODS, ...DISSONANCE6_NO_MODS });
   });
 
   it('no other Calling, relic, motif or tree sets a Conductor mod', () => {
