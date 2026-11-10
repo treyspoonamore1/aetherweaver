@@ -169,7 +169,7 @@ None of these changes an aura's strength, reach, reservation or who it reaches (
 | Close Harmony (`close_harmony`) | common | While 3 or more heroes stand in your field, Spirit returns {v}% faster. (20 / 30 / 40) | Deep Breath is unconditional; this pays for holding the party together | New N7 | CS |
 | Breath Between (`breath_between`) | rare | A technique cast after 4 s without casting one costs {v}% less Spirit. (30 / 45 / 60) | the first motif about pacing your casts; helps heavy-aura builds afford their saves | New N8 | CS, BS |
 | Full Chord (`full_chord`) | rare | Heroes in your field take {v}% less damage for each aura in your songs. (2 / 3 / 4) | reads how many auras you carry (as the chorus pulse and Radiance do), never their effects | New N9 | CS |
-| Long Phrase (`long_phrase`) | common | Your Spirit is {v}% larger. (8 / 12 / 16) | the opposite of the Frayed Spirit bane; reservation stays a share, so the free pool grows with it | Existing `spiritMult` (multiplies) | CS |
+| Long Phrase (`long_phrase`) | common | Your Spirit is {v}% larger. (15 / 20 / 25; *was 8 / 12 / 16, W11*) | the opposite of the Frayed Spirit bane; reservation stays a share, so the free pool grows with it | Existing `spiritMult` (multiplies) | CS |
 
 ### Bond: heroes (12 new, two each; 6 → 18)
 
@@ -249,7 +249,7 @@ Every new relic carries `expedition: true` (decision 4). Every one with numbers 
 | Everbell (`everbell`) | legendary | Your Chime holds {charges} charges. | charges 2 | Ward charges exist (Twin Aegis, First Score); the Chime has none | New N26 | PP |
 | Heartwood Lute (`heartwood_lute`) | legendary | Your Crescendo also fills every hero's Solo. | none | Taking Bows charges Solos when it ends, partly; this fills them as it starts | Trigger: on `crescendoStart` → Solo charge 100, all | MA |
 | Water Clock (`water_clock`) | legendary | Once per fight, when a hero goes down, time turns back for them: they stand again with the life and the place they had {seconds} s before. | seconds 3 | Sacrificial Lamb and Martyr's Veil move a lethal hit; this undoes it, after the fact | New N27 | BS, all |
-| Iron Mask (`iron_mask`) | cursed | Your heroes take {pct}% less damage. *Curse:* your Thread can't Empower. | pct 15 (20) | a defence for a Mend-only build, paid with half the Thread | New N28 | CS, BS |
+| Iron Mask (`iron_mask`) | cursed | Your heroes take {pct}% less damage. *Curse:* your Thread can't Empower. | pct 12 (18); *was 15 (20), W11* | a defence for a Mend-only build, paid with half the Thread | New N28 | CS, BS |
 | Red Ink (`red_ink`) | cursed | Every Perfect Ward gives {resonance} more Resonance. *Curse:* your Ward recovers {slower} s slower. | resonance 10 (15), slower 3 | Glass Halo shrinks the Ward; this slows it | Trigger: on `perfectWard` → Resonance; curse: existing `wardCooldownCut` at −{slower} unless cleansed | PP |
 | Hollow Crown (`hollow_crown`) | cursed | Cues cost {cut} less Resonance. *Curse:* Solos charge {pct}% slower. | cut 10, pct 25 | cheaper Cues, fewer of them ready | Existing `cueCostBonus` (−{cut}) and `soloChargeMult` (×0.75 unless cleansed), plus New N29 (a Cue never costs below 0) | MA |
 
@@ -480,3 +480,37 @@ Each is a guarded one-line call in the shared file into the owning stream's `src
 - A content lint that reads modifier buckets from content (rule 8 counts by hand instead).
 - The 02 §12 rule-8 build-diversity sampler (500 random legal builds); the archetype and preset reports stand in for it here.
 - Music and art passes for the new content beyond the sounds and VFX in W9.
+
+## Tuning
+
+W11 tuned this slice's entries against *Bands*, in the levers' order, on the tuning sets (cells 1000 and 500003, whole runs 2000 and 900007) and read the held-out sets (cells 777001, runs 333003) only once the numbers were final. Every reading below names its report file in `/home/user/aw-work/5g/tune/` (the scratch folder of the tuning); `LOG.md` there records each step in order. "Read at N" means a band was read at a smaller size than the protocol's and is not claimed as met.
+
+**The protocol as run.**
+
+- *Screen* (numbers as merged, `c18ccb0`): every motif at L1 and L3 on each Movement's hard fights, Skilled, 10 seeds (Movement II on cell bases 1000 and 500003, III and IV on 1000), and every relic the same way on 1000, through scratch copies of `tools/motifs.ts` and `tools/relics.ts` that take a cell seed base (`scr/motifs-set.ts`, `scr/relics-set.ts`; at base 5000 they are the tools); the six builds at 10 and then 30 runs on runs 2000 and 900007.
+- *Tune*: A/B runs of one build or one cell at a time (`scr/exp.ts`: a build with its draft and relic lists switched on or off; 60 runs on each tuning set for every decision; cells at 20 seeds on both tuning bases).
+- *Final readings* (numbers `b2eccfd`): the builds report `tools/builds.ts --runs 30 --sets` and the presets report `tools/loadouts.ts --movement 4 --seeds 50 --runs 30 --bots skilled --sets` at the protocol's size on all three sets; the rest as listed under *The bands*.
+
+### What moved
+
+| Where | Entry | Number | Before | After | Lever | The reading that drove it |
+|---|---|---|---|---|---|---|
+| `src/content/fill/choir.ts` | Long Phrase | values (L1 / L2 / L3) | 8 / 12 / 16 | 15 / 20 / 25 | 1 | CS, 60 runs on each tuning set: 58/120 won (48%) → 72/120 (60%) (`exp-cs-v1-r60-*`, `exp-cs-v2d-r60-*`) |
+| `src/content/fill/relics.ts` | Iron Mask | `pct` (empowered) | 15 (20) | 12 (18) | 1 | the cursed band (±5 of no relic): +4 / +6 at Movement II, +3 / +2 at III, +15 / +10 at the Silent Conductor at 15; +1 / +4, −3 / −5, +10 / −15 at 12 (20 seeds, cell bases 1000 / 500003; `cursed-s20-*`) |
+| `tools/harness-core.ts` | the harness merchant | — | ignored `draftPrefer` for motifs | buys the motif a draft list names nearest its front first, before a preferred relic; no list (or a function, or nothing named on the cloth): as before | the bots digest's named next lever | its test in `tests/harnessTools.test.ts` ("buys a motif the draft list names first at a merchant") |
+
+Nothing else moved: no trigger limit (`every`, `perFight`) and no rarity. Their texts read the new values (Long Phrase "Your Spirit is 15% larger.", Iron Mask "take 12% less damage"); `tests/fill/relics.test.ts`' empowered literal for Iron Mask moved 20 → 18 and nothing else in `tests/fill/` pins either number. No aura, ornament, existing entry, hero, enemy, encounter, Calling, technique, Weaver, Movement or road number moved, and no bot rule was added (`src/bots/**` is untouched).
+
+**Why Long Phrase.** The CS preset fills Third Voice with Fermata, which (with the Grace Note moved onto it) makes the field song reserve 82.5% of the Weaver's Spirit. That leaves 17.5 free Spirit, under a Ward's 20 (`src/content/weaver.ts`): the Weaver can't Ward until Long Phrase reaches L3. At 15% its first level makes the free pool 20.1. Split apart (`exp-cs-v1-*`, 30 runs a set): CS's frame with Fermata and no lists won 12/30 and 12/30, with its draft list 17 and 15, with its relic list 12 and 14, with both 18 and 14; the two-aura CS that `frames.mts` first measured (the harness's own fill finds no third aura within its 75% reserve cap and keeps two) won 23 and 21. So CS's weakness is its third aura, and its draft list is worth about 10 points.
+
+### Tried and not kept
+
+| Change | Reading (60 runs on each tuning set unless named) | Why not |
+|---|---|---|
+| Close Harmony 20 / 30 / 40 → 30 / 45 / 60 (with Long Phrase) | CS 71/120 against 72/120 with Long Phrase alone | adds nothing |
+| Massed Voices 6 / 9 / 12 → 9 / 13 / 18 and Full Chord 2 / 3 / 4 → 3 / 4 / 5 (with both above) | CS 69/120 | adds nothing |
+| Long Phrase 20 / 28 / 36 | CS 73/120 | no more than 15 / 20 / 25 |
+| Full Chord, Breath Between and Stray Stitch rare → common (lever 3) | CS 40/60 (30 a set), listed motifs held 1.8 / 2.1 against 1.8 / 2.2 | about 43 commons share the common rolls, so holding doesn't rise |
+| Thread the Needle epic → rare (lever 3) | default party won 86/120 against 82/120; Harmonies held 0.26 a run either way; PP won 111/120 against 114/120 and held ≥ 3 listed in 58/120 (48%) against 86/120 (72%) | costs PP its holding band and gains nothing measurable (`offers-*`, `exp-pp-*`) |
+| Razor Silk 30 / 50 / 70 → 50 / 80 / 110 | RL 66/120 against 67/120 | no effect: RL's rate is its frame (no Calling, All In; 47 / 73% with no lists at 30 runs) |
+| Iron Mask 10 (15) and 7 (10) | M2 / M3 / M4 avg Δ win at 10: +5, −7, 0 / +4, −7, −20; at 7: −3, −7, −5 / +5, −13, −15 | under the band on more readings than 12 |
