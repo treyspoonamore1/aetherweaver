@@ -1,0 +1,1037 @@
+{
+  "simVersion": 22,
+  "fieldShader": "3757a9a5",
+  "cases": {
+    "aura:sostenuto:beam": {
+      "field": [
+        "08a7c060",
+        "a8c20428",
+        "f08a66ba",
+        "fe2058ca",
+        "c5c9c488",
+        "1587611e",
+        "621782b3",
+        "a95912b3"
+      ],
+      "beam": [
+        "b5de89bf",
+        "6ff598af",
+        "63ad11b1",
+        "b7ebc436",
+        "c5ffd634",
+        "bbe3edbb",
+        "dfa859c7",
+        "52209cb8"
+      ],
+      "fermata": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "chips": [
+        "a640c4ce",
+        "e8163370",
+        "e8163370",
+        "e8163370",
+        "e8163370",
+        "7753c78a",
+        "6a209ca0",
+        "6a209ca0"
+      ],
+      "audio": {
+        "calls": {
+          "pour": 3,
+          "ensureHarmony": 480
+        },
+        "nodes": 96,
+        "writes": 2471,
+        "hash": "5e6e972c"
+      }
+    },
+    "aura:sostenuto:field": {
+      "field": [
+        "8c9178e1",
+        "0efb4865",
+        "6da6f79d",
+        "ce3c4d4e",
+        "d4dbf9ba",
+        "c2a99ed4",
+        "e8abaf84",
+        "cc55d923"
+      ],
+      "beam": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "fermata": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "chips": [
+        "ae06d8f0",
+        "ae06d8f0",
+        "ae06d8f0",
+        "ae06d8f0",
+        "ae06d8f0",
+        "cd2b283a",
+        "cd2b283a",
+        "cd2b283a"
+      ],
+      "audio": {
+        "calls": {
+          "pour": 3
+        },
+        "nodes": 0,
+        "writes": 0,
+        "hash": "3d09489f"
+      }
+    },
+    "aura:ostinato:beam": {
+      "field": [
+        "0040a660",
+        "82bf6e0c",
+        "91fad3a2",
+        "76477462",
+        "0f7bdfa4",
+        "8bbd29da",
+        "68251ce7",
+        "d0ba8553"
+      ],
+      "beam": [
+        "2dfba925",
+        "b6508461",
+        "644680b3",
+        "78bf7a08",
+        "2ce61d72",
+        "dd5de0e5",
+        "19f72665",
+        "553aa246"
+      ],
+      "fermata": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "chips": [
+        "79beff65",
+        "f4c4da81",
+        "f4c4da81",
+        "f4c4da81",
+        "f4c4da81",
+        "1f54aa13",
+        "cd708ee9",
+        "cd708ee9"
+      ],
+      "audio": {
+        "calls": {
+          "pour": 3,
+          "ensureHarmony": 480
+        },
+        "nodes": 96,
+        "writes": 2471,
+        "hash": "5e6e972c"
+      }
+    },
+    "aura:ostinato:field": {
+      "field": [
+        "5edae655",
+        "5bb0e10d",
+        "e44644c1",
+        "e58cd7de",
+        "4c26179e",
+        "b53afce8",
+        "fba3ebd4",
+        "4eebc02f"
+      ],
+      "beam": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "fermata": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "chips": [
+        "6d8f50c3",
+        "6d8f50c3",
+        "6d8f50c3",
+        "6d8f50c3",
+        "6d8f50c3",
+        "3181522d",
+        "3181522d",
+        "3181522d"
+      ],
+      "audio": {
+        "calls": {
+          "pour": 3
+        },
+        "nodes": 0,
+        "writes": 0,
+        "hash": "3d09489f"
+      }
+    },
+    "aura:allegro:beam": {
+      "field": [
+        "0639be4f",
+        "e0db8563",
+        "98050857",
+        "400ce9e1",
+        "3621a17e",
+        "f66b926b",
+        "e6fc12e1",
+        "b42de6a7"
+      ],
+      "beam": [
+        "8c2d01e1",
+        "d5a03c7e",
+        "b4f72099",
+        "71342e26",
+        "accdff83",
+        "fa49bc82",
+        "524cf224",
+        "e6577ac0"
+      ],
+      "fermata": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "chips": [
+        "5228dd95",
+        "d17a24f3",
+        "d17a24f3",
+        "d17a24f3",
+        "d17a24f3",
+        "72e1bfb9",
+        "12111943",
+        "12111943"
+      ],
+      "audio": {
+        "calls": {
+          "pour": 3,
+          "ensureHarmony": 480
+        },
+        "nodes": 96,
+        "writes": 2471,
+        "hash": "f23dc7bd"
+      }
+    },
+    "aura:allegro:field": {
+      "field": [
+        "5e0e003d",
+        "3bb06e3d",
+        "dcef4549",
+        "4af83f0f",
+        "f1baf910",
+        "f3072cc8",
+        "bbc12d02",
+        "ae7c483c"
+      ],
+      "beam": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "fermata": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "chips": [
+        "f84c3f97",
+        "f84c3f97",
+        "f84c3f97",
+        "f84c3f97",
+        "f84c3f97",
+        "32a9cf61",
+        "32a9cf61",
+        "32a9cf61"
+      ],
+      "audio": {
+        "calls": {
+          "pour": 3
+        },
+        "nodes": 0,
+        "writes": 0,
+        "hash": "3d09489f"
+      }
+    },
+    "aura:fortissimo:beam": {
+      "field": [
+        "8f5d9f75",
+        "3493ea61",
+        "02f5d44d",
+        "194e3761",
+        "6b9c39e5",
+        "f3ee2610",
+        "67fe8f85",
+        "d92793d2"
+      ],
+      "beam": [
+        "efccbc5b",
+        "5f1d6447",
+        "a5f7cb5e",
+        "c8dbc908",
+        "bccc6817",
+        "84c13c5d",
+        "4bd7dedb",
+        "825e2838"
+      ],
+      "fermata": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "chips": [
+        "9f0de053",
+        "4b69761b",
+        "4b69761b",
+        "4b69761b",
+        "4b69761b",
+        "f1fd5355",
+        "263e7a93",
+        "263e7a93"
+      ],
+      "audio": {
+        "calls": {
+          "pour": 3,
+          "ensureHarmony": 480
+        },
+        "nodes": 96,
+        "writes": 2471,
+        "hash": "64cfccab"
+      }
+    },
+    "aura:fortissimo:field": {
+      "field": [
+        "d795a4bf",
+        "0f25eee7",
+        "d60f441b",
+        "a7688fcb",
+        "83fd3b27",
+        "6502530d",
+        "14da7419",
+        "37763212"
+      ],
+      "beam": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "fermata": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "chips": [
+        "10429259",
+        "10429259",
+        "10429259",
+        "10429259",
+        "10429259",
+        "f54698df",
+        "f54698df",
+        "f54698df"
+      ],
+      "audio": {
+        "calls": {
+          "pour": 3
+        },
+        "nodes": 0,
+        "writes": 0,
+        "hash": "3d09489f"
+      }
+    },
+    "aura:lullaby:beam": {
+      "field": [
+        "d965e1b4",
+        "8b803424",
+        "c6397cd9",
+        "166626ed",
+        "21175d42",
+        "2f6cb818",
+        "93e740a1",
+        "a3f45e7e"
+      ],
+      "beam": [
+        "f093b006",
+        "350d856f",
+        "7cb39f2b",
+        "f1c30828",
+        "143dc806",
+        "6f5cf3ef",
+        "e7c7333c",
+        "780a1063"
+      ],
+      "fermata": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "chips": [
+        "8fc11112",
+        "69b2a288",
+        "69b2a288",
+        "69b2a288",
+        "69b2a288",
+        "ce13a618",
+        "e6b597b8",
+        "e6b597b8"
+      ],
+      "audio": {
+        "calls": {
+          "pour": 3,
+          "ensureHarmony": 480
+        },
+        "nodes": 96,
+        "writes": 2471,
+        "hash": "e7a84086"
+      }
+    },
+    "aura:lullaby:field": {
+      "field": [
+        "108403d5",
+        "b9b584dd",
+        "a5a400f1",
+        "142a9094",
+        "5056eaac",
+        "096a48f6",
+        "a8f82df8",
+        "ee991a97"
+      ],
+      "beam": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "fermata": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "chips": [
+        "7f2123ce",
+        "7f2123ce",
+        "7f2123ce",
+        "7f2123ce",
+        "7f2123ce",
+        "36959c88",
+        "36959c88",
+        "36959c88"
+      ],
+      "audio": {
+        "calls": {
+          "pour": 3
+        },
+        "nodes": 0,
+        "writes": 0,
+        "hash": "3d09489f"
+      }
+    },
+    "aura:fermata:beam": {
+      "field": [
+        "789d44fd",
+        "cbe04df1",
+        "d85c62ae",
+        "4d11a644",
+        "425ee530",
+        "210e59b6",
+        "765e8d36",
+        "998618f5"
+      ],
+      "beam": [
+        "f8b9fa02",
+        "2d42f0b7",
+        "e362cbb0",
+        "51babca0",
+        "812f28dc",
+        "ebcd978e",
+        "9e89f9fe",
+        "6c0430fd"
+      ],
+      "fermata": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "84d9cf96",
+        "2d6da58e",
+        "4e4a9f6e",
+        "d1b9240a",
+        "6a9b5602"
+      ],
+      "chips": [
+        "965dbc73",
+        "969b862d",
+        "969b862d",
+        "969b862d",
+        "969b862d",
+        "a7da2b8b",
+        "7866763d",
+        "7866763d"
+      ],
+      "audio": {
+        "calls": {
+          "pour": 3,
+          "ensureHarmony": 480,
+          "fermataHold": 2,
+          "fermataReleased": 2
+        },
+        "nodes": 185,
+        "writes": 3064,
+        "hash": "f98547b2"
+      }
+    },
+    "aura:fermata:field": {
+      "field": [
+        "f873303f",
+        "8dede253",
+        "e865f1eb",
+        "3747cc28",
+        "7d76f47c",
+        "6e9f1e36",
+        "5fba6df4",
+        "e5cba933"
+      ],
+      "beam": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "fermata": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "84d9cf96",
+        "2d6da58e",
+        "4e4a9f6e",
+        "d1b9240a",
+        "6a9b5602"
+      ],
+      "chips": [
+        "3d51ffa9",
+        "3d51ffa9",
+        "3d51ffa9",
+        "3d51ffa9",
+        "3d51ffa9",
+        "d079798f",
+        "d079798f",
+        "d079798f"
+      ],
+      "audio": {
+        "calls": {
+          "pour": 3,
+          "fermataHold": 2,
+          "fermataReleased": 2
+        },
+        "nodes": 120,
+        "writes": 773,
+        "hash": "ff274d54"
+      }
+    },
+    "ornament:grace_note:beam": {
+      "field": [
+        "08a7c060",
+        "a8c20428",
+        "f08a66ba",
+        "fe2058ca",
+        "c5c9c488",
+        "1587611e",
+        "621782b3",
+        "a95912b3"
+      ],
+      "beam": [
+        "b5de89bf",
+        "6ff598af",
+        "63ad11b1",
+        "b7ebc436",
+        "c5ffd634",
+        "bbe3edbb",
+        "dfa859c7",
+        "52209cb8"
+      ],
+      "fermata": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "chips": [
+        "a5ffd479",
+        "1f7b3567",
+        "1f7b3567",
+        "1f7b3567",
+        "1f7b3567",
+        "cf34cf0d",
+        "5d76b737",
+        "5d76b737"
+      ],
+      "audio": {
+        "calls": {
+          "pour": 3,
+          "ensureHarmony": 480
+        },
+        "nodes": 96,
+        "writes": 2471,
+        "hash": "5e6e972c"
+      }
+    },
+    "ornament:grace_note:field": {
+      "field": [
+        "8c9178e1",
+        "0efb4865",
+        "6da6f79d",
+        "ce3c4d4e",
+        "d4dbf9ba",
+        "c2a99ed4",
+        "e8abaf84",
+        "cc55d923"
+      ],
+      "beam": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "fermata": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "chips": [
+        "7220d9e7",
+        "7220d9e7",
+        "7220d9e7",
+        "7220d9e7",
+        "7220d9e7",
+        "95c2d61d",
+        "95c2d61d",
+        "95c2d61d"
+      ],
+      "audio": {
+        "calls": {
+          "pour": 3
+        },
+        "nodes": 0,
+        "writes": 0,
+        "hash": "3d09489f"
+      }
+    },
+    "ornament:reverb:beam": {
+      "field": [
+        "4d553134",
+        "e17b7cc0",
+        "5558fd8a",
+        "b6e72cbe",
+        "56a14b8c",
+        "bd9b78ee",
+        "9cb6ef42",
+        "8bec612e"
+      ],
+      "beam": [
+        "b5de89bf",
+        "6ff598af",
+        "63ad11b1",
+        "b7ebc436",
+        "c5ffd634",
+        "bbe3edbb",
+        "dfa859c7",
+        "52209cb8"
+      ],
+      "fermata": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "chips": [
+        "527f9951",
+        "a33e4ab1",
+        "a33e4ab1",
+        "a33e4ab1",
+        "a33e4ab1",
+        "521eaeb9",
+        "834d712f",
+        "834d712f"
+      ],
+      "audio": {
+        "calls": {
+          "pour": 3,
+          "ensureHarmony": 480
+        },
+        "nodes": 96,
+        "writes": 2471,
+        "hash": "5e6e972c"
+      }
+    },
+    "ornament:reverb:field": {
+      "field": [
+        "4edacc19",
+        "6e3db2c1",
+        "eca54a25",
+        "999ed46a",
+        "7d2eb172",
+        "eb8c6576",
+        "ffac1f2f",
+        "44d1ad54"
+      ],
+      "beam": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "fermata": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "chips": [
+        "459621b7",
+        "459621b7",
+        "459621b7",
+        "459621b7",
+        "459621b7",
+        "7e6b3dd9",
+        "7e6b3dd9",
+        "7e6b3dd9"
+      ],
+      "audio": {
+        "calls": {
+          "pour": 3
+        },
+        "nodes": 0,
+        "writes": 0,
+        "hash": "3d09489f"
+      }
+    },
+    "ornament:unison:beam": {
+      "field": [
+        "de0bd08c",
+        "24570bd9",
+        "4faff3b2",
+        "01c274ae",
+        "f88da84e",
+        "5133d5e2",
+        "9c65df08",
+        "c583053f"
+      ],
+      "beam": [
+        "28a7e350",
+        "c00d6eec",
+        "a8dcc066",
+        "ca967f9d",
+        "daf9f041",
+        "7f66566d",
+        "8e218280",
+        "47895e58"
+      ],
+      "fermata": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "chips": [
+        "f95dce46",
+        "fde706d4",
+        "fde706d4",
+        "fde706d4",
+        "fde706d4",
+        "fde706d4",
+        "e4ab4fdc",
+        "e4ab4fdc"
+      ],
+      "audio": {
+        "calls": {
+          "pour": 3,
+          "ensureHarmony": 480
+        },
+        "nodes": 111,
+        "writes": 2561,
+        "hash": "23642d47"
+      }
+    },
+    "ornament:pedal_point:beam": {
+      "field": [
+        "a6a02438",
+        "a8cc1133",
+        "a50451c9",
+        "962b3cbe",
+        "07c323d7",
+        "f2155708",
+        "947a979a",
+        "3571f7eb"
+      ],
+      "beam": [
+        "b5de89bf",
+        "6ff598af",
+        "63ad11b1",
+        "b7ebc436",
+        "c5ffd634",
+        "bbe3edbb",
+        "dfa859c7",
+        "52209cb8"
+      ],
+      "fermata": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "chips": [
+        "cc6eb7c9",
+        "80debbff",
+        "6a05ad84",
+        "49e08f97",
+        "80debbff",
+        "649636b9",
+        "0d322f47",
+        "0d322f47"
+      ],
+      "audio": {
+        "calls": {
+          "pour": 3,
+          "ensureHarmony": 480,
+          "ensureDrone": 480,
+          "fieldPlanted": 1
+        },
+        "nodes": 114,
+        "writes": 3031,
+        "hash": "d90ec959"
+      }
+    },
+    "ornament:pedal_point:field": {
+      "field": [
+        "7eb0f22f",
+        "59953d1b",
+        "be5a1871",
+        "9ccdca05",
+        "1621f1db",
+        "54c79903",
+        "c5e2cc34",
+        "c19a604b"
+      ],
+      "beam": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "fermata": [
+        "5227ea37",
+        "a67f63cf",
+        "7b80a3f3",
+        "e66a4bf7",
+        "cf9db823",
+        "fb22b213",
+        "7c1ef4db",
+        "fa4c3f4b"
+      ],
+      "chips": [
+        "07504323",
+        "07504323",
+        "627a9710",
+        "034c481b",
+        "07504323",
+        "adb8041b",
+        "adb8041b",
+        "adb8041b"
+      ],
+      "audio": {
+        "calls": {
+          "pour": 3,
+          "ensureDrone": 480,
+          "fieldPlanted": 1
+        },
+        "nodes": 18,
+        "writes": 560,
+        "hash": "381b8f15"
+      }
+    }
+  },
+  "markup": {
+    "10429259": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, #93c5fd 45%, transparent)\" role=\"group\" aria-label=\"Field song: everyone within 8 m of you hears it at full strength.\" title=\"Field song: everyone within 8 m of you hears it at full strength.\" data-testid=\"song-field\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:#93c5fd\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12L5 5 M12 12l7-7 M12 12l-7 7 M12 12l7 7 M4 4h3 M4 4v3 M20 4h-3 M20 4v3 M4 20h3 M4 20v-3 M20 20h-3 M20 20v-3\"></path></svg>Field</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#fb7185;border-color:color-mix(in srgb, #fb7185 55%, transparent);background:color-mix(in srgb, #fb7185 12%, transparent)\" title=\"Fortissimo reserves 30% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Fortissimo</span></span></div>",
+    "12111943": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Allegro): Vexis hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" title=\"Beam song (Allegro): Vexis hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#f59e0b;border-color:color-mix(in srgb, #f59e0b 55%, transparent);background:color-mix(in srgb, #f59e0b 12%, transparent)\" title=\"Allegro reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Allegro</span></span></div>",
+    "034c481b": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, #93c5fd 45%, transparent)\" role=\"group\" aria-label=\"Field song: everyone within 6.8 m of where you planted it hears it at full strength.\" title=\"Field song: everyone within 6.8 m of where you planted it hears it at full strength.\" data-testid=\"song-field\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:#93c5fd\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12L5 5 M12 12l7-7 M12 12l-7 7 M12 12l7 7 M4 4h3 M4 4v3 M20 4h-3 M20 4v3 M4 20h3 M4 20v-3 M20 20h-3 M20 20v-3\"></path></svg>Field</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium\" style=\"color:#bef264;border-color:color-mix(in srgb, #bef264 55%, transparent)\" title=\"Pedal Point: plant this song&#x27;s field at the cursor (V)\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 21.5s-6-6.2-6-11a6 6 0 0 1 12 0c0 4.8-6 11-6 11z M12 8a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z\"></path></svg>Plant<kbd class=\"inline-flex min-w-6 items-center justify-center rounded-md border px-1.5 py-0.5 font-mono text-xs leading-none border-ink-500 bg-ink-800 text-gold-300 \">V</kbd><span class=\"flex items-center gap-0.5 font-mono text-muted\"><span class=\"relative inline-flex shrink-0 items-center justify-center \" style=\"width:13px;height:13px\"><svg width=\"13\" height=\"13\" class=\"absolute inset-0 -rotate-90\" aria-hidden=\"true\"><circle cx=\"6.5\" cy=\"6.5\" r=\"5.5\" fill=\"none\" stroke=\"rgb(255 255 255 / 0.14)\" stroke-width=\"2\"></circle><circle cx=\"6.5\" cy=\"6.5\" r=\"5.5\" fill=\"none\" stroke=\"#bef264\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-dasharray=\"34.55751918948772\" stroke-dashoffset=\"25.918139392115755\" style=\"transition:stroke-dashoffset 120ms linear\"></circle></svg></span>0.5</span></span></span></div>",
+    "07504323": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, #93c5fd 45%, transparent)\" role=\"group\" aria-label=\"Field song: everyone within 6.8 m of where you planted it hears it at full strength.\" title=\"Field song: everyone within 6.8 m of where you planted it hears it at full strength.\" data-testid=\"song-field\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:#93c5fd\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12L5 5 M12 12l7-7 M12 12l-7 7 M12 12l7 7 M4 4h3 M4 4v3 M20 4h-3 M20 4v3 M4 20h3 M4 20v-3 M20 20h-3 M20 20v-3\"></path></svg>Field</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium\" style=\"color:#bef264;border-color:color-mix(in srgb, #bef264 55%, transparent)\" title=\"Pedal Point: plant this song&#x27;s field at the cursor (V)\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 21.5s-6-6.2-6-11a6 6 0 0 1 12 0c0 4.8-6 11-6 11z M12 8a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z\"></path></svg>Plant<kbd class=\"inline-flex min-w-6 items-center justify-center rounded-md border px-1.5 py-0.5 font-mono text-xs leading-none border-gold-400 bg-gold-400 text-ink-950 \">V</kbd></span></span></div>",
+    "0d322f47": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Sostenuto): Vexis hears it at ×2. Everyone else within 10.2 m hears an echo at ×0.75.\" title=\"Beam song (Sostenuto): Vexis hears it at ×2. Everyone else within 10.2 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium\" style=\"color:#bef264;border-color:color-mix(in srgb, #bef264 55%, transparent)\" title=\"Pedal Point: plant this song&#x27;s field at the cursor (V)\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 21.5s-6-6.2-6-11a6 6 0 0 1 12 0c0 4.8-6 11-6 11z M12 8a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z\"></path></svg>Plant<kbd class=\"inline-flex min-w-6 items-center justify-center rounded-md border px-1.5 py-0.5 font-mono text-xs leading-none border-gold-400 bg-gold-400 text-ink-950 \">V</kbd></span></span></div>",
+    "1f54aa13": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Ostinato): Lyra hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" title=\"Beam song (Ostinato): Lyra hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#7dd3fc;border-color:color-mix(in srgb, #7dd3fc 55%, transparent);background:color-mix(in srgb, #7dd3fc 12%, transparent)\" title=\"Ostinato reserves 30% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Ostinato</span></span></div>",
+    "1f7b3567": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Sostenuto): Lyra hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" title=\"Beam song (Sostenuto): Lyra hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 18% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 py-0.5 text-xs\" style=\"color:#f9a8d4;border-color:color-mix(in srgb, #f9a8d4 45%, transparent)\" title=\"Grace Note\"><svg viewBox=\"0 0 24 24\" width=\"10\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 3l7 9-7 9-7-9z\"></path></svg>Grace Note</span></span></div>",
+    "263e7a93": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Fortissimo): Vexis hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" title=\"Beam song (Fortissimo): Vexis hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#fb7185;border-color:color-mix(in srgb, #fb7185 55%, transparent);background:color-mix(in srgb, #fb7185 12%, transparent)\" title=\"Fortissimo reserves 30% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Fortissimo</span></span></div>",
+    "3181522d": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, #93c5fd 45%, transparent)\" role=\"group\" aria-label=\"Field song: everyone within 12 m of you hears it at full strength.\" title=\"Field song: everyone within 12 m of you hears it at full strength.\" data-testid=\"song-field\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:#93c5fd\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12L5 5 M12 12l7-7 M12 12l-7 7 M12 12l7 7 M4 4h3 M4 4v3 M20 4h-3 M20 4v3 M4 20h3 M4 20v-3 M20 20h-3 M20 20v-3\"></path></svg>Field</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#7dd3fc;border-color:color-mix(in srgb, #7dd3fc 55%, transparent);background:color-mix(in srgb, #7dd3fc 12%, transparent)\" title=\"Ostinato reserves 30% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Ostinato</span></span></div>",
+    "32a9cf61": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, #93c5fd 45%, transparent)\" role=\"group\" aria-label=\"Field song: everyone within 12 m of you hears it at full strength.\" title=\"Field song: everyone within 12 m of you hears it at full strength.\" data-testid=\"song-field\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:#93c5fd\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12L5 5 M12 12l7-7 M12 12l-7 7 M12 12l7 7 M4 4h3 M4 4v3 M20 4h-3 M20 4v3 M4 20h3 M4 20v-3 M20 20h-3 M20 20v-3\"></path></svg>Field</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#f59e0b;border-color:color-mix(in srgb, #f59e0b 55%, transparent);background:color-mix(in srgb, #f59e0b 12%, transparent)\" title=\"Allegro reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Allegro</span></span></div>",
+    "36959c88": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, #93c5fd 45%, transparent)\" role=\"group\" aria-label=\"Field song: everyone within 12 m of you hears it at full strength.\" title=\"Field song: everyone within 12 m of you hears it at full strength.\" data-testid=\"song-field\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:#93c5fd\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12L5 5 M12 12l7-7 M12 12l-7 7 M12 12l7 7 M4 4h3 M4 4v3 M20 4h-3 M20 4v3 M4 20h3 M4 20v-3 M20 20h-3 M20 20v-3\"></path></svg>Field</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#818cf8;border-color:color-mix(in srgb, #818cf8 55%, transparent);background:color-mix(in srgb, #818cf8 12%, transparent)\" title=\"Lullaby reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Lullaby</span></span></div>",
+    "3d51ffa9": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, #93c5fd 45%, transparent)\" role=\"group\" aria-label=\"Field song: everyone within 8 m of you hears it at full strength.\" title=\"Field song: everyone within 8 m of you hears it at full strength.\" data-testid=\"song-field\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:#93c5fd\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12L5 5 M12 12l7-7 M12 12l-7 7 M12 12l7 7 M4 4h3 M4 4v3 M20 4h-3 M20 4v3 M4 20h3 M4 20v-3 M20 20h-3 M20 20v-3\"></path></svg>Field</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#e2d6f8;border-color:color-mix(in srgb, #e2d6f8 55%, transparent);background:color-mix(in srgb, #e2d6f8 12%, transparent)\" title=\"Fermata reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Fermata</span></span></div>",
+    "459621b7": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, #93c5fd 45%, transparent)\" role=\"group\" aria-label=\"Field song: everyone within 11.2 m of you hears it at full strength.\" title=\"Field song: everyone within 11.2 m of you hears it at full strength.\" data-testid=\"song-field\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:#93c5fd\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12L5 5 M12 12l7-7 M12 12l-7 7 M12 12l7 7 M4 4h3 M4 4v3 M20 4h-3 M20 4v3 M4 20h3 M4 20v-3 M20 20h-3 M20 20v-3\"></path></svg>Field</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 py-0.5 text-xs\" style=\"color:#67e8f9;border-color:color-mix(in srgb, #67e8f9 45%, transparent)\" title=\"Reverb\"><svg viewBox=\"0 0 24 24\" width=\"10\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 3l7 9-7 9-7-9z\"></path></svg>Reverb</span></span></div>",
+    "49e08f97": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Sostenuto): Lyra hears it at ×2. Everyone else within 6.8 m hears an echo at ×0.75.\" title=\"Beam song (Sostenuto): Lyra hears it at ×2. Everyone else within 6.8 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium\" style=\"color:#bef264;border-color:color-mix(in srgb, #bef264 55%, transparent)\" title=\"Pedal Point: plant this song&#x27;s field at the cursor (V)\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 21.5s-6-6.2-6-11a6 6 0 0 1 12 0c0 4.8-6 11-6 11z M12 8a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z\"></path></svg>Plant<kbd class=\"inline-flex min-w-6 items-center justify-center rounded-md border px-1.5 py-0.5 font-mono text-xs leading-none border-ink-500 bg-ink-800 text-gold-300 \">V</kbd><span class=\"flex items-center gap-0.5 font-mono text-muted\"><span class=\"relative inline-flex shrink-0 items-center justify-center \" style=\"width:13px;height:13px\"><svg width=\"13\" height=\"13\" class=\"absolute inset-0 -rotate-90\" aria-hidden=\"true\"><circle cx=\"6.5\" cy=\"6.5\" r=\"5.5\" fill=\"none\" stroke=\"rgb(255 255 255 / 0.14)\" stroke-width=\"2\"></circle><circle cx=\"6.5\" cy=\"6.5\" r=\"5.5\" fill=\"none\" stroke=\"#bef264\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-dasharray=\"34.55751918948772\" stroke-dashoffset=\"25.918139392115755\" style=\"transition:stroke-dashoffset 120ms linear\"></circle></svg></span>0.5</span></span></span></div>",
+    "4b69761b": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Fortissimo): Lyra hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" title=\"Beam song (Fortissimo): Lyra hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#fb7185;border-color:color-mix(in srgb, #fb7185 55%, transparent);background:color-mix(in srgb, #fb7185 12%, transparent)\" title=\"Fortissimo reserves 30% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Fortissimo</span></span></div>",
+    "521eaeb9": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Sostenuto): Lyra hears it at ×2. Everyone else within 16.8 m hears an echo at ×0.75.\" title=\"Beam song (Sostenuto): Lyra hears it at ×2. Everyone else within 16.8 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 py-0.5 text-xs\" style=\"color:#67e8f9;border-color:color-mix(in srgb, #67e8f9 45%, transparent)\" title=\"Reverb\"><svg viewBox=\"0 0 24 24\" width=\"10\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 3l7 9-7 9-7-9z\"></path></svg>Reverb</span></span></div>",
+    "5228dd95": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Allegro): Kael hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" title=\"Beam song (Allegro): Kael hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#f59e0b;border-color:color-mix(in srgb, #f59e0b 55%, transparent);background:color-mix(in srgb, #f59e0b 12%, transparent)\" title=\"Allegro reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Allegro</span></span></div>",
+    "527f9951": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Sostenuto): Kael hears it at ×2. Everyone else within 11.2 m hears an echo at ×0.75.\" title=\"Beam song (Sostenuto): Kael hears it at ×2. Everyone else within 11.2 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 py-0.5 text-xs\" style=\"color:#67e8f9;border-color:color-mix(in srgb, #67e8f9 45%, transparent)\" title=\"Reverb\"><svg viewBox=\"0 0 24 24\" width=\"10\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 3l7 9-7 9-7-9z\"></path></svg>Reverb</span></span></div>",
+    "5d76b737": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Sostenuto): Vexis hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" title=\"Beam song (Sostenuto): Vexis hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 18% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 py-0.5 text-xs\" style=\"color:#f9a8d4;border-color:color-mix(in srgb, #f9a8d4 45%, transparent)\" title=\"Grace Note\"><svg viewBox=\"0 0 24 24\" width=\"10\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 3l7 9-7 9-7-9z\"></path></svg>Grace Note</span></span></div>",
+    "627a9710": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, #93c5fd 45%, transparent)\" role=\"group\" aria-label=\"Field song: everyone within 6.8 m of where you planted it hears it at full strength.\" title=\"Field song: everyone within 6.8 m of where you planted it hears it at full strength.\" data-testid=\"song-field\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:#93c5fd\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12L5 5 M12 12l7-7 M12 12l-7 7 M12 12l7 7 M4 4h3 M4 4v3 M20 4h-3 M20 4v3 M4 20h3 M4 20v-3 M20 20h-3 M20 20v-3\"></path></svg>Field</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium\" style=\"color:#bef264;border-color:color-mix(in srgb, #bef264 55%, transparent)\" title=\"Pedal Point: plant this song&#x27;s field at the cursor (V)\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 21.5s-6-6.2-6-11a6 6 0 0 1 12 0c0 4.8-6 11-6 11z M12 8a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z\"></path></svg>Plant<kbd class=\"inline-flex min-w-6 items-center justify-center rounded-md border px-1.5 py-0.5 font-mono text-xs leading-none border-ink-500 bg-ink-800 text-gold-300 \">V</kbd><span class=\"flex items-center gap-0.5 font-mono text-muted\"><span class=\"relative inline-flex shrink-0 items-center justify-center \" style=\"width:13px;height:13px\"><svg width=\"13\" height=\"13\" class=\"absolute inset-0 -rotate-90\" aria-hidden=\"true\"><circle cx=\"6.5\" cy=\"6.5\" r=\"5.5\" fill=\"none\" stroke=\"rgb(255 255 255 / 0.14)\" stroke-width=\"2\"></circle><circle cx=\"6.5\" cy=\"6.5\" r=\"5.5\" fill=\"none\" stroke=\"#bef264\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-dasharray=\"34.55751918948772\" stroke-dashoffset=\"8.6393797973719\" style=\"transition:stroke-dashoffset 120ms linear\"></circle></svg></span>1.5</span></span></span></div>",
+    "649636b9": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Sostenuto): Lyra hears it at ×2. Everyone else within 10.2 m hears an echo at ×0.75.\" title=\"Beam song (Sostenuto): Lyra hears it at ×2. Everyone else within 10.2 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium\" style=\"color:#bef264;border-color:color-mix(in srgb, #bef264 55%, transparent)\" title=\"Pedal Point: plant this song&#x27;s field at the cursor (V)\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 21.5s-6-6.2-6-11a6 6 0 0 1 12 0c0 4.8-6 11-6 11z M12 8a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z\"></path></svg>Plant<kbd class=\"inline-flex min-w-6 items-center justify-center rounded-md border px-1.5 py-0.5 font-mono text-xs leading-none border-gold-400 bg-gold-400 text-ink-950 \">V</kbd></span></span></div>",
+    "69b2a288": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Lullaby): Lyra hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" title=\"Beam song (Lullaby): Lyra hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#818cf8;border-color:color-mix(in srgb, #818cf8 55%, transparent);background:color-mix(in srgb, #818cf8 12%, transparent)\" title=\"Lullaby reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Lullaby</span></span></div>",
+    "6a05ad84": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Sostenuto): Lyra hears it at ×2. Everyone else within 6.8 m hears an echo at ×0.75.\" title=\"Beam song (Sostenuto): Lyra hears it at ×2. Everyone else within 6.8 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium\" style=\"color:#bef264;border-color:color-mix(in srgb, #bef264 55%, transparent)\" title=\"Pedal Point: plant this song&#x27;s field at the cursor (V)\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 21.5s-6-6.2-6-11a6 6 0 0 1 12 0c0 4.8-6 11-6 11z M12 8a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z\"></path></svg>Plant<kbd class=\"inline-flex min-w-6 items-center justify-center rounded-md border px-1.5 py-0.5 font-mono text-xs leading-none border-ink-500 bg-ink-800 text-gold-300 \">V</kbd><span class=\"flex items-center gap-0.5 font-mono text-muted\"><span class=\"relative inline-flex shrink-0 items-center justify-center \" style=\"width:13px;height:13px\"><svg width=\"13\" height=\"13\" class=\"absolute inset-0 -rotate-90\" aria-hidden=\"true\"><circle cx=\"6.5\" cy=\"6.5\" r=\"5.5\" fill=\"none\" stroke=\"rgb(255 255 255 / 0.14)\" stroke-width=\"2\"></circle><circle cx=\"6.5\" cy=\"6.5\" r=\"5.5\" fill=\"none\" stroke=\"#bef264\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-dasharray=\"34.55751918948772\" stroke-dashoffset=\"8.6393797973719\" style=\"transition:stroke-dashoffset 120ms linear\"></circle></svg></span>1.5</span></span></span></div>",
+    "6a209ca0": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Sostenuto): Vexis hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" title=\"Beam song (Sostenuto): Vexis hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span></span></div>",
+    "6d8f50c3": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, #93c5fd 45%, transparent)\" role=\"group\" aria-label=\"Field song: everyone within 8 m of you hears it at full strength.\" title=\"Field song: everyone within 8 m of you hears it at full strength.\" data-testid=\"song-field\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:#93c5fd\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12L5 5 M12 12l7-7 M12 12l-7 7 M12 12l7 7 M4 4h3 M4 4v3 M20 4h-3 M20 4v3 M4 20h3 M4 20v-3 M20 20h-3 M20 20v-3\"></path></svg>Field</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#7dd3fc;border-color:color-mix(in srgb, #7dd3fc 55%, transparent);background:color-mix(in srgb, #7dd3fc 12%, transparent)\" title=\"Ostinato reserves 30% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Ostinato</span></span></div>",
+    "7220d9e7": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, #93c5fd 45%, transparent)\" role=\"group\" aria-label=\"Field song: everyone within 8 m of you hears it at full strength.\" title=\"Field song: everyone within 8 m of you hears it at full strength.\" data-testid=\"song-field\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:#93c5fd\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12L5 5 M12 12l7-7 M12 12l-7 7 M12 12l7 7 M4 4h3 M4 4v3 M20 4h-3 M20 4v3 M4 20h3 M4 20v-3 M20 20h-3 M20 20v-3\"></path></svg>Field</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 18% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 py-0.5 text-xs\" style=\"color:#f9a8d4;border-color:color-mix(in srgb, #f9a8d4 45%, transparent)\" title=\"Grace Note\"><svg viewBox=\"0 0 24 24\" width=\"10\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 3l7 9-7 9-7-9z\"></path></svg>Grace Note</span></span></div>",
+    "72e1bfb9": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Allegro): Lyra hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" title=\"Beam song (Allegro): Lyra hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#f59e0b;border-color:color-mix(in srgb, #f59e0b 55%, transparent);background:color-mix(in srgb, #f59e0b 12%, transparent)\" title=\"Allegro reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Allegro</span></span></div>",
+    "7753c78a": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Sostenuto): Lyra hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" title=\"Beam song (Sostenuto): Lyra hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span></span></div>",
+    "7866763d": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Fermata): Vexis hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" title=\"Beam song (Fermata): Vexis hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#e2d6f8;border-color:color-mix(in srgb, #e2d6f8 55%, transparent);background:color-mix(in srgb, #e2d6f8 12%, transparent)\" title=\"Fermata reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Fermata</span></span></div>",
+    "79beff65": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Ostinato): Kael hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" title=\"Beam song (Ostinato): Kael hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#7dd3fc;border-color:color-mix(in srgb, #7dd3fc 55%, transparent);background:color-mix(in srgb, #7dd3fc 12%, transparent)\" title=\"Ostinato reserves 30% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Ostinato</span></span></div>",
+    "7e6b3dd9": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, #93c5fd 45%, transparent)\" role=\"group\" aria-label=\"Field song: everyone within 16.8 m of you hears it at full strength.\" title=\"Field song: everyone within 16.8 m of you hears it at full strength.\" data-testid=\"song-field\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:#93c5fd\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12L5 5 M12 12l7-7 M12 12l-7 7 M12 12l7 7 M4 4h3 M4 4v3 M20 4h-3 M20 4v3 M4 20h3 M4 20v-3 M20 20h-3 M20 20v-3\"></path></svg>Field</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 py-0.5 text-xs\" style=\"color:#67e8f9;border-color:color-mix(in srgb, #67e8f9 45%, transparent)\" title=\"Reverb\"><svg viewBox=\"0 0 24 24\" width=\"10\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 3l7 9-7 9-7-9z\"></path></svg>Reverb</span></span></div>",
+    "7f2123ce": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, #93c5fd 45%, transparent)\" role=\"group\" aria-label=\"Field song: everyone within 8 m of you hears it at full strength.\" title=\"Field song: everyone within 8 m of you hears it at full strength.\" data-testid=\"song-field\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:#93c5fd\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12L5 5 M12 12l7-7 M12 12l-7 7 M12 12l7 7 M4 4h3 M4 4v3 M20 4h-3 M20 4v3 M4 20h3 M4 20v-3 M20 20h-3 M20 20v-3\"></path></svg>Field</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#818cf8;border-color:color-mix(in srgb, #818cf8 55%, transparent);background:color-mix(in srgb, #818cf8 12%, transparent)\" title=\"Lullaby reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Lullaby</span></span></div>",
+    "80debbff": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Sostenuto): Lyra hears it at ×2. Everyone else within 6.8 m hears an echo at ×0.75.\" title=\"Beam song (Sostenuto): Lyra hears it at ×2. Everyone else within 6.8 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium\" style=\"color:#bef264;border-color:color-mix(in srgb, #bef264 55%, transparent)\" title=\"Pedal Point: plant this song&#x27;s field at the cursor (V)\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 21.5s-6-6.2-6-11a6 6 0 0 1 12 0c0 4.8-6 11-6 11z M12 8a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z\"></path></svg>Plant<kbd class=\"inline-flex min-w-6 items-center justify-center rounded-md border px-1.5 py-0.5 font-mono text-xs leading-none border-gold-400 bg-gold-400 text-ink-950 \">V</kbd></span></span></div>",
+    "834d712f": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Sostenuto): Vexis hears it at ×2. Everyone else within 16.8 m hears an echo at ×0.75.\" title=\"Beam song (Sostenuto): Vexis hears it at ×2. Everyone else within 16.8 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 py-0.5 text-xs\" style=\"color:#67e8f9;border-color:color-mix(in srgb, #67e8f9 45%, transparent)\" title=\"Reverb\"><svg viewBox=\"0 0 24 24\" width=\"10\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 3l7 9-7 9-7-9z\"></path></svg>Reverb</span></span></div>",
+    "8fc11112": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Lullaby): Kael hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" title=\"Beam song (Lullaby): Kael hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#818cf8;border-color:color-mix(in srgb, #818cf8 55%, transparent);background:color-mix(in srgb, #818cf8 12%, transparent)\" title=\"Lullaby reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Lullaby</span></span></div>",
+    "95c2d61d": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, #93c5fd 45%, transparent)\" role=\"group\" aria-label=\"Field song: everyone within 12 m of you hears it at full strength.\" title=\"Field song: everyone within 12 m of you hears it at full strength.\" data-testid=\"song-field\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:#93c5fd\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12L5 5 M12 12l7-7 M12 12l-7 7 M12 12l7 7 M4 4h3 M4 4v3 M20 4h-3 M20 4v3 M4 20h3 M4 20v-3 M20 20h-3 M20 20v-3\"></path></svg>Field</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 18% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 py-0.5 text-xs\" style=\"color:#f9a8d4;border-color:color-mix(in srgb, #f9a8d4 45%, transparent)\" title=\"Grace Note\"><svg viewBox=\"0 0 24 24\" width=\"10\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 3l7 9-7 9-7-9z\"></path></svg>Grace Note</span></span></div>",
+    "965dbc73": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Fermata): Kael hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" title=\"Beam song (Fermata): Kael hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#e2d6f8;border-color:color-mix(in srgb, #e2d6f8 55%, transparent);background:color-mix(in srgb, #e2d6f8 12%, transparent)\" title=\"Fermata reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Fermata</span></span></div>",
+    "969b862d": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Fermata): Lyra hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" title=\"Beam song (Fermata): Lyra hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#e2d6f8;border-color:color-mix(in srgb, #e2d6f8 55%, transparent);background:color-mix(in srgb, #e2d6f8 12%, transparent)\" title=\"Fermata reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Fermata</span></span></div>",
+    "9f0de053": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Fortissimo): Kael hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" title=\"Beam song (Fortissimo): Kael hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#fb7185;border-color:color-mix(in srgb, #fb7185 55%, transparent);background:color-mix(in srgb, #fb7185 12%, transparent)\" title=\"Fortissimo reserves 30% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Fortissimo</span></span></div>",
+    "a33e4ab1": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Sostenuto): Lyra hears it at ×2. Everyone else within 11.2 m hears an echo at ×0.75.\" title=\"Beam song (Sostenuto): Lyra hears it at ×2. Everyone else within 11.2 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 py-0.5 text-xs\" style=\"color:#67e8f9;border-color:color-mix(in srgb, #67e8f9 45%, transparent)\" title=\"Reverb\"><svg viewBox=\"0 0 24 24\" width=\"10\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 3l7 9-7 9-7-9z\"></path></svg>Reverb</span></span></div>",
+    "a5ffd479": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Sostenuto): Kael hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" title=\"Beam song (Sostenuto): Kael hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 18% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 py-0.5 text-xs\" style=\"color:#f9a8d4;border-color:color-mix(in srgb, #f9a8d4 45%, transparent)\" title=\"Grace Note\"><svg viewBox=\"0 0 24 24\" width=\"10\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 3l7 9-7 9-7-9z\"></path></svg>Grace Note</span></span></div>",
+    "a640c4ce": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Sostenuto): Kael hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" title=\"Beam song (Sostenuto): Kael hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span></span></div>",
+    "a7da2b8b": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Fermata): Lyra hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" title=\"Beam song (Fermata): Lyra hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#e2d6f8;border-color:color-mix(in srgb, #e2d6f8 55%, transparent);background:color-mix(in srgb, #e2d6f8 12%, transparent)\" title=\"Fermata reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Fermata</span></span></div>",
+    "adb8041b": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, #93c5fd 45%, transparent)\" role=\"group\" aria-label=\"Field song: everyone within 10.2 m of where you planted it hears it at full strength.\" title=\"Field song: everyone within 10.2 m of where you planted it hears it at full strength.\" data-testid=\"song-field\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:#93c5fd\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12L5 5 M12 12l7-7 M12 12l-7 7 M12 12l7 7 M4 4h3 M4 4v3 M20 4h-3 M20 4v3 M4 20h3 M4 20v-3 M20 20h-3 M20 20v-3\"></path></svg>Field</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium\" style=\"color:#bef264;border-color:color-mix(in srgb, #bef264 55%, transparent)\" title=\"Pedal Point: plant this song&#x27;s field at the cursor (V)\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 21.5s-6-6.2-6-11a6 6 0 0 1 12 0c0 4.8-6 11-6 11z M12 8a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z\"></path></svg>Plant<kbd class=\"inline-flex min-w-6 items-center justify-center rounded-md border px-1.5 py-0.5 font-mono text-xs leading-none border-gold-400 bg-gold-400 text-ink-950 \">V</kbd></span></span></div>",
+    "ae06d8f0": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, #93c5fd 45%, transparent)\" role=\"group\" aria-label=\"Field song: everyone within 8 m of you hears it at full strength.\" title=\"Field song: everyone within 8 m of you hears it at full strength.\" data-testid=\"song-field\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:#93c5fd\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12L5 5 M12 12l7-7 M12 12l-7 7 M12 12l7 7 M4 4h3 M4 4v3 M20 4h-3 M20 4v3 M4 20h3 M4 20v-3 M20 20h-3 M20 20v-3\"></path></svg>Field</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span></span></div>",
+    "cc6eb7c9": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Sostenuto): Kael hears it at ×2. Everyone else within 6.8 m hears an echo at ×0.75.\" title=\"Beam song (Sostenuto): Kael hears it at ×2. Everyone else within 6.8 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium\" style=\"color:#bef264;border-color:color-mix(in srgb, #bef264 55%, transparent)\" title=\"Pedal Point: plant this song&#x27;s field at the cursor (V)\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 21.5s-6-6.2-6-11a6 6 0 0 1 12 0c0 4.8-6 11-6 11z M12 8a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z\"></path></svg>Plant<kbd class=\"inline-flex min-w-6 items-center justify-center rounded-md border px-1.5 py-0.5 font-mono text-xs leading-none border-gold-400 bg-gold-400 text-ink-950 \">V</kbd></span></span></div>",
+    "cd2b283a": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, #93c5fd 45%, transparent)\" role=\"group\" aria-label=\"Field song: everyone within 12 m of you hears it at full strength.\" title=\"Field song: everyone within 12 m of you hears it at full strength.\" data-testid=\"song-field\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:#93c5fd\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12L5 5 M12 12l7-7 M12 12l-7 7 M12 12l7 7 M4 4h3 M4 4v3 M20 4h-3 M20 4v3 M4 20h3 M4 20v-3 M20 20h-3 M20 20v-3\"></path></svg>Field</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span></span></div>",
+    "cd708ee9": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Ostinato): Vexis hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" title=\"Beam song (Ostinato): Vexis hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#7dd3fc;border-color:color-mix(in srgb, #7dd3fc 55%, transparent);background:color-mix(in srgb, #7dd3fc 12%, transparent)\" title=\"Ostinato reserves 30% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Ostinato</span></span></div>",
+    "ce13a618": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Lullaby): Lyra hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" title=\"Beam song (Lullaby): Lyra hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#818cf8;border-color:color-mix(in srgb, #818cf8 55%, transparent);background:color-mix(in srgb, #818cf8 12%, transparent)\" title=\"Lullaby reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Lullaby</span></span></div>",
+    "cf34cf0d": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Sostenuto): Lyra hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" title=\"Beam song (Sostenuto): Lyra hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 18% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 py-0.5 text-xs\" style=\"color:#f9a8d4;border-color:color-mix(in srgb, #f9a8d4 45%, transparent)\" title=\"Grace Note\"><svg viewBox=\"0 0 24 24\" width=\"10\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 3l7 9-7 9-7-9z\"></path></svg>Grace Note</span></span></div>",
+    "d079798f": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, #93c5fd 45%, transparent)\" role=\"group\" aria-label=\"Field song: everyone within 12 m of you hears it at full strength.\" title=\"Field song: everyone within 12 m of you hears it at full strength.\" data-testid=\"song-field\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:#93c5fd\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12L5 5 M12 12l7-7 M12 12l-7 7 M12 12l7 7 M4 4h3 M4 4v3 M20 4h-3 M20 4v3 M4 20h3 M4 20v-3 M20 20h-3 M20 20v-3\"></path></svg>Field</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#e2d6f8;border-color:color-mix(in srgb, #e2d6f8 55%, transparent);background:color-mix(in srgb, #e2d6f8 12%, transparent)\" title=\"Fermata reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Fermata</span></span></div>",
+    "d17a24f3": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Allegro): Lyra hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" title=\"Beam song (Allegro): Lyra hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#f59e0b;border-color:color-mix(in srgb, #f59e0b 55%, transparent);background:color-mix(in srgb, #f59e0b 12%, transparent)\" title=\"Allegro reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Allegro</span></span></div>",
+    "e4ab4fdc": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Sostenuto): Vexis hears it at ×2.5. Nobody else hears an echo.\" title=\"Beam song (Sostenuto): Vexis hears it at ×2.5. Nobody else hears an echo.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2.5</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 py-0.5 text-xs\" style=\"color:#fcd34d;border-color:color-mix(in srgb, #fcd34d 45%, transparent)\" title=\"Unison\"><svg viewBox=\"0 0 24 24\" width=\"10\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 3l7 9-7 9-7-9z\"></path></svg>Unison</span></span></div>",
+    "e6b597b8": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Lullaby): Vexis hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" title=\"Beam song (Lullaby): Vexis hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#818cf8;border-color:color-mix(in srgb, #818cf8 55%, transparent);background:color-mix(in srgb, #818cf8 12%, transparent)\" title=\"Lullaby reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Lullaby</span></span></div>",
+    "e8163370": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Sostenuto): Lyra hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" title=\"Beam song (Sostenuto): Lyra hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span></span></div>",
+    "f1fd5355": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Fortissimo): Lyra hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" title=\"Beam song (Fortissimo): Lyra hears it at ×2. Everyone else within 12 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#fb7185;border-color:color-mix(in srgb, #fb7185 55%, transparent);background:color-mix(in srgb, #fb7185 12%, transparent)\" title=\"Fortissimo reserves 30% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Fortissimo</span></span></div>",
+    "f4c4da81": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Ostinato): Lyra hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" title=\"Beam song (Ostinato): Lyra hears it at ×2. Everyone else within 8 m hears an echo at ×0.75.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#7dd3fc;border-color:color-mix(in srgb, #7dd3fc 55%, transparent);background:color-mix(in srgb, #7dd3fc 12%, transparent)\" title=\"Ostinato reserves 30% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Ostinato</span></span></div>",
+    "f54698df": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, #93c5fd 45%, transparent)\" role=\"group\" aria-label=\"Field song: everyone within 12 m of you hears it at full strength.\" title=\"Field song: everyone within 12 m of you hears it at full strength.\" data-testid=\"song-field\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:#93c5fd\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12L5 5 M12 12l7-7 M12 12l-7 7 M12 12l7 7 M4 4h3 M4 4v3 M20 4h-3 M20 4v3 M4 20h3 M4 20v-3 M20 20h-3 M20 20v-3\"></path></svg>Field</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#fb7185;border-color:color-mix(in srgb, #fb7185 55%, transparent);background:color-mix(in srgb, #fb7185 12%, transparent)\" title=\"Fortissimo reserves 30% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Fortissimo</span></span></div>",
+    "f84c3f97": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, #93c5fd 45%, transparent)\" role=\"group\" aria-label=\"Field song: everyone within 8 m of you hears it at full strength.\" title=\"Field song: everyone within 8 m of you hears it at full strength.\" data-testid=\"song-field\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:#93c5fd\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12L5 5 M12 12l7-7 M12 12l-7 7 M12 12l7 7 M4 4h3 M4 4v3 M20 4h-3 M20 4v3 M4 20h3 M4 20v-3 M20 20h-3 M20 20v-3\"></path></svg>Field</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#f59e0b;border-color:color-mix(in srgb, #f59e0b 55%, transparent);background:color-mix(in srgb, #f59e0b 12%, transparent)\" title=\"Allegro reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Allegro</span></span></div>",
+    "f95dce46": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Sostenuto): Kael hears it at ×2.5. Nobody else hears an echo.\" title=\"Beam song (Sostenuto): Kael hears it at ×2.5. Nobody else hears an echo.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2.5</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 py-0.5 text-xs\" style=\"color:#fcd34d;border-color:color-mix(in srgb, #fcd34d 45%, transparent)\" title=\"Unison\"><svg viewBox=\"0 0 24 24\" width=\"10\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 3l7 9-7 9-7-9z\"></path></svg>Unison</span></span></div>",
+    "fde706d4": "<div class=\"flex min-w-0 flex-wrap items-center justify-end gap-1.5\" data-testid=\"chords\"><span class=\"flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1\" style=\"border-color:color-mix(in srgb, var(--color-gold-300) 45%, transparent)\" role=\"group\" aria-label=\"Beam song (Sostenuto): Lyra hears it at ×2.5. Nobody else hears an echo.\" title=\"Beam song (Sostenuto): Lyra hears it at ×2.5. Nobody else hears an echo.\" data-testid=\"song-beam\"><span class=\"flex items-center gap-0.5 font-mono text-xs font-bold\" style=\"color:var(--color-gold-300)\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8\"></path></svg>×2.5</span><span class=\"flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium \" style=\"color:#34d399;border-color:color-mix(in srgb, #34d399 55%, transparent);background:color-mix(in srgb, #34d399 12%, transparent)\" title=\"Sostenuto reserves 25% of your Spirit\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z\"></path></svg>Sostenuto</span><span class=\"flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 py-0.5 text-xs\" style=\"color:#fcd34d;border-color:color-mix(in srgb, #fcd34d 45%, transparent)\" title=\"Unison\"><svg viewBox=\"0 0 24 24\" width=\"10\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 3l7 9-7 9-7-9z\"></path></svg>Unison</span></span></div>"
+  }
+}
