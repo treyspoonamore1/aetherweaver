@@ -352,12 +352,7 @@ test('Phase 7: a whole Finale-route Expedition, node by node, through the real a
         await page.getByTestId('scene-continue').click();
         await leaves(page, 'scene');
       } else if (at === 'merchant') {
-        const healing = page.getByRole('button', { name: /^Healing:/ });
-        if (
-          (await healing.count()) > 0 &&
-          (await healing.first().getAttribute('aria-disabled')) !== 'true'
-        )
-          await healing.first().click();
+        await shop(page);
         await page.getByRole('button', { name: /Leave the merchant/ }).click();
         await leaves(page, 'merchant');
       } else if (at === 'forge') {
@@ -426,6 +421,38 @@ test('Phase 7: a whole Finale-route Expedition, node by node, through the real a
   expect(found.failedRequests).toEqual([]);
   expect(sound, 'the audio engine ran with sound on').toBe(true);
 });
+
+/**
+ * The merchant's cloth, as the harness's Skilled run spends it: a relic first, then a motif,
+ * then the healing; whatever the purse allows (an item that cannot be bought is disabled).
+ */
+async function shop(page: Page): Promise<void> {
+  const cloth = page.getByRole('region', { name: 'Motifs and healing for sale' });
+  const groups = [
+    page.getByRole('region', { name: 'Relics for sale' }).getByRole('button'),
+    cloth.getByRole('button').filter({ hasNotText: 'A draught of light' }),
+    page.getByRole('button', { name: /^Healing:/ }),
+  ];
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const purse = await page.evaluate(() => window.__AWRUN__!.aether());
+    let clicked = false;
+    for (const group of groups) {
+      for (const button of await group.all()) {
+        const off =
+          (await button.isDisabled()) || (await button.getAttribute('aria-disabled')) === 'true';
+        if (off) continue;
+        await button.click();
+        clicked = true;
+        break;
+      }
+      if (clicked) break;
+    }
+    if (!clicked) return;
+    await page.waitForTimeout(400);
+    // Nothing was spent: the item was not for sale after all.
+    if ((await page.evaluate(() => window.__AWRUN__!.aether())) === purse) return;
+  }
+}
 
 /** An event: the first choice that can be taken (a motif step first, if it asks), then its outcome. */
 async function runEvent(page: Page): Promise<void> {
