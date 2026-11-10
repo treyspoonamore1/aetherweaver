@@ -40,6 +40,7 @@ import {
   type NoteSource,
   type Status,
   type WorldState,
+  TYRANT_TABLE,
 } from '../../sim';
 import { addShield, dealDamage } from '../../sim/combat/health';
 import { newHealth } from '../../sim/world';
@@ -2871,15 +2872,13 @@ interface Phase6Scenario {
   stage(rt: LabRuntime): void;
 }
 
-/** Each boss's phase 1 borrowed attack (docs/phase-6.md's Tyrant table): boss, foe, attack. */
-const TYRANT_LAB: readonly (readonly [string, string, string])[] = [
-  ['the_bellwarden', 'glass_lancer', 'lancer_lance'],
-  ['the_hollow_cantor', 'bell_brute', 'brute_toll_cleave'],
-  ['gorehound_matriarch', 'impaler', 'impaler_charge'],
-  ['vharun_crimson_warden', 'leech', 'leech_latch'],
-  ['the_seamstress', 'shears', 'shears_dash'],
-  ['the_unweaver', 'null_priest', 'null_rune'],
-];
+/**
+ * Each Movement I-III boss's phase 1 borrowed attack, from the sim's own Tyrant table
+ * (`TYRANT_TABLE`, with W1's swaps): boss, foe, attack.
+ */
+const TYRANT_LAB: readonly (readonly [string, string, string])[] = Object.entries(TYRANT_TABLE)
+  .filter(([boss]) => boss !== CONDUCTOR)
+  .map(([boss, rows]) => [boss, rows[0]?.from ?? '', rows[0]?.attack ?? ''] as const);
 
 const PHASE6_SCENARIOS: Record<string, Phase6Scenario> = {
   'Tyrant · the edict': {
@@ -2904,7 +2903,7 @@ const PHASE6_SCENARIOS: Record<string, Phase6Scenario> = {
     },
   },
   'Tyrant · every boss’s band': {
-    note: 'Each boss and mini-boss of Movements I-III wearing its phase 1 borrowed foe’s accent (the Lancer’s, the Brute’s, the Impaler’s, the Leech’s, the Shears’, the Null Priest’s)',
+    note: 'Each boss and mini-boss of Movements I-III wearing its phase 1 borrowed foe’s accent (the Lancer’s, the Brute’s, the Impaler’s, the Hemomancer’s, the Shears’, the Null Priest’s)',
     stage: (rt) => {
       rt.later(0.1, () =>
         TYRANT_LAB.forEach(([boss], i) => rt.spawn(boss, (i - 2.5) * 4.5, -9 - (i % 2) * 3)),
