@@ -42,7 +42,7 @@ interface Mutable {
       enemy?: unknown;
       health?: { hp: number; maxHp: number; dead?: boolean };
     }[];
-    get(id: EntityId): { x: number; z: number } | undefined;
+    get(id: EntityId): { x: number; z: number; health?: { hp: number; maxHp: number } } | undefined;
   };
   party: EntityId[];
   weaverId: EntityId;
@@ -131,6 +131,26 @@ export const FILL_SCENARIOS: Record<string, FillScenario> = {
         });
     },
   },
+  'Real triggers on a Perfect Ward': {
+    motifs: [
+      { id: 'tender_guard', level: 3 },
+      { id: 'sister_ward', level: 3 },
+      { id: 'clean_strike', level: 3 },
+    ],
+    shows: ['heal', 'barrier', 'spirit'],
+    seconds: 4,
+    note: 'Real triggers in the real field: a Perfect Ward on Kael fires Tender Guard (heal), Clean Strike (Spirit) and Sister Ward (a barrier on the hero nearest)',
+    stage: (rt) => {
+      rt.later(0.3, () => rt.queue(debug({ op: 'drill', slot: KAEL, windup: 1.2 })));
+      // The drill heals Kael first; Tender Guard's heal counts only on a hero it can heal.
+      rt.later(0.6, () => {
+        const w = world(rt);
+        const h = w.entities.get(w.party[KAEL]!)?.health;
+        if (h) h.hp = h.maxHp * 0.6;
+      });
+      perfectEach(rt, 1);
+    },
+  },
   'Razor Silk': {
     motifs: [{ id: 'razor_silk', level: 3 }],
     shows: ['contacts', 'bites'],
@@ -191,15 +211,25 @@ export const FILL_SCENARIOS: Record<string, FillScenario> = {
   'Spare Strings': {
     relics: ['spare_strings'],
     shows: ['spares'],
-    seconds: 2,
-    note: 'Thread Kael, then step far out of the Thread’s reach: it snaps at range and Spare Strings catches it (once a fight)',
+    seconds: 4,
+    note: 'Thread Kael, Hold the party, and walk away until the Thread snaps at range: Spare Strings catches it (once a fight). Walked, not teleported: a teleport drags the Weaver’s own ribbons across the arena',
     stage: (rt) => {
       rt.later(0.1, () => rt.queue({ t: 'thread', slot: KAEL }));
-      rt.later(0.5, () => {
-        const w = world(rt);
-        const kael = w.entities.get(w.party[KAEL]!);
-        if (kael) rt.queue(debug({ op: 'teleportWeaver', x: kael.x - 16, z: kael.z + 9 }));
-      });
+      rt.later(0.2, () => rt.queue({ t: 'directive', kind: 'hold' }));
+      rt.later(0.5, () => rt.queue({ t: 'move', x: -0.86, z: 0.5 }));
+      // She stops once the relic has acted (its flag), or after 3.5 s whatever happens.
+      let stopped = false;
+      const stop = () => {
+        if (stopped) return;
+        stopped = true;
+        rt.queue({ t: 'move', x: 0, z: 0 });
+      };
+      for (let k = 0; k < 30; k++)
+        rt.later(0.6 + 0.1 * k, () => {
+          const w = rt.sim.state;
+          if (w.entities.get(w.weaverId)?.weaver?.spareUsed) stop();
+        });
+      rt.later(4, stop);
     },
   },
   'Water Clock': {

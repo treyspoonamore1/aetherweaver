@@ -7,6 +7,7 @@
  * lab's fill scenarios played in Node. Every check drives a real headless sim and feeds its state
  * and events to the real views over a real FxKit.
  */
+import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { CONTENT } from '../src/content';
@@ -22,6 +23,7 @@ import {
   RINGING_FADE,
   RelicFlips,
   SPARE_FLIPPED,
+  TRIGGER_EFFECT_KINDS,
   TRIGGER_KINDS,
   razorBit,
   ringStruck,
@@ -685,5 +687,76 @@ describe('the VFX lab’s fill scenarios, played in Node', () => {
       }
       for (const k of sc.shows) expect(drawn.has(k), `${name}: ${k}`).toBe(true);
     }
+  });
+});
+
+// ── No fill cue borrows an aura's shape ─────────────────────────────────────────────────────
+
+describe('no fill cue draws a ring on the ground (an aura’s shape)', () => {
+  /** One cue of every kind (on the heroes and an enemy in turn), and a Needle on each hero. */
+  const allCues = (s: ReturnType<typeof stage>, enemy: number): SimEvent[] => {
+    const tick = s.w.tick;
+    const kinds = [...TRIGGER_EFFECT_KINDS, 'generic' as const];
+    const targets = [...s.w.party, enemy];
+    return [
+      ...kinds.map(
+        (kind, i) =>
+          ({
+            type: 'motifTriggered',
+            tick,
+            source:
+              Object.keys(TRIGGER_KINDS).find((id) => TRIGGER_KINDS[id] === kind) ??
+              'unnamed_source',
+            target: targets[i % targets.length],
+          }) as SimEvent,
+      ),
+      ...s.w.party.map(
+        (hero) => ({ type: 'needled', tick, hero, telegraph: 1, negated: 40 }) as SimEvent,
+      ),
+    ];
+  };
+
+  it('every kind of cue, the Needle, a Razor bite, the Ringing and the relic moments: not one ring', () => {
+    const s = stage(held('razor_silk'), { relics: ['spare_strings', 'water_clock'] });
+    s.h.tick([{ t: 'thread', slot: 0 }]);
+    const kael = s.hero(0);
+    const on = foe(s.w, 'hollow_chorister', (s.weaver.x + kael.x) / 2, (s.weaver.z + kael.z) / 2, {
+      hp: 1e7,
+      stun: true,
+    });
+    const hold = () => {
+      place(on, (s.weaver.x + kael.x) / 2, (s.weaver.z + kael.z) / 2);
+      on.health!.hp = on.health!.maxHp;
+    };
+    s.w.field.ringing = s.w.time + 3;
+    const seen = new Set<string>();
+    for (let i = 0; i < 120; i++) {
+      if (i === 20) {
+        s.weaver.weaver!.spareUsed = true;
+        s.w.internal.waterClockUsed = true;
+      }
+      const f = s.h.tick([], 1, hold, i % 30 === 0 ? allCues(s, on.id) : []);
+      expect(f.mine.rings, `frame ${i}`).toBe(0);
+      for (const [k, n] of Object.entries(f.drawn)) if (n > 0) seen.add(k);
+    }
+    // It did draw them all (so the check above is not vacuous).
+    for (const k of [
+      ...TRIGGER_EFFECT_KINDS,
+      'generic',
+      'needles',
+      'bites',
+      'ringing',
+      'spares',
+      'clocks',
+    ])
+      expect(seen, k).toContain(k);
+  });
+
+  it('the source has no ring left in it, and each kind still has a look of its own', () => {
+    const src = readFileSync(new URL('../src/render/fill.ts', import.meta.url), 'utf8');
+    expect(src).not.toMatch(/rings\.push|RING\./);
+    const looks = Object.values(CUE_LOOK).map((l) => `${l.colour}|${l.shape}|${l.at}`);
+    expect(new Set(looks).size).toBe(looks.length);
+    for (const l of Object.values(CUE_LOOK)) expect(l.shape).not.toMatch(/\bring\b/);
   });
 });
