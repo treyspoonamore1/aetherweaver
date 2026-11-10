@@ -21,6 +21,11 @@ import type { CombatOutcome, MapNode, RunState } from '../../src/meta/types';
 import { canonicalChords } from '../../src/sim';
 import { createSim } from '../../src/sim/api';
 import { ReplayRecorder, parseReplay } from '../../src/sim/replay';
+import { makeBot } from '../../src/bots';
+import { buildOutcome } from '../../src/meta/outcome';
+import { verifyRunReplay } from '../../src/meta/runReplay';
+import { recordingNow } from '../../src/app/runRecorder';
+import { recordBotRun } from '../../tools/run-verify';
 import { emptyLedger } from '../../src/sim/world';
 
 function memoryStore(): KeyValueStore {
@@ -835,7 +840,7 @@ describe('the weekly start (decision 6)', () => {
 
   it('whatever the profile: the same start and embark for a new and a veteran profile', () => {
     const play = () => {
-      useRun.getState().newWeeklyRun(START);
+      useRun.getState().newWeeklyRun(START.week, ENTRY);
       useRun.getState().setChords(LOCKED);
       useRun.getState().setRunTechniques({ ward: CONTENT.techniqueVariants[0]!.id });
       useRun.getState().embark();
@@ -848,7 +853,11 @@ describe('the weekly start (decision 6)', () => {
     veteran([L('brisk_foes')]);
     useProfile.getState().takeNode('silk_t1');
     const old = play();
-    expect(JSON.stringify(old)).toBe(JSON.stringify(fresh));
+    // The same run, but for the key of its log (the app's, from the clock).
+    expect(fresh.logId).toBeDefined();
+    const { logId: _a, ...oldRun } = old;
+    const { logId: _b, ...freshRun } = fresh;
+    expect(JSON.stringify(oldRun)).toBe(JSON.stringify(freshRun));
     // Its Dissonance counts for rewards, though the profile's Dissonance was closed.
     expect(dissonancePoints(fresh.dissonance)).toBe(10);
   });
@@ -887,7 +896,7 @@ describe('the weekly start (decision 6)', () => {
   });
 
   it('through the stores: no best, no Finale record; it counts for run-wide Deeds', () => {
-    useRun.getState().newWeeklyRun({ ...START, entry: { ...ENTRY, dissonance: [] } });
+    useRun.getState().newWeeklyRun(START.week, { ...ENTRY, dissonance: [] });
     const end = playStore();
     expect(end.outcome).toBe('victory');
     const p = useProfile.getState().profile;
@@ -922,3 +931,138 @@ describe('the Finale-clear record (decisions 10 and 12)', () => {
     expect(useProfile.getState().profile.dissonance.finale).toStrictEqual({ martyr: 4 });
   });
 });
+
+describe('run replays of Echoes and weeklies (docs/phase-6.md, "Run replays")', () => {
+  /** Plays the store's run to its Summary with the Skilled bot in every fight (real sim). */
+  function playStoreWithSim(): RunState {
+    const store = () => useRun.getState();
+    if (store().run!.phase === 'prep') store().embark();
+    for (let i = 0; i < 600 && store().run!.phase !== 'summary'; i++) {
+      const run = store().run!;
+      if (run.phase !== 'combat') {
+        // Every other phase as `playStore` takes it, one step.
+        const before = store().run;
+        playOneStore(run);
+        if (store().run === before) throw new Error(`stuck in ${run.phase}`);
+        continue;
+      }
+      const config = store().combatConfig()!;
+      const sim = createSim(config);
+      const recorder = new ReplayRecorder(sim.config);
+      const bot = makeBot('skilled', config.seed);
+      for (let t = 0; t < 20 * 60 * 60; t++) {
+        recorder.record(sim.tick, sim.step(bot.decide(sim.state)));
+        const status = sim.state.encounter.status;
+        if (status === 'victory' || status === 'defeat') break;
+      }
+      const replay = recorder.export(sim.tick, sim.hash());
+      store().finishFight(
+        buildOutcome(
+          sim.state,
+          sim.config.party.map((p) => p.heroId),
+        ),
+        replay,
+      );
+    }
+    expect(store().run!.phase).toBe('summary');
+    return store().run!;
+  }
+
+  it('an Echo-route weekly, played through the store, records and verifies in Node', async () => {
+    const rotation = CONTENT.weekly as WeeklyEntry[];
+    const kept = rotation[0]!;
+    // Week 48 is the rotation's first slot: for this test, an Echo route.
+    rotation[0] = {
+      route: 'choir_of_blood',
+      calling: 'luminary',
+      party: ['kael', 'lyra', 'brann'],
+      dissonance: [L('brisk_foes')],
+    };
+    try {
+      useRun.getState().newWeeklyRun(48);
+      const prep = useRun.getState().run!;
+      expect(prep.echo).toBe('choir_of_blood');
+      expect(prep.weekly).toStrictEqual({ week: 48 });
+      const end = playStoreWithSim();
+      expect(end.logId).toBeDefined();
+      const replay = useRun.getState().replay!;
+      expect(replay.kind).toBe('weekly');
+      expect(replay.week).toBe(48);
+      expect('logId' in replay.start).toBe(false);
+      const verified = verifyRunReplay(JSON.parse(JSON.stringify(replay)));
+      expect(verified.status, verified.message).toBe('verified');
+      // Its own entry: the code, Claimed, then Verified once re-verified.
+      const entry = useProfile.getState().profile.weekly![0]!.entries[0]!;
+      expect(entry.mine).toBe(true);
+      expect(entry.status).toBe('claimed');
+      expect(verifyRunReplay(replay, entry.code).status).toBe('verified');
+      const again = await useRun.getState().weeklyCheck!;
+      expect(again.status).toBe('verified');
+      expect(useProfile.getState().profile.weekly![0]!.entries[0]!.status).toBe('verified');
+    } finally {
+      rotation[0] = kept;
+    }
+  }, 240_000);
+
+  it('an Echo run’s replay verifies (Retrograde: three legs, each its scale)', () => {
+    const start = Run.embark(Run.newEchoRun(17, 'retrograde'));
+    const { replay } = recordBotRun(start);
+    expect(replay.kind).toBe('echo');
+    const result = verifyRunReplay(JSON.parse(JSON.stringify(replay)));
+    expect(result.status, result.message).toBe('verified');
+  }, 240_000);
+
+  it('a Prelude or an Expedition records nothing and leaves no trace in its save', () => {
+    const mem = memoryStore();
+    for (const mode of ['prelude', 'expedition'] as const) {
+      veteran();
+      useRun.getState().newRun(5, mode);
+      useRun.getState().embark();
+      useRun.getState().chooseNode(Run.reachable(useRun.getState().run!)[0]!.id);
+      const run = useRun.getState().run!;
+      expect(recordingNow()).toBeNull();
+      expect('logId' in run || 'echo' in run || 'weekly' in run).toBe(false);
+      saveRun(mem, run);
+      expect('logId' in loadRun(mem)!).toBe(false);
+      useRun.getState().finishCombat(outcome(run));
+      expect(recordingNow()).toBeNull();
+      expect(useRun.getState().replay).toBeNull();
+      useRun.getState().closeRun();
+    }
+  });
+});
+
+/** One store step from any phase but combat (first option everywhere). */
+function playOneStore(run: RunState): void {
+  const store = useRun.getState();
+  switch (run.phase) {
+    case 'map':
+      return store.chooseNode(Run.reachable(run)[0]!.id);
+    case 'result':
+      return store.continueFromResult();
+    case 'calling':
+      return store.pickCalling(0);
+    case 'relic':
+      return store.pickRelic((run.relicOffer?.options.length ?? 0) > 0 ? 0 : null);
+    case 'draft':
+      return store.pickDraft((run.draft?.options.length ?? 0) > 0 ? 0 : null);
+    case 'respite':
+      return store.respite('rest');
+    case 'merchant':
+      return store.leaveShop();
+    case 'forge':
+      return store.leaveForge();
+    case 'event': {
+      if (run.event!.choice !== null) return store.leaveEvent();
+      const ch = step(run).event!.choice!;
+      return store.chooseEvent(ch, {
+        ...(run.motifs[0] ? { motifId: run.motifs[0].id } : {}),
+        chords: run.chords,
+      });
+    }
+    case 'scene':
+      return store.endScene(0);
+    default:
+      throw new Error(run.phase);
+  }
+}
