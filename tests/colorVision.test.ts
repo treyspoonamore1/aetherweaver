@@ -786,3 +786,45 @@ describe('the Conductor (docs/phase-5f.md, UI: Look)', () => {
     });
   }
 });
+
+describe('Phase 6: the Atlas and the weekly board (docs/phase-6.md)', () => {
+  /** Lazily, so the content-reading modules load after this file's own imports. */
+  const looks = async () => {
+    const { STATUS_LOOK } = await import('../src/ui/screens/atlasModel');
+    const { ATLAS_LOOK, threadColors } = await import('../src/ui/kit/loomLook');
+    return { STATUS_LOOK, ATLAS_LOOK, threadColors };
+  };
+
+  for (const vision of COLOR_VISIONS) {
+    it(`keeps the four statuses ≥ 20 ΔE apart (each also has its own glyph and word) with ${vision}`, async () => {
+      const { STATUS_LOOK } = await looks();
+      const see = (hex: string) => simulateVision(hex, vision);
+      const all = Object.values(STATUS_LOOK);
+      expect(new Set(all.map((s) => s.icon)).size).toBe(all.length);
+      for (let i = 0; i < all.length; i++)
+        for (let j = i + 1; j < all.length; j++)
+          expect(
+            deltaE(see(all[i]!.color), see(all[j]!.color)),
+            `${all[i]!.status} vs ${all[j]!.status}`,
+          ).toBeGreaterThanOrEqual(20);
+    });
+
+    it(`keeps a lit star ≥ 20 ΔE from an unlit one (filled vs outlined as well) with ${vision}`, async () => {
+      const { ATLAS_LOOK } = await looks();
+      const see = (hex: string) => simulateVision(hex, vision);
+      expect(deltaE(see(ATLAS_LOOK.star), see(ATLAS_LOOK.unlit))).toBeGreaterThanOrEqual(20);
+      expect(deltaE(see(ATLAS_LOOK.line), see(ATLAS_LOOK.dim))).toBeGreaterThanOrEqual(20);
+    });
+
+    it(`fits the Atlas's earned Thread looks ≥ 20 ΔE from Mend and Empower with ${vision}`, async () => {
+      const { threadColors } = await looks();
+      const p = VISION_PALETTES[vision];
+      const see = (hex: string) => simulateVision(hex, vision);
+      for (const t of CONTENT.cosmetics.threads.filter((x) => x.earned)) {
+        const fitted = threadColors(t.id, vision)!;
+        for (const role of [p.mend, p.empower])
+          expect(deltaE(see(fitted.filament), see(role)), t.id).toBeGreaterThanOrEqual(20);
+      }
+    });
+  }
+});

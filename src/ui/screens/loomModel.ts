@@ -276,7 +276,7 @@ function litLine(id: StationId, run: GateRun | null): string {
     case 'dissonance':
       return 'Harder runs that pay more, set in Prep';
     case 'atlas':
-      return 'Echoes to clear, and This Week’s Song';
+      return 'Echoes, and This Week’s Song';
   }
 }
 

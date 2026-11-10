@@ -195,14 +195,15 @@ export function bossPostlude(state: WorldState): { postlude?: PostludeHud } {
 
 /**
  * The boss bar's phases with the Postlude: a fourth pip, and the bar in it. The Postlude is not a
- * life threshold (it is entered by the rise), so the ticks stay where they are.
+ * life threshold (it is entered by the rise), so it adds no tick, and the earlier ones go.
  */
 export function postludePhases(
-  base: { phase: number; phases: number },
+  base: { phase: number; phases: number; phaseAt?: number[] },
   postlude: boolean,
-): { phase: number; phases: number } {
+): { phase: number; phases: number; phaseAt?: number[] } {
   if (!postlude) return base;
-  return { phase: base.phases + 1, phases: base.phases + 1 };
+  // The Postlude's bar is the rise's life alone: the earlier phases' ticks would mislead on it.
+  return { phase: base.phases + 1, phases: base.phases + 1, phaseAt: [] };
 }
 
 /** The decree a `postludeRose` announces (the state's Blind Score). */
@@ -224,8 +225,13 @@ export const MIMIC = 'mimic';
  * foes gain the Mimic (its card is the one that teaches the mirror), so a profile that never met
  * one sees its card once. Without Mimicry the foes are as they were.
  */
-export function mimicrySighting(state: WorldState, foes: readonly string[]): string[] {
-  if (foes.includes(MIMIC) || !levelOn(state, 'mimicry')) return [...foes];
+export function mimicrySighting(
+  state: WorldState,
+  foes: readonly string[],
+  /** Mimicry is on in this fight (by default, read from its levels). */
+  on: boolean = levelOn(state, 'mimicry'),
+): string[] {
+  if (foes.includes(MIMIC) || !on) return [...foes];
   for (const e of state.entities.list()) {
     const en = e.enemy;
     if (!en || !e.health || e.health.dead || e.kind === 'dummy') continue;

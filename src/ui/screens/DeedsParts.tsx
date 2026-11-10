@@ -127,7 +127,7 @@ function BestMeter({ best, earned }: { best: DeedBest; earned: boolean }) {
 }
 
 /** One Deed on the Codex's page: lit once earned; its condition, best run and lock either way. */
-function DeedCard({ row }: { row: DeedRow }) {
+export function DeedCard({ row }: { row: DeedRow }) {
   const look = deedLook(row);
   return (
     <article
