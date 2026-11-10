@@ -37,6 +37,10 @@ export function holdEnemyTime(world: World, dt: number): void {
       // A broken guard stays broken as long as it would have (Movement II's guarded enemies).
       if (c.guard && c.guard.brokenUntil > world.time) c.guard.brokenUntil += dt;
       if (c.foreseen) c.foreseen.at += dt;
+      // Tyrant's borrowed attack (docs/phase-6.md) waits as the boss's own cooldowns do, the first
+      // cast's delay too: its clock is a sim time, so it moves on with time (only a Tyrant run's
+      // boss has the key).
+      if (world.mods.tyrant && c.tyrant) c.tyrant.readyAt += dt;
       // Movement III (docs/phase-5c.md): an Emboldened enemy stays so as long as it would have.
       if (c.emboldenedUntil !== undefined && c.emboldenedUntil > world.time)
         c.emboldenedUntil += dt;
