@@ -23,6 +23,7 @@ import { DeedCard } from '../screens/DeedsParts';
 import { deedRow } from '../screens/deedsModel';
 import { LoomView } from '../screens/LoomScreen';
 import { AtelierView } from '../screens/AtelierScreen';
+import { WeeklyBenchView } from './weeklyBench';
 import { PrepView } from '../screens/PrepScreen';
 import { SummaryView } from '../screens/SummaryScreen';
 import { veteranProfile } from './loomLab';
@@ -456,6 +457,14 @@ export const PHASE6_VIEWS: Phase6LabView[] = [
     w: 1280,
     h: 900,
     render: () => deedsStage('partway'),
+  },
+  {
+    id: 'p6-weekly-bench',
+    group: ATLAS,
+    label: 'Weekly bench (a bot plays a weekly in a worker; the e2e hook)',
+    w: 900,
+    h: 300,
+    render: () => <WeeklyBenchView />,
   },
   // ── In the fight ──
   {

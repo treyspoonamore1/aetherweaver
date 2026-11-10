@@ -177,6 +177,15 @@ export function StarChart({
                 }}
                 className="cursor-pointer outline-none"
               >
+                {/* The whole star, its points and its name answer a click. */}
+                <rect
+                  x={x - 46}
+                  y={y - 24}
+                  width={92}
+                  height={76}
+                  fill="transparent"
+                  data-testid="atlas-star-hit"
+                />
                 {sel && (
                   <circle cx={x} cy={y} r={30} fill="none" stroke={LOOK.light} strokeWidth={2} />
                 )}

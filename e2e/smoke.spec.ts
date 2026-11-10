@@ -2633,3 +2633,95 @@ test('Phase 5g: the VFX lab’s fill scenarios load, step and draw without an er
   }
   expect(errors).toEqual([]);
 });
+
+// ── Phase 6 (docs/phase-6.md): the Atlas station, This Week's Song, the lab ──────────────
+
+/** From the front door, Skip the unlocks, then the Atlas station (its intro's Try it). */
+async function openAtlas(page: Page): Promise<void> {
+  await page.goto(START_URL);
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByText('Skip the unlocks', { exact: true }).click();
+  await expect(page.getByRole('switch', { name: /Skip the unlocks/ })).toBeChecked();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await enterLoom(page);
+  const atlas = page.locator('[data-station="atlas"]');
+  await expect(atlas).toHaveAttribute('data-open', 'true');
+  await atlas.click();
+  const intro = page.getByTestId('station-intro');
+  if ((await intro.count()) > 0) {
+    await expect(intro).toHaveAttribute('data-intro', 'atlas');
+    while ((await page.getByTestId('intro-next').count()) > 0)
+      await page.getByTestId('intro-next').click();
+    await page.getByTestId('intro-try').click();
+  }
+  await expect(page.getByTestId('atlas-screen')).toBeVisible();
+}
+
+test('Phase 6: the Atlas station — every Echo on the chart, an Echo begun reaches Prep with its twists', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const errors = trackErrors(page);
+  await openAtlas(page);
+  const chart = page.getByTestId('atlas-chart');
+  for (const e of CONTENT.echoes)
+    await expect(chart.locator(`[data-echo="${e.id}"]`)).toHaveCount(1);
+  await expect(page.getByTestId('atlas-total')).toContainText(
+    `0 of ${CONTENT.echoes.length * 3} stars`,
+  );
+  // A Cappella: no Calling, no Astrolabe, no carried relics.
+  const echo = CONTENT.echoes.find((e) => e.id === 'a_cappella')!;
+  await chart.locator(`[data-echo="${echo.id}"]`).click();
+  const card = page.getByTestId('echo-card');
+  await expect(card).toHaveAttribute('data-echo', echo.id);
+  await expect(card.getByTestId('echo-twists')).toContainText('No Calling');
+  await card.getByTestId('echo-begin').click();
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('prep');
+  const prep = page.getByTestId('prep-echo');
+  await expect(prep).toHaveAttribute('data-echo', echo.id);
+  await expect(prep.getByTestId('prep-echo-off')).toContainText('No Calling');
+  await expect(prep.getByTestId('prep-echo-off')).toContainText('No carried relics');
+  await expect(page.getByTestId('calling-picker')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('Phase 6: This Week’s Song — the panel in the Atlas, Begin, Prep with its choices locked', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const errors = trackErrors(page);
+  await openAtlas(page);
+  const panel = page.getByTestId('weekly-panel');
+  await expect(panel).toBeVisible();
+  await expect(panel.getByTestId('weekly-left')).toBeVisible();
+  await expect(panel.getByTestId('weekly-entry')).not.toBeEmpty();
+  await panel.getByTestId('weekly-begin').click();
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('prep');
+  const prep = page.getByTestId('prep-weekly');
+  await expect(prep).toBeVisible();
+  await expect(prep).toContainText('Everyone plays this');
+  for (const label of ['Route', 'Calling', 'Party', 'Dissonance', 'Seed'])
+    await expect(prep.getByTestId('prep-weekly-fixed')).toContainText(label);
+  // The entry's Dissonance is the weekly's, not a choice: no Dissonance panel, no route toggle.
+  await expect(page.getByTestId('prep-dissonance')).toHaveCount(0);
+  await expect(page.getByTestId('prep-route')).toHaveCount(0);
+  await expect(page.getByTestId('calling-picker')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('Phase 6: the UI lab’s Phase 6 groups — one view of each renders without an error', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const errors = trackErrors(page);
+  const stage = page.getByTestId('lab-stage');
+  await openLabView(page, 'p6-atlas-partway');
+  await expect(stage.getByTestId('atlas-chart')).toBeVisible();
+  await expect(stage.getByTestId('weekly-result')).toHaveAttribute('data-status', 'verified');
+  await openLabView(page, 'p6-prep-weekly');
+  await expect(stage.getByTestId('prep-weekly')).toContainText('Everyone plays this');
+  await openLabView(page, 'p6-hud-tyrant');
+  await expect(stage.getByTestId('boss-tyrant')).toBeVisible();
+  expect(errors).toEqual([]);
+});
