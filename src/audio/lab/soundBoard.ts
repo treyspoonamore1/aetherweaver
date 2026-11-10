@@ -9,13 +9,12 @@ import {
   DOWNBEAT,
   FORTISSIMO,
   LAMENT,
-  SFORZANDO,
   SHATTER_ARIA,
   SOLOS,
   SOPRANO,
   TENOR,
 } from '../../content/crucibleIds';
-import type { ConductingField, SimEvent } from '../../sim';
+import { tyrantAttackOf, type ConductingField, type SimEvent } from '../../sim';
 import type { SynthDirector } from '../director';
 import type { UiSound, UiSoundDetail } from '../types';
 import { dissonanceMax } from '../ui';
@@ -4826,12 +4825,19 @@ function phase6Sounds(): SoundButton[] {
         }),
       );
     };
-  const casts: [string, string, string, string][] = [
-    ['the_bellwarden', 'glass_lancer', 'lancer_lance', 'porcelain: a low bell'],
-    ['vharun_crimson_warden', 'hemomancer', 'hemomancer_blood_pact', 'iron: an anvil’s thump'],
-    ['the_unweaver', 'null_priest', 'null_rune', 'cloth: a bowed string'],
-    [CONDUCTOR, CONDUCTOR, SFORZANDO, 'glass: low glass'],
-  ];
+  // One boss of each material, its phase 1 hold read from the sim's own table (never named here).
+  const casts = (
+    [
+      ['the_bellwarden', 'porcelain: a low bell'],
+      ['vharun_crimson_warden', 'iron: an anvil’s thump'],
+      ['the_unweaver', 'cloth: a bowed string'],
+      [CONDUCTOR, 'glass: low glass'],
+    ] as const
+  ).map(([boss, label]) => {
+    const hold = tyrantAttackOf(boss, 1);
+    return [boss, hold?.from ?? boss, hold?.attack ?? '', label] as const;
+  });
+  const first = casts[0]!;
   return [
     {
       id: 'p6-edict',
@@ -4844,10 +4850,10 @@ function phase6Sounds(): SoundButton[] {
           d,
           w,
           ev('tyrantEdict', {
-            boss: w.addTyrant('the_bellwarden', 'glass_lancer', 'lancer_lance', 2),
+            boss: w.addTyrant(first[0], first[1], first[2], 2),
             phase: 1,
-            attack: 'lancer_lance',
-            from: 'glass_lancer',
+            attack: first[2],
+            from: first[1],
           }),
         ),
     },
