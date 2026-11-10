@@ -2876,7 +2876,7 @@ const TYRANT_LAB: readonly (readonly [string, string, string])[] = [
   ['the_bellwarden', 'glass_lancer', 'lancer_lance'],
   ['the_hollow_cantor', 'bell_brute', 'brute_toll_cleave'],
   ['gorehound_matriarch', 'impaler', 'impaler_charge'],
-  ['vharun', 'leech', 'leech_latch'],
+  ['vharun_crimson_warden', 'leech', 'leech_latch'],
   ['the_seamstress', 'shears', 'shears_dash'],
   ['the_unweaver', 'null_priest', 'null_rune'],
 ];
