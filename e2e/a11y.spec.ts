@@ -132,6 +132,7 @@ test('the Settings rows write what they say', async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto(START_URL);
   await page.getByRole('button', { name: /^Settings$/ }).click();
+  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
   await shot(page, 'settings-defaults');
   const motion = page.locator('fieldset', { hasText: 'Reduced motion' });
   await motion.getByText('On', { exact: true }).click();
@@ -148,6 +149,8 @@ test('the Settings rows write what they say', async ({ page }) => {
   expect(saved.aids).toEqual({ gameSpeed: 0.8 });
   expect(saved.importantNumbersOnly).toBe(true);
   expect(saved.telegraphs).toEqual({ highContrast: true });
+  await page.getByRole('heading', { name: 'Telegraphs' }).scrollIntoViewIfNeeded();
+  await shot(page, 'settings-options-set');
   await motion.getByText('Off', { exact: true }).click();
   await expect
     .poll(() => page.evaluate(() => document.documentElement.dataset.motion ?? null))
@@ -175,7 +178,10 @@ for (const [scale, width] of [
     await withSaved(page, { ...DEFAULT_SETTINGS, uiScale: scale });
     await page.goto(START_URL);
     await page.getByRole('button', { name: /^Settings$/ }).click();
+    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
     await shot(page, `scale-${scale * 100}-settings`);
+    await page.getByRole('heading', { name: 'Telegraphs' }).scrollIntoViewIfNeeded();
+    await shot(page, `scale-${scale * 100}-settings-telegraphs`);
     await enterTraining(page);
     await busyFight(page, 180);
     await shot(page, `scale-${scale * 100}-fight`);
