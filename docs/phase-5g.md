@@ -514,3 +514,34 @@ Nothing else moved: no trigger limit (`every`, `perFight`) and no rarity. Their 
 | Thread the Needle epic → rare (lever 3) | default party won 86/120 against 82/120; Harmonies held 0.26 a run either way; PP won 111/120 against 114/120 and held ≥ 3 listed in 58/120 (48%) against 86/120 (72%) | costs PP its holding band and gains nothing measurable (`offers-*`, `exp-pp-*`) |
 | Razor Silk 30 / 50 / 70 → 50 / 80 / 110 | RL 66/120 against 67/120 | no effect: RL's rate is its frame (no Calling, All In; 47 / 73% with no lists at 30 runs) |
 | Iron Mask 10 (15) and 7 (10) | M2 / M3 / M4 avg Δ win at 10: +5, −7, 0 / +4, −7, −20; at 7: −3, −7, −5 / +5, −13, −15 | under the band on more readings than 12 |
+
+### Five viable archetypes (`tools/builds.ts --runs 30 --sets`, `final-builds-r30-sets-v3.txt`)
+
+Skilled, 30 whole Finale-route Expeditions a build on each set (2000 / 900007 / 333003). "Holds" is ≥ 3 listed motifs at the run's end, over all runs.
+
+| Build | Won | Reached the Finale | Listed held (mean) | Holds ≥ 3 | Above the median build |
+|---|---|---|---|---|---|
+| default party, no build | 83 / 80 / 77% | 83 / 80 / 77% | — | — | — |
+| CS Choir Sovereign | 70 / **50** / 63% | 77 / 60 / 70% | 1.8 / 2.1 / 2.2 of 7 | 23 / 40 / 50% | 0 / −12 / −7 |
+| PP Perfect Pitch | 97 / 93 / 87% | 97 / 93 / 87% | 3.5 / 3.3 / 3.1 of 8 | 77 / 70 / 70% | **+27 / +32 / +17** |
+| BS Bleeding Saint | 67 / 70 / 77% | 67 / 70 / 77% | 1.6 / 1.9 / 1.5 of 6 | 17 / 20 / 17% | −3 / +8 / +7 |
+| RL Razor Loom | 70 / 53 / 63% | 73 / 60 / 70% | 2.6 / 2.6 / 2.2 of 7 | 50 / 53 / 50% | 0 / −8 / −7 |
+| MA Maestro | 97 / 83 / 83% | 97 / 83 / 83% | 2.6 / 2.4 / 2.0 of 8 | 47 / 50 / 37% | **+27 / +22** / +13 |
+| RD Red Line | **0 / 0 / 0%** | 0 / 0 / 0% | 1.2 / 1.6 / 1.0 of 8 | 7 / 23 / 13% | −70 / −62 / −70 |
+
+- **≥ 5 of 6 builds win ≥ 50% on all three sets: met, 5 of 6** (CS, PP, BS, RL, MA). CS sits exactly on the line on 900007 (15 of 30); RL is 3 points over it there.
+- **Each build holds ≥ 3 listed motifs in ≥ 60% of its runs: missed** by every build but PP.
+- **No build more than 15 points above the median build: missed** by PP on all three sets and by MA on two.
+
+### Five viable presets (`tools/loadouts.ts --movement 4 --seeds 50 --runs 30 --bots skilled --sets`, `final-loadouts-m4-s50-r30-sets-v3.txt`)
+
+| Preset | Conductor cell (1000 / 500003 / 777001) | Finale-route Expeditions (2000 / 900007 / 333003, 30 each) |
+|---|---|---|
+| Steady | 98 / 96 / 98% | 83 / 80 / 77% |
+| Guardian | 96 / 96 / 98% | 67 / 80 / 73% |
+| Bastion | 98 / 98 / 100% | 67 / 73 / 67% |
+| Anchor | 98 / 94 / 94% | 70 / 67 / **50%** |
+| All In | 84 / 94 / 96% | 53 / 70 / **47%** |
+| Wide Choir | 94 / 96 / 94% | 73 / 80 / 73% |
+
+**Met, 5 of 6 on all three sets** (every preset but All In, which misses on 333003 by one run in 30). The Conductor cells equal Phase 5d's to the point (cells never draft, so this slice can't move them). Anchor is at the line on 333003.
