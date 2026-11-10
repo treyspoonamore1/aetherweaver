@@ -27,6 +27,7 @@ import { C } from '../src/render/palette';
 import { ThreadView } from '../src/render/thread';
 import type { FrameInfo } from '../src/render/types';
 import type { Command, EntityId, Sim, SimEvent } from '../src/sim';
+import { RAZOR_TICK } from '../src/sim/fill/silk';
 import { onThread } from '../src/sim/fill/threadContact';
 import { sandbox, spawn, worldOf } from './sim/helpers';
 
@@ -338,10 +339,14 @@ describe('Razor Silk', () => {
     w.mods.razorDps = 30;
     expect(razorOn(sim.state)).toBe(true);
     expect(razorTicked(undefined, undefined)).toBe(false);
-    expect(razorTicked(undefined, 1)).toBe(true);
+    // The clock starting deals nothing (the sim's first tick waits one RAZOR_TICK).
+    expect(razorTicked(undefined, 1)).toBe(false);
     expect(razorTicked(1, 1)).toBe(false);
-    expect(razorTicked(1, 1.5)).toBe(true);
+    // A tick moves it on by exactly one RAZOR_TICK.
+    expect(razorTicked(1, 1 + RAZOR_TICK)).toBe(true);
     expect(razorTicked(1.5, 1)).toBe(false);
+    // A fresh start after the Thread was off (more than a tick on) is no tick.
+    expect(razorTicked(1, 4)).toBe(false);
     void frame;
   });
 
@@ -354,7 +359,8 @@ describe('Razor Silk', () => {
       expect(f.drawn.contacts).toBe(1);
       expect(f.mine.sprites).toBeGreaterThanOrEqual(2);
     }
-    // No clock moving: no bite.
+    // Its clock has started, but its first damage waits a whole tick: no bite yet.
+    expect(w.internal.razorAt).toBeDefined();
     expect(h.view.fired.bites).toBe(0);
     // The Thread let go: no contact.
     w.entities.get(w.weaverId)!.weaver!.threadSlot = null;
@@ -364,24 +370,35 @@ describe('Razor Silk', () => {
   it('bites each enemy it touches each time its damage ticks (its clock moves on), only then', () => {
     const { h, w, on, frame } = razorSetup();
     w.mods.razorDps = 30;
+    /** The frames Razor Silk's damage landed on `on`, and the frames a bite was drawn. */
+    const ticks: number[] = [];
+    const bites: number[] = [];
+    for (let i = 0; i < 130; i++) {
+      const before = h.view.fired.bites;
+      const f = frame();
+      const cut = f.events.some(
+        (e) => e.type === 'damageTaken' && e.source === w.weaverId && e.target === on.id,
+      );
+      if (cut) ticks.push(i);
+      if (h.view.fired.bites > before) {
+        bites.push(i);
+        expect(h.view.targetsOf('bite').at(-1)).toBe(on.id);
+        expect(f.drawn.bites).toBeGreaterThanOrEqual(1);
+      }
+    }
+    // Every 0.5 s from the clock's start a half second in: four ticks in 130 frames, each bitten.
+    expect(ticks).toHaveLength(4);
+    expect(bites).toEqual(ticks);
+    // A clock moved by less than a tick (no damage) is no bite.
+    w.internal.razorAt = (w.internal.razorAt ?? 0) + 1 / 60;
+    const n = h.view.fired.bites;
     frame();
-    w.internal.razorAt = w.time + 0.5;
-    const f = frame();
-    expect(h.view.fired.bites).toBe(1);
-    expect(h.view.targetsOf('bite')).toEqual([on.id]);
-    expect(f.drawn.bites).toBe(1);
-    // The clock waiting: no bite.
-    for (let i = 0; i < 10; i++) frame();
-    expect(h.view.fired.bites).toBe(1);
-    // It moves on: another.
-    w.internal.razorAt = (w.internal.razorAt ?? 0) + 0.5;
-    frame();
-    expect(h.view.fired.bites).toBe(2);
+    expect(h.view.fired.bites).toBe(n);
     // Gone from the world without Razor Silk, even with its clock moving and an enemy on the Thread.
     w.mods.razorDps = 0;
     w.internal.razorAt = (w.internal.razorAt ?? 0) + 0.5;
     const g = frame();
-    expect(h.view.fired.bites).toBe(2);
+    expect(h.view.fired.bites).toBe(n);
     expect(g.drawn.contacts).toBe(0);
   });
 
