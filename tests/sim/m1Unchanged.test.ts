@@ -105,7 +105,7 @@ const TWENTY_EIGHT: Readonly<Record<string, string>> = { ...ALL_PINNED, ...CONDU
  * tunes Phase 6's numbers; the twenty-eight never are.
  */
 const PHASE6_HASHES: Readonly<Record<string, string>> = {
-  'skilled-tyrant-vharun': '98edc77c35e67af0',
+  'skilled-tyrant-vharun': '6a1cfc180a7f1f31',
   'novice-mimicry-first-light': '727ddeaca04419a3',
   'skilled-postlude': 'f5712565598dccac',
 };

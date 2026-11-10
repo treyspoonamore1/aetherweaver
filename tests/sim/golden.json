@@ -1,6 +1,6 @@
 {
   "simVersion": 22,
-  "contentVersion": "c-d4e8f1fbf5775748",
+  "contentVersion": "c-691f26eff5775748",
   "scenarios": {
     "patrol": "2626acee5ce8d584",
     "crowd": "323bd3a88aea3f1b",
@@ -30,7 +30,7 @@
     "skilled-conducting-bellwarden": "013e676d2eaa8f74",
     "novice-conducting-first-light": "c3408b85068381ef",
     "skilled-conducting-silent": "d200c6af6720f641",
-    "skilled-tyrant-vharun": "98edc77c35e67af0",
+    "skilled-tyrant-vharun": "6a1cfc180a7f1f31",
     "novice-mimicry-first-light": "727ddeaca04419a3",
     "skilled-postlude": "f5712565598dccac",
     "skilled-echo-bells-in-the-rift": "07fd95fcfee7c80b"
