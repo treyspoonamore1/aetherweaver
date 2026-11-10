@@ -14,7 +14,6 @@ import {
 } from './fillCues';
 import type { FxKit } from './fx/kit';
 import { PARTICLE } from './fx/particles';
-import { RING } from './fx/rings';
 import { SPRITE } from './fx/sprites';
 import { C, clamp01 } from './palette';
 import { flareScale } from './relicCues';
@@ -22,22 +21,27 @@ import { RELIC_HEX } from './relics';
 
 /**
  * Phase 5g (docs/phase-5g.md, W9): the content fill in the world. Through the existing batches
- * only (rings, sprites, ribbons, particles): no new draw call, and no scene object of its own.
+ * only (sprites, ribbons, particles): no new draw call, and no scene object of its own. It draws
+ * no ring at all: a ring or disc on the ground at someone's feet, or a ring round the Weaver, is
+ * how the auras look (their field, their halos), and the fill's cues never borrow it.
  *
  * - **Razor Silk's contact** (`razorOn`, fillCues.ts): while it is held and the Thread is on a
  *   hero, a white blade's glint rides the Thread where it crosses each enemy it touches (the
  *   sim's own `onThread` test); each time its damage ticks (its clock moves on) the glint flashes
  *   and throws a few white shards on every enemy it is touching.
  * - **Thread the Needle's catch** (`needled`): the Thread loops once round the hero at the chest,
- *   a small cream needle drawing it through, and the loop pulls tight in a gold-white ring at
- *   their feet. Not a Perfect Ward: none of its gold flash or its shell.
+ *   a small cream needle drawing it through, and the loop pulls tight in a gold-white glint where
+ *   it knots. Not a Perfect Ward: none of its gold flash or its shell.
  * - **A trigger firing** (`motifTriggered { source, target? }`): a short cue for its effect's kind
  *   (`triggerCue`), on its `target` when it has one, at the Weaver for the effects that land on no
  *   one (Resonance, Spirit, a cooldown, the Crescendo). Each kind has its own shape, in the colour
  *   the game already gives that meaning (`CUE_LOOK`). A cue that lands on someone and has no
  *   target (nothing was in reach) draws nothing. The same source on the same target again within
- *   `MERGE` s plays one cue, so a fast trigger never stacks a pile of them.
- *
+ *   `MERGE` s plays one cue, so a fast trigger never stacks a pile of them. On the body: a
+ *   barrier's shards gathering into a shield before it, a heal's motes and rising stroke, a
+ *   Solo's stars stepping up, a damage burst; over the head: a status's pin, a cooldown's or an
+ *   ability's timer, Empower's star; into the Weaver's hand: Resonance's falling stars, Spirit's
+ *   reeled-in thread; from her: the Crescendo's rising stroke.
  * - **Concert Pitch's Ringing** (`field.ringing`, read from state every frame): while it rings,
  *   every standing hero has three thin upright gold streaks rising up their body, again and
  *   again, like a bell's shimmer. Drawn exactly while `field.ringing` is later than the sim's
@@ -46,9 +50,9 @@ import { RELIC_HEX } from './relics';
  * - **Spare Strings** and **Water Clock** (no event: their once-a-fight flags, `RelicFlips`): the
  *   moment the flag turns on in a fight the view is watching, a relic moment and the relic's name
  *   called out, as the Phase 3b relics do. Spare Strings: a coil of spare thread (the Weaver's
- *   cream, as the Needle's) unwinding upward from the Weaver's hand, a glint as it catches. Water Clock: a clock face over the hero who
- *   stood again (the `revived` of that tick; else over the Weaver), its hand running backward,
- *   and drops of water rising back up the hero.
+ *   cream, as the Needle's) unwinding upward from the Weaver's hand, a glint as it catches.
+ *   Water Clock: a clock face over the hero who stood again (the `revived` of that tick; else
+ *   over the Weaver), its hand running backward, and drops of water rising back up the hero.
  *
  * Nothing here runs on a fight without the fill: its moments are allocated on the first one, the
  * Razor reads only with `mods.razorDps` above 0, the Ringing only with `field.ringing` set, the
@@ -105,17 +109,21 @@ type CueColour =
 export const CUE_LOOK: Readonly<
   Record<TriggerCue, { colour: CueColour; shape: string; at: 'target' | 'weaver' }>
 > = {
-  barrier: { colour: 'shield', shape: 'closing ring', at: 'target' },
-  heal: { colour: 'heal', shape: 'opening ring, rising motes', at: 'target' },
-  resonance: { colour: 'resonance', shape: 'stars spiralling up', at: 'weaver' },
-  spirit: { colour: 'weaver', shape: 'dashed ring drawing in', at: 'weaver' },
-  solo: { colour: 'gold', shape: 'ring rising up the body', at: 'target' },
+  barrier: {
+    colour: 'shield',
+    shape: 'shards gathering into a shield before the body',
+    at: 'target',
+  },
+  heal: { colour: 'heal', shape: 'rising motes, a stroke rising up the body', at: 'target' },
+  resonance: { colour: 'resonance', shape: 'stars falling in to her hand', at: 'weaver' },
+  spirit: { colour: 'weaver', shape: 'a thread reeled in to her hand', at: 'weaver' },
+  solo: { colour: 'gold', shape: 'stars stepping up the body', at: 'target' },
   damage: { colour: 'goldHot', shape: 'star burst, shards', at: 'target' },
-  status: { colour: 'white', shape: 'dashed ring tightening, orbiting stars', at: 'target' },
+  status: { colour: 'white', shape: 'a pin over the head, stars circling it', at: 'target' },
   cooldown: { colour: 'weaver', shape: 'timer over the head', at: 'weaver' },
   ability: { colour: 'gold', shape: 'timer over the head', at: 'target' },
   empower: { colour: 'empower', shape: 'four-point star, sparks', at: 'target' },
-  crescendo: { colour: 'resonance', shape: 'wide ring opening', at: 'weaver' },
+  crescendo: { colour: 'resonance', shape: 'a tall stroke rising from her', at: 'weaver' },
   generic: { colour: 'gold', shape: 'small star', at: 'target' },
 };
 
@@ -165,6 +173,12 @@ export const MERGE = 0.15;
 const TAU = Math.PI * 2;
 /** How long the needle takes to draw the loop round the hero (s). */
 const STITCH = 0.22;
+/** A barrier's shards, in the shield they gather into. */
+const SHARDS = 5;
+/** The Weaver's hand's height (m), where Resonance and Spirit are drawn in to. */
+const HAND_Y = 1.02;
+/** Spirit's reeled-in thread: its points. */
+const REEL_N = 10;
 /** The Ringing: streaks on each hero, the time one takes to rise up the body (s). */
 const RING_STREAKS = 3;
 const RING_RISE = 1.1;
@@ -524,7 +538,7 @@ export class FillView {
       return;
     }
     if (m.kind === 'needle') {
-      this.needle(m, t, k);
+      this.needle(m, t);
       return;
     }
     if (m.kind === 'spare') {
@@ -537,38 +551,36 @@ export class FillView {
     }
     const col = C[CUE_LOOK[m.kind].colour];
     const chest = m.h * 0.55;
+    // Nothing here is a ring or a disc on the ground, or a ring round the Weaver: those are the
+    // auras' (their field, their halos at the feet). Each kind is drawn on the body, over the
+    // head, or drawn in to the Weaver's hand.
     switch (m.kind) {
       case 'barrier': {
-        // A guard closing in: a ring drawn in from wide to the hero's shoulder.
-        const close = easeOut(seg(t, 0, m.life * 0.6));
-        kit.rings.push(
-          m.x,
-          0.05,
-          m.z,
-          m.r * (2.4 - 1.15 * close),
-          0.07,
-          0.12,
-          RING.plain,
-          col,
-          0.8 * fade,
-        );
-        kit.sprites.push(
-          m.x,
-          chest,
-          m.z,
-          m.r * 2.6,
-          SPRITE.glow,
-          col,
-          0.22 * seg(t, 0.15, 0.3) * fade * glow,
-        );
+        // A guard closing in: shards of glass gathering into a curved shield before the body. No
+        // glow behind it: a soft light behind a hero is how an aura's halo shows.
+        const close = easeOut(seg(t, 0, m.life * 0.5));
+        const span = m.r * (2.2 - 1.1 * close) + 0.25;
+        for (let i = 0; i < SHARDS; i++) {
+          const th = ((i / (SHARDS - 1)) * 2 - 1) * 1.05;
+          kit.sprites.push(
+            m.x + Math.sin(th) * span,
+            chest + Math.cos(th) * span * 0.7 - span * 0.35,
+            m.z + m.r * 0.9,
+            0.16,
+            SPRITE.diamond,
+            col,
+            0.9 * fade,
+            -th,
+          );
+        }
         break;
       }
       case 'heal': {
-        // Opening out from their feet, motes rising.
+        // Motes rising off them, and one soft stroke of light rising up the body.
         if (t === 0)
           kit.particles.burst(
             m.x,
-            0.3,
+            0.4,
             m.z,
             8,
             0.6,
@@ -582,70 +594,75 @@ export class FillView {
             -0.4,
             m.r,
           );
-        const open = easeOut(k);
-        kit.rings.push(
+        const up = easeOut(k);
+        kit.sprites.push(
           m.x,
-          0.05,
-          m.z,
-          m.r * (0.8 + 1.4 * open),
-          0.06,
-          0.2,
-          RING.soft,
+          m.h * (0.35 + 0.6 * up),
+          m.z + m.r * 0.5,
+          0.14,
+          SPRITE.glow,
           col,
-          0.7 * fade,
+          0.75 * fade,
+          Math.PI / 2,
+          5,
         );
         break;
       }
       case 'resonance': {
-        // Three stars spiralling up round the Weaver to over her head.
-        const up = easeOut(k);
+        // Three stars falling in from over her head, each arcing down into her hand.
         for (let i = 0; i < 3; i++) {
-          const a = t * 5 + (i * TAU) / 3;
-          const rad = 0.9 * (1 - up) + 0.15;
+          const u = easeOut(seg(t, i * 0.08, m.life * 0.6 + i * 0.08));
+          if (t < i * 0.08 || u >= 1) continue;
+          const a = (i - 1) * 0.9;
+          const from = 1.3 * (1 - u);
           kit.sprites.push(
-            m.x + Math.cos(a) * rad,
-            0.3 + 2.1 * up,
-            m.z + Math.sin(a) * rad,
+            m.x + Math.sin(a) * from,
+            HAND_Y + 1.6 * (1 - u) * (1 - u),
+            m.z + 0.25 + Math.cos(a) * from * 0.3,
             0.24,
             SPRITE.star,
             col,
-            0.9 * fade,
+            0.9 * (1 - 0.4 * u),
           );
         }
         kit.sprites.push(
           m.x,
-          2.4,
-          m.z,
+          HAND_Y,
+          m.z + 0.25,
           0.7,
           SPRITE.glow,
           col,
-          0.3 * seg(t, 0.4, 0.6) * fade * glow,
+          0.3 * seg(t, 0.3, 0.5) * fade * glow,
         );
         break;
       }
       case 'spirit': {
-        // Drawn in to her: a dashed ring closing at her feet, a breath of light at her chest.
-        const close = easeOut(k);
-        kit.rings.push(
-          m.x,
-          0.05,
-          m.z,
-          1.6 - 1.1 * close,
-          0.05,
-          0.12,
-          RING.dashed,
-          col,
-          0.75 * fade,
-          0,
-          7,
-          0,
-          10,
-          t * 2,
-        );
+        // A breath drawn in: a short thread of light reeled in from her side into her hand.
+        const rb = kit.ribbons;
+        const pull = easeOut(seg(t, 0, m.life * 0.7));
+        const len = 1.6 * (1 - pull);
+        if (len > 0.05) {
+          rb.beginStrip();
+          for (let i = 0; i <= REEL_N; i++) {
+            const u = i / REEL_N;
+            const d = len * u;
+            rb.point(
+              m.x - d,
+              HAND_Y + 0.35 * Math.sin(Math.PI * u) * (1 - pull),
+              m.z + 0.25 + d * 0.3,
+              0.03,
+              col,
+              0.85 * fade,
+              u,
+              0.5,
+            );
+          }
+          rb.endStrip();
+        }
         kit.sprites.push(
           m.x,
-          chest,
-          m.z,
+          HAND_Y,
+          m.z + 0.25,
           0.8,
           SPRITE.glow,
           col,
@@ -654,67 +671,52 @@ export class FillView {
         break;
       }
       case 'solo': {
-        // A gold ring rising up the hero, as a Solo's charge fills.
-        const up = easeOut(k);
-        kit.rings.push(
-          m.x,
-          0.05 + m.h * up,
-          m.z,
-          m.r * 1.3,
-          0.06,
-          0.15,
-          RING.plain,
-          col,
-          0.85 * fade,
-        );
+        // Three gold stars stepping up the body one after another, as a Solo's charge fills.
+        for (let i = 0; i < 3; i++) {
+          const pop = seg(t, i * 0.12, i * 0.12 + 0.3);
+          if (t < i * 0.12 || pop >= 1) continue;
+          kit.sprites.push(
+            m.x,
+            m.h * (0.3 + 0.32 * i),
+            m.z + m.r * 0.6,
+            0.22 * Math.sin(Math.PI * pop) + 0.06,
+            SPRITE.star,
+            col,
+            0.9 * fade,
+          );
+        }
         break;
       }
       case 'damage': {
-        // A sharp star where it strikes, shards thrown out, a fast ring.
+        // A sharp star where it strikes, shards thrown out.
         if (t === 0)
           kit.particles.burst(m.x, chest, m.z, 10, 4, 1.2, 0.35, 0.07, col, 1, PARTICLE.shard, 3);
         const pop = 1 - easeOut(seg(t, 0, m.life * 0.7));
         kit.sprites.push(m.x, chest, m.z, 0.4 + 0.6 * pop, SPRITE.star, col, 0.95 * fade, 0.4);
-        kit.rings.push(
-          m.x,
-          0.05,
-          m.z,
-          m.r * (1 + 1.6 * easeOut(k)),
-          0.05,
-          0.1,
-          RING.plain,
-          col,
-          0.6 * fade,
-        );
         kit.sprites.push(m.x, chest, m.z, 1.2, SPRITE.glow, col, 0.3 * pop * glow);
         break;
       }
       case 'status': {
-        // A dashed ring tightening round them, stars circling their head.
-        const close = easeOut(seg(t, 0, 0.35));
-        kit.rings.push(
+        // A mark over them: a pin dropping in over the head, stars circling it.
+        const drop = easeOut(seg(t, 0, 0.2));
+        kit.sprites.push(
           m.x,
-          0.05,
+          m.h + 0.75 - 0.25 * drop,
           m.z,
-          m.r * (2 - 0.8 * close),
-          0.05,
-          0.1,
-          RING.dashed,
+          0.22,
+          SPRITE.diamond,
           col,
-          0.7 * fade,
+          0.9 * fade,
           0,
-          7,
-          0,
-          8,
-          t * 3,
+          0.6,
         );
         for (let i = 0; i < 3; i++) {
           const a = t * 6 + (i * TAU) / 3;
           kit.sprites.push(
-            m.x + Math.cos(a) * 0.35,
-            m.h + 0.25,
-            m.z + Math.sin(a) * 0.35,
-            0.18,
+            m.x + Math.cos(a) * 0.3,
+            m.h + 0.3,
+            m.z + Math.sin(a) * 0.3,
+            0.16,
             SPRITE.star,
             col,
             0.85 * fade,
@@ -757,14 +759,24 @@ export class FillView {
           1,
           1,
         );
-        kit.rings.push(m.x, 0.05, m.z, m.r * 1.5, 0.05, 0.15, RING.plain, col, 0.5 * fade);
         break;
       }
       case 'crescendo': {
-        // The Crescendo held on: a wide ring opening from her.
-        const open = easeOut(k);
-        kit.rings.push(m.x, 0.05, m.z, 1 + 2.4 * open, 0.1, 0.2, RING.plain, col, 0.6 * fade);
-        kit.sprites.push(m.x, chest, m.z, 1.4, SPRITE.glow, col, 0.25 * (1 - open) * glow);
+        // The Crescendo held on: a tall stroke of light rising from her, lengthening as it goes.
+        const up = easeOut(k);
+        kit.sprites.push(
+          m.x,
+          chest + 1.4 * up,
+          m.z,
+          0.22,
+          SPRITE.glow,
+          col,
+          0.8 * fade,
+          Math.PI / 2,
+          4 + 6 * up,
+        );
+        if (t === 0)
+          kit.particles.burst(m.x, chest, m.z, 8, 0.6, 3, 0.6, 0.07, col, 0.9, PARTICLE.spark, 1.5);
         break;
       }
       case 'generic': {
@@ -855,7 +867,7 @@ export class FillView {
   }
 
   /** Thread the Needle: the loop drawn round them by a small needle, then pulled tight. */
-  private needle(m: Moment, t: number, k: number): void {
+  private needle(m: Moment, t: number): void {
     const kit = this.d.kit;
     const rb = kit.ribbons;
     const y = m.h * 0.58;
@@ -896,19 +908,20 @@ export class FillView {
         Math.PI / 2 + a,
       );
     }
-    // Pulled tight: a gold-white ring snapping in at their feet, a glint at the chest.
+    // Pulled tight: a gold-white glint where the loop knots, at the chest (never a ring on the
+    // ground: that is the auras' shape).
     const snap = seg(t, STITCH, STITCH + 0.25);
-    if (snap > 0) {
-      kit.rings.push(
+    if (snap > 0 && snap < 1) {
+      const pop = Math.sin(Math.PI * snap);
+      kit.sprites.push(
         m.x,
-        0.05,
-        m.z,
-        m.r * (1.9 - 0.7 * easeOut(snap)),
-        0.06,
-        0.1,
-        RING.plain,
+        y,
+        m.z + rad * pull,
+        0.45 * pop,
+        SPRITE.star,
         C.goldHot,
-        0.8 * (1 - k),
+        0.95 * pop,
+        0.6,
       );
       kit.sprites.push(m.x, y, m.z, 0.9, SPRITE.glow, C.goldHot, 0.3 * (1 - snap) * this.flare);
     }
