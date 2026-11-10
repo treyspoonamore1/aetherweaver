@@ -685,14 +685,16 @@ export function AtlasScreenView({
                   data-constellation={k.id}
                   data-complete={k.complete}
                 >
-                  <p className="flex items-baseline justify-between gap-2">
+                  {/* Phase 7: the name on one line, its progress under it (a long name such as
+                      Borrowed Crowns no longer wraps the header onto two lines each). */}
+                  <p className="flex flex-col gap-0.5">
                     <b
-                      className="font-display text-base"
+                      className="font-display text-base leading-tight"
                       style={{ color: k.complete ? LOOK.light : undefined }}
                     >
                       {k.name}
                     </b>
-                    <span className="shrink-0 whitespace-nowrap font-mono text-xs text-muted">
+                    <span className="whitespace-nowrap font-mono text-xs text-muted">
                       {k.progress}
                     </span>
                   </p>
