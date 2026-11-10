@@ -15,8 +15,8 @@
  *   overshield, the Weaver's), `heal`, `gainResonance`, Spirit, Solo charge, `dealDamage`
  *   (credited to the Weaver, as Riposte Bloom's nova is), `addStatus`, a technique's or a hero
  *   ability's cooldown, Empower (`hero.afterglowUntil`), the Crescendo's clock.
- * - **What it tells the views.** Each fire emits `motifTriggered { source, target? }` and counts
- *   into `ledger.triggers[source]`.
+ * - **What it tells the views.** A fire whose effects did something (`fire`) emits
+ *   `motifTriggered { source, target? }` and counts into `ledger.triggers[source]`.
  * - **Draws.** None. Targets go by distance, then entity id.
  */
 import type { TriggerPoint } from '../../content/schema';
@@ -153,8 +153,29 @@ function subjectOf(world: World, e: SimEvent): Subject | null {
   }
 }
 
+/** The tick's events a condition may look across (`usedUp`), from `mark` to `end`. */
+interface Tick {
+  mark: number;
+  end: number;
+}
+
+/** A `perfectWard` on `target` among the tick's events (a Perfect spends its Ward: `usedUp`). */
+function perfectedIn(world: World, tick: Tick, target: EntityId): boolean {
+  for (let i = tick.mark; i < tick.end; i++) {
+    const e = world.events.at(i)!;
+    if (e.type === 'perfectWard' && e.target === target) return true;
+  }
+  return false;
+}
+
 /** Every condition of `def` holds for `s` (limits apart). */
-function holds(world: World, state: TriggerState, def: ResolvedTriggerDef, s: Subject): boolean {
+function holds(
+  world: World,
+  state: TriggerState,
+  def: ResolvedTriggerDef,
+  s: Subject,
+  tick: Tick,
+): boolean {
   const e = s.event;
   if (def.hero !== undefined && s.hero?.hero?.defId !== def.hero) return false;
   if (
@@ -165,6 +186,8 @@ function holds(world: World, state: TriggerState, def: ResolvedTriggerDef, s: Su
   if (def.ability !== undefined && !(e?.type === 'abilityUsed' && e.ability === def.ability))
     return false;
   if (def.shield !== undefined && !(e?.type === 'shieldBroken' && e.shield === def.shield))
+    return false;
+  if (def.usedUp && !(e?.type === 'shieldBroken' && !perfectedIn(world, tick, e.target)))
     return false;
   if (def.summon !== undefined && !(e?.type === 'summonFell' && e.kind === def.summon))
     return false;
@@ -205,6 +228,7 @@ export function updateTriggers(world: World, mark: number, dt: number): void {
   if (!state) return;
   const triggers = world.mods.triggers;
   const end = world.events.length;
+  const tick: Tick = { mark, end };
   for (let i = mark; i < end; i++) {
     const event = world.events.at(i)!;
     // A new Crescendo: what the last one was lengthened by no longer counts against its cap.
@@ -214,7 +238,8 @@ export function updateTriggers(world: World, mark: number, dt: number): void {
       for (const [k, t] of triggers.entries()) {
         if (t.def.on !== event.type) continue;
         const clock = state.clocks[k]!;
-        if (holds(world, state, t.def, s) && ready(world, t.def, clock)) fire(world, t, clock, s);
+        if (holds(world, state, t.def, s, tick) && ready(world, t.def, clock))
+          fire(world, t, clock, s);
       }
     }
     if (event.type === 'cued') state.lastCue = { at: world.time, hero: event.hero };
@@ -227,7 +252,7 @@ export function updateTriggers(world: World, mark: number, dt: number): void {
     if (!(period > 0)) continue;
     const clock = state.clocks[k]!;
     const s = about(world, null, null);
-    if (!holds(world, state, t.def, s)) continue;
+    if (!holds(world, state, t.def, s, tick)) continue;
     clock.held = Math.min(period, clock.held + dt);
     if (clock.held + EPS < period || !ready(world, t.def, clock)) continue;
     clock.held = 0;
@@ -235,15 +260,24 @@ export function updateTriggers(world: World, mark: number, dt: number): void {
   }
 }
 
-/** Applies every effect, then counts, reports and starts its clock. */
+/**
+ * Applies every effect and starts its clock (`fired`, `readyAt`: its limits count every fire).
+ * It counts into the ledger and reports `motifTriggered` only when an effect did something: a
+ * heal that healed, damage dealt, a barrier added, a status applied, a clock moved, a resource
+ * gained. A rule that found no one, or nothing left to give, fired but did not trigger.
+ */
 function fire(world: World, t: ResolvedTrigger, clock: TriggerClock, s: Subject): void {
+  let did = false;
   let first: EntityId | undefined;
   for (const effect of t.def.effects) {
-    const target = apply(world, t, clock, effect, s);
-    if (first === undefined) first = target;
+    const landed = apply(world, t, clock, effect, s);
+    if (landed === false) continue;
+    did = true;
+    if (first === undefined && landed !== true) first = landed;
   }
   clock.fired++;
   if (t.def.every !== undefined) clock.readyAt = world.time + t.def.every;
+  if (!did) return;
   const tally = world.ledger.triggers;
   if (tally) tally[t.source] = (tally[t.source] ?? 0) + 1;
   world.events.push({
@@ -361,102 +395,118 @@ function nameOf(world: World, source: string): string {
   );
 }
 
-/** One effect. Returns the first entity it landed on, if it landed on one. */
+/**
+ * What an effect did: `false` nothing; `true` something, on no entity of its own (Resonance,
+ * Spirit, a cooldown, the Crescendo); otherwise the first entity it did something to.
+ */
+type Landed = EntityId | boolean;
+
+/** One effect. */
 function apply(
   world: World,
   t: ResolvedTrigger,
   clock: TriggerClock,
   e: ResolvedEffect,
   s: Subject,
-): EntityId | undefined {
+): Landed {
   switch (e.kind) {
     case 'barrier': {
-      let first: EntityId | undefined;
+      let first: Landed = false;
       for (const hero of heroesFor(world, e, s)) {
         const h = hero.health!;
         const amount = (h.maxHp * e.pct) / 100;
         // A hero's own overshield (an uncued Aegis Wall), or a bigger one of yours, is kept.
         const existing = shieldOf(h, 'overshield');
         if (existing && (!existing.fromWeaver || existing.amount >= amount)) continue;
-        if (addShield(world, hero, 'overshield', amount, e.seconds, true)) first ??= hero.id;
+        if (addShield(world, hero, 'overshield', amount, e.seconds, true) && first === false)
+          first = hero.id;
       }
       return first;
     }
     case 'heal': {
-      let first: EntityId | undefined;
+      let first: Landed = false;
       for (const hero of heroesFor(world, e, s)) {
         const base = e.of === 'event' ? s.amount : hero.health!.maxHp;
-        heal(world, hero, (base * e.pct) / 100, 'other');
-        first ??= hero.id;
+        const healed = heal(world, hero, (base * e.pct) / 100, 'other');
+        if (healed > 0 && first === false) first = hero.id;
       }
       return first;
     }
-    case 'resonance':
+    case 'resonance': {
+      const w = weaverOf(world).weaver!;
+      const before = w.resonance;
       gainResonance(world, e.amount, t.source);
-      return undefined;
+      return w.resonance > before;
+    }
     case 'spirit': {
       const w = weaverOf(world).weaver!;
+      const before = w.spirit;
       if (e.amount > 0) w.spirit = Math.min(w.maxSpirit - w.reservedSpirit, w.spirit + e.amount);
-      return undefined;
+      return w.spirit > before;
     }
     case 'solo': {
-      let first: EntityId | undefined;
+      let first: Landed = false;
       for (const hero of heroesFor(world, e, s)) {
         const h = hero.hero!;
         if (h.soloActive > 0 || h.solo >= 100 || !(e.pct > 0)) continue;
         h.solo = Math.min(100, h.solo + e.pct);
         if (h.solo >= 100)
           world.events.push({ type: 'soloReady', tick: world.tick, hero: hero.id });
-        first ??= hero.id;
+        if (first === false) first = hero.id;
       }
       return first;
     }
     case 'damage': {
       const amount = e.of === 'riposte' ? (world.mods.ripostePower * e.amount) / 100 : e.amount;
-      if (!(amount > 0)) return undefined;
+      if (!(amount > 0)) return false;
       const p = pointOf(world, e.at, s);
       const struck = enemiesNear(world, p.x, p.z, e.radius);
-      let first: EntityId | undefined;
+      let first: Landed = false;
       const sourceName = nameOf(world, t.source);
       for (const enemy of e.nearest !== undefined ? struck.slice(0, e.nearest) : struck) {
         const r = dealDamage(world, enemy, { source: world.weaverId, sourceName, amount });
         // Credited as Riposte Bloom's nova is: all of it is the Weaver's.
         world.ledger.amplified += r.dealt + r.absorbed;
-        first ??= enemy.id;
+        if (r.dealt + r.absorbed > 0 && first === false) first = enemy.id;
       }
       return first;
     }
     case 'status': {
       const p = pointOf(world, e.at, s);
       const radius = e.radius === 'event' ? s.radius : e.radius;
-      let first: EntityId | undefined;
+      let first: Landed = false;
       for (const enemy of enemiesNear(world, p.x, p.z, radius)) {
         if (enemy.enemy!.tier !== 'normal') continue;
-        if (addStatus(world, enemy, e.status, e.seconds, world.weaverId)) first ??= enemy.id;
+        if (addStatus(world, enemy, e.status, e.seconds, world.weaverId) && first === false)
+          first = enemy.id;
       }
       return first;
     }
-    case 'cooldown':
-      for (const key of e.techniques) cutCooldown(world, key, e.seconds);
-      return undefined;
+    case 'cooldown': {
+      let did = false;
+      for (const key of e.techniques) if (cutCooldown(world, key, e.seconds)) did = true;
+      return did;
+    }
     case 'ability': {
-      let first: EntityId | undefined;
+      let first: Landed = false;
       for (const hero of heroesFor(world, e, s)) {
         const def = world.content.heroes.find((d) => d.id === hero.hero!.defId);
         const index = def ? def.abilities.findIndex((a) => a.id === e.ability) : -1;
         if (index < 0) continue;
         const cds = hero.hero!.abilityCooldowns;
-        cds[index] = Math.max(0, cds[index]! - e.seconds);
-        first ??= hero.id;
+        const before = cds[index]!;
+        cds[index] = Math.max(0, before - e.seconds);
+        if (cds[index]! < before && first === false) first = hero.id;
       }
       return first;
     }
     case 'empower': {
-      let first: EntityId | undefined;
+      let first: Landed = false;
       for (const hero of heroesFor(world, e, s)) {
         const h = hero.hero!;
+        const before = h.afterglowUntil;
         h.afterglowUntil = Math.max(h.afterglowUntil, world.time + e.seconds);
-        first ??= hero.id;
+        if (h.afterglowUntil > before && first === false) first = hero.id;
       }
       return first;
     }
@@ -466,21 +516,23 @@ function apply(
       if (w.crescendo > 0 && add > 0) {
         w.crescendo += add;
         clock.added += add;
+        return true;
       }
-      return undefined;
+      return false;
     }
   }
 }
 
 /**
  * A technique recovers `seconds` at once. Reaching 0, a Ward or Glide charge comes back as the
- * Weaver's own clock would give it (systems/weaver.ts), its next charge starting at once.
+ * Weaver's own clock would give it (systems/weaver.ts), its next charge starting at once. Returns
+ * whether its clock moved.
  */
-function cutCooldown(world: World, key: TechniqueKey, seconds: number): void {
+function cutCooldown(world: World, key: TechniqueKey, seconds: number): boolean {
   const w = weaverOf(world).weaver!;
-  if (!(seconds > 0) || w.cooldowns[key] <= 0) return;
+  if (!(seconds > 0) || w.cooldowns[key] <= 0) return false;
   w.cooldowns[key] = Math.max(0, w.cooldowns[key] - seconds);
-  if (w.cooldowns[key] > 0) return;
+  if (w.cooldowns[key] > 0) return true;
   if (key === 'ward' && w.wardCharges < w.maxWardCharges) {
     w.wardCharges++;
     if (w.wardCharges < w.maxWardCharges) {
@@ -492,4 +544,5 @@ function cutCooldown(world: World, key: TechniqueKey, seconds: number): void {
     w.glideCharges++;
     if (w.glideCharges < w.maxGlideCharges) w.cooldowns.glide = w.cooldownTotals.glide;
   }
+  return true;
 }

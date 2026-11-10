@@ -840,16 +840,17 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
       amount *= 1 + talentValue(world, 'hunters_mark', 'pct') / 100;
     if (target.enemy.markedUntil > world.time)
       amount *= 1 + soloValue(world, 'hawks_vigil', 'pct') / 100;
+    // Phase 5g (N20): Concert Pitch's ring (fill/harmonies.ts) adds into the party's damage
+    // factor (Heavy Score's, the boons'), never a "more" factor of its own.
+    let party = world.mods.partyDamageMult;
+    if (world.mods.ringingPct > 0) party += concertPitchMult(world, source) - 1;
     // Warden's Key: on the Mutes, and (Movement III) the Silencing elites that carry their field.
-    let mult =
-      world.mods.partyDamageMult *
-      (suppressRadiusOf(world, target) > 0 ? world.mods.muteDamageMult : 1);
+    let mult = party * (suppressRadiusOf(world, target) > 0 ? world.mods.muteDamageMult : 1);
     // The Astrolabe's Anthem and Shield Bearer: heroes in a field, or under a Ward, hit harder.
     if (world.mods.inFieldDamage > 0 && source.hero.inField) mult *= 1 + world.mods.inFieldDamage;
     if (world.mods.wardedDamage > 0 && source.health && shieldOf(source.health, 'ward'))
       mult *= 1 + world.mods.wardedDamage;
-    // Phase 5g (N20, N30): Concert Pitch's ring (fill/harmonies.ts) and Thornwreath (fill/relics.ts).
-    if (world.mods.ringingPct > 0) mult *= concertPitchMult(world, source);
+    // Phase 5g (N30): Thornwreath (fill/relics.ts).
     if (world.mods.thornPct > 0) mult *= fillRelics.thornwreathMult(world, source);
     if (mult !== 1) {
       amplifiedIn += amount * (mult - 1);

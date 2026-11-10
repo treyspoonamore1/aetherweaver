@@ -230,6 +230,17 @@ describe('common relics', () => {
     }
   });
 
+  it('Black Ribbon on a party at full life heals no one, so it does not count', () => {
+    const w = world([plain('black_ribbon')]);
+    const brute = addEnemy(w, 'bell_brute', 0, -4);
+    const heavy = act(w, () =>
+      dealDamage(w, brute, { source: heroAt(w, 1).id, sourceName: 'test', amount: 1e7 }),
+    );
+    expect(ofType(heavy, 'enemyKilled')).toHaveLength(1);
+    expect(fires(heavy, 'black_ribbon')).toHaveLength(0);
+    expect(w.ledger.triggers).toEqual({ black_ribbon: 0 });
+  });
+
   it('Pedlar’s Ledger: merchants stock one more relic (Empowered: two; dormant: none)', () => {
     expect(shopRelicBonus([{ id: 'pedlars_ledger' }], CONTENT)).toBe(val('pedlars_ledger', 'more'));
     expect(shopRelicBonus([{ id: 'pedlars_ledger', empowered: true }], CONTENT)).toBe(
@@ -298,10 +309,28 @@ describe('rare relics', () => {
       sandbox({ relics: ['echoing_shell', 'sand_glass', 'red_ink'] }),
     );
     stepUntil(sim, () => sim.state.time >= t.perfectFrom + 0.05);
+    // Sand Glass has a clock to move only while one of the three is recovering.
+    const wv = weaverEntity(worldOf(sim)).weaver!;
+    wv.cooldowns.reel = 5;
     stepFor(sim, 1, [{ t: 'tech', id: 'ward', slot: 0 }]);
     const { events } = resolvedOf(sim, t.id);
     expect(ofType(events, 'perfectWard')).toHaveLength(1);
     expect(sim.state.ledger.triggers).toEqual({ echoing_shell: 1, sand_glass: 1, red_ink: 1 });
+  });
+
+  it('Sand Glass with nothing recovering moves no clock, and does not count', () => {
+    const { sim, telegraph: t } = telegraphOn(
+      'bell_brute',
+      'Toll Cleave',
+      0,
+      2.5,
+      sandbox({ relics: ['sand_glass'] }),
+    );
+    stepUntil(sim, () => sim.state.time >= t.perfectFrom + 0.05);
+    stepFor(sim, 1, [{ t: 'tech', id: 'ward', slot: 0 }]);
+    const { events } = resolvedOf(sim, t.id);
+    expect(ofType(events, 'perfectWard')).toHaveLength(1);
+    expect(sim.state.ledger.triggers).toEqual({ sand_glass: 0 });
   });
 
   it('Echoing Shell: a Perfect Ward charges every other hero’s Solo (Empowered: more)', () => {
