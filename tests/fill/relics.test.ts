@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 // The sim first, as it loads in the game (systems/enemies.ts registers itself with health.ts).
 import '../../src/sim';
-import { CONTENT, relicDef } from '../../src/content';
+import { CONTENT, relicDef, relicText } from '../../src/content';
 import { FILL_BOONS, FILL_RELICS } from '../../src/content/fill';
 import { ContentSchema } from '../../src/content/schema';
 import * as Run from '../../src/meta/run';
@@ -26,7 +26,7 @@ import {
 } from '../../src/sim/fill/relics';
 import { KNOWN_BOONS, KNOWN_RELICS, NO_MODS } from '../../src/sim/mods';
 import type { Entity } from '../../src/sim/state';
-import { canCall } from '../../src/sim/systems/calls';
+import { answerCall, canCall, startCall } from '../../src/sim/systems/calls';
 import { cueCostNow } from '../../src/sim/systems/conducting';
 import { spawnEnemy } from '../../src/sim/systems/enemies';
 import { pastOf } from '../../src/sim/systems/rewind';
@@ -204,6 +204,24 @@ describe('common relics', () => {
     expect(world().mods.responseBonus).toBe(0);
   });
 
+  it('Tin Whistle: an answered call really pays its Resonance on top (Empowered: more)', () => {
+    const gain = (relics: RelicIn[]) => {
+      const w = world(relics);
+      const kael = heroAt(w, 0);
+      const def = CONTENT.heroes.find((h) => h.id === kael.hero!.defId)!;
+      startCall(w, kael, def);
+      const wv = weaverEntity(w).weaver!;
+      const before = wv.resonance;
+      answerCall(w, kael, def.call.answer);
+      expect(w.ledger.responses).toBe(1);
+      return wv.resonance - before;
+    };
+    const base = gain([]);
+    expect(base).toBeCloseTo(CONTENT.resonance.gains.response, 9);
+    expect(gain([plain('tin_whistle')]) - base).toBeCloseTo(val('tin_whistle', 'resonance'), 9);
+    expect(gain([emp('tin_whistle')]) - base).toBeCloseTo(val('tin_whistle', 'resonance', true), 9);
+  });
+
   it('Black Ribbon: a heavy foe falling heals every hero; a light one doesn’t', () => {
     for (const empowered of [false, true]) {
       const w = world([empowered ? emp('black_ribbon') : plain('black_ribbon')]);
@@ -240,6 +258,16 @@ describe('common relics', () => {
     expect(ofType(heavy, 'enemyKilled')).toHaveLength(1);
     expect(fires(heavy, 'black_ribbon')).toHaveLength(0);
     expect(w.ledger.triggers).toEqual({ black_ribbon: 0 });
+  });
+
+  it('Pedlar’s Ledger reads right plain and Empowered (no “2 more relic”)', () => {
+    const def = relicDef('pedlars_ledger');
+    expect(relicText(def)).toBe(
+      `Every merchant’s relic shelf holds ${val('pedlars_ledger', 'more')} more.`,
+    );
+    expect(relicText(def, true)).toBe(
+      `Every merchant’s relic shelf holds ${val('pedlars_ledger', 'more', true)} more.`,
+    );
   });
 
   it('Pedlar’s Ledger: merchants stock one more relic (Empowered: two; dormant: none)', () => {
@@ -392,6 +420,34 @@ describe('rare relics', () => {
       val('prompt_book', 'cost', true),
     );
     expect(world().mods.firstCrescendoCut).toBe(0);
+  });
+
+  it('Prompt Book: the first Crescendo of a fight really costs less, the next the full price', () => {
+    const full = CONTENT.resonance.crescendoCost;
+    const cut = val('prompt_book', 'cost');
+    const play = (relics: RelicIn[]) => {
+      const sim = sandbox({ relics });
+      const w = worldOf(sim);
+      const wv = weaverEntity(w).weaver!;
+      wv.resonance = full - cut;
+      stepFor(sim, 1, [{ t: 'crescendo' }]);
+      return { sim, w, wv };
+    };
+    // Without it, that much Resonance buys no Crescendo.
+    expect(play([]).wv.crescendo).toBe(0);
+    const { sim, w, wv } = play([plain('prompt_book')]);
+    expect(wv.crescendo).toBeGreaterThan(0);
+    expect(wv.resonance).toBeCloseTo(0, 6);
+    expect(w.ledger.crescendos).toBe(1);
+    // Once it has played out, the second costs the full price again.
+    stepUntil(sim, () => wv.crescendo <= 0);
+    wv.resonance = full - cut;
+    stepFor(sim, 1, [{ t: 'crescendo' }]);
+    expect(w.ledger.crescendos).toBe(1);
+    wv.resonance = full;
+    stepFor(sim, 1, [{ t: 'crescendo' }]);
+    expect(w.ledger.crescendos).toBe(2);
+    expect(wv.crescendo).toBeGreaterThan(0);
   });
 
   it('Thornwreath: heroes below the line deal more (Empowered: more), the extra yours', () => {

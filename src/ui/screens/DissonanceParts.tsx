@@ -273,10 +273,11 @@ export function DiscordDisc({ size = 40 }: { size?: number }) {
 export interface PrepDissonanceProps {
   /**
    * The run in Prep: its levels (`run.dissonance`, following the profile's choice while it's
-   * open), its Calling (whose best is shown), and what it carries and its seed (meta's
-   * `playedDissonance` reads them: a Discordant Pact with nothing to give doesn't count).
+   * open), its Calling (whose best is shown), what it carries, its seed and its route (meta's
+   * `playedDissonance` reads them: a Discordant Pact with nothing to give doesn't count, and
+   * what it can give depends on the route).
    */
-  run: Pick<RunState, 'dissonance' | 'calling' | 'carried' | 'seed'>;
+  run: Pick<RunState, 'dissonance' | 'calling' | 'carried' | 'seed' | 'movements'>;
   /** Dissonance is open (won at its Rank, or Skip the unlocks). */
   open: boolean;
   /** The profile's bests by Calling (`profile.dissonance.best`). */
@@ -556,7 +557,7 @@ export function DissonanceClosed({ rank, className = '' }: { rank: number; class
 export function EmbarkDissonance({
   run,
 }: {
-  run: Pick<RunState, 'dissonance' | 'carried' | 'seed'>;
+  run: Pick<RunState, 'dissonance' | 'carried' | 'seed' | 'movements'>;
 }) {
   const points = dissonancePoints(playedDissonance(run));
   if (points <= 0) return null;
