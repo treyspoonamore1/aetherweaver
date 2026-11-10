@@ -83,6 +83,7 @@ export const COSMETICS: ContentInput['cosmetics'] = {
       earned: { constellation: 'hard_bargains' },
     },
     { id: 'title_atlas_walker', text: 'Atlas-Walker', earned: { atlas: true } },
+    { id: 'title_resolved', text: 'the Resolved', earned: { deed: 'resolution' } },
   ],
 };
 
