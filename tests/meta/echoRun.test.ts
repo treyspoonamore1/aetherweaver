@@ -11,7 +11,7 @@ import { useProfile } from '../../src/app/profileStore';
 import { useRun } from '../../src/app/runStore';
 import { useSettings } from '../../src/app/settings';
 import { CONTENT, runEventDef, type EchoDef, type WeeklyEntry } from '../../src/content';
-import type { DissonanceLevel, MovementDef } from '../../src/content/schema';
+import type { MovementDef } from '../../src/content/schema';
 import { dissonancePoints, parMult, type DissonanceChoice } from '../../src/meta/dissonance';
 import { EVERYTHING, RANK_XP } from '../../src/meta/profile';
 import type { ReliquaryRelic } from '../../src/meta/reliquary';
@@ -531,32 +531,26 @@ describe('twists', () => {
   });
 });
 
-describe('True Dissonance on a route without the Finale', () => {
-  const TRUE: DissonanceLevel = {
-    id: 'fx_true_dissonance',
-    name: 'Fixture True Dissonance',
-    effect: 'true_dissonance',
-    ranks: 1,
-    points: 5,
-    values: { life: 30, par: 40 },
-    text: 'Expeditions only.',
-  };
-  beforeAll(() => {
-    (CONTENT.dissonance as DissonanceLevel[]).push(TRUE);
-  });
-  afterAll(() => {
-    (CONTENT.dissonance as DissonanceLevel[]).pop();
-  });
+describe('True Dissonance (the real level): Expeditions only, and the Finale’s longer par', () => {
+  const TRUE = CONTENT.dissonance.find((d) => d.effect === 'true_dissonance')!;
   const levels = [L(TRUE.id), L('brisk_foes')];
   const played = (run: Parameters<typeof Run.playedDissonance>[0]) =>
     Run.playedDissonance(run).map((l) => l.id);
 
-  it('isn’t played, and adds no point, on a Prelude or an Echo with no Finale', () => {
+  it('is the content’s level, keyed by its effect', () => {
+    expect(TRUE.id).toBe('true_dissonance');
+    expect(TRUE.values.finalePar).toBeGreaterThan(0);
+  });
+
+  it('isn’t played, and adds no point, on a Prelude or a route with no Finale', () => {
     expect(played(Run.newRun(1, undefined, [], [], levels))).toEqual(['brisk_foes']);
-    expect(Run.embark(Run.newRun(1, undefined, [], [], levels)).dissonance).toStrictEqual([
-      L('brisk_foes'),
-    ]);
+    const prelude = Run.embark(Run.newRun(1, undefined, [], [], levels));
+    expect(prelude.dissonance).toStrictEqual([L('brisk_foes')]);
+    expect(dissonancePoints(prelude.dissonance)).toBe(1);
     expect(played(Run.newEchoRun(1, BACKWARDS.id, undefined, [], [], levels))).toEqual([
+      'brisk_foes',
+    ]);
+    expect(played(Run.newEchoRun(1, 'retrograde', undefined, [], [], levels))).toEqual([
       'brisk_foes',
     ]);
     // A two-Movement Expedition (a harness route) doesn't reach the Finale either.
@@ -568,22 +562,40 @@ describe('True Dissonance on a route without the Finale', () => {
   it('is played on the Expedition and on an Echo that ends at the Silent Conductor', () => {
     const exp = Run.newRun(1, undefined, [], [], levels, [], undefined, CONTENT.movements.length);
     expect(played(exp)).toEqual(['brisk_foes', TRUE.id]);
-    expect(dissonancePoints(Run.embark(exp).dissonance)).toBe(6);
-    expect(played(Run.newEchoRun(1, BOSSES.id, undefined, [], [], levels))).toEqual([
+    expect(dissonancePoints(Run.embark(exp).dissonance)).toBe(1 + TRUE.points);
+    expect(played(Run.newEchoRun(1, 'last_rehearsal', undefined, [], [], levels))).toEqual([
       'brisk_foes',
       TRUE.id,
     ]);
   });
 
   it('lengthens the Finale fight’s par by its value, and no other fight’s', () => {
-    expect(parMult([L(TRUE.id)], 'boss', 'the_silent_conductor')).toBeCloseTo(1.4);
+    const m = 1 + TRUE.values.finalePar! / 100;
+    expect(parMult([L(TRUE.id)], 'boss', 'the_silent_conductor')).toBeCloseTo(m);
     expect(parMult([L(TRUE.id)], 'boss', 'vharun')).toBe(1);
+    expect(parMult([L(TRUE.id)], 'skirmish', 'first_light')).toBe(1);
     expect(parMult([L(TRUE.id)], 'boss')).toBe(1);
-    // Without its value the par stays.
-    const values = TRUE.values;
-    TRUE.values = { life: 30 };
-    expect(parMult([L(TRUE.id)], 'boss', 'the_silent_conductor')).toBe(1);
-    TRUE.values = values;
+    // Through a whole Expedition: the Conductor's result's par, against the same run without it.
+    const conductorPar = (dissonance: DissonanceChoice[]) => {
+      const run = Run.embark(
+        Run.newRun(4, undefined, [], [], dissonance, [], undefined, CONTENT.movements.length),
+      );
+      const node = nodes(run).find((n) => n.encounterId === 'the_silent_conductor')!;
+      const there = at(run, node);
+      return Run.finishCombat(there, outcome(there)).lastResult!.par;
+    };
+    const def = CONTENT.encounters.find((e) => e.id === 'the_silent_conductor')!;
+    expect(conductorPar([])).toBe(def.par);
+    expect(conductorPar([L(TRUE.id)])).toBe(Math.round(def.par * m));
+    // Every other fight's par is the same with it.
+    const run = Run.embark(
+      Run.newRun(4, undefined, [], [], [L(TRUE.id)], [], undefined, CONTENT.movements.length),
+    );
+    for (const n of fightsOf(run).filter((x) => x.encounterId !== 'the_silent_conductor')) {
+      const there = at(run, n);
+      const r = Run.finishCombat(there, outcome(there)).lastResult!;
+      expect(r.par, n.id).toBe(CONTENT.encounters.find((e) => e.id === n.encounterId)!.par);
+    }
   });
 });
 
