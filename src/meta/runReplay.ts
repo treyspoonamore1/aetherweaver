@@ -330,6 +330,78 @@ export function applyStep(run: RunState, s: ChoiceStep): RunState {
   }
 }
 
+/**
+ * The step a run store action makes, from the action's name in `RunActions` (meta/types.ts), the
+ * arguments it was called with, and the allowance it passed the run layer (for `pickCalling`,
+ * `retune`, `forge` and `chooseEvent`; absent: everything). Null for an action that is no run
+ * step (Prep's, `embark`, `finishCombat`: a fight is recorded with its replay), or for arguments
+ * no step takes.
+ */
+export function stepOfAction(
+  action: string,
+  args: readonly unknown[],
+  allowance: Allowance = EVERYTHING,
+): ChoiceStep | null {
+  const allow = allowanceRecord(allowance);
+  const [a, b] = args;
+  const raw: Record<string, unknown> | null = (() => {
+    switch (action) {
+      case 'chooseNode':
+        return { k: 'node', id: a };
+      case 'continueFromResult':
+        return { k: 'continue' };
+      case 'pickCalling':
+        return {
+          k: 'calling',
+          index: a,
+          ...(b !== undefined ? { chords: b } : {}),
+          allowance: allow,
+        };
+      case 'pickRelic':
+        return { k: 'relic', index: a };
+      case 'pickDraft':
+        return { k: 'draft', index: a };
+      case 'rerollDraft':
+        return { k: 'reroll' };
+      case 'respite':
+        return { k: 'respite', choice: a };
+      case 'retune':
+        return { k: 'retune', chords: a, allowance: allow };
+      case 'bondScene':
+        return { k: 'scene', sceneId: a };
+      case 'endScene':
+        return { k: 'endScene' };
+      case 'buy':
+        return { k: 'buy', index: a };
+      case 'leaveShop':
+        return { k: 'leaveShop' };
+      case 'forge':
+        return { k: 'forge', choice: a, allowance: allow };
+      case 'leaveForge':
+        return { k: 'leaveForge' };
+      case 'chooseEvent': {
+        const opts = (b ?? {}) as { motifId?: unknown; chords?: unknown };
+        return {
+          k: 'event',
+          choice: a,
+          ...(opts.motifId !== undefined ? { motifId: opts.motifId } : {}),
+          ...(opts.chords !== undefined ? { chords: opts.chords } : {}),
+          allowance: allow,
+        };
+      }
+      case 'leaveEvent':
+        return { k: 'leaveEvent' };
+      case 'abandon':
+        return { k: 'abandon' };
+      default:
+        return null;
+    }
+  })();
+  if (!raw) return null;
+  const parsed = ChoiceStepSchema.safeParse(plain(raw));
+  return parsed.success ? parsed.data : null;
+}
+
 /** What a step is called in a message ("a draft pick"). */
 function stepName(s: RunStep): string {
   const names: Record<RunStep['k'], string> = {
