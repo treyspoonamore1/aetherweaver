@@ -556,41 +556,45 @@ export function WeeklyPanel({ input, initialAdding = false }: WeeklyPanelProps) 
           </span>
         </p>
       )}
-      <table className="mt-3 w-full text-sm" data-testid="weekly-board">
-        <caption className="sr-only">This week’s results, best first</caption>
-        <thead>
-          <tr className="text-left text-xs uppercase tracking-wider text-muted">
-            <th className="py-1 pr-2 font-semibold">#</th>
-            <th className="py-1 pr-2 font-semibold">Who</th>
-            <th className="py-1 pr-2 text-right font-semibold">Score</th>
-            <th className="py-1 pr-2 font-semibold">Result</th>
-            <th className="py-1 pr-2 text-right font-semibold">Fighting</th>
-            <th className="py-1 font-semibold">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {v.rows.map((r) => (
-            <tr
-              key={r.code}
-              className={`border-t border-ink-600/70 ${r.mine ? 'bg-ink-900/60' : ''}`}
-              data-status={r.status.status}
-              data-mine={r.mine}
-              aria-label={r.label}
-            >
-              <td className="py-1.5 pr-2 font-mono text-muted">{r.place}</td>
-              <td className={`py-1.5 pr-2 ${r.mine ? 'font-semibold text-gold-200' : 'text-text'}`}>
-                {r.who}
-              </td>
-              <td className="py-1.5 pr-2 text-right font-mono text-text">{r.score ?? '—'}</td>
-              <td className="py-1.5 pr-2 text-muted">{r.result ?? 'Can’t be read'}</td>
-              <td className="py-1.5 pr-2 text-right font-mono text-muted">{r.time ?? '—'}</td>
-              <td className="py-1.5">
-                <StatusChip look={r.status} />
-              </td>
+      {v.rows.length > 0 && (
+        <table className="mt-3 w-full text-sm" data-testid="weekly-board">
+          <caption className="sr-only">This week’s results, best first</caption>
+          <thead>
+            <tr className="text-left text-xs uppercase tracking-wider text-muted">
+              <th className="py-1 pr-2 font-semibold">#</th>
+              <th className="py-1 pr-2 font-semibold">Who</th>
+              <th className="py-1 pr-2 text-right font-semibold">Score</th>
+              <th className="py-1 pr-2 font-semibold">Result</th>
+              <th className="py-1 pr-2 text-right font-semibold">Fighting</th>
+              <th className="py-1 font-semibold">Status</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {v.rows.map((r) => (
+              <tr
+                key={r.code}
+                className={`border-t border-ink-600/70 ${r.mine ? 'bg-ink-900/60' : ''}`}
+                data-status={r.status.status}
+                data-mine={r.mine}
+                aria-label={r.label}
+              >
+                <td className="py-1.5 pr-2 font-mono text-muted">{r.place}</td>
+                <td
+                  className={`py-1.5 pr-2 ${r.mine ? 'font-semibold text-gold-200' : 'text-text'}`}
+                >
+                  {r.who}
+                </td>
+                <td className="py-1.5 pr-2 text-right font-mono text-text">{r.score ?? '—'}</td>
+                <td className="py-1.5 pr-2 text-muted">{r.result ?? 'Can’t be read'}</td>
+                <td className="py-1.5 pr-2 text-right font-mono text-muted">{r.time ?? '—'}</td>
+                <td className="py-1.5">
+                  <StatusChip look={r.status} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
       {v.empty && <p className="mt-2 text-sm text-muted">{v.empty}</p>}
     </Panel>
   );

@@ -296,7 +296,9 @@ export function PrepView({
   atlas,
 }: PrepViewProps) {
   useMood('map');
-  const echoPanel = run.echo === undefined ? null : prepEchoView(run.echo, atlas);
+  // A weekly on an Echo's route shows the weekly's panel alone: it names the route, and its
+  // choices (the Calling, the party) are the week's, not the Echo's player's.
+  const echoPanel = run.echo === undefined || weekly ? null : prepEchoView(run.echo, atlas);
   // Always the content's two at Prep (the path is empty), but read from the run like Retune.
   const slots = runFieldAuraSlots(run);
   // The Calling chosen above decides the pool (the Martyr's songs reserve Life), and so does the

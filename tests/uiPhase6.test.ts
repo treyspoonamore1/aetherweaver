@@ -17,10 +17,23 @@ import { useSettings } from '../src/app/settings';
 import { CONTENT_VERSION } from '../src/content';
 import * as Run from '../src/meta/run';
 import { buildOf, encodeShareCode, shareLine, type ShareClaim } from '../src/meta/shareCode';
-import { daysLeft, entryLine, weekOf, weeklyBoard, weeklyEntry } from '../src/meta/weekly';
+import {
+  daysLeft,
+  entryLine,
+  weekOf,
+  weeklyBoard,
+  weeklyEntry,
+  weeklyPrep,
+} from '../src/meta/weekly';
+import type { WeeklyEntry } from '../src/content';
+
+/** A weekly's run in Prep (the default Chords, no variants). */
+function weeklyPrepRun(week: number, entry: WeeklyEntry) {
+  return weeklyPrep(week, { chords: Run.DEFAULT_CHORDS, techniques: {} }, entry)!;
+}
 import { SIM_VERSION } from '../src/sim';
 import { mapBiome } from '../src/ui/screens/mapBiome';
-import { mapHeader, runMovementCard } from '../src/ui/screens/routeText';
+import { mapHeader, outcomeSub, runMovementCard } from '../src/ui/screens/routeText';
 import {
   atlasActionsFor,
   useWeeklyVerify,
@@ -1022,5 +1035,64 @@ describe('an Echo’s screens read the leg’s Movement', () => {
     expect(deedBest(four, { earned: [], best: {}, weekly: [] })!.line).toBe(
       `0 of ${four.values.n} weeks won`,
     );
+  });
+});
+
+describe('every Echo, and a weekly, reads sensibly on the run’s screens', () => {
+  it('the map, its card, the fight’s line, Prep and the Summary for each of the nine', async () => {
+    const MapView = await component<Record<string, unknown>>(
+      '../src/ui/screens/MapScreen',
+      'MapView',
+    );
+    const PrepView = await component<Record<string, unknown>>(
+      '../src/ui/screens/PrepScreen',
+      'PrepView',
+    );
+    const noop = () => {};
+    for (const e of echoes()) {
+      const prep = Run.newEchoRun(11, e.id);
+      const run = Run.embark(prep);
+      const html = renderToStaticMarkup(
+        createElement(MapView, { run, onChoose: noop, onAbandon: noop, card: true }),
+      );
+      expect(html, e.id).toContain(e.name.replace(/’/g, '’'));
+      expect(html, e.id).not.toMatch(/undefined|NaN|The Prelude/);
+      for (let leg = 1; leg <= e.legs.length; leg++) {
+        const card = runMovementCard(run, leg);
+        expect(card.text, `${e.id} leg ${leg}`).toMatch(/: \d+ stops? to /);
+        expect(card.text).toContain(Run.runMovementDef(run, leg).mapTitle);
+      }
+      const prepHtml = renderToStaticMarkup(
+        createElement(PrepView, { run: prep, onChords: noop, onEmbark: noop, onBack: noop }),
+      );
+      expect(prepHtml, e.id).toContain(`data-echo="${e.id}"`);
+      expect(prepHtml).not.toMatch(/undefined|NaN/);
+      expect(summaryEyebrow(run)).toBe(`${e.name} · summary`);
+      const lost = { ...run, outcome: 'defeat' as const };
+      expect(outcomeSub(lost), e.id).toMatch(new RegExp(`^The party is lost on ${e.name}’s road`));
+    }
+  });
+
+  it('a weekly names its week; on an Echo’s route its own panel, not the Echo’s', async () => {
+    const PrepView = await component<Record<string, unknown>>(
+      '../src/ui/screens/PrepScreen',
+      'PrepView',
+    );
+    const week = weekOf(Date.UTC(2026, 10, 11));
+    const entry = { ...weeklyEntry(week)!, route: 'strangers' };
+    const run = weeklyPrepRun(week, entry);
+    const html = renderToStaticMarkup(
+      createElement(PrepView, {
+        run,
+        onChords: () => {},
+        onEmbark: () => {},
+        onBack: () => {},
+        weekly: { week, entry },
+      }),
+    );
+    expect(html).toContain('data-testid="prep-weekly"');
+    expect(html).not.toContain('data-testid="prep-echo"');
+    expect(prepEyebrow(run)).toBe(`This Week’s Song · Week ${week}`);
+    expect(summaryEyebrow(run)).toBe(`This Week’s Song · Week ${week} · summary`);
   });
 });

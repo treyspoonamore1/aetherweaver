@@ -306,9 +306,9 @@ export function combatSubtitle(
  */
 export function prepEyebrow(run: Partial<Pick<RunState, 'movements' | 'echo' | 'weekly'>>): string {
   // Phase 6: an Echo names itself; a weekly names its week.
+  if (run.weekly !== undefined) return `This Week’s Song · Week ${run.weekly.week}`;
   if (run.echo !== undefined)
     return `The Atlas of Echoes · ${CONTENT.echoes.find((e) => e.id === run.echo)?.name ?? run.echo}`;
-  if (run.weekly !== undefined) return `This Week’s Song · Week ${run.weekly.week}`;
   const n = run.movements ?? 1;
   if (n < 2) return 'The Prelude · Movement I';
   return `The Expedition · ${movementSpan(1, n)}`;
@@ -428,9 +428,9 @@ export function summaryEyebrow(
   run: Partial<Pick<RunState, 'movements' | 'echo' | 'weekly'>>,
 ): string {
   // Phase 6: an Echo names itself; a weekly names its week.
+  if (run.weekly !== undefined) return `This Week’s Song · Week ${run.weekly.week} · summary`;
   if (run.echo !== undefined)
     return `${CONTENT.echoes.find((e) => e.id === run.echo)?.name ?? run.echo} · summary`;
-  if (run.weekly !== undefined) return `This Week’s Song · Week ${run.weekly.week} · summary`;
   return `${routeName(run)} · summary`;
 }
 
