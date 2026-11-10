@@ -203,6 +203,28 @@ export function decodeShareCode(text: string): DecodedShareCode {
   return { ok: true, claim: { week, build, simVersion, won, fightsWon, score, seconds, digest } };
 }
 
+/** A whole number with thousands commas, written by hand: the run layer reads no locale. */
+export function thousands(n: number): string {
+  const s = String(Math.round(Math.abs(n)));
+  let out = '';
+  for (let i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 === 0) out += ',';
+    out += s[i];
+  }
+  return n < 0 ? `-${out}` : out;
+}
+
+/**
+ * What Share copies beside the code (docs/phase-6.md, "The local leaderboard"): "My Week 47 song:
+ * 3,210 points, won. AW1-…". Null for text that isn't a code.
+ */
+export function shareLine(code: string): string | null {
+  const read = decodeShareCode(code);
+  if (!read.ok) return null;
+  const c = read.claim;
+  return `My Week ${c.week} song: ${thousands(c.score)} point${c.score === 1 ? '' : 's'}, ${c.won ? 'won' : 'lost'}. ${encodeShareCode(c)}`;
+}
+
 /** The code as it is shown: the canonical spelling of whatever was typed (null: unreadable). */
 export function normalShareCode(text: string): string | null {
   const read = decodeShareCode(text);
