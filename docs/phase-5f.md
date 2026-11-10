@@ -6,7 +6,7 @@ The fourth **Calling**: the one who makes them great. The Luminary makes the her
 
 It unlocks at **Rank 12** (6,650 XP), the same Rank as Oro's recruit (`recruit.oro`, docs/phase-5e.md:621). Like the Martyr's Vow and the Chronomancer's Stasis, its Crescendo, **Grand Finale**, replaces Sunrise. It takes no key: Cues stay on Shift+1 to Shift+4 and the Crescendo on its own key.
 
-This doc is the spec. Implementers build from it and their brief, nothing else. Every number below is a starting value that W5 tunes, inside the levers listed under *Bands*.
+This doc is the spec. Implementers build from it and their brief, nothing else. Every number below is a starting value that W5 tunes, inside the levers listed under *Bands*. W5 has tuned the passive: the text below gives the as-built numbers (Cues 20, gain 10%, a 4 s window) and notes the earlier value where a reader would be confused. *As built* and *Tuning* hold the rest.
 
 ## Decisions for you
 
@@ -20,7 +20,7 @@ The user was away, so each row records the default this doc is built on. Each is
 | 4 | Maestro: "Grand Finale loops once more". Does the +20% ramp keep rising on the second pass? | (a) it keeps rising: ×1, ×1.2, ×1.44, ×1.73, ×2.07, ×2.49; (b) it starts again at ×1 | **default taken: (a).** The plain reading, and the payoff of a keystone tier. The ramp is lever 1 if it is too strong. |
 | 5 | Marcato (the plan's Baton) gives heroes who answer a Directive +10% damage for 4 s. Directives cost nothing and have no cooldown in the game today. How often can it come? | (a) at most once every 8 s (4 s on, 4 s waiting); (b) every Directive gives it (a player who re-Focuses every 4 s keeps it forever); (c) only a Directive that changes the order | **default taken: (a).** A clear rhythm the chip can show; (b) is a free permanent +10%. |
 | 6 | A Tempo (the plan's Downbeat): which beat makes a Cue free? | (a) the first beat of each bar: every 2.73 s at the music's 88 BPM, so a Cue at a random moment is free about 11% of the time; (b) every beat: every 0.68 s, free about 44% of the time by chance | **default taken: (a).** "Downbeat" is the bar's first beat, and (b) is free by accident. |
-| 7 | Cues cost 15, but the meter only keeps whole segments of 25 from fading. Spend 15 from 50 and 10 of the 35 left fades away. | (a) on a Conductor run the meter also keeps whole Cues: what remains fades no lower than the larger of its whole segments and its whole Cues; (b) unchanged | **default taken: (a).** Otherwise idle seconds quietly take back the Calling's discount. |
+| 7 | Cues cost 20 (15 before tuning), but the meter only keeps whole segments of 25 from fading. Spend 20 from 65 and 20 of the 45 left fades away (to 25). | (a) on a Conductor run the meter also keeps whole Cues: what remains fades no lower than the larger of its whole segments and its whole Cues; (b) unchanged | **default taken: (a).** Otherwise idle seconds quietly take back the Calling's discount. |
 
 ## The Conductor: the one who makes them great
 
@@ -28,9 +28,9 @@ The user was away, so each row records the default this doc is built on. Each is
 
 **Passive.**
 
-- **Cues cost 15 Resonance** instead of 25.
-- **You gain 20% more Resonance** from everything that gives it.
-- **Duets and Trios.** Cue a Solo within **3 s** of your last Cue and it plays as a **Duet**: **25% stronger**. A third hero Cued within 3 s of the second plays as a **Trio**: **50% stronger**.
+- **Cues cost 20 Resonance** instead of 25 (15 before tuning).
+- **You gain 10% more Resonance** from everything that gives it (20% before tuning).
+- **Duets and Trios.** Cue a Solo within **4 s** of your last Cue and it plays as a **Duet**: **25% stronger**. A third hero Cued within 4 s of the second plays as a **Trio**: **50% stronger**. (The window was 3 s before tuning.)
 
 **Crescendo: Grand Finale** (instead of Sunrise). Every hero plays their Solo in turn, in their Cued form, one a second, in party order. Each is **20% stronger than the one before**. When the last has begun, **every Solo is full again**.
 
@@ -67,23 +67,23 @@ The boss is always "the Silent Conductor" in new text. Existing boss strings tha
 
 ### Cue cost and the meter
 
-- The meter keeps its four segments of 25 and its Crescendo at 100. A Cue costs 15. The HUD already draws a Cue's cost as ticks on the meter when it isn't one segment (`cueTicks`, `dissonanceModel.ts:576`): ticks at 15, 30, 45, 60, 75 and 90.
-- Silent Cues (Dissonance, one rank) adds its 10 on top: a Cue costs 25. On the downbeat (A Tempo) only the surcharge is paid: 10 with Silent Cues, 0 without.
-- **The fade** (decision 7). Today only the partial segment fades, after 5 s without a gain, at 4 a second (`sim/combat/resonance.ts:36-44`; `content/weaver.ts:79-80`). On a Conductor run the meter fades no lower than the larger of two floors: its whole segments (25s) and its whole Cues (multiples of the off-beat Cue cost, 15). From 35 it fades to 30; from 40 to 30; from 100 it never fades. Without the Conductor nothing changes.
+- The meter keeps its four segments of 25 and its Crescendo at 100. A Cue costs 20. The HUD already draws a Cue's cost as ticks on the meter when it isn't one segment (`cueTicks`, `dissonanceModel.ts:576`): ticks at 20, 40, 60, 80 and 100.
+- Silent Cues (Dissonance, one rank) adds its 10 on top: a Cue costs 30. On the downbeat (A Tempo) only the surcharge is paid: 10 with Silent Cues, 0 without.
+- **The fade** (decision 7). Today only the partial segment fades, after 5 s without a gain, at 4 a second (`sim/combat/resonance.ts:36-44`; `content/weaver.ts:79-80`). On a Conductor run the meter fades no lower than the larger of two floors: its whole segments (25s) and its whole Cues (multiples of the off-beat Cue cost, 20). From 45 it fades to 40; from 65 to 60; from 35 to 25, because a whole segment is then the larger floor; from 100 it never fades. With Silent Cues the Cue costs 30 and the floor moves in 30s: 40 fades to 30, 70 to 60, and 50 stays. Without the Conductor nothing changes (45 fades to 25). Before tuning, at Cue 15, the same rule kept 30 from 35 and from 40.
 
-### Resonance gains +20%
+### Resonance gains +10%
 
-Every gain is multiplied by 1.2 through the existing `resonanceMult` (`resonance.ts:13`), on top of Standing Ovation (multiplied, not added: Standing Ovation III and the passive give ×1.44). The +20% applies to gains only: not to Upbeat's 50 at the start, not to the Cantor's Hymnal, not to Da Capo's 25 kept after a Crescendo. No Resonance is gained while the Grand Finale plays, as for every Crescendo.
+Every gain is multiplied by 1.1 through the existing `resonanceMult` (`resonance.ts:13`), on top of Standing Ovation (multiplied, not added: Standing Ovation III and the passive give ×1.32; ×1.44 before tuning). The +10% applies to gains only: not to Upbeat's 50 at the start, not to the Cantor's Hymnal, not to Da Capo's 25 kept after a Crescendo. No Resonance is gained while the Grand Finale plays, as for every Crescendo.
 
 ### Duets and Trios
 
-- **A chain** starts with any Cue. Each later Cue joins it if it comes **within 3 s of the chain's last Cue**, measured in sim time from the tick the last Cue was given to the tick this one is given (≤ 3.0 s joins). The window rolls: a Trio can span up to 6 s.
+- **A chain** starts with any Cue. Each later Cue joins it if it comes **within 4 s of the chain's last Cue**, measured in sim time from the tick the last Cue was given to the tick this one is given (≤ 4.0 s joins). The window rolls: a Trio can span up to 8 s. (3 s and 6 s before tuning.)
 - The second Cue of a chain is a **Duet** (×1.25), the third a **Trio** (×1.5).
-- **A chain needs different heroes.** Cueing a hero already in the chain starts a new chain with that Cue as its first. With a party of three, a chain is at most three long. (A hero can't be Cued twice within 3 s anyway: a Cue needs a full Solo and no Solo playing.)
+- **A chain needs different heroes.** Cueing a hero already in the chain starts a new chain with that Cue as its first. With a party of three, a chain is at most three long. (A hero can't be Cued twice within 4 s anyway: a Cue needs a full Solo and no Solo playing.)
 - **Only Cues count.** A Solo a hero fires on their own (Hero Autonomy, Kael bracing below 30% life, Shieldbearer) neither joins nor breaks a chain. A Grand Finale turn neither joins nor breaks one (decision 3).
 - **A free Cue** (A Tempo) is a Cue like any other.
 - **Hero Autonomy** is unchanged: a full Solo still fires itself 1 s after it is ready (`AUTONOMY.cueGrace`, `constants.ts:28`), so with the assist on a chain must be built quickly.
-- **What the player sees.** After each Cue a gold ring drains around the Cue strip for 3 s, and every hero whose Solo is ready shows what a Cue now would be: "Duet ×1.25" or "Trio ×1.5". The forming Cue calls out "DUET" or "TRIO".
+- **What the player sees.** After each Cue a gold ring drains around the Cue strip for 4 s, and every hero whose Solo is ready shows what a Cue now would be: "Duet ×1.25" or "Trio ×1.5". The forming Cue calls out "DUET" or "TRIO".
 
 ### What "power" scales
 
@@ -128,7 +128,7 @@ Directives exist as player actions: the wheel (C) and the keys for Focus (G), Ra
 
 - **The beat is the sim's.** The music plays at 88 BPM in four (`theory.ts:13-17`). The sim owns the same tempo as constants: `MUSIC_BPM = 88`, `BEATS_PER_BAR = 4`, so a bar is 240 / 88 = 2.727… s of sim time. Downbeats fall at sim time 0, 1 bar, 2 bars, and so on. Sim time is what the game runs on: slow motion stretches a bar in real time, a pause stops it.
 - **The rule.** A Cue costs no Resonance (Silent Cues' surcharge aside) if the sim time of the tick it is given is within **0.15 s** of a downbeat (≤ 0.15 s either side). That window is 0.30 s of every 2.73 s.
-- **What the player sees** (the cue works with sound off). A metronome strip under the Resonance meter, only on runs with A Tempo: four beat marks a bar, the first larger, and a light that runs along them with the sim's time. The downbeat's window is drawn as a band around the first mark. While the light is inside the band, the band glows white-gold and every ready hero's Cue badge reads "Free". In the world, a faint white-gold ring pulses from the Weaver's feet on each downbeat. With reduced motion the light steps beat by beat instead of sliding.
+- **What the player sees** (the cue works with sound off). A metronome strip under the Resonance meter, only on runs with A Tempo: four beat marks a bar, the first larger, and a light that runs along them with the sim's time. The downbeat's window is drawn as a band around the first mark. While the light is inside the band, the band glows white-gold and every ready hero's Cue badge reads "Free" (as built, only when the Cue costs 0; under Silent Cues it reads "On the beat · 10", see *As built: W2*). In the world, a faint white-gold ring pulses from the Weaver's feet on each downbeat. With reduced motion the light steps beat by beat instead of sliding.
 - **What the player hears.** On A Tempo runs the music's bar line follows the sim's downbeat (below, *Audio*), and a soft baton tick marks each downbeat. A free Cue adds a bright chime to the Cue's phrase.
 - **Fairness.** The window is judged on sim time, which is what the HUD draws. A key press reaches the sim on the next tick (at most 1/60 s later). The music may sit up to 30 ms off the sim's beat after a correction; the visual cue is the truth.
 
@@ -216,7 +216,8 @@ Appended to `CALLINGS` (`callings.ts`, after the Chronomancer):
   crescendoName: 'Grand Finale',
   flavor: 'On my count. All of you.',
   // gap: seconds between the Finale's turns; wait: the longest it waits for a hero mid-Solo.
-  values: { cue: 15, gain: 20, window: 3, duet: 25, trio: 50, ramp: 20, gap: 1, wait: 12 },
+  // As built after tuning: cue 20, gain 10, window 4 (cue 15, gain 20, window 3 in the first design). The code's key for the window is `chain` (see *As built: W1*).
+  values: { cue: 20, gain: 10, window: 4, duet: 25, trio: 50, ramp: 20, gap: 1, wait: 12 },
   unlockRank: 12,
   icon: 'conductor',
   tiers: [
@@ -270,9 +271,9 @@ Appended to `CALLINGS` (`callings.ts`, after the Chronomancer):
 
 | Mod | Default (does nothing) | Set by | Value |
 |---|---|---|---|
-| `cueCostBase: number \| null` | `null` (content's 25) | passive | `cue` (15) |
+| `cueCostBase: number \| null` | `null` (content's 25) | passive | `cue` (20) |
 | `resonanceMult` (exists) | 1 | passive | `*= 1 + gain / 100` |
-| `chainWindow` | 0 (no chains) | passive | `window` (3) |
+| `chainWindow` | 0 (no chains) | passive | `window` (4; `chain` in code) |
 | `duetPower`, `trioPower` | 1 | passive | `1 + duet / 100`, `1 + trio / 100` |
 | `cueKeepsWhole: boolean` | false | passive | true |
 | `finaleTurns` | 0 (no Grand Finale) | passive / Maestro | 1 / `loops` (2) |
@@ -332,11 +333,11 @@ export interface LedgerConducting {
 
 ```ts
 export interface ConductingView {
-  /** What a Cue costs off the beat, Silent Cues included (15). */
+  /** What a Cue costs off the beat, Silent Cues included (20). */
   cueCost: number;
   /** What the Crescendo costs (100; Maestro 75). */
   crescendoCost: number;
-  window: number;            // 3
+  window: number;            // 4 (`chainWindow` in code)
   duet: number;              // 1.25
   trio: number;              // 1.5
   finale: { turns: number; ramp: number; gap: number; wait: number };
@@ -355,7 +356,7 @@ export interface ConductingView {
 }
 ```
 
-- `DissonanceState.cueCost` (`world.ts:871`) becomes `(mods.cueCostBase ?? content.resonance.cueCost) + mods.cueCostBonus`: what a Cue costs off the beat this fight. Its comment says so. The bots read it as the Cue's cost today (`novice.ts:407`, `skilled.ts:1040`), so they see 15 on Conductor runs with no change.
+- `DissonanceState.cueCost` (`world.ts:871`) becomes `(mods.cueCostBase ?? content.resonance.cueCost) + mods.cueCostBonus`: what a Cue costs off the beat this fight. Its comment says so. The bots read it as the Cue's cost today (`novice.ts:407`, `skilled.ts:1040`), so they see 20 on Conductor runs with no change.
 
 **Pure helpers** (`systems/conducting.ts`, exported through `src/sim/index.ts` for the views and bots; each takes the read-only `WorldState`, which `World` satisfies, so the sim and the views use one rule):
 
@@ -424,17 +425,17 @@ Every number comes from content (`callingText`, `optionText`), the view (`callin
 | **Axes** (`screens/callingText.ts`) | `OPTION_AXES`: marcato, ensemble, spotlight → `lead`; a_tempo, upbeat, triad → `tempo`; reprise, maestro → `encore`. `AXIS_LOOK` gains Lead them ("Your heroes hit harder"), In time ("The beat and the meter"), More Solos ("Solos come round sooner"), each ΔE ≥ 25 from the others in every mode. `PASSIVE_NAME.conductor = 'Cheap Cues, Duets and Trios'`. |
 | **Prep** (`CallingPicker.tsx`, `CallingParts.tsx`, `PrepScreen.tsx`) | Four Callings beside No Calling; the layout holds at the narrowest Prep width (wrap to two rows if needed). His card: "**Grand Finale** replaces Sunrise…", locked "Rank 12" until then. |
 | **Tier screen** (`CallingScreen.tsx`) | Generic; his glyphs and axes; "Always yours · Cheap Cues, Duets and Trios". |
-| **Weaver bar** (`hud/WeaverBar.tsx`) | Cue ticks at 15 (existing). **The chain ring**: a gold arc around the Cue strip, draining from `cueChained.until`, labelled "Duet next" or "Trio next". **The beat strip** (A Tempo only): four beat marks, the light, the window band; "Free" in white-gold inside it (geometry from `beatAt`). **The Crescendo read-out**: "Grand Finale", its cost from `crescendoCostOf` (75 with Maestro), ready at that cost. While it plays: turn pips (3, or 6 with Maestro), lit as played, crossed as lost, and the next hero's name with their power ("Lyra next ×1.44", from `finaleView`). |
+| **Weaver bar** (`hud/WeaverBar.tsx`) | Cue ticks at each multiple of the Cue's cost (20; existing). **The chain ring**: a gold arc around the Cue strip, draining from `cueChained.until`, labelled "Duet next" or "Trio next". **The beat strip** (A Tempo only): four beat marks, the light, the window band; "Free" in white-gold inside it (geometry from `beatAt`). **The Crescendo read-out**: "Grand Finale", its cost from `crescendoCostOf` (75 with Maestro), ready at that cost. While it plays: turn pips (3, or 6 with Maestro), lit as played, crossed as lost, and the next hero's name with their power ("Lyra next ×1.44", from `finaleView`). |
 | **Party frames** (`hud/PartyFrames.tsx`) | A ready hero's Cue badge shows `nextCue`: "Duet ×1.25", "Trio ×1.5", and "Free" on the beat. Marks: Spotlight (a light cone glyph, for the Solo), Marcato (+10%, a 4 s sweep). During the Finale: each hero's place in the queue (1, 2, 3), "waits" or "lost". |
 | **Calling chip** (`hud/CallingChip.tsx`, `hud/calling.ts`) | Marcato "ready" or "Marcato 5s"; Ensemble pips (0-3) and "+10%"; Triad "holding" while it holds; it blazes while the Finale plays. |
 | **HUD helpers** (`hud/conducting.ts`, new) | Pure, tested: badge labels from `nextCue`, the beat strip from `beatAt`, the Finale's pips from `finaleView`, the chip's states. |
 | **Bridge and store** (`hudBridge.ts`, `store.ts`) | `crescendoCost` from `crescendoCostOf` (today `resonance.crescendoCost`, `hudBridge.ts:515`); the conducting view and field carried to the HUD. |
-| **Dissonance chip** (`screens/dissonanceModel.ts`) | `hudDissonanceView` (`:520-534`) compares the Cue's cost with the Calling's own (15 on a Conductor run), not the content's 25, so it doesn't report "A Cue costs 15 Resonance this fight" as Dissonance. |
+| **Dissonance chip** (`screens/dissonanceModel.ts`) | `hudDissonanceView` (`:520-534`) compares the Cue's cost with the Calling's own (20 on a Conductor run), not the content's 25, so it doesn't report "A Cue costs 20 Resonance this fight" as Dissonance. |
 | **Callouts** (`hud/Callouts.tsx`, `src/app/runtime.ts` callouts only) | Gold: "DUET · Lyra ×1.25" (toast), "TRIO · Vexis ×1.5" (banner), "Free Cue · on the beat" (toast). "Reprise · every Solo +30%", "Marcato · +10% for 4 s". "Crescendo — Grand Finale" banner with its glyph; each turn a toast "Kael ×1 · Lyra ×1.2 · Vexis ×1.44" building up; "Every Solo is full" when it ends; "Vexis can't play — down" for a lost turn. |
-| **Hints** (`hud/hints.ts`, `HowToPlay.tsx`, `KeyHints.tsx`) | `chain` ("Cue another within 3 s for a Duet"), `beat` (A Tempo: "Cue on the downbeat: it's free"), `finale` ("Grand Finale plays every Solo, rising, then fills them all"). The Cue hint's cost line already reads `cueCost` (`hints.ts:360-365`). |
+| **Hints** (`hud/hints.ts`, `HowToPlay.tsx`, `KeyHints.tsx`) | `chain` ("Cue another within 4 s for a Duet"), `beat` (A Tempo: "Cue on the downbeat: it's free"), `finale` ("Grand Finale plays every Solo, rising, then fills them all"). The Cue hint's cost line already reads `cueCost` (`hints.ts:360-365`). |
 | **Result, Summary, Codex** (`resultText.ts`, `ResultScreen.tsx`, `SummaryScreen.tsx`, `callingText.ts`, `CodexScreen.tsx`) | Result: "3 Duets · 1 Trio · Grand Finale played 6 Solos · 4 Cues on the beat, free". Summary: the Conductor's panel (totals, path); a run with no Duet says how ("Cue a second hero within 3 s"). Codex: four Callings, his axis legend; the Cue entry names Duets and Trios on his runs. Rank 12: generic (`rankText.ts`, `Rank.tsx`). |
 | **Lab** (`ui/lab/UiLab.tsx`, `mock.ts`) | A Conductor group: Prep, tier screen, the HUD at a Duet, a Trio, the beat window, a Finale with a waiting and a lost turn. |
-| **e2e** (`e2e/smoke.spec.ts`) | Skip the unlocks, choose the Conductor in Prep, see "Cue 15" on the meter, stage two Cues within 3 s (debug `chargeSolos`, `setResonance`) and see the DUET call-out. |
+| **e2e** (`e2e/smoke.spec.ts`) | Skip the unlocks, choose the Conductor in Prep, see its Cue cost on the meter ("Cue 20", read from content), stage two Cues within 4 s (debug `chargeSolos`, `setResonance`) and see the DUET call-out. |
 
 ### VFX (`src/render`)
 
@@ -514,8 +515,8 @@ As specified under *VFX* and *Audio*. Tests: `tests/renderConducting.test.ts` (r
 **Skilled** (`CONDUCTING_RULES`, each a name `SkilledOptions.skip` can turn off, each gated on `conductingOf(state)`, none drawing):
 - `conductChain`: while a chain is open, Cue the next ready hero not in it whose Solo has work: a damage Solo with an enemy within its reach + 2 m, a guarding Solo always, Oro's with an enemy standing. Damage Solos first, then slot order.
 - `conductHold`: one Solo ready and wanted by the existing rule, another due to fill within 2 s (from its charge time and `soloChargeMult`), nothing landing within 2 s that a Cue would answer: wait, at most 2 s, then start the chain.
-- `conductBeat` (A Tempo): a wanted Cue that isn't urgent waits for the window if it opens within 0.6 s; the Cue is sent on the first tick inside it. Chained Cues too, when the window comes before the chain closes.
-- `conductFinale`: cast the Grand Finale when it is affordable, 2 or more heroes are free, and a boss stands above 10% life or 4 or more enemies stand, unless `bankCrescendo` or `crescendoCancel` holds it. The existing defensive Crescendo rule stays beside it.
+- `conductBeat` (A Tempo): a wanted Cue that isn't urgent waits for the window if it opens within 0.6 s (2.8 s after tuning); the Cue is sent on the first tick inside it. Chained Cues too, when the window comes before the chain closes.
+- `conductFinale`: cast the Grand Finale when it is affordable, 2 or more heroes are free, and a boss stands above 10% life or 4 or more enemies stand, unless `bankCrescendo` or `crescendoCancel` holds it (after tuning `bankCrescendo` no longer holds it on a Conductor run). The existing defensive Crescendo rule stays beside it.
 - `conductMarcato`: with Marcato ready and 2 or more heroes engaged, Focus the boss (or Kael's target) if no Directive went out this tick.
 
 **Novice** (`NOVICE_CONDUCTING`, starting values; the draws are taken only on Conductor runs, appended immediately before the existing Cue draw, `novice.ts:405-411`):
@@ -547,14 +548,14 @@ An independent read of W1-W5 against this doc, as 3e's review was (docs/phase-3e
 
 One test per rule at least:
 
-- **Passive.** A Cue costs 15 (with Silent Cues: 25; on the beat with it: 10); a Perfect Ward gives 24, and 28.8 with Standing Ovation III; the fade keeps 30 from 35 and 30 from 40, keeps 100, and without the Conductor keeps 25 from 35.
-- **Chains.** A second Cue 2.9 s after the first is a Duet (×1.25) and 3.1 s after is a new chain; a third 2.9 s after the second (5.8 s after the first) is a Trio; a repeated hero starts a new chain; an uncued Solo between two Cues neither joins nor breaks; a free Cue joins.
+- **Passive.** A Cue costs 20 (with Silent Cues: 30; on the beat with it: 10); a Perfect Ward gives 22, and 26.4 with Standing Ovation III; the fade keeps 40 from 45, 60 from 65 and 25 from 35, keeps 100, and without the Conductor keeps 25 from 45; with Silent Cues it keeps 30 from 40 and 60 from 70, and 50 stays.
+- **Chains.** A second Cue 3.9 s after the first is a Duet (×1.25) and 4.1 s after is a new chain; a third 2.9 s after the second (5.8 s after the first) is a Trio; a repeated hero starts a new chain; an uncued Solo between two Cues neither joins nor breaks; a free Cue joins.
 - **Power, Solo by Solo** (all twelve, each Cued at link 1 and at link 2 from the same staged state): damage per hit ×1.25 exactly; Kael's dome ×1.25; Celestial Sphere 3 hits; Oathkeeper's share ÷1.25; the Ancient's slam ×1.25 and its life, root and the Cued disc's radius unchanged; Thousand Cuts' extension unchanged; Blood Brother's share and Homecoming's barriers ×1.25; Blade Waltz's counter ×1.25; an arrow loosed before the Solo ends lands with its power; the extra is in `ledger.calling.amplified`.
 - **Grand Finale.** Turns 1 s apart in slot order at ×1, ×1.2, ×1.44, Cued form, no `cued` event, `ledger.cues` unchanged, `crescendos` +1; Maestro: six turns to ×2.48832, costs 75 and keeps the rest; a hero mid-Solo waits and plays after; a downed, possessed or stilled hero loses the turn and the ramp doesn't advance; the 12 s cap loses waiting turns; every hero not dead is at 100 after, a mid-Solo hero's charge ready when the Solo ends; no Resonance during; Da Capo after; `field.crescendo` false and every aura's effect equal to a no-Crescendo tick; it cancels Fortissimo Silence; no chorus pulse, Canon or Constellation from its turns.
 - **Marcato.** A Rally gives every standing hero +10% for 4 s; a second Directive at 5 s gives nothing, one at 8 s does; a refused Focus gives nothing; a downed hero gets nothing; Oro's Saplings' hits aren't raised.
-- **A Tempo.** A Cue at k·bar ± 0.149 s is free, at ± 0.151 s costs 15; with 0 Resonance, a Cue on the beat is accepted; it counts in a chain and in `freeCues`.
+- **A Tempo.** A Cue at k·bar ± 0.149 s is free, at ± 0.151 s costs 20; with 0 Resonance, a Cue on the beat is accepted; it counts in a chain and in `freeCues`.
 - **Reprise.** A Trio gives every non-downed hero +30 charge, banked on a hero mid-Solo; once a chain; Canon then Reprise.
-- **Upbeat.** 50 at tick 0; with the Cantor's Hymnal 75 (or the Hymnal's value + 50, capped at 100).
+- **Upbeat.** 50 at tick 0; with the Cantor's Hymnal 100 (the Hymnal's 50, or 75 Empowered, + 50, capped at 100).
 - **Ensemble.** Bonus 5, 10, 15, then 5 on a repeat; hero hits only; Finale turns and uncued Solos don't touch it.
 - **Spotlight.** Empower ×2 on the Cued hero for exactly the Solo, unthreaded; with the Thread on them the larger applies; not on Finale turns.
 - **Triad.** Three heroes in the field: no fade and the idle clock stays 0; two: it fades after 5 s; `triad` events on the edges.
@@ -591,8 +592,8 @@ As W4 above. The bots read only `WorldState` and the sim's exported helpers. The
 **Levers, in order** (the Conductor's own numbers only):
 
 1. Grand Finale: `ramp` (20; 10-30), `gap` (1 s; 0.5-1.5), Maestro's `cost` (75; 75-90).
-2. Chains: `duet` and `trio` (25 and 50; ±10 each), `window` (3 s; 2-4).
-3. The passive's economy: `cue` (15; 15-20), `gain` (20; 10-20).
+2. Chains: `duet` and `trio` (25 and 50; ±10 each), `window` (4 s as built, 3 s before tuning; 2-4).
+3. The passive's economy: `cue` (20 as built, 15 before tuning; 15-20), `gain` (10 as built, 20 before tuning; 10-20).
 4. The path's numbers: Marcato (10%, 4 s, 8 s), A Tempo's `window` (0.15 s; 0.10-0.20), Reprise (30), Upbeat (50; 25-50), Ensemble (5 and 15), Spotlight (×2; ×1.5-2). Triad's count stays 3.
 5. Conductor-only bot rules and constants, only where an ablation (`tools/verbs.ts`) shows the bot misplays.
 
@@ -650,14 +651,198 @@ The mods keep their names (`chainWindow`, `beatWindow`). The levers' `window` un
 - The Ancient's slam reads its owner's running Solo. It outlives Wildgrowth by about 1 s, and slams after the Solo ends land at power 1.
 - Blade Waltz's counter carries the power on its hit (the same ×power, credited to the Calling), not on its percentage.
 - Reprise's ledger total counts the charge actually gained, after the cap at 100. On Conductor runs `soloReady` is emitted when a Solo ends with its charge already full.
-- With Silent Cues the meter's whole-Cue floor is 25, since it uses the Cue's cost this fight.
+- With Silent Cues the meter's whole-Cue floor moves in the Cue's cost this fight: 30 as tuned (25 at Cue 15).
 - Marcato's heroes are fixed when it is given: a hero revived later doesn't get it.
 
 **Placeholders for W2.** `src/ui/hud/calling.ts` (the `crescendo` unions gained `'finale'`) and `src/ui/screens/deedsModel.ts` (`curtain_call` uses the `star` glyph until his own is drawn).
 
-**The chorus pulse.** It fires on every Cue as before, so it fires more often here. With the Skilled bot not yet chaining Cues, over 30 fights a row: 1.83 pulses a fight with no Calling, 2.13 with the Conductor's passive (+16%). No chorus or aura number changed. W5 measures it again with the Conductor's bots.
+**The chorus pulse.** It fires on every Cue as before, so it fires more often here. With the Skilled bot not yet chaining Cues, over 30 fights a row: 1.83 pulses a fight with no Calling, 2.13 with the Conductor's passive (+16%). These were measured before tuning, with Cues at 15 and gains at 20; the tuned measurement is under *Tuning*. No chorus or aura number changed. W5 measures it again with the Conductor's bots.
 
 **Checks.** Vitest 180 files, 3660 passed, 8 skipped. Typecheck and lint clean. The 25 goldens, every baseline `--check` and the three existing Callings' reports are byte-equal; only `contentVersion` moved. The three aura files are untouched.
+
+## As built: W2 (UI and HUD)
+
+W2 is built as specified under *UI*, with the differences below. Where this section and *Contracts* disagree, this section is what the code does. Every number on screen still comes from content, the Conductor's view and field, and the sim's helpers (`nextCue`, `beatAt`, `onBeat`, `finaleView`, `crescendoCostOf`, and after the review `openChain`, `finaleTurnBlock`, `marcatoOn`, `marcatoReadyIn`, `ensembleBonus`).
+
+**Files.** The Conductor's HUD logic is in `src/ui/hud/conducting.ts` (pure, tested: badges, the beat strip, the Finale's pips and frames, Ensemble's pips, Marcato's chip). Its parts are in `src/ui/hud/ConductParts.tsx`. The lab's group uses `src/ui/lab/conductingMock.ts`. The tests are `tests/uiConducting.test.ts` (28 tests) and `tests/colorVision.test.ts`. The e2e test is "Phase 5f: the Conductor — choose him in Prep, Cue cost on the meter, two Cues within the window make a Duet". Its title once said "Cue 15"; tuning took the number out of it, and its assertions read content (`Cue ` and the content's `cue`).
+
+**Look.** `CALLING_LOOK.conductor` is `color` `#3a2f55` (plum-ebony), `light` and `text` `#f4eedd` (ivory), `deep` `#4739ac` (ink), icon `chain`, Crescendo icon `finale`. The contract's first choice, indigo `#7f86e6`, failed the colour-vision test beside Kael, so the card and ring are plum-ebony with ivory text. The ink in `deep` is shared with the world (see W3).
+
+**What differs from the contract**
+
+- **The beat strip and the Cue badge are live.** The HUD's snapshot is taken every 1/15 s, up to about 83 ms old, and the window is 0.30 s wide, so "Free" could show when a Cue would cost full price. On A Tempo runs only, `runtime.ts` now writes the beat's state (`time`, `on`, `cost`) to a small store, `useBeatNow` (`src/ui/store.ts`), after every sim step in which time moved. `BeatStrip` and `CueBadge` read it. Other runs do not write it.
+- **The badge says "Free" only when a Cue costs 0.** Under Silent Cues a Cue on the beat costs 10; the badge reads "On the beat · 10" and the strip's in-window label shows the cost instead of "Free". The "Free Cue · on the beat" toast fires only for a Cue that cost 0.
+- **The timing hints.** `chain`, `beat` and the plain `cue` hint are not offered while the Grand Finale plays or while a banner call-out is up (`QUIET_HINTS` in `hints.ts`). An open `chain` or `beat` hint closes at once when that happens. The `beat` hint reads "Cue on the downbeat: it's free", or "it costs only N Resonance" when the run's Cues cost something on the beat.
+- **The chain ring** is hidden while the Finale plays, though Cues then can still form Duets (the badges still show them). After a Trio the ring is gone and no badge offers another link; the ring reads the sim's `openChain`.
+- **The Finale's frames** read the sim's `finaleTurnBlock`, so a hero who is downed, possessed or stilled ahead of the queue's next place shows "can't play" (state `losing`) at once, not "waits". A hero with no turn left shows their turns played and lost ("played", "lost", or with Maestro "played · lost"). Played and lost come from the `finaleTurn` and `finaleTurnLost` events (`heardFinale` in `conducting.ts`, held by `runtime.ts`), not from the frame, so a hero who played and then went down still reads "played". A new Finale clears what was heard.
+- **Reduced motion.** The beat strip's light stands on the downbeat mark exactly while the window is open, and otherwise on the beat just struck; when the window shuts it moves on to the next mark. The glow and the word "Free" are unchanged, so the cue works with sound off and with reduced motion.
+
+**Accepted copy deviations.** These were reviewed and kept.
+
+| The doc says | The game says |
+|---|---|
+| Banner "Crescendo — Grand Finale" | "Grand Finale" (one line at 1280 wide); the other Callings' banners are unchanged |
+| Result: "4 Cues on the beat, free" | "4 free Cues" (label "Free Cues", on Result and Summary) |
+| Marcato chip: "ready" or "Marcato 5s" | "Marcato" when ready; "Marcato 5s" while held |
+| Cue badge "Free" on the beat | "Free" at cost 0; "On the beat · 10" under Silent Cues |
+
+Nothing in the UI reads `soloReady` for a downed hero, so the sim's change there needed no UI change. Two values in `hudBridge.ts` are still computed there, because no sim export gives them: the Cue's base cost (`cueBase`) and the Finale's clock (`wait + encoreBonus`). Both equal the sim's by construction today.
+
+## As built: W3 (VFX and audio)
+
+W3 is built as specified under *VFX* and *Audio*. The two Spire and Rift render snapshots and the two audio snapshots are unchanged, and the Conductor adds no draw call (the render test pins it). There is no W3 report file; this section is from its commit message and the code, and records only differences from the contract that the code shows.
+
+**Files.** `src/render/conductCues.ts` (pure helpers and colours), `src/render/conduct.ts` (`ConductView`), `src/render/combatView.ts`, `feedback.ts`, `martyrCues.ts`, `lab/VfxLab.tsx` with `lab/conductScenarios.ts`; `src/audio/conduct.ts` (his sounds), `music.ts` (the beat clock), `sfx.ts`, `ui.ts`, the audio lab. Tests: `tests/renderConducting.test.ts`, `tests/audioConducting.test.ts`.
+
+**Colours.**
+
+| Colour | Hex | Used for |
+|---|---|---|
+| Ivory | `#f4eedd` | The downbeat's ring, Spotlight's cone; the UI's `light` and `text`. The same hex in world and UI, pinned by a test |
+| Ink | `#4739ac` | The stave under a chain, a lost Finale turn; the UI ring's `deep` end. The same hex in world and UI, pinned by a test |
+| Gold | the Weaver's own | A Cue's chain, its window, the Finale's baton strokes. No new gold |
+
+The ink changed twice. The contract's indigo `#7f86e6` falls to 3.4 ΔE from Kael's blue under protanopia (the comment in `callingLook.ts`). W3 first used `#5a62d0` in the world, while the UI's ring used `#6b5e96`; the two were far apart, and the world's ink was only 13.0 ΔE from Kael under deuteranopia, below the 20 the UI had used to reject the contract's indigo. The review asked for one shared ink, and `#4739ac` is it. Its ΔE against Kael (CIE76 on simulated colours), old ink then new (the figures are those measured after the ink changed, in the review-fixes digest, item C1):
+
+| Vision | `#5a62d0` | `#4739ac` |
+|---|---|---|
+| Normal | 20.9 | 37.8 |
+| Protanopia | 14.5 | 28.3 |
+| Deuteranopia | 13.0 | 26.3 |
+| Tritanopia | 16.7 | 32.4 |
+
+The nearest pairs for the new ink are Oro under tritanopia (23.3) and the ailment violet under tritanopia (23.9); his own plum `#3a2f55` is 22.5 from it under tritanopia. All are above 20. No aura, hero or other Calling colour changed. Every visual also has its own shape (a stave line, a triangle, an accent mark, a cone), so none relies on colour.
+
+**Differences from the contract.**
+
+- **The chain ribbon** is drawn from the last Cued hero to each hero who could join it while the window is open, brighter to one whose Solo is ready, not to a single "next" hero. Each hero in the chain has a small gold sigil.
+- **The window arc** is drawn only while the sim's `openChain` is true. A Trio closes the chain, so its arc stops at once; the three sigils and the triangle fade out for the rest of the chain's time.
+- **A free Cue** (the glass chime and the gold spark on the sigil) is one that is on the beat and costs 0. Under Silent Cues a Cue on the beat costs 10 and gets neither.
+- **Grand Finale audio** adds two baton taps as it is raised (the contract lists no start sound), and Reprise's sound is the Trio's chord plucked again an octave up. A lost Finale turn is a muted string, as specified.
+- **The beat clock** follows the contract (25 ms tolerance, `BEAT_TOLERANCE`; output latency taken off where the browser gives it; a gap over half a bar re-anchors with a rest). Two details the contract does not state: a downbeat more than half a bar from the music's next bar line also re-anchors, and the time scale the music follows is capped at 1, so it stretches in slow motion and hit-stop but never speeds up.
+- **Known gap, dev only.** The beat clock ignores the runtime's dev time scale, so at dev speeds the music re-grids every frame. It needs `runtime.ts` to pass the scale and a decision on the cap at 1. Left open.
+- **Known gap, cosmetic.** If a Duet and a Trio land in the same batch of events (two keys in one frame), the Duet's audio answer and link read the chain from the end of the batch, so the Duet hero can answer itself. Fixing it would add a hashed key to `cueChained`. Left open.
+
+I found no other difference from the contract in the code.
+
+## As built: W4 (bots and harness)
+
+W4 is built as specified, with the differences below. Tuning (W5) may change the rules and constants named here; the *Tuning* section is the final word on numbers. The values below are those W4 shipped.
+
+**Readers** (`src/bots/common.ts`). `conductingOf`, `beatSoon` (built on the sim's `onBeat` and `beatAt`), `chainOpen`, `finaleOn`, `marcatoReady`, `finaleFree`, `soloReach` and `soloFullIn`. `crescendoCostOf`, `cueCostNow` and `onBeat` are re-exported from the sim. Every old read of `CONTENT.resonance.crescendoCost` in both bots now uses `crescendoCostOf(state)`. `soloSpec` is not exported by the sim, so `soloFullIn` works out a Solo's charge time from content and `soloChargeMult`.
+
+**Skilled bot.** Each rule is a name in `CONDUCTING_RULES` that `SkilledOptions.skip` can turn off. Each is gated on `conductingOf(state)` and none draws.
+
+- `conductChain`: with a chain open, Cue the next ready hero not in it whose Solo has work. A guarding Solo always has work; Oro's needs an enemy standing; any other needs an enemy within its reach plus `CHAIN_REACH`. Damage Solos first, then guarding ones, in slot order.
+- `conductHold`: a damage Cue is wanted and another hero's Solo, with work, fills within `HOLD_FILL`: wait, at most `HOLD_MAX`, then start the chain. It never waits for a guarding Solo, or when a raid or a big hit lands within `HOLD_URGENT`.
+- `conductBeat` (A Tempo): a Cue that is not urgent waits if the window opens within `BEAT_AHEAD`. For a chain's next Cue, the window must also open at least `BEAT_CHAIN_SLACK` before the chain shuts. The Cue goes out on the first decision tick inside the window. Affordability uses `cueCostNow`, so a Cue on the beat can go out at 0 Resonance.
+- `conductFinale`: cast the Grand Finale when it is affordable, nothing is playing, `FINALE_FREE` or more heroes are free, and a boss stands above `FINALE_BOSS_ABOVE` of its life or `FINALE_CROWD` or more enemies stand. Skipped when `bankCrescendo` or `crescendoCancel` holds the Crescendo (after tuning `bankCrescendo` no longer holds it on a Conductor run: `BANK_WITH_FINALE` is false). While the Finale plays, that tick's Cues and any new chain-start Cues are suppressed. The old defensive Crescendo rule stays beside it.
+- `conductMarcato`: with Marcato ready and `MARCATO_ENGAGED` or more heroes engaged, send a Directive if none went out this tick. What it Focuses is `MARCATO_FOCUS` (below).
+
+**Novice bot** (`NOVICE_CONDUCTING`). The draws are taken only on Conductor runs, in this order, immediately before her Cue draw: `chain` (a chain is open and a ready hero is not in it: 0.4 to Cue them), `beat` (A Tempo, inside the window with a ready hero: 0.5), `finale` (the Crescendo affordable, 2 or more heroes free, and a boss or 4 or more enemies: 0.15). A Conductor Cue sent in a decision replaces her normal Cue draw, and a Finale sent replaces her low-life Crescendo; both only on Conductor runs. Her low-life rule stays.
+
+**Constants.** Named at the top of `skilled.ts` and `novice.ts`.
+
+| Constant | Value |
+|---|---|
+| `HOLD_FILL`, `HOLD_MAX`, `HOLD_URGENT` | 2 s each |
+| `BEAT_AHEAD` | 0.6 s (2.8 s after tuning) |
+| `BEAT_CHAIN_SLACK` | 0.1 s |
+| `CHAIN_REACH` | 2 m |
+| `FINALE_BOSS_ABOVE` | 0.10 |
+| `FINALE_CROWD` | 4 enemies |
+| `FINALE_FREE` | 2 heroes |
+| `MARCATO_ENGAGED` | 2 heroes |
+| `MARCATO_FOCUS` | `'standing'` (`'boss'` and `'kael'` are the alternatives) |
+| Novice `chain` / `beat` / `finale` | 0.4 / 0.5 / 0.15 |
+| Novice `FINALE_CROWD` / `FINALE_HEROES` | 4 / 2 |
+
+**Harness.**
+
+- `tools/harness-core.ts`: `ConductingWatch` and `EncounterRun.conducting?` (present only on Conductor runs) tally per fight the Cues, chains, Duets, Trios, Cues on the beat, Resonance saved, Finales, Finale Solos and lost turns, Reprise charge, Marcato grants and chorus pulses.
+- `tools/callings.ts`: `callingSetups()` has `conductor + Triad` (marcato, reprise, ensemble, triad) and `conductor + Maestro` (a_tempo, upbeat, spotlight, maestro). Conductor rows always print the use columns; `--uses` prints Cues, pulses and Crescendos on every row. A `conductor band:` line is printed under the cells header. Whole-run mode takes `--calling conductor` for all 16 paths.
+- `tools/verbs.ts`: with `--calling conductor` the default ablations are `CONDUCTING_RULES` (or the Novice's `NOVICE_CONDUCTING` with `--bot novice`); rows print the Conductor's counts.
+- `tools/scenarios.ts`, `tests/sim/golden.json`, `tests/sim/m1Unchanged.test.ts`: the three goldens appended after the 25 (28 in all), `skilled-conducting-bellwarden`, `novice-conducting-first-light` and `skilled-conducting-silent`. The last is a plain full-fight bot scenario of 220 s, not the Grand Silence variant. `skilled-conducting-bellwarden` joins the replay round-trip in `determinism.test.ts`. The 25 older hashes did not move. To re-record, run `npx tsx tools/update-golden.ts` (a dry run that lists what would move; stop if anything outside the three `*-conducting-*` names appears), then `--write`, then copy the three values into `CONDUCTING_HASHES` in `m1Unchanged.test.ts`.
+- Every baseline `--check`, the four commandSnapshot files, `roster20.test.ts` and the three older Callings' whole-run reports were byte-equal after W4's edits.
+
+**Recorded deviations.**
+
+- **Downed Weaver (B1).** A downed Weaver keeps the Grand Finale playing: the sim's turn check ignores her, while a Cue would be refused if she were down. The contract's list of what the Finale does not need does not mention her. Accepted.
+- **`MARCATO_FOCUS` (B2).** `conductMarcato` re-Focuses only a Focus already standing, not the boss or Kael's target as the contract says. A Focus pins every hero on its target until it dies. At Movement I, Skilled, 50 seeds, the contract's rule dropped the Tolling Halls from 100% to 86% and the Hollow Cantor from 98% to 86%; on whole Preludes (Guardian, 10 seeds a path) the Marcato paths won 69% against none's 86%, and with `'standing'` 90%. The rule is nearly inert on plain fights and still fires at the Unweaver and the Silent Conductor, where the bot already Focuses. Setting `MARCATO_FOCUS` to `'boss'` or `'kael'` restores the contract's behaviour.
+- **The `conductor band:` header (B5).** `tools/callings.ts` prints that line under the cells header on every run, Conductor or not. The rows are byte-equal to before; the whole report file is not.
+- **The Novice and Marcato (B7).** She cannot use Marcato in the Prelude: she sends no Directives at First Light. For her tier-band row, Marcato counts as the contract's "option the bots can't use".
+- **Smaller.** "Has work" uses the Solo's own `radius` or `reach`, else the hero's attack range, plus `CHAIN_REACH`. Alternate Solos count as damage Solos; only `aegisWall`, `oathkeeper` and `celestial_sphere` count as guarding, as in the existing `GUARDING` set.
+
+## Review (W6)
+
+An independent review read commit `2a9f68b` (W2, W4 and the first review fixes) against W1 and W3, changing nothing. It could not run the full suite, the baseline `--check` tools, the callings report or the e2e test; byte-identity of the older pins rests on W4's runs and its reading of the code.
+
+**Found sound.**
+
+- No aura file changed (empty `git diff` over the three). The only aura read in new code is `triadHolds`, which calls `inField`. The chorus pulse gets no Conductor factor and Finale turns release none.
+- Additivity: new hashed keys are added by conditional spread or deleted, never set to `undefined`. The unguarded ×power sites multiply by exactly 1. The Novice's draws come only after `conductingOf`.
+- Determinism: no wall clock, no Map or Set iteration, no `**`; the bot's `holdSince` is bot-private.
+- The "more" sources are exactly the Cue bonus × (1 + Marcato + Ensemble), with Spotlight as the larger of it and the Thread; nothing else stacks.
+- Chain edges (at the 3 s window of the time, a Cue at 2.999999999999994 s joins in the sim, HUD, bot and world), the Finale's queue, ramp, lost and waiting turns, the 12 s cap, Da Capo, Encore and the Fortissimo cancel; Marcato's hero set; A Tempo is judged at the same time the HUD and bots read.
+- The audio beat clock follows the sim's downbeat each frame and sets no input without A Tempo. Callouts, sound and world all come from the same events in the same batch. A fight restarts from its start on resume, so no mid-fight Conductor state needs saving. Nothing relies on colour alone.
+
+**Defects.**
+
+| Finding | Status | Where fixed |
+|---|---|---|
+| A1. The beat strip and the "Free" badge came from a snapshot up to about 83 ms old, so "Free" could show when a Cue cost full price, and the first 8% of each window was missing | Fixed | `useBeatNow` in `src/ui/store.ts`, written by `src/app/runtime.ts` on A Tempo runs; `liveBeat` and `liveCueBadge` in `src/ui/hud/conducting.ts` |
+| A2. Two of the three Conductor goldens pin little (as reviewed at `2a9f68b`, before tuning): `novice-conducting-first-light` has the same hash with all three Novice draws skipped (1 Cue, no chain, no Directive); `skilled-conducting-silent` makes 2 Cues, no Duet or Trio, no stilled loss, and is won at 103.2 s of 220 s | Open: to be re-picked after tuning, with an assertion that each golden produces its named events | `tools/scenarios.ts`, `golden.json`, `m1Unchanged.test.ts` |
+| A3. With reduced motion, the beat light sat outside the band for the window's first half and inside it for about 0.5 s after the window shut | Fixed | `stepped` in `src/ui/hud/conducting.ts`; test updated |
+| A4. Audio and world treated any Cue on the beat as free; under Silent Cues it costs 10 | Fixed: free means on the beat and cost 0 | `src/audio/conduct.ts`, `src/render/conduct.ts`; Silent Cues cases in the render and audio tests |
+| A5. During the Finale a hero's frame read "waits" when their turn was about to be lost; "played" and "will lose" wording was wrong for Maestro's second pass | Fixed | `finaleTurnOf` in `src/ui/hud/conducting.ts` and `ConductParts.tsx`, on the sim's `finaleTurnBlock` |
+| A6. The world drew the chain's draining window arc for the rest of the chain's window (about 3 s then) after a Trio had closed the chain | Fixed | `ConductLook.chainOpen` from `openChain` in `src/render/conduct.ts`; the Trio test asserts no arc |
+| A7. After a victory a Finale still playing ended up to 12 s later with "out of time" losses and "Every Solo is full" over the victory screen | Fixed | `finishFinale` in `src/sim/systems/conducting.ts`; `tests/sim/conductingReview.test.ts` |
+
+### What the review fixes changed
+
+These are the fixes made after the review that change something this doc describes. Where a section above and this list disagree, this list is what the code does.
+
+- **The beat is read live on the HUD (A1).** The beat strip and the Cue badge no longer come from the 1/15 s snapshot. On A Tempo runs the runtime writes the beat's state to a small store after every sim step in which time moved, and both read it. Runs without A Tempo write nothing.
+- **A Cue is "free" only when its cost is 0 on the beat (A4, B6).** The badge, the glass chime, the gold spark, the "Free Cue" toast and the Result's count all follow this. Under Silent Cues a Cue on the beat costs 10 and is not free. The `beat` hint reads "it costs only N Resonance" when N is above 0.
+- **The chain arc stops when the chain closes (A6).** A Trio closes the chain at once in the sim, and the world now draws the draining arc only while the sim's `openChain` is true. The three sigils and the triangle still fade out over the chain's remaining time.
+- **The Finale stops silently when the fight ends (A7).** If the encounter is won or lost, `finishFinale` deletes the Finale and returns: no events, no ledger change, no Solo fill, no `finaleEnded`. The guard is inside `finishFinale` because `updateWeaver` runs before `updateConducting`, so the Crescendo clock can reach 0 on the first tick after the end. The Weaver's Crescendo clock itself runs on, as it does for every other Calling, and emits one `crescendoEnd` when it reaches 0 (Da Capo's Resonance comes back as usual). A Finale that ends before the victory is unchanged.
+- **The Conductor's ink is `#4739ac` (C1).** One shared ink: the UI's `deep` and the world's `ink` are pinned equal, as are the two ivories (see W3). No aura, hero or other Calling colour changed.
+- **Sim exports.** `openChain(state)`, `finaleTurnBlock(state, heroId)` (type `FinaleTurnBlock`), `marcatoOn(state, heroId)`, `marcatoReadyIn(state)` (seconds; 0 when ready; null without Marcato) and `ensembleBonus(state)`, from `src/sim/systems/conducting.ts` through `src/sim/index.ts`. `conductingMult` uses `marcatoOn`. The HUD and the world now read these instead of copies of the rules: the HUD's chain, Ensemble, Marcato and Finale frames; the world's chain, beat window and Marcato mark. The bots were not moved over (see *Open*).
+- **Reduced motion and the Finale's frames (A3, A5)** are as described under W2.
+
+**The goldens.** The review fixes moved two of the three. `skilled-conducting-silent` went from `e5a4591944bfaf5f` to `fc8d5919f14c2252` (it hashes ticks after victory). `novice-conducting-first-light` stood at `3841213b5513b682` at the review; its hash has changed when the bots' rules changed. Tuning then re-recorded all three, and these are the pinned values (`tests/sim/golden.json`, `m1Unchanged.test.ts`): `skilled-conducting-bellwarden` `013e676d2eaa8f74`, `novice-conducting-first-light` `c3408b85068381ef`, `skilled-conducting-silent` `d200c6af6720f641`.
+
+### Deviations from the design
+
+The review (W6) lists seven deviations, B1 to B7. Each is stated as the review states it, with where it stands.
+
+| # | Deviation | Status |
+|---|---|---|
+| B1 | A downed Weaver keeps the Grand Finale playing: the sim's turn check ignores her, while a Cue would be refused if she were down. The design's list of what the Finale does not need does not mention her. | Accepted |
+| B2 | `conductMarcato` re-Focuses only a Focus already standing (`MARCATO_FOCUS` is `'standing'`), not the boss or Kael's target as the design says. W4 measured the reason, and W5 measured it again on the final bot and kept it; the rule is nearly inert on plain fights. | Accepted |
+| B3 | Copy differs from the design: the banner is "Grand Finale", not "Crescendo — Grand Finale"; the Result says "4 free Cues", not "4 Cues on the beat, free"; the Marcato chip says "Marcato", not "ready"; the chain ring is hidden while the Finale plays, though Cues can still form Duets then (the badges still show them). | Accepted |
+| B4 | Harness labels: `ConductingTally.onBeat` is documented as "free" but counts paid on-beat Cues too, and `chains` counts every link-1 Cue, single ones included. | Open |
+| B5 | `tools/callings.ts` prints a `conductor band:` header line under the cells header on every run. The rows are byte-equal; the whole report file is not. | Accepted |
+| B6 | The hint "Cue on the downbeat: it's free" was untrue under Silent Cues, where the strip correctly shows the cost. | Fixed: the hint and the strip's label read the downbeat's cost |
+| B7 | The Novice cannot use Marcato in the Prelude (no Directives at First Light), so for her tier band it counts as the design's "option the bots can't use". | Accepted |
+
+### Open
+
+From the review-fixes digest ("Still open after this commit"):
+
+- **A2, two goldens that pin little.** As reviewed at `2a9f68b`, before tuning: `novice-conducting-first-light` had the same hash with all three Novice draws skipped (1 Cue, no chain, no Directive), and `skilled-conducting-silent` made 2 Cues, no Duet or Trio and no stilled loss, and was won at 103.2 s of 220 s. They were re-recorded by tuning, not re-picked, and what they produce now has not been measured. To do: pick scenarios where each golden does its named thing, and assert in `conductingBots.test.ts` that it produces its named events.
+- **B4, the harness labels** (above).
+- **Rule copies in the bots.** In `src/bots/common.ts`, `soloFullIn` has a `?? 25` fallback and does not count Oro's Sapling charge; `chainOpen`, `marcatoReady` and `finaleFree` still copy the sim's rules (the sim now exports `openChain`, `marcatoReadyIn` and `finaleTurnBlock` for them). In `hudBridge.ts`, `cueBase` and the Finale's clock are still computed there, since no sim export gives them.
+- **C2, name collisions (the owner's decision; default: leave).** The option **Ensemble** (+5% damage per different hero Cued) shares its name, its Cue trigger and the "5%" with the Astrolabe's great node `ensemble` ("When you Cue a Solo, the other heroes' Solos charge 5%"); their ids collide too, though they live in separate registries and no code clash was found. The option **Spotlight** shares its name and its Cue trigger with the Astrolabe's minor node "Spotlight" (`bond_b4`, Cued Solos last longer). The option **Maestro** shares its name with the Deed `maestro` ("Cue 25 Solos in one run"); the Summary shows the run's Deeds beside the Calling's path, and cheap Cues make that Deed likeliest on a Conductor run. The review recommends renaming the two options and the Deed (for example "Tutti" and "Limelight"). A rename touches content, the Deed, the Codex copy and the tests.
+
+Also left, and noted under W3: the Duet and Trio in one batch (cosmetic), and the audio beat clock ignoring the dev time scale (dev only).
+
+From the tuning hand-back (the full account is under *Tuning*):
+
+- **Bands the tuning missed**, with their causes, are listed in the *Tuning* section: the Silent Conductor's length and the Cues a boss fight (the Grand Finale), the Triad path's shares at the short fights, and the A Tempo shares at the Silent Conductor (Skilled) and at Vharun and the Unweaver (Novice).
+- **A Grand Finale cast during the Grand Silence loses every turn.** A stilled hero loses a Finale turn, so a Finale cast while the Grand Silence stills the party plays no Solo for its Resonance. Noted, not acted on.
+- **Hero Autonomy fires Solos uncued.** With the assist on, a ready Solo fires itself 1 s after it fills, outside any chain, so a player using the assist gets few Duets and Trios unless they Cue within that second. Noted, not acted on.
+- **The owner's choice between two economies.** The default taken is Cue 20 and gain 10, which favours the Novice's whole-Prelude band. The alternative is Cue 15 and gain 20, which favours the Triad path at the short fights but puts the Novice 7 and 4 points over her band. To revert, set `cue` to 15 and `gain` to 20; the 4 s window and the bot changes can stay.
 
 ## Tuning
 
