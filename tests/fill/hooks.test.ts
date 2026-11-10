@@ -227,6 +227,27 @@ describe('every call site N1-N30 reaches its stub, behind its guard', () => {
     }
   });
 
+  it('N30 Thornwreath adds into the party damage factor (Heavy Score’s), not a factor of its own', () => {
+    /** What Kael's 100 does to a Chorister, the party factor at `party`, Thornwreath's at `thorn`. */
+    const hit = (party: number, thorn: number | null, share: number): number => {
+      const w = world();
+      set(w, {
+        partyDamageMult: party,
+        ...(thorn !== null ? { thornPct: thorn, thornBelow: 0.3 } : {}),
+      });
+      const kael = heroAt(w, 0);
+      kael.health!.hp = kael.health!.maxHp * share;
+      const enemy = foe(w, 'hollow_chorister', kael.x, kael.z - 2, { hp: 1e6 });
+      const r = dealDamage(w, enemy, { source: kael.id, sourceName: 'test', amount: 100 });
+      return r.dealt + r.absorbed;
+    };
+    // Below the line: 1.2 + 0.2, not 1.2 × 1.2; alone, × 1.2 as before.
+    expect(hit(1.2, 0.2, 0.2) / hit(1.2, null, 0.2)).toBeCloseTo((1.2 + 0.2) / 1.2, 9);
+    expect(hit(1, 0.2, 0.2) / hit(1, null, 0.2)).toBeCloseTo(1.2, 9);
+    // Held, above the line: exactly the factor alone.
+    expect(hit(1.2, 0.2, 0.9)).toBe(hit(1.2, null, 0.9));
+  });
+
   it('N20 Concert Pitch rings on a Perfect Ward', () => {
     for (const ring of [false, true]) {
       spy(harmonies.concertPitchRing).mockClear();
