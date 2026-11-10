@@ -296,7 +296,8 @@ function cuePair(world: World, boss: Entity, f: FinaleField, m4: M4, clocks: Pos
 /**
  * The pair's second Cue: another idle voice, once the first Cue has landed and the gate lets it
  * (a second that would make a third damaging telegraph live waits). With no other voice to Cue,
- * the pair ends at one.
+ * the pair ends at one. `postludePair` names the two voices as the second begins, only while the
+ * first still stands.
  */
 function cueSecond(world: World, boss: Entity, f: FinaleField, m4: M4, clocks: PostludeClocks) {
   if (inFlight(world, boss, CUE) || !cueGate(world, f, m4)) return false;
@@ -312,11 +313,10 @@ function cueSecond(world: World, boss: Entity, f: FinaleField, m4: M4, clocks: P
     return false;
   }
   if (!beginCue(world, boss, f, second)) return false;
-  world.events.push({
-    type: 'postludePair',
-    tick: world.tick,
-    voices: firstId === undefined ? [second.id] : [firstId, second.id],
-  });
+  // A pair of two standing voices: with the first gone, the second Cue is an ordinary Cue.
+  const first = firstId === undefined ? undefined : world.entities.get(firstId);
+  if (first?.health && !first.health.dead)
+    world.events.push({ type: 'postludePair', tick: world.tick, voices: [first.id, second.id] });
   endPair(clocks);
   return true;
 }
