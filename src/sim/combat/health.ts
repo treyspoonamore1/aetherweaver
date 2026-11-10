@@ -933,13 +933,24 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     ranks = amount * world.mods.closeRanks;
     amount -= ranks;
   }
-  // Phase 5g (N9, N23, N28): Full Chord, Closed Circle, Iron Mask: each returns what it takes off.
-  if (target.hero && world.mods.perAuraGuard > 0)
-    amount -= fullChordGuard(world, target, amount, opts);
-  if (target.hero && world.mods.circleGuard > 0)
-    amount -= closedCircleGuard(world, target, amount, opts);
-  if (target.hero && world.mods.maskGuard > 0)
-    amount -= fillRelics.ironMaskGuard(world, target, amount, opts);
+  // Phase 5g (N9, N23, N28): Full Chord, Closed Circle, Iron Mask: each returns what it takes off,
+  // credited below with the life it kept, as the guards are.
+  let fillGuard = 0;
+  if (target.hero && world.mods.perAuraGuard > 0) {
+    const off = fullChordGuard(world, target, amount, opts);
+    amount -= off;
+    fillGuard += off;
+  }
+  if (target.hero && world.mods.circleGuard > 0) {
+    const off = closedCircleGuard(world, target, amount, opts);
+    amount -= off;
+    fillGuard += off;
+  }
+  if (target.hero && world.mods.maskGuard > 0) {
+    const off = fillRelics.ironMaskGuard(world, target, amount, opts);
+    amount -= off;
+    fillGuard += off;
+  }
 
   let absorbed = 0;
   let absorbedByWeaver = 0;
@@ -1087,6 +1098,12 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   const variantKept = spared + (target.hero ? (opts.linked ?? 0) : 0);
   if (variantKept > 0) {
     const kept = Math.min(variantKept, keptLife);
+    keptLife -= kept;
+    world.ledger.shielded += kept;
+  }
+  // Phase 5g (N9, N23, N28): the fill's guards, the same way.
+  if (fillGuard > 0) {
+    const kept = Math.min(fillGuard, keptLife);
     keptLife -= kept;
     world.ledger.shielded += kept;
   }

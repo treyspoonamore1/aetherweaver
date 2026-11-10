@@ -269,6 +269,28 @@ describe('the Silk motifs, each at every level and without it', () => {
     }
   });
 
+  it('Thread the Needle on a hit that downs the hero anyway credits no life kept', () => {
+    const s = stage('thread_the_needle', 1);
+    const kael = s.hero(0);
+    const brute = foe(s.w, 'bell_brute', kael.x, kael.z - 2, { hp: 1e6, stun: true });
+    stepFor(s.sim, 1, [{ t: 'thread', slot: 1 }]);
+    stepFor(s.sim, 60);
+    const t = cone(s.w, brute, kael, kael.id, { impact: 1, damage: 1e4 });
+    const events: SimEvent[] = [];
+    events.push(...stepUntil(s.sim, () => s.w.time >= t.impact - 0.2));
+    events.push(...stepFor(s.sim, 1, [{ t: 'thread', slot: 0 }]));
+    kael.health!.hp = 5;
+    const shielded = s.w.ledger.shielded;
+    events.push(
+      ...stepUntil(s.sim, (ev) =>
+        ev.some((e) => e.type === 'telegraphResolved' && e.telegraph === t.id),
+      ),
+    );
+    expect(ofType(events, 'needled')).toHaveLength(1);
+    expect(ofType(events, 'allyDowned')).toHaveLength(1);
+    expect(s.w.ledger.shielded - shielded).toBe(0);
+  });
+
   it('Thread the Needle: the Thread arriving within 0.35 s of a hit negates {v}% of it', () => {
     /** A Toll Cleave on Kael landing in `impact` s, the Thread moved onto him `lead` s before. */
     const strike = (level: number, lead: number, moveOff = false) => {

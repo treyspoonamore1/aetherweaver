@@ -92,11 +92,20 @@ export function closeHarmonyRegen(world: World, weaver: Entity, dt: number): voi
  * her first, since the fight began (sim time 0). Never below 0.
  */
 export function restCost(state: WorldState, cost: number): number {
-  const w = state.entities.get(state.weaverId)?.weaver;
-  if (!w) return cost;
-  const since = state.time - (w.lastCastAt ?? 0);
-  if (since + EPS < REST_SECONDS) return cost;
+  if (!rested(state)) return cost;
   return cost * Math.max(0, 1 - state.mods.restDiscount);
+}
+
+/**
+ * Breath Between's rest holds now: `REST_SECONDS` since the Weaver's last technique (or, before
+ * her first, since the fight began). Read only; `restCost` prices with it, and the Ward reads it
+ * to cap a rested Ward's Perfect refund at its price (systems/techniques.ts).
+ */
+export function rested(state: WorldState): boolean {
+  const w = state.entities.get(state.weaverId)?.weaver;
+  if (!w || !(state.mods.restDiscount > 0)) return false;
+  const since = state.time - (w.lastCastAt ?? 0);
+  return since + EPS >= REST_SECONDS;
 }
 
 /**
@@ -122,8 +131,8 @@ export function aurasInSongs(world: World): number {
  * N9, Full Chord: called in `dealDamage` (combat/health.ts), beside Haloed and Close Ranks, on a
  * hit to a hero, behind `if (target.hero && world.mods.perAuraGuard > 0)`; returns the damage it
  * takes off `amount`: `perAuraGuard × aurasInSongs` of it (at most all of it), for a standing hero
- * `inField`, on any hit. What it takes off is credited to `ledger.shielded`, as Haloed's and Close
- * Ranks' guards are, capped at the life the hero has (it never credits life they didn't hold).
+ * `inField`, on any hit. `dealDamage` credits it to `ledger.shielded` as the guards are: only the
+ * life the hero kept, shared with the other guards, none if the hit downs them anyway. Pure.
  */
 export function fullChordGuard(
   world: World,
@@ -134,7 +143,5 @@ export function fullChordGuard(
   if (!target.hero?.inField || !isActive(target) || !(amount > 0)) return 0;
   const auras = aurasInSongs(world);
   if (auras === 0) return 0;
-  const removed = amount * Math.min(1, world.mods.perAuraGuard * auras);
-  world.ledger.shielded += Math.min(removed, target.health.hp);
-  return removed;
+  return amount * Math.min(1, world.mods.perAuraGuard * auras);
 }
