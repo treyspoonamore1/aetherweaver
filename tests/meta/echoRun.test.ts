@@ -11,7 +11,8 @@ import { useProfile } from '../../src/app/profileStore';
 import { useRun } from '../../src/app/runStore';
 import { useSettings } from '../../src/app/settings';
 import { CONTENT, runEventDef, type EchoDef, type WeeklyEntry } from '../../src/content';
-import type { MovementDef } from '../../src/content/schema';
+import { ContentSchema, type MovementDef } from '../../src/content/schema';
+import { weeklyEntry, weeklyPrep, weeklyStart } from '../../src/meta/weekly';
 import { dissonancePoints, parMult, type DissonanceChoice } from '../../src/meta/dissonance';
 import { EVERYTHING, RANK_XP } from '../../src/meta/profile';
 import type { ReliquaryRelic } from '../../src/meta/reliquary';
@@ -1095,5 +1096,72 @@ describe('a weekly sitting in Prep', () => {
     useSettings.getState().update((s) => ({ ...s, unlockAll: false }));
     useSettings.getState().update((s) => ({ ...s, unlockAll: true }));
     expect(useRun.getState().run).toStrictEqual(before);
+  });
+});
+
+describe('the full rotation (docs/phase-6.md, decision 7)', () => {
+  const picks = { chords: Run.DEFAULT_CHORDS, techniques: {} };
+
+  it('all twelve registered; each starts a legal run of its own entry, no level dropped', () => {
+    expect(CONTENT.weekly).toHaveLength(12);
+    for (let week = 0; week < 12; week++) {
+      const entry = weeklyEntry(week)!;
+      const prep = weeklyPrep(week, picks)!;
+      expect(prep, String(week)).not.toBeNull();
+      expect(prep.echo ?? 'expedition').toBe(entry.route);
+      const start = weeklyStart(week, picks)!;
+      expect(start.phase).toBe('map');
+      expect(start.party.map((h) => h.heroId)).toEqual(entry.party);
+      expect(start.calling?.id ?? null).toBe(entry.calling);
+      // Every level the entry names is played: none is True Dissonance on a route with no Finale.
+      for (const l of entry.dissonance)
+        expect(
+          start.dissonance.some((x) => x.id === l.id && x.rank === l.rank),
+          `${week} ${l.id}`,
+        ).toBe(true);
+    }
+  });
+
+  it('each kind of route plays to its Summary with the Skilled bot: the Expedition and an Echo', () => {
+    const expedition = CONTENT.weekly.findIndex((e) => e.route === 'expedition');
+    const echo = CONTENT.weekly.findIndex((e) => e.route !== 'expedition');
+    for (const week of [expedition, echo]) {
+      const { run, replay } = recordBotRun(weeklyStart(week, picks)!);
+      expect(run.phase, String(week)).toBe('summary');
+      expect(replay.kind).toBe('weekly');
+    }
+  }, 240_000);
+
+  it('the lint refuses an Echo route whose Calling or party its twists forbid', () => {
+    const parse = (weekly: WeeklyEntry[]) =>
+      ContentSchema.safeParse({
+        ...structuredClone(CONTENT),
+        // This file's fixture Echoes aren't content's.
+        echoes: structuredClone(CONTENT.echoes.filter((e) => !FIXTURES.includes(e))),
+        weekly: structuredClone(weekly),
+      });
+    expect(parse([...CONTENT.weekly]).success).toBe(true);
+    const calling = parse([
+      {
+        route: 'a_cappella',
+        calling: 'luminary',
+        party: ['kael', 'lyra', 'vexis'],
+        dissonance: [],
+      },
+    ]);
+    expect(calling.success).toBe(false);
+    expect(calling.error!.issues.map((i) => i.message).join('\n')).toContain(
+      'plays with no Calling',
+    );
+    const party = parse([
+      { route: 'strangers', calling: null, party: ['kael', 'lyra', 'vexis'], dissonance: [] },
+    ]);
+    expect(party.success).toBe(false);
+    expect(party.error!.issues.map((i) => i.message).join('\n')).toContain('fixes its party');
+    expect(
+      parse([
+        { route: 'strangers', calling: null, party: ['brann', 'seren', 'oro'], dissonance: [] },
+      ]).success,
+    ).toBe(true);
   });
 });
