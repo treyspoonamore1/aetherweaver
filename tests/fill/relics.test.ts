@@ -117,7 +117,7 @@ describe('the 18 relics and 2 boons as content', () => {
     everbell: null,
     heartwood_lute: null,
     water_clock: null,
-    iron_mask: { pct: 20 },
+    iron_mask: { pct: 18 },
     red_ink: { resonance: 15 },
     hollow_crown: null,
   };

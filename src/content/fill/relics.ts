@@ -212,9 +212,9 @@ export const FILL_RELICS: ContentInput['relics'] = [
     text: 'Your heroes take {pct}% less damage.',
     curse: 'Your Thread can’t Empower.',
     flavor: 'It guards every face but the one behind it, and that one goes quiet.',
-    values: { pct: 15 },
+    values: { pct: 12 },
     icon: 'ironmask',
-    empowered: { values: { pct: 20 } },
+    empowered: { values: { pct: 18 } },
     expedition: true,
   },
   {
