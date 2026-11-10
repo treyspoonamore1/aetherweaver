@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { CONTENT, deedText } from '../src/content';
+import { FILL_IDS } from '../src/content/fill';
 import {
   CONDUCTOR_DECREES,
   CUE_EVERY,
@@ -18,6 +19,12 @@ import { stealVerseDecree } from '../src/content/unstitched';
 import { KNOWN_ALT_SOLOS, KNOWN_TALENTS } from '../src/sim/bonds';
 import { KNOWN_MOTIFS } from '../src/sim/mods';
 import { STATUS } from '../src/ui/hud/labels';
+
+/** Phase 5g's entries (src/content/fill), appended after every existing list. */
+const FILL = new Set(FILL_IDS);
+/** A list as it was before Phase 5g: its fill entries left out, the rest in order. */
+const preFill = <T extends { id: string }>(list: readonly T[]): T[] =>
+  list.filter((x) => !FILL.has(x.id));
 
 describe('content', () => {
   it('validates and has the starter party', () => {
@@ -167,7 +174,10 @@ describe('Brann, the Bloodsworn (docs/phase-5b.md)', () => {
       ['brann_war_song', 7],
     ]);
     // His two, by id: Movement III's Guard Strand is appended after them (docs/phase-5c.md).
-    const brannMotifs = CONTENT.motifs.filter((m) => m.requires.hero === 'brann');
+    // Phase 5g's Bond motifs for him (Bloodsong, Edge of the Red) come later, Expedition-only.
+    const brannAll = CONTENT.motifs.filter((m) => m.requires.hero === 'brann');
+    expect(brannAll.filter((m) => FILL.has(m.id)).every((m) => m.requires.expedition)).toBe(true);
+    const brannMotifs = preFill(brannAll);
     expect(brannMotifs.map((m) => [m.id, m.rarity, m.values])).toEqual([
       ['blood_tithe', 'rare', [50, 60, 70]],
       ['blood_and_silk', 'epic', [3]],
@@ -470,7 +480,16 @@ describe('Movement II: the Crimson Legion (docs/phase-5a.md)', () => {
     ]);
     const second = <T extends { movement?: number }>(list: readonly T[]) =>
       list.filter((x) => x.movement === 2);
-    expect(second(CONTENT.events).map((e) => e.id)).toEqual(['tithe_altar', 'bloodsworn_cell']);
+    // Phase 5g's Movement II events are appended after them.
+    expect(preFill(second(CONTENT.events)).map((e) => e.id)).toEqual([
+      'tithe_altar',
+      'bloodsworn_cell',
+    ]);
+    expect(
+      second(CONTENT.events)
+        .slice(0, 2)
+        .map((e) => e.id),
+    ).toEqual(['tithe_altar', 'bloodsworn_cell']);
     expect(second(CONTENT.affixes).map((a) => a.id)).toEqual(['vampiric']);
   });
 
@@ -570,14 +589,26 @@ describe('Movement III: the Unstitched (docs/phase-5c.md)', () => {
       'mimicking',
       'doom_touched',
     ]);
-    expect(third(CONTENT.events).map((e) => e.id)).toEqual(['loose_thread', 'mirror_pool']);
-    for (const list of [
+    // Phase 5g's Movement III events are appended after them.
+    expect(preFill(third(CONTENT.events)).map((e) => e.id)).toEqual([
+      'loose_thread',
+      'mirror_pool',
+    ]);
+    expect(
+      third(CONTENT.events)
+        .slice(0, 2)
+        .map((e) => e.id),
+    ).toEqual(['loose_thread', 'mirror_pool']);
+    for (const all of [
       CONTENT.enemies,
       CONTENT.affixes,
       CONTENT.encounters,
       CONTENT.events,
-    ] as readonly (readonly { movement?: number }[])[]) {
-      // Only the Finale's (Movement 4, docs/phase-5d.md) come after them.
+    ] as readonly (readonly { id: string; movement?: number }[])[]) {
+      // Only the Finale's (Movement 4, docs/phase-5d.md) come after them; Phase 5g's events
+      // (Movements II and III, appended last) aside.
+      const list = preFill(all);
+      expect(all.slice(0, list.length)).toEqual(list);
       const at = list.findIndex((x) => x.movement === 3);
       expect(list.slice(at).every((x) => x.movement === 3 || x.movement === 4)).toBe(true);
       const four = list.findIndex((x) => x.movement === 4);
@@ -586,7 +617,8 @@ describe('Movement III: the Unstitched (docs/phase-5c.md)', () => {
     // Then the Finale's two (docs/phase-5d.md), then Seren's and Oro's (docs/phase-5e.md).
     expect(CONTENT.deeds.slice(-7, -5).map((d) => d.id)).toEqual(['whole_cloth', 'needle_sure']);
     // Seren's and Oro's Bond motifs follow it (docs/phase-5e.md).
-    expect(CONTENT.motifs.at(-3)).toMatchObject({
+    // Phase 5g's motifs are appended after all of these.
+    expect(preFill(CONTENT.motifs).at(-3)).toMatchObject({
       id: 'guard_strand',
       category: 'silk',
       rarity: 'rare',
@@ -1325,7 +1357,10 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
       [ids.QUICK_ROSIN, 'rare', { cut: 3 }],
       [ids.FIRST_SCORE, 'legendary', { charges: 1 }],
     ]);
-    expect(CONTENT.relics.slice(-3)).toEqual(fourth(CONTENT.relics));
+    // The last before Phase 5g's relics, which are appended after them.
+    const pre = preFill(CONTENT.relics);
+    expect(pre.slice(-3)).toEqual(fourth(CONTENT.relics));
+    expect(CONTENT.relics.slice(0, pre.length)).toEqual(pre);
   });
 
   it('FINALE: a boss-only def with the plan’s road, registered last', () => {
