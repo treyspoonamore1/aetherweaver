@@ -422,6 +422,8 @@ describe('tools/release-check.ts', () => {
     expect(byId(checkRows(inputs), '6').status).toBe('red');
     inputs.fullrun = { run: { ...FULLRUN, outcome: 'defeat' }, text: '' };
     expect(byId(checkRows(inputs), '6').parts[0]!.text).toContain('ended in defeat');
+    inputs.fullrun = { run: { ...FULLRUN, fast: true }, text: '' };
+    expect(byId(checkRows(inputs), '6').parts[0]!.text).toContain('navigation-only');
     inputs.fullrun = { run: { ...FULLRUN, sound: false }, text: '' };
     expect(byId(checkRows(inputs), '6').parts[0]!.text).toContain('sound was not running');
   });

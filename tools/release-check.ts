@@ -199,6 +199,8 @@ export interface FullRun {
   fights: number;
   steps: number;
   sound: boolean;
+  /** The navigation-only mode, where fights are won through the test hook: not a full run. */
+  fast?: boolean;
 }
 
 /** The one machine line the full run prints: `[fullrun] {json}`. Null if it never got that far. */
@@ -374,6 +376,7 @@ export function checkRows(inputs: Inputs): RowResult[] {
       r.warnings > 0 && `${r.warnings} console warnings`,
       r.pageErrors > 0 && `${r.pageErrors} page errors`,
       r.failedRequests > 0 && `${r.failedRequests} failed requests`,
+      r.fast && 'a navigation-only run (fights were won through the test hook, not played)',
       !r.sound && 'sound was not running',
     ].filter(Boolean);
     full =

@@ -109,6 +109,8 @@ export function installTestHook(runtime: GameRuntime): () => void {
 export interface FullRunHook {
   /** The stops the party can go to next, in map order (empty off the map). */
   reachable(): { id: string; kind: string; movement: number }[];
+  /** Every stop of the map, row by row, with the ids each leads to (empty without a run). */
+  map(): { id: string; kind: string; next: string[] }[][];
   /** The audio engine's state, or null where audio is unavailable. */
   audio(): { unlocked: boolean; contextState: string; eventsHandled: number } | null;
   /** The JS heap in use, in bytes (Chromium only: null elsewhere). */
@@ -132,6 +134,10 @@ export function installRunHook(): void {
         ? reachable(state).map((n) => ({ id: n.id, kind: n.kind, movement: n.movement }))
         : [];
     },
+    map: () =>
+      run().run?.map.rows.map((r) =>
+        r.map((n) => ({ id: n.id, kind: n.kind, next: [...n.next] })),
+      ) ?? [],
     audio: () => {
       const stats = getAudioDebug();
       return stats

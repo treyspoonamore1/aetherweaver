@@ -20,6 +20,8 @@ jobs:
       - run: npm test
       - run: npm run sim:bench -- --check
       - run: npm run build
+      - run: npm run licenses
+      - run: npm run release-check
       - run: npx playwright install --with-deps chromium
       - run: npm run e2e
         env:
