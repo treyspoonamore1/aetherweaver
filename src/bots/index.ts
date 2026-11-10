@@ -19,6 +19,8 @@ export function makeBot(kind: BotKind, seed: number): Bot {
       return new NoviceBot(seed);
     case 'skilled':
       return new SkilledBot(seed);
+    case 'expert':
+      throw new Error('The Expert bot is not built yet (docs/phase-6.md, W7).');
   }
 }
 

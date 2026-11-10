@@ -627,6 +627,21 @@ export interface EnemyComponent {
   // ── Phase 5e (docs/phase-5e.md). Set lazily, only once Oro's root has held it. ──
   /** It can't be rooted again until this sim time. */
   rootImmuneUntil?: number;
+  // ── Phase 6 (docs/phase-6.md). Set only on a boss or mini-boss on a Tyrant run. ──
+  /** Tyrant: the attack this phase borrowed, kept out of `specialCooldowns`. */
+  tyrant?: TyrantHold;
+}
+
+/** Tyrant (docs/phase-6.md): a boss's borrowed attack for its phase, and when it may next be cast. */
+export interface TyrantHold {
+  /** The borrowed attack's id. */
+  attack: string;
+  /** The enemy definition it is borrowed from (the decree and the look name it). */
+  from: string;
+  /** The phase it belongs to; a phase shift replaces it. */
+  phase: number;
+  /** Sim time it may next be cast. */
+  readyAt: number;
 }
 
 /** An enemy attack seen a second before it begins (Foresight, docs/phase-3e.md). */
@@ -884,6 +899,28 @@ export interface FinaleField {
   cue?: { boss: EntityId; soloist: EntityId; solo: string; target?: EntityId; until: number };
   /** The Grand Silence: the notes played so far, of 8, and its cap. */
   silence?: { notes: number; of: 8; since: number; until: number; sources: NoteSource[] };
+  /** True Dissonance (docs/phase-6.md): the Postlude, once the Conductor has risen. */
+  postlude?: PostludeField;
+}
+
+/** FinaleField.postlude? — the Postlude's public state (docs/phase-6.md, "True Dissonance"). */
+export interface PostludeField {
+  /** Sim time the rise began. */
+  since: number;
+  /** Sim time the Conductor stops being untouchable. */
+  riseUntil: number;
+  /** The pressure after 90 s is on. */
+  enraged?: true;
+}
+
+/**
+ * `internal.m4.postlude?` — the Postlude's clocks (docs/phase-6.md): the next pair's Cue, and the
+ * pair's second voice and its time while a pair is under way. Hashed; absent until the rise.
+ */
+export interface PostludeClocks {
+  nextPairAt: number;
+  secondAt?: number;
+  second?: EntityId;
 }
 
 /** A timed zone (docs/phase-5c.md Q4): `pull` drags toward its centre; `null` silences the Weaver. */

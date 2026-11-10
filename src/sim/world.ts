@@ -36,6 +36,7 @@ import type {
   FieldState,
   Ledger,
   Obstacle,
+  PostludeClocks,
   RelicState,
   TechniqueKey,
   Telegraph,
@@ -641,6 +642,8 @@ export interface SimInternal {
     nextRewindNoteAt?: number;
     /** The heroes a silence blow took life from since the silence began (a Rewind's note). */
     struck?: EntityId[];
+    /** True Dissonance (docs/phase-6.md): the Postlude's clocks, present only once it has begun. */
+    postlude?: PostludeClocks;
   };
   /** Guard Strand (docs/phase-5c.md): sim time it can turn a bolt or a cut aside again. */
   guardStrandAt?: number;

@@ -60,6 +60,8 @@ const STAT_GLYPH: Readonly<Record<NonNullable<DeedDef['stat']>, IconName>> = {
   clutchCleanses: 'chime',
   reels: 'reel',
   cues: 'note',
+  // Phase 6 (docs/phase-6.md, decision 17): no Deed counts it yet; W5 may draw its own glyph.
+  cleanses: 'chime',
 };
 
 /** A Deed's glyph (a kit icon), from what it asks: a Calling's Deed takes the Calling's. */
@@ -94,6 +96,13 @@ export function deedGlyph(deed: DeedDef): IconName {
     // (Not a Leaf Lost).
     case 'heroTally':
       return deed.tally === 'saplingsLost' ? 'leaf' : 'blades';
+    // Phase 6's rules (docs/phase-6.md): no Deed names them yet; W5 draws their glyphs.
+    case 'movementWithout':
+    case 'dissonance':
+    case 'stars':
+    case 'constellation':
+    case 'weeks':
+      return 'sparkle';
   }
 }
 

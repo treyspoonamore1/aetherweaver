@@ -130,6 +130,14 @@ export function deedHolds(run: RunState, deed: DeedDef): boolean {
       return run.results.some((r) => ceilingHolds(r, deed));
     case 'heroTally':
       return run.results.some((r) => tallyHolds(r, deed));
+    // Phase 6 (docs/phase-6.md, "Design: Deeds"): no Deed names these yet. W2 writes the run
+    // rules here and the profile rules in `profileDeedsEarned`; until then none is earned.
+    case 'movementWithout':
+    case 'dissonance':
+    case 'stars':
+    case 'constellation':
+    case 'weeks':
+      return false;
   }
 }
 

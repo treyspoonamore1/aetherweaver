@@ -127,7 +127,10 @@ export function earnedTitles(state: Pick<LoomState, 'mastery' | 'deeds'>): strin
     .filter((t) => {
       if (!t.earned) return false;
       if ('mastery' in t.earned) return masteryLevel(state.mastery[t.earned.mastery] ?? 0) >= TOP();
-      return state.deeds.includes(t.earned.deed);
+      if ('deed' in t.earned) return state.deeds.includes(t.earned.deed);
+      // Phase 6 (docs/phase-6.md): a constellation's or the Atlas's title; W3 judges them by
+      // the Atlas's stars. No title is earned that way yet.
+      return false;
     })
     .map((t) => t.id);
 }

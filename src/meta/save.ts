@@ -1,5 +1,5 @@
 /**
- * Run save v5 and the Weaver's profile (docs/plan/05 §8, docs/phase-3c.md): versioned,
+ * Run save v5 and the Weaver's profile v10 (docs/plan/05 §8, docs/phase-3c.md): versioned,
  * validated with zod on load, with a backup of the previous save kept before every overwrite.
  * Older versions are migrated on load. Storage is injected so tests can use a map.
  */
@@ -11,7 +11,14 @@ import { chordProblems, type ReservePool } from '../sim';
 import { astrolabePoints, pruneTree } from './astrolabe';
 import { FIGHT_AETHER, RELIC_OFFERS } from './economy';
 import { canonicalParty, fieldAuraSlots, reserveMult, reservePool, withCarried } from './run';
-import { MAX_RANK, movementOneEnemies, newProfile, PROFILE_VERSION, type Profile } from './profile';
+import {
+  MAX_RANK,
+  movementOneEnemies,
+  newProfile,
+  PROFILE_VERSION,
+  WEEKLY_STATUSES,
+  type Profile,
+} from './profile';
 import { bondedHeroes, fitBond, fitRunBonds } from './bonds';
 import { fitLevels } from './dissonance';
 import { emptyReliquary, fitRelic, fitReliquary, type ReliquaryRelic } from './reliquary';
@@ -41,7 +48,12 @@ const Ids = z
  * Dissonance's levels (docs/phase-4d.md): an entry that doesn't parse is dropped, not the rest;
  * `fitLevels` then fits them to the content.
  */
-const LevelSchema = z.object({ id: Str, rank: Num });
+const LevelSchema = z.object({
+  id: Str,
+  rank: Num,
+  // Phase 6 (docs/phase-6.md, ground rule 9): a level an Echo imposes; absent otherwise.
+  forced: z.literal(true).optional(),
+});
 const LevelsSchema = z
   .array(z.unknown())
   .catch([])
@@ -485,6 +497,11 @@ export const RunStateSchema = z.object({
   techniques: TechniquesSchema,
   // Movements (docs/phase-5a.md): runs saved before them are Preludes (no RUN_SAVE_VERSION bump).
   movements: Num.default(1),
+  // Phase 6 (docs/phase-6.md, ground rule 9): absent on every ordinary run (no version bump);
+  // kept here because this schema drops a key it doesn't name.
+  echo: Str.optional(),
+  weekly: z.object({ week: Num }).optional(),
+  logId: Str.optional(),
 });
 
 /** Motif ids renamed since older saves were written. */
@@ -741,6 +758,39 @@ export function saveRun(store: KeyValueStore, run: RunState | null): void {
 
 // ── The Weaver's profile ──────────────────────────────────────────────────────────────
 
+/** A record of counts by id: an entry that isn't a finite count ≥ 0 is dropped, not the rest. */
+const Counts = z
+  .record(Str, z.unknown())
+  .transform((all) =>
+    Object.fromEntries(
+      Object.entries(all).filter(
+        (e): e is [string, number] =>
+          typeof e[1] === 'number' && Number.isFinite(e[1]) && e[1] >= 0,
+      ),
+    ),
+  );
+
+/** Phase 6 (docs/phase-6.md): a weekly entry; one that doesn't parse is dropped, not its week. */
+const WeeklyCodeSchema = z.object({
+  code: Str,
+  name: Str.optional(),
+  mine: z.literal(true).optional(),
+  status: z.enum(WEEKLY_STATUSES),
+  replay: Str.optional(),
+});
+const WeeklyWeekSchema = z.object({
+  week: Num,
+  entries: z
+    .array(z.unknown())
+    .catch([])
+    .transform((entries) =>
+      entries.flatMap((e) => {
+        const parsed = WeeklyCodeSchema.safeParse(e);
+        return parsed.success ? [parsed.data] : [];
+      }),
+    ),
+});
+
 export const ProfileSchema = z.object({
   version: z.literal(PROFILE_VERSION),
   xp: Num,
@@ -789,6 +839,8 @@ export const ProfileSchema = z.object({
       open: z.boolean().catch(false),
       levels: LevelsSchema,
       best: z.record(Str, z.unknown()).catch({}),
+      // Phase 6 (docs/phase-6.md, decision 12): absent until the first Finale clear records it.
+      finale: Counts.optional().catch(undefined),
     })
     .catch(() => ({ open: false, levels: [], best: {} })),
   // A best that isn't a count (a hand-edited save) is dropped, not the whole profile.
@@ -805,6 +857,19 @@ export const ProfileSchema = z.object({
   // The roster (docs/phase-5b.md): optional v9 keys, absent until used (no version bump).
   recruited: z.array(Str).optional(),
   lastParty: z.array(Str).optional(),
+  // Phase 6 (docs/phase-6.md, ground rule 9): optional v10 keys, absent until first written; one
+  // that doesn't parse is dropped (`loadProfile` deletes it), not the profile.
+  atlas: z.object({ stars: Counts, best: Counts }).optional().catch(undefined),
+  weekly: z
+    .array(z.unknown())
+    .transform((weeks) =>
+      weeks.flatMap((w) => {
+        const parsed = WeeklyWeekSchema.safeParse(w);
+        return parsed.success ? [parsed.data] : [];
+      }),
+    )
+    .optional()
+    .catch(undefined),
 });
 
 /**
@@ -814,6 +879,8 @@ export const ProfileSchema = z.object({
  * variants (docs/phase-4f.md), none owned. v7 → v8: the Loom (docs/phase-4g.md): the Deeds
  * already earned pay their Starlight; Calling mastery starts from nothing. v8 → v9: Movements
  * (docs/phase-5a.md): Expeditions are the route once open, and every Movement I enemy is seen.
+ * v9 → v10: Phase 6 (docs/phase-6.md): its keys (`atlas`, `weekly`, `dissonance.finale`) are
+ * optional and absent until first written, so the step changes only the version.
  */
 export function migrateProfileJson(raw: unknown, seed = 1): unknown {
   let p = raw;
@@ -837,6 +904,7 @@ export function migrateProfileJson(raw: unknown, seed = 1): unknown {
   }
   if (isObj(p) && p.version === 8)
     p = { ...p, version: 9, runMode: 'expedition', seen: movementOneEnemies() };
+  if (isObj(p) && p.version === 9) p = { ...p, version: 10 };
   return p;
 }
 
@@ -928,7 +996,12 @@ export function loadProfile(store: KeyValueStore, seed = 1): Profile {
                 typeof e[1] === 'number' && Number.isFinite(e[1]) && e[1] >= 0,
             ),
           ),
+          // Phase 6 (docs/phase-6.md): the Finale-clear record, kept only when there is one.
+          ...(d.finale ? { finale: d.finale } : {}),
         };
+        // Phase 6: a v10 key that didn't parse goes, so it stays absent (never `undefined`).
+        if (profile.atlas === undefined) delete profile.atlas;
+        if (profile.weekly === undefined) delete profile.weekly;
         return profile;
       }
     } catch {

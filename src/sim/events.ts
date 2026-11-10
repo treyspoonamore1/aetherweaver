@@ -1034,6 +1034,33 @@ export interface Needled extends At {
   negated: number;
 }
 
+// ── Phase 6 (docs/phase-6.md, "Contracts"): declared by W0, emitted by W1's systems only on a
+// Tyrant or True Dissonance run. Nothing emits them yet. ──
+
+/** Tyrant: a boss or mini-boss entering `phase` takes up a road foe's attack for it. */
+export interface TyrantEdict extends At {
+  type: 'tyrantEdict';
+  boss: EntityId;
+  phase: number;
+  /** The borrowed attack's id. */
+  attack: string;
+  /** The enemy definition it is borrowed from. */
+  from: string;
+}
+
+/** True Dissonance: the Silent Conductor rose from its fall into the Postlude, at `hp`. */
+export interface PostludeRose extends At {
+  type: 'postludeRose';
+  boss: EntityId;
+  hp: number;
+}
+
+/** The Postlude: the Conductor Cued a pair of voices, in Cue order. */
+export interface PostludePair extends At {
+  type: 'postludePair';
+  voices: EntityId[];
+}
+
 export type SimEvent =
   | EntitySpawned
   | EntityDespawned
@@ -1153,7 +1180,10 @@ export type SimEvent =
   | FinaleEnded
   | TriadEvent
   | MotifTriggered
-  | Needled;
+  | Needled
+  | TyrantEdict
+  | PostludeRose
+  | PostludePair;
 
 export type SimEventType = SimEvent['type'];
 export type SimEventOf<T extends SimEventType> = Extract<SimEvent, { type: T }>;

@@ -7,7 +7,7 @@ import { MOTIFS } from './motifs';
 import { AURAS } from './auras';
 import { ORNAMENTS } from './ornaments';
 import { ASTROLABE } from './astrolabe';
-import { CONDUCTING_DEEDS, DEEDS, FINALE_DEEDS } from './deeds';
+import { CONDUCTING_DEEDS, DEEDS, FINALE_DEEDS, PHASE6_DEEDS } from './deeds';
 import { ROSTER_DEEDS } from './rosterDeeds';
 import { CALLINGS } from './callings';
 import { BOONS, RELICS } from './relics';
@@ -38,6 +38,8 @@ import { CRUCIBLE_ARENAS, CRUCIBLE_ATTACKS, CRUCIBLE_ENEMIES } from './crucible'
 import { CRUCIBLE_ENCOUNTERS, FINALE } from './crucibleRun';
 import { CALLS, CHORUS, CRESCENDO, RESONANCE, TECHNIQUES, THREAD, WEAVER } from './weaver';
 import { FILL_BOONS, FILL_EVENTS, FILL_MOTIFS, FILL_RELICS } from './fill';
+import { CONSTELLATIONS, ECHOES } from './echoes';
+import { WEEKLY_ROTATION } from './weekly';
 import {
   ContentSchema,
   type ArenaDef,
@@ -94,8 +96,8 @@ export const CONTENT: Content = ContentSchema.parse({
   events: [...RUN_EVENTS, ...LEGION_EVENTS, ...UNSTITCHED_EVENTS, ...FILL_EVENTS],
   callings: CALLINGS,
   astrolabe: ASTROLABE,
-  // Seren's and Oro's (docs/phase-5e.md) come after the first 27, so those keep their order; the
-  // Conductor's badge (docs/phase-5f.md) comes last of all.
+  // Seren's and Oro's (docs/phase-5e.md) come after the first 27, so those keep their order; then
+  // the Conductor's badge (docs/phase-5f.md), and Phase 6's last of all (docs/phase-6.md).
   deeds: [
     ...DEEDS,
     ...LEGION_DEEDS,
@@ -103,6 +105,7 @@ export const CONTENT: Content = ContentSchema.parse({
     ...FINALE_DEEDS,
     ...ROSTER_DEEDS,
     ...CONDUCTING_DEEDS,
+    ...PHASE6_DEEDS,
   ],
   inscriptions: INSCRIPTIONS,
   curses: CURSES,
@@ -125,6 +128,10 @@ export const CONTENT: Content = ContentSchema.parse({
     ...CRUCIBLE_ENCOUNTERS,
   ],
   movements: [...MOVEMENTS, CRIMSON_LEGION, UNSTITCHED, FINALE],
+  // Phase 6 (docs/phase-6.md): the Atlas of Echoes and the weekly rotation.
+  echoes: ECHOES,
+  constellations: CONSTELLATIONS,
+  weekly: WEEKLY_ROTATION,
   barks: {
     rally: ['On you!', 'Regrouping!', 'Right behind you.'],
     hold: ['Holding here.', 'Standing firm.', 'We wait for your word.'],
@@ -146,11 +153,22 @@ function contentHash(text: string): string {
 }
 
 /**
+ * The lists Phase 6 added to the content (docs/phase-6.md, ground rule 5). Each is left out of the
+ * hash while it is empty, so registering them moved no `contentVersion`; once it holds an entry it
+ * is hashed like every other list.
+ */
+const HASHED_ONCE_FILLED: ReadonlySet<string> = new Set(['echoes', 'constellations', 'weekly']);
+
+/**
  * The version of a validated content (docs/phase-5g.md): what `CONTENT_VERSION` is for
  * `CONTENT`, and what the masked replay recomputes for `CONTENT` without the slice's entries.
  */
 export function contentVersionOf(content: Content): string {
-  return `c-${contentHash(JSON.stringify(content))}`;
+  const text = JSON.stringify(content, function (this: unknown, key: string, value: unknown) {
+    const empty = Array.isArray(value) && value.length === 0;
+    return this === content && empty && HASHED_ONCE_FILLED.has(key) ? undefined : value;
+  });
+  return `c-${contentHash(text)}`;
 }
 
 /**
@@ -446,6 +464,13 @@ export type {
   Cosmetics,
   MasteryRules,
   StarlightRules,
+  // Phase 6 (docs/phase-6.md).
+  Constellation,
+  EchoDef,
+  EchoLeg,
+  EchoTwists,
+  KeepsakeEarned,
+  WeeklyEntry,
 } from './schema';
 export {
   AILMENT_IDS,

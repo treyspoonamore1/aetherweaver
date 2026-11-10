@@ -459,7 +459,8 @@ describe('saves and the profile', () => {
     const store = memoryStore();
     store.data.set('aetherweaver.profile', JSON.stringify(v8));
     const loaded = loadProfile(store);
-    expect(loaded).toMatchObject({ version: 9, runs: 4, runMode: 'expedition' });
+    // On through v9 to v10 since Phase 6 (docs/phase-6.md: that step is the version alone).
+    expect(loaded).toMatchObject({ version: 10, runs: 4, runMode: 'expedition' });
     expect(loaded.seen).toEqual(movementOneEnemies());
     // Sightings of enemies content no longer has are forgotten; Movement I's stay.
     store.data.set(

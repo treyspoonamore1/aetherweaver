@@ -431,7 +431,8 @@ describe('the stores: the profile’s Rank after the fight’s XP', () => {
 
 describe('saves (no version bump)', () => {
   it('PROFILE_VERSION and RUN_SAVE_VERSION are unchanged', () => {
-    expect(PROFILE_VERSION).toBe(9);
+    // Phase 5e bumped neither. Phase 6 made the profile 10 (docs/phase-6.md, ground rule 9).
+    expect(PROFILE_VERSION).toBe(10);
     expect(RUN_SAVE_VERSION).toBe(5);
   });
 
@@ -446,7 +447,7 @@ describe('saves (no version bump)', () => {
       }),
     );
     const p = loadProfile(store);
-    expect(p.version).toBe(9);
+    expect(p.version).toBe(10);
     expect(p.recruited).toEqual(['seren', 'oro']);
     expect(p.lastParty).toEqual(['kael', 'seren', 'oro']);
     // An old v9 profile with neither key loads as before.

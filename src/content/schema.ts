@@ -1414,6 +1414,20 @@ export const DEED_TESTS = [
    * `values.atLeast` or at most `values.atMost` (docs/phase-5e.md).
    */
   'heroTally',
+  // ── Phase 6 (docs/phase-6.md, "Design: Deeds"): appended; no Deed names them yet. ──
+  /** Beat Movement `movement`'s boss with `stat` at 0 in every one of that Movement's fights. */
+  'movementWithout',
+  /**
+   * Clear the Finale at `values.points` Dissonance or more, with `level` on if it names one, or
+   * with every level at its top rank (`allLevels`).
+   */
+  'dissonance',
+  /** Profile: light at least `values.n` stars in the Atlas of Echoes. */
+  'stars',
+  /** Profile: light every star of one constellation (`constellation`, else any). */
+  'constellation',
+  /** Profile: win This Week's Song in at least `values.n` different weeks. */
+  'weeks',
 ] as const;
 /** The hero fight tallies a `heroTally` Deed may test (docs/phase-5e.md). */
 export const HERO_TALLY_STATS = ['parries', 'killShots', 'saplingsLost'] as const;
@@ -1425,6 +1439,8 @@ export const DEED_STATS = [
   'clutchCleanses',
   'reels',
   'cues',
+  // Phase 6 (docs/phase-6.md, decision 17): Silent Bell's "without cleansing".
+  'cleanses',
 ] as const;
 
 export const DeedDefSchema = z
@@ -1446,9 +1462,18 @@ export const DeedDefSchema = z
     hero: IdSchema.optional(),
     /** `heroTally`: the hero's fight tally it tests (docs/phase-5e.md). */
     tally: z.enum(HERO_TALLY_STATS).optional(),
+    // ── Phase 6 (docs/phase-6.md, "Design: Deeds"). The Dissonance total is `values.points`. ──
+    /** `movementWithout`: the Movement (its number, 1 the first) whose fights it judges. */
+    movement: z.number().int().min(1).optional(),
+    /** `dissonance`, `fight`: a Dissonance level the run must have played. */
+    level: IdSchema.optional(),
+    /** `dissonance`: every level at its top rank. */
+    allLevels: z.literal(true).optional(),
+    /** `constellation`: the one to light (absent: any). */
+    constellation: IdSchema.optional(),
     /** Its numbers: `n` (how many) and, for a fight, `downs` (at most). */
     values: ValuesSchema,
-    /** {n}, {downs} from `values`; {encounter}, {calling}, {grade}, {hero} by name. */
+    /** {n}, {downs} from `values`; {encounter}, {calling}, {grade}, {hero}, {movement}, {level} by name. */
     text: z.string(),
   })
   .strict();
@@ -1609,6 +1634,10 @@ export const DISSONANCE_EFFECTS = [
   'no_respite_heal',
   'blind_score',
   'cursed_start',
+  // Phase 6 (docs/phase-6.md): appended, so every earlier level's effect keeps its place.
+  'tyrant',
+  'mimicry',
+  'true_dissonance',
 ] as const;
 export type DissonanceEffect = (typeof DISSONANCE_EFFECTS)[number];
 
@@ -1709,6 +1738,19 @@ export const StarlightRulesSchema = z
   .strict();
 export type StarlightRules = z.infer<typeof StarlightRulesSchema>;
 
+/**
+ * How a keepsake is earned rather than bought: a Calling's top mastery or a Deed (titles), or,
+ * since Phase 6 (docs/phase-6.md, "Design: the Atlas of Echoes"), every star of a constellation or
+ * of the whole Atlas.
+ */
+export const KeepsakeEarnedSchema = z.union([
+  z.object({ mastery: IdSchema }).strict(),
+  z.object({ deed: IdSchema }).strict(),
+  z.object({ constellation: IdSchema }).strict(),
+  z.object({ atlas: z.literal(true) }).strict(),
+]);
+export type KeepsakeEarned = z.infer<typeof KeepsakeEarnedSchema>;
+
 /** The Atelier's keepsakes: robes, Thread looks and titles. */
 export const CosmeticsSchema = z
   .object({
@@ -1719,6 +1761,8 @@ export const CosmeticsSchema = z
           name: z.string(),
           price: z.number().int().min(1),
           colors: z.object({ body: HexSchema, trim: HexSchema, glow: HexSchema }).strict(),
+          /** Phase 6 (docs/phase-6.md): earned, not bought (a constellation's keepsake). */
+          earned: KeepsakeEarnedSchema.optional(),
         })
         .strict(),
     ),
@@ -1730,6 +1774,8 @@ export const CosmeticsSchema = z
           price: z.number().int().min(1),
           filament: HexSchema,
           glow: HexSchema,
+          /** Phase 6 (docs/phase-6.md): earned, not bought (a constellation's keepsake). */
+          earned: KeepsakeEarnedSchema.optional(),
         })
         .strict(),
     ),
@@ -1740,12 +1786,7 @@ export const CosmeticsSchema = z
           text: z.string(),
           /** Bought for Starlight, or earned (a Calling's top mastery, a Deed). */
           price: z.number().int().min(1).optional(),
-          earned: z
-            .union([
-              z.object({ mastery: IdSchema }).strict(),
-              z.object({ deed: IdSchema }).strict(),
-            ])
-            .optional(),
+          earned: KeepsakeEarnedSchema.optional(),
         })
         .strict(),
     ),
@@ -1997,6 +2038,109 @@ export type FinaleMovementDef = z.infer<typeof FinaleMovementDefSchema>;
 
 /** Any Movement of an Expedition: a field Movement with pools, or the boss-only Finale. */
 export type AnyMovementDef = MovementDef | FinaleMovementDef;
+
+// ── Phase 6 (docs/phase-6.md): the Atlas of Echoes and the weekly rotation ─────────────────
+// Contracts only (W0): every list is empty until W3 and W4 fill it, and `contentVersionOf`
+// (index.ts) leaves an empty one out of the hash, so registering them moved no version.
+
+/** A level of Dissonance as content names it: a level's id and a rank. */
+const LevelRankSchema = z.object({ id: IdSchema, rank: z.number().int().min(1) }).strict();
+
+/**
+ * One leg of an Echo's route, built like the Finale route's road (`RoadVariantSchema`) over an
+ * existing field Movement: its pools and encounters, with its own rows, fixed rows and rewards
+ * where it gives them, its own mini-boss and boss, and the scale its enemies play at.
+ */
+export const EchoLegSchema = z
+  .object({
+    /** The id of an existing field Movement (not the Finale): its pools and encounters. */
+    movement: IdSchema,
+    /** Its rows of node kinds; absent: that Movement's own. */
+    rows: z.array(z.array(NodeKindSchema).min(1)).min(1).optional(),
+    /** Rows that always play one encounter; absent: that Movement's own. */
+    fixed: z
+      .array(z.object({ row: z.number().int().nonnegative(), encounter: IdSchema }).strict())
+      .optional(),
+    /** The rows that pay more, as a road's `rewards`; absent: the Movement's own. */
+    rewards: z
+      .array(
+        z
+          .object({
+            row: z.number().int().nonnegative(),
+            draft: z.enum(['rare', 'epic']),
+            relics: z.number().int().positive().optional(),
+          })
+          .strict(),
+      )
+      .optional(),
+    /** Its mini-boss's encounter; absent: that Movement's own. */
+    miniboss: IdSchema.optional(),
+    /** Its boss's encounter: the leg's last fight. */
+    boss: IdSchema,
+    /**
+     * The scale every fight of the leg plays at: a Movement's number (1 the first), whose
+     * `scale` goes into the fight's `SimConfig.movement`. Absent: each encounter's own.
+     */
+    scale: z.number().int().min(1).optional(),
+  })
+  .strict();
+export type EchoLeg = z.infer<typeof EchoLegSchema>;
+
+/** An Echo's fixed rules, applied at embark (docs/phase-6.md, "The Echoes"). */
+export const EchoTwistsSchema = z
+  .object({
+    /** No Calling. */
+    noCalling: z.literal(true).optional(),
+    /** No Astrolabe. */
+    noTree: z.literal(true).optional(),
+    /** No carried relics. */
+    noCarry: z.literal(true).optional(),
+    /** The party, three hero ids, whoever is recruited. */
+    party: z.array(IdSchema).length(3).optional(),
+    /** Levels always on, worth no points (The Unrested). */
+    dissonance: z.array(LevelRankSchema).optional(),
+  })
+  .strict();
+export type EchoTwists = z.infer<typeof EchoTwistsSchema>;
+
+/** An Echo: a remixed run with three stars (docs/phase-6.md, "Design: the Atlas of Echoes"). */
+export const EchoDefSchema = z
+  .object({
+    id: IdSchema,
+    name: z.string(),
+    /** The constellation it belongs to. */
+    constellation: IdSchema,
+    text: z.string(),
+    legs: z.array(EchoLegSchema).min(1),
+    twists: EchoTwistsSchema,
+  })
+  .strict();
+export type EchoDef = z.infer<typeof EchoDefSchema>;
+
+/** A constellation of Echoes, and the keepsake all its stars earn. */
+export const ConstellationSchema = z
+  .object({
+    id: IdSchema,
+    name: z.string(),
+    /** A keepsake's id: a robe, a Thread look or a title. */
+    reward: IdSchema,
+  })
+  .strict();
+export type Constellation = z.infer<typeof ConstellationSchema>;
+
+/** One entry of the weekly rotation (docs/phase-6.md, decision 7): what everyone plays that week. */
+export const WeeklyEntrySchema = z
+  .object({
+    /** The Finale-route Expedition, or an Echo's id. */
+    route: IdSchema,
+    /** The Calling, or null for none. */
+    calling: IdSchema.nullable(),
+    /** Three hero ids. */
+    party: z.array(IdSchema).length(3),
+    dissonance: z.array(LevelRankSchema),
+  })
+  .strict();
+export type WeeklyEntry = z.infer<typeof WeeklyEntrySchema>;
 
 /** A field Movement (pools, a ladder, a mini-boss), not the Finale. */
 export function isFieldMovement(d: AnyMovementDef): d is MovementDef {
@@ -2436,6 +2580,106 @@ function lintFinale(c: ContentShape, ctx: z.RefinementCtx, sets: LintSets): void
   });
 }
 
+/**
+ * Phase 6 (docs/phase-6.md): the Atlas's Echoes and constellations, the weekly rotation, and what
+ * the Phase 6 Deeds name. Every list is empty until W2-W4 fill it, so today it checks nothing.
+ */
+function lintPhase6(
+  c: {
+    movements: readonly { id: string; finale?: true }[];
+    callings: readonly { id: string }[];
+    dissonance: readonly { id: string; ranks: number }[];
+    deeds: readonly { id: string; level?: string; constellation?: string; movement?: number }[];
+    cosmetics: {
+      robes: readonly { id: string }[];
+      threads: readonly { id: string }[];
+      titles: readonly { id: string }[];
+    };
+    echoes: readonly EchoDef[];
+    constellations: readonly Constellation[];
+    weekly: readonly WeeklyEntry[];
+  },
+  ctx: z.RefinementCtx,
+  known: { heroes: Set<string>; encounters: Set<string> },
+): void {
+  const issue = (message: string) => ctx.addIssue({ code: 'custom', message });
+  const unique = (label: string, ids: readonly string[]) => {
+    const seen = new Set<string>();
+    for (const id of ids) {
+      if (seen.has(id)) issue(`duplicate ${label} id "${id}"`);
+      seen.add(id);
+    }
+    return seen;
+  };
+  const constellations = unique(
+    'constellation',
+    c.constellations.map((k) => k.id),
+  );
+  const echoes = unique(
+    'echo',
+    c.echoes.map((e) => e.id),
+  );
+  const fieldMovements = new Set(c.movements.filter((m) => !m.finale).map((m) => m.id));
+  const levels = new Map(c.dissonance.map((d) => [d.id, d.ranks]));
+  const party = (heroes: readonly string[], where: string) => {
+    if (new Set(heroes).size !== heroes.length) issue(`${where}: a party of distinct heroes`);
+    for (const h of heroes) if (!known.heroes.has(h)) issue(`${where}: unknown hero "${h}"`);
+  };
+  const levelsOk = (list: readonly { id: string; rank: number }[], where: string) => {
+    for (const l of list) {
+      const ranks = levels.get(l.id);
+      if (ranks === undefined) issue(`${where}: unknown Dissonance level "${l.id}"`);
+      else if (l.rank > ranks) issue(`${where}: "${l.id}" has ${ranks} rank(s)`);
+    }
+  };
+  for (const e of c.echoes) {
+    const where = `echo "${e.id}"`;
+    if (!constellations.has(e.constellation))
+      issue(`${where}: unknown constellation "${e.constellation}"`);
+    for (const leg of e.legs) {
+      if (!fieldMovements.has(leg.movement))
+        issue(`${where}: leg "${leg.movement}" is not a field Movement`);
+      const fights = [
+        leg.boss,
+        ...(leg.miniboss ? [leg.miniboss] : []),
+        ...(leg.fixed ?? []).map((f) => f.encounter),
+      ];
+      for (const id of fights)
+        if (!known.encounters.has(id)) issue(`${where}: unknown encounter "${id}"`);
+      if (leg.scale !== undefined && leg.scale > c.movements.length)
+        issue(`${where}: scale ${leg.scale} is no Movement's`);
+    }
+    if (e.twists.party) party(e.twists.party, where);
+    if (e.twists.dissonance) levelsOk(e.twists.dissonance, where);
+  }
+  const keepsakes = new Set([
+    ...c.cosmetics.robes.map((r) => r.id),
+    ...c.cosmetics.threads.map((t) => t.id),
+    ...c.cosmetics.titles.map((t) => t.id),
+  ]);
+  for (const k of c.constellations)
+    if (!keepsakes.has(k.reward)) issue(`constellation "${k.id}": unknown keepsake "${k.reward}"`);
+  const callings = new Set(c.callings.map((k) => k.id));
+  c.weekly.forEach((w, i) => {
+    const where = `weekly entry ${i}`;
+    if (w.route !== 'expedition' && !echoes.has(w.route))
+      issue(`${where}: route "${w.route}" is neither 'expedition' nor an Echo`);
+    if (w.calling !== null && !callings.has(w.calling))
+      issue(`${where}: unknown calling "${w.calling}"`);
+    party(w.party, where);
+    levelsOk(w.dissonance, where);
+  });
+  for (const d of c.deeds) {
+    const where = `deed "${d.id}"`;
+    if (d.level !== undefined && !levels.has(d.level))
+      issue(`${where}: unknown Dissonance level "${d.level}"`);
+    if (d.constellation !== undefined && !constellations.has(d.constellation))
+      issue(`${where}: unknown constellation "${d.constellation}"`);
+    if (d.movement !== undefined && d.movement > c.movements.length)
+      issue(`${where}: movement ${d.movement} is no Movement's`);
+  }
+}
+
 // ── Root ──────────────────────────────────────────────────────────────────────────────
 
 export const ContentSchema = z
@@ -2479,6 +2723,11 @@ export const ContentSchema = z
     encounters: z.array(EncounterDefSchema).min(1),
     /** The Movements of an Expedition, in order (docs/phase-5a.md); the first is the Prelude. */
     movements: z.array(z.union([MovementDefSchema, FinaleMovementDefSchema])).min(1),
+    /** Phase 6 (docs/phase-6.md): the Atlas of Echoes' Echoes and constellations. */
+    echoes: z.array(EchoDefSchema),
+    constellations: z.array(ConstellationSchema),
+    /** Phase 6: the weekly rotation, only ever appended to (decision 7). */
+    weekly: z.array(WeeklyEntrySchema),
     /** Directive acknowledgement lines. */
     barks: z.object({
       rally: z.array(z.string().min(1)).min(1),
@@ -2700,15 +2949,22 @@ export const ContentSchema = z
         elites: ['n'],
         flawless: [],
         saveWays: ['n'],
-        heroCeiling: ['hero', 'encounter', 'pct'],
+        // Phase 6 (docs/phase-6.md): Red All the Way judges every fight, so no encounter.
+        heroCeiling: ['hero', 'pct'],
         heroTally: ['hero', 'encounter', 'tally'],
+        movementWithout: ['movement', 'stat'],
+        dissonance: [],
+        stars: ['n'],
+        constellation: [],
+        weeks: ['n'],
       };
       for (const field of needs[d.test]) {
         const has =
           field === 'n' || field === 'pct'
             ? d.values[field] !== undefined
-            : d[field as 'stat' | 'encounter' | 'grade' | 'calling' | 'hero' | 'tally'] !==
-              undefined;
+            : d[
+                field as 'stat' | 'encounter' | 'grade' | 'calling' | 'hero' | 'tally' | 'movement'
+              ] !== undefined;
         if (!has) ctx.addIssue({ code: 'custom', message: `${where} (${d.test}) needs ${field}` });
       }
       if (d.encounter && !encounterIds.has(d.encounter))
@@ -2717,9 +2973,16 @@ export const ContentSchema = z
         ctx.addIssue({ code: 'custom', message: `${where}: unknown calling "${d.calling}"` });
       for (const m of d.text.matchAll(/\{([a-zA-Z]+)\}/g)) {
         const key = m[1]!;
-        const named = key === 'encounter' || key === 'calling' || key === 'grade' || key === 'hero';
+        const named =
+          key === 'encounter' ||
+          key === 'calling' ||
+          key === 'grade' ||
+          key === 'hero' ||
+          key === 'movement' ||
+          key === 'level';
         const ok = named
-          ? d[key as 'encounter' | 'calling' | 'grade' | 'hero'] !== undefined
+          ? d[key as 'encounter' | 'calling' | 'grade' | 'hero' | 'movement' | 'level'] !==
+            undefined
           : d.values[key] !== undefined;
         if (!ok) ctx.addIssue({ code: 'custom', message: `${where} has no value for {${key}}` });
       }
@@ -3095,6 +3358,7 @@ export const ContentSchema = z
     lintMovements(c, ctx, { attacks, enemies, encounters });
     lintFinale(c, ctx, { attacks, enemies, encounters });
     lintMovement3(c, ctx, { attacks, enemies, encounters });
+    lintPhase6(c, ctx, { heroes, encounters });
   });
 export type Content = z.infer<typeof ContentSchema>;
 export type ContentInput = z.input<typeof ContentSchema>;

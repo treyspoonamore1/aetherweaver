@@ -15,7 +15,12 @@ import { noVariants, type Techniques } from './variants';
 import { noLook, type Look } from './loom';
 import type { EncounterResult, Grade } from './types';
 
-export const PROFILE_VERSION = 9;
+/**
+ * 10 since Phase 6 (docs/phase-6.md, ground rule 9): it adds `atlas?`, `weekly?` and
+ * `dissonance.finale?`, each absent until first written, so the v9 → v10 step changes only the
+ * version (meta/save.ts).
+ */
+export const PROFILE_VERSION = 10;
 
 export interface Profile {
   version: typeof PROFILE_VERSION;
@@ -74,6 +79,46 @@ export interface Profile {
    * default party). Checked for shape at load and for roster membership when a run starts.
    */
   lastParty?: string[];
+  // ── Phase 6 (docs/phase-6.md). Each absent until first written; absent reads as empty. ──
+  /** The Atlas of Echoes: stars lit and the best Dissonance cleared, by Echo. */
+  atlas?: ProfileAtlas;
+  /** This Week's Song: the last 12 weeks played or added, oldest first. */
+  weekly?: WeeklyWeek[];
+}
+
+/** Profile.atlas? (docs/phase-6.md, "Design: the Atlas of Echoes"). */
+export interface ProfileAtlas {
+  /** Stars lit, 0 to 3, by Echo id. */
+  stars: Record<string, number>;
+  /** The best Dissonance an Echo was cleared at, by Echo id (its forced levels count for nothing). */
+  best: Record<string, number>;
+}
+
+/** One week of the local leaderboard (docs/phase-6.md, "The local leaderboard"). */
+export interface WeeklyWeek {
+  week: number;
+  /** At most 30: the player's own results and the codes they added. */
+  entries: WeeklyCode[];
+}
+
+/**
+ * What a weekly entry's replay showed (docs/phase-6.md, "Verifying a shared run"): Verified,
+ * Verified on another version, only Claimed (a code with no replay checked), Didn't match.
+ */
+export const WEEKLY_STATUSES = ['verified', 'otherVersion', 'claimed', 'mismatch'] as const;
+export type WeeklyStatus = (typeof WEEKLY_STATUSES)[number];
+
+/** A weekly result as the leaderboard keeps it: its share code and what verifying it showed. */
+export interface WeeklyCode {
+  /** The share code (`AW1-…`). */
+  code: string;
+  /** The name the player gave the entry (at most 24 characters). */
+  name?: string;
+  /** The player's own run. */
+  mine?: true;
+  status: WeeklyStatus;
+  /** The replay's key in IndexedDB, when the player chose Keep. */
+  replay?: string;
 }
 
 /**
@@ -129,6 +174,12 @@ export interface ProfileDissonance {
   levels: DissonanceChoice[];
   /** The highest Dissonance won at, by Calling (`none` for no Calling). */
   best: Record<string, number>;
+  /**
+   * Phase 6 (docs/phase-6.md, decision 12): the highest Dissonance at which the Finale was
+   * cleared, by Calling (`none` for no Calling). Absent until the first such clear; v9's `best`
+   * can't fill it (it mixes in Preludes).
+   */
+  finale?: Record<string, number>;
 }
 
 /** A new profile; `seed` starts the Reliquary's crafting rolls. */

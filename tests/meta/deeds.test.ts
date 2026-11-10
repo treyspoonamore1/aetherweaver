@@ -219,6 +219,13 @@ function meetsAndMisses(d: DeedDef): [RunState, RunState] {
         ]),
       ];
     }
+    // Phase 6's rules (docs/phase-6.md): no Deed names them yet; W2 writes their fixtures.
+    case 'movementWithout':
+    case 'dissonance':
+    case 'stars':
+    case 'constellation':
+    case 'weeks':
+      throw new Error(`no fixture for a "${d.test}" Deed yet`);
   }
 }
 

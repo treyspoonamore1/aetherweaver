@@ -12,6 +12,11 @@ import type { RunState } from './types';
 export interface DissonanceChoice {
   id: string;
   rank: number;
+  /**
+   * Phase 6 (docs/phase-6.md): a level an Echo imposes (The Unrested), worth no points. Absent on
+   * every level a player chose. Declared by W0; nothing sets it yet.
+   */
+  forced?: true;
 }
 
 const RULES = () => CONTENT.dissonanceRules;

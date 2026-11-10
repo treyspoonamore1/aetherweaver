@@ -169,8 +169,9 @@ describe('Movements contracts keep the Prelude a Prelude (docs/phase-5a.md)', ()
     const store = memoryStore();
     store.data.set('aetherweaver.profile', JSON.stringify(v8));
     const loaded = loadProfile(store);
-    expect(PROFILE_VERSION).toBe(9);
-    expect(loaded.version).toBe(9);
+    // Through v9 to v10 since Phase 6 (docs/phase-6.md, ground rule 9: that step is the version alone).
+    expect(PROFILE_VERSION).toBe(10);
+    expect(loaded.version).toBe(10);
     expect(loaded.xp).toBe(500);
     expect(loaded.runMode).toBe('expedition');
     const m1 = CONTENT.enemies.filter((e) => (e.movement ?? 1) === 1).map((e) => e.id);

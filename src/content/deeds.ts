@@ -232,3 +232,9 @@ export const FINALE_DEEDS: DeedDef[] = [
     text: 'Beat {encounter} with no hero going down.',
   },
 ];
+
+/**
+ * Phase 6's Deeds (docs/phase-6.md, "Design: Deeds"): fourteen badges, appended last of all in
+ * `CONTENT.deeds`, so every earlier Deed keeps its place. Empty until Phase 6's W2 writes them.
+ */
+export const PHASE6_DEEDS: DeedDef[] = [];

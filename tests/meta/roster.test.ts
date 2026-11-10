@@ -407,7 +407,8 @@ describe('saves (no version bump)', () => {
   it('a v9 profile keeps its recruits and Brann’s Bond, drops a bad lastParty; unlockAll on or off', () => {
     for (const lastParty of [['kael', 'ghost', 'brann'], ['kael', 'kael', 'brann'], ['lyra'], []]) {
       const p = stored(v9({ recruited: ['brann', 'ghost', 'brann'], lastParty }));
-      expect(p.version).toBe(9);
+      // A v9 profile loads as v10 since Phase 6 (docs/phase-6.md: the step is the version alone).
+      expect(p.version).toBe(10);
       expect(p.recruited).toEqual(['brann']);
       expect('lastParty' in p, String(lastParty)).toBe(false);
       expect(p.bonds.brann?.talents[0]).toBe('iron_will');

@@ -235,6 +235,9 @@ function runs(args: Args): void {
   }
 }
 
+/** The bots the bands below are written for (the Expert's are Phase 6's own). */
+type BandBot = Exclude<BotKind, 'expert'>;
+
 /**
  * The difficulty contract's bands for a fight (docs/phase-1.md; Movement II: docs/phase-5a.md,
  * "Bands"), printed beside each row so a miss shows. Win rates and the Skilled bot's share.
@@ -244,6 +247,8 @@ export function band(
   bot: BotKind,
   party: readonly string[] | null = null,
 ): string {
+  // The Expert (docs/phase-6.md) has no band here: its bands are Phase 6's own (W7).
+  if (bot === 'expert') return '';
   const def = encounterDef(encounter);
   if (party && rosterTier(party) !== null)
     return rosterBand(def.movement ?? 1, def.kind, bot, party);
@@ -292,7 +297,7 @@ function ownBands(party: readonly string[]): string {
 function rosterBand(
   movement: number,
   kind: string,
-  bot: BotKind,
+  bot: BandBot,
   party: readonly string[],
 ): string {
   const tier = rosterTier(party)!;
@@ -328,7 +333,7 @@ function rosterBand(
  * (docs/phase-5c.md, "Bands", on ARRIVAL3_KIT) and the Finale's, its one boss
  * (docs/phase-5d.md, "Bands", on ARRIVAL4_KIT).
  */
-const MOVEMENT_BANDS: Readonly<Record<number, Record<string, Record<BotKind, string>>>> = {
+const MOVEMENT_BANDS: Readonly<Record<number, Record<string, Record<BandBot, string>>>> = {
   2: {
     skirmish: { idle: '≤15%', novice: '≥65%', skilled: '≥85% · share ≥35% · 35-60 s' },
     elite: { idle: '0%', novice: '35-75%', skilled: '≥85% · share ≥35% · 50-80 s' },
@@ -355,6 +360,8 @@ export function runBand(
   bot: BotKind,
   party: readonly string[] | null = null,
 ): string {
+  // The Expert (docs/phase-6.md) has no band here: its bands are Phase 6's own (W7).
+  if (bot === 'expert') return '';
   const tier = party ? rosterTier(party) : null;
   if (tier !== null) return rosterRunBand(movements, bot, tier);
   if (movements < 3) return '';
@@ -377,7 +384,7 @@ export function runBand(
  * route, Skilled, against the default party's on the same seeds, and the Novice's Prelude for
  * the parties with Kael (≥ 50% of the default party's); '' where the doc sets none.
  */
-function rosterRunBand(movements: number, bot: BotKind, tier: RosterTier): string {
+function rosterRunBand(movements: number, bot: BandBot, tier: RosterTier): string {
   if (tier === 'sweep') return '';
   if (bot === 'novice') return movements <= 1 && tier === 'kael' ? '≥50% of default' : '';
   if (bot !== 'skilled') return '';
@@ -397,7 +404,7 @@ function rosterRunBand(movements: number, bot: BotKind, tier: RosterTier): strin
  * default party's cell (`--compare` prints it), the Novice and the Idle bot, and Brann's own
  * numbers from the tally (`--verbose`).
  */
-function brannBand(movement: number, kind: string, bot: BotKind, party: readonly string[]): string {
+function brannBand(movement: number, kind: string, bot: BandBot, party: readonly string[]): string {
   const noTank = !party.includes('kael');
   const big = kind === 'miniboss' || kind === 'boss';
   const own = '· Brann below 40% ≥40% of his time, ≤0.3 downs, lifesteal 20-45% of his healing';

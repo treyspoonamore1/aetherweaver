@@ -607,6 +607,20 @@ export interface RunState {
    * stays final), unless it is still in Prep: resuming redraws it at the current length.
    */
   movements: number;
+  // ── Phase 6 (docs/phase-6.md, ground rule 9): optional, absent on every ordinary run, so the
+  // run save stays version 5. Declared by W0; nothing sets them yet. ──
+  /** An Echo run (the Atlas of Echoes): the Echo's content id. */
+  echo?: string;
+  /** A weekly run (This Week's Song): its week. */
+  weekly?: RunWeekly;
+  /** The key of this run's log (its run replay) in IndexedDB. */
+  logId?: string;
+}
+
+/** RunState.weekly? — which week's song a weekly run plays (docs/phase-6.md). */
+export interface RunWeekly {
+  /** Weeks since Monday 2026-01-05 00:00 UTC (`weekOf`, meta/weekly.ts). */
+  week: number;
 }
 
 /** Everything the run screens can do. Implemented by app/runStore.ts. */

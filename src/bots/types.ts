@@ -11,4 +11,8 @@ export interface Bot {
   decide(state: WorldState): Command[];
 }
 
-export type BotKind = 'idle' | 'novice' | 'skilled';
+/**
+ * `'expert'` is Phase 6's (docs/phase-6.md, "Design: the expert bot"): declared by W0, built by
+ * W7 (`ExpertBot`); until then `makeBot('expert')` throws.
+ */
+export type BotKind = 'idle' | 'novice' | 'skilled' | 'expert';
