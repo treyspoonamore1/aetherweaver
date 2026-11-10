@@ -16,10 +16,12 @@ import { awardedBondXp, sceneWaiting, type RunBond } from '../meta/bonds';
 import { dissonancePoints, type DissonanceChoice } from '../meta/dissonance';
 import { CONTENT, type SceneDef } from '../content';
 import * as Run from '../meta/run';
-import { EXPEDITION_MOVEMENTS } from '../meta/profile';
+import { EXPEDITION_MOVEMENTS, type Allowance } from '../meta/profile';
 import { loadRun, saveRun } from '../meta/save';
 import type { CombatOutcome, RunActions, RunState } from '../meta/types';
+import { fitTechniques, type Techniques } from '../meta/variants';
 import type { SimConfig } from '../sim';
+import type { Replay } from '../sim/replay';
 import { useProfile } from './profileStore';
 import { useSettings } from './settings';
 import { storage } from './storage';
@@ -53,6 +55,59 @@ export interface RunStore extends RunActions {
   bondScene(sceneId: string): void;
   /** The scene is over, with this reply: it's seen, pays its Bond XP, and the run goes on. */
   endScene(reply: number): void;
+  // ── Phase 6 (docs/phase-6.md) ──
+  /**
+   * Starts an Echo run in Prep (the Atlas of Echoes): the Echo's route and twists, a new seed
+   * each attempt (`seed` for tests and tools), the profile's tree, carry, Dissonance, Bonds and
+   * variants where its twists allow. Ignored for an Echo the content doesn't have.
+   */
+  newEchoRun(echoId: string, seed?: number): void;
+  /**
+   * Starts a weekly run in Prep (This Week's Song) from its week's start: everything but the
+   * Chords and the technique variants is the week's (`Run.newWeeklyRun`).
+   */
+  newWeeklyRun(start: Run.WeeklyStart): void;
+  /** Prep of a weekly: the technique variants, any of them (the level field). Ignored elsewhere. */
+  setRunTechniques(techniques: Partial<Techniques>): void;
+  /**
+   * The combat screen's end of a fight (docs/phase-6.md, "Recording"): the outcome, as
+   * `finishCombat` takes it, with the fight's replay (`GameRuntime.exportReplay()`: its frames,
+   * last tick and final hash) for the run's log. `replay` may be null (no recorder).
+   */
+  finishFight(outcome: CombatOutcome, replay: Replay | null): void;
+}
+
+/**
+ * What a run step reads from the profile (docs/phase-6.md, ground rule 8): everything on a weekly
+ * run, the profile's allowance on any other.
+ */
+function stepAllowance(run: RunState | null): Allowance {
+  return run?.weekly !== undefined ? Run.runAllowance(run) : useProfile.getState().allowance();
+}
+
+/** One run-layer step as the run's log keeps it: the action and what it was given. */
+interface RunStepNote {
+  action: string;
+  args: readonly unknown[];
+  /** The allowance the step read (`pickCalling`, `retune`, `forge`, `chooseEvent`). */
+  allowance?: Allowance;
+}
+
+/**
+ * The run's log (docs/phase-6.md, "Run replays"): every step as it is applied, and each fight's
+ * frames. PART B (W4, src/app/runRecorder.ts): the recorder takes these here; until then nothing
+ * is kept.
+ */
+function logStep(prev: RunState, next: RunState, step: RunStepNote | undefined): void {
+  void prev;
+  void next;
+  void step;
+}
+
+/** The fight's frames for the run's log, at the fight's end. PART B (W4) as `logStep`. */
+function logFight(run: RunState, replay: Replay | null): void {
+  void run;
+  void replay;
 }
 
 /** The profile's tree as a run may hold it: within the points the Rank (or the settings) give. */
@@ -133,17 +188,33 @@ function withAwardedBondXp(
   return { ...next, lastResult: result, results };
 }
 
-/** Remembers the run's songs for the next Prep, judged as this run held them. */
+/**
+ * Remembers the run's songs for the next Prep, judged as this run held them. Not a weekly's: its
+ * level field may hold songs the profile hasn't unlocked (docs/phase-6.md).
+ */
 function remember(run: RunState): void {
+  if (run.weekly !== undefined) return;
   useProfile.getState().rememberChords(run.chords, Run.reservePool(run), Run.reserveMult(run));
 }
 
+/**
+ * A run that ended (by its Summary, or replaced by a new run) records what Phase 6 keeps of it
+ * (docs/phase-6.md): its Finale-clear Dissonance, an Echo's stars, a weekly's entry.
+ */
+function recordEnd(run: RunState): void {
+  const profile = useProfile.getState();
+  profile.recordFinaleDissonance(run);
+  if (run.echo !== undefined && run.weekly === undefined) profile.recordAtlas(run);
+  if (run.weekly !== undefined) profile.recordWeekly(run);
+}
+
 export const useRun = create<RunStore>()((set, get) => {
-  const apply = (fn: (run: RunState) => RunState) => {
+  const apply = (fn: (run: RunState) => RunState, step?: RunStepNote) => {
     const run = get().run;
     if (!run) return;
     let next = fn(run);
     if (next === run) return;
+    logStep(run, next, step);
     // A run that just ended pays the Reliquary and counts toward the profile.
     const ended = run.phase !== 'summary' && next.phase === 'summary';
     if (ended) {
@@ -153,7 +224,10 @@ export const useRun = create<RunStore>()((set, get) => {
     }
     saveRun(storage(), next);
     set({ run: next });
-    if (ended) useProfile.getState().recordRun(next.outcome === 'victory');
+    if (ended) {
+      useProfile.getState().recordRun(next.outcome === 'victory');
+      recordEnd(next);
+    }
   };
   /**
    * Deeds (docs/phase-4b.md): records what the run has earned so far (its fights' feats and
@@ -166,6 +240,24 @@ export const useRun = create<RunStore>()((set, get) => {
     const earned = useProfile.getState().recordDeeds(run);
     const fresh = earned.filter((id) => !run.deeds.includes(id));
     if (fresh.length > 0) apply((r) => ({ ...r, deeds: [...r.deeds, ...fresh] }));
+  };
+  /**
+   * A run replaced before its summary still counts (won if its last fight won the run: its final
+   * boss, not an Expedition's Cantor), and pays the Reliquary: the one in play, or the saved one
+   * after a restart.
+   */
+  const retirePrevious = () => {
+    const previous = get().run ?? loadRun(storage());
+    if (previous && previous.phase !== 'prep' && previous.phase !== 'summary') {
+      const last = previous.lastResult;
+      const won = previous.outcome === 'victory' || (!!last && Run.endsRun(last));
+      useProfile.getState().recordRun(won);
+      settleReliquary(previous);
+      // A win may open Dissonance or set a best, as at a Summary (docs/phase-4d.md).
+      if (won) useProfile.getState().recordDissonance({ ...previous, outcome: 'victory' });
+      // …and keeps what Phase 6 records of a run's end (docs/phase-6.md).
+      recordEnd(won ? { ...previous, outcome: 'victory' } : previous);
+    }
   };
   return {
     run: null,
@@ -187,17 +279,19 @@ export const useRun = create<RunStore>()((set, get) => {
       // A fight can't be resumed mid-way: restart the pending encounter from its start.
       // A run still in Prep picks up the tree, the carry, the Dissonance and the Bonds as they
       // are now.
-      set({
-        run: Run.setTechniques(
-          Run.setBonds(
-            Run.setDissonance(
-              Run.setCarried(Run.setAstrolabe(saved, profileTree()), profileCarry()),
-              profileDissonance(),
-            ),
-            profileBonds(saved.party.map((h) => h.heroId)),
-          ),
-          useProfile.getState().runTechniques(),
+      const followed = Run.setBonds(
+        Run.setDissonance(
+          Run.setCarried(Run.setAstrolabe(saved, profileTree()), profileCarry()),
+          profileDissonance(),
         ),
+        profileBonds(saved.party.map((h) => h.heroId)),
+      );
+      set({
+        // A weekly keeps its own variants (docs/phase-6.md).
+        run:
+          followed.weekly !== undefined
+            ? followed
+            : Run.setTechniques(followed, useProfile.getState().runTechniques()),
       });
       // …and the roster as it is now: Prep never shows a party it wouldn't embark.
       get().followParty();
@@ -215,12 +309,18 @@ export const useRun = create<RunStore>()((set, get) => {
     followDissonance: () => apply((run) => Run.setDissonance(run, profileDissonance())),
     followBonds: () =>
       apply((run) => Run.setBonds(run, profileBonds(run.party.map((h) => h.heroId)))),
+    // A weekly's variants are its own (any of them, docs/phase-6.md): it doesn't follow.
     followTechniques: () =>
-      apply((run) => Run.setTechniques(run, useProfile.getState().runTechniques())),
+      apply((run) =>
+        run.weekly !== undefined
+          ? run
+          : Run.setTechniques(run, useProfile.getState().runTechniques()),
+      ),
     followParty: () =>
       apply((run) => {
         const roster = useProfile.getState().roster();
-        if (run.party.every((h) => roster.includes(h.heroId))) return run;
+        // An Echo's or a weekly's own party stands, recruited or not (docs/phase-6.md).
+        if (Run.partyFixed(run) || run.party.every((h) => roster.includes(h.heroId))) return run;
         const next = Run.setParty(run, CONTENT.defaultParty, roster);
         return next === run ? run : Run.setBonds(next, profileBonds(CONTENT.defaultParty));
       }),
@@ -240,12 +340,12 @@ export const useRun = create<RunStore>()((set, get) => {
           .some((s) => s.id === sceneId)
       )
         return;
-      apply((run) => Run.bondScene(run, sceneId));
+      apply((run) => Run.bondScene(run, sceneId), { action: 'bondScene', args: [sceneId] });
     },
     endScene: (reply) => {
       const scene = get().run?.scene;
       if (!scene || get().run?.phase !== 'scene') return;
-      apply(Run.endScene);
+      apply(Run.endScene, { action: 'endScene', args: [reply] });
       useProfile.getState().seeScene(scene.sceneId, reply);
     },
     enshrine: (relicId) => {
@@ -277,18 +377,7 @@ export const useRun = create<RunStore>()((set, get) => {
       return result;
     },
     newRun: (seed, mode) => {
-      // A run replaced before its summary still counts (won if its last fight won the run: its
-      // final boss, not an Expedition's Cantor), and pays the Reliquary: the one in play, or the
-      // saved one after a restart.
-      const previous = get().run ?? loadRun(storage());
-      if (previous && previous.phase !== 'prep' && previous.phase !== 'summary') {
-        const last = previous.lastResult;
-        const won = previous.outcome === 'victory' || (!!last && Run.endsRun(last));
-        useProfile.getState().recordRun(won);
-        settleReliquary(previous);
-        // A win may open Dissonance or set a best, as at a Summary (docs/phase-4d.md).
-        if (won) useProfile.getState().recordDissonance({ ...previous, outcome: 'victory' });
-      }
+      retirePrevious();
       // Start from the last Chords used, if they're still unlocked and the tree can hold them.
       const profile = useProfile.getState();
       const last = profile.profile.lastChords;
@@ -313,9 +402,50 @@ export const useRun = create<RunStore>()((set, get) => {
       saveRun(storage(), run);
       set({ run });
     },
-    setChords: (chords) =>
-      apply((run) => Run.setChords(run, chords, useProfile.getState().allowance())),
-    setCalling: (id) => apply((run) => Run.setCalling(run, id, useProfile.getState().allowance())),
+    newEchoRun: (echoId, seed) => {
+      if (!Run.echoDef(echoId)) return;
+      retirePrevious();
+      const profile = useProfile.getState();
+      const party = startingParty();
+      // Math.random is fine here: the app picks each attempt's seed; the run itself is seeded.
+      let run = Run.newEchoRun(
+        seed ?? Math.floor(Math.random() * 2 ** 31),
+        echoId,
+        undefined,
+        profileTree(),
+        profileCarry(),
+        profileDissonance(),
+        profileBonds(party),
+        profile.runTechniques(),
+      );
+      // The remembered party, unless the Echo names its own (`setParty` refuses then).
+      if (party.join() !== CONTENT.defaultParty.join())
+        run = Run.setParty(run, party, profile.roster());
+      if (Run.partyFixed(run))
+        run = Run.setBonds(run, profileBonds(run.party.map((h) => h.heroId)));
+      const last = profile.profile.lastChords;
+      if (last.length > 0) run = Run.setChords(run, last, profile.allowance());
+      saveRun(storage(), run);
+      set({ run });
+    },
+    newWeeklyRun: (start) => {
+      retirePrevious();
+      const profile = useProfile.getState();
+      // The level field (decision 6): the profile's last Chords and variants are only where Prep
+      // starts; any aura, ornament and variant may be chosen.
+      const run = Run.newWeeklyRun(start, profile.profile.lastChords, profile.profile.techniques);
+      saveRun(storage(), run);
+      set({ run });
+    },
+    setRunTechniques: (techniques) =>
+      apply((run) =>
+        run.weekly !== undefined
+          ? Run.setTechniques(run, fitTechniques(techniques, [], true))
+          : run,
+      ),
+    // Prep's choices are the run's start (its state at embark), not steps of it.
+    setChords: (chords) => apply((run) => Run.setChords(run, chords, stepAllowance(run))),
+    setCalling: (id) => apply((run) => Run.setCalling(run, id, stepAllowance(run))),
     setRunMode: (mode) => {
       const profile = useProfile.getState();
       if (mode === 'expedition' && !profile.expeditionOpen()) return;
@@ -347,31 +477,39 @@ export const useRun = create<RunStore>()((set, get) => {
       // A hero picked while "Skip the unlocks" was on doesn't outlive turning it off either
       // (docs/phase-5b.md): the run plays the default party, and follows its Bonds.
       const roster = profile.roster();
-      apply((current) => {
-        const owned = current.party.every((h) => roster.includes(h.heroId));
-        const run = owned ? current : Run.setParty(current, CONTENT.defaultParty, roster);
-        return Run.embark(
-          Run.setCallingTiers(
-            Run.setTechniques(
-              Run.setBonds(
-                Run.setMovements(run, profile.expeditionOpen() ? run.movements : 1),
-                profileBonds(run.party.map((h) => h.heroId)),
+      apply(
+        (current) => {
+          // A weekly embarks on its level field, whatever the profile holds (docs/phase-6.md).
+          if (current.weekly !== undefined)
+            return Run.embark(current, Run.runAllowance(current), 0, 0, true);
+          const owned =
+            Run.partyFixed(current) || current.party.every((h) => roster.includes(h.heroId));
+          const run = owned ? current : Run.setParty(current, CONTENT.defaultParty, roster);
+          return Run.embark(
+            Run.setCallingTiers(
+              Run.setTechniques(
+                Run.setBonds(
+                  Run.setMovements(run, profile.expeditionOpen() ? run.movements : 1),
+                  profileBonds(run.party.map((h) => h.heroId)),
+                ),
+                profile.runTechniques(),
               ),
-              profile.runTechniques(),
+              run.calling ? profile.tiersOpen(run.calling.id) : 0,
             ),
-            run.calling ? profile.tiersOpen(run.calling.id) : 0,
-          ),
-          profile.allowance(),
-          profile.astrolabePoints(),
-          profile.carrySlots(),
-          profile.dissonanceOpen(),
-          roster,
-        );
-      });
+            profile.allowance(),
+            profile.astrolabePoints(),
+            profile.carrySlots(),
+            profile.dissonanceOpen(),
+            roster,
+          );
+        },
+        { action: 'embark', args: [] },
+      );
       const run = get().run;
       if (run?.phase === 'map') remember(run);
     },
-    chooseNode: (id) => apply((run) => Run.chooseNode(run, id)),
+    chooseNode: (id) =>
+      apply((run) => Run.chooseNode(run, id), { action: 'chooseNode', args: [id] }),
     combatConfig: (): SimConfig | null => {
       const run = get().run;
       if (!run) return null;
@@ -383,7 +521,10 @@ export const useRun = create<RunStore>()((set, get) => {
       // catch-up, judged on the profile's Bonds before this award), so the Result and the Summary
       // show what each hero really earned.
       const bonds = useProfile.getState().profile.bonds;
-      apply((run) => withAwardedBondXp(Run.finishCombat(run, outcome), run, bonds));
+      apply((run) => withAwardedBondXp(Run.finishCombat(run, outcome), run, bonds), {
+        action: 'finishCombat',
+        args: [],
+      });
       const after = get().run;
       if (after && after !== before && after.lastResult) {
         useProfile.getState().award(after.lastResult.xp);
@@ -398,38 +539,68 @@ export const useRun = create<RunStore>()((set, get) => {
         recruitFrom(get().run);
       }
     },
-    continueFromResult: () => apply(Run.continueFromResult),
+    finishFight: (outcome, replay) => {
+      const run = get().run;
+      if (!run || run.phase !== 'combat') return;
+      logFight(run, replay);
+      get().finishCombat(outcome);
+    },
+    continueFromResult: () =>
+      apply(Run.continueFromResult, { action: 'continueFromResult', args: [] }),
     pickCalling: (index, chords) => {
       const before = get().run;
-      apply((run) => Run.pickCalling(run, index, chords, useProfile.getState().allowance()));
+      const allowance = stepAllowance(before);
+      apply((run) => Run.pickCalling(run, index, chords, allowance), {
+        action: 'pickCalling',
+        args: [index, chords],
+        allowance,
+      });
       const run = get().run;
       // Third Voice's free retune took.
       if (run && before && run.chords !== before.chords) remember(run);
     },
-    pickRelic: (index) => apply((run) => Run.pickRelic(run, index)),
-    pickDraft: (index) => apply((run) => Run.pickDraft(run, index)),
-    rerollDraft: () => apply(Run.rerollDraft),
-    respite: (choice) => apply((run) => Run.respite(run, choice)),
+    pickRelic: (index) =>
+      apply((run) => Run.pickRelic(run, index), { action: 'pickRelic', args: [index] }),
+    pickDraft: (index) =>
+      apply((run) => Run.pickDraft(run, index), { action: 'pickDraft', args: [index] }),
+    rerollDraft: () => apply(Run.rerollDraft, { action: 'rerollDraft', args: [] }),
+    respite: (choice) =>
+      apply((run) => Run.respite(run, choice), { action: 'respite', args: [choice] }),
     retune: (chords) => {
-      apply((run) => Run.retune(run, chords, useProfile.getState().allowance()));
+      const allowance = stepAllowance(get().run);
+      apply((run) => Run.retune(run, chords, allowance), {
+        action: 'retune',
+        args: [chords],
+        allowance,
+      });
       const run = get().run;
       if (run?.phase === 'map') remember(run);
     },
-    buy: (index) => apply((run) => Run.buy(run, index)),
-    leaveShop: () => apply(Run.leaveShop),
+    buy: (index) => apply((run) => Run.buy(run, index), { action: 'buy', args: [index] }),
+    leaveShop: () => apply(Run.leaveShop, { action: 'leaveShop', args: [] }),
     forge: (choice) => {
-      apply((run) => Run.forge(run, choice, useProfile.getState().allowance()));
+      const allowance = stepAllowance(get().run);
+      apply((run) => Run.forge(run, choice, allowance), {
+        action: 'forge',
+        args: [choice],
+        allowance,
+      });
       const run = get().run;
       if (choice.service === 'retune' && run?.forge?.used === 'retune') remember(run);
     },
-    leaveForge: () => apply(Run.leaveForge),
+    leaveForge: () => apply(Run.leaveForge, { action: 'leaveForge', args: [] }),
     chooseEvent: (choiceId, opts) => {
-      apply((run) => Run.chooseEvent(run, choiceId, opts, useProfile.getState().allowance()));
+      const allowance = stepAllowance(get().run);
+      apply((run) => Run.chooseEvent(run, choiceId, opts, allowance), {
+        action: 'chooseEvent',
+        args: [choiceId, opts],
+        allowance,
+      });
       const run = get().run;
       if (run?.event?.gains?.retuned) remember(run);
     },
-    leaveEvent: () => apply(Run.leaveEvent),
-    abandon: () => apply(Run.abandon),
+    leaveEvent: () => apply(Run.leaveEvent, { action: 'leaveEvent', args: [] }),
+    abandon: () => apply(Run.abandon, { action: 'abandon', args: [] }),
     closeRun: () => {
       saveRun(storage(), null);
       set({ run: null });

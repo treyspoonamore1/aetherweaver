@@ -5,7 +5,7 @@
  */
 import { create } from 'zustand';
 import { allocate, astrolabePoints, refund } from '../meta/astrolabe';
-import { deedPoints, deedProgress, deedsEarned } from '../meta/deeds';
+import { deedPoints, deedProgress, deedsEarned, profileDeedsEarned } from '../meta/deeds';
 import {
   allowanceFor,
   awardXp,
@@ -35,13 +35,14 @@ import {
 } from '../meta/reliquary';
 import {
   bestKey,
+  chosenLevels,
   dissonancePoints,
-  fitLevels,
+  finaleClearPoints,
   opensFrom,
   opensWith,
   type DissonanceChoice,
 } from '../meta/dissonance';
-import { canonicalParty, chordsToRemember } from '../meta/run';
+import { canonicalParty, chordsToRemember, setsDissonanceRecords } from '../meta/run';
 import {
   addBondXp,
   altSoloOf,
@@ -147,6 +148,25 @@ export interface ProfileStore {
    * one the profile records, and any win may set a new best for its Calling.
    */
   recordDissonance(run: RunState): { opened: boolean; best: boolean };
+  // ── Phase 6 (docs/phase-6.md) ──
+  /**
+   * A run ended: a Finale clear on a Prelude or an Expedition (never an Echo or a weekly,
+   * decisions 10 and 12) may set its Calling's best Finale-clear Dissonance
+   * (`profile.dissonance.finale`). True when it set a new record.
+   */
+  recordFinaleDissonance(run: RunState): boolean;
+  /**
+   * An Echo run ended (docs/phase-6.md, "Stars"): lights its stars and pays their rewards, then
+   * judges the profile Deeds. Returns the stars it newly lit.
+   */
+  recordAtlas(run: RunState): number;
+  /**
+   * A weekly run ended (docs/phase-6.md, "The local leaderboard"): keeps the player's own entry
+   * in its week, then judges the profile Deeds.
+   */
+  recordWeekly(run: RunState): void;
+  /** The Atlas or the weekly record changed: records the profile Deeds now earned; returns them. */
+  recordProfileDeeds(): string[];
   /** Bonds (docs/phase-4e.md): every talent and Solo can be chosen (Skip the unlocks). */
   bondsAll(): boolean;
   /** What a run's heroes play with: the profile's choices their Bond ranks open. */
@@ -296,6 +316,7 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       }
       if (earned.length === 0 && best === profile.deedBest) return earned;
       // Each Deed earned pays its Starlight (docs/phase-4g.md).
+      // (Phase 6's profile Deeds are judged apart, by `recordProfileDeeds`.)
       const starlight = profile.starlight + starlightForDeeds(earned);
       commit(
         { ...profile, deeds: [...profile.deeds, ...earned], deedBest: best, starlight },
@@ -520,7 +541,8 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       get().profile.dissonance.open || useSettings.getState().settings.unlockAll,
     setDissonance: (levels) => {
       const profile = get().profile;
-      const fitted = fitLevels(levels);
+      // The levels a player chooses: never an Echo's forced ones (docs/phase-6.md).
+      const fitted = chosenLevels(levels);
       if (JSON.stringify(fitted) === JSON.stringify(profile.dissonance.levels)) return;
       commit({ ...profile, dissonance: { ...profile.dissonance, levels: fitted } });
     },
@@ -531,7 +553,8 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       // A Finale clear at Rank 15+ opens it (docs/phase-5d.md): this run's, or one the profile
       // already records (its `song_goes_on` Deed) once the Rank is reached. Open stays open.
       const opened = !d.open && (opensWith(run, rank) || opensFrom(profile.deeds, rank));
-      if (run.outcome !== 'victory') {
+      // An Echo or a weekly sets no best (docs/phase-6.md, decision 10): it may still open it.
+      if (run.outcome !== 'victory' || !setsDissonanceRecords(run)) {
         if (opened) commit({ ...profile, dissonance: { ...d, open: true } });
         return { opened, best: false };
       }
@@ -548,6 +571,45 @@ export const useProfile = create<ProfileStore>()((set, get) => {
         },
       });
       return { opened, best };
+    },
+    recordFinaleDissonance: (run) => {
+      const points = run.outcome === 'victory' ? finaleClearPoints(run) : null;
+      if (points === null) return false;
+      const profile = get().profile;
+      const d = profile.dissonance;
+      const key = bestKey(run);
+      const was = d.finale?.[key];
+      if (was !== undefined && was >= points) return false;
+      commit({ ...profile, dissonance: { ...d, finale: { ...d.finale, [key]: points } } });
+      return true;
+    },
+    recordAtlas: (run) => {
+      if (run.echo === undefined) return 0;
+      // PART B (W3, src/meta/atlas.ts): `recordStars(profile, run)` lights the run's stars and pays
+      // their first-time rewards here, in one commit; until then no star is lit.
+      const lit = 0;
+      get().recordProfileDeeds();
+      return lit;
+    },
+    recordWeekly: (run) => {
+      if (run.weekly === undefined) return;
+      // PART B (W4, src/meta/weekly.ts and shareCode.ts): the run's score and share code become
+      // the player's own entry (`mine`) in `profile.weekly` here, at most 12 weeks of at most 30.
+      get().recordProfileDeeds();
+    },
+    recordProfileDeeds: () => {
+      const profile = get().profile;
+      const earned = profileDeedsEarned(profile);
+      if (earned.length === 0) return earned;
+      commit(
+        {
+          ...profile,
+          deeds: [...profile.deeds, ...earned],
+          starlight: profile.starlight + starlightForDeeds(earned),
+        },
+        { deedNotices: [...get().deedNotices, ...earned] },
+      );
+      return earned;
     },
     payReliquary: ({ shards, tears }) => {
       if (shards <= 0 && tears <= 0) return;

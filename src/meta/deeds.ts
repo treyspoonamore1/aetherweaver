@@ -3,9 +3,11 @@
  * (each fight's stats, grade, kind and outcome; its Calling and tree). Pure: the profile store
  * records them as fights end, the Codex lists them, and ten of them give an Astrolabe point.
  */
-import { CONTENT, type DeedDef } from '../content';
+import { CONTENT, deedText, dissonanceLevel, type DeedDef, type EchoDef } from '../content';
 import { treeKeystones } from '../sim';
-import { endsRun } from './runEnd';
+import { dissonancePoints, fitLevels } from './dissonance';
+import { movementSpan, type Profile } from './profile';
+import { countsRunWide, endsRun, finaleCleared } from './runEnd';
 import type { EncounterResult, RunState } from './types';
 
 /** The most Astrolabe points Deeds give (the ten point Deeds). */
@@ -26,11 +28,50 @@ function won(run: RunState): boolean {
   return run.outcome === 'victory' || run.results.some(endsRun);
 }
 
+/** The rules judged from the profile, not a run (docs/phase-6.md): the Atlas's and the weekly's. */
+const PROFILE_RULES: ReadonlySet<DeedDef['test']> = new Set(['stars', 'constellation', 'weeks']);
+
+/** Is this Deed judged from the profile (`profileDeedsEarned`) rather than from a run? */
+export function isProfileDeed(deed: Pick<DeedDef, 'test'>): boolean {
+  return PROFILE_RULES.has(deed.test);
+}
+
+/**
+ * The rules about a whole run (docs/phase-6.md, decision 10): judged on Preludes, Expeditions and
+ * weekly runs, never on an Echo. `heroCeiling` with no encounter (Red All the Way) is one too.
+ * The fight rules (`fight`, `heroCeiling` with an encounter, `heroTally`) count on every run.
+ */
+const RUN_WIDE: ReadonlySet<DeedDef['test']> = new Set([
+  'win',
+  'runCount',
+  'grades',
+  'callAll',
+  'calling',
+  'keystone',
+  'elites',
+  'flawless',
+  'saveWays',
+  'movementWithout',
+  'dissonance',
+]);
+
+/** Is this Deed about the whole run (so an Echo can't earn it)? */
+export function isRunWideDeed(deed: Pick<DeedDef, 'test' | 'encounter'>): boolean {
+  return RUN_WIDE.has(deed.test) || (deed.test === 'heroCeiling' && deed.encounter === undefined);
+}
+
+/** Does the run judge this Deed at all: a fight Deed always, a run-wide one off an Echo. */
+function judges(run: RunState, deed: DeedDef): boolean {
+  return !isProfileDeed(deed) && (!isRunWideDeed(deed) || countsRunWide(run));
+}
+
 /**
  * How far a counting Deed has got in this run: the stat's total, the fights won with its grade,
- * or the different ways heroes were saved. Null for a Deed that doesn't count.
+ * or the different ways heroes were saved. Null for a Deed that doesn't count, and on a run that
+ * doesn't judge it (an Echo, docs/phase-6.md).
  */
 export function deedProgress(run: RunState, deed: DeedDef): number | null {
+  if (!judges(run, deed)) return null;
   switch (deed.test) {
     case 'runCount': {
       const stat = deed.stat;
@@ -67,6 +108,56 @@ function ceilingHolds(r: EncounterResult, deed: DeedDef): boolean {
   return pct !== undefined && peak !== undefined && peak >= 0 && peak <= pct / 100;
 }
 
+/**
+ * A `heroCeiling` Deed with no encounter (Red All the Way, docs/phase-6.md): a won Expedition with
+ * the hero, and in every fight where they fell to `pct`% life, never above it after. Every fight
+ * must say how the hero's life went (`blood`): a fight that doesn't can't be judged, so it fails.
+ */
+function runCeilingHolds(run: RunState, deed: DeedDef): boolean {
+  const pct = deed.values.pct;
+  if (pct === undefined || !won(run) || run.echo !== undefined || run.movements < 2) return false;
+  if (!run.party.some((h) => h.heroId === deed.hero)) return false;
+  return run.results.every((r) => {
+    const peak = r.heroes.find((h) => h.heroId === deed.hero)?.blood?.peakAfterLow;
+    return peak !== undefined && (peak < 0 || peak <= pct / 100);
+  });
+}
+
+/**
+ * A `movementWithout` Deed (Silent Bell, docs/phase-6.md, decision 17): the run beat Movement
+ * `movement`'s boss, and none of that Movement's fights recorded its `stat`.
+ */
+function movementWithoutHolds(run: RunState, deed: DeedDef): boolean {
+  const stat = deed.stat;
+  // A result's `movement` is its place on the route, a content Movement only off an Echo route.
+  if (deed.movement === undefined || !stat || run.echo !== undefined) return false;
+  const fights = run.results.filter((r) => r.movement === deed.movement);
+  return (
+    fights.some((r) => r.kind === 'boss' && r.outcome === 'victory') &&
+    fights.every((r) => r.stats[stat] === 0)
+  );
+}
+
+/**
+ * A `dissonance` Deed (docs/phase-6.md): the run cleared the Finale at `values.points` Dissonance
+ * or more (its forced levels count for nothing), and with every level at its top rank if it says
+ * `allLevels`. A level it names (`level`) is checked for every rule (`levelOn`).
+ */
+function dissonanceHolds(run: RunState, deed: DeedDef): boolean {
+  if (!finaleCleared(run)) return false;
+  if (dissonancePoints(run.dissonance) < (deed.values.points ?? 0)) return false;
+  if (!deed.allLevels) return true;
+  const played = fitLevels(run.dissonance);
+  return CONTENT.dissonance.every((d) =>
+    played.some((l) => l.id === d.id && l.rank === d.ranks && l.forced !== true),
+  );
+}
+
+/** The level a Deed names (`level`) was on in this run; true for a Deed that names none. */
+function levelOn(run: RunState, deed: DeedDef): boolean {
+  return deed.level === undefined || fitLevels(run.dissonance).some((l) => l.id === deed.level);
+}
+
 /** A hero's fight tally (docs/phase-5e.md), from the result's `duel` or `grove`; undefined without. */
 function heroTally(
   hero: EncounterResult['heroes'][number] | undefined,
@@ -100,8 +191,13 @@ function tallyHolds(r: EncounterResult, deed: DeedDef): boolean {
   return (atLeast === undefined || n >= atLeast) && (atMost === undefined || n <= atMost);
 }
 
-/** Does this run earn the Deed? */
+/**
+ * Does this run earn the Deed? A run-wide Deed never on an Echo (docs/phase-6.md, decision 10); a
+ * profile Deed (`stars`, `constellation`, `weeks`) never from a run (`profileDeedsEarned`); a
+ * Deed naming a level only with that level on.
+ */
 export function deedHolds(run: RunState, deed: DeedDef): boolean {
+  if (!judges(run, deed) || !levelOn(run, deed)) return false;
   const n = deed.values.n ?? 0;
   switch (deed.test) {
     case 'win':
@@ -127,13 +223,17 @@ export function deedHolds(run: RunState, deed: DeedDef): boolean {
     case 'flawless':
       return won(run) && run.results.every((r) => r.stats.downs === 0);
     case 'heroCeiling':
-      return run.results.some((r) => ceilingHolds(r, deed));
+      return deed.encounter === undefined
+        ? runCeilingHolds(run, deed)
+        : run.results.some((r) => ceilingHolds(r, deed));
     case 'heroTally':
       return run.results.some((r) => tallyHolds(r, deed));
-    // Phase 6 (docs/phase-6.md, "Design: Deeds"): no Deed names these yet. W2 writes the run
-    // rules here and the profile rules in `profileDeedsEarned`; until then none is earned.
+    // Phase 6 (docs/phase-6.md, "Design: Deeds").
     case 'movementWithout':
+      return movementWithoutHolds(run, deed);
     case 'dissonance':
+      return dissonanceHolds(run, deed);
+    // The profile's rules: judged by `profileDeedHolds`, never from a run.
     case 'stars':
     case 'constellation':
     case 'weeks':
@@ -145,4 +245,136 @@ export function deedHolds(run: RunState, deed: DeedDef): boolean {
 export function deedsEarned(run: RunState, earned: readonly string[]): string[] {
   const have = new Set(earned);
   return CONTENT.deeds.filter((d) => !have.has(d.id) && deedHolds(run, d)).map((d) => d.id);
+}
+
+// ── Profile Deeds (docs/phase-6.md, "Design: Deeds") ──────────────────────────────────────
+// The Atlas's and the weekly's: judged from the profile when its Atlas or weekly record changes.
+// The reads below are the minimal ones the rules need, on W0's shapes (`Profile.atlas`,
+// `Profile.weekly`); the Atlas's and the weekly's own modules may own fuller versions.
+
+/** Stars lit in the Atlas of Echoes: each Echo's 0 to 3, summed (absent: none). */
+export function atlasStars(profile: Pick<Profile, 'atlas'>): number {
+  const stars = profile.atlas?.stars ?? {};
+  return Object.values(stars).reduce((n, s) => n + Math.max(0, Math.min(3, Math.floor(s))), 0);
+}
+
+/**
+ * Is every star of the constellation lit: each of its Echoes at three stars? A constellation with
+ * no Echo is never lit.
+ */
+export function constellationLit(
+  profile: Pick<Profile, 'atlas'>,
+  constellation: string,
+  echoes: readonly Pick<EchoDef, 'id' | 'constellation'>[] = CONTENT.echoes,
+): boolean {
+  const of = echoes.filter((e) => e.constellation === constellation);
+  const stars = profile.atlas?.stars ?? {};
+  return of.length > 0 && of.every((e) => (stars[e.id] ?? 0) >= 3);
+}
+
+/** Crockford base32 (docs/phase-6.md, "Share codes"): a typed I or L reads 1, an O reads 0. */
+const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+
+/**
+ * Does a share code say its run was won? Read by the doc's field table, most significant bit
+ * first: week (14 bits), build (32), sim version (8), then the won bit. False for a code that
+ * doesn't read. A stand-in for the share code's own decoder (meta/shareCode.ts), which replaces it.
+ */
+export function shareCodeWon(code: string): boolean {
+  const body = code.trim().toUpperCase();
+  if (!body.startsWith('AW1-')) return false;
+  const chars = body.slice(4).replace(/-/g, '').replace(/[IL]/g, '1').replace(/O/g, '0');
+  if (chars.length !== 28) return false;
+  const bits: number[] = [];
+  for (const c of chars) {
+    const v = CROCKFORD.indexOf(c);
+    if (v < 0) return false;
+    for (let b = 4; b >= 0; b--) bits.push((v >> b) & 1);
+  }
+  return bits[14 + 32 + 8] === 1;
+}
+
+/**
+ * The different weeks in which the player won This Week's Song: weeks whose record holds one of
+ * the player's own entries (`mine`), verified on this device (on this version or another), whose
+ * code says it was won.
+ */
+export function weeksWon(
+  profile: Pick<Profile, 'weekly'>,
+  won: (code: string) => boolean = shareCodeWon,
+): number {
+  const weeks = new Set<number>();
+  for (const w of profile.weekly ?? [])
+    if (
+      w.entries.some(
+        (e) =>
+          e.mine === true &&
+          (e.status === 'verified' || e.status === 'otherVersion') &&
+          won(e.code),
+      )
+    )
+      weeks.add(w.week);
+  return weeks.size;
+}
+
+/** Does the profile earn this profile Deed (`stars`, `constellation`, `weeks`)? No other rule. */
+export function profileDeedHolds(
+  profile: Pick<Profile, 'atlas' | 'weekly'>,
+  deed: DeedDef,
+  echoes: readonly Pick<EchoDef, 'id' | 'constellation'>[] = CONTENT.echoes,
+): boolean {
+  const n = deed.values.n ?? 0;
+  switch (deed.test) {
+    case 'stars':
+      return atlasStars(profile) >= n;
+    case 'constellation': {
+      if (deed.constellation !== undefined)
+        return constellationLit(profile, deed.constellation, echoes);
+      const all = [...new Set(echoes.map((e) => e.constellation))];
+      return all.some((id) => constellationLit(profile, id, echoes));
+    }
+    case 'weeks':
+      return weeksWon(profile) >= n;
+    default:
+      return false;
+  }
+}
+
+/** How far a counting profile Deed has got ("4 of 27 stars"); null for any other Deed. */
+export function profileDeedProgress(
+  profile: Pick<Profile, 'atlas' | 'weekly'>,
+  deed: DeedDef,
+): number | null {
+  switch (deed.test) {
+    case 'stars':
+      return atlasStars(profile);
+    case 'weeks':
+      return weeksWon(profile);
+    default:
+      return null;
+  }
+}
+
+/** The profile Deeds the profile has newly earned, in content order (none twice). */
+export function profileDeedsEarned(
+  profile: Pick<Profile, 'atlas' | 'weekly' | 'deeds'>,
+  earned: readonly string[] = profile.deeds,
+): string[] {
+  const have = new Set(earned);
+  return CONTENT.deeds
+    .filter((d) => !have.has(d.id) && isProfileDeed(d) && profileDeedHolds(profile, d))
+    .map((d) => d.id);
+}
+
+/**
+ * A Deed's condition, filled in (content's `deedText`), with Phase 6's named placeholders too:
+ * `{movement}` as the Movement's name ("Movement III") and `{level}` as the level's ("Tyrant").
+ */
+export function deedLine(deed: DeedDef): string {
+  return deedText(deed).replace(/\{(movement|level)\}/g, (m, k: string) => {
+    if (k === 'movement' && deed.movement !== undefined)
+      return movementSpan(deed.movement, deed.movement);
+    if (k === 'level' && deed.level !== undefined) return dissonanceLevel(deed.level).name;
+    return m;
+  });
 }
