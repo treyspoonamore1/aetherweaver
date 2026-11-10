@@ -182,7 +182,7 @@ const MIMICKING = 'mimicking';
  * the marked and the rest, in the same order, so every spawn point is drawn as without it, and
  * an ordinary enemy stays ordinary (its tier is untouched). It draws nothing.
  */
-function mimicry(world: World, spawns: readonly Spawn[]): readonly Spawn[] {
+export function mimicry(world: World, spawns: readonly Spawn[]): readonly Spawn[] {
   let best = -1;
   let bestLife = -Infinity;
   for (const [k, s] of spawns.entries()) {
