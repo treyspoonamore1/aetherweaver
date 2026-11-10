@@ -148,6 +148,11 @@ export interface DeedsHeld {
 export interface DeedsOpen {
   allowance: Pick<Allowance, 'all' | 'callings'>;
   astrolabe: boolean;
+  /**
+   * Phase 6: Dissonance is open (or Skip the unlocks), and with it the Atlas: its Deeds come into
+   * sight (`deedsInSight`). Omitted: as `deedsInSight` reads it without (open only for the labs).
+   */
+  endgame?: boolean;
 }
 
 /** A counting Deed's best run: "best 7 of 10" (once earned, just the record: "best 12"). */
@@ -283,8 +288,10 @@ export function deedsTally(
   earned: readonly string[],
   seen?: readonly string[],
   roster?: readonly string[],
+  /** Phase 6: Dissonance (and the Atlas) open (`deedsInSight`). */
+  endgame?: boolean,
 ): { earned: number; total: number } {
-  const inSight = deedsInSight(seen, roster);
+  const inSight = deedsInSight(seen, roster, endgame);
   return { earned: inSight.filter((d) => earned.includes(d.id)).length, total: inSight.length };
 }
 
@@ -299,11 +306,11 @@ export function deedsView(
   /** Phase 5b: the hero roster; a hero's Deed (In the Red) shows once he is in it. */
   roster?: readonly string[],
 ): DeedsView {
-  const inSight = deedsInSight(seen, roster);
+  const inSight = deedsInSight(seen, roster, open.endgame);
   const ladderDeeds = inSight.filter((d) => d.points > 0);
   const ladder = ladderDeeds.map((d, i) => deedRow(d, held, open, i + 1));
   const badges = inSight.filter((d) => d.points <= 0).map((d) => deedRow(d, held, open, null));
-  const { earned, total } = deedsTally(held.earned, seen, roster);
+  const { earned, total } = deedsTally(held.earned, seen, roster, open.endgame);
   const points = deedPoints(held.earned);
   return {
     ladder,

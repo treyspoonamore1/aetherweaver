@@ -548,17 +548,22 @@ describe('the Codex: the Atlas page, Dissonance’s still to come', () => {
 });
 
 describe('the Hall of Deeds: the new rules’ glyphs, the profile Deeds’ progress', () => {
-  it('each new rule has its own glyph, and cleanses its own', () => {
-    const glyphs = new Map(phase6Deeds().map((d) => [d.test, deedGlyph(d)]));
-    expect(glyphs.get('movementWithout')).toBe('bell');
-    expect(glyphs.get('dissonance')).toBe('dissonance');
-    expect(glyphs.get('stars')).toBe('star');
-    expect(glyphs.get('constellation')).toBe('atlas');
-    expect(glyphs.get('weeks')).toBe('week');
-    for (const g of glyphs.values()) expect(PATHS[g]).toBeTruthy();
-    expect(deedGlyph({ ...phase6Deeds()[0]!, id: 'x', test: 'runCount', stat: 'cleanses' })).toBe(
-      'purge',
-    );
+  it('each of the fourteen has its own glyph from the kit; the rules’ fallbacks; cleanses', () => {
+    const deeds = phase6Deeds();
+    expect(deeds).toHaveLength(14);
+    const glyphs = deeds.map(deedGlyph);
+    for (const [i, g] of glyphs.entries()) expect(PATHS[g], deeds[i]!.id).toBeTruthy();
+    // Distinct from each other and from every earlier Deed's.
+    expect(new Set(CONTENT.deeds.map(deedGlyph)).size).toBe(CONTENT.deeds.length);
+    // A Deed of a new rule with no glyph of its own takes its rule's.
+    const bare = (test: (typeof deeds)[number]['test']) =>
+      deedGlyph({ ...deeds[0]!, id: 'x', test, stat: undefined });
+    expect(bare('movementWithout')).toBe('bell');
+    expect(bare('dissonance')).toBe('dissonance');
+    expect(bare('stars')).toBe('star');
+    expect(bare('constellation')).toBe('atlas');
+    expect(bare('weeks')).toBe('week');
+    expect(deedGlyph({ ...deeds[0]!, id: 'x', test: 'runCount', stat: 'cleanses' })).toBe('purge');
   });
 
   it('"4 of 27 stars" from the Atlas; a constellation’s nearest; none once earned', () => {
@@ -601,6 +606,16 @@ describe('the Atelier never sells an earned look', () => {
       expect(shelf.note).toMatch(/Atlas of Echoes/);
       expect(i.price).toBeNull();
     }
+    // The titles Phase 6 earns (the Atlas's, Resolution's) are worn as earlier earned titles are.
+    const titled = shopItems({ ...state, deeds: ['resolution'] }, 20, false).filter(
+      (i) => i.kind === 'title' && i.state === 'earned',
+    );
+    for (const id of ['title_resolved', 'title_atlas_walker', 'title_hard_bargainer'])
+      if (CONTENT.cosmetics.titles.some((t) => t.id === id)) {
+        const shelf = shelfItem(titled.find((i) => i.id === id) as ShopItem, noLook(), 0);
+        expect(shelf.status, id).toBe('Earned');
+        expect(shelf.action, id).toBe('wear');
+      }
   });
 });
 

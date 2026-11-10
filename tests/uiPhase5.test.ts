@@ -65,9 +65,31 @@ beforeEach(() => {
   useUi.setState({ callouts: [] });
 });
 
+/**
+ * Phase 6's Deeds that wait for Dissonance (and the Atlas it lights) to open (docs/phase-6.md,
+ * "Design: Deeds"); Silent Bell waits for Movement III (its `movement`), Red All the Way for
+ * Brann and the Expedition.
+ */
+const ENDGAME = new Set([
+  'out_of_tune',
+  'wolf_interval',
+  'tritone',
+  'resolution',
+  'final_bar',
+  'crownbreaker',
+  'faint_star',
+  'whole_constellation',
+  'atlas_walker',
+  'same_song',
+  'every_week_a_song',
+]);
+/** A Deed's Movement as the Hall reads it: its fight's, or the Movement it names. */
+const deedMovementOf = (d: (typeof CONTENT.deeds)[number]) =>
+  d.encounter
+    ? (CONTENT.encounters.find((e) => e.id === d.encounter)?.movement ?? 1)
+    : (d.movement ?? 1);
 const MOVEMENT_ONE_DEEDS = CONTENT.deeds.filter(
-  (d) =>
-    !d.encounter || (CONTENT.encounters.find((e) => e.id === d.encounter)?.movement ?? 1) === 1,
+  (d) => deedMovementOf(d) === 1 && !ENDGAME.has(d.id) && d.hero === undefined,
 );
 
 describe('the HUD bridge (Movement II)', () => {
@@ -418,18 +440,25 @@ describe('the Codex and the Loom by sightings', () => {
     expect(deedsInSight(seen)).toEqual(MOVEMENT_ONE_DEEDS);
     // A hero's Deed waits for the roster too (docs/phase-5b.md), and Movement III's for the
     // Rift (docs/phase-5c.md).
-    const movementOf = (id: string | undefined) =>
-      CONTENT.encounters.find((e) => e.id === id)?.movement ?? 1;
-    expect(deedsInSight([...seen, 'sanguine_hound'])).toEqual(
-      CONTENT.deeds.filter((d) => d.hero === undefined && movementOf(d.encounter) <= 2),
-    );
-    expect(deedsInSight([...seen, 'sanguine_hound', 'shears'])).toEqual(
-      CONTENT.deeds.filter((d) => d.hero === undefined && movementOf(d.encounter) <= 3),
-    );
+    const upTo = (m: number) =>
+      CONTENT.deeds.filter(
+        (d) => d.hero === undefined && deedMovementOf(d) <= m && !ENDGAME.has(d.id),
+      );
+    expect(deedsInSight([...seen, 'sanguine_hound'])).toEqual(upTo(2));
+    expect(deedsInSight([...seen, 'sanguine_hound', 'shears'])).toEqual(upTo(3));
     // …and the Finale's for the Crucible (docs/phase-5d.md).
-    expect(deedsInSight([...seen, 'sanguine_hound', 'shears', 'the_silent_conductor'])).toEqual(
+    const all = [...seen, 'sanguine_hound', 'shears', 'the_silent_conductor'];
+    expect(deedsInSight(all)).toEqual(upTo(CONTENT.movements.length));
+    // Phase 6: Dissonance open brings its Deeds and the Atlas's into sight.
+    expect(deedsInSight(all, undefined, true)).toEqual(
       CONTENT.deeds.filter((d) => d.hero === undefined),
     );
+    // A Movement I profile with Dissonance open sees no later Movement's Deed (Final Bar waits
+    // for the Finale, Silent Bell for Movement III).
+    const early = deedsInSight(seen, undefined, true).map((d) => d.id);
+    expect(early).not.toContain('final_bar');
+    expect(early).not.toContain('silent_bell');
+    expect(early).toContain('out_of_tune');
     expect(sightedMovement()).toBe(CONTENT.movements.length);
   });
 

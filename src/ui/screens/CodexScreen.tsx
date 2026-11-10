@@ -276,7 +276,11 @@ export function CodexView({
               held={deeds}
               seen={seen}
               roster={heroes}
-              open={{ allowance, astrolabe: astrolabeOpen(rank, allowance.all) }}
+              open={{
+                allowance,
+                astrolabe: astrolabeOpen(rank, allowance.all),
+                ...(dissonance ? { endgame: dissonant } : {}),
+              }}
             />
           )}
           {tab === 'reliquary' && <ReliquaryCodexPage open={reliquary} rank={rank} />}

@@ -468,37 +468,52 @@ export function sightedMovement(seen?: readonly string[]): number {
 
 /** A Deed's Movement: its fight's (1 for any other Deed). */
 export function deedMovement(
-  d: Pick<DeedDef, 'encounter'> & Partial<Pick<DeedDef, 'movement' | 'level' | 'test'>>,
+  d: Pick<DeedDef, 'encounter'> & Partial<Pick<DeedDef, 'movement'>>,
 ): number {
   if (d.encounter) return CONTENT.encounters.find((e) => e.id === d.encounter)?.movement ?? 1;
-  // Phase 6 (docs/phase-6.md): a Movement's Deed (Silent Bell) waits for that Movement; one about
-  // Dissonance, the Atlas or the weekly (all opened by a Finale clear) waits for the Finale.
+  // Phase 6 (docs/phase-6.md): a Movement's Deed (Silent Bell) waits for that Movement.
   if (d.movement !== undefined) return d.movement;
-  if (
-    d.level !== undefined ||
-    d.test === 'dissonance' ||
-    d.test === 'stars' ||
-    d.test === 'constellation' ||
-    d.test === 'weeks'
-  )
-    return CONTENT.movements.length;
   return 1;
+}
+
+/**
+ * Phase 6's Deeds come into sight with their subject (docs/phase-6.md, "Design: Deeds"): a Deed
+ * about Dissonance (a total, every level, a level named: the tier Deeds, Resolution,
+ * Crownbreaker, Final Bar) once Dissonance is open; one about the Atlas or the weekly (Faint
+ * Star, Whole Constellation, Every Star, Same Song, Every Week a Song) once the Atlas station is
+ * lit, which it is with Dissonance; a hero's whole-run Deed (Red All the Way) once the Expedition
+ * is known as well as the hero. Every other rule is as before.
+ */
+function endgameDeed(d: DeedDef): 'dissonance' | 'atlas' | null {
+  if (d.test === 'stars' || d.test === 'constellation' || d.test === 'weeks') return 'atlas';
+  if (d.test === 'dissonance' || d.level !== undefined) return 'dissonance';
+  return null;
 }
 
 /**
  * The Deeds a player who has sighted these enemies can see (later Movements' wait). A hero's Deed
  * (In the Red, docs/phase-5b.md) shows only once that hero is in `roster`; without a roster,
- * none does, so the list is what it was before the roster.
+ * none does, so the list is what it was before the roster. `endgame` (Phase 6): Dissonance is
+ * open (or Skip the unlocks), which lights the Atlas too; omitted, open only when every enemy
+ * counts as seen (`seen` omitted: the labs).
  */
 export function deedsInSight(
   seen?: readonly string[],
   roster?: readonly string[],
+  endgame: boolean = seen === undefined,
 ): typeof CONTENT.deeds {
   const reach = sightedMovement(seen);
-  return CONTENT.deeds.filter(
-    (d) =>
-      deedMovement(d) <= reach && (d.hero === undefined || (roster?.includes(d.hero) ?? false)),
-  );
+  const atlasLit = endgame && CONTENT.echoes.length > 0;
+  return CONTENT.deeds.filter((d) => {
+    if (deedMovement(d) > reach) return false;
+    if (d.hero !== undefined && !(roster?.includes(d.hero) ?? false)) return false;
+    // A hero's whole-run Deed (no fight named) is an Expedition's.
+    if (d.test === 'heroCeiling' && d.encounter === undefined && reach < 2) return false;
+    const end = endgameDeed(d);
+    if (end === 'dissonance' && !endgame) return false;
+    if (end === 'atlas' && !atlasLit) return false;
+    return true;
+  });
 }
 
 // ── The map's Movement card and glyphs ──────────────────────────────────────────────

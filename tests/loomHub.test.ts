@@ -83,6 +83,25 @@ beforeEach(() => {
   useRun.getState().closeRun();
 });
 
+/**
+ * Phase 6's Deeds that wait for Dissonance to open (docs/phase-6.md, "Design: Deeds"): the tier
+ * Deeds, Resolution, Crownbreaker and Final Bar; and, with the Atlas it lights, the Atlas's and
+ * the weekly's.
+ */
+const ENDGAME_DEEDS = [
+  'out_of_tune',
+  'wolf_interval',
+  'tritone',
+  'resolution',
+  'final_bar',
+  'crownbreaker',
+  'faint_star',
+  'whole_constellation',
+  'atlas_walker',
+  'same_song',
+  'every_week_a_song',
+];
+
 describe('the Loom’s stations', () => {
   it('a new Weaver: the Gate, the Grounds and the Codex lit; the rest dark, saying what and when', () => {
     const views = stationViews(newProfile(), false);
@@ -203,6 +222,9 @@ describe('the Loom’s stations', () => {
       'needle_sure',
       'song_goes_on',
       'not_one_silent',
+      // Phase 6 (docs/phase-6.md): Silent Bell waits for Movement III, Final Bar for the Finale.
+      'silent_bell',
+      'final_bar',
     ];
     expect(station(views, 'deeds').badge).toBe(
       `3 of ${CONTENT.deeds.filter((d) => !later.includes(d.id) && !d.hero).length} earned`,
@@ -565,7 +587,7 @@ describe('the roster at the Loom (docs/phase-5b.md)', () => {
     expect(station(stationViews(newProfile(), false), 'bonds').line).not.toMatch(/Brann/);
     const seenAll = { ...p, seen: CONTENT.enemies.map((e) => e.id) };
     expect(station(stationViews(seenAll, false), 'deeds').badge).toBe(
-      `1 of ${CONTENT.deeds.filter((d) => !d.hero).length} earned`,
+      `1 of ${CONTENT.deeds.filter((d) => !d.hero && !ENDGAME_DEEDS.includes(d.id)).length} earned`,
     );
   });
 
@@ -584,9 +606,21 @@ describe('the roster at the Loom (docs/phase-5b.md)', () => {
     );
     // Every Deed but Seren's and Oro's (docs/phase-5e.md), not in this roster.
     expect(station(views, 'deeds').badge).toBe(
-      `1 of ${CONTENT.deeds.filter((d) => !d.hero || d.hero === 'brann').length} earned`,
+      `1 of ${CONTENT.deeds.filter((d) => (!d.hero || d.hero === 'brann') && !ENDGAME_DEEDS.includes(d.id)).length} earned`,
     );
     const all = stationViews({ ...p, recruited: ['brann', 'seren', 'oro'] }, false);
-    expect(station(all, 'deeds').badge).toBe(`1 of ${CONTENT.deeds.length} earned`);
+    expect(station(all, 'deeds').badge).toBe(
+      `1 of ${CONTENT.deeds.filter((d) => !ENDGAME_DEEDS.includes(d.id)).length} earned`,
+    );
+    // With Dissonance open (and the Atlas with it), every Deed.
+    const open = stationViews(
+      {
+        ...p,
+        recruited: ['brann', 'seren', 'oro'],
+        dissonance: { open: true, levels: [], best: {} },
+      },
+      false,
+    );
+    expect(station(open, 'deeds').badge).toBe(`1 of ${CONTENT.deeds.length} earned`);
   });
 });

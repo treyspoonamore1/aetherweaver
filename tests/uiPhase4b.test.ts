@@ -4,6 +4,7 @@
  * Deed's `values`), the profile (`deeds`, `deedBest`) and meta (`deedPoints`, `astrolabePoints`,
  * `unlockRank`); the toasts and the Summary also run through the real stores.
  */
+import { isProfileDeed } from '../src/meta/deeds';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useProfile } from '../src/app/profileStore';
 import { useRun } from '../src/app/runStore';
@@ -141,7 +142,10 @@ describe('the Codex’s Deeds', () => {
     for (const d of CONTENT.deeds) {
       const n = d.values.n ?? 0;
       if (!isCounting(d)) {
-        expect(deedBest(d, { earned: [], best: { [d.id]: 3 } })).toBeNull();
+        // Phase 6's profile Deeds (stars, a constellation, weeks) show their progress instead.
+        if (isProfileDeed(d))
+          expect(deedBest(d, { earned: [], best: { [d.id]: 3 } })).not.toBeNull();
+        else expect(deedBest(d, { earned: [], best: { [d.id]: 3 } })).toBeNull();
         continue;
       }
       // None yet: 0 of n.

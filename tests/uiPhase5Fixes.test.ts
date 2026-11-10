@@ -105,7 +105,26 @@ describe('the Deeds count: the Loom and the Codex agree', () => {
    * Movement III's badges wait for the Rift (docs/phase-5c.md), and the Finale's for the
    * Crucible (docs/phase-5d.md).
    */
-  const rift = ['whole_cloth', 'needle_sure', 'song_goes_on', 'not_one_silent'];
+  const rift = [
+    'whole_cloth',
+    'needle_sure',
+    'song_goes_on',
+    'not_one_silent',
+    // Phase 6 (docs/phase-6.md): Silent Bell names Movement III; Final Bar, the Finale's fight.
+    'silent_bell',
+    'final_bar',
+    // …and Dissonance's, the Atlas's and the weekly's Deeds wait for Dissonance to open.
+    'out_of_tune',
+    'wolf_interval',
+    'tritone',
+    'resolution',
+    'crownbreaker',
+    'faint_star',
+    'whole_constellation',
+    'atlas_walker',
+    'same_song',
+    'every_week_a_song',
+  ];
   /** Every Deed but a hero's, which waits for the roster (docs/phase-5b.md). */
   const ALL = CONTENT.deeds.filter((d) => !d.hero).length;
   /** …and, with the Legion seen but not the Rift, every one but Movement III's too. */

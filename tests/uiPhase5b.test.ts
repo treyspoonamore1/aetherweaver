@@ -614,6 +614,10 @@ describe('In the Red, in sight with the roster', () => {
     expect(ids()).not.toContain('in_the_red');
     expect(ids(CONTENT.defaultParty)).not.toContain('in_the_red');
     expect(ids(ALL)).toContain('in_the_red');
-    expect(deedsTally([], seen, ALL).total).toBe(deedsTally([], seen).total + 1);
+    // Brann's Deeds (In the Red; Phase 6's Red All the Way, an Expedition's) join with him.
+    expect(deedsTally([], seen, ALL).total).toBe(
+      deedsTally([], seen).total + CONTENT.deeds.filter((d) => d.hero === 'brann').length,
+    );
+    expect(ids(ALL)).toContain('red_all_the_way');
   });
 });

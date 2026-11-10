@@ -332,7 +332,12 @@ function badgeOf(
     case 'deeds': {
       // Out of the Deeds in sight (a later Movement's join once its enemies are met), counted as
       // the Codex's Deeds page counts them (`deedsTally`).
-      const { earned, total } = deedsTally(p.deeds, p.seen, heroRoster(p, unlockAll));
+      const { earned, total } = deedsTally(
+        p.deeds,
+        p.seen,
+        heroRoster(p, unlockAll),
+        dissonanceStationOpen(p.dissonance.open, unlockAll),
+      );
       return earned > 0 ? `${earned} of ${total} earned` : null;
     }
     case 'dissonance': {
@@ -691,7 +696,12 @@ const SHELVES: readonly { kind: ShopKind; title: string; blurb: string; icon: Ic
     kind: 'title',
     title: 'Titles',
     blurb:
-      'Worn under your name in the Loom. Some are earned, not bought: by a Calling’s top mastery, or by a Deed.',
+      // Phase 6: the Atlas earns titles too, once content has one it gives.
+      CONTENT.cosmetics.titles.some(
+        (t) => t.earned && ('constellation' in t.earned || 'atlas' in t.earned),
+      )
+        ? 'Worn under your name in the Loom. Some are earned, not bought: by a Calling’s top mastery, by a Deed, or in the Atlas of Echoes.'
+        : 'Worn under your name in the Loom. Some are earned, not bought: by a Calling’s top mastery, or by a Deed.',
     icon: 'banner',
   },
 ];
