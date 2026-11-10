@@ -522,11 +522,13 @@ export const RunStateSchema = z.object({
   echo: Str.optional().catch(undefined),
   weekly: z.object({ week: z.number().int() }).optional().catch(undefined),
   logId: Str.optional().catch(undefined),
+  // Phase 7 (docs/phase-7.md, decision 16): absent until true; anything else reads as absent.
+  assisted: z.literal(true).optional().catch(undefined),
 });
 
-/** A run without the Phase 6 keys its schema read as absent (never kept as `undefined`). */
+/** A run without the optional keys its schema read as absent (never kept as `undefined`). */
 export function dropAbsentKeys(run: RunState): RunState {
-  for (const key of ['echo', 'weekly', 'logId'] as const)
+  for (const key of ['echo', 'weekly', 'logId', 'assisted'] as const)
     if (key in run && run[key] === undefined) delete run[key];
   return run;
 }

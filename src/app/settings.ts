@@ -6,15 +6,34 @@
  */
 import { z } from 'zod';
 import { create } from 'zustand';
+import { PAD_BUTTONS, type PadButton } from '../input/actions';
+import { ASSIST_VALUES } from '../meta/runReplay';
+import { LOCALES } from '../ui/text/locales';
 import { COLOR_VISIONS } from './colorVision';
 
 const Volume = z.number().min(0).max(1);
 
+/**
+ * The volume sliders. Phase 7 (*Contracts*): `ambience` (absent: follows Effects, as the engine
+ * does today, `ambienceVolume`) and `barks` (absent: 1, `barksVolume`), each optional.
+ */
+const VolumesSchema = z.object({
+  master: Volume,
+  music: Volume,
+  sfx: Volume,
+  ui: Volume,
+  ambience: Volume.optional(),
+  barks: Volume.optional(),
+});
+
 const AssistsSchema = z.object({
-  /** Extra seconds on the Perfect Ward window. */
-  perfectWindowBonus: z.union([z.literal(0), z.literal(0.1), z.literal(0.2)]),
+  /**
+   * Extra seconds on the Perfect Ward window. The values are the run verifier's (`ASSIST_VALUES`,
+   * meta/runReplay.ts): a fight played with any other wouldn't verify (Phase 6 *Open* 3).
+   */
+  perfectWindowBonus: z.literal(ASSIST_VALUES.perfectWindowBonus),
   /** Telegraph wind-up multiplier (≥ 1 = more time to react). */
-  telegraphLead: z.union([z.literal(1), z.literal(1.25), z.literal(1.5)]),
+  telegraphLead: z.literal(ASSIST_VALUES.telegraphLead),
   /** Heroes fire their own Solos after a moment's Cue window (docs/hero-autonomy.md). */
   autonomy: z.boolean(),
 });
@@ -76,9 +95,149 @@ export const DEFAULT_HUD: HudSettings = {
   lowHealthSound: true,
 };
 
+// ── Phase 7 (docs/phase-7.md, *Contracts*): the new options. Every key is optional, absent until
+// the player sets it, and absent means today's behaviour, so v4 settings saved before them parse to
+// exactly what they were (captions' precedent: no version bump). Read them through `optionsOf`,
+// which fills each absent key (and each absent field of a present one) with its default. None of
+// them reaches a fight's config or a replay (ground rule 3): the new aids live in `aids`, never in
+// `assists`. Declared by W0; nothing reads them yet. ──
+
+/** Reduced motion: follow the operating system (as today), or on, or off. */
+export const REDUCED_MOTION = ['system', 'on', 'off'] as const;
+export type ReducedMotion = (typeof REDUCED_MOTION)[number];
+
+/** The telegraphs' look (W2): opacity 0.6-1, outline 1-2 (×), Perfect band width 1-2 (×). */
+const TelegraphsSchema = z.object({
+  opacity: z.number().min(0.6).max(1).optional(),
+  outline: z.number().min(1).max(2).optional(),
+  perfectBand: z.number().min(1).max(2).optional(),
+  highContrast: z.boolean().optional(),
+});
+export interface TelegraphSettings {
+  opacity: number;
+  outline: number;
+  perfectBand: number;
+  highContrast: boolean;
+}
+export const DEFAULT_TELEGRAPHS: Readonly<TelegraphSettings> = {
+  opacity: 1,
+  outline: 1,
+  perfectBand: 1,
+  highContrast: false,
+};
+
+/**
+ * What plays each mouse role (W1): a mouse button (`Mouse0` left, `Mouse1` middle, `Mouse2`
+ * right, `Mouse3`, `Mouse4`) or a key (`KeyboardEvent.code`). `thread`: Thread the hovered hero;
+ * `mode`: Mend ⇄ Empower; `wheel`: hold for the Directive wheel, click an enemy to Focus it.
+ */
+const MouseRolesSchema = z.object({
+  thread: z.string().optional(),
+  mode: z.string().optional(),
+  wheel: z.string().optional(),
+});
+export interface MouseRoles {
+  thread: string;
+  mode: string;
+  wheel: string;
+}
+export const DEFAULT_MOUSE_ROLES: Readonly<MouseRoles> = {
+  thread: 'Mouse0',
+  mode: 'Mouse2',
+  wheel: 'Mouse1',
+};
+
+/** Input options (W1). */
+const InputSchema = z.object({
+  /** Thread mode: each press toggles (as today), or held for Empower. */
+  threadMode: z.enum(['toggle', 'hold']).optional(),
+  /** The Directive wheel: held open (as today), or a press opens it and the next closes it. */
+  wheel: z.enum(['hold', 'toggle']).optional(),
+  /** Smart-cast takes the hovered hero (as today); off, the threaded hero only. */
+  mouseoverCast: z.boolean().optional(),
+  mouse: MouseRolesSchema.optional(),
+  /**
+   * The Cue-by-slot modifier: held with a hero's Thread key, it Cues them. `Shift` (either Shift
+   * key, as today), `Control`, `Alt`, or a `KeyboardEvent.code`. Not in the doc's list: W0 adds it
+   * for W1's "the Cue-by-slot modifier is bindable".
+   */
+  cueModifier: z.string().optional(),
+  /** Pad overrides by action (as `bindings` is for keys): at most 3 buttons an action. */
+  padBindings: z.record(z.string(), z.array(z.enum(PAD_BUTTONS)).max(3)).optional(),
+});
+export interface InputSettings {
+  threadMode: 'toggle' | 'hold';
+  wheel: 'hold' | 'toggle';
+  mouseoverCast: boolean;
+  mouse: MouseRoles;
+  cueModifier: string;
+  padBindings: Readonly<Record<string, readonly PadButton[]>>;
+}
+export const DEFAULT_INPUT: Readonly<InputSettings> = {
+  threadMode: 'toggle',
+  wheel: 'hold',
+  mouseoverCast: true,
+  mouse: DEFAULT_MOUSE_ROLES,
+  cueModifier: 'Shift',
+  padBindings: {},
+};
+
+/** Game speed (W2): the runtime's real-time clock, never the sim's (ground rule 3). */
+export const GAME_SPEEDS = [0.7, 0.8, 0.9, 1] as const;
+export type GameSpeed = (typeof GAME_SPEEDS)[number];
+
+/** Aids (decision 15): input- and clock-side, outside `assists`, never in a fight's config. */
+const AidsSchema = z.object({
+  gameSpeed: z.literal(GAME_SPEEDS).optional(),
+  /** After 2 s with no input, Thread the lowest-life hero (W1), as a key press would. */
+  autoThread: z.boolean().optional(),
+});
+export interface Aids {
+  gameSpeed: GameSpeed;
+  autoThread: boolean;
+}
+export const DEFAULT_AIDS: Readonly<Aids> = { gameSpeed: 1, autoThread: false };
+
+/** Render quality (W4, decision 8): `auto` is offered; `high` stays the default, as today. */
+export const QUALITY_SETTINGS = ['auto', 'low', 'medium', 'high'] as const;
+export type QualitySetting = (typeof QUALITY_SETTINGS)[number];
+
+/** Phase 7's options, every one filled in (`optionsOf`). */
+export interface Options {
+  reducedMotion: ReducedMotion;
+  telegraphs: TelegraphSettings;
+  /** The answer glyphs on telegraphs (W2). */
+  answerGlyphs: boolean;
+  /** Damage numbers: only the Weaver's, saves and downs (W2). */
+  importantNumbersOnly: boolean;
+  /** The overlay's slow-motion vignette (W2). */
+  slowmoVignette: boolean;
+  /** The heroes' synthesised voices on the barks bus (W7, decision 3: off by default). */
+  heroVoices: boolean;
+  input: InputSettings;
+  aids: Aids;
+  quality: QualitySetting;
+  /** The text layer's locale (W3a): English, or the pseudo-locale. */
+  locale: (typeof LOCALES)[number];
+}
+
+/** Every Phase 7 option's default: exactly today's behaviour. */
+export const DEFAULT_OPTIONS: Readonly<Options> = {
+  reducedMotion: 'system',
+  telegraphs: DEFAULT_TELEGRAPHS,
+  answerGlyphs: true,
+  importantNumbersOnly: false,
+  slowmoVignette: true,
+  heroVoices: false,
+  input: DEFAULT_INPUT,
+  aids: DEFAULT_AIDS,
+  quality: 'high',
+  locale: 'en',
+};
+
 export const SettingsSchema = z.object({
   version: z.literal(4),
-  volumes: z.object({ master: Volume, music: Volume, sfx: Volume, ui: Volume }),
+  volumes: VolumesSchema,
   /** 0 = off … 1 = full trauma shake. */
   screenShake: z.number().min(0).max(1),
   /** Full-screen flashes on Perfect / Save / Crescendo: 0 = off … 1 = full strength. */
@@ -105,8 +264,71 @@ export const SettingsSchema = z.object({
    * take the default, so no version bump. Every caption has a visual twin with it off.
    */
   captions: z.boolean().default(false),
+  // Phase 7 (see `Options`): each optional, absent until set.
+  reducedMotion: z.enum(REDUCED_MOTION).optional(),
+  telegraphs: TelegraphsSchema.optional(),
+  answerGlyphs: z.boolean().optional(),
+  importantNumbersOnly: z.boolean().optional(),
+  slowmoVignette: z.boolean().optional(),
+  heroVoices: z.boolean().optional(),
+  input: InputSchema.optional(),
+  aids: AidsSchema.optional(),
+  quality: z.enum(QUALITY_SETTINGS).optional(),
+  locale: z.enum(LOCALES).optional(),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
+
+let optionsFor: Settings | null = null;
+let optionsMemo: Options = DEFAULT_OPTIONS;
+
+/**
+ * Phase 7's options with every absent key (and absent field) at its default. Settings objects are
+ * replaced, never mutated, so the answer is kept for the last one asked about: a per-frame read
+ * allocates nothing.
+ */
+export function optionsOf(settings: Settings): Readonly<Options> {
+  if (settings === optionsFor) return optionsMemo;
+  const d = DEFAULT_OPTIONS;
+  const input = settings.input;
+  optionsMemo = {
+    reducedMotion: settings.reducedMotion ?? d.reducedMotion,
+    telegraphs: { ...d.telegraphs, ...defined(settings.telegraphs) },
+    answerGlyphs: settings.answerGlyphs ?? d.answerGlyphs,
+    importantNumbersOnly: settings.importantNumbersOnly ?? d.importantNumbersOnly,
+    slowmoVignette: settings.slowmoVignette ?? d.slowmoVignette,
+    heroVoices: settings.heroVoices ?? d.heroVoices,
+    input: {
+      ...d.input,
+      ...defined(input),
+      mouse: { ...d.input.mouse, ...defined(input?.mouse) },
+      padBindings: input?.padBindings ?? d.input.padBindings,
+    },
+    aids: { ...d.aids, ...defined(settings.aids) },
+    quality: settings.quality ?? d.quality,
+    locale: settings.locale ?? d.locale,
+  };
+  optionsFor = settings;
+  return optionsMemo;
+}
+
+/** An object's fields that are set (an absent or undefined field keeps the default). */
+function defined<T extends object>(o: T | undefined): Partial<T> {
+  const out: Partial<T> = {};
+  if (!o) return out;
+  for (const [k, v] of Object.entries(o))
+    if (v !== undefined) (out as Record<string, unknown>)[k] = v;
+  return out;
+}
+
+/** The ambience bus's volume: its own slider, or (absent, as today) the Effects slider's. */
+export function ambienceVolume(volumes: Settings['volumes']): number {
+  return volumes.ambience ?? volumes.sfx;
+}
+
+/** The barks bus's volume (W7): its own slider, or 1. */
+export function barksVolume(volumes: Settings['volumes']): number {
+  return volumes.barks ?? 1;
+}
 
 export const DEFAULT_SETTINGS: Settings = {
   version: 4,

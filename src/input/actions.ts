@@ -65,6 +65,73 @@ export const DEFAULT_BINDINGS: Bindings = {
   perfHud: ['F3'],
 };
 
+// ── Phase 7 (docs/phase-7.md, *Contracts*): the gamepad's types and default layout. Declared by
+// W0 with no handler; W1 reads them. Nothing here is bound to a key, listed in Controls or read by
+// the InputController yet. ──
+
+/**
+ * The buttons of a standard-mapping gamepad, in the Gamepad API's order (index = `buttons[i]`),
+ * by position, never by brand: the face buttons by the side they sit on, then the bumpers, the
+ * triggers, the two small middle buttons, the sticks' clicks, the d-pad and the home button.
+ */
+export const PAD_BUTTONS = [
+  'faceDown',
+  'faceRight',
+  'faceLeft',
+  'faceUp',
+  'bumperLeft',
+  'bumperRight',
+  'triggerLeft',
+  'triggerRight',
+  'select',
+  'start',
+  'stickLeft',
+  'stickRight',
+  'dpadUp',
+  'dpadDown',
+  'dpadLeft',
+  'dpadRight',
+  'home',
+] as const;
+export type PadButton = (typeof PAD_BUTTONS)[number];
+
+/**
+ * Pad-only actions, appended after the keyboard's (docs/plan/04 §8): the right stick steps a
+ * reticle between the heroes, and the reticle's hero is the one threaded or Cued. They are not
+ * `Action`s: they have no key and no row in Settings → Controls.
+ */
+export const PAD_ACTIONS = ['reticleNext', 'reticlePrev', 'threadReticle', 'cueReticle'] as const;
+export type PadAction = (typeof PAD_ACTIONS)[number];
+
+/** What a pad button can be bound to: any keyboard action, or a pad-only one. */
+export type PadBindable = Action | PadAction;
+
+/** Pad buttons by action: the defaults, or the player's overrides (`settings.input.padBindings`). */
+export type PadBindings = Partial<Record<PadBindable, readonly PadButton[]>>;
+
+/**
+ * 04 §8's layout: the left stick moves (an axis, not a binding); the right stick steps the reticle
+ * (its axis, and these buttons too); the triggers Thread the reticle's hero and switch the
+ * Thread's mode; the face buttons are the techniques; the d-pad the Directives; Start pauses.
+ */
+export const DEFAULT_PAD_BINDINGS: PadBindings = {
+  threadReticle: ['triggerRight'],
+  threadMode: ['triggerLeft'],
+  glide: ['faceDown'],
+  ward: ['faceLeft'],
+  chime: ['faceUp'],
+  reel: ['faceRight'],
+  cueReticle: ['bumperRight'],
+  crescendo: ['bumperLeft'],
+  directiveFocus: ['dpadUp'],
+  directiveRally: ['dpadRight'],
+  directiveHold: ['dpadDown'],
+  directiveScatter: ['dpadLeft'],
+  directiveWheel: ['stickRight'],
+  plant: ['stickLeft'],
+  pause: ['start'],
+};
+
 /** Actions handled by the UI shell rather than turned into sim commands. */
 export const UI_ACTIONS: ReadonlySet<Action> = new Set<Action>(['pause', 'devPanel', 'perfHud']);
 

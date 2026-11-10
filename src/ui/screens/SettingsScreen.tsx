@@ -25,6 +25,7 @@ import { Panel } from '../kit/Panel';
 import { applyUiScale } from '../presentation';
 import { rankPanel } from './rankText';
 import { ControlsSettings } from './ControlsSettings';
+import { SavesPanel } from './SavesPanel';
 import { Segmented, Slider, Toggle } from '../kit/Slider';
 import { useMood } from '../kit/sound';
 import { useUi } from '../store';
@@ -175,6 +176,8 @@ export function SettingsPanel({
       </Section>
       <Section title="Progress">
         <ProgressSettings />
+        {/* Export, import and kept saves (docs/phase-7.md, W5): nothing until W5 fills it. */}
+        <SavesPanel />
         {/* The playtest demo (docs/demo.md): back to its first choice, from the Settings screen. */}
         {DEMO && !compact && <DemoOver />}
       </Section>

@@ -9,7 +9,10 @@ import { CameraRig } from '../render/camera';
 import { createWorldView, type WorldView } from '../render';
 import type { FrameInfo } from '../render/types';
 import type { MusicSnapshot } from '../audio/music';
-import { captionCallout, defeatLine, finaleCallouts, finaleCaption } from '../ui/hud/finaleLook';
+import { defeatLine, finaleCallouts } from '../ui/hud/finaleLook';
+import { captionFor } from '../ui/hud/captions';
+import { FIGHT_END_DELAY_MS, WITHOUT_YOU_GRACE_MS } from '../meta/runEnd';
+import { gameSpeed } from './gameSpeed';
 import { Stage, type QualityTier } from '../render/stage';
 import {
   FixedStepper,
@@ -66,10 +69,6 @@ function slotKeys(): readonly string[] {
 }
 const HUD_INTERVAL_MS = 1000 / 15;
 const PERF_INTERVAL_MS = 250;
-/** Real seconds between the encounter ending and handing back to the run. */
-const END_DELAY_MS = 2600;
-/** How much longer to wait for the "without you" re-run before handing back without it. */
-const WITHOUT_YOU_GRACE_MS = 4000;
 
 /** One combat: the sim config to play and who to tell when it's over. */
 export interface CombatSession {
@@ -282,7 +281,8 @@ export class GameRuntime {
     if (this.startedAt < 0) this.startedAt = now;
 
     if (!this.paused && !this.hidden && !this.crashed) {
-      const steps = this.stepper.advance(elapsed * this.devTimeScale);
+      // Game speed (src/app/gameSpeed.ts) scales the real-time clock only, never the sim's step.
+      const steps = this.stepper.advance(elapsed * this.devTimeScale * gameSpeed());
       if (steps > 0) {
         const simStart = performance.now();
         const commands = this.input.collect();
@@ -413,10 +413,10 @@ export class GameRuntime {
     const status = state.encounter.status;
     if (status !== 'victory' && status !== 'defeat') return;
     if (this.endedAt < 0) this.endedAt = now;
-    if (this.endReported || now - this.endedAt < END_DELAY_MS) return;
+    if (this.endReported || now - this.endedAt < FIGHT_END_DELAY_MS) return;
     // Give the "without you" re-run a little longer if it's still going.
     const job = this.withoutYou;
-    if (job && !job.done && now - this.endedAt < END_DELAY_MS + WITHOUT_YOU_GRACE_MS) return;
+    if (job && !job.done && now - this.endedAt < FIGHT_END_DELAY_MS + WITHOUT_YOU_GRACE_MS) return;
     this.endReported = true;
     this.options.session.onEnd?.(
       buildOutcome(
@@ -821,7 +821,7 @@ export class GameRuntime {
               color: event.outcome === 'victory' ? '#f5d78e' : '#fca5a5',
             },
             now,
-            END_DELAY_MS,
+            FIGHT_END_DELAY_MS,
           );
           break;
         default: {
@@ -846,18 +846,20 @@ export class GameRuntime {
             if (c.callout.key) ui.dropCallouts(c.callout.key);
             ui.pushCallout(c.callout, now, c.ttl);
           }
-          // The Finale (docs/phase-5d.md): its events' callouts, and captions for its key sounds.
-          // No other fight raises one of these events, so nothing else is pushed.
+          // The Finale (docs/phase-5d.md): its events' callouts. No other fight raises one of
+          // these events, so nothing else is pushed.
           for (const c of finaleCallouts(event, (id) => this.heroName(state, id)?.name ?? null))
             ui.pushCallout(c.callout, now, c.ttl);
-          if (useSettings.getState().settings.captions) {
-            const caption = finaleCaption(event);
-            if (caption) {
-              const c = captionCallout(caption);
-              ui.pushCallout(c.callout, now, c.ttl);
-            }
-          }
           break;
+        }
+      }
+      // Captions for sounds that carry meaning (src/ui/hud/captions.ts), after the event's own
+      // callouts; a keyed one replaces its last.
+      if (useSettings.getState().settings.captions) {
+        const c = captionFor(event, state);
+        if (c) {
+          if (c.callout.key) ui.dropCallouts(c.callout.key);
+          ui.pushCallout(c.callout, now, c.ttl);
         }
       }
     }

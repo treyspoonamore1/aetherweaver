@@ -615,6 +615,10 @@ export interface RunState {
   weekly?: RunWeekly;
   /** The key of this run's log (its run replay) in IndexedDB. */
   logId?: string;
+  // ── Phase 7 (docs/phase-7.md, decision 16): optional, absent until true, so the run save stays
+  // version 5. Declared by W0; nothing sets it yet (W2: the app, when a fight used an assist). ──
+  /** A fight of this run was played with an assist (or game speed, or Auto-Thread) on. */
+  assisted?: true;
 }
 
 /** RunState.weekly? — which week's song a weekly run plays (docs/phase-6.md). */
