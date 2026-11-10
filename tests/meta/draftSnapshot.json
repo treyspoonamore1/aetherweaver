@@ -5,17 +5,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "riposte_bloom",
+      "motifId": "encore",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "long_weave",
-      "level": 1,
-      "upgrade": false
+      "motifId": "second_verse",
+      "level": 2,
+      "upgrade": true
      },
      {
-      "motifId": "quickened_verse",
+      "motifId": "laments_answer",
       "level": 1,
       "upgrade": false
      }
@@ -26,19 +26,19 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "long_weave",
+      "motifId": "deep_breath",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "clear_tone",
+      "motifId": "spindle_turn",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "second_verse",
-      "level": 2,
-      "upgrade": true
+      "motifId": "light_step",
+      "level": 1,
+      "upgrade": false
      }
     ],
     "rerollsLeft": 1
@@ -47,17 +47,17 @@
     "reason": "elite",
     "options": [
      {
-      "motifId": "lifeline",
-      "level": 3,
-      "upgrade": true
-     },
-     {
-      "motifId": "riposte_bloom",
+      "motifId": "golden_filament",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "starlit_study",
+      "motifId": "canon",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "split_fletching",
       "level": 1,
       "upgrade": false
      }
@@ -73,12 +73,12 @@
       "upgrade": false
      },
      {
-      "motifId": "da_capo",
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "wind_at_her_back",
+      "motifId": "da_capo",
       "level": 1,
       "upgrade": false
      }
@@ -89,12 +89,12 @@
     "reason": "shrine",
     "options": [
      {
-      "motifId": "long_weave",
+      "motifId": "clear_tone",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "clear_tone",
+      "motifId": "spindle_turn",
       "level": 1,
       "upgrade": false
      },
@@ -131,7 +131,7 @@
   "shop": [
    {
     "kind": "relic",
-    "id": "prism_loom",
+    "id": "cracked_metronome",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -140,7 +140,7 @@
    },
    {
     "kind": "relic",
-    "id": "wardens_key",
+    "id": "tin_whistle",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -158,7 +158,7 @@
    },
    {
     "kind": "motif",
-    "id": "wind_at_her_back",
+    "id": "last_bastion",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -167,9 +167,9 @@
    },
    {
     "kind": "motif",
-    "id": "long_weave",
-    "level": 1,
-    "upgrade": false,
+    "id": "second_verse",
+    "level": 2,
+    "upgrade": true,
     "heal": 0,
     "price": 35,
     "sold": false
@@ -372,17 +372,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "long_weave",
-      "level": 2,
-      "upgrade": true
-     },
-     {
-      "motifId": "golden_filament",
+      "motifId": "second_verse",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "deep_breath",
+      "motifId": "starlit_study",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "safe_harbour",
       "level": 1,
       "upgrade": false
      }
@@ -393,17 +393,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "second_verse",
+      "motifId": "safe_harbour",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "standing_ovation",
+      "motifId": "inner_orbit",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "deep_roots",
+      "motifId": "whiplash",
       "level": 1,
       "upgrade": false
      }
@@ -414,17 +414,17 @@
     "reason": "elite",
     "options": [
      {
-      "motifId": "twin_aegis",
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "steady_hands",
+      "motifId": "encore",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "taut_release",
+      "motifId": "golden_filament",
       "level": 1,
       "upgrade": false
      }
@@ -440,12 +440,12 @@
       "upgrade": false
      },
      {
-      "motifId": "relay_weave",
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "bulwarks_echo",
+      "motifId": "massed_voices",
       "level": 1,
       "upgrade": false
      }
@@ -456,17 +456,17 @@
     "reason": "shrine",
     "options": [
      {
-      "motifId": "second_verse",
+      "motifId": "safe_harbour",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "lifeline",
+      "motifId": "taut_release",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "deep_breath",
+      "motifId": "bright_peal",
       "level": 1,
       "upgrade": false
      }
@@ -498,7 +498,7 @@
   "shop": [
    {
     "kind": "relic",
-    "id": "hollow_bell",
+    "id": "martyrs_veil",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -507,7 +507,7 @@
    },
    {
     "kind": "relic",
-    "id": "tuning_fork",
+    "id": "pedlars_ledger",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -516,7 +516,7 @@
    },
    {
     "kind": "relic",
-    "id": "choirmasters_baton",
+    "id": "cantors_hymnal",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -534,7 +534,7 @@
    },
    {
     "kind": "motif",
-    "id": "second_verse",
+    "id": "clutch_peal",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -764,17 +764,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "bulwarks_echo",
+      "motifId": "sister_ward",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "second_verse",
+      "motifId": "clutch_peal",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "hammerfall",
+      "motifId": "second_toll",
       "level": 1,
       "upgrade": false
      }
@@ -785,19 +785,19 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "clear_tone",
-      "level": 3,
-      "upgrade": true
-     },
-     {
-      "motifId": "lingering_aegis",
+      "motifId": "quickening_thread",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "deep_roots",
-      "level": 2,
-      "upgrade": true
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
      }
     ],
     "rerollsLeft": 1
@@ -806,17 +806,17 @@
     "reason": "elite",
     "options": [
      {
-      "motifId": "lifeline",
+      "motifId": "taut_release",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "canon",
+      "motifId": "opening_bars",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "da_capo",
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      }
@@ -837,7 +837,7 @@
       "upgrade": false
      },
      {
-      "motifId": "golden_filament",
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      }
@@ -848,17 +848,17 @@
     "reason": "shrine",
     "options": [
      {
-      "motifId": "fishers_knot",
+      "motifId": "spindle_turn",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "bulwarks_echo",
+      "motifId": "second_toll",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "starlit_study",
+      "motifId": "constellation_lines",
       "level": 1,
       "upgrade": false
      }
@@ -890,7 +890,7 @@
   "shop": [
    {
     "kind": "relic",
-    "id": "glass_halo",
+    "id": "iron_mask",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -899,7 +899,7 @@
    },
    {
     "kind": "relic",
-    "id": "cantors_hymnal",
+    "id": "sand_glass",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -908,7 +908,7 @@
    },
    {
     "kind": "relic",
-    "id": "martyrs_veil",
+    "id": "lament_pin",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -917,7 +917,7 @@
    },
    {
     "kind": "motif",
-    "id": "golden_filament",
+    "id": "starlit_study",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -926,7 +926,7 @@
    },
    {
     "kind": "motif",
-    "id": "da_capo",
+    "id": "thread_the_needle",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -1136,17 +1136,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "wind_at_her_back",
+      "motifId": "constellation_lines",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "golden_filament",
+      "motifId": "bulwarks_echo",
       "level": 3,
       "upgrade": true
      },
      {
-      "motifId": "long_weave",
+      "motifId": "fishers_knot",
       "level": 1,
       "upgrade": false
      }
@@ -1162,14 +1162,14 @@
       "upgrade": false
      },
      {
-      "motifId": "standing_ovation",
+      "motifId": "saving_grace",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "warm_hum",
-      "level": 2,
-      "upgrade": true
+      "motifId": "inner_orbit",
+      "level": 1,
+      "upgrade": false
      }
     ],
     "rerollsLeft": 1
@@ -1178,14 +1178,14 @@
     "reason": "elite",
     "options": [
      {
-      "motifId": "taut_release",
+      "motifId": "steady_hands",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "bulwarks_echo",
-      "level": 3,
-      "upgrade": true
+      "motifId": "breath_between",
+      "level": 1,
+      "upgrade": false
      },
      {
       "motifId": "da_capo",
@@ -1204,12 +1204,12 @@
       "upgrade": false
      },
      {
-      "motifId": "fishers_knot",
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "lifeline",
+      "motifId": "riposte_bloom",
       "level": 1,
       "upgrade": false
      }
@@ -1220,17 +1220,17 @@
     "reason": "shrine",
     "options": [
      {
-      "motifId": "deep_roots",
+      "motifId": "deep_breath",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "warm_hum",
-      "level": 2,
-      "upgrade": true
+      "motifId": "long_phrase",
+      "level": 1,
+      "upgrade": false
      },
      {
-      "motifId": "encore",
+      "motifId": "answering_phrase",
       "level": 1,
       "upgrade": false
      }
@@ -1262,6 +1262,15 @@
   "shop": [
    {
     "kind": "relic",
+    "id": "spare_strings",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
     "id": "tuning_fork",
     "level": 1,
     "upgrade": false,
@@ -1271,16 +1280,7 @@
    },
    {
     "kind": "relic",
-    "id": "lantern_of_the_lost",
-    "level": 1,
-    "upgrade": false,
-    "heal": 0,
-    "price": 50,
-    "sold": false
-   },
-   {
-    "kind": "relic",
-    "id": "cantors_hymnal",
+    "id": "thornwreath",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -1289,7 +1289,7 @@
    },
    {
     "kind": "motif",
-    "id": "clear_tone",
+    "id": "quickening_thread",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -1533,17 +1533,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "clear_tone",
+      "motifId": "gilt_edge",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "wind_at_her_back",
+      "motifId": "breath_between",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "deep_roots",
+      "motifId": "standing_ovation",
       "level": 1,
       "upgrade": false
      }
@@ -1554,17 +1554,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "taut_release",
-      "level": 2,
-      "upgrade": true
-     },
-     {
       "motifId": "steady_hands",
       "level": 1,
       "upgrade": false
      },
      {
       "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "constellation_lines",
       "level": 1,
       "upgrade": false
      }
@@ -1575,19 +1575,19 @@
     "reason": "elite",
     "options": [
      {
-      "motifId": "canon",
+      "motifId": "call_and_response",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "steady_hands",
+      "motifId": "razor_silk",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "lifeline",
-      "level": 1,
-      "upgrade": false
+      "motifId": "taut_release",
+      "level": 2,
+      "upgrade": true
      }
     ],
     "rerollsLeft": 1
@@ -1606,7 +1606,7 @@
       "upgrade": false
      },
      {
-      "motifId": "starlit_study",
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      }
@@ -1617,17 +1617,17 @@
     "reason": "shrine",
     "options": [
      {
-      "motifId": "quickened_verse",
-      "level": 3,
-      "upgrade": true
-     },
-     {
-      "motifId": "standing_ovation",
+      "motifId": "tenuto",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "lingering_aegis",
+      "motifId": "laments_answer",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "gilt_edge",
       "level": 1,
       "upgrade": false
      }
@@ -1659,7 +1659,7 @@
   "shop": [
    {
     "kind": "relic",
-    "id": "wardens_key",
+    "id": "black_ribbon",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -1668,7 +1668,7 @@
    },
    {
     "kind": "relic",
-    "id": "featherweight_robes",
+    "id": "tuning_fork",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -1677,7 +1677,7 @@
    },
    {
     "kind": "relic",
-    "id": "glass_halo",
+    "id": "red_ink",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -1686,7 +1686,7 @@
    },
    {
     "kind": "motif",
-    "id": "standing_ovation",
+    "id": "taking_bows",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -1695,7 +1695,7 @@
    },
    {
     "kind": "motif",
-    "id": "canon",
+    "id": "opening_bars",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -1905,19 +1905,19 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "clear_tone",
+      "motifId": "warded_weft",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "fishers_knot",
+      "motifId": "clean_strike",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "standing_ovation",
-      "level": 2,
-      "upgrade": true
+      "motifId": "inner_orbit",
+      "level": 1,
+      "upgrade": false
      }
     ],
     "rerollsLeft": 1
@@ -1926,17 +1926,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "second_verse",
-      "level": 3,
-      "upgrade": true
-     },
-     {
-      "motifId": "relay_weave",
+      "motifId": "light_step",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "riposte_bloom",
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "stray_stitch",
       "level": 1,
       "upgrade": false
      }
@@ -1947,17 +1947,17 @@
     "reason": "elite",
     "options": [
      {
-      "motifId": "twin_aegis",
+      "motifId": "da_capo",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "canon",
+      "motifId": "opening_bars",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "riposte_bloom",
+      "motifId": "kindred_wound",
       "level": 1,
       "upgrade": false
      }
@@ -1968,17 +1968,17 @@
     "reason": "boss",
     "options": [
      {
+      "motifId": "thread_the_needle",
+      "level": 1,
+      "upgrade": false
+     },
+     {
       "motifId": "da_capo",
       "level": 1,
       "upgrade": false
      },
      {
       "motifId": "twin_aegis",
-      "level": 1,
-      "upgrade": false
-     },
-     {
-      "motifId": "wind_at_her_back",
       "level": 1,
       "upgrade": false
      }
@@ -1989,9 +1989,9 @@
     "reason": "shrine",
     "options": [
      {
-      "motifId": "taut_release",
-      "level": 1,
-      "upgrade": false
+      "motifId": "steady_hands",
+      "level": 2,
+      "upgrade": true
      },
      {
       "motifId": "da_capo",
@@ -1999,7 +1999,7 @@
       "upgrade": false
      },
      {
-      "motifId": "deep_roots",
+      "motifId": "warm_hum",
       "level": 1,
       "upgrade": false
      }
@@ -2031,7 +2031,16 @@
   "shop": [
    {
     "kind": "relic",
-    "id": "featherweight_robes",
+    "id": "pilgrims_lamp",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "wardens_key",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -2048,17 +2057,8 @@
     "sold": false
    },
    {
-    "kind": "relic",
-    "id": "silver_thimble",
-    "level": 1,
-    "upgrade": false,
-    "heal": 0,
-    "price": 50,
-    "sold": false
-   },
-   {
     "kind": "motif",
-    "id": "warm_hum",
+    "id": "long_phrase",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -2067,9 +2067,9 @@
    },
    {
     "kind": "motif",
-    "id": "second_verse",
-    "level": 3,
-    "upgrade": true,
+    "id": "shieldsong",
+    "level": 1,
+    "upgrade": false,
     "heal": 0,
     "price": 35,
     "sold": false
@@ -2302,17 +2302,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "quickened_verse",
+      "motifId": "laments_answer",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "standing_ovation",
+      "motifId": "footlights",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "warm_hum",
+      "motifId": "tenuto",
       "level": 1,
       "upgrade": false
      }
@@ -2323,17 +2323,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "quickened_verse",
+      "motifId": "footlights",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "clear_tone",
+      "motifId": "gilded_wake",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "taut_release",
+      "motifId": "hammerfall",
       "level": 1,
       "upgrade": false
      }
@@ -2344,17 +2344,17 @@
     "reason": "elite",
     "options": [
      {
-      "motifId": "wind_at_her_back",
+      "motifId": "penitent_shield",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "taut_release",
+      "motifId": "steady_hands",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "riposte_bloom",
+      "motifId": "stray_stitch",
       "level": 1,
       "upgrade": false
      }
@@ -2370,12 +2370,12 @@
       "upgrade": false
      },
      {
-      "motifId": "fishers_knot",
-      "level": 2,
-      "upgrade": true
+      "motifId": "thread_the_needle",
+      "level": 1,
+      "upgrade": false
      },
      {
-      "motifId": "taut_release",
+      "motifId": "deep_breath",
       "level": 1,
       "upgrade": false
      }
@@ -2386,17 +2386,17 @@
     "reason": "shrine",
     "options": [
      {
-      "motifId": "deep_breath",
+      "motifId": "light_step",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "quickened_verse",
+      "motifId": "tenuto",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "standing_ovation",
+      "motifId": "footlights",
       "level": 1,
       "upgrade": false
      }
@@ -2423,7 +2423,7 @@
   "shop": [
    {
     "kind": "relic",
-    "id": "tuning_fork",
+    "id": "spare_strings",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -2450,7 +2450,7 @@
    },
    {
     "kind": "motif",
-    "id": "twin_aegis",
+    "id": "thread_the_needle",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -2459,7 +2459,7 @@
    },
    {
     "kind": "motif",
-    "id": "lifeline",
+    "id": "taut_release",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -2669,17 +2669,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "riposte_bloom",
+      "motifId": "shatterglass",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "standing_ovation",
+      "motifId": "saving_grace",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "long_weave",
+      "motifId": "deep_breath",
       "level": 1,
       "upgrade": false
      }
@@ -2690,17 +2690,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "deep_roots",
-      "level": 3,
-      "upgrade": true
-     },
-     {
-      "motifId": "golden_filament",
+      "motifId": "standing_ovation",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "deep_breath",
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "shieldsong",
       "level": 1,
       "upgrade": false
      }
@@ -2716,12 +2716,12 @@
       "upgrade": false
      },
      {
-      "motifId": "bulwarks_echo",
+      "motifId": "last_bastion",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "hammerfall",
+      "motifId": "sister_ward",
       "level": 1,
       "upgrade": false
      }
@@ -2737,12 +2737,12 @@
       "upgrade": false
      },
      {
-      "motifId": "da_capo",
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "deep_breath",
+      "motifId": "da_capo",
       "level": 1,
       "upgrade": false
      }
@@ -2753,17 +2753,17 @@
     "reason": "shrine",
     "options": [
      {
-      "motifId": "long_weave",
+      "motifId": "second_verse",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "warm_hum",
+      "motifId": "long_phrase",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "fishers_knot",
+      "motifId": "warded_weft",
       "level": 1,
       "upgrade": false
      }
@@ -2804,15 +2804,6 @@
    },
    {
     "kind": "relic",
-    "id": "hollow_bell",
-    "level": 1,
-    "upgrade": false,
-    "heal": 0,
-    "price": 80,
-    "sold": false
-   },
-   {
-    "kind": "relic",
     "id": "star_chart",
     "level": 1,
     "upgrade": false,
@@ -2821,8 +2812,17 @@
     "sold": false
    },
    {
+    "kind": "relic",
+    "id": "menders_needle",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
     "kind": "motif",
-    "id": "fishers_knot",
+    "id": "spindle_turn",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -2831,8 +2831,8 @@
    },
    {
     "kind": "motif",
-    "id": "relay_weave",
-    "level": 2,
+    "id": "deep_roots",
+    "level": 3,
     "upgrade": true,
     "heal": 0,
     "price": 35,
@@ -3076,7 +3076,7 @@
       "upgrade": false
      },
      {
-      "motifId": "standing_ovation",
+      "motifId": "inner_orbit",
       "level": 1,
       "upgrade": false
      }
@@ -3087,17 +3087,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "wind_at_her_back",
+      "motifId": "full_chord",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "second_verse",
+      "motifId": "clutch_peal",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "long_weave",
+      "motifId": "fishers_knot",
       "level": 1,
       "upgrade": false
      }
@@ -3113,12 +3113,12 @@
       "upgrade": false
      },
      {
-      "motifId": "taut_release",
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "starlit_study",
+      "motifId": "full_chord",
       "level": 1,
       "upgrade": false
      }
@@ -3129,17 +3129,17 @@
     "reason": "boss",
     "options": [
      {
+      "motifId": "thread_the_needle",
+      "level": 1,
+      "upgrade": false
+     },
+     {
       "motifId": "da_capo",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "lingering_aegis",
-      "level": 1,
-      "upgrade": false
-     },
-     {
-      "motifId": "standing_ovation",
+      "motifId": "call_and_response",
       "level": 1,
       "upgrade": false
      }
@@ -3150,12 +3150,12 @@
     "reason": "shrine",
     "options": [
      {
-      "motifId": "taut_release",
+      "motifId": "riposte_bloom",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "fishers_knot",
+      "motifId": "spindle_turn",
       "level": 1,
       "upgrade": false
      },
@@ -3196,7 +3196,7 @@
    },
    {
     "kind": "relic",
-    "id": "star_chart",
+    "id": "thornwreath",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -3205,7 +3205,7 @@
    },
    {
     "kind": "relic",
-    "id": "spindle_of_fate",
+    "id": "water_clock",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -3214,7 +3214,7 @@
    },
    {
     "kind": "motif",
-    "id": "fishers_knot",
+    "id": "spindle_turn",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -3223,7 +3223,7 @@
    },
    {
     "kind": "motif",
-    "id": "lingering_aegis",
+    "id": "whiplash",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -3433,17 +3433,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "canon",
+      "motifId": "ringing_on",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "encore",
+      "motifId": "fanfare",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "long_weave",
+      "motifId": "second_verse",
       "level": 1,
       "upgrade": false
      }
@@ -3454,17 +3454,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "wind_at_her_back",
+      "motifId": "penitent_shield",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "warm_hum",
+      "motifId": "steady_draw",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "da_capo",
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      }
@@ -3475,17 +3475,17 @@
     "reason": "elite",
     "options": [
      {
-      "motifId": "bulwarks_echo",
+      "motifId": "second_toll",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "wind_at_her_back",
+      "motifId": "full_chord",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "starlit_study",
+      "motifId": "penitent_shield",
       "level": 1,
       "upgrade": false
      }
@@ -3496,17 +3496,17 @@
     "reason": "boss",
     "options": [
      {
+      "motifId": "thread_the_needle",
+      "level": 1,
+      "upgrade": false
+     },
+     {
       "motifId": "da_capo",
       "level": 1,
       "upgrade": false
      },
      {
       "motifId": "twin_aegis",
-      "level": 1,
-      "upgrade": false
-     },
-     {
-      "motifId": "standing_ovation",
       "level": 1,
       "upgrade": false
      }
@@ -3517,17 +3517,17 @@
     "reason": "shrine",
     "options": [
      {
-      "motifId": "deep_roots",
-      "level": 1,
-      "upgrade": false
-     },
-     {
       "motifId": "standing_ovation",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "warm_hum",
+      "motifId": "footlights",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "tuning_up",
       "level": 1,
       "upgrade": false
      }
@@ -3554,7 +3554,7 @@
   "shop": [
    {
     "kind": "relic",
-    "id": "tuning_fork",
+    "id": "pedlars_ledger",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -3563,7 +3563,7 @@
    },
    {
     "kind": "relic",
-    "id": "cantors_hymnal",
+    "id": "thornwreath",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -3572,7 +3572,7 @@
    },
    {
     "kind": "relic",
-    "id": "star_chart",
+    "id": "bell_clapper",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -3581,16 +3581,16 @@
    },
    {
     "kind": "motif",
-    "id": "taut_release",
-    "level": 3,
-    "upgrade": true,
+    "id": "hammerfall",
+    "level": 1,
+    "upgrade": false,
     "heal": 0,
     "price": 55,
     "sold": false
    },
    {
     "kind": "motif",
-    "id": "twin_aegis",
+    "id": "da_capo",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -3830,19 +3830,19 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "warm_hum",
+      "motifId": "steady_draw",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "canon",
+      "motifId": "ringing_on",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "standing_ovation",
-      "level": 3,
-      "upgrade": true
+      "motifId": "taking_bows",
+      "level": 1,
+      "upgrade": false
      }
     ],
     "rerollsLeft": 1
@@ -3851,17 +3851,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "clear_tone",
+      "motifId": "ringing_steel",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "lingering_aegis",
+      "motifId": "warded_weft",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "long_weave",
+      "motifId": "fishers_knot",
       "level": 1,
       "upgrade": false
      }
@@ -3872,17 +3872,17 @@
     "reason": "elite",
     "options": [
      {
-      "motifId": "golden_filament",
+      "motifId": "hammerfall",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "answering_phrase",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "encore",
-      "level": 1,
-      "upgrade": false
-     },
-     {
-      "motifId": "wind_at_her_back",
+      "motifId": "penitent_shield",
       "level": 1,
       "upgrade": false
      }
@@ -3898,14 +3898,14 @@
       "upgrade": false
      },
      {
-      "motifId": "twin_aegis",
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "standing_ovation",
-      "level": 3,
-      "upgrade": true
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
      }
     ],
     "rerollsLeft": 1
@@ -3914,17 +3914,17 @@
     "reason": "shrine",
     "options": [
      {
-      "motifId": "encore",
+      "motifId": "vigil_song",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "gilded_wake",
       "level": 1,
       "upgrade": false
      },
      {
       "motifId": "lingering_aegis",
-      "level": 1,
-      "upgrade": false
-     },
-     {
-      "motifId": "relay_weave",
       "level": 1,
       "upgrade": false
      }
@@ -3956,7 +3956,7 @@
   "shop": [
    {
     "kind": "relic",
-    "id": "featherweight_robes",
+    "id": "tuning_fork",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -3965,7 +3965,7 @@
    },
    {
     "kind": "relic",
-    "id": "star_chart",
+    "id": "bell_clapper",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -3974,7 +3974,7 @@
    },
    {
     "kind": "relic",
-    "id": "glass_halo",
+    "id": "hollow_crown",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -3983,7 +3983,7 @@
    },
    {
     "kind": "motif",
-    "id": "da_capo",
+    "id": "thread_the_needle",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -3992,7 +3992,7 @@
    },
    {
     "kind": "motif",
-    "id": "deep_breath",
+    "id": "shieldsong",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -4202,17 +4202,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "standing_ovation",
+      "motifId": "inner_orbit",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "deep_breath",
+      "motifId": "long_phrase",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "encore",
+      "motifId": "vigil_song",
       "level": 1,
       "upgrade": false
      }
@@ -4223,17 +4223,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "deep_breath",
+      "motifId": "massed_voices",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "standing_ovation",
+      "motifId": "taking_bows",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "canon",
+      "motifId": "opening_bars",
       "level": 1,
       "upgrade": false
      }
@@ -4244,17 +4244,17 @@
     "reason": "elite",
     "options": [
      {
-      "motifId": "canon",
+      "motifId": "call_and_response",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "wind_at_her_back",
+      "motifId": "split_fletching",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "riposte_bloom",
+      "motifId": "stray_stitch",
       "level": 1,
       "upgrade": false
      }
@@ -4270,12 +4270,12 @@
       "upgrade": false
      },
      {
-      "motifId": "lingering_aegis",
-      "level": 2,
-      "upgrade": true
+      "motifId": "thread_the_needle",
+      "level": 1,
+      "upgrade": false
      },
      {
-      "motifId": "standing_ovation",
+      "motifId": "taking_bows",
       "level": 1,
       "upgrade": false
      }
@@ -4286,17 +4286,17 @@
     "reason": "shrine",
     "options": [
      {
-      "motifId": "clear_tone",
+      "motifId": "gilded_wake",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "quickened_verse",
+      "motifId": "laments_answer",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "deep_breath",
+      "motifId": "massed_voices",
       "level": 1,
       "upgrade": false
      }
@@ -4328,7 +4328,7 @@
   "shop": [
    {
     "kind": "relic",
-    "id": "prism_loom",
+    "id": "cracked_metronome",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -4337,7 +4337,7 @@
    },
    {
     "kind": "relic",
-    "id": "cantors_hymnal",
+    "id": "thornwreath",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -4346,7 +4346,7 @@
    },
    {
     "kind": "relic",
-    "id": "lantern_of_the_lost",
+    "id": "wardens_key",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -4355,18 +4355,18 @@
    },
    {
     "kind": "motif",
-    "id": "steady_hands",
-    "level": 1,
-    "upgrade": false,
+    "id": "starlit_study",
+    "level": 2,
+    "upgrade": true,
     "heal": 0,
     "price": 55,
     "sold": false
    },
    {
     "kind": "motif",
-    "id": "starlit_study",
-    "level": 2,
-    "upgrade": true,
+    "id": "split_fletching",
+    "level": 1,
+    "upgrade": false,
     "heal": 0,
     "price": 55,
     "sold": false
@@ -4604,12 +4604,12 @@
       "upgrade": false
      },
      {
-      "motifId": "fishers_knot",
+      "motifId": "spindle_turn",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "standing_ovation",
+      "motifId": "taking_bows",
       "level": 1,
       "upgrade": false
      }
@@ -4620,17 +4620,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "long_weave",
+      "motifId": "deep_breath",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "quickened_verse",
+      "motifId": "laments_answer",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "da_capo",
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      }
@@ -4641,17 +4641,17 @@
     "reason": "elite",
     "options": [
      {
-      "motifId": "golden_filament",
+      "motifId": "canon",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "bulwarks_echo",
+      "motifId": "last_bastion",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "starlit_study",
+      "motifId": "penitent_shield",
       "level": 1,
       "upgrade": false
      }
@@ -4662,7 +4662,7 @@
     "reason": "boss",
     "options": [
      {
-      "motifId": "da_capo",
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      },
@@ -4672,7 +4672,7 @@
       "upgrade": false
      },
      {
-      "motifId": "taut_release",
+      "motifId": "da_capo",
       "level": 1,
       "upgrade": false
      }
@@ -4683,17 +4683,17 @@
     "reason": "shrine",
     "options": [
      {
-      "motifId": "starlit_study",
+      "motifId": "split_fletching",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "standing_ovation",
+      "motifId": "taking_bows",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "taut_release",
+      "motifId": "hammerfall",
       "level": 1,
       "upgrade": false
      }
@@ -4725,7 +4725,7 @@
   "shop": [
    {
     "kind": "relic",
-    "id": "tuning_fork",
+    "id": "spare_strings",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -4734,7 +4734,7 @@
    },
    {
     "kind": "relic",
-    "id": "star_chart",
+    "id": "menders_needle",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -4743,7 +4743,7 @@
    },
    {
     "kind": "relic",
-    "id": "lantern_of_the_lost",
+    "id": "featherweight_robes",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -4752,16 +4752,16 @@
    },
    {
     "kind": "motif",
-    "id": "steady_hands",
-    "level": 1,
-    "upgrade": false,
+    "id": "encore",
+    "level": 2,
+    "upgrade": true,
     "heal": 0,
     "price": 55,
     "sold": false
    },
    {
     "kind": "motif",
-    "id": "second_verse",
+    "id": "safe_harbour",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -4971,17 +4971,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "fishers_knot",
+      "motifId": "clutch_peal",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "deep_roots",
+      "motifId": "whiplash",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "relay_weave",
+      "motifId": "lingering_aegis",
       "level": 1,
       "upgrade": false
      }
@@ -4992,12 +4992,12 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "fishers_knot",
+      "motifId": "bright_peal",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "deep_breath",
+      "motifId": "long_phrase",
       "level": 1,
       "upgrade": false
      },
@@ -5013,17 +5013,17 @@
     "reason": "elite",
     "options": [
      {
-      "motifId": "riposte_bloom",
+      "motifId": "brimming_thread",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "wind_at_her_back",
+      "motifId": "breath_between",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "lifeline",
+      "motifId": "taut_release",
       "level": 1,
       "upgrade": false
      }
@@ -5039,12 +5039,12 @@
       "upgrade": false
      },
      {
-      "motifId": "lifeline",
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "clear_tone",
+      "motifId": "gilt_edge",
       "level": 1,
       "upgrade": false
      }
@@ -5055,17 +5055,17 @@
     "reason": "shrine",
     "options": [
      {
-      "motifId": "steady_hands",
+      "motifId": "starlit_study",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "fishers_knot",
+      "motifId": "bright_peal",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "quickened_verse",
+      "motifId": "footlights",
       "level": 1,
       "upgrade": false
      }
@@ -5097,7 +5097,7 @@
   "shop": [
    {
     "kind": "relic",
-    "id": "tuning_fork",
+    "id": "spare_strings",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -5106,7 +5106,7 @@
    },
    {
     "kind": "relic",
-    "id": "hollow_bell",
+    "id": "cantors_hymnal",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -5115,7 +5115,7 @@
    },
    {
     "kind": "relic",
-    "id": "wardens_key",
+    "id": "pedlars_ledger",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -5124,7 +5124,7 @@
    },
    {
     "kind": "motif",
-    "id": "clear_tone",
+    "id": "clean_strike",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -5133,7 +5133,7 @@
    },
    {
     "kind": "motif",
-    "id": "fishers_knot",
+    "id": "spindle_turn",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -5363,17 +5363,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "quickened_verse",
-      "level": 2,
-      "upgrade": true
-     },
-     {
-      "motifId": "relay_weave",
+      "motifId": "tuning_up",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "wind_at_her_back",
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "full_chord",
       "level": 1,
       "upgrade": false
      }
@@ -5384,17 +5384,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "starlit_study",
+      "motifId": "constellation_lines",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "lingering_aegis",
+      "motifId": "gilded_wake",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "second_verse",
+      "motifId": "bright_peal",
       "level": 1,
       "upgrade": false
      }
@@ -5405,7 +5405,7 @@
     "reason": "elite",
     "options": [
      {
-      "motifId": "lifeline",
+      "motifId": "golden_filament",
       "level": 1,
       "upgrade": false
      },
@@ -5415,7 +5415,7 @@
       "upgrade": false
      },
      {
-      "motifId": "canon",
+      "motifId": "ringing_on",
       "level": 1,
       "upgrade": false
      }
@@ -5431,12 +5431,12 @@
       "upgrade": false
      },
      {
-      "motifId": "da_capo",
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "standing_ovation",
+      "motifId": "da_capo",
       "level": 1,
       "upgrade": false
      }
@@ -5447,17 +5447,17 @@
     "reason": "shrine",
     "options": [
      {
-      "motifId": "deep_breath",
-      "level": 3,
-      "upgrade": true
-     },
-     {
-      "motifId": "da_capo",
+      "motifId": "tender_guard",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "fishers_knot",
+      "motifId": "thread_the_needle",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "ringing_steel",
       "level": 1,
       "upgrade": false
      }
@@ -5489,7 +5489,7 @@
   "shop": [
    {
     "kind": "relic",
-    "id": "cantors_hymnal",
+    "id": "sand_glass",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -5498,7 +5498,7 @@
    },
    {
     "kind": "relic",
-    "id": "featherweight_robes",
+    "id": "pilgrims_lamp",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -5507,7 +5507,7 @@
    },
    {
     "kind": "relic",
-    "id": "glass_halo",
+    "id": "iron_mask",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -5516,7 +5516,7 @@
    },
    {
     "kind": "motif",
-    "id": "standing_ovation",
+    "id": "inner_orbit",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -5735,17 +5735,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "canon",
+      "motifId": "opening_bars",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "long_weave",
-      "level": 1,
-      "upgrade": false
+      "motifId": "second_verse",
+      "level": 2,
+      "upgrade": true
      },
      {
-      "motifId": "quickened_verse",
+      "motifId": "tuning_up",
       "level": 1,
       "upgrade": false
      }
@@ -5756,17 +5756,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "lifeline",
-      "level": 3,
-      "upgrade": true
-     },
-     {
-      "motifId": "bulwarks_echo",
+      "motifId": "golden_filament",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "deep_breath",
+      "motifId": "shatterglass",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "long_phrase",
       "level": 1,
       "upgrade": false
      }
@@ -5777,12 +5777,12 @@
     "reason": "elite",
     "options": [
      {
-      "motifId": "riposte_bloom",
+      "motifId": "brimming_thread",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "golden_filament",
+      "motifId": "starlit_study",
       "level": 1,
       "upgrade": false
      },
@@ -5808,9 +5808,9 @@
       "upgrade": false
      },
      {
-      "motifId": "lifeline",
-      "level": 3,
-      "upgrade": true
+      "motifId": "thread_the_needle",
+      "level": 1,
+      "upgrade": false
      }
     ],
     "rerollsLeft": 1
@@ -5819,17 +5819,17 @@
     "reason": "shrine",
     "options": [
      {
-      "motifId": "deep_breath",
+      "motifId": "long_phrase",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "canon",
+      "motifId": "opening_bars",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "deep_roots",
+      "motifId": "quickened_verse",
       "level": 1,
       "upgrade": false
      }
@@ -5861,7 +5861,7 @@
   "shop": [
    {
     "kind": "relic",
-    "id": "martyrs_veil",
+    "id": "lament_pin",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -5870,7 +5870,7 @@
    },
    {
     "kind": "relic",
-    "id": "star_chart",
+    "id": "bell_clapper",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -5879,7 +5879,7 @@
    },
    {
     "kind": "relic",
-    "id": "wardens_key",
+    "id": "tin_whistle",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -5888,7 +5888,7 @@
    },
    {
     "kind": "motif",
-    "id": "golden_filament",
+    "id": "starlit_study",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -5897,7 +5897,7 @@
    },
    {
     "kind": "motif",
-    "id": "taut_release",
+    "id": "bulwarks_echo",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -6127,17 +6127,17 @@
     "reason": "victory",
     "options": [
      {
+      "motifId": "steady_hands",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "spindle_turn",
+      "level": 1,
+      "upgrade": false
+     },
+     {
       "motifId": "taut_release",
-      "level": 1,
-      "upgrade": false
-     },
-     {
-      "motifId": "clear_tone",
-      "level": 1,
-      "upgrade": false
-     },
-     {
-      "motifId": "lifeline",
       "level": 1,
       "upgrade": false
      }
@@ -6148,17 +6148,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "second_verse",
+      "motifId": "bright_peal",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "standing_ovation",
+      "motifId": "steady_draw",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "relay_weave",
+      "motifId": "clear_tone",
       "level": 1,
       "upgrade": false
      }
@@ -6169,17 +6169,17 @@
     "reason": "elite",
     "options": [
      {
-      "motifId": "riposte_bloom",
+      "motifId": "razor_silk",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "wind_at_her_back",
+      "motifId": "breath_between",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "twin_aegis",
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      }
@@ -6190,17 +6190,17 @@
     "reason": "boss",
     "options": [
      {
+      "motifId": "thread_the_needle",
+      "level": 1,
+      "upgrade": false
+     },
+     {
       "motifId": "twin_aegis",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "lingering_aegis",
-      "level": 3,
-      "upgrade": true
-     },
-     {
-      "motifId": "bulwarks_echo",
+      "motifId": "breath_between",
       "level": 1,
       "upgrade": false
      }
@@ -6211,17 +6211,17 @@
     "reason": "shrine",
     "options": [
      {
-      "motifId": "second_verse",
+      "motifId": "bright_peal",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "wind_at_her_back",
+      "motifId": "penitent_shield",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "deep_breath",
+      "motifId": "light_step",
       "level": 1,
       "upgrade": false
      }
@@ -6253,7 +6253,7 @@
   "shop": [
    {
     "kind": "relic",
-    "id": "wardens_key",
+    "id": "black_ribbon",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -6271,7 +6271,7 @@
    },
    {
     "kind": "relic",
-    "id": "hollow_bell",
+    "id": "star_chart",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -6280,16 +6280,16 @@
    },
    {
     "kind": "motif",
-    "id": "steady_hands",
-    "level": 1,
-    "upgrade": false,
+    "id": "starlit_study",
+    "level": 3,
+    "upgrade": true,
     "heal": 0,
     "price": 55,
     "sold": false
    },
    {
     "kind": "motif",
-    "id": "hammerfall",
+    "id": "kindred_wound",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -6499,12 +6499,12 @@
       "upgrade": false
      },
      {
-      "motifId": "da_capo",
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "canon",
+      "motifId": "ringing_on",
       "level": 1,
       "upgrade": false
      }
@@ -6515,17 +6515,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "clear_tone",
-      "level": 3,
-      "upgrade": true
-     },
-     {
-      "motifId": "starlit_study",
+      "motifId": "slack_line",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "standing_ovation",
+      "motifId": "constellation_lines",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "taking_bows",
       "level": 1,
       "upgrade": false
      }
@@ -6536,17 +6536,17 @@
     "reason": "elite",
     "options": [
      {
-      "motifId": "golden_filament",
-      "level": 1,
-      "upgrade": false
-     },
-     {
       "motifId": "wind_at_her_back",
       "level": 2,
       "upgrade": true
      },
      {
-      "motifId": "da_capo",
+      "motifId": "last_bastion",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      }
@@ -6562,12 +6562,12 @@
       "upgrade": false
      },
      {
-      "motifId": "twin_aegis",
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "fishers_knot",
+      "motifId": "twin_aegis",
       "level": 1,
       "upgrade": false
      }
@@ -6578,17 +6578,17 @@
     "reason": "shrine",
     "options": [
      {
-      "motifId": "starlit_study",
+      "motifId": "split_fletching",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "second_verse",
+      "motifId": "bright_peal",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "fishers_knot",
+      "motifId": "clean_strike",
       "level": 1,
       "upgrade": false
      }
@@ -6620,7 +6620,7 @@
   "shop": [
    {
     "kind": "relic",
-    "id": "lantern_of_the_lost",
+    "id": "featherweight_robes",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -6629,7 +6629,7 @@
    },
    {
     "kind": "relic",
-    "id": "martyrs_veil",
+    "id": "echoing_shell",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -6638,7 +6638,7 @@
    },
    {
     "kind": "relic",
-    "id": "heavy_score",
+    "id": "iron_mask",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -6647,7 +6647,7 @@
    },
    {
     "kind": "motif",
-    "id": "taut_release",
+    "id": "steady_hands",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -6656,9 +6656,9 @@
    },
    {
     "kind": "motif",
-    "id": "wind_at_her_back",
-    "level": 2,
-    "upgrade": true,
+    "id": "full_chord",
+    "level": 1,
+    "upgrade": false,
     "heal": 0,
     "price": 55,
     "sold": false
@@ -6896,9 +6896,9 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "deep_roots",
-      "level": 1,
-      "upgrade": false
+      "motifId": "warm_hum",
+      "level": 2,
+      "upgrade": true
      },
      {
       "motifId": "relay_weave",
@@ -6906,7 +6906,7 @@
       "upgrade": false
      },
      {
-      "motifId": "second_verse",
+      "motifId": "bright_peal",
       "level": 1,
       "upgrade": false
      }
@@ -6917,17 +6917,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "fishers_knot",
+      "motifId": "spindle_turn",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "wind_at_her_back",
+      "motifId": "constellation_lines",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "riposte_bloom",
+      "motifId": "kindred_wound",
       "level": 1,
       "upgrade": false
      }
@@ -6938,17 +6938,17 @@
     "reason": "elite",
     "options": [
      {
-      "motifId": "da_capo",
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "lifeline",
+      "motifId": "taut_release",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "riposte_bloom",
+      "motifId": "brimming_thread",
       "level": 1,
       "upgrade": false
      }
@@ -6959,19 +6959,19 @@
     "reason": "boss",
     "options": [
      {
+      "motifId": "thread_the_needle",
+      "level": 1,
+      "upgrade": false
+     },
+     {
       "motifId": "da_capo",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "long_weave",
+      "motifId": "tender_guard",
       "level": 1,
       "upgrade": false
-     },
-     {
-      "motifId": "warm_hum",
-      "level": 2,
-      "upgrade": true
      }
     ],
     "rerollsLeft": 1
@@ -6980,17 +6980,17 @@
     "reason": "shrine",
     "options": [
      {
-      "motifId": "fishers_knot",
+      "motifId": "clean_strike",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "relay_weave",
+      "motifId": "deep_roots",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "lingering_aegis",
+      "motifId": "quickened_verse",
       "level": 1,
       "upgrade": false
      }
@@ -7031,7 +7031,7 @@
    },
    {
     "kind": "relic",
-    "id": "featherweight_robes",
+    "id": "tuning_fork",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -7049,7 +7049,7 @@
    },
    {
     "kind": "motif",
-    "id": "starlit_study",
+    "id": "opening_bars",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -7268,17 +7268,17 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "second_verse",
+      "motifId": "shieldsong",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "deep_roots",
+      "motifId": "whiplash",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "standing_ovation",
+      "motifId": "inner_orbit",
       "level": 1,
       "upgrade": false
      }
@@ -7289,9 +7289,9 @@
     "reason": "victory",
     "options": [
      {
-      "motifId": "quickened_verse",
-      "level": 3,
-      "upgrade": true
+      "motifId": "tenuto",
+      "level": 1,
+      "upgrade": false
      },
      {
       "motifId": "twin_aegis",
@@ -7299,7 +7299,7 @@
       "upgrade": false
      },
      {
-      "motifId": "fishers_knot",
+      "motifId": "shieldsong",
       "level": 1,
       "upgrade": false
      }
@@ -7315,12 +7315,12 @@
       "upgrade": false
      },
      {
-      "motifId": "golden_filament",
+      "motifId": "hammerfall",
       "level": 1,
       "upgrade": false
      },
      {
-      "motifId": "da_capo",
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      }
@@ -7331,7 +7331,7 @@
     "reason": "boss",
     "options": [
      {
-      "motifId": "da_capo",
+      "motifId": "thread_the_needle",
       "level": 1,
       "upgrade": false
      },
@@ -7341,7 +7341,7 @@
       "upgrade": false
      },
      {
-      "motifId": "lifeline",
+      "motifId": "da_capo",
       "level": 1,
       "upgrade": false
      }
@@ -7352,17 +7352,17 @@
     "reason": "shrine",
     "options": [
      {
-      "motifId": "clear_tone",
-      "level": 1,
-      "upgrade": false
-     },
-     {
-      "motifId": "long_weave",
+      "motifId": "clean_strike",
       "level": 1,
       "upgrade": false
      },
      {
       "motifId": "warm_hum",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "close_harmony",
       "level": 1,
       "upgrade": false
      }
@@ -7403,7 +7403,7 @@
    },
    {
     "kind": "relic",
-    "id": "spindle_of_fate",
+    "id": "water_clock",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -7412,7 +7412,7 @@
    },
    {
     "kind": "relic",
-    "id": "wardens_key",
+    "id": "black_ribbon",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -7421,7 +7421,7 @@
    },
    {
     "kind": "motif",
-    "id": "clear_tone",
+    "id": "clean_strike",
     "level": 1,
     "upgrade": false,
     "heal": 0,
@@ -7430,7 +7430,7 @@
    },
    {
     "kind": "motif",
-    "id": "standing_ovation",
+    "id": "taking_bows",
     "level": 1,
     "upgrade": false,
     "heal": 0,
