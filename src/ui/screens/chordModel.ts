@@ -38,6 +38,7 @@ import {
   type Passive,
   type ReservePool,
 } from '../../sim';
+import { t } from '../text';
 
 export type SlotKind = 'aura' | 'ornament';
 
@@ -330,14 +331,16 @@ export function poolBlurb(run: RunState): string {
   const lifeTech = treeTechniquesCostLife(run.astrolabe);
   if (reservePool(run) === 'life') {
     const who =
-      run.calling?.id === 'martyr' ? 'As the Martyr, your auras' : 'With Sanguine Font, your auras';
+      run.calling?.id === 'martyr'
+        ? t('screens.chordModel.asTheMartyrYour')
+        : t('screens.chordModel.withSanguineFontYour');
     return lifeTech
-      ? `${who} reserve Life instead, and with Eldritch Conduit your techniques cost Life too: you fight with the Life your songs leave you.`
-      : `${who} reserve Life instead: every point of Spirit powers Ward, Chime and ${reel}, and you fight with the Life your songs leave you.`;
+      ? t('screens.chordModel.reserveLifeInsteadAnd', { who })
+      : t('screens.chordModel.reserveLifeInsteadEvery', { who, reel });
   }
   return lifeTech
-    ? `With Eldritch Conduit, Ward, Chime and ${reel} cost Life instead: your Spirit is your songs’ alone.`
-    : `Whatever Spirit your auras leave free powers Ward, Chime and ${reel}.`;
+    ? t('screens.chordModel.withEldritchConduitWard', { reel })
+    : t('screens.chordModel.whateverSpiritYourAuras', { reel });
 }
 
 /** "Spirit" or "Life": the word for what the songs reserve. */
@@ -384,7 +387,7 @@ export function isBonusSlot(ref: SlotRef): boolean {
 
 /** Short read-out of where a song's field sits. */
 export function anchorLabel(anchor: ChordAnchor): string {
-  return anchor === 'planted' ? 'Planted' : 'Around you';
+  return anchor === 'planted' ? 'Planted' : t('screens.chordModel.aroundYou');
 }
 
 /** "×2", "×0.75", "×1.8". */
@@ -423,7 +426,9 @@ export function songInfo(chord: ChordLoadout, index: number): SongInfo {
   const n = chordNumbers(chord, index);
   const radius = `${Number(n.radius.toFixed(1))} m`;
   const where =
-    n.anchor === 'planted' ? `within ${radius} of where you plant it` : `within ${radius}`;
+    n.anchor === 'planted'
+      ? t('screens.chordModel.withinOfWhereYou', { radius })
+      : `within ${radius}`;
   if (n.role === 'beam') {
     const focus = n.focus * n.effect;
     const echo = n.echo * n.effect;
@@ -433,13 +438,21 @@ export function songInfo(chord: ChordLoadout, index: number): SongInfo {
       name: songName(index),
       blurb:
         n.echo > 0
-          ? `Rides your Thread: the hero you thread hears it at ${mult(n.focus)}, wherever they are. Everyone else near you hears an echo.`
-          : `All in: it pours into the hero you thread at ${mult(n.focus)}, and nobody else hears an echo.`,
+          ? t('screens.chordModel.ridesYourThreadThe', { mult: mult(n.focus) })
+          : t('screens.chordModel.allInItPours', { mult: mult(n.focus) }),
       facts: [
-        { label: 'Your threaded hero', value: mult(focus), strength: focus },
+        { label: t('screens.chordModel.yourThreadedHero'), value: mult(focus), strength: focus },
         n.echo > 0
-          ? { label: `Everyone else ${where}`, value: `echo ${mult(echo)}`, strength: echo }
-          : { label: 'Everyone else', value: 'No echo', strength: 0 },
+          ? {
+              label: t('screens.chordModel.everyoneElse', { where }),
+              value: `echo ${mult(echo)}`,
+              strength: echo,
+            }
+          : {
+              label: t('screens.chordModel.everyoneElse2'),
+              value: t('screens.chordModel.noEcho'),
+              strength: 0,
+            },
       ],
     };
   }
@@ -448,8 +461,10 @@ export function songInfo(chord: ChordLoadout, index: number): SongInfo {
     index,
     role: 'field',
     name: songName(index),
-    blurb: 'Surrounds you: everyone near you hears it at full strength.',
-    facts: [{ label: `Everyone ${where}`, value: mult(strength), strength }],
+    blurb: t('screens.chordModel.surroundsYouEveryoneNear'),
+    facts: [
+      { label: t('screens.chordModel.everyone', { where }), value: mult(strength), strength },
+    ],
   };
 }
 

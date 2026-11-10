@@ -25,6 +25,7 @@ import type { IconName } from '../kit/iconPaths';
 import { CALLING_LOOK } from '../kit/callingLook';
 import { rankAstrolabeLine } from './astrolabeModel';
 import { movementLabel } from './routeText';
+import { t } from '../text';
 
 export { rankAstrolabeLine };
 
@@ -92,15 +93,15 @@ export function rankPanel(profile: RankProfile): RankPanel {
     fraction: span === null ? 1 : Math.max(0, Math.min(1, into / span)),
     progressText:
       span === null
-        ? `${fmt(profile.xp)} XP · the highest Rank for now`
-        : `${fmt(into)} / ${fmt(span)} XP to Rank ${rank + 1}`,
+        ? t('screens.rankText.xpTheHighestRank', { xp: fmt(profile.xp) })
+        : t('screens.rankText.xpToRank', { into: fmt(into), span: fmt(span), value: rank + 1 }),
     next: nextRank === null ? [] : UNLOCKS.filter((u) => u.rank === nextRank),
     nextRank,
     nextAstrolabe:
       nextRank === null ? null : rankAstrolabeLine(nextRank, deedPoints(profile.deeds ?? [])),
     record:
       profile.runs === 0
-        ? 'No runs yet'
+        ? t('screens.rankText.noRunsYet')
         : `${profile.runs} ${plural(profile.runs, 'run')} · ${profile.wins} ${plural(profile.wins, 'win')}`,
   };
 }
@@ -142,14 +143,20 @@ export function fightXp(
   if (extra > 0) {
     const points = dissonancePoints(dissonance);
     const pct = Math.round((xpMult(points) - 1) * 1000) / 10;
-    lines.push({ label: points > 0 ? `Dissonance ${points} · +${pct}%` : 'Dissonance', xp: extra });
+    lines.push({
+      label:
+        points > 0
+          ? t('screens.rankText.dissonance', { points, pct })
+          : t('screens.rankText.dissonance2'),
+      xp: extra,
+    });
   }
   return { total: r.xp, lines };
 }
 
 /** "+26 Weaver XP". */
 export function xpHeadline(xp: number): string {
-  return `+${fmt(xp)} Weaver XP`;
+  return t('screens.rankText.weaverXp', { xp: fmt(xp) });
 }
 
 /** Where the XP bar stood before and after a gain, within the Rank reached after it. */
@@ -204,12 +211,12 @@ export function runRank(
     unlocks,
     line:
       to > from
-        ? `This run took you from Rank ${from} to Rank ${to}.`
+        ? t('screens.rankText.thisRunTookYou', { from, to })
         : run.xp > 0
           ? to >= MAX_RANK
-            ? `This run earned ${fmt(run.xp)} Weaver XP. Rank ${MAX_RANK} is the highest for now; your XP keeps counting.`
-            : `This run earned ${fmt(run.xp)} Weaver XP toward Rank ${to + 1}.`
-          : 'This run earned no Weaver XP.',
+            ? t('screens.rankText.thisRunEarnedWeaver', { xp: fmt(run.xp), MAX_RANK })
+            : t('screens.rankText.thisRunEarnedWeaver2', { xp: fmt(run.xp), value: to + 1 })
+          : t('screens.rankText.thisRunEarnedNo'),
   };
 }
 

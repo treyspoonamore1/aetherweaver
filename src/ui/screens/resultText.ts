@@ -28,6 +28,7 @@ import {
 } from '../../content/crucibleIds';
 import type { IconName } from '../kit/iconPaths';
 import { triggerIcon, triggerSentence, triggerTallies, type TriggerContent } from '../hud/triggers';
+import { t as txt } from '../text';
 
 export const HIGHLIGHT_ICON: Record<EncounterResult['highlights'][number]['kind'], IconName> = {
   perfect: 'ward',
@@ -145,16 +146,19 @@ export function riftDownLine(
 ): string | null {
   const name = CONTENT.heroes.find((h) => h.id === d.heroId)?.name ?? d.heroId;
   const possessed = /^(.+) \(possessed\)$/.exec(d.killer);
-  if (possessed) return `${name}, struck by ${possessed[1]} (possessed): Chime frees them`;
+  if (possessed)
+    return txt('screens.resultText.struckByPossessedChime', { name, value: possessed[1] });
   if (d.killer === UNRAVEL_SOURCE || d.killer.startsWith('Unravelled'))
-    return 'Your Mend, unravelled: switch to Empower';
+    return txt('screens.resultText.yourMendUnravelledSwitch');
   if (d.killer === attackName('doom_burst'))
-    return `Doom: Chime before ${NUMBER_WORDS[doomMax()] ?? doomMax()}, or Ward the burst`;
+    return txt('screens.resultText.doomChimeBeforeOr', {
+      value: NUMBER_WORDS[doomMax()] ?? doomMax(),
+    });
   if (d.killer.startsWith('Voided'))
     return rewindsFor(callingId)
-      ? 'Pulled into the Maw: Rally, or Rewind them back'
-      : 'Pulled into the Maw: Rally or Reel';
-  if (d.killer === attackName('unweaver_snip')) return 'Snip: Retarget off the line';
+      ? txt('screens.resultText.pulledIntoTheMaw')
+      : txt('screens.resultText.pulledIntoTheMaw2');
+  if (d.killer === attackName('unweaver_snip')) return txt('screens.resultText.snipRetargetOffThe');
   return null;
 }
 
@@ -169,34 +173,44 @@ export function finaleDownLine(
   callingId?: string | null,
 ): string | null {
   const rewinds = rewindsFor(callingId);
-  const out = rewinds ? 'Rewind them back out' : 'Reel them out';
+  const out = rewinds
+    ? txt('screens.resultText.rewindThemBackOut')
+    : txt('screens.resultText.reelThemOut');
   const k = d.killer;
-  if (k === attackName(LAMENT)) return 'Lament: Chime it away, or interrupt the Alto';
-  if (k === attackName(BASSO_OSTINATO))
-    return 'Basso Ostinato: Ward on the beat, or interrupt the Bass';
-  if (k === attackName(CADENZA)) return `Cadenza: ${out} or step aside`;
-  if (k === attackName(SHATTER_ARIA))
-    return 'Shatter Aria: Scatter so it catches one, and Ward the one it’s on';
-  if (k === attackName(DOWNBEAT)) return 'Downbeat: Ward or dome the tank';
+  if (k === attackName(LAMENT)) return txt('screens.resultText.lamentChimeItAway');
+  if (k === attackName(BASSO_OSTINATO)) return txt('screens.resultText.bassoOstinatoWardOn');
+  if (k === attackName(CADENZA)) return txt('screens.resultText.cadenzaOrStepAside', { out });
+  if (k === attackName(SHATTER_ARIA)) return txt('screens.resultText.shatterAriaScatterSo');
+  if (k === attackName(DOWNBEAT)) return txt('screens.resultText.downbeatWardOrDome');
   if (k === attackName(SFORZANDO))
-    return `Sforzando: step out of the line, or ${rewinds ? 'Rewind them' : 'Reel them out'}`;
+    return txt('screens.resultText.sforzandoStepOutOf', {
+      value: rewinds ? txt('screens.resultText.rewindThem') : txt('screens.resultText.reelThemOut'),
+    });
   if (FORTISSIMO.some((id) => k === attackName(id)))
-    return 'Fortissimo Silence: Crescendo before Discord fills, or dome, Ward and heal';
-  if (k === attackName(REST)) return 'Rest: Chime it away in its last second, or Ward it';
+    return txt('screens.resultText.fortissimoSilenceCrescendoBefore');
+  if (k === attackName(REST)) return txt('screens.resultText.restChimeItAway');
   if (
     k === attackName(MEASURE) ||
     k === attackName(FINAL_CADENCE) ||
     k === attackName(HALF_CADENCE)
   )
-    return `Only you can answer in the silence: Ward on the beat, or ${rewinds ? 'Rewind the blow' : 'Reel them out'}`;
+    return txt('screens.resultText.onlyYouCanAnswer', {
+      value: rewinds
+        ? txt('screens.resultText.rewindTheBlow')
+        : txt('screens.resultText.reelThemOut'),
+    });
   if (
     [ALTO, BASS, TENOR, SOPRANO].some((id) => k === CONTENT.enemies.find((e) => e.id === id)?.name)
   )
-    return 'The mirror-choir: Focus the voice, or Ward its blows';
+    return txt('screens.resultText.theMirrorChoirFocus');
   // The Conductor's own baton (its basic melee): no telegraph answers it, so the recap names the
   // steady answer.
   if (k === CONTENT.enemies.find((e) => e.id === CONDUCTOR)?.name)
-    return `The Conductor’s baton: keep the tank Warded and Mended, or ${rewinds ? 'Rewind the blow' : 'Reel them out of reach'}`;
+    return txt('screens.resultText.theConductorSBaton', {
+      value: rewinds
+        ? txt('screens.resultText.rewindTheBlow')
+        : txt('screens.resultText.reelThemOutOf'),
+    });
   return null;
 }
 
@@ -306,11 +320,14 @@ export function songLines(s: EncounterStats): StatLine[] {
     verbs
       ? {
           icon: 'note',
-          text: `Your auras ${verbs}: ${pct(split.auraShare)} of everything you did.`,
+          text: txt('screens.resultText.yourAurasOfEverything', {
+            verbs,
+            auraShare: pct(split.auraShare),
+          }),
         }
       : {
           icon: 'note',
-          text: 'Your auras did nothing this time. Sing them where the party is: the beam song on whoever you thread, the field song around you.',
+          text: txt('screens.resultText.yourAurasDidNothing'),
           muted: true,
         },
   );
@@ -320,12 +337,17 @@ export function songLines(s: EncounterStats): StatLine[] {
     icon: 'thread',
     text:
       heal && amp
-        ? `Your beam healed ${fmt(s.threadHealing)} and Empower added ${fmt(s.threadAmplified)} damage.`
+        ? txt('screens.resultText.yourBeamHealedAnd', {
+            threadHealing: fmt(s.threadHealing),
+            threadAmplified: fmt(s.threadAmplified),
+          })
         : heal
-          ? `Your beam healed ${fmt(s.threadHealing)}. Empower added no damage: right-click when everyone is healthy.`
+          ? txt('screens.resultText.yourBeamHealedEmpower', { threadHealing: fmt(s.threadHealing) })
           : amp
-            ? `Empower added ${fmt(s.threadAmplified)} damage. Your beam healed nothing.`
-            : 'Your Thread did no healing or damage. Thread a hero with 1–4 or a click.',
+            ? txt('screens.resultText.empowerAddedDamageYour', {
+                threadAmplified: fmt(s.threadAmplified),
+              })
+            : txt('screens.resultText.yourThreadDidNo'),
     muted: !heal && !amp,
   });
   return lines;
@@ -345,28 +367,52 @@ export function statLines(
     icon: 'ward',
     text:
       s.shielded + s.negated > 0
-        ? `${fmt(s.shielded + s.negated)} damage never landed: ${fmt(s.shielded)} stopped by your shields and auras, and ${fmt(s.negated)} negated by ${s.perfects} Perfect ${plural(s.perfects, 'Ward')}.`
-        : 'No Wards landed. A Ward just before a big hit absorbs it.',
+        ? txt('screens.resultText.damageNeverLandedStopped', {
+            fmt: fmt(s.shielded + s.negated),
+            shielded: fmt(s.shielded),
+            negated: fmt(s.negated),
+            perfects: s.perfects,
+            perfectsWord: plural(s.perfects, 'Ward'),
+          })
+        : txt('screens.resultText.noWardsLandedA'),
     muted: s.shielded + s.negated === 0,
   });
   lines.push({
     icon: 'empower',
     text:
       s.healing + s.amplified > 0
-        ? `In all you healed ${fmt(s.healing)} life${s.overheal > 0 ? ` (${fmt(s.overheal)} more went to heroes already full)` : ''} and added ${fmt(s.amplified)} damage, ${pct(s.partyDamage > 0 ? s.amplified / s.partyDamage : 0)} of everything your party dealt.`
-        : 'You did no healing and added no damage this fight.',
+        ? txt('screens.resultText.inAllYouHealed', {
+            healing: fmt(s.healing),
+            value:
+              s.overheal > 0
+                ? txt('screens.resultText.moreWentToHeroes', { overheal: fmt(s.overheal) })
+                : '',
+            amplified: fmt(s.amplified),
+            pct: pct(s.partyDamage > 0 ? s.amplified / s.partyDamage : 0),
+          })
+        : txt('screens.resultText.youDidNoHealing'),
     muted: s.healing + s.amplified === 0,
   });
   if (s.saves > 0) {
     lines.push({
       icon: 'heart',
-      text: `Saved a hero from a lethal blow ${s.saves} ${plural(s.saves, 'time')}.`,
+      text: txt('screens.resultText.savedAHeroFrom', {
+        saves: s.saves,
+        savesWord: plural(s.saves, 'time'),
+      }),
     });
   }
   if (s.cleanses > 0) {
     lines.push({
       icon: 'chime',
-      text: `Cleansed ${s.cleanses} ${plural(s.cleanses, 'mark')}${s.clutchCleanses > 0 ? `, ${s.clutchCleanses} of them at the last moment` : ''}.`,
+      text: txt('screens.resultText.cleansed', {
+        cleanses: s.cleanses,
+        cleansesWord: plural(s.cleanses, 'mark'),
+        value:
+          s.clutchCleanses > 0
+            ? txt('screens.resultText.ofThemAtThe', { clutchCleanses: s.clutchCleanses })
+            : '',
+      }),
     });
   }
   if (s.reels > 0)
@@ -375,17 +421,33 @@ export function statLines(
       rewindsFor(calling?.id)
         ? {
             icon: 'rewind',
-            text: `Rewind took heroes out of danger ${s.reels} ${plural(s.reels, 'time')}.`,
+            text: txt('screens.resultText.rewindTookHeroesOut', {
+              reels: s.reels,
+              reelsWord: plural(s.reels, 'time'),
+            }),
           }
         : {
             icon: 'reel',
-            text: `Reeled heroes out of danger ${s.reels} ${plural(s.reels, 'time')}.`,
+            text: txt('screens.resultText.reeledHeroesOutOf', {
+              reels: s.reels,
+              reelsWord: plural(s.reels, 'time'),
+            }),
           },
     );
   if (s.cues + s.crescendos > 0) {
     lines.push({
       icon: 'note',
-      text: `Cued ${s.cues} ${plural(s.cues, 'Solo')}${s.crescendos > 0 ? ` and sang ${s.crescendos} ${plural(s.crescendos, 'Crescendo')}` : ''}.`,
+      text: txt('screens.resultText.cued', {
+        cues: s.cues,
+        cuesWord: plural(s.cues, 'Solo'),
+        value:
+          s.crescendos > 0
+            ? txt('screens.resultText.andSang', {
+                crescendos: s.crescendos,
+                crescendosWord: plural(s.crescendos, 'Crescendo'),
+              })
+            : '',
+      }),
     });
   }
   if (s.calls > 0) {
@@ -393,8 +455,16 @@ export function statLines(
       icon: 'call',
       text:
         s.responses > 0
-          ? `Answered ${s.responses} of ${s.calls} ${plural(s.calls, 'call')} for help: ${s.responses} ${plural(s.responses, 'Flourish', 'Flourishes')}.`
-          : `Your party called for help ${s.calls} ${plural(s.calls, 'time')}. Answer with what they ask for and the move becomes a Flourish.`,
+          ? txt('screens.resultText.answeredOfForHelp', {
+              responses: s.responses,
+              calls: s.calls,
+              callsWord: plural(s.calls, 'call'),
+              responsesWord: plural(s.responses, 'Flourish', 'Flourishes'),
+            })
+          : txt('screens.resultText.yourPartyCalledFor', {
+              calls: s.calls,
+              callsWord: plural(s.calls, 'time'),
+            }),
       muted: s.responses === 0,
     });
   }
@@ -402,13 +472,30 @@ export function statLines(
     const healed = r.highlights.filter((h) => h.kind === 'fermata').length;
     lines.push({
       icon: 'fermata',
-      text: `Fermata caught ${s.holds} lethal ${plural(s.holds, 'hit')} and held the hero at 1 life${healed > 0 ? `; you healed ${healed === s.holds ? (s.holds === 1 ? 'them' : 'every one') : healed} through the hold` : ''}.`,
+      text: txt('screens.resultText.fermataCaughtLethalAnd', {
+        holds: s.holds,
+        holdsWord: plural(s.holds, 'hit'),
+        value:
+          healed > 0
+            ? txt('screens.resultText.youHealedThroughThe', {
+                value:
+                  healed === s.holds
+                    ? s.holds === 1
+                      ? 'them'
+                      : txt('screens.resultText.everyOne')
+                    : healed,
+              })
+            : '',
+      }),
     });
   }
   if (s.telegraphsAimed > 0) {
     lines.push({
       icon: 'focus',
-      text: `Answered ${s.telegraphsAnswered} of ${s.telegraphsAimed} enemy attacks aimed at your party.`,
+      text: txt('screens.resultText.answeredOfEnemyAttacks', {
+        telegraphsAnswered: s.telegraphsAnswered,
+        telegraphsAimed: s.telegraphsAimed,
+      }),
     });
   }
   lines.push(...triggerLines(s));

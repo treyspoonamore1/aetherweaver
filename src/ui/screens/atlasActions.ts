@@ -15,6 +15,8 @@
  *   background; resolves when it is under way (progress and the result come back through the
  *   weekly panel's input).
  */
+import { t } from '../text';
+
 export interface AtlasActions {
   beginEcho(echoId: string): boolean;
   beginWeekly(): boolean;
@@ -28,7 +30,7 @@ export const NO_ATLAS_ACTIONS: AtlasActions = {
   beginEcho: () => false,
   beginWeekly: () => false,
   shareWeekly: () => false,
-  addCode: () => 'Adding a code isn’t ready yet.',
+  addCode: () => t('screens.atlasActions.addingACodeIsn'),
   openReplay: () => {},
 };
 

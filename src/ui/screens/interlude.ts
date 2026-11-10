@@ -37,6 +37,7 @@ import { plural } from '../kit/format';
 import { glyphKey, type IconName } from '../kit/iconPaths';
 import { callingTierAt } from './callingText';
 import { choiceText } from './rosterModel';
+import { t } from '../text';
 
 // ── Aether ────────────────────────────────────────────────────────────────────────────
 
@@ -56,12 +57,18 @@ export function aetherLine(
 ): { headline: string; detail: string } | null {
   const base = FIGHT_AETHER[r.kind];
   if (base <= 0) return null;
-  if (r.outcome !== 'victory') return { headline: '+0 Aether', detail: 'A loss pays nothing.' };
+  if (r.outcome !== 'victory')
+    return {
+      headline: t('screens.interlude.n0Aether'),
+      detail: t('screens.interlude.aLossPaysNothing'),
+    };
   const mult = GRADE_AETHER[r.grade];
   return {
     headline: aetherDelta(r.aether),
     detail:
-      mult === 1 ? `${base} for the win` : `${base} for the win × ${mult} for grade ${r.grade}`,
+      mult === 1
+        ? t('screens.interlude.forTheWin', { base })
+        : t('screens.interlude.forTheWinFor', { base, mult, grade: r.grade }),
   };
 }
 
@@ -138,12 +145,23 @@ export function ownedRelicInfo(
 export function relicSentence(r: RelicInfo): string {
   const curse = r.curse
     ? r.cleansed
-      ? ` Its curse is lifted (was: ${r.curse})`
+      ? t('screens.interlude.itsCurseIsLifted', { curse: r.curse })
       : ` Curse: ${r.curse}`
     : '';
   if (r.dormant)
-    return `${r.name}, ${r.rarityLabel.toLowerCase()} relic, dormant: its own effect sleeps (${r.rule}${curse}). It lends the run its Inscriptions.`;
-  return `${r.name}, ${r.rarityLabel.toLowerCase()} relic${r.empowered ? ', Empowered' : ''}. ${r.rule}${curse}`;
+    return t('screens.interlude.relicDormantItsOwn', {
+      name: r.name,
+      rarityLabel: r.rarityLabel.toLowerCase(),
+      rule: r.rule,
+      curse,
+    });
+  return t('screens.interlude.relic', {
+    name: r.name,
+    rarityLabel: r.rarityLabel.toLowerCase(),
+    value: r.empowered ? t('screens.interlude.empowered') : '',
+    rule: r.rule,
+    curse,
+  });
 }
 
 export interface BoonInfo {
@@ -167,7 +185,7 @@ export function boonInfo(active: Pick<ActiveBoon, 'id' | 'fights'>): BoonInfo {
     icon: glyphKey(def),
     kind: def.kind,
     text: boonText(def),
-    left: n === null ? 'The rest of the run' : `${n} ${plural(n, 'fight')} left`,
+    left: n === null ? t('screens.interlude.theRestOfThe') : `${n} ${plural(n, 'fight')} left`,
     short: n === null ? 'run' : `${n} ${plural(n, 'fight')}`,
   };
 }
@@ -175,7 +193,9 @@ export function boonInfo(active: Pick<ActiveBoon, 'id' | 'fights'>): BoonInfo {
 /** How long a boon lasts when gained (event choices, the Codex). */
 export function boonDuration(id: string): string {
   const fights = boonDef(id).fights;
-  return fights === null ? 'for the rest of the run' : `for ${fights} ${plural(fights, 'fight')}`;
+  return fights === null
+    ? t('screens.interlude.forTheRestOf')
+    : `for ${fights} ${plural(fights, 'fight')}`;
 }
 
 // ── The map ───────────────────────────────────────────────────────────────────────────
@@ -193,21 +213,32 @@ export function rewardChips(reward: RewardPreview): RewardChip[] {
   if (reward.aether > 0)
     chips.push({
       icon: 'aether',
-      text: `${aetherDelta(reward.aether)}, more for a good grade`,
+      text: t('screens.interlude.moreForAGood', { aetherDelta: aetherDelta(reward.aether) }),
       tone: 'aether',
     });
   if (reward.relics > 0)
     chips.push({
       icon: 'relic',
-      text: `Choose 1 of ${reward.relics} ${plural(reward.relics, 'relic')}`,
+      text: t('screens.interlude.choose1Of', {
+        relics: reward.relics,
+        relicsWord: plural(reward.relics, 'relic'),
+      }),
       tone: 'relic',
     });
   if (reward.draft) {
     const label = reward.draft === 'common' ? 'Common' : reward.draft === 'rare' ? 'Rare' : 'Epic';
-    chips.push({ icon: 'diamond', text: `${label}+ motif`, tone: reward.draft });
+    chips.push({
+      icon: 'diamond',
+      text: t('screens.interlude.motif', { label }),
+      tone: reward.draft,
+    });
   }
   if (reward.heal > 0)
-    chips.push({ icon: 'heart', text: `+${Math.round(reward.heal * 100)}% life`, tone: 'heal' });
+    chips.push({
+      icon: 'heart',
+      text: t('screens.interlude.life', { round: Math.round(reward.heal * 100) }),
+      tone: 'heal',
+    });
   return chips;
 }
 
@@ -218,7 +249,9 @@ export function rewardChips(reward: RewardPreview): RewardChip[] {
 export function threatLine(threat: number, event = false): string | null {
   const pct = Math.round((threat - 1) * 100);
   if (pct <= 0) return null;
-  return event ? `Threat: any fight here, enemies +${pct}% life` : `Threat: enemies +${pct}% life`;
+  return event
+    ? t('screens.interlude.threatAnyFightHere', { pct })
+    : t('screens.interlude.threatEnemiesLife', { pct });
 }
 
 /** An event node's tooltip: the event's name and teaser (null for other nodes). */
@@ -243,42 +276,90 @@ export interface BossSpoils {
 
 const SPOILS: Readonly<Record<string, BossSpoils>> = {
   bellwarden: {
-    fallen: 'The Bellwarden falls',
-    hoard: 'The Warden’s hoard',
-    gift: 'The Warden’s gift',
-    giftBlurb: 'The great bell is silent. Take something epic.',
+    get fallen() {
+      return t('screens.interlude.theBellwardenFalls');
+    },
+    get hoard() {
+      return t('screens.interlude.theWardenSHoard');
+    },
+    get gift() {
+      return t('screens.interlude.theWardenSGift');
+    },
+    get giftBlurb() {
+      return t('screens.interlude.theGreatBellIs');
+    },
   },
   hollow_cantor: {
-    fallen: 'The Hollow Cantor falls',
-    hoard: 'The Cantor’s hoard',
-    gift: 'The Cantor’s gift',
-    giftBlurb: 'The hollow song is still, and the Spire waits. Take something epic.',
+    get fallen() {
+      return t('screens.interlude.theHollowCantorFalls');
+    },
+    get hoard() {
+      return t('screens.interlude.theCantorSHoard');
+    },
+    get gift() {
+      return t('screens.interlude.theCantorSGift');
+    },
+    get giftBlurb() {
+      return t('screens.interlude.theHollowSongIs');
+    },
   },
   gorehound_matriarch: {
-    fallen: 'The Gorehound Matriarch falls',
-    hoard: 'The Matriarch’s den',
-    gift: 'The Matriarch’s gift',
-    giftBlurb: 'The pack is scattered. Take something epic.',
+    get fallen() {
+      return t('screens.interlude.theGorehoundMatriarchFalls');
+    },
+    get hoard() {
+      return t('screens.interlude.theMatriarchSDen');
+    },
+    get gift() {
+      return t('screens.interlude.theMatriarchSGift');
+    },
+    get giftBlurb() {
+      return t('screens.interlude.thePackIsScattered');
+    },
   },
   // Movement III (docs/phase-5c.md): Vharun now leads on into the Rift; the Seamstress's spools.
   vharun: {
-    fallen: 'Vharun falls',
-    hoard: 'The Warden’s armoury',
-    gift: 'The Warden’s gift',
-    giftBlurb: 'The Spire’s banners burn, and the Rift yawns below. Take something epic.',
+    get fallen() {
+      return t('screens.interlude.vharunFalls');
+    },
+    get hoard() {
+      return t('screens.interlude.theWardenSArmoury');
+    },
+    get gift() {
+      return t('screens.interlude.theWardenSGift');
+    },
+    get giftBlurb() {
+      return t('screens.interlude.theSpireSBanners');
+    },
   },
   the_seamstress: {
-    fallen: 'The Seamstress falls',
-    hoard: 'The Seamstress’s spools',
-    gift: 'The Seamstress’s gift',
-    giftBlurb: 'Her needles lie still, and the Thread holds. Take something epic.',
+    get fallen() {
+      return t('screens.interlude.theSeamstressFalls');
+    },
+    get hoard() {
+      return t('screens.interlude.theSeamstressSSpools');
+    },
+    get gift() {
+      return t('screens.interlude.theSeamstressSGift');
+    },
+    get giftBlurb() {
+      return t('screens.interlude.herNeedlesLieStill');
+    },
   },
   // The Finale (docs/phase-5d.md): the Unweaver leads on to the Celestial Crucible.
   the_unweaver: {
-    fallen: 'The Unweaver falls',
-    hoard: 'The Unweaver’s loom',
-    gift: 'The Unweaver’s gift',
-    giftBlurb: 'The Rift knits shut, and the sky above rings white-gold. Take something epic.',
+    get fallen() {
+      return t('screens.interlude.theUnweaverFalls');
+    },
+    get hoard() {
+      return t('screens.interlude.theUnweaverSLoom');
+    },
+    get gift() {
+      return t('screens.interlude.theUnweaverSGift');
+    },
+    get giftBlurb() {
+      return t('screens.interlude.theRiftKnitsShut');
+    },
   },
 };
 
@@ -290,24 +371,58 @@ export function bossSpoils(sourceEncounter?: string | null): BossSpoils {
   const id = sourceEncounter ?? 'bellwarden';
   const known = SPOILS[id];
   if (known) return known;
-  const name = CONTENT.encounters.some((e) => e.id === id) ? encounterDef(id).name : 'A great foe';
+  const name = CONTENT.encounters.some((e) => e.id === id)
+    ? encounterDef(id).name
+    : t('screens.interlude.aGreatFoe');
   return {
     fallen: `${name} falls`,
-    hoard: 'A great foe’s hoard',
-    gift: 'A great foe’s gift',
-    giftBlurb: `${name} has fallen. Take something epic.`,
+    hoard: t('screens.interlude.aGreatFoeS'),
+    gift: t('screens.interlude.aGreatFoeS2'),
+    giftBlurb: t('screens.interlude.hasFallenTakeSomething', { name }),
   };
 }
 
 const DRAFT_REASON: Record<DraftOffer['reason'], { title: string; blurb: string }> = {
-  victory: { title: 'Spoils of the fight', blurb: 'Choose one motif to weave into your song.' },
-  elite: { title: 'Rare spoils', blurb: 'An elite fell. Its motifs are rarer.' },
-  shrine: { title: 'The shrine offers', blurb: 'A quiet place, and a rare gift.' },
-  meditate: {
-    title: 'Meditation',
-    blurb: 'You sit with the song. Strengthen what you already know.',
+  victory: {
+    get title() {
+      return t('screens.interlude.spoilsOfTheFight');
+    },
+    get blurb() {
+      return t('screens.interlude.chooseOneMotifTo');
+    },
   },
-  boss: { title: 'The Warden’s gift', blurb: 'The great bell is silent. Take something epic.' },
+  elite: {
+    get title() {
+      return t('screens.interlude.rareSpoils');
+    },
+    get blurb() {
+      return t('screens.interlude.anEliteFellIts');
+    },
+  },
+  shrine: {
+    get title() {
+      return t('screens.interlude.theShrineOffers');
+    },
+    get blurb() {
+      return t('screens.interlude.aQuietPlaceAnd');
+    },
+  },
+  meditate: {
+    get title() {
+      return t('screens.interlude.meditation');
+    },
+    get blurb() {
+      return t('screens.interlude.youSitWithThe');
+    },
+  },
+  boss: {
+    get title() {
+      return t('screens.interlude.theWardenSGift');
+    },
+    get blurb() {
+      return t('screens.interlude.theGreatBellIs');
+    },
+  },
 };
 
 /** A draft's title and blurb: a boss's names the foe that left it (its source encounter). */
@@ -325,27 +440,28 @@ export function relicOfferCopy(
   eventName: string | null = null,
 ): { eyebrow: string; title: string; blurb: string } {
   const n = offer.options.length;
-  const choose = n === 1 ? 'Take it, or leave it.' : `Choose 1 of ${n}, or leave them.`;
+  const choose =
+    n === 1 ? t('screens.interlude.takeItOrLeave') : t('screens.interlude.choose1OfOr', { n });
   switch (offer.reason) {
     case 'elite':
       return {
-        eyebrow: 'Spoils of an elite',
-        title: 'A relic for the taking',
-        blurb: `${choose} A relic changes a rule for the rest of the run.`,
+        eyebrow: t('screens.interlude.spoilsOfAnElite'),
+        title: t('screens.interlude.aRelicForThe'),
+        blurb: t('screens.interlude.aRelicChangesA', { choose }),
       };
     case 'boss': {
       const spoils = bossSpoils(offer.sourceEncounter);
       return {
         eyebrow: spoils.fallen,
         title: spoils.hoard,
-        blurb: `${choose} Only rare and legendary relics lie here.`,
+        blurb: t('screens.interlude.onlyRareAndLegendary', { choose }),
       };
     }
     case 'event':
       return {
-        eyebrow: eventName ?? 'An event',
-        title: 'The reliquary opens',
-        blurb: `${choose} You earned it.`,
+        eyebrow: eventName ?? t('screens.interlude.anEvent'),
+        title: t('screens.interlude.theReliquaryOpens'),
+        blurb: t('screens.interlude.youEarnedIt', { choose }),
       };
   }
 }
@@ -362,7 +478,10 @@ export interface ShopItemStatus {
 export function shopItemStatus(run: Pick<RunState, 'aether'>, item: ShopItem): ShopItemStatus {
   if (item.sold) return { available: false, problem: 'Sold' };
   if (run.aether < item.price)
-    return { available: false, problem: `Needs ${item.price - run.aether} more Aether` };
+    return {
+      available: false,
+      problem: t('screens.interlude.needsMoreAether', { value: item.price - run.aether }),
+    };
   return { available: true, problem: null };
 }
 
@@ -370,7 +489,7 @@ export function shopItemStatus(run: Pick<RunState, 'aether'>, item: ShopItem): S
 export function shopItemName(item: ShopItem): string {
   if (item.kind === 'relic') return relicDef(item.id).name;
   if (item.kind === 'motif') return motifDef(item.id).name;
-  return `Healing (${Math.round(item.heal * 100)}%)`;
+  return t('screens.interlude.healing', { round: Math.round(item.heal * 100) });
 }
 
 // ── Forges ────────────────────────────────────────────────────────────────────────────
@@ -382,22 +501,34 @@ export const FORGE_COPY: Record<
   { title: string; icon: IconName; color: string; text: string }
 > = {
   temper: {
-    title: 'Temper',
+    get title() {
+      return t('screens.interlude.temper');
+    },
     icon: 'anvil',
     color: '#fdba74',
-    text: 'One of your motifs gains a level.',
+    get text() {
+      return t('screens.interlude.oneOfYourMotifs');
+    },
   },
   retune: {
-    title: 'Retune',
+    get title() {
+      return t('screens.interlude.retune');
+    },
     icon: 'tune',
     color: '#fcd98a',
-    text: 'Rebuild your songs: auras, ornaments, presets.',
+    get text() {
+      return t('screens.interlude.rebuildYourSongsAuras');
+    },
   },
   cleanse: {
-    title: 'Lift a curse',
+    get title() {
+      return t('screens.interlude.liftACurse');
+    },
     icon: 'sparkle',
     color: '#a5b4fc',
-    text: 'A cursed relic loses its curse and keeps its blessing.',
+    get text() {
+      return t('screens.interlude.aCursedRelicLoses');
+    },
   },
 };
 
@@ -417,22 +548,28 @@ export function forgeServiceStatus(run: RunState, service: ForgeService): ForgeS
   const targets = forgeTargets(run, service);
   const note =
     service === 'temper'
-      ? `${targets.length} ${plural(targets.length, 'motif')} can grow`
+      ? t('screens.interlude.canGrow', {
+          length: targets.length,
+          lengthWord: plural(targets.length, 'motif'),
+        })
       : service === 'cleanse'
-        ? `${targets.length} ${plural(targets.length, 'curse')} to lift`
-        : 'Same rules as Prep';
+        ? t('screens.interlude.toLift', {
+            length: targets.length,
+            lengthWord: plural(targets.length, 'curse'),
+          })
+        : t('screens.interlude.sameRulesAsPrep');
   const used = run.forge?.used ?? null;
   let problem: string | null = null;
-  if (used !== null)
-    problem = used === service ? 'Done' : 'The forge has cooled: one service per visit.';
+  if (used !== null) problem = used === service ? 'Done' : t('screens.interlude.theForgeHasCooled');
   else if (targets.length === 0)
     problem =
       service === 'temper'
         ? run.motifs.length === 0
-          ? 'You have no motifs yet.'
-          : 'Every motif you have is at its last level.'
-        : 'You carry no curse.';
-  else if (run.aether < price) problem = `Needs ${price - run.aether} more Aether`;
+          ? t('screens.interlude.youHaveNoMotifs')
+          : t('screens.interlude.everyMotifYouHave')
+        : t('screens.interlude.youCarryNoCurse');
+  else if (run.aether < price)
+    problem = t('screens.interlude.needsMoreAether', { value: price - run.aether });
   return { price, targets, available: problem === null, problem, note };
 }
 
@@ -531,25 +668,39 @@ export function choiceInfo(
   const retune = hasEffect(choice, 'retune');
   const tags: ChoiceInfo['tags'] = [];
   if (choice.cost > 0)
-    tags.push({ icon: 'aether', text: `Costs ${aetherAmount(choice.cost)}`, tone: 'aether' });
+    tags.push({
+      icon: 'aether',
+      text: t('screens.interlude.costs', { aetherAmount: aetherAmount(choice.cost) }),
+      tone: 'aether',
+    });
   if (odds) tags.push({ icon: 'reroll', text: `${odds.win}% / ${odds.lose}%`, tone: 'risk' });
-  if (fight) tags.push({ icon: 'skull', text: 'An elite fight', tone: 'fight' });
+  if (fight) tags.push({ icon: 'skull', text: t('screens.interlude.anEliteFight'), tone: 'fight' });
   for (const e of choice.effects) {
     if (e.kind === 'relic')
       tags.push({
         icon: 'relic',
-        text: `A ${RARITY_LABEL[e.rarity].toLowerCase()} relic`,
+        text: t('screens.interlude.aRelic', { value: RARITY_LABEL[e.rarity].toLowerCase() }),
         tone: 'relic',
       });
     if (e.kind === 'hurt')
-      tags.push({ icon: 'heart', text: `−${Math.round(e.pct * 100)}% life`, tone: 'risk' });
+      tags.push({
+        icon: 'heart',
+        text: t('screens.interlude.life2', { round: Math.round(e.pct * 100) }),
+        tone: 'risk',
+      });
     if (e.kind === 'heal')
-      tags.push({ icon: 'heart', text: `+${Math.round(e.pct * 100)}% life`, tone: 'plain' });
+      tags.push({
+        icon: 'heart',
+        text: t('screens.interlude.life', { round: Math.round(e.pct * 100) }),
+        tone: 'plain',
+      });
     if (e.kind === 'aether')
       tags.push({ icon: 'aether', text: aetherDelta(e.amount), tone: 'aether' });
   }
-  if (choice.motif !== 'none') tags.push({ icon: 'note', text: 'Choose a motif', tone: 'plain' });
-  if (retune) tags.push({ icon: 'tune', text: 'Opens the song builder', tone: 'plain' });
+  if (choice.motif !== 'none')
+    tags.push({ icon: 'note', text: t('screens.interlude.chooseAMotif'), tone: 'plain' });
+  if (retune)
+    tags.push({ icon: 'tune', text: t('screens.interlude.opensTheSongBuilder'), tone: 'plain' });
   const live = run.event?.eventId === eventId;
   return {
     id: choice.id,
@@ -610,9 +761,14 @@ function lifeLine(
   );
   const full = Math.round(pct * 100);
   if (gains.before.length !== run.party.length || deltas.every((d) => d === full))
-    return `Every hero ${verb} ${full}% of their life.`;
+    return t('screens.interlude.everyHeroOfTheir', { verb, full });
   const each = run.party.map((h, i) => `${heroName(h.heroId)} ${deltas[i]}%`).join(', ');
-  return `The party ${verb} ${verb === 'healed' ? 'up to' : 'at most'} ${full}% of their life: ${each}.`;
+  return t('screens.interlude.thePartyOfTheir', {
+    verb,
+    value: verb === 'healed' ? t('screens.interlude.upTo') : t('screens.interlude.atMost'),
+    full,
+    each,
+  });
 }
 
 function heroName(heroId: string): string {
@@ -622,7 +778,11 @@ function heroName(heroId: string): string {
 export function gainLines(gains: EventGains, run: Pick<RunState, 'chords' | 'party'>): GainLine[] {
   const lines: GainLine[] = [];
   for (const id of gains.relics)
-    lines.push({ icon: 'relic', text: `${relicDef(id).name} is yours.`, tone: 'good' });
+    lines.push({
+      icon: 'relic',
+      text: t('screens.interlude.isYours', { name: relicDef(id).name }),
+      tone: 'good',
+    });
   for (const id of gains.boons) {
     const def = boonDef(id);
     lines.push({
@@ -646,22 +806,27 @@ export function gainLines(gains: EventGains, run: Pick<RunState, 'chords' | 'par
     const def = motifDef(gains.motif.id);
     const from =
       gains.motif.from > 0
-        ? `level ${gains.motif.from} → ${gains.motif.level}`
+        ? t('screens.interlude.level', { from: gains.motif.from, level: gains.motif.level })
         : `level ${gains.motif.level}`;
     lines.push({
       icon: 'note',
-      text: `${def.name} rises, ${from}: ${motifLine(def.id, gains.motif.level)}`,
+      text: t('screens.interlude.rises', {
+        name: def.name,
+        from,
+        motifLine: motifLine(def.id, gains.motif.level),
+      }),
       tone: 'good',
     });
   }
   if (gains.lostMotif)
     lines.push({
       icon: 'close',
-      text: `${motifDef(gains.lostMotif).name} is lost.`,
+      text: t('screens.interlude.isLost', { name: motifDef(gains.lostMotif).name }),
       tone: 'bad',
     });
   if (gains.retuned) lines.push({ icon: 'tune', text: songsLine(run.chords), tone: 'good' });
-  if (lines.length === 0) lines.push({ icon: 'info', text: 'Nothing changed.', tone: 'plain' });
+  if (lines.length === 0)
+    lines.push({ icon: 'info', text: t('screens.interlude.nothingChanged'), tone: 'plain' });
   return lines;
 }
 
@@ -674,7 +839,9 @@ export function songsLine(chords: RunState['chords']): string {
         : '',
     )
     .filter(Boolean);
-  return `Your songs now: ${parts.length ? parts.join(' · ') : 'silence'}.`;
+  return t('screens.interlude.yourSongsNow', {
+    value: parts.length ? parts.join(' · ') : 'silence',
+  });
 }
 
 /** The event node the run is at (for headers after its fight). */
@@ -691,9 +858,9 @@ export function nextStep(run: RunState): string {
   const node = run.pending ? findNode(run, run.pending) : undefined;
   // The run's last boss ends it; an Expedition's Cantor leads on (docs/phase-5a.md).
   if (!node || isFinalNode(node)) return 'Continue';
-  if (callingTierAt(run, node) !== null) return 'Continue: your Calling grows';
+  if (callingTierAt(run, node) !== null) return t('screens.interlude.continueYourCallingGrows');
   const relics = node.kind === 'event' ? (run.event?.relics ?? 0) : node.reward.relics;
-  if (relics > 0) return `Continue: choose a relic`;
-  if (node.reward.draft) return 'Continue: choose a motif';
+  if (relics > 0) return t('screens.interlude.continueChooseARelic');
+  if (node.reward.draft) return t('screens.interlude.continueChooseAMotif');
   return 'Continue';
 }

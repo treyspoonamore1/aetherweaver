@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import type { RelicRarity } from '../../content';
 import { Icon } from './Icon';
 import { FILL_GLYPHS } from './iconPaths';
+import { t } from '../text';
 
 /**
  * Line-art glyphs for relics, boons and events (Phase 3b), keyed by content `icon`. Same
@@ -29,7 +30,9 @@ export const GLYPHS: Readonly<Record<string, string>> = {
   score: 'M5.5 3.5h13v17h-13z M8 7.5h8 M8 10.5h8 M8 13.5h8 M8 16.5h4.5',
   halo: 'M12 5.5c4.7 0 8.5 1.6 8.5 3.5s-3.8 3.5-8.5 3.5S3.5 10.9 3.5 9 7.3 5.5 12 5.5z M12.8 5.6l-1.2 2.1 1.6 1.4-1 2.1 M8.5 15.5l-1.5 3.5 M15.5 15.5l1.5 3.5 M12 15.5v4.5',
   // Boons and banes
-  note: 'M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z',
+  get note() {
+    return t('common.relicGlyph.m9175v6l102v11');
+  },
   frayed:
     'M3.5 12h8.5 M12 12l3.2-3.4 M12 12l4.4.4 M12 12l3 3.6 M16.6 6.8l2.2-1.6 M18.2 12.6h2.4 M16.7 17.2l2 1.7',
   // Events
@@ -71,14 +74,47 @@ export function glyphPath(icon: string): string {
 export const RELIC_RARITY: Readonly<
   Record<RelicRarity, { label: string; color: string; pips: number; glow: boolean }>
 > = {
-  common: { label: 'Common', color: '#cbd5e1', pips: 1, glow: false },
-  rare: { label: 'Rare', color: '#60a5fa', pips: 2, glow: false },
-  legendary: { label: 'Legendary', color: '#fdba74', pips: 3, glow: true },
-  cursed: { label: 'Cursed', color: '#fb7185', pips: 0, glow: false },
+  common: {
+    get label() {
+      return t('common.relicGlyph.common');
+    },
+    color: '#cbd5e1',
+    pips: 1,
+    glow: false,
+  },
+  rare: {
+    get label() {
+      return t('common.relicGlyph.rare');
+    },
+    color: '#60a5fa',
+    pips: 2,
+    glow: false,
+  },
+  legendary: {
+    get label() {
+      return t('common.relicGlyph.legendary');
+    },
+    color: '#fdba74',
+    pips: 3,
+    glow: true,
+  },
+  cursed: {
+    get label() {
+      return t('common.relicGlyph.cursed');
+    },
+    color: '#fb7185',
+    pips: 0,
+    glow: false,
+  },
 };
 
 /** A cursed relic whose curse a forge lifted: calm, still marked as once-cursed. */
-export const CLEANSED = { label: 'Cleansed', color: '#a5b4fc' } as const;
+export const CLEANSED = {
+  get label() {
+    return t('common.relicGlyph.cleansed');
+  },
+  color: '#a5b4fc',
+} as const;
 
 /** The colour a relic is drawn in (a cleansed curse is tamed). */
 export function relicColor(rarity: RelicRarity, cleansed = false): string {
@@ -204,7 +240,7 @@ export function RelicRarityChip({
           ))
         )}
       </span>
-      {rarity === 'cursed' && cleansed ? 'Cursed · cleansed' : r.label}
+      {rarity === 'cursed' && cleansed ? t('common.relicGlyph.cursedCleansed') : r.label}
     </span>
   );
 }

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from './Icon';
+import { t } from '../text';
 
 /** A small label with an optional glyph, tinted by `color` (border and text). */
 export function Chip({
@@ -32,9 +33,27 @@ export function Chip({
 }
 
 export const RARITY = {
-  common: { label: 'Common', color: 'var(--color-common)', pips: 1 },
-  rare: { label: 'Rare', color: 'var(--color-rare)', pips: 2 },
-  epic: { label: 'Epic', color: 'var(--color-epic)', pips: 3 },
+  common: {
+    get label() {
+      return t('common.chip.common');
+    },
+    color: 'var(--color-common)',
+    pips: 1,
+  },
+  rare: {
+    get label() {
+      return t('common.chip.rare');
+    },
+    color: 'var(--color-rare)',
+    pips: 2,
+  },
+  epic: {
+    get label() {
+      return t('common.chip.epic');
+    },
+    color: 'var(--color-epic)',
+    pips: 3,
+  },
 } as const;
 
 /** Rarity: colour, a label and 1–3 diamonds. */
@@ -53,11 +72,56 @@ export function RarityChip({ rarity }: { rarity: keyof typeof RARITY }) {
 }
 
 export const CATEGORY = {
-  silk: { label: 'Silk', blurb: 'The Thread', icon: 'thread', color: '#5eead4' },
-  aegis: { label: 'Aegis', blurb: 'Techniques', icon: 'ward', color: '#7dd3fc' },
-  choir: { label: 'Choir', blurb: 'Auras', icon: 'note', color: '#fcd34d' },
-  bond: { label: 'Bond', blurb: 'Heroes', icon: 'link', color: '#f9a8d4' },
-  finale: { label: 'Finale', blurb: 'Resonance', icon: 'sparkle', color: '#c4b5fd' },
+  silk: {
+    get label() {
+      return t('common.chip.silk');
+    },
+    get blurb() {
+      return t('common.chip.theThread');
+    },
+    icon: 'thread',
+    color: '#5eead4',
+  },
+  aegis: {
+    get label() {
+      return t('common.chip.aegis');
+    },
+    get blurb() {
+      return t('common.chip.techniques');
+    },
+    icon: 'ward',
+    color: '#7dd3fc',
+  },
+  choir: {
+    get label() {
+      return t('common.chip.choir');
+    },
+    get blurb() {
+      return t('common.chip.auras');
+    },
+    icon: 'note',
+    color: '#fcd34d',
+  },
+  bond: {
+    get label() {
+      return t('common.chip.bond');
+    },
+    get blurb() {
+      return t('common.chip.heroes');
+    },
+    icon: 'link',
+    color: '#f9a8d4',
+  },
+  finale: {
+    get label() {
+      return t('common.chip.finale');
+    },
+    get blurb() {
+      return t('common.chip.resonance');
+    },
+    icon: 'sparkle',
+    color: '#c4b5fd',
+  },
 } as const satisfies Record<
   string,
   { label: string; blurb: string; icon: IconName; color: string }

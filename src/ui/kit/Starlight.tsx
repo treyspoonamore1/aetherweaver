@@ -1,6 +1,7 @@
 import { fmt } from './format';
 import { Icon } from './Icon';
 import { STARLIGHT_LOOK } from './loomLook';
+import { t } from '../text';
 
 const tint = (pct: number) => `color-mix(in srgb, ${STARLIGHT_LOOK.color} ${pct}%, transparent)`;
 
@@ -23,14 +24,14 @@ export function StarlightChip({
     <span
       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border font-mono font-semibold ${size === 'lg' ? 'px-3 py-1.5 text-base' : 'px-2.5 py-1 text-sm'} ${className}`}
       style={{ color: STARLIGHT_LOOK.color, borderColor: tint(45), background: tint(10) }}
-      aria-label={`${fmt(amount)} Starlight`}
+      aria-label={t('common.starlight.starlight2', { amount: fmt(amount) })}
       data-testid={testId}
       data-amount={amount}
     >
       <Icon name="starlight" size={size === 'lg' ? 18 : 16} solid aria-hidden />
       <span aria-hidden>{fmt(amount)}</span>
       <span className="font-sans text-xs font-medium text-muted" aria-hidden>
-        Starlight
+        {t('common.starlight.starlight')}
       </span>
     </span>
   );

@@ -29,6 +29,7 @@ import type {
 import { canonicalChords, chordReserve } from '../../sim';
 import { fmt } from '../kit/format';
 import type { IconName } from '../kit/iconPaths';
+import { t as txt } from '../text';
 
 // ── Axes ──────────────────────────────────────────────────────────────────────────────
 
@@ -100,56 +101,92 @@ export const AXIS_LOOK: Readonly<
   Record<CallingAxis, { label: string; blurb: string; icon: IconName; color: string }>
 > = {
   protect: {
-    label: 'Protect',
-    blurb: 'Keeps your heroes standing',
+    get label() {
+      return txt('screens.callingText.protect');
+    },
+    get blurb() {
+      return txt('screens.callingText.keepsYourHeroesStanding');
+    },
     icon: 'ward',
     color: 'var(--color-shield)',
   },
   reach: {
-    label: 'Reach and number',
-    blurb: 'More song, farther',
+    get label() {
+      return txt('screens.callingText.reachAndNumber');
+    },
+    get blurb() {
+      return txt('screens.callingText.moreSongFarther');
+    },
     icon: 'scatter',
     color: '#93c5fd',
   },
   radiance: {
-    label: 'Radiance',
-    blurb: 'Your heroes shine brighter',
+    get label() {
+      return txt('screens.callingText.radiance');
+    },
+    get blurb() {
+      return txt('screens.callingText.yourHeroesShineBrighter');
+    },
     icon: 'sun',
     color: '#ffc98f',
   },
   endure: {
-    label: 'Endure',
-    blurb: 'You take it, and you stand',
+    get label() {
+      return txt('screens.callingText.endure');
+    },
+    get blurb() {
+      return txt('screens.callingText.youTakeItAnd');
+    },
     icon: 'heart',
     color: '#fcd5b5',
   },
   share: {
-    label: 'Share the pain',
-    blurb: 'More of their wounds become yours',
+    get label() {
+      return txt('screens.callingText.shareThePain');
+    },
+    get blurb() {
+      return txt('screens.callingText.moreOfTheirWounds');
+    },
     icon: 'bear',
     color: '#f9a8d4',
   },
   lowlife: {
-    label: 'Live at low Life',
-    blurb: 'Stronger the closer you are to falling',
+    get label() {
+      return txt('screens.callingText.liveAtLowLife');
+    },
+    get blurb() {
+      return txt('screens.callingText.strongerTheCloserYou');
+    },
     icon: 'drop',
     color: '#ff6b6b',
   },
   foresee: {
-    label: 'See it coming',
-    blurb: 'Know what comes, and when',
+    get label() {
+      return txt('screens.callingText.seeItComing');
+    },
+    get blurb() {
+      return txt('screens.callingText.knowWhatComesAnd');
+    },
     icon: 'eye',
     color: '#b8d3f2',
   },
   turns: {
-    label: 'More turns',
-    blurb: 'Your techniques come back sooner',
+    get label() {
+      return txt('screens.callingText.moreTurns');
+    },
+    get blurb() {
+      return txt('screens.callingText.yourTechniquesComeBack');
+    },
     icon: 'clock',
     color: '#e3c27e',
   },
   undo: {
-    label: 'Undo it',
-    blurb: 'Take back what just happened',
+    get label() {
+      return txt('screens.callingText.undoIt');
+    },
+    get blurb() {
+      return txt('screens.callingText.takeBackWhatJust');
+    },
     icon: 'rewind',
     // A deeper violet than a pale lilac: it stays apart from the ice of "See it coming" for
     // red-green colour vision (ΔE ≥ 25 between all three of his axes, in every mode).
@@ -158,20 +195,32 @@ export const AXIS_LOOK: Readonly<
   // The Conductor's three (docs/phase-5f.md): his ivory, an ink-blue and a rose, ΔE ≥ 25 from one
   // another in every colour-vision mode, each with its glyph.
   lead: {
-    label: 'Lead them',
-    blurb: 'Your heroes hit harder',
+    get label() {
+      return txt('screens.callingText.leadThem');
+    },
+    get blurb() {
+      return txt('screens.callingText.yourHeroesHitHarder');
+    },
     icon: 'swords',
     color: '#f4eedd',
   },
   tempo: {
-    label: 'In time',
-    blurb: 'The beat and the meter',
+    get label() {
+      return txt('screens.callingText.inTime');
+    },
+    get blurb() {
+      return txt('screens.callingText.theBeatAndThe');
+    },
     icon: 'clock',
     color: '#7c8cf8',
   },
   encore: {
-    label: 'More Solos',
-    blurb: 'Solos come round sooner',
+    get label() {
+      return txt('screens.callingText.moreSolos');
+    },
+    get blurb() {
+      return txt('screens.callingText.solosComeRoundSooner');
+    },
     icon: 'note',
     color: '#d4789c',
   },
@@ -217,13 +266,19 @@ export function crescendoLine(def: CallingDef): { name: string; rest: string; le
 /** What the Calling always gives, for the tier screen's reminder ("Always yours · Radiance"). */
 export const PASSIVE_NAME: Readonly<Record<string, string>> = {
   luminary: 'Radiance',
-  martyr: 'Bear, and songs sung with your Life',
-  chronomancer: 'Rewind, telegraph timers and a wider Perfect window',
-  conductor: 'Cheap Cues, Duets and Trios',
+  get martyr() {
+    return txt('screens.callingText.bearAndSongsSung');
+  },
+  get chronomancer() {
+    return txt('screens.callingText.rewindTelegraphTimersAnd');
+  },
+  get conductor() {
+    return txt('screens.callingText.cheapCuesDuetsAnd');
+  },
 };
 
 export function passiveName(id: string): string {
-  return PASSIVE_NAME[id] ?? 'the passive';
+  return PASSIVE_NAME[id] ?? txt('screens.callingText.thePassive');
 }
 
 /** Does this Calling's songs reserve Life instead of Spirit (the Martyr)? */
@@ -260,7 +315,7 @@ export function reviveSpentLine(
   calling: Pick<RunCalling, 'id' | 'reviveSpent'> | null,
 ): string | null {
   return calling && rewindsFor(calling.id) && calling.reviveSpent
-    ? 'Rewind has stood a hero back up this run: its revive is spent until your next run.'
+    ? txt('screens.callingText.rewindHasStoodA')
     : null;
 }
 
@@ -333,14 +388,14 @@ function inSentence(name: string): string {
 export function tierWhen(tier: number, at?: TierPlace): string {
   const place = tierPlace(at);
   const row = place.rows[tier];
-  if (row === undefined) return 'later in the run';
+  if (row === undefined) return txt('screens.callingText.laterInTheRun');
   const rows = place.map.rows;
   const nodes = rows[row] ?? [];
   const fights = nodes.filter((n) => n.encounterId && n.kind !== 'event');
   const encounters = [...new Set(fights.map((n) => n.encounterId!))];
   if (fights.length > 0 && fights.length === nodes.length && encounters.length === 1)
     return `after ${inSentence(encounterDef(encounters[0]!).name)}`;
-  return `after your fight at step ${stepInMovement(rows, row)}`;
+  return txt('screens.callingText.afterYourFightAt', { stepInMovement: stepInMovement(rows, row) });
 }
 
 /**
@@ -361,9 +416,15 @@ export function tierWhenList(tiers: number, map?: TierPlace): string {
   const items: string[] = [];
   let steps: string[] = [];
   const flush = () => {
-    if (steps.length === 1) items.push(`your fight at step ${steps[0]}`);
+    if (steps.length === 1)
+      items.push(txt('screens.callingText.yourFightAtStep', { value: steps[0] }));
     else if (steps.length > 1)
-      items.push(`your fights at steps ${steps.slice(0, -1).join(', ')} and ${steps.at(-1)}`);
+      items.push(
+        txt('screens.callingText.yourFightsAtSteps', {
+          steps: steps.slice(0, -1).join(', '),
+          at: steps.at(-1),
+        }),
+      );
     steps = [];
   };
   for (let t = 0; t < tiers; t++) {
@@ -379,7 +440,7 @@ export function tierWhenList(tiers: number, map?: TierPlace): string {
   const list =
     items.length <= 2
       ? items.join(' and ')
-      : `${items.slice(0, -1).join(', ')}, and ${items.at(-1)}`;
+      : txt('screens.callingText.and', { items: items.slice(0, -1).join(', '), at: items.at(-1) });
   return `after ${list}`;
 }
 
@@ -476,15 +537,19 @@ export function pathTipLines(calling: RunCalling, map?: TierPlace): PathTipLine[
       : s.state === 'locked'
         ? {
             numeral: s.numeral,
-            title: `Locked: ${name} mastery ${s.mastery}`,
-            text: `Not this run: ${s.options.map((o) => o.name).join(' or ')}, once its mastery opens it.`,
+            title: txt('screens.callingText.lockedMastery', { name, mastery: s.mastery }),
+            text: txt('screens.callingText.notThisRunOnce', {
+              options: s.options.map((o) => o.name).join(' or '),
+            }),
             chosen: false,
             icon: null,
           }
         : {
             numeral: s.numeral,
             title: tierWhenLabel(s.tier, map),
-            text: `Choose ${s.options.map((o) => o.name).join(' or ')}.`,
+            text: txt('screens.callingText.choose', {
+              options: s.options.map((o) => o.name).join(' or '),
+            }),
             chosen: false,
             icon: null,
           },
@@ -505,10 +570,23 @@ export function pathLabel(calling: RunCalling, map?: TierPlace): string {
   const shut =
     locked.length === 0
       ? ''
-      : ` ${one ? 'Tier' : 'Tiers'} ${spanOf(locked.map((s) => s.numeral))} ${one ? 'is' : 'are'} locked: ${one ? 'it opens' : 'they open'} with mastery ${spanOf(locked.map((s) => String(s.mastery)))}.`;
-  return `The ${def.name}: ${taken.length ? taken.join(', ') : 'no path chosen yet'}.${
-    next ? ` Next pick ${next.when}.` : locked.length > 0 ? '' : ' The path is complete.'
-  }${shut}`;
+      : txt('screens.callingText.lockedWithMastery', {
+          value: one ? 'Tier' : 'Tiers',
+          spanOf: spanOf(locked.map((s) => s.numeral)),
+          value2: one ? 'is' : 'are',
+          value3: one ? txt('screens.callingText.itOpens') : txt('screens.callingText.theyOpen'),
+          spanOf2: spanOf(locked.map((s) => String(s.mastery))),
+        });
+  return txt('screens.callingText.the', {
+    name: def.name,
+    value: taken.length ? taken.join(', ') : txt('screens.callingText.noPathChosenYet'),
+    value2: next
+      ? txt('screens.callingText.nextPick', { when: next.when })
+      : locked.length > 0
+        ? ''
+        : txt('screens.callingText.thePathIsComplete'),
+    shut,
+  });
 }
 
 /** "I", "I and II", "I, II and III". */
@@ -588,8 +666,11 @@ export function milestoneLine(
   if (tier === null || !run.calling) return null;
   const options = callingDef(run.calling.id).tiers[tier]!.options;
   return {
-    title: 'Your Calling grows after this fight',
-    text: `Tier ${numeral(tier)}: ${options.map((o) => o.name).join(' or ')}.`,
+    title: txt('screens.callingText.yourCallingGrowsAfter'),
+    text: txt('screens.callingText.tier', {
+      numeral: numeral(tier),
+      options: options.map((o) => o.name).join(' or '),
+    }),
   };
 }
 
@@ -644,46 +725,58 @@ function conductingParts(stats: CallingStats): CallingPart[] {
   const finale = crescendoName(conductorDef());
   if (stats.callingAmplified >= 1)
     parts.push({
-      label: 'Led',
+      label: txt('screens.callingText.led'),
       amount: stats.callingAmplified,
-      text: `+${fmt(stats.callingAmplified)} damage through your heroes`,
+      text: txt('screens.callingText.damageThroughYourHeroes', {
+        callingAmplified: fmt(stats.callingAmplified),
+      }),
       figure: `+${fmt(stats.callingAmplified)}`,
-      caption: 'damage your Duets, Trios and path added',
+      caption: txt('screens.callingText.damageYourDuetsTrios'),
     });
   if (!c) return parts;
   const count = (n: number, one: string, many: string) => `${fmt(n)} ${n === 1 ? one : many}`;
   if (c.duets >= 1)
     parts.push({
-      label: 'Duets',
+      label: txt('screens.callingText.duets'),
       amount: c.duets,
       text: count(c.duets, 'Duet', 'Duets'),
       figure: fmt(c.duets),
-      caption: c.duets === 1 ? 'Duet' : 'Duets',
+      caption: c.duets === 1 ? txt('screens.callingText.duet') : txt('screens.callingText.duets'),
     });
   if (c.trios >= 1)
     parts.push({
-      label: 'Trios',
+      label: txt('screens.callingText.trios'),
       amount: c.trios,
       text: count(c.trios, 'Trio', 'Trios'),
       figure: fmt(c.trios),
-      caption: c.trios === 1 ? 'Trio' : 'Trios',
+      caption: c.trios === 1 ? txt('screens.callingText.trio') : txt('screens.callingText.trios'),
     });
   if (c.finaleSolos >= 1)
     parts.push({
       label: finale,
       amount: c.finaleSolos,
-      text: `${finale} played ${count(c.finaleSolos, 'Solo', 'Solos')}`,
+      text: txt('screens.callingText.played', {
+        finale,
+        count: count(c.finaleSolos, 'Solo', 'Solos'),
+      }),
       figure: fmt(c.finaleSolos),
-      caption: `Solos ${finale} played`,
+      caption: txt('screens.callingText.solosPlayed', { finale }),
     });
   // Cues that cost nothing on the downbeat (A Tempo; the sim counts only those that cost 0).
   if (c.freeCues >= 1)
     parts.push({
-      label: 'Free Cues',
+      label: txt('screens.callingText.freeCues'),
       amount: c.freeCues,
-      text: count(c.freeCues, 'free Cue', 'free Cues'),
+      text: count(
+        c.freeCues,
+        txt('screens.callingText.freeCue'),
+        txt('screens.callingText.freeCues2'),
+      ),
       figure: fmt(c.freeCues),
-      caption: c.freeCues === 1 ? 'free Cue' : 'free Cues',
+      caption:
+        c.freeCues === 1
+          ? txt('screens.callingText.freeCue')
+          : txt('screens.callingText.freeCues2'),
     });
   return parts;
 }
@@ -700,7 +793,10 @@ export function conductingTip(
   if (!def || !conductsFor(callingId)) return null;
   const c = stats.conducting;
   if (c && c.duets + c.trios > 0) return null;
-  return `No Duet this run: Cue a second hero within ${def.values.chain ?? 0} s of the first, and their Solo plays ${def.values.duet ?? 0}% stronger.`;
+  return txt('screens.callingText.noDuetThisRun', {
+    value: def.values.chain ?? 0,
+    value2: def.values.duet ?? 0,
+  });
 }
 
 /**
@@ -724,20 +820,26 @@ export function callingParts(
     const revived = stats.callingRevived ?? 0;
     if (rewound >= 1)
       parts.push({
-        label: 'Rewound',
+        label: txt('screens.callingText.rewound'),
         amount: rewound,
-        text: `${REWIND_NAME} gave back ${fmt(rewound)} life`,
+        text: txt('screens.callingText.gaveBackLife', { REWIND_NAME, rewound: fmt(rewound) }),
         figure: fmt(rewound),
-        caption: `life ${REWIND_NAME} gave back to your heroes`,
+        caption: txt('screens.callingText.lifeGaveBackTo', { REWIND_NAME }),
       });
     if (revived >= 1) {
       const heroes = `${fmt(revived)} ${revived === 1 ? 'hero' : 'heroes'}`;
       parts.push({
-        label: 'Stood back up',
+        label: txt('screens.callingText.stoodBackUp'),
         amount: revived,
-        text: `${parts.length > 0 ? 'stood' : `${REWIND_NAME} stood`} ${heroes} back up`,
+        text: txt('screens.callingText.backUp', {
+          value: parts.length > 0 ? 'stood' : `${REWIND_NAME} stood`,
+          heroes,
+        }),
         figure: fmt(revived),
-        caption: `${revived === 1 ? 'hero' : 'heroes'} ${REWIND_NAME} stood back up`,
+        caption: txt('screens.callingText.stoodBackUp2', {
+          value: revived === 1 ? 'hero' : 'heroes',
+          REWIND_NAME,
+        }),
       });
     }
     return parts;
@@ -746,39 +848,48 @@ export function callingParts(
     const borne = stats.callingBorne ?? 0;
     if (borne >= 1)
       parts.push({
-        label: 'Borne',
+        label: txt('screens.callingText.borne'),
         amount: borne,
-        text: `Bore ${fmt(borne)} for your heroes`,
+        text: txt('screens.callingText.boreForYourHeroes', { borne: fmt(borne) }),
         figure: fmt(borne),
-        caption: 'damage you bore for your heroes',
+        caption: txt('screens.callingText.damageYouBoreFor'),
       });
     if (stats.callingShielded >= 1)
       parts.push({
-        label: 'Kept off',
+        label: txt('screens.callingText.keptOff'),
         amount: stats.callingShielded,
-        text: `${fmt(stats.callingShielded)} kept off them`,
+        text: txt('screens.callingText.keptOffThem', {
+          callingShielded: fmt(stats.callingShielded),
+        }),
         figure: fmt(stats.callingShielded),
-        caption: 'life kept off your heroes',
+        caption: txt('screens.callingText.lifeKeptOffYour'),
       });
     return parts;
   }
   if (stats.callingAmplified >= 1) {
-    const label = path.includes('eclipse') ? 'Radiance and Eclipse' : 'Radiance';
+    const label = path.includes('eclipse')
+      ? txt('screens.callingText.radianceAndEclipse')
+      : 'Radiance';
     parts.push({
       label,
       amount: stats.callingAmplified,
-      text: `${label}: +${fmt(stats.callingAmplified)} damage through your heroes`,
+      text: txt('screens.callingText.damageThroughYourHeroes2', {
+        label,
+        callingAmplified: fmt(stats.callingAmplified),
+      }),
       figure: `+${fmt(stats.callingAmplified)}`,
-      caption: `damage through your heroes (${label})`,
+      caption: txt('screens.callingText.damageThroughYourHeroes3', { label }),
     });
   }
   if (stats.callingShielded >= 1)
     parts.push({
-      label: 'Haloed',
+      label: txt('screens.callingText.haloed'),
       amount: stats.callingShielded,
-      text: `Haloed: ${fmt(stats.callingShielded)} damage kept off`,
+      text: txt('screens.callingText.haloedDamageKeptOff', {
+        callingShielded: fmt(stats.callingShielded),
+      }),
       figure: fmt(stats.callingShielded),
-      caption: 'damage Haloed kept off',
+      caption: txt('screens.callingText.damageHaloedKeptOff'),
     });
   return parts;
 }
@@ -802,12 +913,17 @@ export function callingResultLine(
  */
 export function callingNothingText(id: string, bearKey = 'B', rewindKey = 'F'): string {
   if (conductsFor(id))
-    return `Your Calling added nothing this run: Cue a second hero within ${conductorDef()!.values.chain ?? 0} s of the first for a Duet, and a third for a Trio.`;
+    return txt('screens.callingText.yourCallingAddedNothing', {
+      value: conductorDef()!.values.chain ?? 0,
+    });
   if (rewindsFor(id))
-    return `Rewind gave nothing back this run: when a hero takes a big hit or falls, press ${rewindKey} within ${rewindSeconds(id)} s to send them back.`;
+    return txt('screens.callingText.rewindGaveNothingBack', {
+      rewindKey,
+      rewindSeconds: rewindSeconds(id),
+    });
   return id === 'martyr'
-    ? `You bore nothing this run: thread a hero and press ${bearKey} to Bear when a big hit is coming at them.`
-    : 'Radiance added nothing this run: bring your heroes into your field, and give them auras to hear.';
+    ? txt('screens.callingText.youBoreNothingThis', { bearKey })
+    : txt('screens.callingText.radianceAddedNothingThis');
 }
 
 // ── Living at low Life (the Martyr) ───────────────────────────────────────────────────
@@ -856,8 +972,12 @@ export function belowNote(
     held,
     always,
     text: always
-      ? `Your songs hold ${heldPct}% of your Life, so you fight below ${below}% from the start: ${option.name} is on all the time.`
-      : `Your songs hold ${heldPct}% of your Life: ${option.name} wakes after you lose ${Math.round((top - below / 100) * 100)}% of it.`,
+      ? txt('screens.callingText.yourSongsHoldOf', { heldPct, below, name: option.name })
+      : txt('screens.callingText.yourSongsHoldOf2', {
+          heldPct,
+          name: option.name,
+          round: Math.round((top - below / 100) * 100),
+        }),
   };
 }
 

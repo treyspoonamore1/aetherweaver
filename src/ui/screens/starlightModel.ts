@@ -13,32 +13,44 @@ import type { EncounterResult, RunState } from '../../meta/types';
 import { fmt } from '../kit/format';
 import { endsRun } from './rankText';
 import { movementInSentence } from './routeText';
+import { t } from '../text';
 
 const S = () => CONTENT.starlight;
 
 /** "a skirmish", "an elite", "a mini-boss", "the boss". */
 const KIND: Record<string, string> = {
-  skirmish: 'a skirmish',
-  elite: 'an elite',
-  miniboss: 'a mini-boss',
-  boss: 'the boss',
+  get skirmish() {
+    return t('screens.starlightModel.aSkirmish');
+  },
+  get elite() {
+    return t('screens.starlightModel.anElite');
+  },
+  get miniboss() {
+    return t('screens.starlightModel.aMiniBoss');
+  },
+  get boss() {
+    return t('screens.starlightModel.theBoss');
+  },
 };
 
 /** "+6 Starlight". */
 export function starlightHeadline(amount: number): string {
-  return `+${fmt(amount)} Starlight`;
+  return t('screens.starlightModel.starlight', { amount: fmt(amount) });
 }
 
 /** "126 to spend" (the profile's balance). */
 export function balanceText(balance: number): string {
-  return `${fmt(balance)} to spend`;
+  return t('screens.starlightModel.toSpend', { balance: fmt(balance) });
 }
 
 /** "Dissonance 12 · ×1.24" (the multiplier fights' Starlight is paid at), or null without it. */
 export function dissonanceLine(dissonance: readonly DissonanceChoice[]): string | null {
   const points = dissonancePoints(dissonance);
   if (points <= 0) return null;
-  return `Dissonance ${points} · ×${Math.round(xpMult(points) * 100) / 100}`;
+  return t('screens.starlightModel.dissonance', {
+    points,
+    value: Math.round(xpMult(points) * 100) / 100,
+  });
 }
 
 /**
@@ -58,19 +70,36 @@ export function fightStarlight(
     return {
       amount,
       headline: starlightHeadline(amount),
-      detail: 'A loss pays nothing; what the run earned before stays yours.',
+      detail: t('screens.starlightModel.aLossPaysNothing'),
     };
   // A win always pays: none means the fight was won before Starlight was (a save from before).
   if (amount === 0 && base > 0)
-    return { amount, headline: starlightHeadline(0), detail: 'Won before Starlight was paid.' };
-  const parts = [`${base} for ${KIND[r.kind] ?? 'a fight'} won`];
+    return {
+      amount,
+      headline: starlightHeadline(0),
+      detail: t('screens.starlightModel.wonBeforeStarlightWas'),
+    };
+  const parts = [
+    t('screens.starlightModel.forWon', {
+      base,
+      value: KIND[r.kind] ?? t('screens.starlightModel.aFight'),
+    }),
+  ];
   const pay = base + (endsRun(r) ? S().winBonus : 0);
-  if (endsRun(r)) parts.push(`${S().winBonus} for winning the run`);
+  if (endsRun(r))
+    parts.push(t('screens.starlightModel.forWinningTheRun', { winBonus: S().winBonus }));
   // Phase 5a: a later Movement's fights pay more (Movement II ×1.25), so the lines add up.
   const movement = r.movement ?? 1;
   const mult = movementRewards(movement).starlight;
   const raised = Math.round(pay * mult) - pay;
-  if (raised > 0) parts.push(`${raised} for ${movementInSentence(movement)} · ×${mult}`);
+  if (raised > 0)
+    parts.push(
+      t('screens.starlightModel.for', {
+        raised,
+        movementInSentence: movementInSentence(movement),
+        mult,
+      }),
+    );
   const d = dissonanceLine(dissonance);
   return {
     amount,
@@ -87,12 +116,12 @@ export function starlightUse(rank: number, all = false, short = false): string {
   const open = all || rank >= S().atelierRank;
   if (short)
     return open
-      ? 'Spend it in the Loom’s Atelier.'
-      : `Saved for the Loom’s Atelier, open from Weaver Rank ${S().atelierRank}.`;
-  const wares = 'technique variants, robes, Thread looks and titles';
+      ? t('screens.starlightModel.spendItInThe')
+      : t('screens.starlightModel.savedForTheLoom', { atelierRank: S().atelierRank });
+  const wares = t('screens.starlightModel.techniqueVariantsRobesThread');
   return open
-    ? `Spend it in the Loom’s Atelier: ${wares}.`
-    : `It keeps until the Loom’s Atelier opens at Weaver Rank ${S().atelierRank}: ${wares}.`;
+    ? t('screens.starlightModel.spendItInThe2', { wares })
+    : t('screens.starlightModel.itKeepsUntilThe', { atelierRank: S().atelierRank, wares });
 }
 
 export interface RunStarlightLine {
@@ -128,17 +157,19 @@ export function runStarlight(
   const bonus = winner ? Math.min(paid.fights, Math.round(S().winBonus * mult)) : 0;
   const lines: RunStarlightLine[] = [
     {
-      label: 'Fights',
+      label: t('screens.starlightModel.fights'),
       amount: paid.fights - bonus,
-      note: won > 0 ? `${won} won` : 'none won',
+      note:
+        won > 0 ? t('screens.starlightModel.won', { won }) : t('screens.starlightModel.noneWon'),
     },
   ];
-  if (bonus > 0) lines.push({ label: 'Winning the run', amount: bonus, note: null });
+  if (bonus > 0)
+    lines.push({ label: t('screens.starlightModel.winningTheRun'), amount: bonus, note: null });
   if (run.deeds.length > 0)
     lines.push({
-      label: 'Deeds',
+      label: t('screens.starlightModel.deeds'),
       amount: paid.deeds,
-      note: `${run.deeds.length} earned`,
+      note: t('screens.starlightModel.earned', { length: run.deeds.length }),
     });
   return { total: paid.total, lines, dissonance: dissonanceLine(run.dissonance) };
 }

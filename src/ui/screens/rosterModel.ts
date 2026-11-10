@@ -26,6 +26,7 @@ import { fmt, pct } from '../kit/format';
 import { PARTY_SIZE } from './prepParty';
 import type { Action } from '../../input/actions';
 import { bindingLabel } from '../hud/labels';
+import { t as txt } from '../text';
 
 // ── Prep's picker ───────────────────────────────────────────────────────────────────
 
@@ -119,7 +120,9 @@ export function pickProblem(chosen: readonly string[]): string | null {
   const n = new Set(chosen).size;
   if (n === PARTY_SIZE) return null;
   const more = PARTY_SIZE - n;
-  return more > 0 ? `Pick ${more} more ${more === 1 ? 'hero' : 'heroes'}` : null;
+  return more > 0
+    ? txt('screens.rosterModel.pickMore', { more, value: more === 1 ? 'hero' : 'heroes' })
+    : null;
 }
 
 export interface StarterNote {
@@ -129,9 +132,15 @@ export interface StarterNote {
 
 /** What a party loses without each starter (docs/phase-5b.md, "Prep"), by starter. */
 const MISSING_NOTE: Readonly<Record<string, string>> = {
-  kael: 'No Kael: nothing taunts. Twin Cleave and Execution will find Brann — keep a Reel and a Ward for him.',
-  lyra: 'No Lyra: only Kael’s Shield Bash and Brann’s Sunder Leap interrupt. Break guards with Focus.',
-  vexis: 'No Vexis: no Gravity Well — swarms stay spread out.',
+  get kael() {
+    return txt('screens.rosterModel.noKaelNothingTaunts');
+  },
+  get lyra() {
+    return txt('screens.rosterModel.noLyraOnlyKael');
+  },
+  get vexis() {
+    return txt('screens.rosterModel.noVexisNoGravity');
+  },
 };
 
 /** The roster MISSING_NOTE was written for (docs/phase-5b.md): a pick of these reads as it did. */
@@ -159,7 +168,7 @@ function missingNote(id: string, party: readonly string[]): string {
   if (known && party.every((h) => FIRST_FOUR.has(h))) return known;
   if (id === 'kael') return noTauntNote(party);
   if (id === 'lyra') return interruptNote(party);
-  return known ?? `No ${heroDef(id).name} this run.`;
+  return known ?? txt('screens.rosterModel.noThisRun', { name: heroDef(id).name });
 }
 
 /**
@@ -168,13 +177,11 @@ function missingNote(id: string, party: readonly string[]): string {
  * nothing holds the bosses, and Oro won't.
  */
 function noTauntNote(party: readonly string[]): string {
-  if (partyTaunts(party)) return 'No Kael: no Aegis Wall this run.';
+  if (partyTaunts(party)) return txt('screens.rosterModel.noKaelNoAegis');
   if (party.includes('brann')) return MISSING_NOTE.kael!;
-  if (party.includes('seren'))
-    return 'No Kael: nothing taunts. The bosses will find Seren — Ward her as the blow lands: she parries it whole.';
-  if (party.includes('oro'))
-    return 'No Kael: nothing holds the bosses, and Oro won’t. Keep a Perfect, a Reel or a Chime for each boss blow.';
-  return 'No Kael: nothing holds the bosses.';
+  if (party.includes('seren')) return txt('screens.rosterModel.noKaelNothingTaunts2');
+  if (party.includes('oro')) return txt('screens.rosterModel.noKaelNothingHolds');
+  return txt('screens.rosterModel.noKaelNothingHolds2');
 }
 
 /** Without Lyra: who else interrupts, by name and ability ("Kael’s Shield Bash"). */
@@ -185,10 +192,10 @@ function interruptNote(party: readonly string[]): string {
       return `${def.name}’s ${def.abilities.find((x) => x.id === a)!.name}`;
     }),
   );
-  if (who.length === 0) return 'No Lyra: nothing interrupts. Break guards with Focus.';
-  if (who.length === 1) return `No Lyra: ${who[0]} is your interrupter. Break guards with Focus.`;
+  if (who.length === 0) return txt('screens.rosterModel.noLyraNothingInterrupts');
+  if (who.length === 1) return txt('screens.rosterModel.noLyraIsYour', { value: who[0] });
   const list = `${who.slice(0, -1).join(', ')} and ${who[who.length - 1]}`;
-  return `No Lyra: only ${list} interrupt. Break guards with Focus.`;
+  return txt('screens.rosterModel.noLyraOnlyInterrupt', { list });
 }
 
 // ── Pronouns ─────────────────────────────────────────────────────────────────────────
@@ -239,7 +246,9 @@ export function freshHeroes(
       return {
         id: `hero.${id}`,
         name: `${def.name}, ${def.title}`,
-        text: `joins your roster. Choose your three under Your party: ${def.quirk.description}`,
+        text: txt('screens.rosterModel.joinsYourRosterChoose', {
+          description: def.quirk.description,
+        }),
       };
     });
 }
@@ -248,7 +257,9 @@ export function freshHeroes(
 
 /** A passive's name, by its id. */
 const PASSIVE_NAME: Readonly<Record<string, string>> = {
-  bloodRage: 'Blood Rage',
+  get bloodRage() {
+    return txt('screens.rosterModel.bloodRage');
+  },
   parry: 'Parry',
   rootbond: 'Rootbond',
 };
@@ -275,28 +286,43 @@ export function passiveRow(def: HeroDef): { name: string; text: string } | null 
   if (passive?.id === 'parry')
     return {
       name: PASSIVE_NAME.parry!,
-      text: `While Warded, the next melee blow on her is parried and countered for ${Math.round(passive.counterPct * 100)}%. A Perfect Ward on a blow at her is a kill shot: it executes a lesser foe (an elite at ${Math.round(passive.eliteExecuteBelow * 100)}% life or less) and hits anything bigger ${passive.killShotMult}×.`,
+      text: txt('screens.rosterModel.whileWardedTheNext', {
+        round: Math.round(passive.counterPct * 100),
+        round2: Math.round(passive.eliteExecuteBelow * 100),
+        killShotMult: passive.killShotMult,
+      }),
     };
   if (passive?.id === 'rootbond')
     return {
       name: PASSIVE_NAME.rootbond!,
-      text: `Your Thread on Oro also Mends his summons at ${Math.round(passive.mendShare * 100)}%.`,
+      text: txt('screens.rosterModel.yourThreadOnOro', {
+        round: Math.round(passive.mendShare * 100),
+      }),
     };
   const p = bloodRageOf(def);
   if (!p) return null;
   const { obj: him, poss: his } = heroPronouns(def.id);
   const halved =
-    p.weaverHealMult === 0.5 ? 'halved' : `cut to ${Math.round(p.weaverHealMult * 100)}%`;
+    p.weaverHealMult === 0.5
+      ? 'halved'
+      : txt('screens.rosterModel.cutTo', { round: Math.round(p.weaverHealMult * 100) });
   return {
     name: PASSIVE_NAME[p.id] ?? p.id,
-    text: `Up to +${Math.round(p.maxBonus * 100)}% damage the lower ${his} life (+${Math.round(p.perMissing * 100) / 100}% for each 1% missing), and ${his} axe heals ${him} for ${Math.round(p.lifesteal * 1000) / 10}% of what it deals. Your healing on ${him} is ${halved}; your Wards and barriers aren’t.`,
+    text: txt('screens.rosterModel.upToDamageThe', {
+      round: Math.round(p.maxBonus * 100),
+      his,
+      value: Math.round(p.perMissing * 100) / 100,
+      him,
+      value2: Math.round(p.lifesteal * 1000) / 10,
+      halved,
+    }),
   };
 }
 
 /** A share of healing in words: "a quarter", "an eighth", else a percent. */
 function shareWords(x: number): string {
-  if (Math.abs(x - 0.25) < 1e-9) return 'a quarter';
-  if (Math.abs(x - 0.125) < 1e-9) return 'an eighth';
+  if (Math.abs(x - 0.25) < 1e-9) return txt('screens.rosterModel.aQuarter');
+  if (Math.abs(x - 0.125) < 1e-9) return txt('screens.rosterModel.anEighth');
   return `${Math.round(x * 100)}%`;
 }
 
@@ -311,7 +337,11 @@ export function healCutStackText(def: HeroDef): string | null {
   const him = heroPronouns(def.id).obj;
   const one = p.weaverHealMult * (1 - HEAL_CUT);
   const both = one * (1 - HEAL_CUT);
-  return `It stacks: with a Wound on ${him}, or outside the Bloodmoon’s pools, your healing on ${him} is ${shareWords(one)}; with both, ${shareWords(both)}. A Chime clears the Wound; a pool or a Ward is the answer to the rest.`;
+  return txt('screens.rosterModel.itStacksWithA', {
+    him,
+    shareWords: shareWords(one),
+    shareWords2: shareWords(both),
+  });
 }
 
 /** A hero's Needs row: what keeping them alive asks of you. Null without one. */
@@ -326,7 +356,7 @@ export function needsRow(def: HeroDef): string | null {
 export function summonsRow(def: HeroDef): string | null {
   const s = def.summons?.sapling;
   if (!s) return null;
-  return `${s.count} Saplings · ${fmt(s.maxHp)} life · take your songs · bosses ignore them`;
+  return txt('screens.rosterModel.saplingsLifeTakeYour', { count: s.count, maxHp: fmt(s.maxHp) });
 }
 
 // ── The Codex's terms and Oro's summons (docs/phase-5e.md) ─────────────────────────
@@ -349,51 +379,68 @@ export function heroTermList(): HeroTerm[] {
   return [
     {
       term: 'Parry',
-      text: `A Ward of yours on Seren turns aside the next melee blow aimed at her: a basic swing, or a cleave of ${PARRY_REACH} m or less. It does nothing, and she counters for ${Math.round((parry?.counterPct ?? 3) * 100)}%. Beams, bolts, bursts and raids aren’t parried; your Ward absorbs them as ever.`,
+      text: txt('screens.rosterModel.aWardOfYours', {
+        PARRY_REACH,
+        round: Math.round((parry?.counterPct ?? 3) * 100),
+      }),
       heroes: ['seren'],
     },
     {
-      term: 'Kill shot',
-      text: `A Perfect Ward on a blow aimed at Seren: next moment she strikes its owner. A normal foe is executed, an elite at ${Math.round((parry?.eliteExecuteBelow ?? 0.5) * 100)}% life or less; anything bigger takes ${parry?.killShotMult ?? 6}× her blow. Lost if she is stunned or stilled.`,
+      term: txt('screens.rosterModel.killShot'),
+      text: txt('screens.rosterModel.aPerfectWardOn', {
+        round: Math.round((parry?.eliteExecuteBelow ?? 0.5) * 100),
+        value: parry?.killShotMult ?? 6,
+      }),
       heroes: ['seren'],
     },
     {
       term: 'Showboat',
-      text: `${seren.quirk.description} Your Focus moves her duel.`,
+      text: txt('screens.rosterModel.yourFocusMovesHer', { description: seren.quirk.description }),
       heroes: ['seren'],
     },
     {
       term: 'Sapling',
       text: sapling
-        ? `One of Oro’s ${sapling.count} rooted mini-tanks (${fmt(sapling.maxHp)} life): it takes your songs, taunts the small things within ${sapling.taunt.radius} m, and re-sprouts ${sapling.respawn} s after it is felled. Telegraphs and bosses never touch it: Saplings soak blows, never shapes.`
-        : 'One of Oro’s rooted mini-tanks.',
+        ? txt('screens.rosterModel.oneOfOroS', {
+            count: sapling.count,
+            maxHp: fmt(sapling.maxHp),
+            radius: sapling.taunt.radius,
+            respawn: sapling.respawn,
+          })
+        : txt('screens.rosterModel.oneOfOroS2'),
       heroes: ['oro'],
     },
     {
       term: 'Ancient',
       text: ancient
-        ? `Oro’s Solo: a ${fmt(ancient.maxHp)}-life tree that rises for the rest of ${oro.solo.name}’s ${oro.solo.duration} s (Cued, it stands ${ancient.life} s from rising), roots and taunts the lesser enemies within ${ancient.tauntRadius} m and slams them. Cued, its disc counts as your field.`
-        : 'Oro’s Solo: a tree that rises for a few seconds.',
+        ? txt('screens.rosterModel.oroSSoloA', {
+            maxHp: fmt(ancient.maxHp),
+            name: oro.solo.name,
+            duration: oro.solo.duration,
+            life: ancient.life,
+            tauntRadius: ancient.tauntRadius,
+          })
+        : txt('screens.rosterModel.oroSSoloA2'),
       heroes: ['oro'],
     },
     {
       term: 'Rooted',
-      text: `Held in place by Oro’s roots for ${root} s, then immune for a while. A rooted enemy still attacks and casts; it can’t walk, charge or leap. Bosses, minibosses and heavy foes are never rooted.`,
+      text: txt('screens.rosterModel.heldInPlaceBy', { root }),
       heroes: ['oro'],
     },
     {
       term: 'Rootbond',
-      text: passiveRow(oro)?.text ?? 'Your Thread on Oro also Mends his summons.',
+      text: passiveRow(oro)?.text ?? txt('screens.rosterModel.yourThreadOnOro2'),
       heroes: ['oro'],
     },
     {
       term: 'Tending',
-      text: `${oro.quirk.description} Set a Focus to wake him.`,
+      text: txt('screens.rosterModel.setAFocusTo', { description: oro.quirk.description }),
       heroes: ['oro'],
     },
     {
       term: 'Heavy',
-      text: `A normal or elite foe of ${fmt(HEAVY_LIFE)} life or more (the Hollow Champion). A kill shot never executes it, and Saplings and the Ancient ignore it.`,
+      text: txt('screens.rosterModel.aNormalOrElite', { HEAVY_LIFE: fmt(HEAVY_LIFE) }),
       heroes: ['seren', 'oro'],
     },
   ];
@@ -412,9 +459,26 @@ export function summonsEntry(def: HeroDef): string[] {
   const s = def.summons;
   if (!s) return [];
   return [
-    `Saplings (${s.sapling.count}): ${fmt(s.sapling.maxHp)} life, ${pct(s.sapling.armor)} armour. Planted ${s.sapling.front.forward} m ahead of you; a Rally re-plants them there. Each swings for ${s.sapling.attack.damage}, taunts the small things within ${s.sapling.taunt.radius} m, and re-sprouts ${s.sapling.respawn} s after it is felled. While Oro tends, they hit ${pct(s.sapling.tendedBonus)} harder.`,
-    `The Ancient (${def.solo.name}): ${fmt(s.ancient.maxHp)} life, after a ground warning, for the rest of ${def.solo.name}’s ${def.solo.duration} s (Cued, ${s.ancient.life} s from rising). It roots and taunts the lesser enemies within ${s.ancient.tauntRadius} m, and slams everything within ${s.ancient.attack.radius} m for ${s.ancient.attack.damage}.`,
-    'Bosses, minibosses and the biggest foes ignore both, and no telegraph, raid, splash or status ever touches them.',
+    txt('screens.rosterModel.saplingsLifeArmourPlanted', {
+      count: s.sapling.count,
+      maxHp: fmt(s.sapling.maxHp),
+      armor: pct(s.sapling.armor),
+      forward: s.sapling.front.forward,
+      damage: s.sapling.attack.damage,
+      radius: s.sapling.taunt.radius,
+      respawn: s.sapling.respawn,
+      tendedBonus: pct(s.sapling.tendedBonus),
+    }),
+    txt('screens.rosterModel.theAncientLifeAfter', {
+      name: def.solo.name,
+      maxHp: fmt(s.ancient.maxHp),
+      duration: def.solo.duration,
+      life: s.ancient.life,
+      tauntRadius: s.ancient.tauntRadius,
+      radius: s.ancient.attack.radius,
+      damage: s.ancient.attack.damage,
+    }),
+    txt('screens.rosterModel.bossesMinibossesAndThe'),
   ];
 }
 
@@ -433,9 +497,15 @@ export function lockedHeroText(heroId: string): string | null {
   if (r.lockedText) return r.lockedText;
   const event = CONTENT.events.find((e) => e.id === r.event);
   const m = event?.movement ?? 1;
-  const where = event ? ` in Movement ${NUMERAL[m] ?? m}` : '';
-  const face = r.fallback ? `, or face ${shortName(encounterDef(r.fallback).name)}` : '';
-  return `Free ${heroPronouns(heroId).obj} from the Legion’s cell${where}${face}.`;
+  const where = event ? txt('screens.rosterModel.inMovement', { value: NUMERAL[m] ?? m }) : '';
+  const face = r.fallback
+    ? txt('screens.rosterModel.orFace', { shortName: shortName(encounterDef(r.fallback).name) })
+    : '';
+  return txt('screens.rosterModel.freeFromTheLegion', {
+    obj: heroPronouns(heroId).obj,
+    where,
+    face,
+  });
 }
 
 /** "Vharun, the Crimson Warden" → "Vharun". */
@@ -497,12 +567,12 @@ export function recruitLine(
 ): string {
   const def = heroDef(heroId);
   const fallback = def.recruit?.fallback;
-  const joins = `${def.name}, ${def.title}, will fight beside you from your next run.`;
+  const joins = txt('screens.rosterModel.willFightBesideYou', { name: def.name, title: def.title });
   if (cause === 'word') return `${joins} ${recruitWordLine(heroId)}`;
   if (fallback && encounterId === fallback)
     return (
       def.recruit?.fallbackText ??
-      `In the chaos of your stand against ${shortName(encounterDef(fallback).name)}, the prisoner slipped his chain. He’ll find you before your next run.`
+      txt('screens.rosterModel.inTheChaosOf', { shortName: shortName(encounterDef(fallback).name) })
     );
   return joins;
 }
@@ -545,8 +615,15 @@ export function bloodLine(heroId: string, b: HeroBloodStats, oath = false, run =
   const below = Math.round((def.quirk.below ?? 0.4) * 100);
   const share = b.aliveTime > 0 ? b.lowTime / b.aliveTime : 0;
   const mult = bloodRageOf(def)?.weaverHealMult ?? 1;
-  const cut = oath ? 'full (Blood Oath)' : mult === 0.5 ? 'halved' : pct(mult);
-  return `Under ${below}%: ${pct(share)} of the ${run ? 'run' : 'fight'} · Lifesteal ${fmt(b.lifesteal)} · Your healing on ${heroPronouns(heroId).obj}: ${cut}`;
+  const cut = oath ? txt('screens.rosterModel.fullBloodOath') : mult === 0.5 ? 'halved' : pct(mult);
+  return txt('screens.rosterModel.underOfTheLifesteal', {
+    below,
+    share: pct(share),
+    value: run ? 'run' : 'fight',
+    lifesteal: fmt(b.lifesteal),
+    obj: heroPronouns(heroId).obj,
+    cut,
+  });
 }
 
 // ── Seren's and Oro's lines on the Result and the Summary (docs/phase-5e.md) ─────────
@@ -589,7 +666,13 @@ function wardsDealt(d: HeroDuelStats): number {
 export function duelLine(heroId: string, d: HeroDuelStats): string {
   const def = heroDef(heroId);
   const over = Math.round(d.overextendedTime);
-  return `${def.name} · parries ${fmt(d.parries)} · kill shots ${fmt(d.killShots)} · your Wards dealt ${fmt(wardsDealt(d))}${over > 0 ? ` · overextended ${over} s` : ''}`;
+  return txt('screens.rosterModel.parriesKillShotsYour', {
+    name: def.name,
+    parries: fmt(d.parries),
+    killShots: fmt(d.killShots),
+    wardsDealt: fmt(wardsDealt(d)),
+    value: over > 0 ? txt('screens.rosterModel.overextendedS', { over }) : '',
+  });
 }
 
 /** A hero's grove stats over a run's results (the Summary's line); null without any. */
@@ -622,7 +705,13 @@ export function sumGrove(stats: readonly HeroGroveStats[]): HeroGroveStats | nul
 /** "Oro · Saplings in your songs 74% · felled 3 · Rootbond 1,120", from `heroes[i].grove`. */
 export function groveLine(heroId: string, g: HeroGroveStats): string {
   const def = heroDef(heroId);
-  return `${def.name} · Saplings in your songs ${pct(g.inFieldShare)} · felled ${fmt(g.saplingsLost)} · Rootbond ${fmt(g.rootbondHeal)}${g.ancients > 0 ? ` · Ancients ${fmt(g.ancients)}` : ''}`;
+  return txt('screens.rosterModel.saplingsInYourSongs', {
+    name: def.name,
+    inFieldShare: pct(g.inFieldShare),
+    saplingsLost: fmt(g.saplingsLost),
+    rootbondHeal: fmt(g.rootbondHeal),
+    value: g.ancients > 0 ? txt('screens.rosterModel.ancients', { ancients: fmt(g.ancients) }) : '',
+  });
 }
 
 // ── Harmonies on motif cards ─────────────────────────────────────────────────────────
@@ -664,7 +753,7 @@ export function harmonyPrereqs(motifId: string, have: HarmonyHave): HarmonyNeed[
     needs.push({
       kind: 'hero',
       id: req.hero,
-      text: `${heroDef(req.hero).name} in your party`,
+      text: txt('screens.rosterModel.inYourParty', { name: heroDef(req.hero).name }),
       owned: (have.party ?? []).includes(req.hero),
     });
   for (const id of req.motifs)
@@ -678,7 +767,7 @@ export function harmonyPrereqs(motifId: string, have: HarmonyHave): HarmonyNeed[
     needs.push({
       kind: 'aura',
       id: req.aura,
-      text: `${auraDef(req.aura).name} in your songs`,
+      text: txt('screens.rosterModel.inYourSongs', { name: auraDef(req.aura).name }),
       owned: (have.chords ?? []).some((c) => c.auras.includes(req.aura!)),
     });
   return needs;
@@ -715,7 +804,10 @@ export function harmonyLeads(
     const named = others.map((n) => n.text);
     out.push({
       harmony: h,
-      text: `Harmony: ${named.length > 0 ? `with ${named.join(' and ')} ` : ''}→ ${h.name}`,
+      text: txt('screens.rosterModel.harmony', {
+        value: named.length > 0 ? `with ${named.join(' and ')} ` : '',
+        name: h.name,
+      }),
       others,
     });
   }
