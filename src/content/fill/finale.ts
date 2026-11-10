@@ -2,10 +2,149 @@
  * Phase 5g, W3 (docs/phase-5g.md, "Finale: Resonance, Cues and the Crescendo"): Call and
  * Response, Taking Bows, Opening Bars, Ringing On, Saving Grace, Tenuto, Lament's Answer,
  * Footlights, Fanfare, Vigil Song, Answering Phrase and Tuning Up. Appended to `CONTENT.motifs`
- * after the Bond fill. Their resolver cases and hook bodies (N15, N15b, N16-N18) are in
- * `src/sim/fill/finale.ts`. Every new motif carries `requires: { expedition: true }`. Empty until
- * W3 fills it.
+ * after the Bond fill, in the doc's table order. Their resolver cases and hook bodies (N15, N15b,
+ * N16-N18) are in `src/sim/fill/finale.ts`; the trigger entries are read by
+ * `src/sim/systems/triggers.ts`. Every new motif carries `requires: { expedition: true }`.
  */
 import type { ContentInput } from '../schema';
 
-export const FILL_FINALE: ContentInput['motifs'] = [];
+export const FILL_FINALE: ContentInput['motifs'] = [
+  {
+    id: 'call_and_response',
+    name: 'Call and Response',
+    category: 'finale',
+    rarity: 'rare',
+    values: [3, 4, 5],
+    text: 'A hero you Cue is Empowered for {v} s, Thread or not.',
+    requires: { expedition: true },
+    tags: ['cue', 'damage'],
+    // Empower for v s (`hero.afterglowUntil`, read by `empowerBonus`); with Spotlight the larger
+    // of the two applies there.
+    triggers: [{ on: 'cued', effects: [{ kind: 'empower', seconds: 'v' }] }],
+  },
+  {
+    id: 'taking_bows',
+    name: 'Taking Bows',
+    category: 'finale',
+    rarity: 'common',
+    values: [20, 30, 40],
+    text: 'When your Crescendo ends, every hero’s Solo charges {v}%.',
+    requires: { expedition: true },
+    tags: ['crescendo', 'solo'],
+    triggers: [{ on: 'crescendoEnd', effects: [{ kind: 'solo', pct: 'v', to: 'all' }] }],
+  },
+  {
+    id: 'opening_bars',
+    name: 'Opening Bars',
+    category: 'finale',
+    rarity: 'rare',
+    values: [10, 15, 25],
+    text: 'Your first Cue in each fight costs {v} less Resonance.',
+    requires: { expedition: true },
+    tags: ['cue', 'resonance'],
+  },
+  {
+    id: 'ringing_on',
+    name: 'Ringing On',
+    category: 'finale',
+    rarity: 'rare',
+    values: [2, 3, 4],
+    text: 'Each Perfect Ward during your Crescendo makes it last 1 s longer, up to {v} s.',
+    requires: { expedition: true },
+    tags: ['perfect', 'crescendo'],
+    triggers: [
+      {
+        on: 'perfectWard',
+        crescendo: true,
+        effects: [{ kind: 'crescendo', seconds: 1, cap: 'v' }],
+      },
+    ],
+  },
+  {
+    id: 'saving_grace',
+    name: 'Saving Grace',
+    category: 'finale',
+    rarity: 'common',
+    values: [5, 8, 10],
+    text: 'Each Save gives {v} more Resonance.',
+    requires: { expedition: true },
+    tags: ['resonance'],
+    triggers: [{ on: 'save', effects: [{ kind: 'resonance', amount: 'v' }] }],
+  },
+  {
+    id: 'tenuto',
+    name: 'Tenuto',
+    category: 'finale',
+    rarity: 'common',
+    values: [2, 3, 4],
+    text: 'Your Resonance waits {v} s longer before it starts to fade.',
+    requires: { expedition: true },
+    tags: ['resonance'],
+  },
+  {
+    id: 'laments_answer',
+    name: 'Lament’s Answer',
+    category: 'finale',
+    rarity: 'common',
+    values: [15, 22, 30],
+    text: 'When a hero goes down, the others’ Solos charge {v}%.',
+    requires: { expedition: true },
+    tags: ['solo'],
+    triggers: [{ on: 'allyDowned', effects: [{ kind: 'solo', pct: 'v', to: 'others' }] }],
+  },
+  {
+    id: 'footlights',
+    name: 'Footlights',
+    category: 'finale',
+    rarity: 'common',
+    values: [8, 12, 16],
+    text: 'A hero you Cue gains a barrier of {v}% of their life for 4 s.',
+    requires: { expedition: true },
+    tags: ['cue', 'shield'],
+    triggers: [{ on: 'cued', effects: [{ kind: 'barrier', pct: 'v', seconds: 4 }] }],
+  },
+  {
+    id: 'fanfare',
+    name: 'Fanfare',
+    category: 'finale',
+    rarity: 'rare',
+    values: [10, 15, 20],
+    text: 'When your Crescendo begins, every hero gains a barrier of {v}% of their life for 5 s.',
+    requires: { expedition: true },
+    tags: ['crescendo', 'shield'],
+    triggers: [
+      { on: 'crescendoStart', effects: [{ kind: 'barrier', pct: 'v', seconds: 5, to: 'all' }] },
+    ],
+  },
+  {
+    id: 'vigil_song',
+    name: 'Vigil Song',
+    category: 'finale',
+    rarity: 'rare',
+    values: [1, 1.5, 2],
+    text: 'Mending a hero below 30% of their life makes {v} Resonance a second.',
+    requires: { expedition: true },
+    tags: ['heal', 'resonance'],
+  },
+  {
+    id: 'answering_phrase',
+    name: 'Answering Phrase',
+    category: 'finale',
+    rarity: 'rare',
+    values: [3, 5, 7],
+    text: 'Cueing a hero within 4 s of Cueing another gives back {v} Resonance.',
+    requires: { expedition: true },
+    tags: ['cue', 'resonance'],
+    triggers: [{ on: 'cued', cueWithin: 4, effects: [{ kind: 'resonance', amount: 'v' }] }],
+  },
+  {
+    id: 'tuning_up',
+    name: 'Tuning Up',
+    category: 'finale',
+    rarity: 'common',
+    values: [15, 22, 30],
+    text: 'Your heroes start each fight with their Solos {v}% charged.',
+    requires: { expedition: true },
+    tags: ['solo'],
+  },
+];
