@@ -166,10 +166,10 @@ Each row is a choice that changes what gets built. The rest of the doc follows t
 | The Bellwarden (I, mini-boss) | Glass Lancer · Lance (`lancer_lance`) | Lamenter · Dirge (`lamenter_dirge`) | — |
 | The Hollow Cantor (I) | Bell Brute · Toll Cleave (`brute_toll_cleave`) | Glass Lancer · Lance | Cantor Acolyte · Mending Hymn (`acolyte_mending_hymn`: Focus it or the boss's side heals) |
 | The Gorehound Matriarch (II, mini-boss) | Impaler · Charge (`impaler_charge`) | Leech · Latch (`leech_latch`) | — |
-| Vharun (II) | Leech · Latch | Impaler · Charge | Lamenter · Dirge (not the Hemomancer's Pact: Vharun's Judgement stops Pacts on purpose, `bosses.ts:111-112`) |
-| The Seamstress (III, mini-boss) | Shears · Dash (`shears_dash`) | Doubt Wraith · Doubt (`wraith_doubt`) | — |
+| Vharun (II) | Impaler · Charge (`impaler_charge`; as built, not the Leech's Latch, whose reach never meets Vharun's tank, nor the Hemomancer's Pact, which Vharun casts as its own: the road's one other attack, so phases 1 and 2 borrow the same) | Impaler · Charge | Lamenter · Dirge (not the Hemomancer's Pact: Vharun's Judgement stops Pacts on purpose, `bosses.ts:111-112`) |
+| The Seamstress (III, mini-boss) | Impaler · Charge (`impaler_charge`; as built, not the Shears' Dash, which cuts the Thread and so the songs that ride it, decision 5) | Doubt Wraith · Doubt (`wraith_doubt`) | — |
 | The Unweaver (III) | Null Priest · Rune (`null_rune`: refuses Ward, Chime and Reel inside it, `src/sim/rules3.ts:86-102`; no aura effect) | Void Maw · Inhale (`maw_inhale`) | Doubt Wraith · Doubt |
-| The Silent Conductor (Finale) | its own **Sforzando**, every 12 s (today only in the last burn) | its own **Downbeat**, every 9 s | none in the Grand Silence (the exam stays as built); in the last burn its Downbeat and Sforzando come every 7 s and 9 s |
+| The Silent Conductor (Finale) | its own **Sforzando**, more often, on one clock: a cast every 5.5 s (`TYRANT_OWN`), its own picker leaving it to Tyrant in this phase (without Tyrant the picker casts it about every 13 s) | its own **Downbeat**, the same way, every 4.5 s (about every 10 s without Tyrant) | none in the Grand Silence (the exam stays as built); in the last burn (and the Postlude) its Downbeat and Sforzando come every 7 s and 9 s (`TYRANT_BURN`) |
 
 The Conductor's row is a proposal where the plan is vague: borrowing a road foe's attack into the Finale would break its rule that the Weaver faces only the choir's rehearsed answers (`docs/phase-5d.md`, Principles 1-3). The Finale's script already casts those two attacks through its own gate (`docs/phase-5d.md:171`), which keeps its at-most-two damaging telegraphs.
 
