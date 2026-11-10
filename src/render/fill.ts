@@ -556,7 +556,8 @@ export class FillView {
     // head, or drawn in to the Weaver's hand.
     switch (m.kind) {
       case 'barrier': {
-        // A guard closing in: shards of glass gathering into a curved shield before the body.
+        // A guard closing in: shards of glass gathering into a curved shield before the body. No
+        // glow behind it: a soft light behind a hero is how an aura's halo shows.
         const close = easeOut(seg(t, 0, m.life * 0.5));
         const span = m.r * (2.2 - 1.1 * close) + 0.25;
         for (let i = 0; i < SHARDS; i++) {
@@ -572,15 +573,6 @@ export class FillView {
             -th,
           );
         }
-        kit.sprites.push(
-          m.x,
-          chest,
-          m.z + m.r * 0.6,
-          m.r * 2.4,
-          SPRITE.glow,
-          col,
-          0.22 * seg(t, 0.15, 0.3) * fade * glow,
-        );
         break;
       }
       case 'heal': {
