@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../../src/content';
 import { CHOIR, CONDUCTOR, FINALE_MOVEMENT } from '../../src/content/crucibleIds';
+import { FILL_IDS } from '../../src/content/fill';
 import { addShield, dealDamage } from '../../src/sim/combat/health';
 import { KNOWN_MOTIFS, NO_MODS, resolveMods } from '../../src/sim/mods';
 import { resolveConfig } from '../../src/sim/world';
@@ -298,6 +299,8 @@ describe('motifs', () => {
       );
       // Blood Tithe (docs/phase-5b.md) sets its strength and its fixed refund together.
       if (m.id === 'blood_tithe') expect(changed).toEqual(['bloodTithe', 'bloodTitheRefund']);
+      // Phase 5g's (docs/phase-5g.md) may set a pair (a share and its line) or only `triggers`.
+      else if (FILL_IDS.includes(m.id)) expect(changed.length, m.id).toBeGreaterThan(0);
       else expect(changed, m.id).toHaveLength(1);
     }
     const lo = resolveMods(

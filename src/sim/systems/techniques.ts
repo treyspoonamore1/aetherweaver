@@ -35,6 +35,11 @@ import { answerCall } from './calls';
 import { placeStar, startSolo } from './solos';
 import { conductCue, cueCostNow, reprise, startFinale } from './conducting';
 import { bloodLine } from './blood';
+import { lastBastionMult } from '../fill/aegis';
+import { restCast, restCost } from '../fill/choir';
+import { crescendoCostCut } from '../fill/finale';
+import { woundedWardMult } from '../fill/harmonies';
+import { everbellCast } from '../fill/relics';
 
 type Rejectable = TechniqueKey | 'rewind' | 'thread' | 'cue' | 'crescendo' | 'plant';
 type Reason =
@@ -69,6 +74,8 @@ function paidCost(world: World, cost: number): number {
   cost *= world.mods.techCostMult;
   // Stasis (the Chronomancer): techniques cost less while it lasts.
   if (world.field.stasis) cost *= world.mods.stasisCostMult;
+  // Phase 5g (N8): Breath Between, after a rest (fill/choir.ts; `techniqueCost` agrees).
+  if (world.mods.restDiscount > 0) cost = restCost(world, cost);
   return cost;
 }
 
@@ -83,6 +90,8 @@ export function spend(world: World, weaver: Entity, technique: Rejectable, cost:
       return false;
     }
     h.hp -= cost;
+    // Phase 5g (N8): Breath Between's clock starts again (fill/choir.ts).
+    if (world.mods.restDiscount > 0) restCast(world, weaver);
     return true;
   }
   if (w.spirit + 1e-9 < cost) {
@@ -90,6 +99,8 @@ export function spend(world: World, weaver: Entity, technique: Rejectable, cost:
     return false;
   }
   w.spirit -= cost;
+  // Phase 5g (N8): Breath Between's clock starts again (fill/choir.ts).
+  if (world.mods.restDiscount > 0) restCast(world, weaver);
   return true;
 }
 
@@ -158,6 +169,9 @@ export function castWard(world: World, slot: PartySlot | undefined): void {
     !!hero.hero?.blood &&
     hero.health!.hp < bloodLine(world.content, hero);
   if (tithe) amount *= 1 + world.mods.bloodTithe;
+  // Phase 5g (N6, N22): Last Bastion (fill/aegis.ts) and Wounded Healer (fill/harmonies.ts).
+  if (world.mods.lowWardBonus > 0) amount *= lastBastionMult(world, hero);
+  if (world.mods.woundedBonus > 0) amount *= woundedWardMult(world, hero);
   const ward = addShield(world, hero, 'ward', amount, wardDuration(world), true);
   if (ward && tithe) ward.tithe = true;
   // Eternal Moment: a Ward cast during Stasis that turns out Perfect gives Resonance.
@@ -202,6 +216,8 @@ export function castChime(world: World, point: Vec2 | undefined): void {
         : techCooldown(world, base * world.mods.chimeCooldownMult);
     w.cooldowns.chime = chimeCooldown;
     w.cooldownTotals.chime = chimeCooldown;
+    // Phase 5g (N26): Everbell's charges, as the Ward's work (fill/relics.ts).
+    if (w.chimeCharges !== undefined) everbellCast(world, weaver);
   }
   w.lastTechnique = 'chime';
   // Lands at the point, pulled in to the Chime's range.
@@ -900,13 +916,12 @@ export function crescendo(world: World): void {
   const def = world.content.crescendo;
   if (w.crescendo > 0) return reject(world, 'crescendo', 'not-ready');
   // Maestro (the Conductor) needs less; the meter keeps the rest.
-  if (w.resonance + 1e-9 < (world.mods.crescendoCostBase ?? world.content.resonance.crescendoCost))
-    return reject(world, 'crescendo', 'resonance');
-  spendResonance(
-    world,
-    world.mods.crescendoCostBase ?? world.content.resonance.crescendoCost,
-    'crescendo',
-  );
+  let cost = world.mods.crescendoCostBase ?? world.content.resonance.crescendoCost;
+  // Phase 5g (N15b): Prompt Book's first Crescendo costs less (fill/finale.ts; as
+  // `crescendoCostOf` shows it).
+  if (world.mods.firstCrescendoCut > 0) cost = crescendoCostCut(world, cost);
+  if (w.resonance + 1e-9 < cost) return reject(world, 'crescendo', 'resonance');
+  spendResonance(world, cost, 'crescendo');
   world.ledger.crescendos++;
   pushMarker(world, 'crescendo', null);
   // The Martyr's Vow and the Chronomancer's Stasis replace Sunrise (docs/phase-3d.md,

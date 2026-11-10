@@ -20,14 +20,27 @@ import { weaverSilenced } from '../rules3';
 import type { Entity, PastSample, WorldState } from '../state';
 import type { World } from '../world';
 import { heroForSlot, reject, spend, techCooldown, weaverReady } from './techniques';
+import { waterClockPast } from '../fill/relics';
 
 /**
  * Remembers every hero's life and place, a sample every 0.1 s of sim time (Chronomancer runs
  * only): by sim time, so slow motion doesn't shorten how far back Rewind reaches.
  */
 export function recordPast(world: World): void {
+  // Phase 5g (N27): Water Clock remembers too, without the Chronomancer (fill/relics.ts).
+  if (world.mods.waterClock > 0 && world.mods.rewindSeconds <= 0) return waterClockPast(world);
+  if (world.mods.rewindSeconds <= 0) return;
+  samplePast(world);
+}
+
+/**
+ * Every 0.1 s of sim time, the heroes' life and place into their `past` ring buffers (heroes
+ * without one are skipped). Rewind's record (`recordPast`); Water Clock's (docs/phase-5g.md, N27)
+ * calls it too.
+ */
+export function samplePast(world: World): void {
   const internal = world.internal;
-  if (world.mods.rewindSeconds <= 0 || world.time + 1e-9 < internal.pastSampleAt) return;
+  if (world.time + 1e-9 < internal.pastSampleAt) return;
   internal.pastSampleAt += PAST_SAMPLE_SECONDS;
   if (internal.pastSampleAt <= world.time) internal.pastSampleAt = world.time + PAST_SAMPLE_SECONDS;
   for (const id of world.party) {

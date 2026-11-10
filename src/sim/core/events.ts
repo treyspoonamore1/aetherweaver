@@ -16,4 +16,12 @@ export class EventQueue<E> {
   get length(): number {
     return this.buffer.length;
   }
+
+  /**
+   * The event at `index` among those queued since the last drain (no copy, nothing removed).
+   * The trigger system reads the tick's events this way (docs/phase-5g.md).
+   */
+  at(index: number): E | undefined {
+    return this.buffer[index];
+  }
 }

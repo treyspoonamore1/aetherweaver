@@ -47,6 +47,9 @@ import { newBlood } from './systems/blood';
 import { newDuel } from './systems/duel';
 import { newConductingField, newLedgerConducting } from './systems/conducting';
 import { newGrove, spawnGrove } from './systems/grove';
+import { armTriggers, type TriggerState } from './systems/triggers';
+import { tuningUp } from './fill/finale';
+import { everbellSpawn, waterClockSpawn } from './fill/relics';
 
 /** A party member as configured by the run (or a test). */
 export interface PartyMemberConfig {
@@ -646,6 +649,15 @@ export interface SimInternal {
    * spawns (after the party loop, only in Oro parties); absent in every other fight.
    */
   summons?: EntityId[];
+  // ── Phase 5g (docs/phase-5g.md). Each absent unless the motif or relic that writes it is held. ──
+  /** The trigger system's clocks (systems/triggers.ts): created with the world while one is held. */
+  triggers?: TriggerState;
+  /** Razor Silk (N1, W1): sim time its damage next ticks. */
+  razorAt?: number;
+  /** Spindle Lullaby (N1, W5): by enemy id, the sim time it may be put to sleep again. */
+  lullabyReady?: Record<EntityId, number>;
+  /** Water Clock (N27, W6): its one turn back is spent this fight. */
+  waterClockUsed?: true;
 }
 
 /** The sim's mutable world. Exposed to the outside only as the read-only WorldState. */
@@ -1054,6 +1066,8 @@ export function createWorld(config: SimConfig): World {
   });
   if (resolved.absent) weaver.health!.invulnerable = 1e9;
   world.weaverId = weaver.id;
+  // Phase 5g (N26): Everbell's Chime charges (fill/relics.ts); absent without the relic.
+  if (mods.chimeCharges > 1) everbellSpawn(world, weaver);
   world.field.x = weaver.x;
   world.field.z = weaver.z;
   for (const chord of world.field.chords) {
@@ -1157,10 +1171,16 @@ export function createWorld(config: SimConfig): World {
     world.party.push(hero.id);
     world.events.push({ type: 'entitySpawned', tick: 0, id: hero.id, kind: 'hero' });
     if (mods.startSolos) world.events.push({ type: 'soloReady', tick: 0, hero: hero.id });
+    // Phase 5g (N17, N27): Tuning Up's Solo charge (fill/finale.ts); Water Clock's history
+    // buffer, allocated only with the relic (fill/relics.ts).
+    if (mods.startSoloCharge > 0) tuningUp(world, hero);
+    if (mods.waterClock > 0) waterClockSpawn(world, hero);
   });
   // Oro's Saplings (docs/phase-5e.md): after the party, so every other party's ids are as ever.
   spawnGrove(world);
   if (carried('cantors_hymnal')) relicFired(world, 'cantors_hymnal', null);
+  // Phase 5g: the trigger system's clocks and tally (systems/triggers.ts), only with one held.
+  if (mods.triggers.length > 0) armTriggers(world);
 
   world.entities.flush();
   return world;

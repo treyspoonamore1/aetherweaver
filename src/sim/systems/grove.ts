@@ -60,6 +60,7 @@ import {
   sproutSapling,
   summonsDef,
 } from './summons';
+import { graftShare } from '../fill/bond';
 
 type Ability = HeroDef['abilities'][number];
 type Flourish = HeroDef['call']['flourish'];
@@ -853,7 +854,9 @@ export function rootbond(world: World, oro: Entity, amount: number): void {
   const grove = oro.hero?.grove;
   const def = heroDef(oro.hero!.defId);
   if (!grove || def.passive?.id !== 'rootbond' || !(amount > 0)) return;
-  const share = amount * def.passive.mendShare;
+  let share = amount * def.passive.mendShare;
+  // Phase 5g (N14): Graft strengthens Rootbond's share (fill/bond.ts).
+  if (world.mods.graftMult !== 1) share = graftShare(world, oro, share);
   for (const s of groveOf(world, oro)) {
     const c = s.summon!;
     const healed = heal(world, s, share, 'mend', false);

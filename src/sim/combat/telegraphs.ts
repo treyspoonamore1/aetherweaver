@@ -46,6 +46,8 @@ import { riposteBash } from '../systems/heroes';
 import { duelMelee, duelResolved, markKillShot } from '../systems/duel';
 import { cutThread } from '../systems/thread';
 import { cutWouldLand, threadSegment } from '../rules3';
+import { needleCatch } from '../fill/silk';
+import { concertPitchRing } from '../fill/harmonies';
 
 export interface TelegraphSpec {
   owner: Entity;
@@ -470,10 +472,12 @@ function hitEntity(
     return false;
   }
 
+  // Phase 5g (N4): Thread the Needle negates part of the hit (fill/silk.ts); `damage` without.
+  const landing = e.hero?.needleUntil !== undefined ? needleCatch(world, t, e, damage) : damage;
   const result = dealDamage(world, e, {
     source: t.owner,
     sourceName: t.name,
-    amount: damage,
+    amount: landing,
     telegraph: t,
     kind: t.shape.kind === 'mark' ? 'detonation' : 'hit',
     // Seren's parry (docs/phase-5e.md): the melee test, computed only for a duel victim.
@@ -628,6 +632,8 @@ function perfect(
   bark(world, e, 'perfect');
   if (world.mods.ripostePower > 0) riposte(world, e);
   perfectRelics(world, e);
+  // Phase 5g (N20): Concert Pitch rings out (fill/harmonies.ts).
+  if (world.mods.ringingPct > 0) concertPitchRing(world, e);
   if (wouldDie) recordSave(world, e, 'ward', damage, t.name);
 }
 

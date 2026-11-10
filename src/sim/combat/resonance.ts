@@ -5,6 +5,7 @@
  */
 import type { WorldState } from '../state';
 import type { World } from '../world';
+import { tenutoDelay } from '../fill/finale';
 
 /** `silent` skips the event (passive trickles like Empower would otherwise fire every tick). */
 export function gainResonance(world: World, amount: number, reason: string, silent = false): void {
@@ -45,6 +46,8 @@ export function decayResonance(world: World, dt: number): void {
   const def = world.content.resonance;
   w.resonanceIdle += dt;
   if (w.resonanceIdle < def.decayDelay) return;
+  // Phase 5g (N16): Tenuto holds the fade back longer (fill/finale.ts).
+  if (world.mods.fadeDelay > 0 && w.resonanceIdle < def.decayDelay + tenutoDelay(world)) return;
   const floor = Math.floor(w.resonance / def.segment + 1e-9) * def.segment;
   // The Conductor keeps whole Cues too (docs/phase-5f.md, decision 7).
   const keep = world.mods.cueKeepsWhole ? Math.max(floor, wholeCues(world, w.resonance)) : floor;

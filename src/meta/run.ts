@@ -52,6 +52,7 @@ import {
   type SaveCause,
   type SimConfig,
 } from '../sim';
+import { shopRelicBonus } from '../sim/fill/relics';
 import {
   FIGHT_AETHER,
   FORGE_PRICE,
@@ -996,10 +997,20 @@ export function withCarried(run: RunState): RunState {
   return { ...run, relics: [...carried, ...run.relics.filter((r) => !r.carried)] };
 }
 
-/** Discordant Pact's relic: a cursed one, picked by the run's seed, that it doesn't carry. */
-function pactRelic(seed: number, carried: readonly ReliquaryRelic[]): string | null {
+/**
+ * Discordant Pact's relic: a cursed one, picked by the run's seed, that it doesn't carry. On a
+ * Prelude (`movements` 1) an Expedition-only relic is never one (docs/phase-5g.md, ground rule 6).
+ */
+function pactRelic(
+  seed: number,
+  carried: readonly ReliquaryRelic[],
+  movements: number,
+): string | null {
   const cursed = CONTENT.relics.filter(
-    (r) => r.rarity === 'cursed' && !carried.some((c) => c.id === r.id),
+    (r) =>
+      r.rarity === 'cursed' &&
+      !carried.some((c) => c.id === r.id) &&
+      expeditionOffered(r.expedition, movements),
   );
   if (cursed.length === 0) return null;
   return cursed[rngFor(seed, 'discordant_pact').int(cursed.length)]!.id;
@@ -1010,10 +1021,12 @@ function pactRelic(seed: number, carried: readonly ReliquaryRelic[]): string | n
  * Pact that has nothing to give (the run carries every cursed relic), so its point doesn't count.
  */
 export function playedDissonance(
-  run: Pick<RunState, 'seed' | 'carried' | 'dissonance'>,
+  run: Pick<RunState, 'seed' | 'carried' | 'dissonance'> & Partial<Pick<RunState, 'movements'>>,
 ): DissonanceChoice[] {
   const levels = fitLevels(run.dissonance);
-  return hasEffect(levels, 'cursed_start') && pactRelic(run.seed, run.carried) === null
+  // A run that doesn't say its route is taken as a Prelude's (docs/phase-5g.md, ground rule 6).
+  return hasEffect(levels, 'cursed_start') &&
+    pactRelic(run.seed, run.carried, run.movements ?? 1) === null
     ? levels.filter((l) => dissonanceLevel(l.id).effect !== 'cursed_start')
     : levels;
 }
@@ -1155,7 +1168,9 @@ export function embark(
   const carried = run.carried.slice(0, Math.max(0, carry));
   const dissonance = dissonanceOpen ? playedDissonance({ ...run, carried }) : [];
   // Discordant Pact (Dissonance): a random cursed relic from the start, one it doesn't carry.
-  const pact = hasEffect(dissonance, 'cursed_start') ? pactRelic(run.seed, carried) : null;
+  const pact = hasEffect(dissonance, 'cursed_start')
+    ? pactRelic(run.seed, carried, run.movements)
+    : null;
   const relics = [
     ...carriedOwned(carried),
     ...(pact ? [{ id: pact, cleansed: false, pact: true }] : []),
@@ -1659,6 +1674,15 @@ function offered(gate: number | undefined, movement: number): boolean {
   return gate === undefined || gate <= movement;
 }
 
+/**
+ * Is an Expedition-only relic or motif (docs/phase-5g.md, decision 4) on offer: never on a
+ * Prelude (`movements` 1). Beside the Movement gate, inside the pools, before any roll, so a
+ * Prelude draws from exactly the pools it always did. Absent: offered everywhere.
+ */
+function expeditionOffered(gate: true | undefined, movements: number): boolean {
+  return gate === undefined || movements !== 1;
+}
+
 /** Relics of a rarity the run doesn't carry and isn't already being offered. */
 function relicPool(
   run: RunState,
@@ -1672,7 +1696,8 @@ function relicPool(
         r.rarity === rarity &&
         !hasRelic(run, r.id) &&
         !taken.includes(r.id) &&
-        offered(r.movement, movement),
+        offered(r.movement, movement) &&
+        expeditionOffered(r.expedition, run.movements),
     )
     .map((r) => r.id);
 }
@@ -1722,7 +1747,9 @@ export function makeShop(run: RunState, node: MapNode): ShopItem[] {
     price,
     sold: false,
   });
-  const items: ShopItem[] = rollRelics(run, rng, SHOP_RELICS, SHOP_RELIC_ODDS, movement).map((id) =>
+  // Phase 5g (N25): Pedlar's Ledger stocks more (sim/fill/relics.ts; 0 without it).
+  const stock = SHOP_RELICS + shopRelicBonus(run.relics, CONTENT);
+  const items: ShopItem[] = rollRelics(run, rng, stock, SHOP_RELIC_ODDS, movement).map((id) =>
     item('relic', id, RELIC_PRICE[relicDef(id).rarity]),
   );
   let pool = CONTENT.motifs
@@ -2032,6 +2059,7 @@ function eligible(run: RunState, def: MotifDef, movement: number): DraftOption |
     return null;
   if (def.requires.hero && !run.party.some((h) => h.heroId === def.requires.hero)) return null;
   if (!offered(def.requires.movement, movement)) return null;
+  if (!expeditionOffered(def.requires.expedition, run.movements)) return null;
   const owned = run.motifs.find((m) => m.id === def.id);
   if (owned) {
     if (owned.level >= def.values.length) return null;
@@ -2145,6 +2173,8 @@ export function summarize(
     holds: l.holds,
     // The Conductor (docs/phase-5f.md): only on his runs.
     ...(l.conducting ? { conducting: conductingStats(l.conducting) } : {}),
+    // The trigger system (docs/phase-5g.md): only in a fight that held a trigger.
+    ...(l.triggers ? { triggers: { ...l.triggers } } : {}),
   };
   stats.weaverShare = weaverShare(stats);
   const name = (heroId: string) => CONTENT.heroes.find((h) => h.id === heroId)?.name ?? heroId;
@@ -2559,6 +2589,10 @@ export function runTotals(
     total.holds += s.holds;
     for (const c of s.saveCauses) if (!total.saveCauses.includes(c)) total.saveCauses.push(c);
     if (s.conducting) total.conducting = addConducting(total.conducting, s.conducting);
+    if (s.triggers) {
+      const sum = (total.triggers ??= {});
+      for (const [id, n] of Object.entries(s.triggers)) sum[id] = (sum[id] ?? 0) + n;
+    }
     total.duration += r.duration;
   }
   total.weaverShare = weaverShare(total);

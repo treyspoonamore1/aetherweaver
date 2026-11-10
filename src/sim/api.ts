@@ -41,6 +41,7 @@ import { holdEnemyTime } from './systems/stasis';
 import { updateStatuses } from './systems/statuses';
 import { updateChimes, updateEchoWards } from './systems/techniques';
 import { updateThread } from './systems/thread';
+import { updateTriggers } from './systems/triggers';
 import { updateWeaver } from './systems/weaver';
 import { updateZones } from './systems/zones';
 import { createWorld, type ResolvedSimConfig, type SimConfig, type World } from './world';
@@ -74,6 +75,8 @@ const NO_COMMANDS: readonly Command[] = [];
 
 /** One tick. The system order is part of the contract (docs/plan/05 §4.2). */
 function stepWorld(world: World, commands: readonly Command[]): void {
+  // The trigger system (docs/phase-5g.md) reads this tick's events from here (a local, not state).
+  const mark = world.events.length;
   for (const e of world.entities.list()) {
     e.px = e.x;
     e.pz = e.z;
@@ -118,6 +121,7 @@ function stepWorld(world: World, commands: readonly Command[]): void {
   clampToArena(world);
   updateFacing(world);
   updateIncoming(world);
+  if (world.internal.triggers) updateTriggers(world, mark, dt);
   updateLedger(world);
   recordPast(world);
   checkEncounterEnd(world);

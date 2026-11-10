@@ -8,6 +8,8 @@ import { finishFinale } from './conducting';
 import { approachVelocity } from './steering';
 import { updateLink, wardCooldown } from './techniques';
 import { glideDistance } from '../variants';
+import { closeHarmonyRegen } from '../fill/choir';
+import { everbellTick } from '../fill/relics';
 
 const TECHNIQUES: readonly TechniqueKey[] = ['ward', 'chime', 'reel', 'glide'];
 /** The Martyr's healing of herself is reported once a second, not every tick. */
@@ -69,6 +71,8 @@ export function updateWeaver(world: World, dt: number): void {
       w.spirit + free * def.spiritRegenPct * world.mods.spiritRegenMult * dt,
     );
   }
+  // Phase 5g (N7): Close Harmony's quicker Spirit with the party held together (fill/choir.ts).
+  if (world.mods.huddleRegen > 0) closeHarmonyRegen(world, e, dt);
 
   // Blood Font (the Martyr): below a share of her Life, what her songs reserve regenerates her.
   if (world.mods.bloodFontPct > 0 && !h.downed && h.hp < w.maxLife * world.mods.bloodFontBelow)
@@ -105,6 +109,8 @@ export function updateWeaver(world: World, dt: number): void {
       if (w.glideCharges < w.maxGlideCharges) w.cooldowns.glide = w.cooldownTotals.glide;
     }
   }
+  // Phase 5g (N26): Everbell's charges come back (fill/relics.ts).
+  if (w.chimeCharges !== undefined) everbellTick(world, e, dt);
   if (w.threadLock > 0) w.threadLock = Math.max(0, w.threadLock - dt);
 
   if (w.crescendo > 0) {

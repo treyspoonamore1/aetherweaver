@@ -887,6 +887,236 @@ export const OrnamentDefSchema = z.object({
 });
 export type OrnamentDef = z.infer<typeof OrnamentDefSchema>;
 
+// ── Triggers (docs/phase-5g.md, "The trigger system") ─────────────────────────────────
+
+/**
+ * The sim events a trigger reacts to (sim/events.ts, by their `type`), and `every`: a timer
+ * that fires every `period` seconds its conditions hold.
+ */
+export const TRIGGER_EVENTS = [
+  'perfectWard',
+  'save',
+  'cleansed',
+  'chimeLanded',
+  'reeled',
+  'glided',
+  'threadAttached',
+  'threadSnapped',
+  'techniqueCast',
+  'shieldBroken',
+  /** Only with the Weaver as the target. */
+  'damageTaken',
+  'abilityUsed',
+  'cued',
+  'crescendoStart',
+  'crescendoEnd',
+  'allyDowned',
+  'revived',
+  'parried',
+  'summonFell',
+  'enemyKilled',
+  'every',
+] as const;
+export type TriggerEvent = (typeof TRIGGER_EVENTS)[number];
+
+/**
+ * Who a trigger's effect lands on. `event`: the event's hero (the Warded, cleansed, Reeled, Cued,
+ * revived, downed or parrying hero; the hero a technique, a Thread, a shield or an ability belongs
+ * to; a fallen summon's owner). `threaded`: the threaded hero. `all`: every standing hero.
+ * `others`: every standing hero but the event's. `near`: every standing hero within `radius` of
+ * `at`. `nearestOther`: the standing hero nearest the event's hero within `radius`, never the
+ * event's own. `neediest`: the standing hero with the least of their life (a share), never the
+ * event's or the threaded one. Ties go to the nearer, then the lower entity id: no draws.
+ */
+export const TRIGGER_TARGETS = [
+  'event',
+  'threaded',
+  'all',
+  'others',
+  'near',
+  'nearestOther',
+  'neediest',
+] as const;
+export type TriggerTarget = (typeof TRIGGER_TARGETS)[number];
+
+/** Where an effect is centred: the event's place (its hero, or its x/z), the Weaver, the threaded hero. */
+export const TRIGGER_POINTS = ['event', 'weaver', 'threaded'] as const;
+export type TriggerPoint = (typeof TRIGGER_POINTS)[number];
+
+/** Shield kinds, as the sim names them (sim/state.ts `ShieldKind`). */
+export const SHIELD_KINDS = ['ward', 'dome', 'barrier', 'overshield', 'discord', 'mirror'] as const;
+
+/**
+ * A trigger's number: a literal, `'v'` (a motif's value at its level), or the name of one of a
+ * relic's or boon's `values` (its Empowered number when a Dissonate Empowered it). Display units:
+ * percent as 25, seconds as 1.5.
+ */
+export const TriggerValueSchema = z.union([z.number(), z.string().regex(/^[a-z][a-zA-Z]*$/)]);
+export type TriggerValue = z.infer<typeof TriggerValueSchema>;
+
+const TriggerHeroes = {
+  to: z.enum(TRIGGER_TARGETS).default('event'),
+  /** `near`: the reach around `at`; `nearestOther`: around the event's hero (metres). */
+  radius: z.number().positive().optional(),
+  /** `near`: where it is measured from (default the event's place). */
+  at: z.enum(TRIGGER_POINTS).optional(),
+  /** Only heroes standing in your field (`hero.inField`: read, never written). */
+  inField: z.literal(true).optional(),
+};
+
+/** What a trigger does when it fires (each through the sim's own function for it). */
+export const TriggerEffectSchema = z.discriminatedUnion('kind', [
+  /** A barrier (an overshield, the Weaver's) of `pct`% of each hero's life for `seconds`. */
+  z
+    .object({
+      kind: z.literal('barrier'),
+      pct: TriggerValueSchema,
+      seconds: TriggerValueSchema,
+      ...TriggerHeroes,
+    })
+    .strict(),
+  /** A heal of `pct`% of each hero's life, or (`of: 'event'`) of the event's amount. */
+  z
+    .object({
+      kind: z.literal('heal'),
+      pct: TriggerValueSchema,
+      of: z.enum(['life', 'event']).default('life'),
+      ...TriggerHeroes,
+    })
+    .strict(),
+  z.object({ kind: z.literal('resonance'), amount: TriggerValueSchema }).strict(),
+  /** Spirit back, never above the unreserved pool. */
+  z.object({ kind: z.literal('spirit'), amount: TriggerValueSchema }).strict(),
+  /** Solo charge (0–100) on each hero whose Solo isn't running. */
+  z.object({ kind: z.literal('solo'), pct: TriggerValueSchema, ...TriggerHeroes }).strict(),
+  /**
+   * Damage, the Weaver's, to every enemy within `radius` of `at` (or the `nearest` n of them):
+   * `amount`, or (`of: 'riposte'`) `amount`% of Riposte Bloom's power.
+   */
+  z
+    .object({
+      kind: z.literal('damage'),
+      amount: TriggerValueSchema,
+      of: z.literal('riposte').optional(),
+      at: z.enum(TRIGGER_POINTS).default('event'),
+      radius: z.number().positive(),
+      nearest: z.number().int().positive().optional(),
+    })
+    .strict(),
+  /**
+   * A status on every ordinary enemy within `radius` of `at` (`'event'`: the event's own radius,
+   * a Chime's), for `seconds`.
+   */
+  z
+    .object({
+      kind: z.literal('status'),
+      status: z.enum(['stun', 'sleep']),
+      seconds: TriggerValueSchema,
+      at: z.enum(TRIGGER_POINTS).default('event'),
+      radius: z.union([z.number().positive(), z.literal('event')]),
+    })
+    .strict(),
+  /** The Weaver's techniques recover `seconds` at once (a Ward or Glide charge comes back at 0). */
+  z
+    .object({
+      kind: z.literal('cooldown'),
+      techniques: z.array(z.enum(['ward', 'chime', 'reel', 'glide'])).min(1),
+      seconds: TriggerValueSchema,
+    })
+    .strict(),
+  /** A hero's ability (by its id: `challenge`, `piercingShot`) recovers `seconds` at once. */
+  z
+    .object({
+      kind: z.literal('ability'),
+      ability: HeroAbilityKindSchema,
+      seconds: TriggerValueSchema,
+      ...TriggerHeroes,
+    })
+    .strict(),
+  /** Empowered for `seconds`, Thread or not (`hero.afterglowUntil`; the later time stands). */
+  z.object({ kind: z.literal('empower'), seconds: TriggerValueSchema, ...TriggerHeroes }).strict(),
+  /** A playing Crescendo lasts `seconds` longer, at most `cap` seconds more in one Crescendo. */
+  z
+    .object({ kind: z.literal('crescendo'), seconds: TriggerValueSchema, cap: TriggerValueSchema })
+    .strict(),
+]);
+export type TriggerEffect = z.infer<typeof TriggerEffectSchema>;
+
+/**
+ * A data-driven rule (docs/phase-5g.md, "The trigger system"): when `on` happens and every
+ * condition holds, each effect is applied, at most once every `every` seconds and `perFight`
+ * times a fight. Read by sim/systems/triggers.ts; inert without a motif, relic or boon holding one.
+ */
+export const TriggerDefSchema = z
+  .object({
+    on: z.enum(TRIGGER_EVENTS),
+    /** `every`: the timer's period, in seconds its conditions held. */
+    period: TriggerValueSchema.optional(),
+    // ── Conditions (all must hold) ──
+    /** The event's hero is this hero (content id). */
+    hero: IdSchema.optional(),
+    /** `techniqueCast`: this technique (`rewind`: the Chronomancer's, in Reel's slot). */
+    technique: z.enum(['ward', 'chime', 'reel', 'glide', 'rewind']).optional(),
+    /** `abilityUsed`: this ability id. */
+    ability: HeroAbilityKindSchema.optional(),
+    /** `shieldBroken`: this kind of shield. */
+    shield: z.enum(SHIELD_KINDS).optional(),
+    /** `summonFell`: this kind of summon. */
+    summon: z.enum(['sapling', 'ancient']).optional(),
+    /** The Thread is on a hero, in this mode. */
+    thread: z.enum(['mend', 'empower', 'bear']).optional(),
+    /** A Crescendo is playing. */
+    crescendo: z.literal(true).optional(),
+    /** `cued`: another hero was Cued within this many seconds before. */
+    cueWithin: z.number().positive().optional(),
+    /** `cleansed`, `chimeLanded`: a Clutch Cleanse. */
+    clutch: z.literal(true).optional(),
+    /** `cleansed`: it took off at least one ailment. */
+    removed: z.literal(true).optional(),
+    /** `enemyKilled`: the slain enemy's content role. */
+    role: EnemyRoleSchema.optional(),
+    // ── Limits (their clocks live in `world.internal.triggers`) ──
+    /** Seconds between fires. */
+    every: z.number().positive().optional(),
+    /** Fires a fight. */
+    perFight: z.number().int().positive().optional(),
+    effects: z.array(TriggerEffectSchema).min(1),
+  })
+  .strict();
+export type TriggerDef = z.infer<typeof TriggerDefSchema>;
+
+/** Every number-or-name a trigger holds, in a fixed order (the lint and the resolver read them). */
+export function triggerValues(t: TriggerDef): TriggerValue[] {
+  const out: TriggerValue[] = [];
+  if (t.period !== undefined) out.push(t.period);
+  for (const e of t.effects) {
+    switch (e.kind) {
+      case 'barrier':
+        out.push(e.pct, e.seconds);
+        break;
+      case 'heal':
+      case 'solo':
+        out.push(e.pct);
+        break;
+      case 'resonance':
+      case 'spirit':
+      case 'damage':
+        out.push(e.amount);
+        break;
+      case 'status':
+      case 'cooldown':
+      case 'ability':
+      case 'empower':
+        out.push(e.seconds);
+        break;
+      case 'crescendo':
+        out.push(e.seconds, e.cap);
+        break;
+    }
+  }
+  return out;
+}
+
 // ── Motifs ────────────────────────────────────────────────────────────────────────────
 
 export const MotifCategorySchema = z.enum(['silk', 'aegis', 'choir', 'bond', 'finale']);
@@ -909,9 +1139,19 @@ export const MotifDefSchema = z
         motifs: z.array(IdSchema).min(1).optional(),
         /** Offered only from this Movement on (docs/phase-5c.md); it sleeps in earlier fights. */
         movement: z.number().int().positive().optional(),
+        /**
+         * Offered only on an Expedition (docs/phase-5g.md, decision 4): the run layer drops it on
+         * a Prelude before any draw. Optional with no default, so older motifs parse as before.
+         */
+        expedition: z.literal(true).optional(),
       })
       .default({}),
     tags: z.array(z.string()).default([]),
+    /**
+     * Its rules for the trigger system (docs/phase-5g.md), `'v'` standing for its value at its
+     * level. Optional with no default: a motif without any parses to the same JSON as before.
+     */
+    triggers: z.array(TriggerDefSchema).min(1).optional(),
   })
   .strict();
 export type MotifDef = z.infer<typeof MotifDefSchema>;
@@ -953,6 +1193,17 @@ export const RelicDefSchema = z
      * sleeps (absent: 1).
      */
     movement: z.number().int().positive().optional(),
+    /**
+     * Offered only on an Expedition (docs/phase-5g.md, decision 4): drafts, shops, relic offers,
+     * events and Discordant Pact drop it on a Prelude before any draw. A carried one works on any
+     * route. Optional with no default, so older relics parse as before.
+     */
+    expedition: z.literal(true).optional(),
+    /**
+     * Its rules for the trigger system (docs/phase-5g.md), naming its `values` (Empowered ones
+     * when Empowered). Optional with no default.
+     */
+    triggers: z.array(TriggerDefSchema).min(1).optional(),
   })
   .strict();
 export type RelicDef = z.infer<typeof RelicDefSchema>;
@@ -968,6 +1219,8 @@ export const BoonDefSchema = z
     /** Fights it lasts; null = the rest of the run. */
     fights: z.number().int().positive().nullable(),
     icon: IdSchema,
+    /** Its rules for the trigger system (docs/phase-5g.md), naming its `values`. Optional. */
+    triggers: z.array(TriggerDefSchema).min(1).optional(),
   })
   .strict();
 export type BoonDef = z.infer<typeof BoonDefSchema>;
@@ -2306,6 +2559,29 @@ export const ContentSchema = z
       if (m.requires.aura) need(auras, m.requires.aura, `motif "${m.id}"`);
       if (m.requires.hero) need(heroes, m.requires.hero, `motif "${m.id}"`);
     }
+    // Triggers (docs/phase-5g.md): a motif's names only `'v'`; a relic's or boon's, its values.
+    const lintTriggers = (
+      triggers: readonly TriggerDef[] | undefined,
+      names: (name: string) => boolean,
+      where: string,
+    ) => {
+      for (const t of triggers ?? []) {
+        if ((t.on === 'every') !== (t.period !== undefined))
+          ctx.addIssue({
+            code: 'custom',
+            message: `${where}: a trigger has a period exactly when it is on 'every'`,
+          });
+        if (t.hero) need(heroes, t.hero, where);
+        for (const v of triggerValues(t))
+          if (typeof v === 'string' && !names(v))
+            ctx.addIssue({ code: 'custom', message: `${where}: a trigger names unknown "${v}"` });
+      }
+    };
+    for (const m of c.motifs) lintTriggers(m.triggers, (v) => v === 'v', `motif "${m.id}"`);
+    for (const r of c.relics)
+      lintTriggers(r.triggers, (v) => r.values[v] !== undefined, `relic "${r.id}"`);
+    for (const b of c.boons)
+      lintTriggers(b.triggers, (v) => b.values[v] !== undefined, `boon "${b.id}"`);
     for (const e of c.encounters) {
       need(arenas, e.arena, `encounter "${e.id}"`);
       if (e.boss) need(enemies, e.boss, `encounter "${e.id}"`);
@@ -2777,10 +3053,13 @@ export const ContentSchema = z
         need(motifIds, id, where);
         if (id === m.id) issue(`${where} can't require itself`);
       }
+      // Gated before any draw, so a default party's Prelude never meets it: by a hero (Phase 5b),
+      // or (Phase 5g, decision 4) as an Expedition-only Harmony.
       const gated =
         m.requires.hero !== undefined ||
+        m.requires.expedition === true ||
         pre.some((id) => motifById.get(id)?.requires.hero !== undefined);
-      if (!gated) issue(`${where} requires motifs: it must be hero-gated`);
+      if (!gated) issue(`${where} requires motifs: it must be hero-gated or Expedition-only`);
     }
     for (const a of c.attacks)
       if (

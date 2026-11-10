@@ -20,6 +20,8 @@ import type {
 import type { World } from '../world';
 import { startSolo } from './solos';
 import { endCrescendo } from './weaver';
+import { crescendoCostCut, cueCostCut } from '../fill/finale';
+import { cueCostFloor } from '../fill/relics';
 
 export { triadHolds };
 
@@ -58,12 +60,19 @@ export function onBeat(state: WorldState): boolean {
  * surcharge). Without the Conductor that is exactly today's `cueCost + cueCostBonus`.
  */
 export function cueCostNow(state: WorldState): number {
-  return onBeat(state) ? state.mods.cueCostBonus : state.dissonance.cueCost;
+  let cost = onBeat(state) ? state.mods.cueCostBonus : state.dissonance.cueCost;
+  // Phase 5g (N15, N29): Opening Bars and Tempo Rubato (fill/finale.ts), Hollow Crown's floor.
+  if (state.mods.firstCueCut > 0 || state.mods.freeCueEvery > 0) cost = cueCostCut(state, cost);
+  if (state.mods.cueCostFloor) cost = cueCostFloor(state, cost);
+  return cost;
 }
 
 /** What the Crescendo costs this fight: 100, or Maestro's 75. */
 export function crescendoCostOf(state: WorldState): number {
-  return state.calling?.conducting?.crescendoCost ?? CONTENT.resonance.crescendoCost;
+  const cost = state.calling?.conducting?.crescendoCost ?? CONTENT.resonance.crescendoCost;
+  // Phase 5g (N15b): Prompt Book (fill/finale.ts), as the Crescendo spends it. Stand-in states
+  // in the views may carry no mods.
+  return (state.mods?.firstCrescendoCut ?? 0) > 0 ? crescendoCostCut(state, cost) : cost;
 }
 
 /**

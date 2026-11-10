@@ -37,6 +37,7 @@ import {
 import { CRUCIBLE_ARENAS, CRUCIBLE_ATTACKS, CRUCIBLE_ENEMIES } from './crucible';
 import { CRUCIBLE_ENCOUNTERS, FINALE } from './crucibleRun';
 import { CALLS, CHORUS, CRESCENDO, RESONANCE, TECHNIQUES, THREAD, WEAVER } from './weaver';
+import { FILL_BOONS, FILL_EVENTS, FILL_MOTIFS, FILL_RELICS } from './fill';
 import {
   ContentSchema,
   type ArenaDef,
@@ -86,10 +87,11 @@ export const CONTENT: Content = ContentSchema.parse({
   attacks: [...ATTACKS, ...LEGION_ATTACKS, ...UNSTITCHED_ATTACKS, ...CRUCIBLE_ATTACKS],
   enemies: [...ENEMIES, ...LEGION_ENEMIES, ...UNSTITCHED_ENEMIES, ...CRUCIBLE_ENEMIES],
   affixes: [...AFFIXES, ...LEGION_AFFIXES, ...UNSTITCHED_AFFIXES],
-  motifs: MOTIFS,
-  relics: RELICS,
-  boons: BOONS,
-  events: [...RUN_EVENTS, ...LEGION_EVENTS, ...UNSTITCHED_EVENTS],
+  // Phase 5g (docs/phase-5g.md, ground rule 7): the fill comes after every existing entry.
+  motifs: [...MOTIFS, ...FILL_MOTIFS],
+  relics: [...RELICS, ...FILL_RELICS],
+  boons: [...BOONS, ...FILL_BOONS],
+  events: [...RUN_EVENTS, ...LEGION_EVENTS, ...UNSTITCHED_EVENTS, ...FILL_EVENTS],
   callings: CALLINGS,
   astrolabe: ASTROLABE,
   // Seren's and Oro's (docs/phase-5e.md) come after the first 27, so those keep their order; the
@@ -144,10 +146,18 @@ function contentHash(text: string): string {
 }
 
 /**
+ * The version of a validated content (docs/phase-5g.md): what `CONTENT_VERSION` is for
+ * `CONTENT`, and what the masked replay recomputes for `CONTENT` without the slice's entries.
+ */
+export function contentVersionOf(content: Content): string {
+  return `c-${contentHash(JSON.stringify(content))}`;
+}
+
+/**
  * Derived from the validated content itself, so any change that could change sim results
  * changes the version stamped into replays and golden files. Nobody has to remember to bump it.
  */
-export const CONTENT_VERSION = `c-${contentHash(JSON.stringify(CONTENT))}`;
+export const CONTENT_VERSION = contentVersionOf(CONTENT);
 
 function index<T extends { id: string }>(label: string, items: readonly T[]): (id: string) => T {
   const map = new Map(items.map((item) => [item.id, item]));

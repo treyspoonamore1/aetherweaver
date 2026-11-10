@@ -57,6 +57,7 @@ import { BERSERKER_SCATTER_GAP } from './blood';
 import { NO_CUE, cueHit } from './conducting';
 import { attackRange, flourishHit, heroDamage } from './heroDamage';
 import { clampPointToArena, pushPointOutOfObstacles } from './physics';
+import { coldSteel } from '../fill/bond';
 
 type Ability = HeroDef['abilities'][number];
 type Flourish = HeroDef['call']['flourish'];
@@ -631,6 +632,8 @@ function counter(world: World, e: Entity, def: HeroDef, p: ParryPassive, attacke
     ? soloValue(world, BLADE_WALTZ, hero.soloCued ? 'cuedPct' : 'pct') / 100
     : p.counterPct;
   const hit = heroDamage(world, e, def.attack.damage * pct, 0);
+  // Phase 5g (N13): Cold Steel's sharper counters (fill/bond.ts).
+  if (world.mods.counterBonus > 0) coldSteel(world, e, hit);
   // The Conductor (docs/phase-5f.md): a Duet's, Trio's or Finale turn's Blade Waltz counters harder.
   const power = waltz ? cueHit(world, e.id) : NO_CUE;
   world.events.push({

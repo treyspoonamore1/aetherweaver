@@ -362,6 +362,12 @@ export interface EncounterStats {
    * Present only on a Conductor run, and on a run's totals only when a fight had it.
    */
   conducting?: ConductingStats;
+  /**
+   * Phase 5g (docs/phase-5g.md): the trigger system's fires, by the motif's, relic's or boon's id
+   * (the sim's `ledger.triggers`). Present only when the fight held a trigger, and on a run's
+   * totals only when a fight had it.
+   */
+  triggers?: Record<string, number>;
 }
 
 /**

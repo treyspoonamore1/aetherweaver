@@ -7,6 +7,7 @@
 import { CONTENT } from '../content';
 import type { AstrolabeNode, Content, PassiveEffect } from '../content/schema';
 import type { ReservePool } from './chords';
+import { restCost } from './fill/choir';
 import type { Mods } from './mods';
 import type { WorldState } from './state';
 
@@ -429,6 +430,9 @@ export function techniqueCost(
     variant === null ? undefined : content.techniqueVariants.find((v) => v.id === variant);
   let amount = (def?.cost ?? content.techniques[technique].cost) * state.astrolabe.techCostMult;
   if (state.field.stasis) amount *= state.calling?.stasisCostMult ?? 1;
+  // Phase 5g (N8): Breath Between, as `spend` takes it (sim/fill/choir.ts). The views' stand-in
+  // states may carry no mods.
+  if ((state.mods?.restDiscount ?? 0) > 0) amount = restCost(state, amount);
   return { amount, pool: state.astrolabe.techniquesCostLife ? 'life' : 'spirit' };
 }
 

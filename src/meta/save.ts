@@ -186,6 +186,8 @@ const StatsSchema = z
     saveCauses: z.array(Str).default([]),
     // Phase 5f: the Conductor's runs; every other result has none.
     conducting: ConductingStatsSchema.optional(),
+    // Phase 5g: the trigger system's fires by source id; only results that held a trigger.
+    triggers: z.record(z.string(), Num).optional(),
   })
   // Deeds: results from before missed calls were told apart count every unanswered call missed.
   .transform((s) => ({ ...s, missedCalls: s.missedCalls ?? Math.max(0, s.calls - s.responses) }));

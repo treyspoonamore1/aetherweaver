@@ -60,6 +60,11 @@ import {
   refusedRallyLive,
   weaverHealCut,
 } from '../systems/blood';
+// Phase 5g (docs/phase-5g.md): the hooks' bodies, one file a stream.
+import { fullChordGuard } from '../fill/choir';
+import { closedCircleGuard, concertPitchMult } from '../fill/harmonies';
+import { giltEdge } from '../fill/silk';
+import * as fillRelics from '../fill/relics';
 
 /** Shields with no natural expiry (aura barriers, discord) expire at this sim time. */
 export const NEVER = 1e9;
@@ -843,6 +848,9 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     if (world.mods.inFieldDamage > 0 && source.hero.inField) mult *= 1 + world.mods.inFieldDamage;
     if (world.mods.wardedDamage > 0 && source.health && shieldOf(source.health, 'ward'))
       mult *= 1 + world.mods.wardedDamage;
+    // Phase 5g (N20, N30): Concert Pitch's ring (fill/harmonies.ts) and Thornwreath (fill/relics.ts).
+    if (world.mods.ringingPct > 0) mult *= concertPitchMult(world, source);
+    if (world.mods.thornPct > 0) mult *= fillRelics.thornwreathMult(world, source);
     if (mult !== 1) {
       amplifiedIn += amount * (mult - 1);
       amount *= mult;
@@ -924,6 +932,13 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     ranks = amount * world.mods.closeRanks;
     amount -= ranks;
   }
+  // Phase 5g (N9, N23, N28): Full Chord, Closed Circle, Iron Mask: each returns what it takes off.
+  if (target.hero && world.mods.perAuraGuard > 0)
+    amount -= fullChordGuard(world, target, amount, opts);
+  if (target.hero && world.mods.circleGuard > 0)
+    amount -= closedCircleGuard(world, target, amount, opts);
+  if (target.hero && world.mods.maskGuard > 0)
+    amount -= fillRelics.ironMaskGuard(world, target, amount, opts);
 
   let absorbed = 0;
   let absorbedByWeaver = 0;
@@ -1693,6 +1708,8 @@ function downHero(
   bark(world, e, 'downed', true);
   lantern(world, e);
   // A threaded hero stays threaded: Mend revives them.
+  // Phase 5g (N27): Water Clock may turn time back for them (fill/relics.ts).
+  if (world.mods.waterClock > 0) fillRelics.waterClockDowned(world, e);
 }
 
 function downWeaver(world: World, e: Entity): void {
@@ -1722,6 +1739,8 @@ function downWeaver(world: World, e: Entity): void {
 
 /** Called when a downed hero's bleed-out runs out. */
 export function heroOut(world: World, e: Entity): void {
+  // Phase 5g (N27): Water Clock may turn time back instead (fill/relics.ts).
+  if (world.mods.waterClock > 0 && fillRelics.waterClockOut(world, e)) return;
   const h = e.health!;
   h.dead = true;
   h.downed = true;
@@ -1865,6 +1884,8 @@ export function killEnemy(world: World, e: Entity, killer: Entity | null): void 
       (world.field.conducting && spotlit(world, killer.id) > 0)
     ) {
       gainResonance(world, world.content.resonance.gains.empoweredKill, 'empowered kill');
+      // Phase 5g (N5): Gilt Edge's more (fill/silk.ts).
+      if (world.mods.empoweredKillBonus > 0) giltEdge(world, killer);
     }
   }
   if (world.focusTarget === e.id) world.focusTarget = null;

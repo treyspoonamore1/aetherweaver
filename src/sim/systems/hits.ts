@@ -13,6 +13,7 @@ import { threadSegment } from '../rules3';
 import type { Entity } from '../state';
 import { weaverOf, type PendingHit, type World } from '../world';
 import { guardStrandReady, severingHit, spendGuardStrand } from './thread';
+import { splitFletching } from '../fill/bond';
 
 const CHAIN_RADIUS = 4;
 const CHAIN_FALLOFF = 0.6;
@@ -53,6 +54,8 @@ function land(world: World, hit: PendingHit): void {
   }
   // Ricochet (Bonds): Lyra's arrow bounces once, to another enemy inside your field.
   if (hit.bounce) bounce(world, hit, target, x, z, sourceName, source);
+  // Phase 5g (N11): Split Fletching, an Empowered arrow through to the enemy behind (fill/bond.ts).
+  if (world.mods.pierce > 0) splitFletching(world, hit, target, source);
   if (hit.chain > 0) {
     let from: Entity = target;
     const struck = new Set<number>([target.id]);

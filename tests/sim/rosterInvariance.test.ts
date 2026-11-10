@@ -43,7 +43,10 @@ const path = fileURLToPath(new URL('./rosterInvariance.keys.json', import.meta.u
 /**
  * Keys no default-party fight may carry: Brann's (`blood`, `tithe`, docs/phase-5b.md), Seren's
  * and Oro's (docs/phase-5e.md: `duel`, `grove`, `summon`, `summons`, `parried`,
- * `rootImmuneUntil`, `ancient`) and the Conductor's (docs/phase-5f.md: `conducting`, `cuePower`).
+ * `rootImmuneUntil`, `ancient`), the Conductor's (docs/phase-5f.md: `conducting`, `cuePower`)
+ * and Phase 5g's (docs/phase-5g.md: each absent unless its motif or relic is held). A
+ * `parent.key` entry names a key under that parent only (`relics.triggers`, the relics' own tally,
+ * is always there; `internal.triggers` and `ledger.triggers` are the trigger system's).
  */
 const FORBIDDEN = new Set([
   'blood',
@@ -57,6 +60,17 @@ const FORBIDDEN = new Set([
   'ancient',
   'conducting',
   'cuePower',
+  'internal.triggers',
+  'ledger.triggers',
+  'razorAt',
+  'lullabyReady',
+  'waterClockUsed',
+  'needleUntil',
+  'lastCastAt',
+  'spareUsed',
+  'chimeCharges',
+  'chimeRecharge',
+  'ringing',
 ]);
 
 /** The key paths named in FORBIDDEN anywhere under `value`. */
@@ -68,7 +82,7 @@ function forbiddenKeys(value: unknown, at: string, out: string[], seen: Set<unkn
     return;
   }
   for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-    if (FORBIDDEN.has(k)) out.push(`${at}.${k}`);
+    if (FORBIDDEN.has(k) || FORBIDDEN.has(`${at.split('.').at(-1)}.${k}`)) out.push(`${at}.${k}`);
     if (typeof v !== 'function') forbiddenKeys(v, `${at}.${k}`, out, seen);
   }
 }

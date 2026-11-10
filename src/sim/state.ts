@@ -213,6 +213,15 @@ export interface WeaverComponent {
   reform: number;
   /** Seconds until the Pedal Point field can be planted again. */
   plantCooldown: number;
+  // ── Phase 5g (docs/phase-5g.md). Absent unless the motif or relic that writes it is held. ──
+  /** Breath Between (N8): sim time the Weaver last cast a technique. */
+  lastCastAt?: number;
+  /** Spare Strings (N24): its one forgiven range snap is spent this fight. */
+  spareUsed?: true;
+  /** Everbell (N26): the Chime's charges now (its most: `mods.chimeCharges`). */
+  chimeCharges?: number;
+  /** Everbell (N26): seconds until the next Chime charge comes back, while one is out. */
+  chimeRecharge?: number;
 }
 
 export type HeroAction =
@@ -358,6 +367,11 @@ export interface HeroComponent {
   duel?: DuelState;
   /** Rootbond (Oro, docs/phase-5e.md): set at spawn only for a hero whose passive is `rootbond`. */
   grove?: GroveState;
+  /**
+   * Thread the Needle (docs/phase-5g.md, N4): the Thread moved onto this hero, and a telegraph
+   * striking them before this sim time is partly negated. Absent without the motif.
+   */
+  needleUntil?: number;
 }
 
 /**
@@ -828,6 +842,9 @@ export interface FieldState {
   // ── Phase 5f (docs/phase-5f.md). Public, created with the world on a Conductor run only. ──
   /** The Conductor's fight state: Duets and Trios, the path's pieces, the Grand Finale. */
   conducting?: ConductingField;
+  // ── Phase 5g (docs/phase-5g.md). Absent unless the Harmony that writes it is held. ──
+  /** Concert Pitch (N20): a Perfect Ward rang out; every hero deals more until this sim time. */
+  ringing?: number;
 }
 
 /** FieldState.conducting? — the Conductor's fight state (docs/phase-5f.md). Created with the world on a Conductor run. */
@@ -1032,6 +1049,9 @@ export interface Ledger {
   // ── Phase 5f (docs/phase-5f.md). Created with the world, only on a Conductor run. ──
   /** The Conductor: Duets, Trios, free Cues, the Grand Finale and the path's tallies. */
   conducting?: LedgerConducting;
+  // ── Phase 5g (docs/phase-5g.md). Created with the world, only while a trigger is held. ──
+  /** The trigger system's fires this fight, by the motif's, relic's or boon's content id. */
+  triggers?: Record<string, number>;
 }
 
 /** Ledger.conducting? — this fight's totals (created with the world on a Conductor run). */

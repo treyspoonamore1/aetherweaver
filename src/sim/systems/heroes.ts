@@ -67,6 +67,8 @@ import {
   leapTarget,
   tickBlood,
 } from './blood';
+import { constellationLines, innerOrbitCast } from '../fill/bond';
+import { grandStaffCharge } from '../fill/harmonies';
 
 const desired = { x: 0, z: 0 };
 const slotPos = { x: 0, z: 0 };
@@ -163,6 +165,8 @@ export function updateHeroes(world: World, dt: number): void {
 
     // Solo charge (by fighting), and Solos that fire without a Cue.
     if (hero.soloActive <= 0 && hero.engaged && hero.solo < 100) {
+      // Phase 5g (N21): Grand Staff's extra charge while Empowered (fill/harmonies.ts).
+      if (world.mods.staffMult !== 1) grandStaffCharge(world, e, dt);
       hero.solo = Math.min(
         100,
         hero.solo + (100 / soloSpec(world, e).chargeTime) * world.mods.soloChargeMult * dt,
@@ -997,6 +1001,8 @@ function startCast(
   // Overchannel (Bonds): a longer Starbolt.
   if (ability.id === 'starbolt' && hasTalent(e, 'overchannel'))
     castTime *= 1 + talentValue(world, 'overchannel', 'cast') / 100;
+  // Phase 5g (N10): Inner Orbit, Vexis in your field (fill/bond.ts).
+  if (world.mods.orbitCast > 0) castTime *= innerOrbitCast(world, e);
   const flourish = flourishing(e, index);
   if (castTime <= 0) {
     executeAbility(world, e, def, index, target.id, x, z, flourish);
@@ -1415,6 +1421,9 @@ function executeAbility(
         empowered: hit.empowered,
         stun: f?.stun ?? 0,
       });
+      // Phase 5g (N10b): Constellation Lines strikes what the Thread touches (fill/bond.ts).
+      if (world.mods.constellationPct > 0)
+        constellationLines(world, e, world.internal.pendingHits.at(-1)!);
       if (hasTalent(e, 'starthread')) starthread(world, e, def, power, radius);
       return;
     }

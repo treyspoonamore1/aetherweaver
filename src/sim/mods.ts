@@ -3,11 +3,182 @@
  * docs/phase-3b.md). Content stores values in display units (25 = 25%, 1.5 = 1.5 s); this is
  * the one place that knows what each motif, relic and boon means to the sim.
  */
-import type { Content } from '../content/schema';
+import type { Content, TriggerDef, TriggerEffect, TriggerValue } from '../content/schema';
 import { applyAstrolabe } from './astrolabe';
+import { aegisMotifIds, applyAegisMotif } from './fill/aegis';
+import { applyBondMotif, bondMotifIds } from './fill/bond';
+import { applyChoirMotif, choirMotifIds } from './fill/choir';
+import { applyFinaleMotif, finaleMotifIds } from './fill/finale';
+import { applyHarmonyMotif, harmonyMotifIds } from './fill/harmonies';
+import { applyFillBoon, applyFillRelic, fillBoonIds, fillRelicIds } from './fill/relics';
+import { applySilkMotif, silkMotifIds } from './fill/silk';
 import type { ResolvedSimConfig } from './world';
 
-export interface Mods {
+/** A trigger value resolved to its number (`'v'` or a relic's named value). */
+type WithNumbers<T, K extends keyof T> = Omit<T, K> & {
+  [P in K]-?: undefined extends T[P] ? number | undefined : number;
+};
+type EffectOf<K extends TriggerEffect['kind']> = Extract<TriggerEffect, { kind: K }>;
+
+/** A trigger effect with its numbers resolved for the fight (sim/systems/triggers.ts applies it). */
+export type ResolvedEffect =
+  | WithNumbers<EffectOf<'barrier'>, 'pct' | 'seconds'>
+  | WithNumbers<EffectOf<'heal'>, 'pct'>
+  | WithNumbers<EffectOf<'resonance'>, 'amount'>
+  | WithNumbers<EffectOf<'spirit'>, 'amount'>
+  | WithNumbers<EffectOf<'solo'>, 'pct'>
+  | WithNumbers<EffectOf<'damage'>, 'amount'>
+  | WithNumbers<EffectOf<'status'>, 'seconds'>
+  | WithNumbers<EffectOf<'cooldown'>, 'seconds'>
+  | WithNumbers<EffectOf<'ability'>, 'seconds'>
+  | WithNumbers<EffectOf<'empower'>, 'seconds'>
+  | WithNumbers<EffectOf<'crescendo'>, 'seconds' | 'cap'>;
+
+/** A content trigger (docs/phase-5g.md) with every value resolved to a number. */
+export type ResolvedTriggerDef = Omit<TriggerDef, 'period' | 'effects'> & {
+  period?: number;
+  effects: ResolvedEffect[];
+};
+
+/** One trigger the fight holds, and the motif, relic or boon it came from (its content id). */
+export interface ResolvedTrigger {
+  source: string;
+  def: ResolvedTriggerDef;
+}
+
+/**
+ * Phase 5g's mods (docs/phase-5g.md, *Shared sim support*). Every default does nothing: an
+ * additive field is 0, a multiplier 1, a flag false, and each reader starts with an early `if` on
+ * its own field. The N-numbers are the doc's hook table; each hook calls the owning stream's
+ * `src/sim/fill/<stream>.ts`, whose resolver cases set these.
+ */
+export interface FillMods {
+  /**
+   * The trigger system's rules (sim/systems/triggers.ts), in the order the run's motifs, relics
+   * and boons were resolved. Empty without any: `world.internal.triggers` is then absent.
+   */
+  triggers: readonly ResolvedTrigger[];
+  /** N1 Razor Silk (W1): damage a second to each enemy touching the Thread (0 = none). */
+  razorDps: number;
+  /** N1 Cutting Chorus (W5): Razor Silk's damage × this with Fortissimo in the songs (1 = none). */
+  razorMult: number;
+  /** N1 Cutting Chorus (W5): Razor Silk can strike critically. */
+  razorCrit: boolean;
+  /** N1 Spindle Lullaby (W5): seconds an ordinary enemy touching the Thread sleeps (0 = none). */
+  razorSleep: number;
+  /** N2 Slack Line (W1): the range snap's lock × this (the enemy cut's is `cutLockMult`). */
+  snapLockMult: number;
+  /** N3 Quickening Thread (W1): Empower's attack speed × this. */
+  empowerSpeedMult: number;
+  /** N4 Thread the Needle (W1): the share of a telegraph's hit the Thread's arrival negates (0 = none). */
+  needlePct: number;
+  /** N5 Gilt Edge (W1): Resonance on top of an Empowered kill's. */
+  empoweredKillBonus: number;
+  /** N6 Last Bastion (W2): a Ward on a hero below `lowWardBelow` of their life is this much larger. */
+  lowWardBonus: number;
+  lowWardBelow: number;
+  /** N7 Close Harmony (W1): Spirit regen this much faster while 3+ heroes are `inField`. */
+  huddleRegen: number;
+  /** N8 Breath Between (W1): a technique's Spirit this much less after 4 s without a cast. */
+  restDiscount: number;
+  /** N9 Full Chord (W1): damage taken off heroes `inField`, per aura in the songs. */
+  perAuraGuard: number;
+  /** N10 Inner Orbit (W4): Vexis casts this much faster while `inField`. */
+  orbitCast: number;
+  /** N10b Constellation Lines (W4): Starbolt's share on each enemy touching the Thread. */
+  constellationPct: number;
+  /** N11 Split Fletching (W4): an Empowered arrow's share on the enemy behind its target. */
+  pierce: number;
+  /** N12 Edge of the Red (W4): Empower on a Blood-Raged hero below 30% this much stronger. */
+  redEdge: number;
+  /** N13 Cold Steel (W4): Seren's parry counters deal this much more. */
+  counterBonus: number;
+  /** N14 Graft (W4): Rootbond's Mend on the Saplings × this. */
+  graftMult: number;
+  /** N15 Opening Bars (W3): Resonance off the fight's first Cue. */
+  firstCueCut: number;
+  /** N15 Tempo Rubato (W5's Harmony, W3's hook body): one Cue in every this many is free (0 = none). */
+  freeCueEvery: number;
+  /** N15b Prompt Book (W6's relic, W3's hook body): Resonance off the fight's first Crescendo. */
+  firstCrescendoCut: number;
+  /** N16 Tenuto (W3): seconds more before Resonance fades. */
+  fadeDelay: number;
+  /** N17 Tuning Up (W3): Solo charge (0–100) every hero starts the fight with. */
+  startSoloCharge: number;
+  /** N18 Vigil Song (W3): Resonance a second while Mending a hero below 30%. */
+  vigilResonance: number;
+  /** N19 Woven Aegis (W5): the share of Mend's healing on a Warded hero that refills the Ward. */
+  wovenRefill: number;
+  /** N20 Concert Pitch (W5): every hero deals this much more for `ringingSeconds` after a Perfect. */
+  ringingPct: number;
+  ringingSeconds: number;
+  /** N21 Grand Staff (W5): an Empowered hero's Solo charges × this. */
+  staffMult: number;
+  /** N22 Wounded Healer (W5): Mend and the Ward this much stronger below half the Weaver's Life. */
+  woundedBonus: number;
+  /** N23 Closed Circle (W5): damage taken off every hero while every standing hero is `inField`. */
+  circleGuard: number;
+  /** N24 Spare Strings (W6): the first range snap of a fight is forgiven. */
+  spareSnap: boolean;
+  /** N26 Everbell (W6): the Chime's charges (1 = none). */
+  chimeCharges: number;
+  /** N27 Water Clock (W6): seconds a downed hero's time turns back, once a fight (0 = none). */
+  waterClock: number;
+  /** N28 Iron Mask (W6): damage taken off every hero; and its curse, the Thread can't Empower. */
+  maskGuard: number;
+  noEmpower: boolean;
+  /** N29 Hollow Crown (W6): a Cue's cost is clamped at 0 (a negative `cueCostBonus` can make it less). */
+  cueCostFloor: boolean;
+  /** N30 Thornwreath (W6): heroes below `thornBelow` of their life deal `thornPct` more. */
+  thornPct: number;
+  thornBelow: number;
+}
+
+/** Phase 5g's defaults: each does nothing (docs/phase-5g.md, ground rule 3). */
+export const FILL_NO_MODS: FillMods = {
+  triggers: Object.freeze([]) as readonly ResolvedTrigger[],
+  razorDps: 0,
+  razorMult: 1,
+  razorCrit: false,
+  razorSleep: 0,
+  snapLockMult: 1,
+  empowerSpeedMult: 1,
+  needlePct: 0,
+  empoweredKillBonus: 0,
+  lowWardBonus: 0,
+  lowWardBelow: 0,
+  huddleRegen: 0,
+  restDiscount: 0,
+  perAuraGuard: 0,
+  orbitCast: 0,
+  constellationPct: 0,
+  pierce: 0,
+  redEdge: 0,
+  counterBonus: 0,
+  graftMult: 1,
+  firstCueCut: 0,
+  freeCueEvery: 0,
+  firstCrescendoCut: 0,
+  fadeDelay: 0,
+  startSoloCharge: 0,
+  vigilResonance: 0,
+  wovenRefill: 0,
+  ringingPct: 0,
+  ringingSeconds: 0,
+  staffMult: 1,
+  woundedBonus: 0,
+  circleGuard: 0,
+  spareSnap: false,
+  chimeCharges: 1,
+  waterClock: 0,
+  maskGuard: 0,
+  noEmpower: false,
+  cueCostFloor: false,
+  thornPct: 0,
+  thornBelow: 0,
+};
+
+export interface Mods extends FillMods {
   // ── Dissonance (docs/phase-4d.md) ──
   /** Brisk Foes: enemies' speed. */
   enemySpeedMult: number;
@@ -461,6 +632,8 @@ export const NO_MODS: Mods = {
   stillwaterBell: 0,
   stillwaterRefund: 0,
   sacrificialLamb: 0,
+  // Phase 5g (docs/phase-5g.md): after every existing default.
+  ...FILL_NO_MODS,
 };
 
 /** Blood Tithe's fixed refund: Spirit a Tithe Ward gives back when it breaks (docs/phase-5b.md). */
@@ -468,53 +641,63 @@ export const BLOOD_TITHE_REFUND = 10;
 
 export function resolveMods(config: ResolvedSimConfig, content: Content): Mods {
   const m: Mods = { ...NO_MODS };
-  for (const owned of config.motifs) {
+  for (const [i, owned] of config.motifs.entries()) {
+    // A motif listed twice plays its last entry, as it did when every case assigned: the cases
+    // below accumulate (docs/phase-5g.md, ground rule 4), so only that entry is resolved.
+    if (config.motifs.some((o, j) => j > i && o.id === owned.id)) continue;
     const def = content.motifs.find((d) => d.id === owned.id);
     if (!def) continue;
     const v = def.values[Math.min(def.values.length, owned.level) - 1] ?? 0;
     const pct = v / 100;
+    // Phase 5g (ground rule 4): every case accumulates, `+=` from 0 and `*=` from 1, which is
+    // exact in IEEE doubles; no two existing motifs share a field, so every existing build
+    // resolves as before, and new motifs, relics and the Astrolabe stack with them. The cases of
+    // motifs that feed an aura (Second Verse, Warm Hum, Glass Choir, Presto: their fields are read
+    // in combat/auras.ts and systems/field.ts; Verdant Choir, whose Saplings sing Sostenuto) are
+    // left exactly as they were.
     switch (def.id) {
       case 'relay_weave':
-        m.relayHealPct = pct;
+        m.relayHealPct += pct;
         break;
       case 'long_weave':
-        m.threadRangeBonus = v;
+        m.threadRangeBonus += v;
         break;
       case 'lifeline':
-        m.lifelineMult = 1 + pct;
+        m.lifelineMult *= 1 + pct;
         break;
       case 'taut_release':
-        m.tautReleasePct = pct;
+        m.tautReleasePct += pct;
         break;
       case 'golden_filament':
-        m.empowerMult = 1 + pct;
+        m.empowerMult *= 1 + pct;
         break;
       case 'deep_roots':
-        m.wardBarrierMult = 1 + pct;
+        m.wardBarrierMult *= 1 + pct;
         break;
       case 'lingering_aegis':
-        m.wardDurationBonus = v;
+        m.wardDurationBonus += v;
         break;
       case 'steady_hands':
-        m.perfectWindowBonus = v;
+        m.perfectWindowBonus += v;
         break;
       case 'riposte_bloom':
-        m.ripostePower = v;
+        m.ripostePower += v;
         break;
       case 'twin_aegis':
-        m.wardCharges = v;
+        // `v` charges in all: the Ward's own one, and v − 1 more.
+        m.wardCharges += v - 1;
         break;
       case 'clear_tone':
-        m.chimeRadiusMult = 1 + pct;
+        m.chimeRadiusMult *= 1 + pct;
         break;
       case 'fishers_knot':
-        m.reelCooldownCut = v;
+        m.reelCooldownCut += v;
         break;
       case 'second_verse':
         m.fieldRadiusMult = 1 + pct;
         break;
       case 'deep_breath':
-        m.spiritRegenMult = 1 + pct;
+        m.spiritRegenMult *= 1 + pct;
         break;
       case 'warm_hum':
         m.sostenutoMult = 1 + pct;
@@ -526,58 +709,63 @@ export function resolveMods(config: ResolvedSimConfig, content: Content): Mods {
         m.allegroBonus = pct;
         break;
       case 'hammerfall':
-        m.hammerfallChance = pct;
+        m.hammerfallChance += pct;
         break;
       case 'heavy_eyelids':
-        m.heavyEyelidsSleep = v;
+        m.heavyEyelidsSleep += v;
         break;
       case 'bulwarks_echo':
-        m.bulwarksEchoPct = pct;
+        m.bulwarksEchoPct += pct;
         break;
       case 'wind_at_her_back':
-        m.lyraAttackSpeed = pct;
+        m.lyraAttackSpeed += pct;
         break;
       case 'starlit_study':
-        m.starboltCastMult = 100 / (100 + v);
+        m.starboltCastMult *= 100 / (100 + v);
         break;
       case 'standing_ovation':
-        m.resonanceMult = 1 + pct;
+        m.resonanceMult *= 1 + pct;
         break;
       case 'quickened_verse':
-        m.soloChargeMult = 1 + pct;
+        m.soloChargeMult *= 1 + pct;
         break;
       case 'canon':
-        m.canon = v;
+        m.canon += v;
         break;
       case 'encore':
-        m.encoreBonus = v;
+        m.encoreBonus += v;
         break;
       case 'da_capo':
-        m.daCapo = v;
+        m.daCapo += v;
         break;
       // Brann's (docs/phase-5b.md): numbers only; the sim reads them from W1 on.
       case 'blood_tithe':
-        m.bloodTithe = pct;
+        m.bloodTithe += pct;
+        // A fixed refund (not a sum): a Tithe Ward gives back the same however it was made.
         m.bloodTitheRefund = BLOOD_TITHE_REFUND;
         break;
       case 'blood_and_silk':
-        m.bloodAndSilk = v;
+        m.bloodAndSilk += v;
         break;
       // Movement III's (docs/phase-5c.md): numbers only; W1 gives them behaviour.
       case 'guard_strand':
-        m.guardStrand = v;
+        m.guardStrand += v;
         break;
       // Seren's and Oro's (docs/phase-5e.md): numbers only; duel.ts and grove.ts read them.
       case 'en_garde':
-        m.enGarde = v;
+        m.enGarde += v;
         break;
       case 'verdant_choir':
         m.verdantChoir = pct;
         break;
       default:
-        // A motif without sim behaviour is a content bug; tests check every motif is known.
+        // Phase 5g: each stream's motifs (src/sim/fill/*.ts). A motif no resolver knows is a
+        // content bug; tests check every motif is known.
+        fillMotif(m, def.id, v);
         break;
     }
+    // The trigger system (docs/phase-5g.md): the motif's rules, `'v'` its value at its level.
+    if (def.triggers) addTriggers(m, def.id, def.triggers, (name) => (name === 'v' ? v : 0));
   }
   for (const owned of config.relics) {
     const def = content.relics.find((d) => d.id === owned.id);
@@ -585,10 +773,12 @@ export function resolveMods(config: ResolvedSimConfig, content: Content): Mods {
     const values =
       owned.empowered && def?.empowered ? { ...def.values, ...def.empowered.values } : def?.values;
     if (def && values) applyRelic(m, def.id, values, owned.cleansed);
+    if (def?.triggers && values) addTriggers(m, def.id, def.triggers, (name) => values[name] ?? 0);
   }
   for (const id of config.boons) {
     const def = content.boons.find((d) => d.id === id);
     if (def) applyBoon(m, def.id, def.values);
+    if (def?.triggers) addTriggers(m, def.id, def.triggers, (name) => def.values[name] ?? 0);
   }
   if (config.calling) {
     const def = content.callings.find((d) => d.id === config.calling!.id);
@@ -937,7 +1127,9 @@ function applyRelic(m: Mods, id: string, v: Values, cleansed: boolean): void {
       m.wardCharges += num(v, 'charges');
       break;
     default:
-      // Run-only relics (Star Chart) have no sim behaviour; tests check the rest are known.
+      // Phase 5g's relics (src/sim/fill/relics.ts). Run-only relics (Star Chart) have no sim
+      // behaviour; tests check the rest are known.
+      applyFillRelic(m, id, v, cleansed);
       break;
   }
 }
@@ -955,12 +1147,91 @@ function applyBoon(m: Mods, id: string, v: Values): void {
       m.empowerMult *= 1 + num(v, 'pct') / 100;
       break;
     default:
+      // Phase 5g's boons (src/sim/fill/relics.ts).
+      applyFillBoon(m, id, v);
       break;
   }
 }
 
+/**
+ * Phase 5g (docs/phase-5g.md): a motif none of the cases above knows goes to the streams' own
+ * resolvers (src/sim/fill/*.ts), in the doc's table order; the first that knows it sets it.
+ */
+function fillMotif(m: Mods, id: string, v: number): void {
+  if (applySilkMotif(m, id, v)) return;
+  if (applyAegisMotif(m, id, v)) return;
+  if (applyChoirMotif(m, id, v)) return;
+  if (applyBondMotif(m, id, v)) return;
+  if (applyFinaleMotif(m, id, v)) return;
+  applyHarmonyMotif(m, id, v);
+}
+
+/** One resolved effect: each of its numbers-or-names through `value`. */
+function resolveEffect(e: TriggerEffect, value: (v: TriggerValue) => number): ResolvedEffect {
+  switch (e.kind) {
+    case 'barrier':
+      return { ...e, pct: value(e.pct), seconds: value(e.seconds) };
+    case 'heal':
+    case 'solo':
+      return { ...e, pct: value(e.pct) };
+    case 'resonance':
+    case 'spirit':
+    case 'damage':
+      return { ...e, amount: value(e.amount) };
+    case 'status':
+    case 'cooldown':
+    case 'ability':
+    case 'empower':
+      return { ...e, seconds: value(e.seconds) };
+    case 'crescendo':
+      return { ...e, seconds: value(e.seconds), cap: value(e.cap) };
+  }
+}
+
+/**
+ * The trigger system (docs/phase-5g.md): `source`'s rules, appended in resolution order, with
+ * every name resolved (`named`: a motif's `'v'`, a relic's or boon's values). `NO_MODS.triggers`
+ * is shared and never written: a fight with triggers gets a new list.
+ */
+function addTriggers(
+  m: Mods,
+  source: string,
+  defs: readonly TriggerDef[],
+  named: (name: string) => number,
+): void {
+  const value = (v: TriggerValue): number => (typeof v === 'number' ? v : named(v));
+  const resolved = defs.map((t): ResolvedTrigger => {
+    const { period, effects, ...rest } = t;
+    return {
+      source,
+      def: {
+        ...rest,
+        ...(period !== undefined ? { period: value(period) } : {}),
+        effects: effects.map((e) => resolveEffect(e, value)),
+      },
+    };
+  });
+  m.triggers = [...m.triggers, ...resolved];
+}
+
+/**
+ * Phase 5g (docs/phase-5g.md): the ids each stream's resolver knows. They go *before* the existing
+ * ids in the KNOWN lists, so those lists' tails (pinned by tests) stay as they are. Each stream's
+ * `...Ids()` is a function returning an array literal, so it can be called while modules load.
+ */
+const FILL_KNOWN_MOTIFS: readonly string[] = [
+  ...silkMotifIds(),
+  ...aegisMotifIds(),
+  ...choirMotifIds(),
+  ...bondMotifIds(),
+  ...finaleMotifIds(),
+  ...harmonyMotifIds(),
+];
+
 /** Relic ids the resolver gives sim behaviour (checked against content in tests). */
 export const KNOWN_RELICS: readonly string[] = [
+  // Phase 5g's (src/sim/fill/relics.ts), first.
+  ...fillRelicIds(),
   'silver_thimble',
   'lantern_of_the_lost',
   'featherweight_robes',
@@ -985,10 +1256,18 @@ export const KNOWN_RELICS: readonly string[] = [
   'first_score',
 ];
 
-export const KNOWN_BOONS: readonly string[] = ['last_note', 'frayed_spirit', 'mended_loom'];
+export const KNOWN_BOONS: readonly string[] = [
+  // Phase 5g's (src/sim/fill/relics.ts), first.
+  ...fillBoonIds(),
+  'last_note',
+  'frayed_spirit',
+  'mended_loom',
+];
 
 /** Motif ids this resolver understands (checked against content in tests). */
 export const KNOWN_MOTIFS: readonly string[] = [
+  // Phase 5g's (src/sim/fill/*.ts), first, so the existing tail stays where it is.
+  ...FILL_KNOWN_MOTIFS,
   'relay_weave',
   'long_weave',
   'lifeline',

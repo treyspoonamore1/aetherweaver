@@ -26,6 +26,11 @@ import { weaverOf, type World } from '../world';
 import { reject } from './techniques';
 import { rootbond } from './grove';
 import { spotlit } from './conducting';
+import { needleAttach, quickeningSpeed, razorSilk, slackLineLock } from '../fill/silk';
+import { spindleLullaby, woundedMendMult, wovenAegis } from '../fill/harmonies';
+import { vigilSong } from '../fill/finale';
+import { edgeOfTheRedMult } from '../fill/bond';
+import { ironMaskRefuses, spareStrings } from '../fill/relics';
 
 const MEND_FLUSH = 0.5;
 /** Blood and Silk counts while Brann is below this share of his life (docs/phase-5b.md). */
@@ -51,6 +56,8 @@ export function attachThread(world: World, slot: PartySlot): void {
   w.threadTension = 0;
   restartUnravel(world);
   world.events.push({ type: 'threadAttached', tick: world.tick, hero: hero.id, slot });
+  // Phase 5g (N4): Thread the Needle arms its catch on the hero (fill/silk.ts).
+  if (world.mods.needlePct > 0) needleAttach(world, hero);
   // Under Unravel (docs/phase-5c.md) the Thread wounds: no Relay heal.
   if (
     previous !== null &&
@@ -239,6 +246,9 @@ function silverThimble(world: World, hero: Entity): void {
  */
 export function toggleThreadMode(world: World, mode?: 'bear'): void {
   const w = weaverOf(world).weaver!;
+  // Phase 5g (N28): Iron Mask's curse, the Thread can't Empower (fill/relics.ts).
+  if (world.mods.noEmpower && ironMaskRefuses(world, mode))
+    return reject(world, 'thread', 'locked');
   if (mode === 'bear') {
     if (world.mods.bearShare <= 0) return reject(world, 'thread', 'locked');
     if (w.threadMode === 'bear') w.threadMode = w.lastMode;
@@ -279,6 +289,8 @@ function mendHero(world: World, hero: Entity, amount: number): void {
   const c = hero.hero!;
   const healed = heal(world, hero, amount, 'mend', false);
   c.mendHealAcc += healed;
+  // Phase 5g (N19): Woven Aegis refills a Ward from Mend (fill/harmonies.ts).
+  if (world.mods.wovenRefill > 0) wovenAegis(world, hero, healed);
   // Sanguine Covenant (the Martyr): Mend heals the Weaver too (reported with her own healing).
   if (healed > 0 && world.mods.covenantPct > 0) {
     const weaver = weaverOf(world);
@@ -315,10 +327,14 @@ export function empowerBonus(world: World, hero: Entity): { more: number; attack
   const q = world.field.conducting ? Math.max(p, spotlit(world, hero.id)) : p;
   if (q <= 0) return { more: 0, attackSpeed: 0 };
   const def = world.content.thread;
-  return {
+  const bonus = {
     more: def.empowerMore * world.mods.empowerMult * q,
     attackSpeed: def.empowerAttackSpeed * q,
   };
+  // Phase 5g (N3, N12): Quickening Thread's speed and Edge of the Red (fill/silk.ts, fill/bond.ts).
+  if (world.mods.empowerSpeedMult !== 1) bonus.attackSpeed *= quickeningSpeed(world, hero);
+  if (world.mods.redEdge > 0) bonus.more *= edgeOfTheRedMult(world, hero);
+  return bonus;
 }
 
 /** Mend's bonuses on one hero (the Astrolabe's Second Stitch and Lifeguard; Lifeline). */
@@ -329,6 +345,8 @@ function mendBonus(world: World, hero: Entity): number {
   if (m.mendLowBonus > 0 && h.hp < h.maxHp * m.mendLowBelow) mult *= 1 + m.mendLowBonus;
   if (m.mendWarded > 0 && h.shields.some((s) => s.kind === 'ward' && s.amount > 0))
     mult *= 1 + m.mendWarded;
+  // Phase 5g (N22): Wounded Healer's Mend (fill/harmonies.ts).
+  if (m.woundedBonus > 0) mult *= woundedMendMult(world, hero);
   return mult;
 }
 
@@ -357,6 +375,9 @@ export function updateThread(world: World, dt: number): void {
     if (world.mods.tautReleasePct > 0 && !hero.health.downed) {
       addShield(world, hero, 'overshield', hero.health.maxHp * world.mods.tautReleasePct, 4, true);
     }
+    // Phase 5g (N2, N24): Slack Line's shorter lock (fill/silk.ts); Spare Strings (fill/relics.ts).
+    if (world.mods.snapLockMult !== 1) w.threadLock = slackLineLock(world, w.threadLock);
+    if (world.mods.spareSnap) spareStrings(world, hero);
     return;
   }
   const before = w.threadTension;
@@ -369,6 +390,10 @@ export function updateThread(world: World, dt: number): void {
       tension: w.threadTension,
     });
   }
+  // Phase 5g (N1): what the Thread touches, Razor Silk's (fill/silk.ts) and Spindle Lullaby's
+  // (fill/harmonies.ts); the shared test is fill/threadContact.ts.
+  if (world.mods.razorDps > 0) razorSilk(world, dt);
+  if (world.mods.razorSleep > 0) spindleLullaby(world, dt);
   const potency = 1 - w.threadTension * (1 - def.tautPotency);
   const h = hero.health;
   const c = hero.hero!;
@@ -394,6 +419,8 @@ export function updateThread(world: World, dt: number): void {
     }
     const perSec = def.mendPerSec * world.mods.mendMult * dt;
     mendHero(world, hero, perSec * potency * mendBonus(world, hero));
+    // Phase 5g (N18): Vigil Song's Resonance from Mending a hero low on life (fill/finale.ts).
+    if (world.mods.vigilResonance > 0) vigilSong(world, hero, dt);
     // Rootbond (Oro, docs/phase-5e.md): your Mend on him Mends his summons too (grove.ts).
     if (c.grove) rootbond(world, hero, perSec * potency);
     if (world.mods.prismRadius > 0) {

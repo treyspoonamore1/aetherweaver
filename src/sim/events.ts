@@ -1011,6 +1011,29 @@ export interface TriadEvent extends At {
   on: boolean;
 }
 
+// ── Phase 5g (docs/phase-5g.md). Emitted only while a motif, relic or boon holds the rule. ──
+
+/**
+ * A trigger fired (sim/systems/triggers.ts): `source` is the motif's, relic's or boon's content
+ * id, `target` the entity its effect landed on first, when there was one. Also counted in
+ * `ledger.triggers`.
+ */
+export interface MotifTriggered extends At {
+  type: 'motifTriggered';
+  source: string;
+  target?: EntityId;
+}
+/**
+ * Thread the Needle (N4): the Thread moved onto `hero` just before `telegraph` struck them and
+ * took `negated` off the hit. Not a Perfect Ward: nothing that pays a Perfect fires on it.
+ */
+export interface Needled extends At {
+  type: 'needled';
+  hero: EntityId;
+  telegraph: number;
+  negated: number;
+}
+
 export type SimEvent =
   | EntitySpawned
   | EntityDespawned
@@ -1128,7 +1151,9 @@ export type SimEvent =
   | FinaleTurn
   | FinaleTurnLost
   | FinaleEnded
-  | TriadEvent;
+  | TriadEvent
+  | MotifTriggered
+  | Needled;
 
 export type SimEventType = SimEvent['type'];
 export type SimEventOf<T extends SimEventType> = Extract<SimEvent, { type: T }>;
