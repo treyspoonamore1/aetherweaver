@@ -287,6 +287,34 @@ export function harmonyLabRun(missing: boolean): RunState {
   };
 }
 
+/**
+ * A draft whose cards lead to Harmonies: Razor Silk to two (Cutting Chorus with Fortissimo, which
+ * the run sings, and Spindle Lullaby with Lullaby, which it doesn't), Lingering Aegis to one
+ * (Woven Aegis, its other prerequisite owned).
+ */
+export function harmonyLeadsRun(): RunState {
+  const base = draftRun();
+  const run = withParty(base, CONTENT.defaultParty);
+  const chords = run.chords.map((c, i) =>
+    i === 0 && !c.auras.includes('fortissimo')
+      ? { ...c, auras: ['fortissimo', ...c.auras.slice(1)] }
+      : c,
+  );
+  const offered = ['razor_silk', 'lingering_aegis', 'relay_weave'].filter((id) =>
+    CONTENT.motifs.some((m) => m.id === id),
+  );
+  return {
+    ...run,
+    motifs: [{ id: 'warded_weft', level: 1 }],
+    chords,
+    draft: {
+      reason: 'elite',
+      rerollsLeft: 1,
+      options: offered.map((motifId) => ({ motifId, level: 1, upgrade: false })),
+    },
+  };
+}
+
 function EventsWaiting() {
   return (
     <div className="bg-ink-950 p-6">
@@ -366,6 +394,14 @@ export const FILL_VIEWS: FillLabView[] = [
     w: 1280,
     h: 900,
     render: () => <DraftView run={harmonyLabRun(false)} onPick={noop} onReroll={noop} />,
+  },
+  {
+    id: 'fill-draft-harmony-leads',
+    group: GROUP,
+    label: 'Draft: cards that lead to one Harmony and to two (the Harmony line under each)',
+    w: 1280,
+    h: 900,
+    render: () => <DraftView run={harmonyLeadsRun()} onPick={noop} onReroll={noop} />,
   },
   {
     id: 'fill-codex-motifs',

@@ -238,17 +238,28 @@ export function MotifCard({
       <div className="mt-auto pt-4">
         {leads.map((l) => {
           const ready = have !== undefined && l.others.every((n) => n.owned);
+          const rest = l.others.map((n) => n.text).join(' and ');
+          // Two clean lines, the glyph beside the first (a flex row of loose text and a span
+          // squeezed them into two cramped columns): what it leads to, then what else it needs.
           return (
             <p
               key={l.harmony.id}
-              className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-gold-200"
+              className="mb-2 flex items-start gap-1.5 text-xs leading-snug text-gold-200"
               data-testid="harmony-hint"
               data-harmony={l.harmony.id}
               data-ready={ready || undefined}
+              title={l.text}
             >
-              <Icon name={ready ? 'check' : 'link'} size={13} />
-              {l.text}
-              {ready && <span className="font-normal text-heal">· you have the rest</span>}
+              <Icon name={ready ? 'check' : 'link'} size={13} className="mt-px shrink-0" />
+              <span className="min-w-0">
+                <span className="block font-semibold">Harmony → {l.harmony.name}</span>
+                {rest && (
+                  <span className="block text-gold-200/80">
+                    with {rest}
+                    {ready && <span className="text-heal"> · you have the rest</span>}
+                  </span>
+                )}
+              </span>
             </p>
           );
         })}
