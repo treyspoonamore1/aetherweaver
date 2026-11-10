@@ -117,13 +117,15 @@ export const FILL_SCENARIOS: Record<string, FillScenario> = {
       'generic',
     ],
     seconds: 3,
-    note: 'Lab stand-in: one trigger of each effect kind at once (on the heroes, a chorister, the Weaver), every 2 s',
+    note: 'Lab stand-in: one trigger of each effect kind at once (on the heroes, a chorister, the Weaver), every 2 s from 1.2 s (once the chorister has arrived)',
     stage: (rt) => {
       rt.later(0.1, () =>
         rt.queue(debug({ op: 'spawnEnemy', defId: 'hollow_chorister', x: 4, z: -6 })),
       );
+      // It holds out from the moment it arrives (the heroes would fell it before the first fire).
+      for (let k = 0; k < 6; k++) rt.later(0.2 + 0.15 * k, () => toughen(rt));
       for (let k = 0; k < 15; k++)
-        rt.later(0.6 + 2 * k, () => {
+        rt.later(1.2 + 2 * k, () => {
           toughen(rt);
           rt.inject(everyKind(rt));
         });

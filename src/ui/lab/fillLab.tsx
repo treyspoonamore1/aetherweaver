@@ -211,7 +211,7 @@ function TriggerLinesPanel() {
     <div className="bg-ink-950 p-6">
       <Panel tone="solid" className="max-w-2xl p-5">
         <h2 className="mb-3 font-display text-sm font-bold uppercase tracking-wider text-muted">
-          What you did: the triggers (fixture names until the fill merges)
+          What you did: the triggers
         </h2>
         <ul className="flex flex-col gap-2">
           {lines.map((l, i) => (
@@ -327,7 +327,7 @@ export const FILL_VIEWS: FillLabView[] = [
   {
     id: 'fill-trigger-lines',
     group: GROUP,
-    label: 'Result lines: "X triggered N times" (fixture names)',
+    label: 'Result lines: "X triggered N times"',
     w: 1280,
     h: 480,
     render: () => <TriggerLinesPanel />,
@@ -335,7 +335,7 @@ export const FILL_VIEWS: FillLabView[] = [
   {
     id: 'fill-result',
     group: GROUP,
-    label: 'Result: a fight with triggers (named once the fill merges)',
+    label: 'Result: a fight with triggers',
     w: 1280,
     h: 1700,
     render: () => {
@@ -346,7 +346,7 @@ export const FILL_VIEWS: FillLabView[] = [
   {
     id: 'fill-summary',
     group: GROUP,
-    label: 'Summary: the run’s triggers (named once the fill merges)',
+    label: 'Summary: the run’s triggers',
     w: 1280,
     h: 2000,
     render: () => <SummaryView run={triggerSummaryRun()} onNewRun={noop} onLoom={noop} />,
@@ -372,7 +372,8 @@ export const FILL_VIEWS: FillLabView[] = [
     group: GROUP,
     label: 'Codex: Motifs (Harmonies name their prerequisites)',
     w: 1280,
-    h: 4200,
+    // Every category with the fill's motifs in it (about 8,250 px at 1280).
+    h: 8500,
     render: () => (
       <CodexView onBack={noop} initialTab="motifs" roster={CONTENT.heroes.map((h) => h.id)} />
     ),
