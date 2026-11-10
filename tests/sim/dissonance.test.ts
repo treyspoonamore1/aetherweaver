@@ -22,9 +22,6 @@ describe('Dissonance in the fight', () => {
     const runOrViews = new Set(['no_respite_heal', 'blind_score', 'cursed_start']);
     for (const effect of DISSONANCE_EFFECTS) {
       const def = CONTENT.dissonance.find((d) => d.effect === effect);
-      // Phase 6's three effects (docs/phase-6.md) are declared before their levels exist (W0);
-      // W1 drops this skip when it appends Tyrant, Mimicry and True Dissonance.
-      if (!def && ['tyrant', 'mimicry', 'true_dissonance'].includes(effect)) continue;
       if (!def) throw new Error(`no level has effect "${effect}"`);
       const mods = modsOf({ dissonance: [level(def.id)] });
       if (runOrViews.has(effect)) expect(mods, effect).toEqual(base);

@@ -1217,7 +1217,13 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     else if (target.weaver) downWeaver(world, target);
     // A summon is felled, never killed: `killEnemy` assumes an enemy (docs/phase-5e.md).
     else if (target.summon) summonFell(world, target, source ?? null);
-    else if (!restlessRise(world, target)) killEnemy(world, target, source ?? null);
+    else if (
+      !restlessRise(world, target) &&
+      // True Dissonance (docs/phase-6.md): the Silent Conductor rises into the Postlude, once,
+      // before `killEnemy` (no `enemyKilled`, no `onDeath`; the encounter keeps fighting).
+      !(world.mods.postludeLife > 0 && postludeRise(world, target))
+    )
+      killEnemy(world, target, source ?? null);
   } else if (opts.kind !== 'tick' && source?.enemy && hasTalent(target, 'arcane_ward'))
     arcaneWard(world, target, source);
   // Oro's Thorned Bark (docs/phase-5e.md): a blow on a Sapling strikes back (grove.ts).
@@ -1994,6 +2000,15 @@ function undying(world: World, weaver: Entity): void {
     if (isActive(hero)) heal(world, hero, hero.health.maxHp * world.mods.undyingMendPct, 'mend');
   }
   world.events.push({ type: 'undying', tick: world.tick });
+}
+
+/**
+ * True Dissonance (docs/phase-6.md): the Silent Conductor's rise into the Postlude, installed by
+ * postlude.ts to avoid an import cycle. True if the enemy rose instead of dying.
+ */
+let postludeRise: (world: World, e: Entity) => boolean = () => false;
+export function setPostludeRise(fn: (world: World, e: Entity) => boolean): void {
+  postludeRise = fn;
 }
 
 /** Hook installed by the enemy system (volatile bursts) to avoid an import cycle. */
