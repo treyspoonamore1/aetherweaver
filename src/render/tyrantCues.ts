@@ -12,11 +12,20 @@
  *   a hex's swirl sits. Most enemy accents sit close to a semantic colour in some vision (the
  *   Cantor Acolyte's is the call gold itself), so the band carries no meaning by colour: its shape
  *   says "borrowed" (a pair of dashed hoops with a bead at each quarter), and the colour only says
- *   from whom, as that foe's own body does.
+ *   from whom, as that foe's own body does. Where the accent sits within 20 ΔE of a meaning colour
+ *   in the player's colour vision (`tyrantAccentNearMeaning`, Phase 7), the beads are small crowns
+ *   instead of diamonds: a mark that does not rest on colour at all.
  * - **The crown sigil over a Tyrant cast** (SPRITE.crown): over the boss's head while it casts its
  *   borrowed attack, in the same accent, so the shape says "Tyrant" and the colour whose attack it
  *   is; the attack's own telegraph is drawn as the foe's always is.
  */
+import {
+  VISION_PALETTES,
+  deltaE,
+  simulateVision,
+  type ColorVision,
+  type VisionPalette,
+} from '../app/colorVision';
 import { enemyDef } from '../content';
 import { FINALE_HEX } from './crucibleCues';
 import type {
@@ -138,7 +147,46 @@ export const TYRANT_BAND = {
   beads: 4,
   /** How fast it turns (rad/s); it holds still at Flashes 0 (no motion asked for). */
   spin: 0.6,
+  /** Phase 7: a crowned bead's size (m, plus a share of the body's radius): a crown must read. */
+  crownBead: 0.24,
 } as const;
 
 /** The edict's moment: the band closes in from wide onto the body (render seconds). */
 export const EDICT_SECONDS = 1.1;
+
+/**
+ * Phase 7 (docs/phase-7.md, W6; Phase 6 *Open* 7): how close (ΔE, as seen in the player's colour
+ * vision) a band's accent may come to a meaning colour of that vision's palette before the band
+ * carries its non-colour mark: its four beads become the Tyrant's crown (`SPRITE.crown`), the
+ * glyph no meaning colour ever wears, so a band in the call's gold or Empower's amber still reads
+ * "borrowed", never "a call" or "Empowered". The game's own threshold for "a different colour at
+ * a glance" (`deltaE`, colour-vision tests).
+ */
+export const TYRANT_MARK_DELTA_E = 20;
+
+/** The palette roles that carry a meaning (every role of a colour-vision palette). */
+const MEANING_ROLES = Object.keys(VISION_PALETTES.normal) as readonly (keyof VisionPalette)[];
+
+/** Per vision, each accent's answer, measured once (no allocation after the first frame). */
+const NEAR_MEANING: Record<ColorVision, Map<string, boolean>> = {
+  normal: new Map(),
+  protanopia: new Map(),
+  deuteranopia: new Map(),
+  tritanopia: new Map(),
+};
+
+/**
+ * The accent sits within `TYRANT_MARK_DELTA_E` of a meaning colour as `vision` sees both (the
+ * accent through the vision's simulation, the meaning colour from that vision's own palette).
+ */
+export function tyrantAccentNearMeaning(hex: string, vision: ColorVision): boolean {
+  const known = NEAR_MEANING[vision].get(hex);
+  if (known !== undefined) return known;
+  const palette = VISION_PALETTES[vision];
+  const seen = simulateVision(hex, vision);
+  let near = false;
+  for (const role of MEANING_ROLES)
+    if (deltaE(seen, simulateVision(palette[role], vision)) < TYRANT_MARK_DELTA_E) near = true;
+  NEAR_MEANING[vision].set(hex, near);
+  return near;
+}

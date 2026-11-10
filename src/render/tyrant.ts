@@ -4,7 +4,7 @@ import type { FxKit } from './fx/kit';
 import { PARTICLE } from './fx/particles';
 import { RING } from './fx/rings';
 import { SPRITE } from './fx/sprites';
-import { clamp01, color } from './palette';
+import { clamp01, color, currentVision } from './palette';
 import { flareScale } from './relicCues';
 import {
   EDICT_SECONDS,
@@ -12,6 +12,7 @@ import {
   isBorrowed,
   tyrantBosses,
   tyrantCasting,
+  tyrantAccentNearMeaning,
   tyrantMarkHex,
 } from './tyrantCues';
 
@@ -23,7 +24,9 @@ import {
  *
  * - **The band** (every frame, from `enemy.tyrant`): two dashed hoops round the body, between its
  *   waist and its chest, in the foe's accent, a bead at each quarter, turning slowly (still at
- *   Flashes 0). A phase shift takes up the next phase's foe and its accent.
+ *   Flashes 0). A phase shift takes up the next phase's foe and its accent. Where the accent is
+ *   close to a meaning colour in the player's colour vision (`tyrantAccentNearMeaning`), the beads
+ *   are small crowns, so the band never relies on its colour (Phase 7).
  * - **The crown sigil** (every frame, while `enemy.cast.attackId === enemy.tyrant.attack`): over
  *   the head, in the accent, rising and brightening with the cast.
  * - **The edict** (`tyrantEdict`): the band closes in from wide onto the body, a burst of the
@@ -70,6 +73,8 @@ export class TyrantView {
   readonly fired = { edicts: 0 };
   /** What was drawn last frame (tests, the lab): bands worn, crown sigils, edicts under way. */
   readonly drawn = { bands: 0, crowns: 0, edicts: 0 };
+  /** Phase 7: bands drawn last frame with crowned beads (their accent near a meaning colour). */
+  readonly marked = { bands: 0 };
   private readonly pool: Edict[] = [];
   private readonly bosses: EntityId[] = [];
   private flare = 1;
@@ -120,6 +125,7 @@ export class TyrantView {
     this.drawn.bands = 0;
     this.drawn.crowns = 0;
     this.drawn.edicts = 0;
+    this.marked.bands = 0;
     this.flare = flareScale(flashes);
     // The band holds still when no motion is wanted (Flashes 0).
     if (flashes > 0) this.spinAt += dt * TYRANT_BAND.spin;
@@ -128,8 +134,9 @@ export class TyrantView {
         const r = this.d.recs.get(o.boss);
         if (!r || !state.entities.get(o.boss)) continue;
         const own = state.entities.get(o.boss)?.enemy?.defId;
-        const accent = color(tyrantMarkHex(o.hold.from, own));
-        if (isBorrowed(o.hold.from, own)) this.band(r, accent, 1);
+        const hex = tyrantMarkHex(o.hold.from, own);
+        const accent = color(hex);
+        if (isBorrowed(o.hold.from, own)) this.band(r, accent, 1, 0, this.crowned(hex));
         if (o.cast && state.time >= o.cast.start && state.time < o.cast.end)
           this.crown(r, accent, o.cast, state.time);
       }
@@ -140,9 +147,10 @@ export class TyrantView {
         const hold = e?.enemy?.tyrant;
         if (!e || !r || !hold) continue;
         const own = e.enemy!.defId;
-        const accent = color(tyrantMarkHex(hold.from, own));
+        const hex = tyrantMarkHex(hold.from, own);
+        const accent = color(hex);
         // A boss holding its own attack (the Silent Conductor) borrowed nothing: no band.
-        if (isBorrowed(hold.from, own)) this.band(r, accent, 1);
+        if (isBorrowed(hold.from, own)) this.band(r, accent, 1, 0, this.crowned(hex));
         if (tyrantCasting(e)) this.crown(r, accent, e.enemy!.cast!, state.time);
       }
     for (const m of this.pool) {
@@ -164,8 +172,16 @@ export class TyrantView {
     }
   }
 
-  /** The two dashed hoops round the body in the foe's accent, a bead at each quarter. */
-  private band(r: TyrantRec, c: THREE.Color, alpha: number, widen = 0): void {
+  /** The band's beads are crowns: its accent is near a meaning colour in the player's vision. */
+  private crowned(hex: string): boolean {
+    return tyrantAccentNearMeaning(hex, currentVision());
+  }
+
+  /**
+   * The two dashed hoops round the body in the foe's accent, a bead at each quarter: a diamond, or
+   * a small crown where the accent alone could be read as a meaning colour (`crowned`).
+   */
+  private band(r: TyrantRec, c: THREE.Color, alpha: number, widen = 0, crowned = false): void {
     const kit = this.d.kit;
     const B = TYRANT_BAND;
     const rad = r.radius + B.out + widen;
@@ -197,14 +213,15 @@ export class TyrantView {
           r.x + Math.cos(a) * rad,
           y,
           r.z + Math.sin(a) * rad,
-          0.11 + 0.03 * r.radius,
-          SPRITE.diamond,
+          crowned ? TYRANT_BAND.crownBead + 0.05 * r.radius : 0.11 + 0.03 * r.radius,
+          crowned ? SPRITE.crown : SPRITE.diamond,
           c,
           0.9 * alpha,
         );
       }
     }
     this.drawn.bands++;
+    if (crowned) this.marked.bands++;
   }
 
   /** The crown sigil over the head through a Tyrant cast: it rises and brightens with the cast. */
@@ -236,7 +253,8 @@ export class TyrantView {
     const close = easeOut(seg(t, 0, 0.6));
     const fade = 1 - seg(t, 0.75, EDICT_SECONDS);
     // The band closing in onto the body (the held band takes over as it lands).
-    if (m.borrowed && close < 1) this.band(r, c, 0.9 * fade, (1 - close) * (r.radius * 2 + 1.2));
+    if (m.borrowed && close < 1)
+      this.band(r, c, 0.9 * fade, (1 - close) * (r.radius * 2 + 1.2), this.crowned(m.hex));
     if (m.borrowed && !m.burst && close >= 1) {
       m.burst = true;
       kit.particles.burst(

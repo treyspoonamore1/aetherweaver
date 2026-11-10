@@ -268,6 +268,11 @@ export interface EntityRec {
   dragAcc: number;
   lastHp: number;
   alive: boolean;
+  /**
+   * Phase 7 (docs/phase-7.md, W6): an enemy's hit reaction (0..1, from `hit`'s amount, decays in
+   * ~0.18 s): a snap back away from where it faces, a lean back and a squash, eased out.
+   */
+  recoil: number;
 }
 
 /** The crown gem each Rift affix wears (docs/phase-5c.md, Affixes): its shape says which. */
@@ -388,10 +393,24 @@ export const UNFALL_LIFE = 0.55;
 export const RIBBON_SAMPLES = HIST;
 
 /**
+ * Phase 7 (docs/phase-7.md, W6): the idle of a body at rest. `breath`: its height's rise and fall
+ * (share) at `breathRate` rad/s; `sway`: a side roll (rad) at `swayRate`. The Weaver's ribbons
+ * lift and drift on a slow `ribbonLift` (m, at their tips) while she stands.
+ */
+export const IDLE = {
+  breath: 0.014,
+  breathRate: 2.2,
+  sway: 0.018,
+  swayRate: 1.3,
+  ribbonLift: 0.16,
+} as const;
+
+/**
  * The Weaver's three ribbons, trailing from her hand's path (`hist`: `count` points, newest first,
  * x y z), fluttering and drooping behind her as she faces `yaw`: the middle one in `inner`, the
  * outer two in `outer` (her own white-gold, or her Thread look's filament and glow). The lab's
- * lineup of looks draws them too.
+ * lineup of looks draws them too. `still` (0..1, Phase 7): how much she stands at rest; the
+ * ribbons then lift and drift on a slow wave running down them (0: as before).
  */
 export function weaverRibbons(
   kit: FxKit,
@@ -401,8 +420,10 @@ export function weaverRibbons(
   now: number,
   inner: THREE.Color,
   outer: THREE.Color,
+  still = 0,
 ): void {
   if (count < 3) return;
+  const lift = IDLE.ribbonLift * still;
   const fx = -Math.sin(yaw);
   const fz = -Math.cos(yaw);
   const sideX = -fz;
@@ -417,8 +438,13 @@ export function weaverRibbons(
       const t = k / (n - 1);
       const px = hist[k * 3] + sideX * off * (1 + t);
       const pz = hist[k * 3 + 2] + sideZ * off * (1 + t);
-      const flutter = Math.sin(now * 5 + k * 0.55 + r * 2) * 0.09 * t;
-      const droop = t * 0.75;
+      let flutter = Math.sin(now * 5 + k * 0.55 + r * 2) * 0.09 * t;
+      let droop = t * 0.75;
+      if (lift > 0) {
+        // At rest: a slow swell runs down each ribbon, lifting its tail and easing it aside.
+        droop -= lift * t * (0.6 + 0.4 * Math.sin(now * 1.4 + r * 1.9 - t * 2.6));
+        flutter += lift * 0.6 * t * Math.sin(now * 0.9 + r * 2.4 - t * 1.8);
+      }
       kit.ribbons.point(
         px - fx * t * 0.55 + sideX * flutter,
         hist[k * 3 + 1] + baseY - droop + Math.sin(now * 3.3 + k * 0.4 + r) * 0.06 * t,
@@ -431,6 +457,35 @@ export function weaverRibbons(
     }
     kit.ribbons.endStrip();
   }
+}
+
+/**
+ * Phase 7 (docs/phase-7.md, W6): an enemy's death pose at `t` (0..1 of the 0.75 s fade). `kick`:
+ * the snap back from the killing blow (0..1, over the first eighth). `pitch` (back) and `roll`
+ * (sideways): the topple, eased out (a walker falls back, a hound rolls onto its side, a boss
+ * only sways back, a cloth body barely tips). `sag`: its height share as it goes (a cloth body
+ * slumps, the rest stay whole). Pure, no allocation (one shared result).
+ */
+const DEATH_POSE = { kick: 0, pitch: 0, roll: 0, sag: 1 };
+export function deathPose(
+  rec: Readonly<Pick<EntityRec, 'quad' | 'hover' | 'role'>>,
+  t: number,
+): Readonly<typeof DEATH_POSE> {
+  const k = clamp01(t / 0.12);
+  DEATH_POSE.kick = Math.sin(Math.PI * k) * (1 - 0.5 * k);
+  const fall = 1 - (1 - clamp01((t - 0.06) / 0.6)) ** 3;
+  const big = rec.role === 'boss' || rec.role === 'miniboss';
+  const tip = big ? 0.32 : rec.hover ? 0.18 : rec.quad ? 0.12 : 0.62;
+  DEATH_POSE.pitch = 0.18 * DEATH_POSE.kick + tip * fall;
+  DEATH_POSE.roll = rec.quad && !big ? 1.05 * fall : 0;
+  DEATH_POSE.sag = rec.hover ? 1 - 0.3 * fall : 1;
+  return DEATH_POSE;
+}
+
+/** Phase 7: the death dissolve at `t` (0..1): it holds off for the fall, then eats the body. */
+export function deathDissolve(t: number): number {
+  const k = clamp01((t - 0.2) / 0.8);
+  return 0.05 + 0.95 * k * (0.6 + 0.4 * k);
 }
 
 function hasStatus(list: readonly { readonly id: string }[], id: string): boolean {
@@ -599,6 +654,8 @@ export class EntityLayer {
    * rise this frame with its Conductor (null: none; every fight but a True Dissonance Finale).
    */
   readonly drawn6 = { postludeRise: 0 };
+  /** Phase 7 (W6): enemies flinching from a hit, and bodies breathing at rest, last frame. */
+  readonly drawn7 = { recoils: 0, idle: 0 };
   postludeOverride: { postlude: PostludeView; boss: EntityId } | null = null;
   private postlude: PostludeView | null = null;
   private postludeBoss: EntityId | null = null;
@@ -658,6 +715,8 @@ export class EntityLayer {
   private lookVision: ColorVision | null = null;
   private ribbonOuter: THREE.Color = C.gold;
   private ribbonInner: THREE.Color = C.goldHot;
+  /** Phase 7: how much the Weaver stands at rest (her ribbons' idle, 0..1, smoothed). */
+  private ribbonStill = 0;
   private rimAtRest: THREE.Color = C.gold;
   private rimAtRestStrength: number = OWN_RIM.strength;
 
@@ -893,6 +952,7 @@ export class EntityLayer {
       dragAcc: 0,
       lastHp: e.health?.hp ?? 0,
       alive: true,
+      recoil: 0,
     };
     this.recs.set(e.id, rec);
     return rec;
@@ -929,7 +989,10 @@ export class EntityLayer {
 
   hit(id: EntityId, amount = 1): void {
     const r = this.recs.get(id);
-    if (r) r.flash = Math.max(r.flash, amount);
+    if (!r) return;
+    r.flash = Math.max(r.flash, amount);
+    // Phase 7: an enemy also flinches back from the blow (a hero keeps only the flash).
+    if (r.kind === 'enemy' && r.dying < 0) r.recoil = Math.max(r.recoil, Math.min(1, amount));
   }
 
   lungeAt(id: EntityId, toX: number, toZ: number): void {
@@ -1211,6 +1274,8 @@ export class EntityLayer {
     this.drawnFinale.stilled = 0;
     this.finaleLive = state.field.finale !== undefined || this.stilledOverride !== null;
     this.drawn6.postludeRise = 0;
+    this.drawn7.recoils = 0;
+    this.drawn7.idle = 0;
     this.postlude = null;
     this.postludeBoss = null;
     const postlude = this.postludeOverride?.postlude ?? state.field.finale?.postlude;
@@ -1374,14 +1439,20 @@ export class EntityLayer {
     // Gone for good while it was still standing back up (Restless Dead: the sim keeps it
     // untouchable then, but a debug clear can take it), it crumbles where it lies.
     const lie = rec.rising;
+    // Phase 7 (docs/phase-7.md, W6): the fall reads before the fade. A snap back from the killing
+    // blow, then it topples (`deathPose`: back for a walker, onto its side for a hound, a cloth
+    // body sags), and the dissolve holds off for the first fifth and finishes as before.
+    const pose = deathPose(rec, t);
+    const back = pose.kick * Math.min(0.3, rec.radius * 0.3);
     const m = this.compose(
-      rec.x,
+      rec.x + Math.sin(rec.yaw) * back,
       rec.radius * 0.42 * lie - sink,
-      rec.z,
+      rec.z + Math.cos(rec.yaw) * back,
       rec.yaw,
-      Math.max(0.15 * t, 1.35 * lie),
-      0,
+      lie > 0 ? Math.max(0.15 * t, 1.35 * lie) : pose.pitch,
+      lie > 0 ? 0 : pose.roll,
       1 + t * 0.06,
+      (1 + t * 0.06) * pose.sag,
     );
     // (Killed while Stasis held it, it stays cold as it goes. Risen once already (Restless Dead),
     // it stays ashen and crumbles to ash for good.)
@@ -1389,7 +1460,7 @@ export class EntityLayer {
     rec.batch.push(
       m,
       rec.flash,
-      0.05 + t * 0.95,
+      deathDissolve(t),
       Math.max(ash ? RISEN_DESAT : 0, 0.3 * t),
       0,
       ash ? ASH : rec.accent,
@@ -1527,6 +1598,24 @@ export class EntityLayer {
       oz += Math.cos(clock * 49) * 0.1 * k;
       pitch += 0.28 * k;
       if (!frozen) rec.stagger = Math.max(0, rec.stagger - dt * 1.7);
+    }
+    // Phase 7: a hit's flinch (an enemy only): snapped back from where it faces, leaning back and
+    // squashed, easing out over ~0.18 s; a boss or mini-boss gives half as much. Stasis holds it
+    // still: a blow then leaves no flinch to play late.
+    if (rec.recoil > 0) {
+      if (frozen) rec.recoil = 0;
+      else {
+        const k =
+          rec.recoil * rec.recoil * (rec.role === 'boss' || rec.role === 'miniboss' ? 0.5 : 1);
+        const back = k * Math.min(0.16, rec.radius * 0.22);
+        ox += Math.sin(rec.yaw) * back;
+        oz += Math.cos(rec.yaw) * back;
+        pitch += 0.16 * k;
+        scaleY *= 1 - 0.07 * k;
+        scale *= 1 + 0.025 * k;
+        rec.recoil = Math.max(0, rec.recoil - dt * 5.5);
+        this.drawn7.recoils++;
+      }
     }
     // Movement II: a Pounce's crouch (a squash before the leap) and a charge's lean, read from
     // the cast; then the leap's arc and the charge's rush while it is drawn travelling.
@@ -1672,6 +1761,17 @@ export class EntityLayer {
     }
     // Glide: lean hard into the dash.
     if (e.weaver && e.weaver.glide > 0) pitch -= 0.35;
+    // Phase 7: the heroes and the Weaver breathe while they stand (a slow rise and a sway, out of
+    // step with each other), fading out as they walk. Never while held, stilled, down or poured
+    // into by the beam song (whose swell is left exactly as it was).
+    if ((e.kind === 'hero' || rec.kind === 'weaver') && !held && !downed && rec.dissolve === 0) {
+      const rest = (1 - moving) * (1 - rec.beam);
+      if (rest > 0.001) {
+        scaleY *= 1 + IDLE.breath * rest * Math.sin(this.now * IDLE.breathRate + rec.id * 1.7);
+        roll += IDLE.sway * rest * Math.sin(this.now * IDLE.swayRate + rec.id * 2.3);
+        this.drawn7.idle++;
+      }
+    }
     if (rec.kind === 'enemy' && (rec.role === 'boss' || rec.role === 'miniboss')) {
       // Bosses breathe (held while Stasis holds them).
       scale *= 1 + Math.sin(clock * 1.6) * 0.012;
@@ -3060,6 +3160,10 @@ export class EntityLayer {
     this.drawnDis.cueTicks = n;
     // Ribbons: sample the hand's path and trail three flowing ribbons behind.
     this.histTimer += dt;
+    // Phase 7: standing still (not gliding, not re-forming), they lift into their idle.
+    const resting = Math.hypot(e.vx, e.vz) < 0.2 && w.glide <= 0 && w.reform <= 0;
+    this.ribbonStill = approach(this.ribbonStill, resting ? 1 : 0, resting ? 1.5 : 5, dt);
+    if (this.ribbonStill < 0.002) this.ribbonStill = 0;
     const fx = -Math.sin(rec.yaw);
     const fz = -Math.cos(rec.yaw);
     const ax = x - fx * 0.18;
@@ -3084,6 +3188,7 @@ export class EntityLayer {
       this.now,
       this.ribbonInner,
       this.ribbonOuter,
+      this.ribbonStill,
     );
   }
 
