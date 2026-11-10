@@ -15,6 +15,10 @@ import type { ContentInput } from '../schema';
 
 /** Shatterglass's shards: how many enemies, within how far of whoever held the Ward. */
 const SHARDS = { nearest: 3, radius: 5 } as const;
+/** Safe Harbour's barrier lasts this long (seconds). */
+const HARBOUR_SECONDS = 3;
+/** Light Step heals every hero within this many metres of the landing. */
+const STEP_RADIUS = 3;
 
 export const FILL_AEGIS: ContentInput['motifs'] = [
   {
@@ -108,10 +112,19 @@ export const FILL_AEGIS: ContentInput['motifs'] = [
     category: 'aegis',
     rarity: 'common',
     values: [10, 15, 20],
-    text: 'A hero you Reel lands with a barrier of {v}% of their life for 3 s.',
+    text: `A hero you Reel gains a barrier of {v}% of their life for ${HARBOUR_SECONDS} s.`,
     requires: { expedition: true },
     tags: ['reel', 'shield'],
-    triggers: [{ on: 'reeled', effects: [{ kind: 'barrier', pct: 'v', seconds: 3 }] }],
+    triggers: [
+      { on: 'reeled', effects: [{ kind: 'barrier', pct: 'v', seconds: HARBOUR_SECONDS }] },
+      // Swap and Anchor are Reels that pull no one in (no `reeled`): their cast is the Reel.
+      {
+        on: 'techniqueCast',
+        technique: 'reel',
+        variant: ['swap', 'anchor'],
+        effects: [{ kind: 'barrier', pct: 'v', seconds: HARBOUR_SECONDS }],
+      },
+    ],
   },
   {
     id: 'light_step',
@@ -119,13 +132,20 @@ export const FILL_AEGIS: ContentInput['motifs'] = [
     category: 'aegis',
     rarity: 'common',
     values: [4, 6, 8],
-    text: 'Where you land a Glide, every hero within 3 m heals {v}% of their life.',
+    text: `Where you land a Glide, every hero within ${STEP_RADIUS} m heals {v}% of their life.`,
     requires: { expedition: true },
     tags: ['heal'],
     triggers: [
       {
         on: 'glided',
-        effects: [{ kind: 'heal', pct: 'v', to: 'near', radius: 3, at: 'event' }],
+        effects: [{ kind: 'heal', pct: 'v', to: 'near', radius: STEP_RADIUS, at: 'event' }],
+      },
+      // Phase Step blinks (no `glided`): its cast sits where she lands.
+      {
+        on: 'techniqueCast',
+        technique: 'glide',
+        variant: ['phase_step'],
+        effects: [{ kind: 'heal', pct: 'v', to: 'near', radius: STEP_RADIUS, at: 'event' }],
       },
     ],
   },

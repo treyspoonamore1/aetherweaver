@@ -613,7 +613,10 @@ function chorale(
     if (!isActive(ally)) continue;
     const reach = radius + ally.radius;
     if (distSq(ally.x, ally.z, hero.x, hero.z) > reach * reach) continue;
-    const amount = (ally.health.maxHp * pct + flat) * strength;
+    let amount = (ally.health.maxHp * pct + flat) * strength;
+    // Phase 5g (N6, N22): Last Bastion and Wounded Healer on a Chorale's Wards too.
+    if (world.mods.lowWardBonus > 0) amount *= lastBastionMult(world, ally);
+    if (world.mods.woundedBonus > 0) amount *= woundedWardMult(world, ally);
     const ward = addShield(world, ally, 'ward', amount, duration, true);
     if (!ward) continue;
     ward.chorale = true;
