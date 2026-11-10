@@ -1,3 +1,4 @@
+import { bossPostlude, bossTyrant, mimicrySighting, postludePhases } from './hud/phase6Look';
 import {
   CONTENT,
   attackDef,
@@ -404,6 +405,9 @@ export function buildHudSnapshot(
       if (e.kind !== 'dummy' && !foes.includes(e.enemy.defId)) foes.push(e.enemy.defId);
     }
   }
+  // Phase 6, Mimicry: an ordinary enemy carrying Mimicking shows the Mimic's card (once).
+  const sighted = mimicrySighting(state, foes);
+  if (sighted.length !== foes.length) foes.push(...sighted.slice(foes.length));
   const bossEntity =
     state.encounter.bossId === null ? undefined : state.entities.get(state.encounter.bossId);
   if (bossEntity?.enemy && bossEntity.health) {
@@ -459,6 +463,10 @@ export function buildHudSnapshot(
       ...bossRift(state, bossEntity, telegraph?.attackId),
       ...bossFinale(state, opts.silenceHeard),
     };
+    // Phase 6: Tyrant's borrowed attack, and the Postlude's fourth phase (absent without them).
+    Object.assign(boss, bossTyrant(state, bossEntity.id, { rewinds: !!state.calling?.rewind }));
+    const postlude = bossPostlude(state);
+    if (postlude.postlude) Object.assign(boss, postlude, postludePhases(boss, true));
   }
 
   // What the songs reserve from (the Martyr's or Sanguine Font's Life), and the tree's share of

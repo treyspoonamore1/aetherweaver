@@ -6,6 +6,7 @@
  * Navigation: `screen` is the top-level destination. Inside a run, the run's phase
  * (app/runStore.ts) picks the sub-screen: prep, map, combat, result, draft, respite, summary.
  */
+import type { PostludeHud, TyrantDecree } from './hud/phase6Look';
 import { create } from 'zustand';
 import type { FramesLayout, WeaverBarLayout } from '../app/settings';
 import type {
@@ -624,6 +625,11 @@ export interface BossHud {
   silence?: { notes: number; of: 8; sources: NoteSource[]; left: number; cap: number };
   /** A Cue: the voice it named and its Solo (names); the Solo's target once it begins. */
   cue?: { soloist: string; solo: string; target?: string };
+  // ── Phase 6 (docs/phase-6.md). Absent: the bar draws as before. ──
+  /** Tyrant: the attack the boss has borrowed for this phase, and its decree. */
+  tyrant?: TyrantDecree;
+  /** True Dissonance: the Postlude (the bar's fourth phase), its rise and its pressure. */
+  postlude?: PostludeHud;
 }
 
 /**

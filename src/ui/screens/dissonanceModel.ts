@@ -37,14 +37,33 @@ const RULES = () => CONTENT.dissonanceRules;
 export const TEAR_TOO_GRADE = 'A';
 
 /**
- * Levels that wait for Phase 5's bosses and affixes (docs/phase-4d.md): named on the Codex's
- * page, not in content yet.
+ * Levels that waited for Phase 5's bosses and affixes (docs/phase-4d.md), each by the effect
+ * Phase 6 gives it: the Codex names those content doesn't hold yet (`laterLevels`).
  */
-export const LATER_LEVELS: readonly { name: string; text: string }[] = [
-  { name: 'Tyrant', text: 'bosses gain a mechanic in each phase' },
-  { name: 'Mimicry', text: 'a Mimicking affix' },
-  { name: 'True Dissonance', text: 'the Finale’s fourth phase' },
+export const LATER_LEVELS: readonly { name: string; text: string; effect: DissonanceEffect }[] = [
+  { name: 'Tyrant', text: 'bosses gain a mechanic in each phase', effect: 'tyrant' },
+  { name: 'Mimicry', text: 'a Mimicking affix', effect: 'mimicry' },
+  { name: 'True Dissonance', text: 'the Finale’s fourth phase', effect: 'true_dissonance' },
 ];
+
+/** The levels still to come: `LATER_LEVELS` without those content now holds (none, once all do). */
+export function laterLevels(): { name: string; text: string; effect: DissonanceEffect }[] {
+  return LATER_LEVELS.filter((l) => !CONTENT.dissonance.some((d) => d.effect === l.effect));
+}
+
+/**
+ * A level that plays only on Expeditions (True Dissonance: a Prelude has no Finale). Read from
+ * the level's own `expeditionsOnly` flag when content gives one; content has no such flag today,
+ * so its effect decides (the run layer drops it on a Prelude by its effect too).
+ */
+export function expeditionsOnly(def: DissonanceLevel): boolean {
+  const flag = (def as { expeditionsOnly?: unknown }).expeditionsOnly;
+  if (typeof flag === 'boolean') return flag;
+  return def.effect === 'true_dissonance';
+}
+
+/** "Expeditions only", as Prep marks such a level. */
+export const EXPEDITIONS_ONLY = 'Expeditions only';
 
 // ── Words and numbers ─────────────────────────────────────────────────────────────────
 
@@ -106,19 +125,27 @@ export interface LevelRow {
   pointsLine: string;
   /** For screen readers: its name, on or off (and its rank), its points and its effect. */
   label: string;
+  /**
+   * Phase 6: set by the run's Echo (`DissonanceChoice.forced`): always on, locked, worth no
+   * points. Absent otherwise.
+   */
+  forced?: true;
+  /** Phase 6: it plays only on Expeditions (`expeditionsOnly`). Absent otherwise. */
+  expeditionsOnly?: true;
 }
 
 /** Why a chosen level has nothing to do in this run (its effect's own reason). */
 export function idleReason(effect: DissonanceEffect): string {
+  if (effect === 'true_dissonance') return `${EXPEDITIONS_ONLY}: a Prelude has no Finale.`;
   return effect === 'cursed_start'
     ? 'Nothing to give: you carry every cursed relic.'
     : 'Nothing to change in this run.';
 }
 
-function rowOf(def: DissonanceLevel, rank: number, played: boolean): LevelRow {
+function rowOf(def: DissonanceLevel, rank: number, played: boolean, forced = false): LevelRow {
   const on = rank > 0;
   const idle = on && !played ? idleReason(def.effect) : null;
-  const adds = on && !idle ? dissonancePoints([{ id: def.id, rank }]) : 0;
+  const adds = on && !idle && !forced ? dissonancePoints([{ id: def.id, rank }]) : 0;
   const pointsLine = def.ranks > 1 ? `${pointsText(def.points)} a rank` : pointsText(def.points);
   const state = on ? (def.ranks > 1 ? `on, rank ${rank} of ${def.ranks}` : 'on') : 'off';
   return {
@@ -133,7 +160,11 @@ function rowOf(def: DissonanceLevel, rank: number, played: boolean): LevelRow {
     on,
     idle,
     pointsLine,
-    label: `${def.name}: ${state}. ${idle ?? `${pointsLine}${on ? `, ${adds} now` : ''}.`} ${dissonanceText(def)}`,
+    label: forced
+      ? `${def.name}: on, set by the Echo, no points. ${dissonanceText(def)}`
+      : `${def.name}: ${state}. ${idle ?? `${pointsLine}${on ? `, ${adds} now` : ''}.`} ${dissonanceText(def)}`,
+    ...(forced ? { forced: true as const } : {}),
+    ...(expeditionsOnly(def) ? { expeditionsOnly: true as const } : {}),
   };
 }
 
@@ -147,11 +178,14 @@ export function levelRows(
 ): LevelRow[] {
   const fitted = fitLevels(levels);
   const plays = fitLevels(played);
+  // Phase 6: a level the run's Echo forces on (read before fitting, which keeps only id and rank).
+  const forced = new Set(levels.filter((l) => l.forced).map((l) => l.id));
   return CONTENT.dissonance.map((def) =>
     rowOf(
       def,
       fitted.find((l) => l.id === def.id)?.rank ?? 0,
       plays.some((l) => l.id === def.id),
+      forced.has(def.id),
     ),
   );
 }

@@ -182,6 +182,15 @@ export const PATHS = {
     'M6.5 18a2.3 2.3 0 1 1-2.3-2.3A2.3 2.3 0 0 1 6.5 18z M6.5 18V4.5 M19.8 18a2.3 2.3 0 1 1-2.3-2.3 2.3 2.3 0 0 1 2.3 2.3z M19.8 18V4.5 M6.5 8.5h13.3a2 2 0 0 1 0 4H6.5a2 2 0 0 1 0-4z',
   finale:
     'M3 4h18 M4.5 4c0 6.2 1.4 11.2 4 16 M19.5 4c0 6.2-1.4 11.2-4 16 M12 8.5l1.1 2.3 2.5.3-1.8 1.7.4 2.5-2.2-1.2-2.2 1.2.4-2.5-1.8-1.7 2.5-.3z',
+  // Phase 6 (docs/phase-6.md): the Atlas of Echoes (three stars joined, a constellation), the
+  // week (a calendar page), sharing a result (a node sending to two), opening a replay file (a
+  // page with an arrow in).
+  atlas:
+    'M5 17.5l5-9 9 4 M5 15.5l1.2 2-1.2 2-1.2-2z M10 6.5l1.2 2-1.2 2-1.2-2z M19 10.5l1.2 2-1.2 2-1.2-2z M14 19.5h.01 M17 4.5h.01 M3.5 6.5h.01',
+  week: 'M4 6.5h16v13H4z M4 10.5h16 M8.5 4v4 M15.5 4v4 M8 14h2 M11 14h2 M14 14h2 M8 17h2',
+  share:
+    'M18 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z M6 9.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z M18 15.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z M8.2 10.8l7.6-4 M8.2 13.2l7.6 4',
+  upload: 'M6 3.5h8l4 4v13H6z M14 3.5v4h4 M12 18v-7 M9 13.5l3-3 3 3',
 } as const;
 
 export type IconName = keyof typeof PATHS;

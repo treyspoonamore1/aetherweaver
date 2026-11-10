@@ -14,6 +14,8 @@ import { callingLook } from '../kit/callingLook';
 import { plural } from '../kit/format';
 import type { IconName } from '../kit/iconPaths';
 import { deedsInSight } from './routeText';
+import { atlasTotals, constellationStars, starsLine } from '../../meta/atlas';
+import type { ProfileAtlas } from '../../meta/profile';
 
 /** Every Deed, in content order: the ladder (easiest first), then the badges. */
 export const DEEDS: readonly DeedDef[] = CONTENT.deeds;
@@ -60,8 +62,8 @@ const STAT_GLYPH: Readonly<Record<NonNullable<DeedDef['stat']>, IconName>> = {
   clutchCleanses: 'chime',
   reels: 'reel',
   cues: 'note',
-  // Phase 6 (docs/phase-6.md, decision 17): no Deed counts it yet; W5 may draw its own glyph.
-  cleanses: 'chime',
+  // Phase 6 (docs/phase-6.md, decision 17): a cleanse, Chime's purge.
+  cleanses: 'purge',
 };
 
 /** A Deed's glyph (a kit icon), from what it asks: a Calling's Deed takes the Calling's. */
@@ -96,13 +98,19 @@ export function deedGlyph(deed: DeedDef): IconName {
     // (Not a Leaf Lost).
     case 'heroTally':
       return deed.tally === 'saplingsLost' ? 'leaf' : 'blades';
-    // Phase 6's rules (docs/phase-6.md): no Deed names them yet; W5 draws their glyphs.
+    // Phase 6's rules (docs/phase-6.md): a Movement cleared without something (Silent Bell's
+    // unrung bell), a Finale cleared at Dissonance, the Atlas's stars and constellations, and
+    // This Week's Song's weeks.
     case 'movementWithout':
+      return 'bell';
     case 'dissonance':
+      return 'dissonance';
     case 'stars':
+      return 'star';
     case 'constellation':
+      return 'atlas';
     case 'weeks':
-      return 'sparkle';
+      return 'week';
   }
 }
 
@@ -112,6 +120,8 @@ export function deedGlyph(deed: DeedDef): IconName {
 export interface DeedsHeld {
   earned: readonly string[];
   best: Readonly<Record<string, number>>;
+  /** Phase 6: the Atlas's stars, for the profile Deeds' progress (omitted: none lit). */
+  atlas?: ProfileAtlas;
 }
 
 /** What's open to the player: the Callings (by Rank, or Skip the unlocks) and the Astrolabe. */
@@ -128,11 +138,39 @@ export interface DeedBest {
 }
 
 export function deedBest(deed: DeedDef, held: DeedsHeld): DeedBest | null {
+  // Phase 6's profile Deeds read the Atlas: "4 of 27 stars" until earned.
+  if (deed.test === 'stars' || deed.test === 'constellation')
+    return held.earned.includes(deed.id) ? null : atlasProgress(deed, held.atlas);
   if (!isCounting(deed)) return null;
   const need = deed.values.n ?? 0;
   const have = held.best[deed.id] ?? 0;
   if (!held.earned.includes(deed.id)) return { have, need, line: `best ${have} of ${need}` };
   return have >= need ? { have, need, line: `best ${have}` } : null;
+}
+
+/**
+ * A profile Deed's progress in the Atlas (docs/phase-6.md, "Design: Deeds"): the stars lit of all
+ * there are ("4 of 27 stars", meta's `starsLine`), or, for a constellation's Deed, the stars of
+ * the one it names, else of the nearest to complete ("5 of 9 stars in Borrowed Crowns").
+ */
+export function atlasProgress(deed: DeedDef, atlas: ProfileAtlas | undefined): DeedBest {
+  if (deed.test === 'constellation') {
+    const ids = deed.constellation ? [deed.constellation] : CONTENT.constellations.map((k) => k.id);
+    let at: { id: string; lit: number; of: number } | null = null;
+    for (const id of ids) {
+      const s = constellationStars(atlas, id);
+      if (!at || s.lit / Math.max(1, s.of) > at.lit / Math.max(1, at.of)) at = { id, ...s };
+    }
+    if (!at) return { have: 0, need: 0, line: 'no constellation yet' };
+    const name = CONTENT.constellations.find((k) => k.id === at.id)?.name ?? at.id;
+    return {
+      have: at.lit,
+      need: at.of,
+      line: `${at.lit} of ${at.of} ${plural(at.of, 'star')} in ${name}`,
+    };
+  }
+  const { lit, of } = atlasTotals(atlas);
+  return { have: lit, need: deed.values.n ?? of, line: starsLine(atlas) };
 }
 
 /**

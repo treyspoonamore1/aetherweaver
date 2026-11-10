@@ -29,6 +29,7 @@ import { bondRanks, bondsOpen } from './bondsModel';
 import { slotKey } from './variantsModel';
 import { deedsTally } from './deedsModel';
 import { gateStep } from './routeText';
+import { atlasBadge, atlasStationOpen, atlasView, keepsakeLine } from './atlasModel';
 
 export type { StationId };
 
@@ -43,6 +44,8 @@ export const STATIONS: readonly StationId[] = [
   'bonds',
   'deeds',
   'dissonance',
+  // Phase 6 (docs/phase-6.md, decision 13): the Atlas of Echoes, beside Dissonance.
+  'atlas',
 ];
 
 /** The stations open from the first run: they share one welcome intro. */
@@ -71,7 +74,9 @@ export type LoomProfile = Pick<
   /** Phase 5a: the enemies sighted (later Movements' Deeds count once met); omitted: all. */
   Partial<Pick<Profile, 'seen'>> &
   /** Phase 5b: the heroes recruited (docs/phase-5b.md); omitted: none. */
-  Pick<Profile, 'recruited'>;
+  Pick<Profile, 'recruited'> &
+  /** Phase 6: the Atlas's stars (docs/phase-6.md); omitted: none lit. */
+  Partial<Pick<Profile, 'atlas'>>;
 
 /** The saved run the Gate can continue (null: none), as much of it as the Gate says. */
 export type GateRun = Pick<RunState, 'phase' | 'path' | 'map'> &
@@ -88,6 +93,7 @@ const NAMES: Readonly<Record<StationId, string>> = {
   bonds: 'Bonds',
   deeds: 'Hall of Deeds',
   dissonance: 'Dissonance',
+  atlas: 'The Atlas of Echoes',
 };
 
 /** A station's name ("The Astrolabe"). */
@@ -184,6 +190,8 @@ export function stationOpen(id: StationId, p: LoomProfile, unlockAll: boolean): 
       return deedsOpen(p.deeds, unlockAll);
     case 'dissonance':
       return dissonanceStationOpen(p.dissonance.open, unlockAll);
+    case 'atlas':
+      return atlasStationOpen(p.dissonance.open, unlockAll);
   }
 }
 
@@ -238,6 +246,9 @@ export function darkLine(
             'Opens with your first Finale clear.'
           : `Opens at Weaver Rank ${CONTENT.dissonanceRules.openRank} once you have cleared the Finale.`
       }`;
+    case 'atlas':
+      // It lights with Dissonance (docs/phase-6.md, "Design: the Atlas of Echoes").
+      return 'Old roads played strangely, with stars to light. Opens with Dissonance.';
     default:
       return '';
   }
@@ -264,6 +275,8 @@ function litLine(id: StationId, run: GateRun | null): string {
       return 'Feats within a run';
     case 'dissonance':
       return 'Harder runs that pay more, set in Prep';
+    case 'atlas':
+      return 'Echoes to clear, and This Week’s Song';
   }
 }
 
@@ -324,6 +337,8 @@ function badgeOf(
       const best = Math.max(0, ...Object.values(p.dissonance.best));
       return best > 0 ? `Best won: ${best}` : null;
     }
+    case 'atlas':
+      return atlasBadge(p.atlas);
     default:
       return null;
   }
@@ -400,7 +415,11 @@ function keepsakePrices(): { looks: string; titles: string } {
   const c = CONTENT.cosmetics;
   const titles = c.titles.flatMap((t) => (t.price === undefined ? [] : [t.price]));
   return {
-    looks: priceRange([...c.robes.map((r) => r.price), ...c.threads.map((t) => t.price)]),
+    // An earned look (Phase 6, the Atlas's) keeps a price in content but is never sold.
+    looks: priceRange([
+      ...c.robes.flatMap((r) => (r.earned ? [] : [r.price])),
+      ...c.threads.flatMap((t) => (t.earned ? [] : [t.price])),
+    ]),
     titles: titles.length > 0 ? priceRange(titles) : '—',
   };
 }
@@ -546,6 +565,21 @@ export function stationIntro(id: StationId): StationIntro {
         {
           heading: 'Your records',
           body: 'Here: the best you’ve won at with each Calling, every level, and what the points pay.',
+        },
+      ]);
+    }
+    case 'atlas': {
+      const v = atlasView(undefined);
+      const ks = v.constellations;
+      return intro([
+        { heading: 'Old songs, played strangely', body: v.about },
+        {
+          heading: 'Constellations',
+          body: `${capital(countWord(ks[0]?.echoes.length ?? 0))} Echoes make a constellation; light all of one’s stars and it gives a keepsake: ${andList(ks.map((k) => `${k.name}, ${keepsakeLine(k.reward?.id ?? '')}`))}. All ${v.of} stars: ${andList(v.keepsakes.filter((k) => !ks.some((c) => c.reward?.id === k.id)).map((k) => keepsakeLine(k.id)))}.`,
+        },
+        {
+          heading: 'This Week’s Song',
+          body: 'One run, the same for everyone this week: its seed, route, Calling, heroes and Dissonance are fixed, and your Chords are your own. Share your result as a code and a replay; add a friend’s, and this device plays it through to check it.',
         },
       ]);
     }

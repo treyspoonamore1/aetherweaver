@@ -52,6 +52,8 @@ export const PLACES: Readonly<Record<StationId | 'weaver', Place>> = {
   deeds: { x: 29, y: 17 },
   gate: { x: 50, y: 25 },
   dissonance: { x: 71, y: 17 },
+  // Phase 6 (decision 13): the Atlas of Echoes, below Dissonance, between it and Bonds.
+  atlas: { x: 71, y: 49 },
   reliquary: { x: 89.5, y: 25 },
   codex: { x: 10, y: 58 },
   bonds: { x: 90, y: 58 },
@@ -225,6 +227,29 @@ const OBJECTS: Readonly<Record<Exclude<StationId, 'gate'>, (c: ArtInk) => ReactN
       <path d="M62 43 L57 55 L63 62 L58 73" stroke={c.light} strokeWidth={1.6} />
       <circle cx={60} cy={83} r={2.2} fill={c.ink} stroke="none" />
       <path d="M22 59 L26 51 L30 65 L34 53 L38 59 M82 59 L86 53 L90 65 L94 51 L98 59" />
+    </>
+  ),
+  // Phase 6: the Atlas of Echoes, a star chart on its easel: three constellations, their lines.
+  atlas: (c) => (
+    <>
+      <path d="M44 92 L52 72 M76 92 L68 72 M60 92 V72" />
+      <rect x={30} y={34} width={60} height={38} rx={3} fill={c.tint} fillOpacity={0.18} />
+      <path d="M37 62 L44 46 L51 58 M57 50 L64 40 L70 54 M74 60 L80 44 L85 56" strokeWidth={1.4} />
+      {(
+        [
+          [37, 62],
+          [44, 46],
+          [51, 58],
+          [57, 50],
+          [64, 40],
+          [70, 54],
+          [74, 60],
+          [80, 44],
+          [85, 56],
+        ] as const
+      ).map(([x, y], i) => (
+        <path key={i} d={sparkle(x, y, 3)} fill={c.light} stroke="none" />
+      ))}
     </>
   ),
 };

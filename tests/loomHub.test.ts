@@ -154,7 +154,7 @@ describe('the Loom’s stations', () => {
     // Each one new, named as a sentence names it.
     const welcomed = { ...newProfile(), introduced: WELCOME.map(introId) };
     expect(freshLine(stationViews(welcomed, true))).toBe(
-      'The Astrolabe, the Atelier, the Reliquary, Bonds, the Hall of Deeds and Dissonance have lit up: visit to see what’s there.',
+      'The Astrolabe, the Atelier, the Reliquary, Bonds, the Hall of Deeds, Dissonance and the Atlas of Echoes have lit up: visit to see what’s there.',
     );
     expect(stationIntro('deeds').tryIt).toBe('Try it: open the Hall of Deeds');
     expect(darkSaid('deeds', 1)).toBe(

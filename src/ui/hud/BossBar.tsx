@@ -5,6 +5,7 @@ import { Icon } from '../kit/Icon';
 import { EXECUTE_PCT, bossCastIcon, bossDecreeShown, phaseTicks } from './legionLook';
 import { bossConditions, type BossCondition } from './riftLook';
 import type { BossHud } from '../store';
+import { POSTLUDE_NAME, type PostludeHud, type TyrantDecree } from './phase6Look';
 import { AnswerGlyph } from './AnswerGlyph';
 import { secondsLabel } from './chrono';
 import { BLIND_LOOK } from '../kit/dissonanceLook';
@@ -25,6 +26,59 @@ import {
   silencePips,
   silenceText,
 } from './finaleLook';
+
+/**
+ * Phase 6, Tyrant: the boss's borrowed attack for this phase, as its decree words it (cut to its
+ * first sentence under Blind Score), with the borrowed foe's accent beside the crown: the accent is
+ * never alone, the foe and the attack are named.
+ */
+function TyrantLine({ tyrant }: { tyrant: TyrantDecree }) {
+  return (
+    <p
+      className="mt-1.5 flex items-start gap-1.5 rounded-lg border bg-ink-950/60 px-3 py-1 text-xs text-text"
+      style={{ borderColor: `color-mix(in srgb, ${tyrant.accent} 55%, transparent)` }}
+      role="status"
+      aria-label={`${tyrant.name}: ${tyrant.text}`}
+      data-testid="boss-tyrant"
+      data-phase={tyrant.phase}
+    >
+      <Icon name="crown" size={14} className="mt-px shrink-0" style={{ color: tyrant.accent }} />
+      <span>
+        <b className="uppercase tracking-wider text-gold-200">{tyrant.name}</b> — {tyrant.text}
+      </span>
+    </p>
+  );
+}
+
+/**
+ * Phase 6, True Dissonance: the Postlude's rise (untouchable, its seconds), its pressure once on,
+ * and its decree while fresh.
+ */
+function PostludeLine({ postlude }: { postlude: PostludeHud }) {
+  return (
+    <div
+      className="mt-1.5 rounded-lg border border-gold-500/50 bg-ink-950/60 px-3 py-1 text-xs text-text"
+      role="status"
+      data-testid="boss-postlude"
+      data-rising={postlude.rising !== null}
+      data-enraged={postlude.enraged}
+    >
+      <p className="flex flex-wrap items-center gap-x-2 font-semibold">
+        <Icon name="finale" size={14} className="text-gold-200" />
+        <span className="uppercase tracking-wider text-gold-200">{POSTLUDE_NAME}</span>
+        {postlude.rising !== null && (
+          <span className="text-muted">Rising · untouchable {secondsLabel(postlude.rising)}</span>
+        )}
+        {postlude.enraged && (
+          <span className="flex items-center gap-1 text-lethal">
+            <Icon name="hourglass" size={12} /> Faster Cues, faster Discord
+          </span>
+        )}
+      </p>
+      {postlude.decree && <p className="mt-0.5 leading-snug">{postlude.decree.text}</p>}
+    </div>
+  );
+}
 
 /** The Chronomancer's silver, for Foresight's line (Phase 3e). */
 const CHRONO = callingLook('chronomancer');
@@ -74,6 +128,11 @@ export function BossBar({
           <div className="flex shrink-0 items-center gap-3 text-xs">
             <span className="font-semibold text-muted">
               Phase {boss.phase} / {boss.phases}
+              {boss.postlude && (
+                <span className="ml-1 text-gold-200" data-testid="boss-postlude-phase">
+                  · {POSTLUDE_NAME}
+                </span>
+              )}
             </span>
             {boss.enrageIn !== null && (
               <span
@@ -180,6 +239,8 @@ export function BossBar({
             <span className="text-muted">· below {EXECUTE_PCT}% when it lands dies</span>
           </p>
         )}
+        {boss.postlude && <PostludeLine postlude={boss.postlude} />}
+        {boss.tyrant && <TyrantLine tyrant={boss.tyrant} />}
         {boss.cue && <CueLine cue={boss.cue} blind={blind} />}
         {bossConditions(boss).map((c) => (
           <BossConditionLine key={c.id} condition={c} blind={blind} />
