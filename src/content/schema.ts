@@ -1061,6 +1061,11 @@ export const TriggerDefSchema = z
     ability: HeroAbilityKindSchema.optional(),
     /** `shieldBroken`: this kind of shield. */
     shield: z.enum(SHIELD_KINDS).optional(),
+    /**
+     * `shieldBroken`: used up (by a blow, or a parry), not spent by a Perfect Ward: no
+     * `perfectWard` on the same holder in the same tick.
+     */
+    usedUp: z.literal(true).optional(),
     /** `summonFell`: this kind of summon. */
     summon: z.enum(['sapling', 'ancient']).optional(),
     /** The Thread is on a hero, in this mode. */

@@ -446,4 +446,38 @@ describe('the Silk motifs, each at every level and without it', () => {
       expect(s.w.ledger.triggers!.kindred_wound).toBe(healed.length);
     }
   });
+
+  it('Kindred Wound on a threaded hero at full life heals nothing, so it does not count', () => {
+    const s = stage('kindred_wound', 3);
+    const kael = s.hero(0);
+    s.ww.threadSlot = 0;
+    s.ww.threadMode = 'empower';
+    kael.health!.hp = kael.health!.maxHp;
+    const brute = foe(s.w, 'bell_brute', s.weaver.x, s.weaver.z - 2, { hp: 1e6, stun: true });
+    place(kael, s.weaver.x + 3, s.weaver.z + 3);
+    const t = cone(s.w, brute, s.weaver, s.weaver.id, { impact: 0.5, damage: 30 });
+    const events = stepUntil(s.sim, (ev) =>
+      ev.some((e) => e.type === 'telegraphResolved' && e.telegraph === t.id),
+    );
+    expect(ofType(events, 'damageTaken').some((e) => e.target === s.w.weaverId)).toBe(true);
+    expect(s.w.ledger.triggers).toEqual({ kindred_wound: 0 });
+    expect(ofType(events, 'motifTriggered')).toEqual([]);
+  });
+
+  it('Stray Stitch with every other hero at full life heals nothing, so it does not count', () => {
+    const s = stage('stray_stitch', 3, ['fortissimo']);
+    const kael = s.hero(0);
+    kael.health!.hp = kael.health!.maxHp * 0.3;
+    stepFor(s.sim, 1, [{ t: 'thread', slot: 0 }]);
+    expect(s.hero(1).hero!.inField && s.hero(2).hero!.inField).toBe(true);
+    const v = def('stray_stitch').values[2]!;
+    const events = stepFor(s.sim, Math.round((2 * v + 0.5) * 60));
+    expect(ofType(events, 'healApplied').filter((e) => e.via === 'other' && e.amount > 0)).toEqual(
+      [],
+    );
+    // Its clock ran (twice), but nothing it did counts.
+    expect(s.w.internal.triggers!.clocks[0]!.fired).toBe(2);
+    expect(s.w.ledger.triggers).toEqual({ stray_stitch: 0 });
+    expect(ofType(events, 'motifTriggered')).toEqual([]);
+  });
 });

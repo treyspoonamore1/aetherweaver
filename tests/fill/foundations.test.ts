@@ -863,6 +863,7 @@ describe('the trigger interpreter: every condition and limit', () => {
       { on: 'perfectWard', crescendo: true, effects: [{ kind: 'spirit', amount: 1 }] },
     ]);
     const p = () => ev(w, 'perfectWard', { target: heroAt(w, 0).id, telegraph: 1, negated: 1 });
+    weaverOf(w).weaver!.spirit = 0;
     expect(run(w, p())).toBe(0);
     weaverOf(w).weaver!.crescendo = 5;
     expect(run(w, p())).toBe(1);
@@ -1138,6 +1139,143 @@ describe('the trigger interpreter: every effect and target', () => {
     heroAt(w, 1).health!.downed = true;
     tick(w, [cue(w)]);
     expect([0, 1, 2].map((s) => heroAt(w, s).hero!.solo)).toEqual([5, 0, 5]);
+  });
+});
+
+describe('the trigger interpreter: a fire counts only when an effect did something', () => {
+  /** One fire of `effects` on `event`: the tally, the reports, and the clock's own count. */
+  function once(
+    effects: TriggerIn['effects'],
+    stage: (w: World) => void = () => {},
+    on: TriggerIn['on'] = 'cued',
+    every?: number,
+  ) {
+    const w = motifWorld([{ on, effects, ...(every !== undefined ? { every } : {}) }]);
+    stage(w);
+    const id = w.config.motifs[0]!.id;
+    const out = tick(w, [ev(w, on, { hero: heroAt(w, 0).id })]);
+    const clock = w.internal.triggers!.clocks[0]!;
+    return { w, id, reports: fired(out), tally: w.ledger.triggers![id], clock };
+  }
+
+  it('nothing done: no tally and no motifTriggered, but the limits still count the fire', () => {
+    const full = (w: World) => {
+      for (const id of w.party) {
+        const h = w.entities.get(id)!.health!;
+        h.hp = h.maxHp;
+      }
+    };
+    const cases: [string, TriggerIn['effects'], (w: World) => void][] = [
+      // A heal on a party at full life heals nothing.
+      ['heal', [{ kind: 'heal', pct: 10, to: 'all' }], full],
+      // A barrier for the nearest other hero within 1 m: no one is that near.
+      [
+        'barrier',
+        [{ kind: 'barrier', pct: 10, seconds: 3, to: 'nearestOther', radius: 0.01 }],
+        (w) => {
+          heroAt(w, 1).x = heroAt(w, 0).x + 30;
+          heroAt(w, 2).x = heroAt(w, 0).x - 30;
+        },
+      ],
+      // Damage with no enemy in reach.
+      ['damage', [{ kind: 'damage', amount: 50, radius: 3 }], () => {}],
+      // A status with no enemy in reach.
+      ['status', [{ kind: 'status', status: 'stun', seconds: 1, radius: 3 }], () => {}],
+      // Resonance at its ceiling.
+      [
+        'resonance',
+        RES,
+        (w) => {
+          weaverOf(w).weaver!.resonance = w.content.resonance.max;
+        },
+      ],
+      // Spirit already full.
+      [
+        'spirit',
+        [{ kind: 'spirit', amount: 5 }],
+        (w) => {
+          const ww = weaverOf(w).weaver!;
+          ww.spirit = ww.maxSpirit - ww.reservedSpirit;
+        },
+      ],
+      // Every Solo already full.
+      [
+        'solo',
+        [{ kind: 'solo', pct: 10, to: 'all' }],
+        (w) => {
+          for (const id of w.party) w.entities.get(id)!.hero!.solo = 100;
+        },
+      ],
+      // Cooldowns already at 0.
+      ['cooldown', [{ kind: 'cooldown', techniques: ['chime', 'reel'], seconds: 2 }], () => {}],
+      // An ability already ready.
+      [
+        'ability',
+        [{ kind: 'ability', ability: 'challenge', seconds: 2 }],
+        (w) => {
+          heroAt(w, 0).hero!.abilityCooldowns.fill(0);
+        },
+      ],
+      // Empower that would end sooner than the one the hero has.
+      [
+        'empower',
+        [{ kind: 'empower', seconds: 1 }],
+        (w) => {
+          heroAt(w, 0).hero!.afterglowUntil = w.time + 50;
+        },
+      ],
+      // No Crescendo playing to lengthen.
+      ['crescendo', [{ kind: 'crescendo', seconds: 1, cap: 3 }], () => {}],
+    ];
+    for (const [name, effects, stage] of cases) {
+      const r = once(effects, stage, 'cued', 3);
+      expect(r.tally, name).toBe(0);
+      expect(r.reports, name).toEqual([]);
+      // The mechanical limits are the fire's, done or not: `every` starts its wait.
+      expect(r.clock.fired, name).toBe(1);
+      expect(r.clock.readyAt, name).toBeCloseTo(r.w.time + 3, 9);
+    }
+  });
+
+  it('one effect that did something is enough; its target is the first one it reached', () => {
+    const r = once(
+      [
+        { kind: 'heal', pct: 10, to: 'event' },
+        { kind: 'barrier', pct: 10, seconds: 3, to: 'all' },
+      ],
+      (w) => {
+        const h = heroAt(w, 0).health!;
+        h.hp = h.maxHp;
+        heroAt(w, 2).health!.hp = 1;
+      },
+    );
+    expect(r.tally).toBe(1);
+    expect(r.reports).toEqual([
+      { type: 'motifTriggered', tick: r.w.tick, source: r.id, target: heroAt(r.w, 0).id },
+    ]);
+    // A heal that reaches a hurt hero after a full one names the hurt one.
+    const h = once([{ kind: 'heal', pct: 10, to: 'all' }], (w) => {
+      for (const id of w.party) {
+        const hp = w.entities.get(id)!.health!;
+        hp.hp = hp.maxHp;
+      }
+      heroAt(w, 2).health!.hp = 1;
+    });
+    expect(h.tally).toBe(1);
+    expect(h.reports.map((e) => (e as { target?: number }).target)).toEqual([heroAt(h.w, 2).id]);
+  });
+
+  it('a Crescendo lengthened up to its cap, then not: only the ones that added count', () => {
+    const w = motifWorld([
+      { on: 'perfectWard', effects: [{ kind: 'crescendo', seconds: 1, cap: 2 }] },
+    ]);
+    const id = w.config.motifs[0]!.id;
+    weaverOf(w).weaver!.crescendo = 5;
+    const p = () => ev(w, 'perfectWard', { target: heroAt(w, 0).id, telegraph: 1, negated: 1 });
+    const counts = [0, 1, 2, 3].map(() => fired(tick(w, [p()])).length);
+    expect(counts).toEqual([1, 1, 0, 0]);
+    expect(w.ledger.triggers).toEqual({ [id]: 2 });
+    expect(w.internal.triggers!.clocks[0]!.fired).toBe(4);
   });
 });
 

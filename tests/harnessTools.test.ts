@@ -20,6 +20,7 @@ import {
   VERB_TALLY3_KEYS,
   VERB_TALLY4_KEYS,
   VerbTally,
+  withParty,
 } from '../tools/harness-core';
 import { ExtraWatch } from '../tools/brann-bands';
 import { heroParty } from '../tools/bonds';
@@ -344,15 +345,17 @@ describe('whole runs through Movement III (playRun)', () => {
   }, 240_000);
 
   it('resumes a run recorded at its arrival in Movement III as a real arrival (opts.start)', () => {
+    // A run that arrives in Movement III: the Unweaver seed's (seed 2000's no longer does since
+    // Phase 5g's pools; which seeds arrive is the pools' business, not this test's).
     let start: RunState | null = null;
-    const full = playRun(SEED, 'skilled', undefined, {
+    const full = playRun(UNWEAVER_SEED, 'skilled', undefined, {
       movements: 3,
       onPhase: (_phase, run) => {
         if (!start && Run.movementOf(run) === 3) start = run;
       },
     });
     expect(start).not.toBeNull();
-    const resumed = playRun(SEED, 'skilled', undefined, { start: start! });
+    const resumed = playRun(UNWEAVER_SEED, 'skilled', undefined, { start: start! });
     expect(resumed.outcome).toBe(full.outcome);
     expect(resumed.lastEncounter).toBe(full.lastEncounter);
     expect(resumed.fights).toBe(full.fights);
@@ -673,15 +676,25 @@ describe('the harness and a roster party: the Phase 5b review fixes', () => {
   });
 
   it('records Blood and Silk offered only once both its prerequisites are owned', () => {
-    // Seed 15, party B, an Expedition: the one run in 120 (A, B, C × seeds 1-40) to own both.
-    const run = playRun(15, 'skilled', undefined, {
-      party: ['lyra', 'vexis', 'brann'],
-      movements: 2,
+    // Party B on an Expedition, setting out already holding its prerequisites (a drafted pair is
+    // rare in Phase 5g's larger pools, and which seed drafts them is the pools' business).
+    const holding = (own: readonly string[]): RunState => {
+      const created = Run.newRun(15, undefined, [], [], [], [], undefined, 2);
+      const fresh = withParty(created, ['lyra', 'vexis', 'brann']);
+      const run = Run.embark(Run.setCalling(Run.setChords(fresh, Run.DEFAULT_CHORDS), null));
+      return { ...run, motifs: [...run.motifs, ...own.map((id) => ({ id, level: 1 }))] };
+    };
+    const both = playRun(15, 'skilled', undefined, {
+      start: holding(['blood_tithe', 'taut_release']),
     });
-    expect(run.harmony!.prereqsOwned).toBe(true);
-    expect(run.harmony!.silkOffered).toBeGreaterThan(0);
-    expect(run.harmony!.silkOffered).toBe(run.harmony!.silkOfferedEligible);
-  });
+    expect(both.harmony!.prereqsOwned).toBe(true);
+    expect(both.harmony!.silkOffered).toBeGreaterThan(0);
+    expect(both.harmony!.silkOffered).toBe(both.harmony!.silkOfferedEligible);
+    // With one of the two, it is never offered.
+    const one = playRun(15, 'skilled', undefined, { start: holding(['blood_tithe']) });
+    expect(one.harmony!.prereqsOwned).toBe(false);
+    expect(one.harmony!.silkOffered).toBe(0);
+  }, 120_000);
 });
 
 describe('the Bands tool (tools/brann-bands.ts)', () => {
@@ -1898,9 +1911,19 @@ describe('playRun’s draftPrefer and relicPrefer (docs/phase-5g.md, W10)', () =
 
   it('leaves a run as it was when no preference is given, or an empty or unmatched one', () => {
     const plain = playRun(SEED, 'skilled', undefined, route);
-    // A run without a trigger carries no tally keys, so every baseline reads as before.
-    expect('triggers' in plain).toBe(false);
-    expect('triggerFights' in plain).toBe(false);
+    // A run without a trigger carries no tally keys, so every baseline reads as before: a
+    // Prelude never holds one (Phase 5g's entries are Expedition-only).
+    const prelude = playRun(SEED, 'skilled');
+    expect('triggers' in prelude).toBe(false);
+    expect('triggerFights' in prelude).toBe(false);
+    // An Expedition's keys name only what it held that has a trigger.
+    const triggered = new Set(
+      [...CONTENT.motifs, ...CONTENT.relics, ...CONTENT.boons]
+        .filter((d) => (d as { triggers?: unknown[] }).triggers?.length)
+        .map((d) => d.id),
+    );
+    for (const id of Object.keys(plain.triggers ?? {})) expect(triggered.has(id), id).toBe(true);
+    expect('triggers' in plain).toBe('triggerFights' in plain);
     expect(
       playRun(SEED, 'skilled', undefined, { ...route, draftPrefer: [], relicPrefer: [] }),
     ).toEqual(plain);
@@ -1982,23 +2005,47 @@ describe('playRun’s draftPrefer and relicPrefer (docs/phase-5g.md, W10)', () =
   });
 
   it('tallies ledger.triggers per fight and per run, for a held trigger', () => {
-    // No fill content in this tree: give an existing motif a fixture trigger for the test.
-    const held = CONTENT.motifs.find((m) => m.id === 'deep_roots')! as { triggers?: unknown };
-    held.triggers = [{ on: 'every', period: 1, effects: [{ kind: 'spirit', amount: 1 }] }];
-    try {
-      const fight = playEncounter(
+    // A fixture trigger that always lands while an enemy stands: 1 damage a second to them all.
+    const fixture = [
+      { on: 'every', period: 1, effects: [{ kind: 'damage', amount: 1, radius: 100 }] },
+    ];
+    const withFixture = <T>(id: string, play: () => T): T => {
+      const def = CONTENT.motifs.find((m) => m.id === id)! as { triggers?: unknown };
+      const had = 'triggers' in def;
+      const own = def.triggers;
+      def.triggers = fixture;
+      try {
+        return play();
+      } finally {
+        if (had) def.triggers = own;
+        else delete def.triggers;
+      }
+    };
+    const fight = withFixture('deep_roots', () =>
+      playEncounter(
         { seed: 5000, encounter: 'first_light', motifs: [{ id: 'deep_roots', level: 1 }] },
         'skilled',
-      );
-      expect(fight.triggers!.deep_roots).toBeGreaterThan(0);
-      const run = playRun(SEED, 'skilled', undefined, { ...route, draftPrefer: ['deep_roots'] });
-      expect(run.triggers!.deep_roots).toBeGreaterThan(0);
-      const fights = run.triggerFights!.deep_roots!;
-      expect(fights.held).toBeGreaterThan(0);
-      expect(fights.fired).toBeLessThanOrEqual(fights.held);
-    } finally {
-      delete held.triggers;
-    }
+      ),
+    );
+    expect(fight.triggers!.deep_roots).toBeGreaterThan(0);
+    // The run's first draft (whatever it offers first) carries the fixture.
+    let first: string | undefined;
+    playRun(SEED, 'skilled', undefined, {
+      ...route,
+      draftPrefer: (options) => {
+        first ??= options[0]?.motifId;
+        return undefined;
+      },
+    });
+    expect(first).toBeDefined();
+    const run = withFixture(first!, () =>
+      playRun(SEED, 'skilled', undefined, { ...route, draftPrefer: [first!] }),
+    );
+    expect(run.triggers![first!]).toBeGreaterThan(0);
+    const fights = run.triggerFights![first!]!;
+    expect(fights.held).toBeGreaterThan(0);
+    expect(fights.fired).toBeGreaterThan(0);
+    expect(fights.fired).toBeLessThanOrEqual(fights.held);
     // And gone again afterwards: a fight without one carries no tally.
     expect('triggers' in playEncounter({ seed: 5000, encounter: 'first_light' }, 'skilled')).toBe(
       false,
