@@ -3,7 +3,7 @@
  * drivers, volume sliders, a live headless fight, offline level audits and a stats panel.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSettings } from '../../app/settings';
+import { ambienceVolume, barksVolume, useSettings } from '../../app/settings';
 import type { Biome } from '../../content';
 import type { SimEvent } from '../../sim';
 import { getAudio, type SynthDirector } from '../index';
@@ -22,12 +22,15 @@ import {
 import {
   auditMood,
   auditSound,
+  biomeSpread,
+  loudnessReport,
   pitchReport,
   renderFight,
   renderMood,
   renderSound,
   type FightRender,
   type LevelReport,
+  type LoudnessRow,
   type MoodScene,
   type PitchReport,
 } from './offline';
@@ -176,6 +179,11 @@ const GROUPS: {
     title:
       'Phase 6 · Tyrant’s edict and the boss’s voice under a borrowed cast, the Postlude’s rise, stems and pair Cues, the Atlas’s UI sounds',
   },
+  {
+    id: 'barks',
+    title:
+      'Phase 7 · Hero voices on the barks bus (each hero’s every pool, its gestures in turn; a bark event heard with hero voices on)',
+  },
   { id: 'world', title: 'World, enemies and telegraphs' },
   { id: 'ui', title: 'UI' },
 ];
@@ -204,6 +212,10 @@ declare global {
       pitchCrucible(): Promise<Record<string, PitchReport>>;
       /** Phase 5d: the Grand Silence's notes (-1: no silence), as its events would tell them. */
       setSilenceNotes(notes: number): void;
+      /** Phase 7: hero voices on or off for the lab's director (Settings has the real row). */
+      setHeroVoices(on: boolean): void;
+      /** Phase 7: every loudness reading (moods per biome and the busy fights, pre/post limiter). */
+      loudness(): Promise<LoudnessRow[]>;
       world: FakeWorld;
     };
   }
@@ -309,6 +321,8 @@ export function AudioLab() {
   const [audit, setAudit] = useState<Record<string, LevelReport> | null>(null);
   const [moodAudit, setMoodAudit] = useState<Record<string, LevelReport> | null>(null);
   const [fightRender, setFightRender] = useState<FightRender | null>(null);
+  const [loudness, setLoudness] = useState<LoudnessRow[] | null>(null);
+  const [heroVoices, setHeroVoicesState] = useState(() => director.heroVoicesOn());
   const [busy, setBusy] = useState('');
 
   const fightingRef = useRef(false);
@@ -562,6 +576,11 @@ export function AudioLab() {
         return out;
       },
       setSilenceNotes,
+      setHeroVoices: (on) => {
+        director.setHeroVoices(on);
+        setHeroVoicesState(on);
+      },
+      loudness: () => loudnessReport(),
     };
     return () => {
       delete window.__audioLab;
@@ -614,6 +633,15 @@ export function AudioLab() {
         a.phase,
       );
     setMoodAudit(out);
+    setBusy('');
+  };
+  const runLoudness = async () => {
+    setBusy('Rendering every biome’s moods and the busy fights offline…');
+    const rows: LoudnessRow[] = [];
+    await loudnessReport(volumes, (row) => {
+      rows.push(row);
+      setLoudness([...rows]);
+    });
     setBusy('');
   };
   const runFightRender = async () => {
@@ -873,6 +901,31 @@ export function AudioLab() {
               testId={`vol-${k}`}
             />
           ))}
+          {/* Phase 7: ambience (absent: follows sfx) and barks (absent: 1). */}
+          <Slider
+            label={volumes.ambience === undefined ? 'ambience (= sfx)' : 'ambience'}
+            value={ambienceVolume(volumes)}
+            onChange={(v) => applyVolumes({ ...volumes, ambience: v })}
+            testId="vol-ambience"
+          />
+          <Slider
+            label="barks"
+            value={barksVolume(volumes)}
+            onChange={(v) => applyVolumes({ ...volumes, barks: v })}
+            testId="vol-barks"
+          />
+          <label className="flex items-center gap-2 text-xs text-muted">
+            <input
+              type="checkbox"
+              checked={heroVoices}
+              onChange={(e) => {
+                director.setHeroVoices(e.target.checked);
+                setHeroVoicesState(e.target.checked);
+              }}
+              data-testid="hero-voices"
+            />
+            hero voices on the barks bus (off by default; the lab only, Settings has the real row)
+          </label>
           <h2 className="pt-2 font-display text-gold-300">Simulated fight</h2>
           <div className="flex flex-wrap items-center gap-3">
             <Btn
@@ -949,6 +1002,9 @@ export function AudioLab() {
           <Btn onClick={() => void runFightRender()} testId="run-fight-render">
             Render 30 s fight
           </Btn>
+          <Btn onClick={() => void runLoudness()} testId="run-loudness">
+            Phase 7 loudness (biomes, busy fights, before and after the limiter)
+          </Btn>
           <span className="text-xs text-muted" data-testid="busy">
             {busy}
           </span>
@@ -988,6 +1044,43 @@ export function AudioLab() {
                   <td>{fmtDb(r.rmsDb)}</td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        )}
+        {loudness && (
+          <table className="w-full text-left font-mono text-xs" data-testid="loudness-table">
+            <thead className="text-muted">
+              <tr>
+                <th>biome</th>
+                <th>render</th>
+                <th>pre peak</th>
+                <th>pre rms</th>
+                <th>over −8 dB</th>
+                <th>post peak</th>
+                <th>post rms</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loudness.map((r) => (
+                <tr key={`${r.biome}:${r.label}`} className={r.pre.peak >= 1 ? 'text-lethal' : ''}>
+                  <td>{r.biome}</td>
+                  <td>{r.label}</td>
+                  <td>{fmtDb(r.pre.peakDb)}</td>
+                  <td>{fmtDb(r.pre.rmsDb)}</td>
+                  <td>{(r.overThreshold * 100).toFixed(2)}%</td>
+                  <td>{fmtDb(r.post.peakDb)}</td>
+                  <td>{fmtDb(r.post.rmsDb)}</td>
+                </tr>
+              ))}
+              <tr className="text-muted">
+                <td colSpan={7}>
+                  biome spread (energy mean of the moods, after the limiter):{' '}
+                  {fmtDb(biomeSpread(loudness).spreadDb)} ·{' '}
+                  {Object.entries(biomeSpread(loudness).byBiome)
+                    .map(([b, v]) => `${b} ${fmtDb(v)}`)
+                    .join(' · ')}
+                </td>
+              </tr>
             </tbody>
           </table>
         )}

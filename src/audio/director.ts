@@ -19,7 +19,7 @@ import { BEAT } from './theory';
 import { movementDef, type Biome } from '../content';
 import type { SimEvent, WorldState } from '../sim';
 import { useRun } from '../app/runStore';
-import { useSettings } from '../app/settings';
+import { ambienceVolume, barksVolume, optionsOf, useSettings } from '../app/settings';
 import { mapMovement } from '../meta/run';
 import type { RunState } from '../meta/types';
 
@@ -90,6 +90,8 @@ export class SynthDirector implements AudioDirector {
   private volumes: Volumes = { master: 0.8, music: 0.6, sfx: 0.9, ui: 0.7 };
   /** The low-life alert, kept for an SfxEngine made later (docs/health-ui.md). */
   private lowLifeAlert = true;
+  /** Phase 7: hero voices (off by default), kept for an SfxEngine made later. */
+  private heroVoices = false;
   private timer: ReturnType<typeof setInterval> | null = null;
   private unlocking: Promise<void> | null = null;
   private disabled = false;
@@ -175,7 +177,12 @@ export class SynthDirector implements AudioDirector {
 
   private followSettings(): void {
     try {
-      const apply = () => this.setVolumes(useSettings.getState().settings.volumes);
+      const apply = () => {
+        const settings = useSettings.getState().settings;
+        this.setVolumes(settings.volumes);
+        // Phase 7: hero voices, read through the options (absent: off).
+        this.setHeroVoices(optionsOf(settings).heroVoices);
+      };
       apply();
       this.cleanups.push(useSettings.subscribe(apply));
     } catch {
@@ -190,7 +197,8 @@ export class SynthDirector implements AudioDirector {
       this.music = new MusicEngine(this.engine);
       this.sfx = new SfxEngine(this.engine, this.music);
       this.sfx.lowLifeAlert = this.lowLifeAlert;
-      this.engine.setVolumes(this.volumes);
+      this.sfx.barks.on = this.heroVoices;
+      this.engine.setVolumes(mixVolumes(this.volumes));
       this.music.setMood(this.mood);
       this.music.setBiome(this.biome);
       const offline =
@@ -336,12 +344,23 @@ export class SynthDirector implements AudioDirector {
 
   setVolumes(volumes: Volumes): void {
     this.volumes = { ...volumes };
-    this.engine?.setVolumes(this.volumes);
+    this.engine?.setVolumes(mixVolumes(this.volumes));
   }
 
   setLowLifeAlert(on: boolean): void {
     this.lowLifeAlert = on;
     if (this.sfx) this.sfx.lowLifeAlert = on;
+  }
+
+  /** Phase 7 (W7): the heroes' voices on the barks bus (off by default, decision 3). */
+  setHeroVoices(on: boolean): void {
+    this.heroVoices = on;
+    if (this.sfx) this.sfx.barks.on = on;
+  }
+
+  /** Phase 7: whether hero voices are on (the lab, tests). */
+  heroVoicesOn(): boolean {
+    return this.heroVoices;
   }
 
   stopCombat(): void {
@@ -439,8 +458,24 @@ export class SynthDirector implements AudioDirector {
       dropped: e?.stats.dropped ?? 0,
       skipped: e?.stats.skipped ?? 0,
       eventsHandled: this.eventsHandled,
+      saturated: e?.stats.saturated ?? 0,
+      barkSources: e?.stats.barks ?? 0,
+      heroVoices: {
+        on: this.heroVoices,
+        asked: this.sfx?.barks.asked ?? 0,
+        played: this.sfx?.barks.played ?? 0,
+      },
     };
   }
+}
+
+/**
+ * Phase 7: the sliders as the mixer takes them. The ambience slider, absent, follows Effects
+ * (`ambienceVolume`, exactly the value the mixer used before), and the barks slider is 1 absent
+ * (`barksVolume`).
+ */
+function mixVolumes(v: Volumes): Volumes {
+  return { ...v, ambience: ambienceVolume(v), barks: barksVolume(v) };
 }
 
 export { BUS_NAMES };

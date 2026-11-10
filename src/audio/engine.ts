@@ -7,6 +7,7 @@
  *   sfx ───┤        duck ─ vol ──┤
  *   ui ────┤               vol ──┼─ master ─ limiter ─ soft clip ─ out
  *   amb ───┘        duck ─ vol ──┤
+ *   barks ──────────  duck ─ vol ──┤   (Phase 7: built on the first hero voice, never before)
  *          every vol ─ send ─ reverb ──┘
  */
 
@@ -18,6 +19,55 @@ const BUS_TRIM: Record<BusName, number> = { music: 1.2, sfx: 1.0, ui: 1.0, ambie
 /** A bus's static mix trim (Phase 5d: a sound moved to another bus keeps its level). */
 export const busTrim = (bus: BusName): number => BUS_TRIM[bus];
 const REVERB_SEND: Record<BusName, number> = { music: 0.22, sfx: 0.26, ui: 0.1, ambience: 0.2 };
+
+/**
+ * Phase 7 (docs/phase-7.md, W7; decision 3): the barks bus, the heroes' synthesised non-verbal
+ * voices. It is not one of `BUS_NAMES`: it is built only when the first hero voice sounds
+ * (`Engine.barksBus`), so with hero voices off (the default) the mixer's graph, and every node
+ * and write it makes, is exactly what it was. Its trim sits under the effects bus's: a voice is
+ * colour, never a cue the player needs.
+ */
+export const BARKS_TRIM = 0.7;
+export const BARKS_REVERB_SEND = 0.16;
+/** Where a voice is mixed: one of the four buses, or the barks bus. */
+export type MixBus = BusName | 'barks';
+
+/**
+ * Phase 7 (W7): voice groups kept through a saturated mix. Above 70 effects sources or 150 in all,
+ * `admit` skips every voice not marked big; these are let through all the same, each still under
+ * its own cap and rate gate, because each carries meaning the player acts on and a busy fight is
+ * exactly when it is needed (docs/phase-7.md, W7, "Voice caps"; the captions' list of sounds that
+ * carry meaning):
+ * - Concert Pitch's Ringing and its re-strike (a Perfect while it rings extended it;
+ *   docs/phase-5g.md, *Open* 15);
+ * - the low-life alert; Tyrant's edict and a Postlude pair Cue.
+ * No aura's voice is among them (their admission is exactly as before). The telegraph wind-ups
+ * (`wind:*`) would belong here too, but keeping them moves two pinned fights of the audio
+ * snapshots (the Spire's Vharun and the Rift's Unweaver), so they are held (W7's hand-off).
+ */
+export const KEPT_WHEN_SATURATED: ReadonlySet<string> = new Set([
+  'fill:ringing',
+  'lowLife',
+  'dissonance:edict',
+  'dissonance:pair',
+]);
+
+/** Phase 7: whether a voice group is let through a saturated mix (big, or `KEPT_WHEN_SATURATED`). */
+export function keptWhenSaturated(key: string): boolean {
+  return key.startsWith('big') || KEPT_WHEN_SATURATED.has(key);
+}
+
+/** The volume sliders the mixer follows (0..1 each). Ambience follows sfx unless given. */
+export interface MixVolumes {
+  master: number;
+  music: number;
+  sfx: number;
+  ui: number;
+  /** Phase 7: the ambience slider (absent: the effects slider, as before). */
+  ambience?: number;
+  /** Phase 7: the barks slider (absent: 1). Applied when the barks bus exists. */
+  barks?: number;
+}
 
 export interface BusNodes {
   /** Where voices connect. */
@@ -51,6 +101,13 @@ export interface EngineStats {
   peakVoices: Record<string, number>;
   dropped: number;
   skipped: number;
+  /**
+   * Phase 7 (W7): of `skipped`, the voices refused because the mix was saturated (over 70 effects
+   * sources or 150 in all), as opposed to a rate gate's refusals.
+   */
+  saturated: number;
+  /** Phase 7: live sources on the barks bus (counted in `total` as well). */
+  barks: number;
 }
 
 function createNoise(ctx: BaseAudioContext, seconds: number, pink: boolean): AudioBuffer {
@@ -105,7 +162,9 @@ export class Engine {
   private readonly reverb: ConvolverNode;
   private readonly groups = new Map<string, VoiceHandle[]>();
   private readonly gates = new Map<string, number>();
-  private volumes = { master: 1, music: 1, sfx: 1, ui: 1 };
+  private volumes: MixVolumes = { master: 1, music: 1, sfx: 1, ui: 1 };
+  /** Phase 7: the barks bus, once the first hero voice has asked for it (`barksBus`). */
+  private barks: BusNodes | null = null;
   private disposed = false;
   /** Phase 3e: the cutoff the music's lowpass is held at (Stasis), 0 when it is free. */
   private musicHeldAt = 0;
@@ -123,6 +182,8 @@ export class Engine {
     peakVoices: {},
     dropped: 0,
     skipped: 0,
+    saturated: 0,
+    barks: 0,
   };
 
   constructor(readonly ctx: BaseAudioContext) {
@@ -192,11 +253,11 @@ export class Engine {
     return this.ctx.currentTime;
   }
 
-  setVolumes(v: { master: number; music: number; sfx: number; ui: number }): void {
+  setVolumes(v: MixVolumes): void {
     this.volumes = { ...v };
     const t = this.now;
-    // A gentle power curve for a perceptual-ish taper; ambience follows the sfx slider.
-    const tap = (x: number) => Math.max(0, Math.min(1, x)) ** 1.5;
+    // A gentle power curve for a perceptual-ish taper; ambience follows the sfx slider unless it
+    // has its own (Phase 7).
     const set = (p: AudioParam, value: number) => {
       p.cancelScheduledValues(t);
       p.setTargetAtTime(value, t, 0.03);
@@ -205,17 +266,55 @@ export class Engine {
     set(this.bus.music.vol.gain, tap(v.music) * BUS_TRIM.music);
     set(this.bus.sfx.vol.gain, tap(v.sfx) * BUS_TRIM.sfx);
     set(this.bus.ui.vol.gain, tap(v.ui) * BUS_TRIM.ui);
-    set(this.bus.ambience.vol.gain, tap(v.sfx) * BUS_TRIM.ambience);
+    set(this.bus.ambience.vol.gain, tap(v.ambience ?? v.sfx) * BUS_TRIM.ambience);
+    // Phase 7: the barks bus only once it exists (no write at all before the first voice).
+    if (this.barks) set(this.barks.vol.gain, tap(v.barks ?? 1) * BARKS_TRIM);
   }
 
-  getVolumes(): { master: number; music: number; sfx: number; ui: number } {
+  getVolumes(): MixVolumes {
     return { ...this.volumes };
+  }
+
+  /**
+   * Phase 7 (W7): the barks bus, built the first time a hero voice asks for it: an input, a
+   * ducking stage (it dips with the effects bus on the big moments), its slider's stage and a
+   * reverb send. Null is never returned; the bus is kept for the engine's life.
+   */
+  barksBus(): BusNodes {
+    if (this.barks) return this.barks;
+    const ctx = this.ctx;
+    const input = ctx.createGain();
+    const duck = ctx.createGain();
+    const vol = ctx.createGain();
+    const send = ctx.createGain();
+    send.gain.value = BARKS_REVERB_SEND;
+    vol.gain.value = tap(this.volumes.barks ?? 1) * BARKS_TRIM;
+    input.connect(duck);
+    duck.connect(vol);
+    vol.connect(this.master);
+    vol.connect(send).connect(this.reverb);
+    this.barks = { input, duck, vol, send };
+    return this.barks;
+  }
+
+  /** Phase 7: whether the barks bus has been built (tests, the lab). */
+  get hasBarksBus(): boolean {
+    return this.barks !== null;
   }
 
   // ── Ducking ──────────────────────────────────────────────────────────────────────
   duck(bus: BusName, spec: DuckSpec): void {
     const g = this.bus[bus].duck?.gain;
     if (!g) return;
+    // Phase 7: the barks bus dips with the effects bus (the big moments: a Perfect Ward, a Save),
+    // never with the music's ducks. Absent until the first hero voice, so nothing changes before.
+    if (bus === 'sfx' && this.barks) this.duckGain(this.barks.duck!.gain, spec, undefined);
+    // Phase 5d: a held bus comes back only to its hold (no hold: exactly as before).
+    const held = this.holds.size === 0 ? undefined : this.holds.get(bus);
+    this.duckGain(g, spec, held);
+  }
+
+  private duckGain(g: AudioParam, spec: DuckSpec, held: number | undefined): void {
     const t = this.now;
     const current = Math.min(1, g.value);
     g.cancelScheduledValues(t);
@@ -223,8 +322,6 @@ export class Engine {
     // Never duck shallower than a duck already in progress.
     g.linearRampToValueAtTime(Math.min(current, spec.depth), t + 0.03);
     g.setValueAtTime(Math.min(current, spec.depth), t + 0.03 + spec.hold);
-    // Phase 5d: a held bus comes back only to its hold (no hold: exactly as before).
-    const held = this.holds.size === 0 ? undefined : this.holds.get(bus);
     g.linearRampToValueAtTime(held ?? 1, t + 0.03 + spec.hold + spec.release);
   }
 
@@ -341,8 +438,9 @@ export class Engine {
    */
   admit(key: string, max = 4): boolean {
     const now = this.now;
-    if ((this.stats.active.sfx > 70 || this.stats.total > 150) && !key.startsWith('big')) {
+    if ((this.stats.active.sfx > 70 || this.stats.total > 150) && !keptWhenSaturated(key)) {
       this.stats.skipped++;
+      this.stats.saturated++;
       return false;
     }
     let group = this.groups.get(key);
@@ -383,10 +481,11 @@ export class Engine {
   }
 
   // ── Node accounting ──────────────────────────────────────────────────────────────
-  track(bus: BusName, sources: AudioScheduledSourceNode[], nodes: AudioNode[]): void {
+  track(bus: MixBus, sources: AudioScheduledSourceNode[], nodes: AudioNode[]): void {
     const count = sources.length;
     if (count === 0) return;
-    this.stats.active[bus] += count;
+    if (bus === 'barks') this.stats.barks += count;
+    else this.stats.active[bus] += count;
     this.stats.total += count;
     if (this.stats.total > this.stats.peakTotal) this.stats.peakTotal = this.stats.total;
     let remaining = count;
@@ -400,7 +499,8 @@ export class Engine {
             // already disconnected
           }
         }
-        this.stats.active[bus] -= count;
+        if (bus === 'barks') this.stats.barks -= count;
+        else this.stats.active[bus] -= count;
         this.stats.total -= count;
       };
     }
@@ -464,6 +564,11 @@ export interface NoiseSpec {
 
 const FLOOR = 0.0001;
 
+/** A gentle power curve for a perceptual-ish slider taper. */
+function tap(x: number): number {
+  return Math.max(0, Math.min(1, x)) ** 1.5;
+}
+
 function applyFilter(
   ctx: BaseAudioContext,
   spec: FilterSpec,
@@ -519,7 +624,7 @@ export class Voice {
 
   constructor(
     readonly e: Engine,
-    readonly bus: BusName,
+    readonly bus: MixBus,
     opts: { dest?: AudioNode; pan?: number; big?: boolean; gain?: number } = {},
   ) {
     const ctx = e.ctx;
@@ -534,7 +639,14 @@ export class Voice {
       tail.connect(p);
       tail = p;
     }
-    tail.connect(opts.dest ?? (opts.big && bus === 'sfx' ? e.sfxBig : e.bus[bus].input));
+    tail.connect(
+      opts.dest ??
+        (bus === 'barks'
+          ? e.barksBus().input
+          : opts.big && bus === 'sfx'
+            ? e.sfxBig
+            : e.bus[bus].input),
+    );
   }
 
   private target(spec: { dest?: AudioNode }): AudioNode {
