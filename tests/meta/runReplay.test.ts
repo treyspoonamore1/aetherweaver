@@ -153,10 +153,12 @@ describe('a recorded run', () => {
     SLOW,
   );
 
-  it('a Prelude verifies, and its message says so', () => {
+  it('a Prelude plays back as recorded (never Verified: its start isn’t rebuilt), and says so', () => {
     const result = verifyRunReplay(prelude.replay);
-    expect(result.status).toBe('verified');
-    expect(result.message).toMatch(/^Verified on this device: a Prelude, (won|lost), /);
+    expect(result.status).toBe('playsBack');
+    expect(result.message).toMatch(
+      /^Plays back as recorded on this device: a Prelude, (won|lost), .+ Its start isn’t checked: only a weekly’s start can be rebuilt\.$/,
+    );
     expect(result.code).toBeUndefined();
   });
 
@@ -265,7 +267,7 @@ describe('tampering is caught', () => {
       threat: 0.1,
     };
     const result = verifyRunReplay(t);
-    expect(result.status).toBe('verified');
+    expect(result.status).toBe('playsBack');
     expect(result.played).toEqual(prelude.replay.claim);
     expect(parseRunReplay(t)!.steps.some((s) => 'config' in s)).toBe(false);
   });
@@ -274,8 +276,16 @@ describe('tampering is caught', () => {
     const t = copy(prelude.replay);
     t.contentVersion = 'c-0123456789abcdef';
     const result = verifyRunReplay(t);
-    expect(result.status).toBe('otherVersion');
-    expect(result.message).toBe('Verified, though it was recorded on another version of the game.');
+    // A Prelude plays back (review B, m1); a weekly's words are the doc's.
+    expect(result.status).toBe('playsBack');
+    expect(result.message).toBe(
+      'Plays back as recorded, though it was recorded on another version of the game. Its start isn’t checked: only a weekly’s start can be rebuilt.',
+    );
+    const w = copy(weekly.replay);
+    w.contentVersion = 'c-0123456789abcdef';
+    const other = verifyRunReplay(w);
+    expect(other.status).toBe('otherVersion');
+    expect(other.message).toBe('Verified, though it was recorded on another version of the game.');
     t.steps[0] = { k: 'node', id: 'nowhere' };
     expect(verifyRunReplay(redigest(t)).message).toMatch(
       /It was recorded on another version of the game, which may be why\.$/,
