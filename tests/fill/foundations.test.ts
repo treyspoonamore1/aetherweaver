@@ -1147,7 +1147,7 @@ describe('the trigger interpreter: a fire counts only when an effect did somethi
   function once(
     effects: TriggerIn['effects'],
     stage: (w: World) => void = () => {},
-    on = 'cued',
+    on: TriggerIn['on'] = 'cued',
     every?: number,
   ) {
     const w = motifWorld([{ on, effects, ...(every !== undefined ? { every } : {}) }]);
