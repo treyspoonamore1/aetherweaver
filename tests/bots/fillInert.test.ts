@@ -5,8 +5,8 @@
  * bots send only on a fight that holds one. These streams were recorded from the bots as they were
  * before those rules (5g-bots at 37bafb6): every fight here holds none of the entries, so each
  * stream must stay equal, tick for tick. They cover the Chime and Thread picks, Unravel (the
- * Unweaver), the Cue gates off the Conductor, and one Conductor fight (whose Cue rules are left
- * as they were).
+ * Unweaver) and the Cue gates off the Conductor. No Conductor fight: its Cue rules are untouched
+ * (`cueNeed` was already `cueCostNow` there), and its own tuning moves its streams.
  *
  * Regenerate ONLY when the bots are meant to change on fights without these entries:
  *   WRITE_FILL_INERT=1 npx vitest run tests/bots/fillInert.test.ts
@@ -31,11 +31,6 @@ const FIGHTS: Record<string, Omit<SimConfig, 'seed'>> = {
   the_unweaver: { encounter: 'the_unweaver', ...kitConfig(ARRIVAL3_KIT) },
   the_seamstress: { encounter: 'the_seamstress', ...kitConfig(ARRIVAL3_KIT) },
   silent_conductor: { encounter: 'the_silent_conductor', ...kitConfig(ARRIVAL4_KIT) },
-  conductor_unweaver: {
-    encounter: 'the_unweaver',
-    ...kitConfig(ARRIVAL3_KIT),
-    calling: { id: 'conductor', path: ['a_tempo', 'reprise', 'ensemble', 'maestro'] },
-  },
 };
 const SEEDS = [5000, 12919];
 
