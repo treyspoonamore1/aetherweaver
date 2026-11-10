@@ -1668,6 +1668,9 @@ function downHero(
   hero.action = 'downed';
   e.vx = 0;
   e.vz = 0;
+  // Phase 5g (N27): Water Clock turns the fall back before it counts (fill/relics.ts): no down,
+  // no death record, no `allyDowned`, no Lantern.
+  if (world.mods.waterClock > 0 && fillRelics.waterClockDowned(world, e)) return;
   world.ledger.downs++;
   const weaver = world.entities.get(world.weaverId)?.weaver;
   const ready: ('ward' | 'chime' | 'reel' | 'glide')[] = [];
@@ -1709,8 +1712,6 @@ function downHero(
   bark(world, e, 'downed', true);
   lantern(world, e);
   // A threaded hero stays threaded: Mend revives them.
-  // Phase 5g (N27): Water Clock may turn time back for them (fill/relics.ts).
-  if (world.mods.waterClock > 0) fillRelics.waterClockDowned(world, e);
 }
 
 function downWeaver(world: World, e: Entity): void {
@@ -1740,8 +1741,6 @@ function downWeaver(world: World, e: Entity): void {
 
 /** Called when a downed hero's bleed-out runs out. */
 export function heroOut(world: World, e: Entity): void {
-  // Phase 5g (N27): Water Clock may turn time back instead (fill/relics.ts).
-  if (world.mods.waterClock > 0 && fillRelics.waterClockOut(world, e)) return;
   const h = e.health!;
   h.dead = true;
   h.downed = true;
