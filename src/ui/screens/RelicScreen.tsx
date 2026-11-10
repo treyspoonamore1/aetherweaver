@@ -7,6 +7,7 @@ import { KeyCap } from '../kit/KeyCap';
 import { playUi, useMood } from '../kit/sound';
 import { eventNameOf, relicInfo, relicOfferCopy } from './interlude';
 import { RelicCard, RunStrip } from './RelicCard';
+import { t } from '../text';
 
 export interface RelicOfferViewProps {
   run: RunState;
@@ -67,10 +68,10 @@ export function RelicOfferView({ run, onPick }: RelicOfferViewProps) {
                     playUi('relicPick');
                     onPick(i);
                   }}
-                  label={`Take ${info.name}: ${info.rule}`}
+                  label={t('screens.relicScreen.take', { name: info.name, rule: info.rule })}
                   footer={
                     <span className="block rounded-lg bg-gold-400 py-2 text-center text-sm font-semibold text-ink-950 opacity-90 group-hover:opacity-100">
-                      Take it
+                      {t('screens.relicScreen.takeIt')}
                     </span>
                   }
                 />
@@ -80,7 +81,7 @@ export function RelicOfferView({ run, onPick }: RelicOfferViewProps) {
         </ul>
         <div className="mt-8 flex justify-center">
           <Button variant="ghost" onClick={() => onPick(null)} sound="back">
-            Leave them: carry on without a relic
+            {t('screens.relicScreen.leaveThemCarryOn')}
           </Button>
         </div>
       </div>
