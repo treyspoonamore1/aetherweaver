@@ -155,21 +155,30 @@ export const DISSONANCE: ContentInput['dissonance'] = [
 /**
  * Tyrant's Decree (docs/phase-6.md): what the boss takes up for its phase, then its answers, each
  * in a few words. The second sentence is the answer, so Blind Score cuts it as every Decree.
- * Names come from content (the boss's, the foe's and the attack's); no number is in it.
+ * Names come from content (the boss's, the foe's and the attack's); no number is in it. Focus is
+ * named only for an attack a Focus interrupts (`interruptible`, the attack's own): Focusing the
+ * boss stops nothing else it casts.
  */
 export function tyrantDecree(
   boss: string,
   foe: string,
   attack: string,
   answers: readonly AnswerTag[],
+  interruptible: boolean,
 ): string {
   const who = boss.startsWith('The ') ? `the ${boss.slice(4)}` : boss;
-  const taken = foe === boss ? `plays its ${attack} more often` : `takes up the ${foe}’s ${attack}`;
+  const taken =
+    foe === boss ? `plays its ${attack} more often` : `takes up the ${possessive(foe)} ${attack}`;
   const head = `Tyrant — ${who} ${taken}.`;
-  const said = answers.map((a) => TYRANT_ANSWERS[a]);
+  const said = answers.filter((a) => a !== 'focus' || interruptible).map((a) => TYRANT_ANSWERS[a]);
   if (said.length === 0) return head;
   const list = said.length === 1 ? said[0]! : `${said.slice(0, -1).join(', ')}, or ${said.at(-1)!}`;
   return `${head} ${list.charAt(0).toUpperCase()}${list.slice(1)}.`;
+}
+
+/** "the Glass Lancer’s", "the Shears’": a name ending in s takes the apostrophe alone. */
+function possessive(name: string): string {
+  return name.endsWith('s') ? `${name}’` : `${name}’s`;
 }
 
 /** Each answer as Tyrant's Decree says it. */
