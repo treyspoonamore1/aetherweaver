@@ -913,3 +913,173 @@ Echo lengths are read by `--echoes`, not `tools/pacing.ts`. Recorded Expert Echo
 8. **Vharun borrows the same attack (Impaler · Charge) in two phases.** The other candidate, the Finale road's Toll Cleave, was cast once in 60 s.
 9. **The Seamstress's borrowed attack** is held for the owner (*Decisions for you*, below the table).
 10. **Earned looks carry a price of 90** only because the schema requires one.
+
+## Tuning
+
+W8 tuned Phase 6's own numbers against *Bands*, in the levers' order, with the Expert at Rank 20 (`rank20Build`, the Guardian preset, the Calling rotating by seed among none and the four, each on its `EXPERT_PATHS` path) and its run policy, through the harness's `playRun`. The scratch folder of the tuning is `/home/user/aw-work/6/w8/` (`LOG.md` records each round in order, with its command and numbers; every reading below is a `.jsonl` file there, one line a run).
+
+**The protocol as run (reduced).** The doc's protocol (100 seeds on each of 2000, 900007 and 333003, about 1,500 Expeditions a tier) was too heavy for the shared machine in one sitting, so:
+
+- *Iterating*: 20 seeds on run bases 2000 and 900007 (40 runs a cell); single cells at 10-12 seeds only as a screen, never as a decision.
+- *Final readings*: the tiers at **50 seeds on each of 2000, 900007 and 333003** for the Expert (333003 read only once, at the end) and **30 a set** for the Skilled bot with the same build and the harness's own run policy; the Echoes and the twelve weekly entries at **20 seeds on two bases** (Echoes: run bases 2000 and 900007; weekly: the 20 weeks holding the entry from week 44 and from week 1044), 40 runs a cell, Expert and Skilled; the new levels' costs by 4d's method at its own size (300 Prelude runs, the Novice, the Rank 20 build); the True Dissonance Finale cell at 20 seeds on cell bases 1000 and 500003 (arrival kit IV and the Rank 20 tree, the Calling rotating by seed).
+- A cell is marked *inside*, *outside*, or *on the edge* when it lies within one binomial standard error (√(p(1−p)/n)) of a band's bound. A band is met only when every set is inside or on the edge.
+- Echo and weekly lengths are `tools/pacing.ts`'s clock (each run's fights plus its `AROUND` allowance for every screen and 90 + 45 s before and after the run), as the band names it; `tools/dissonance.ts --echoes` prints minutes of combat only, which is why the first look read 6.6-11 min.
+- The runs were played by a scratch runner (`run.mts`, `cell.mts`, `d4.mts` there) that calls the same functions as `tools/dissonance.ts --tiers`, `--echoes` and `--weekly` (`tierRun`'s options, `echoRun`'s, `weeklyRun`'s) and writes one line a run; candidate values were tried by overriding content in that process only, and every adopted value was then read again from the committed content (the Echo readings matched the candidates' run for run).
+
+### What moved
+
+| Where | Entry | Before | After | Lever | The reading that drove it |
+|---|---|---|---|---|---|
+| `src/bots/expertRun.ts` | `expertNode` (the Expert's map rule) | an elite whenever the party averages ≥ 70% life | an elite only when the party averages ≥ 70% (`ELITE_AT`), the run's levels in force are worth under 20 points (`ELITE_UNDER`; an Echo's forced levels count) and Elite Vanguard is off (`ELITE_SHUNS`); else a node that isn't an elite | 6 | the ablation below: never taking an elite won the same at tiers 0 and I and 15-43 points more at II-IV, where 25 of 26 tier II losses with the old rule were Movement I-II elites |
+| `src/bots/expert.ts` | `tyrantWard` | a rule | dropped (with its staged test) | 6 | changed commands in 10 of 42 Tyrant boss fights, won none, cost 6 more downs (W7's ablation) |
+| `src/content/crucible.ts` | `POSTLUDE.life` (True Dissonance's text reads it) | 0.3 | **0.6** | 1 | the Postlude lasted 32 s in the Finale cell (band 45-120 s); at 0.6 it lasts 68 s (83 s without the Conductor Calling) |
+| `src/content/echoes.ts` | Choir of Blood | its leg at each encounter's own scale | the whole leg at Movement II's scale | 4 | ★★★ 23/40 (58%) → 17/40 (43%) |
+| | The Seamstress's Court | the Crimson Ascent's rows, own scales | the same rows with its Respite row a Merchant, Forge or event, the whole leg at Movement III's scale | 4 | ★★★ 26/40 (65%) → 19/40 (48%) |
+| | Retrograde | leg scales I, II, III; a Respite row before Vharun and the Cantor | leg scales II, II, III; those rows a Merchant, Forge or event | 4 | ★★★ 28/40 (70%) → 15/40 (38%) |
+| | The Last Rehearsal | each boss at its own scale | the Hollow Cantor and Vharun at Movement III's scale | 4 | ★★★ 32/40 (80%) → 11/40 (28%) |
+| | Strangers | Movement I's shorter road and Movement II's shortened road (shared with A Cappella) | its own road: no fork rows, no Matriarch; First Light pays an epic motif and a relic offer | 4 | length 26.6 min → 19.9 min (band 12-22); ★ 37/40 → 40/40, ★★★ 9/40 → 9/40 |
+| | The Unrested | the shared road | its own: the same rows at Movement III's scale, without the richer first rows | 4 | ★★★ 36/40 (90%) → 13/40 (33%); ★ 40/40 → 33/40 |
+| `src/content/weekly.ts` | entry 0 | Chronomancer; Kael, Vexis, Seren; Hardened ×2, Wounding Strikes ×2 (10) | Kael, Lyra, Vexis; Short Fuse, Wounding Strikes ×2 (5) | 5 | 0/6 for both bots; Kael, Vexis and Seren (and Kael, Lyra and Seren) lost most runs at 3-5 points too, while Kael, Lyra and Vexis won 8/10 for both bots at Wounding Strikes ×2 |
+| | entry 1 | Restless Dead (5) | Brisk Foes, Short Fuse, Restless Dead (7) | 5 | Expert 37/40 (93%) |
+| | entry 4 | Brisk Foes, Tyrant (5) | Silent Cues, Tyrant (5) | 5 | Expert 16/40 (40%) |
+| | entry 5 | Hardened (3) | Brisk Foes, Hardened (4) | 5 | 6/6 for both bots |
+| | entry 8 | Short Fuse ×2 (2) | Hardened ×2, Short Fuse ×2 (8) | 5 | on Strangers' shorter road: Expert 38/40, Skilled 33/40 at 5 points |
+| | entry 9 | True Dissonance; Kael, Seren, Oro (5) | Hardened, True Dissonance; Kael, Lyra, Vexis (8) | 5 | with Kael, Seren and Oro the Expert won 1/6 (5/10 at the tuned Postlude), the Skilled bot 0/6 (1/10) |
+| | entry 10 | Bells in the Rift; Martyr; Kael, Brann, Oro; Hardened, Unforgiving (4) | Choir of Blood; Martyr; Kael, Lyra, Seren; Unforgiving (1) | 5 | Bells opens on the Descent's first fight at full strength: 0/6 and 0/10 on the level field with both parties tried; Kael, Brann and Oro lost every run on three routes |
+| | entry 11 | The Unrested; Blind Score (2) | Retrograde; Blind Score (2) | 5 | The Unrested at its tuned strength: Expert 8/40 on the level field, 3/12 with no extra level |
+
+The entries' comments state their points; `tests/meta/weekly.test.ts`'s line for entry 0 reads "The Chronomancer, with Kael, Lyra and Vexis, at 5 Dissonance". The twelve entries keep the pairing lints (an Echo route's Calling and party agree with its twists), none names Muted Choir, and True Dissonance is only on entry 9, a Finale route.
+
+**Nothing else moved**: Tyrant's `cooldown` 150 and `first` 6, `TYRANT_OWN` 5.5 / 4.5 s, `TYRANT_BURN` 7 / 9 s, Mimicry's `perWave` 1, the Postlude's Cue gap 14 s, pair gap 1.5 s, Discord 1.5/s, enrage at 90 s (Cues every 10 s, Discord ×2), `finalePar` 40, the three levels' points, the Tyrant table, the Echoes Bells in the Rift, the Gilded Road and A Cappella, rotation entries 2, 3, 6 and 7, every Expert constant but the map rule. No aura, ornament, existing level, enemy, boss, hero, Calling, bot or tier set moved.
+
+### Round by round
+
+1. **The Expert's map rule first** (as asked). Tiers 0-IV at 20 seeds on 2000 and 900007, the old rule against "never an elite" (`r1-cur`, `r1-never`, 40 runs a tier): 39 / 40 against 40 / 40 at tier 0, 34 / 40 against 34 / 40 at I, **14 / 40 against 31 / 40 at II, 3 / 40 against 9 / 40 at III, 3 / 40 against 9 / 40 at IV**. With the old rule the Expert took 1.1-1.9 elites a run at II-IV and lost 25, 33 and 34 runs there in an elite (Shattered Choir, Muted Nave, Shield Wall with Elite Vanguard's extra elite and affix). An elite's relic never paid back in these runs: at tiers 0 and I the two rules tie. The rule settled on weighs the route's Dissonance (its total and Elite Vanguard itself) and the party's state, and keeps elites where they cost nothing measurable: it plays as the old rule at tiers 0 and I and never takes an elite at II-IV. On the level field (the weekly, no build), "never" against the rule read 38 / 72 against 43 / 72 over the twelve entries at 6 weeks each (`wk1n`, `wk1`), so the rule stays there too.
+2. **True Dissonance's Postlude** in the Finale cell (Expert, `c1`, `c1td`, `c2*`-`c4*`): without the level 40 / 40 won, the fight 142-158 s (52 s on Conductor runs); with it at 30% life 39 / 40, the Postlude 32 s on average (36-41 s by Calling, 6 s on Conductor runs). Life 0.5, 0.6 and 0.7 gave Postludes of 69, 83 and 93 s without the Conductor Calling; faster Discord (2/s), a shorter Cue gap (11 s) and an earlier enrage (60 s) changed neither the length nor the wins by more than a run (37-39 / 40 for every variant). 0.6 was kept: the Postlude sits in the middle of its band, and the longest single one (182 s, a Martyr run) stays near the band's top. `finalePar` 40 was kept: without the Conductor Calling the fight grows 73-93 s (83 on average, 41% of the 200 s par).
+3. **Tyrant and Mimicry by 4d's method** (`d4`, `d4m`): Tyrant reads **−7.1%** enemy life (82.0% won against the base's 75.0%), Mimicry **+0.9%**, against bands of 24-40% and 16-32%. Mimicry's count is its only lever: 2 a wave read +3.4%, 3 a wave +3.2%, so it stays at 1 (decision 3's readability). Tyrant makes the Prelude **easier**: in the Bellwarden's cell (the Novice, the bare kit and the tree, 40 seeds, `ty-*`) it wins 34 / 40 without Tyrant and 40 / 40 with it, downs 2.1 → 0.3 a fight, and 40 / 40 again at a cooldown multiple of 100%, 38 / 40 at 250% and 40 / 40 with the Bell Brute's Toll Cleave in phase 1; at the Hollow Cantor it costs downs (4.9 → 8.1) but no wins. The cause is in the sim, not its numbers: the borrowed attack is the picker's first try (`tryTyrant`, `src/sim/systems/enemies.ts:503`), so each cast takes the place of one of the boss's own specials (the Bellwarden's Tolls, Slam and Call, which summons). In whole Expert runs at tier III, Tyrant and Mimicry each cost about three runs in 40 (on the same 40 runs: 13 / 40 without Tyrant, 13 / 40 without Mimicry, 10 / 40 with both; `tnoty`, `tnomim`, `tf-0`/`tf-1`); a cooldown multiple of 100% or 75% with a first cast at 3 s (`tv1`, `tv2`), a 75% Postlude (`tv3`) and faster closing attacks (`TYRANT_BURN` 5 / 7 s, `tv4`) moved tiers III and IV by no more than noise. None was kept.
+4. **The Echoes** (`e1`, `e2`, `ef`, `ev1`-`ev5`, `g0`, `g1`). By the doc's clock, eight of nine Echoes were already inside the length band at ★ (14.0-21.7 min); only Strangers (26.6) was over it, its party fighting slowest. Each was read at ★ and ★★★ (Tier 0's and Tier II's levels) on 40 runs: ★ read 93-100% on all nine and ★★★ 58-90% on five (Choir of Blood, the Seamstress's Court, Retrograde, the Last Rehearsal, the Unrested), so the Echoes were made harder, by scale first (whole legs at a later Movement's scale) and by Respite rows where scale alone fell short, and Strangers shorter. The Gilded Road read 0 / 10 at ★★★ on the first look and 7 / 40 at the protocol's size, so it was left as built (a fixed Blood Forge first and a richer first row read 9 / 40, no different). Choir of Blood without its two Respites read the same as with them (22 / 40); its scale did the work.
+5. **The weekly rotation** (`wk1`-`wk5`, `wf`, `wf2`-`wf4`): screened at 6-12 weeks an entry, then read at 40. Two causes dominated: the party on the level field (entries 0, 9 and 10 lost most runs with Kael, Vexis and Seren, Kael, Seren and Oro, or Kael, Brann and Oro), and Echoes whose first fight is at Movement III's scale (Bells in the Rift, and after round 4 the Last Rehearsal and the Unrested), which a party with no build seldom survives. Entry 9 was also read at Hardened, Wounding Strikes and True Dissonance (10 points): the Expert won 36 / 40 either way, so the 8-point entry was kept.
+
+### The final tables
+
+**Tiers** (whole Finale-route Expeditions, Rank 20 build, Guardian; Expert with its run policy, 50 a set; Skilled with the harness's policy, 30 a set; `tf-0`, `tf-1`, `tf3`, `tfs`).
+
+| Tier | Expert 2000 | Expert 900007 | Expert 333003 | Band | Verdict | Skilled 2000 / 900007 / 333003 | Skilled band |
+|---|---|---|---|---|---|---|---|
+| 0 | 49/50 (98%) inside | 50/50 (100%) inside | 49/50 (98%) inside | ≥ 90% | **met** | 29/30 / 29/30 / 29/30 (97%) | reported |
+| I (10) | 44/50 (88%) edge | 42/50 (84%) inside | 45/50 (90%) edge | 70-90% | **met** | 25/30 (83%) / 24/30 (80%) / 25/30 (83%) | ≤ Expert − 10: **missed** on all three (−5 / −4 / −7) |
+| II (20) | 35/50 (70%) edge | 40/50 (80%) **outside** | 34/50 (68%) edge | 40-70% | **missed** on 900007 | 16/30 (53%) / 11/30 (37%) / 10/30 (33%) | ≤ Expert − 10: met |
+| III (30) | 16/50 (32%) inside | 13/50 (26%) inside | 19/50 (38%) edge | 15-40% | **met** | 3/30 (10%) / 2/30 (7%) / 4/30 (13%) | ≤ Expert − 5: met |
+| IV (42) | 11/50 (22%) **outside** | 7/50 (14%) edge | 9/50 (18%) edge | 2-15%, > 0 on every set | **missed** on 2000 (above 0 on all three) | 5/30 (17%) / 2/30 (7%) / 1/30 (3%) | reported |
+
+Reached the Finale over the three sets: tier 0 148 / 150, I 132, II 109, III 52, IV 31; won ÷ reached 100%, 99%, 100%, 92%, 87%. Minutes of combat a run: 17.5, 23.7, 21.8, 13.9, 12.6. At tier IV the Postlude (the fight's end less the rise) lasted 127-192 s on the runs without the Conductor Calling and 17-49 s on Conductor runs. The Novice and the Idle bot were not run at the tiers.
+
+**Each new level's cost** (4d's method: `tools/dissonance.ts --bot novice --seeds 300 --threat 1 --levels tyrant,mimicry`, base 75.0%, ×1.25 40.7%).
+
+| Level | Novice wins | Costs like | Band | Verdict |
+|---|---|---|---|---|
+| Tyrant (4 points) | 82.0% | −7.1% enemy life | 24-40% | **missed** (below; the level makes the Prelude easier) |
+| Mimicry (3 points) | 74.0% | +0.9% | 16-32% | **missed** (below; 2 a wave +3.4%, 3 a wave +3.2%) |
+
+**True Dissonance on the Finale cell** (Expert, arrival kit IV and the Rank 20 tree, the Calling by seed, 20 seeds on cell bases 1000 and 500003; `c1`, `c2c`).
+
+| Calling | Without: won, fight (s) | With: won, fight (s) | Postlude (s) | Fight longer by (s) |
+|---|---|---|---|---|
+| none | 8/8, 158 | 7/8, 243 | 86 | 85 |
+| Luminary | 8/8, 142 | 7/8, 215 | 75 | 73 |
+| Martyr | 8/8, 158 | 7/8, 251 | 92 | 93 |
+| Chronomancer | 8/8, 152 | 8/8, 231 | 79 | 79 |
+| Conductor | 8/8, 52 | 8/8, 65 | 14 | 13 |
+| all | 40/40 (100%) | 37/40 (93%) | 68 (range 12-182) | |
+
+- Wins ≥ 75%: **met** (93%; 18 / 20 and 19 / 20 by set). At least 10 points below without it: **missed** (7.5 points; the Expert wins every cell without the level, so the band asks for ≤ 90%).
+- The Postlude 45-120 s: **met** on average (68 s; 75-92 s by Calling without the Conductor Calling) but **missed** on Conductor runs (14 s: the Grand Finale ends it) and by one Martyr run (182 s).
+- The whole fight no more than 150 s longer: **met** (13-93 s on average by Calling; one Martyr run 182 s).
+
+**Echoes** (Expert, Rank 20 for each Echo's party, 20 seeds on 2000 and 900007; length is the pacing clock at ★, all runs; `ef`, `ef2`).
+
+| Echo | ★ 2000 / 900007 | ★ band 60-95% | ★★★ 2000 / 900007 | ★★★ band 10-45% | ★ length (won runs) | Length band 12-22 |
+|---|---|---|---|---|---|---|
+| Choir of Blood | 19/20 / 20/20 (98%) | edge | 7/20 / 10/20 (43%) | edge | 17.5 (17.5) | inside |
+| Bells in the Rift | 19/20 / 19/20 (95%) | edge | 3/20 / 2/20 (13%) | edge | 14.0 (14.5) | inside |
+| The Seamstress's Court | 20/20 / 19/20 (98%) | edge | 9/20 / 10/20 (48%) | edge | 16.1 (16.3) | inside |
+| Retrograde | 20/20 / 20/20 (100%) | **outside** | 6/20 / 9/20 (38%) | edge | 21.5 (21.5) | inside |
+| The Last Rehearsal | 19/20 / 19/20 (95%) | edge | 6/20 / 5/20 (28%) | inside | 23.5 (24.0) | **outside** |
+| The Gilded Road | 20/20 / 17/20 (93%) | edge | 2/20 / 5/20 (18%) | inside | 15.9 (16.9) | inside |
+| A Cappella | 20/20 / 20/20 (100%) | **outside** | 10/20 / 7/20 (43%) | edge | 20.3 (20.3) | inside |
+| Strangers | 20/20 / 20/20 (100%) | band ≥ 40%: inside | 4/20 / 5/20 (23%) | inside | 19.9 (19.9) | inside |
+| The Unrested | 16/20 / 17/20 (83%) | inside | 5/20 / 8/20 (33%) | inside | 22.0 (24.0) | at the bound |
+
+The ★ cells are read pooled over the two sets (40 runs; a set of 20 can't show a rate between 95% and 100%). ★★ (Tier I's levels) has no band and was read only on the first look, before the legs moved (`e2`, 10 runs: 2-10 of 10; Strangers 2 / 10). A ★★★ clear's own clock runs longer than ★'s (19-33 min), since its fights are longer.
+
+**The weekly rotation** (Expert with its run policy, Skilled with the harness's, the level field and Guardian as the picks; the 20 weeks holding each entry from week 44 and from week 1044; `wf`, `wf3`).
+
+| # | Entry | Points | Expert | Band 50-85% | Skilled | Band 25-70% | Mean score E / S |
+|---|---|---|---|---|---|---|---|
+| 0 | Expedition · Chronomancer · Kael, Lyra, Vexis · Short Fuse, Wounding Strikes ×2 | 5 | 30/40 (75%) | inside | 30/40 (75%) | edge | 3458 / 3479 |
+| 1 | Expedition · Conductor · Kael, Lyra, Brann · Brisk Foes, Short Fuse, Restless Dead | 7 | 31/40 (78%) | inside | 8/40 (20%) | edge | 3440 / 1809 |
+| 2 | Expedition · no Calling · Kael, Lyra, Vexis · Elite Vanguard | 5 | 25/40 (63%) | inside | 21/40 (53%) | inside | 3182 / 2493 |
+| 3 | Choir of Blood · Luminary · Kael, Lyra, Vexis · Brisk Foes, Short Fuse | 2 | 19/40 (48%) | edge | 19/40 (48%) | inside | 1160 / 1215 |
+| 4 | Expedition · Martyr · Kael, Lyra, Seren · Silent Cues, Tyrant | 5 | 22/40 (55%) | inside | 22/40 (55%) | inside | 2779 / 2535 |
+| 5 | A Cappella · no Calling · Lyra, Vexis, Oro · Brisk Foes, Hardened | 4 | 27/40 (68%) | inside | 22/40 (55%) | inside | 1986 / 1643 |
+| 6 | Expedition · Luminary · Lyra, Vexis, Seren · Silent Cues, Mimicry | 4 | 22/40 (55%) | inside | 20/40 (50%) | inside | 2951 / 2839 |
+| 7 | Retrograde · Chronomancer · Kael, Vexis, Brann · Fragile Threads, Wounding Strikes | 3 | 28/40 (70%) | inside | 21/40 (53%) | inside | 2027 / 1562 |
+| 8 | Strangers · Conductor · Brann, Seren, Oro · Hardened ×2, Short Fuse ×2 | 8 | 30/40 (75%) | inside | 15/40 (38%) | inside | 1772 / 1306 |
+| 9 | Expedition · Conductor · Kael, Lyra, Vexis · Hardened, True Dissonance | 8 | 36/40 (90%) | **outside** | 22/40 (55%) | inside | 3864 / 2860 |
+| 10 | Choir of Blood · Martyr · Kael, Lyra, Seren · Unforgiving | 1 | 21/40 (53%) | edge | 18/40 (45%) | inside | 1282 / 1095 |
+| 11 | Retrograde · Luminary · Kael, Lyra, Vexis · Blind Score | 2 | 34/40 (85%) | edge | 22/40 (55%) | inside | 2324 / 1653 |
+
+**Builds at Tier I** (Expert, each Chord preset, the Calling by seed, 10 seeds on each of 2000 and 900007; Guardian from the tier reading): Steady 19/20 (95%), Guardian 86/100 (86%), Bastion 19/20 (95%), Anchor 17/20 (85%), All In 13/20 (65%), Wide Choir 16/20 (80%). **Met at 20 runs a preset**, 6 of 6 at ≥ 50% (read at a fifth of the protocol's size; not read on 333003). Presets × Callings were not split further (four runs a Calling a preset).
+
+### The bands
+
+| Band | Verdict |
+|---|---|
+| Tier 0, Expert ≥ 90% | met |
+| Tier I, Expert 70-90% | met (edge on two sets) |
+| Tier I, Skilled ≤ Expert − 10 | **missed** on all three sets |
+| Tier II, Expert 40-70% | **missed** on 900007 (80%); edge on the other two |
+| Tier II, Skilled ≤ Expert − 10 | met |
+| Tier III, Expert 15-40% | met |
+| Tier III, Skilled ≤ Expert − 5 | met |
+| Tier IV, Expert 2-15% and above 0 on every set | **missed** on 2000 (22%); edge on the other two; above 0 on all three |
+| Novice and Idle at the tiers | not measured |
+| Tyrant costs like 24-40% enemy life | **missed** (−7%) |
+| Mimicry costs like 16-32% | **missed** (+1%) |
+| True Dissonance, Finale cell: wins ≥ 75% | met (93%) |
+| … and ≥ 10 points below without it | **missed** (7.5) |
+| … the Postlude 45-120 s | met on average and for every Calling but the Conductor (14 s) |
+| … the fight ≤ 150 s longer | met on average (one Martyr run 182 s) |
+| Builds at Tier I: ≥ 5 of the presets at ≥ 50% | met (6 of 6, 20 runs a preset) |
+| Echoes ★ 60-95% | met on seven, **missed** on Retrograde and A Cappella (40 / 40) |
+| Echoes ★★★ 10-45% | met on all nine (five on the edge) |
+| Strangers ★ ≥ 40% | met |
+| Echo length 12-22 min | met on eight, **missed** on the Last Rehearsal (23.5) |
+| Weekly, Expert 50-85% | met on eleven, **missed** on entry 9 (90%) |
+| Weekly, Skilled 25-70% | met on all twelve (two on the edge) |
+| Verification (≤ 20 s in Node, file ≤ 300 KB) | not re-measured (W4's reading stands) |
+
+### Missed bands: causes and options
+
+1. **Tier II (80% on 900007) and the Skilled bot at Tier I.** Tier II's set holds no Phase 6 level, so none of this phase's levers reaches it: the reading is the Expert's (Rank 20 build, and the map rule once it stops taking elites at 20 points). The same build makes the Skilled bot nearly as strong at Tier I (82% against the Expert's 87%): the bands were extrapolated for an Expert that no phase had measured (*Assumed, not yet verified*). Options: restate Tier II's band (the three sets read 68-80%), or accept; restate the Tier I gap; or move existing levels' numbers (this phase forbids it).
+2. **Tier IV on 2000 (22%; 14% and 18% on the others).** Of 150 runs, 31 reach the Finale and 27 win there; most losses are Movement I and II fights and the Hollow Cantor, where the extra levels are the existing twelve's. Phase 6's levers act only at the bosses (Tyrant) and the Finale (the Postlude): a harder Tyrant clock and a 75% Postlude moved tier IV by no more than noise. Options: accept (edge on two sets); a much harder Postlude (it would break the cell's 45-120 s band); or restate the band.
+3. **Tyrant and Mimicry's costs.** Tyrant: the borrowed attack replaces one of the boss's own specials each time it is cast, so on the Bellwarden it makes the fight easier (above); no cooldown, first cast or table entry the levers allow changes that. Mimicry: a mirror copies one Empower, Ward or Chime a cast, and the Novice barely notices it at any count. Options: in the sim (W1's), cast the borrowed attack beside the boss's own picks (for example only when no own special is ready, or on its own clock outside the picker), then re-read; lower the two levels' points (which changes the tier sets' totals: your call); or accept that the points price danger the Expert meets at bosses rather than what 4d's Prelude measures.
+4. **True Dissonance's 10-point gap and the Conductor Calling's Postlude.** The Expert wins every Finale cell without the level, so "10 below" means ≤ 90%; every Postlude variant read 92-97%. On a Conductor run the Grand Finale ends the Postlude in about 14 s. Options: read the gap on a harder cell (Tier IV's Finale converts 87%); accept; or a Conductor-only Postlude rule (a sim change).
+5. **Echoes ★ above 95% on Retrograde and A Cappella** (and four more on the edge at 95-98%). The Expert at Rank 20 wins nearly every ★ run; harder legs moved ★★★ into its band while ★ stayed high. Options: accept, or harden further (★★★ would fall toward 10%).
+6. **The Last Rehearsal's length** (23.5 min, band 22): its Cantor and Vharun at Movement III's scale take longer. Options: one choice row of a Respite or a Merchant after each boss (the text promises both), or accept.
+7. **Weekly entry 9** (Expert 90%): the Conductor Calling's Grand Finale cuts the Postlude short, and 8 or 10 points read the same (36 / 40). Options: another Calling for the True Dissonance week, or accept.
+
+### For the owner
+
+- **The Expert's map rule** (above) is a policy choice: a different sensible rule gives different tier readings, and Tier II's 68-80% follows from it.
+- **Tyrant's picker priority** (item 3): a sim change, not a number.
+- **Restating the tier bands** for the Expert as measured (items 1 and 2).
+- **Echo texts changed** with their legs (Choir of Blood, the Seamstress's Court, Retrograde, the Last Rehearsal and the Unrested now say their strength or "no Respite"); `ECHO_STARS` untouched.
+- **Rotation entries 10 and 11** change route (Bells in the Rift and the Unrested leave the rotation; Choir of Blood and Retrograde appear twice, each with another Calling and party). Bells in the Rift is unwinnable on the level field as built.
+
+### What was not run, or was run smaller
+
+- The protocol's size: tiers at 50 a set, not 100; the Skilled bot at 30; the Echoes and weekly at 40 runs on two bases (not on 333003); builds at 20 runs a preset on two bases.
+- The Novice and Idle bots at the tiers; Echo ★★ after the legs moved; presets × Callings split by Calling; replay verification time and size.
+- The Finale cell at the protocol's three cell sets (two were read).
+- `tools/dissonance.ts --tiers`, `--echoes` and `--weekly` themselves were not run at these sizes: the scratch runner plays the same `playRun` options, and its per-run lines are kept.
