@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { LOCALES, setLocale, useLocale, type Locale } from '../text';
 import { COLOR_VISIONS, applyVisionCss } from '../../app/colorVision';
 import {
   EVERYTHING,
@@ -4757,8 +4758,44 @@ function readParams() {
 }
 
 /** `?lab=ui` — every HUD state and screen against mock data. `&view=<id>` selects one. */
+/**
+ * The text layer's locale (docs/phase-7.md, *W3a*): English, or the pseudo-locale `en-XA`, which
+ * shows any string that skipped the text layer and any layout that can't grow. Kept in the
+ * address as `?locale=`, so a screenshot's URL reproduces it.
+ */
+function LocaleSwitch() {
+  const locale = useLocale();
+  const choose = (l: Locale) => {
+    const url = new URL(window.location.href);
+    if (l === 'en') url.searchParams.delete('locale');
+    else url.searchParams.set('locale', l);
+    window.history.replaceState(null, '', url);
+    setLocale(l);
+  };
+  return (
+    <div className="mb-4" role="group" aria-label="Locale" data-testid="lab-locale">
+      <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">Locale</p>
+      <div className="flex gap-1">
+        {LOCALES.map((l) => (
+          <button
+            key={l}
+            type="button"
+            onClick={() => choose(l)}
+            aria-pressed={l === locale}
+            data-testid={`lab-locale-${l}`}
+            className={`rounded-md px-2.5 py-1 text-sm ${l === locale ? 'bg-gold-400 font-semibold text-ink-950' : 'text-text hover:bg-ink-800'}`}
+          >
+            {l === 'en' ? 'English' : 'Pseudo (en-XA)'}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function UiLab() {
   const [params, setParams] = useState(readParams);
+  const locale = useLocale();
   const view = VIEWS.find((v) => v.id === params.view) ?? VIEWS[0]!;
   const stageH = params.h || view.h;
   const stageW = params.w || view.w;
@@ -4806,6 +4843,7 @@ export function UiLab() {
         >
           <h1 className="font-display text-lg font-bold text-gold-300">UI lab</h1>
           <p className="mb-3 text-xs text-muted">Mock data for every HUD state and screen.</p>
+          <LocaleSwitch />
           {groups.map((g) => (
             <div key={g} className="mb-4">
               <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">{g}</p>
@@ -4837,7 +4875,7 @@ export function UiLab() {
             className="relative origin-top-left overflow-hidden rounded-lg border border-ink-600"
             style={{ width: stageW, height: stageH, transform: `scale(${scale})` }}
           >
-            {view.render()}
+            <Fragment key={locale}>{view.render()}</Fragment>
           </div>
         </div>
       </div>
