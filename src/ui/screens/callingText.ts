@@ -287,7 +287,7 @@ export function numeral(tier: number): string {
  * alone (`{ movements }`: its reference map, seed 1), or neither (the Prelude's, as Prep's
  * preview and the Codex have always read them).
  */
-export type TierPlace = RunMap | Partial<Pick<RunState, 'map' | 'movements'>>;
+export type TierPlace = RunMap | Partial<Pick<RunState, 'map' | 'movements' | 'echo'>>;
 
 /** Reference maps, by route, to read the milestone rows from when no run is at hand. */
 const referenceMaps = new Map<number, RunMap>();
@@ -306,7 +306,9 @@ function tierPlace(at?: TierPlace): { rows: readonly number[]; map: RunMap } {
   if (at?.map || at?.movements !== undefined) {
     // A map without its route reads the route off the map, as a bare map does.
     const movements = at.movements ?? (at.map ? mapRoute(at.map) : 1);
-    return { rows: callingRows({ movements }), map: at.map ?? referenceMap(movements) };
+    // Phase 6: an Echo's tiers fall on rows of its own route (`callingRows` reads its `echo`).
+    const echo = at.echo !== undefined ? { echo: at.echo } : {};
+    return { rows: callingRows({ movements, ...echo }), map: at.map ?? referenceMap(movements) };
   }
   return { rows: CALLING_ROWS, map: referenceMap(1) };
 }
@@ -460,7 +462,7 @@ export interface PathTipLine {
  * The path as tooltip lines: each chosen option with what it does, then each open tier with
  * when it comes and its two options, and (Phase 4g) each tier its mastery keeps shut.
  */
-export function pathTipLines(calling: RunCalling, map?: RunMap): PathTipLine[] {
+export function pathTipLines(calling: RunCalling, map?: TierPlace): PathTipLine[] {
   const name = callingDef(calling.id).name;
   return pathSteps(calling, { map }).map((s) =>
     s.chosen
@@ -493,7 +495,7 @@ export function pathTipLines(calling: RunCalling, map?: RunMap): PathTipLine[] {
  * "The Luminary: Haloed, Wide Choir. Next pick after your fight at step 6." (aria). Phase 4g:
  * "…Tiers III and IV are locked: they open with mastery 3 and 4." when they are.
  */
-export function pathLabel(calling: RunCalling, map?: RunMap): string {
+export function pathLabel(calling: RunCalling, map?: TierPlace): string {
   const def = callingDef(calling.id);
   const steps = pathSteps(calling, { map });
   const taken = steps.flatMap((s) => (s.chosen ? [s.chosen.name] : []));
@@ -525,7 +527,10 @@ export function spanOf(items: readonly string[]): string {
  * The next tier still to come this run, and when (null: the path is complete, or the rest is
  * locked by mastery, Phase 4g).
  */
-export function nextTier(calling: RunCalling, map?: RunMap): { tier: number; when: string } | null {
+export function nextTier(
+  calling: RunCalling,
+  map?: TierPlace,
+): { tier: number; when: string } | null {
   const tier = calling.path.findIndex((p) => p === null);
   const open = calling.tiersOpen ?? calling.path.length;
   return tier < 0 || tier >= open ? null : { tier, when: tierWhen(tier, map) };

@@ -41,6 +41,10 @@ import {
 } from '../src/ui/screens/atlasWiring';
 import { weeklyPanelFrom } from '../src/ui/screens/atlasModel';
 import { useUi } from '../src/ui/store';
+import { techniquesSummary } from '../src/ui/screens/variantsModel';
+import { fightXp } from '../src/ui/screens/rankText';
+import { movementLabel } from '../src/ui/screens/routeText';
+import { tierWhen } from '../src/ui/screens/callingText';
 import { CONTENT, dissonanceLevel, heroDef, type EchoDef } from '../src/content';
 import { ECHO_STARS } from '../src/content/echoes';
 import { POSTLUDE_DECREE } from '../src/content/crucible';
@@ -57,7 +61,7 @@ import {
 import { maxDissonance } from '../src/meta/dissonance';
 import { shopItems, noLook, type ShopItem } from '../src/meta/loom';
 import { WEEKLY_STATUSES, newProfile, type ProfileAtlas } from '../src/meta/profile';
-import { createSim, tyrantDecreeOf } from '../src/sim';
+import { TYRANT_TABLE, createSim, tyrantAttackOf, tyrantDecreeOf } from '../src/sim';
 import type { World } from '../src/sim/world';
 import { buildHudSnapshot } from '../src/ui/hudBridge';
 import {
@@ -318,8 +322,11 @@ describe('the weekly panel: a plain input from the weekly model', () => {
     expect(v.rows.find((r) => r.mine)!.who).toBe('You');
     // Every status in the board, each with its own word and glyph.
     expect(new Set(v.rows.map((r) => r.status.status))).toEqual(new Set(WEEKLY_STATUSES));
-    expect(Object.keys(STATUS_LOOK).sort()).toEqual([...WEEKLY_STATUSES].sort());
-    expect(new Set(WEEKLY_STATUSES.map((s) => STATUS_LOOK[s].icon)).size).toBe(4);
+    // The four weekly statuses, and a replay that isn't a weekly's: it plays back, never Verified.
+    expect(Object.keys(STATUS_LOOK).sort()).toEqual([...WEEKLY_STATUSES, 'playsBack'].sort());
+    expect(new Set(Object.values(STATUS_LOOK).map((l) => l.icon)).size).toBe(5);
+    expect(STATUS_LOOK.playsBack.word).toBe('Plays back');
+    expect(verifyCue('playsBack')).toBeNull();
     expect(WEEKLY_STATUSES.map((s) => STATUS_LOOK[s].word)).toEqual([
       'Verified',
       'Another version',
@@ -643,33 +650,25 @@ function bossFight(encounter: string) {
 
 describe('in the fight: Tyrant, the Postlude, Mimicry (hand-built states)', () => {
   it('Tyrant’s decree: the boss, the foe and its attack, then its answers', () => {
-    const lance = CONTENT.attacks.find((a) => a.id === 'lancer_lance')!;
-    const d = tyrantDecree('the_bellwarden', { attack: lance.id, from: 'glass_lancer', phase: 1 });
-    // Content's words, through the sim's own builder: no second copy of the text.
-    expect(d.text).toBe(
-      tyrantDecreeOf('the_bellwarden', { attack: lance.id, from: 'glass_lancer' }),
-    );
-    expect(d.name).toBe(CONTENT.dissonance.find((l) => l.effect === 'tyrant')!.name);
-    expect(d.foe).toBe(CONTENT.enemies.find((e) => e.id === 'glass_lancer')!.name);
-    expect(d.text).toContain(`${d.foe}’s ${lance.name}`);
-    // Blind Score cuts it to its first sentence, as every decree.
-    const blind = tyrantDecree(
-      'the_bellwarden',
-      { attack: lance.id, from: 'glass_lancer', phase: 1 },
-      { blind: true },
-    );
-    expect(blind.text).toBe(d.text.split('. ')[0] + '.');
-    // The Conductor plays its own closing attacks earlier.
-    const own = tyrantDecree('the_silent_conductor', {
-      attack: lance.id,
-      from: 'the_silent_conductor',
-      phase: 1,
-    });
-    expect(own.text).toBe(
-      tyrantDecreeOf('the_silent_conductor', { attack: lance.id, from: 'the_silent_conductor' }),
-    );
-    // A boss holding its own attack has no foe to name.
-    expect(own.foe).toBeNull();
+    // Every boss and phase in the sim's table, worded as content words it (no attack named here).
+    for (const bossId of Object.keys(TYRANT_TABLE))
+      for (let phase = 1; tyrantAttackOf(bossId, phase); phase++) {
+        const entry = tyrantAttackOf(bossId, phase)!;
+        const d = tyrantDecree(bossId, { ...entry, phase });
+        expect(d.text, `${bossId} ${phase}`).toBe(tyrantDecreeOf(bossId, entry));
+        expect(d.name).toBe(CONTENT.dissonance.find((l) => l.effect === 'tyrant')!.name);
+        expect(d.attack).toBe(CONTENT.attacks.find((a) => a.id === entry.attack)!.name);
+        const borrowed = entry.from !== bossId;
+        // A boss holding its own attack (the Conductor's) has no foe to name.
+        expect(d.foe).toBe(
+          borrowed ? CONTENT.enemies.find((e) => e.id === entry.from)!.name : null,
+        );
+        if (borrowed) expect(d.text).toContain(`${d.foe}’s ${d.attack}`);
+        // Blind Score cuts it to its first sentence, as every decree.
+        const blind = tyrantDecree(bossId, { ...entry, phase }, { blind: true });
+        expect(d.text.startsWith(blind.text.slice(0, -1))).toBe(true);
+        expect(blind.text.split('. ').length).toBe(1);
+      }
   });
 
   it('the boss bar reads `enemy.tyrant`; absent, nothing changes', () => {
@@ -677,24 +676,21 @@ describe('in the fight: Tyrant, the Postlude, Mimicry (hand-built states)', () =
     const before = buildHudSnapshot(w, { seed: 7, hovered: null });
     expect('tyrant' in before.boss!).toBe(false);
     expect(bossTyrant(w, boss.id)).toEqual({});
-    (boss.enemy as { tyrant?: unknown }).tyrant = {
-      attack: 'lancer_lance',
-      from: 'glass_lancer',
-      phase: 1,
-      readyAt: 6,
-    };
+    const defId = boss.enemy!.defId;
+    const one = tyrantAttackOf(defId, 1)!;
+    (boss.enemy as { tyrant?: unknown }).tyrant = { ...one, phase: 1, readyAt: 6 };
     const hud = buildHudSnapshot(w, { seed: 7, hovered: null });
-    expect(hud.boss!.tyrant!.text).toMatch(/takes up the Glass Lancer’s/);
+    expect(hud.boss!.tyrant!.text).toBe(tyrantDecreeOf(defId, one));
     expect(hud.boss!.tyrant!.phase).toBe(1);
+    const two = tyrantAttackOf(defId, 2)!;
     const edict = tyrantEdictDecree(w, {
       type: 'tyrantEdict',
       tick: 1,
       boss: boss.id,
       phase: 2,
-      attack: 'lamenter_dirge',
-      from: 'lamenter',
+      ...two,
     })!;
-    expect(edict.text).toMatch(/Lamenter’s/);
+    expect(edict.text).toBe(tyrantDecreeOf(defId, two));
     expect(edict.phase).toBe(2);
     // The banner a batch of events announces: Tyrant's edict only (the Postlude's rise announces
     // its own decree as a boss decree); nothing for any other event.
@@ -773,11 +769,7 @@ describe('in the fight: Tyrant, the Postlude, Mimicry (hand-built states)', () =
       enrageIn: null,
       decree: null,
       foreseen: null,
-      tyrant: tyrantDecree('the_bellwarden', {
-        attack: 'lancer_lance',
-        from: 'glass_lancer',
-        phase: 1,
-      }),
+      tyrant: tyrantDecree('the_bellwarden', { ...tyrantAttackOf('the_bellwarden', 1)!, phase: 1 }),
       postlude: { rising: 1.5, enraged: false, decree: postludeDecree() },
     };
     const html = renderToStaticMarkup(createElement(BossBar, { boss, decree: null }));
@@ -1094,5 +1086,99 @@ describe('every Echo, and a weekly, reads sensibly on the run’s screens', () =
     expect(html).not.toContain('data-testid="prep-echo"');
     expect(prepEyebrow(run)).toBe(`This Week’s Song · Week ${week}`);
     expect(summaryEyebrow(run)).toBe(`This Week’s Song · Week ${week} · summary`);
+  });
+});
+
+describe('after the reviews: plays back, the clock on codes, an Echo’s Movements and tiers', () => {
+  const NOW = Date.UTC(2026, 10, 11, 12);
+  beforeEach(() => {
+    useSettings.getState().reset();
+    useProfile.getState().resetProgress();
+    useRun.getState().closeRun();
+    useWeeklyVerify.getState().set({ progress: null, result: null });
+  });
+
+  it('a replay that isn’t a weekly plays back: its own word, the verifier’s message, no board entry', async () => {
+    const message = 'Plays back as recorded: an Echo, won.';
+    setAtlasActions(
+      atlasActionsFor({
+        now: () => NOW,
+        copy: () => {},
+        save: () => {},
+        bytes: async () => new TextEncoder().encode('{}').buffer as ArrayBuffer,
+        verify: () => ({
+          result: Promise.resolve({ status: 'playsBack', message } as never),
+          cancel: () => {},
+        }),
+      }),
+    );
+    atlasActions().openReplay(new Blob(['{}']), null);
+    for (let i = 0; i < 10 && useWeeklyVerify.getState().result === null; i++)
+      await new Promise((r) => setTimeout(r, 0));
+    expect(useWeeklyVerify.getState().result).toEqual({ status: 'playsBack', message });
+    expect(useProfile.getState().profile.weekly ?? []).toEqual([]);
+    const v = weeklyPanelView({
+      ...weeklyInput('board'),
+      result: { status: 'playsBack', message },
+    });
+    expect(v.result!.word).toBe('Plays back');
+    expect(v.result!.message).toBe(message);
+  });
+
+  it('Add a code passes the caller’s clock: a week not yet begun is refused, in words', () => {
+    setAtlasActions(
+      atlasActionsFor({
+        now: () => NOW,
+        copy: () => {},
+        save: () => {},
+        bytes: async () => new ArrayBuffer(0),
+        verify: () => ({ result: Promise.reject(new Error('unused')), cancel: () => {} }),
+      }),
+    );
+    const later = encodeShareCode({
+      week: weekOf(NOW) + 3,
+      build: buildOf(CONTENT_VERSION),
+      simVersion: SIM_VERSION,
+      won: true,
+      fightsWon: 15,
+      score: 3000,
+      seconds: 1800,
+      digest: '0123456789',
+    });
+    const refused = atlasActions().addCode(later, null);
+    expect(refused).toEqual(expect.any(String));
+    expect(useProfile.getState().profile.weekly ?? []).toEqual([]);
+  });
+
+  it('a weekly’s variants are open for the week, not by Skip the unlocks', () => {
+    expect(techniquesSummary([], true, true).line).toMatch(/This Week’s Song/);
+    expect(techniquesSummary([], true).line).toBe(
+      'Every variant is open: Settings → Skip the unlocks.',
+    );
+  });
+
+  it('an Echo’s fight pays and is labelled as the Movement its leg is built over', () => {
+    const run = Run.newEchoRun(7, 'retrograde');
+    const m = Run.contentMovementOf(run, 1);
+    expect(m).toBe(3);
+    const xp = fightXp(
+      { kind: 'skirmish', outcome: 'victory', grade: 'A', name: 'x', xp: 999 },
+      [],
+      m,
+    );
+    expect(xp.lines.some((l) => l.label.startsWith(movementLabel(m)))).toBe(true);
+  });
+
+  it('an Echo’s Calling tiers fall on its own rows', () => {
+    for (const e of echoes()) {
+      if (e.twists.noCalling) continue;
+      const run = Run.embark(Run.newEchoRun(7, e.id));
+      const place = { map: run.map, movements: run.movements, echo: e.id };
+      const rows = Run.callingRows(run);
+      // Each tier says when it comes, read off the Echo's rows, and never "undefined".
+      for (let t = 0; t < rows.length; t++) {
+        expect(tierWhen(t, place), `${e.id} tier ${t}`).not.toMatch(/undefined|NaN/);
+      }
+    }
   });
 });

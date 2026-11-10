@@ -111,6 +111,15 @@ export function installRunHook(): void {
       run().newRun(seed, mode);
       useUi.getState().setScreen('run');
     },
+    // Phase 6: an Echo's run, and a week's This Week's Song, in Prep (the run store's actions).
+    newEchoRun: (echoId, seed) => {
+      run().newEchoRun(echoId, seed);
+      useUi.getState().setScreen('run');
+    },
+    newWeeklyRun: (week) => {
+      run().newWeeklyRun(week);
+      useUi.getState().setScreen('run');
+    },
     embark: () => run().embark(),
     choose: (nodeId) => {
       const state = run().run;

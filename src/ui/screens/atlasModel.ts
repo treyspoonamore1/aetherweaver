@@ -40,7 +40,8 @@ import {
   type AtlasRecord,
 } from '../../meta/atlas';
 import { dissonancePoints, type DissonanceChoice } from '../../meta/dissonance';
-import type { ProfileAtlas, WeeklyCode, WeeklyStatus, WeeklyWeek } from '../../meta/profile';
+import type { ProfileAtlas, WeeklyCode, WeeklyWeek } from '../../meta/profile';
+import type { VerifyStatus } from '../../meta/runReplay';
 import {
   bestScore,
   daysLeft,
@@ -655,9 +656,12 @@ export interface WeeklyProgressInput {
   totalTicks: number;
 }
 
-/** Verification's answer (the verifier's `VerifyResult`: its status and its own message). */
+/**
+ * Verification's answer (the verifier's `VerifyResult`: its status and its own message). A
+ * replay that isn't a weekly (an Echo, a Prelude, an Expedition) only ever `playsBack`.
+ */
 export interface WeeklyResultInput {
-  status: WeeklyStatus;
+  status: VerifyStatus;
   message: string;
 }
 
@@ -683,7 +687,7 @@ export interface WeeklyPanelInput {
 }
 
 export interface StatusLook {
-  status: WeeklyStatus;
+  status: VerifyStatus;
   /** "Verified", "Another version", "Claimed", "Didn't match". */
   word: string;
   /** Its own glyph, so the colour is never the only cue. */
@@ -697,7 +701,7 @@ export interface StatusLook {
  * The four statuses, each with its own word, glyph and colour (`tests/colorVision.test.ts` keeps
  * the colours apart under every vision; the glyphs differ anyway).
  */
-export const STATUS_LOOK: Readonly<Record<WeeklyStatus, StatusLook>> = {
+export const STATUS_LOOK: Readonly<Record<VerifyStatus, StatusLook>> = {
   verified: {
     status: 'verified',
     word: 'Verified',
@@ -725,6 +729,15 @@ export const STATUS_LOOK: Readonly<Record<WeeklyStatus, StatusLook>> = {
     icon: 'close',
     color: '#fb923c',
     means: 'Its replay doesn’t play to what its code says.',
+  },
+  // Not a weekly: an Echo's, a Prelude's or an Expedition's replay played back as recorded. It is
+  // never "Verified" (nothing fixes its start), so it has its own word, glyph and colour.
+  playsBack: {
+    status: 'playsBack',
+    word: 'Plays back',
+    icon: 'play',
+    color: '#facc15',
+    means: 'Not a weekly: its replay plays back as it was recorded, but nothing fixes its start.',
   },
 };
 
@@ -961,7 +974,7 @@ export function atlasCues(
 }
 
 /** What a verification's answer sounds: verified (either kind), didn't match, or nothing for a claim. */
-export function verifyCue(status: WeeklyStatus): 'runVerified' | 'runMismatch' | null {
+export function verifyCue(status: VerifyStatus): 'runVerified' | 'runMismatch' | null {
   if (status === 'mismatch') return 'runMismatch';
   if (status === 'verified' || status === 'otherVersion') return 'runVerified';
   return null;

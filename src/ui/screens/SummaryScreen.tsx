@@ -28,10 +28,10 @@ import { CONTENT } from '../../content';
 import { SONG_GOES_ON } from '../../content/crucibleIds';
 import { finaleCleared } from '../../meta/runEnd';
 import type { AtlasRecord } from '../../meta/atlas';
-import { SummaryAtlasCard, SummaryWeeklyCard } from './AtlasParts';
+import { SummaryAtlasCard, SummaryReplayRow, SummaryWeeklyCard } from './AtlasParts';
 import { laterPieces, summaryWeeklyFrom, type SummaryWeeklyInput } from './atlasModel';
 import { shareCodeOf } from '../../meta/runReplay';
-import { installAtlasActions } from './atlasWiring';
+import { installAtlasActions, saveReplayFile } from './atlasWiring';
 import { EpilogueView, epilogueDue, markEpilogueSeen, useSkipKeysHeld } from './EpilogueView';
 import { ScreenFrame } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
@@ -279,6 +279,11 @@ export interface SummaryViewProps {
   atlas?: AtlasRecord | null;
   /** Phase 6: a weekly run's score, its code and Share. Omitted: no weekly card. */
   weekly?: SummaryWeeklyInput | null;
+  /**
+   * Phase 6: the run's recorded replay (a weekly's or an Echo's): a weekly's is kept by itself; an
+   * Echo's can be kept and saved. Omitted: no replay line.
+   */
+  replay?: { kind: 'weekly' | 'echo'; onKeep?: () => Promise<boolean>; onSave?: () => void } | null;
 }
 
 /** The run summary, "proof of support" (docs/plan/04 §6.1). */
@@ -301,6 +306,7 @@ export function SummaryView({
   epilogueStill = false,
   atlas = null,
   weekly = null,
+  replay = null,
 }: SummaryViewProps) {
   useMood('map');
   const totals = runTotals(run);
@@ -425,6 +431,7 @@ export function SummaryView({
 
         {atlas && atlas.echo !== null && <SummaryAtlasCard record={atlas} />}
         {weekly && <SummaryWeeklyCard input={weekly} />}
+        {replay && <SummaryReplayRow {...replay} />}
 
         {profileXp !== undefined && <RunRankPanel run={run} profileXp={profileXp} />}
 
@@ -1206,6 +1213,15 @@ export function SummaryScreen() {
       dissonanceOpen={dissonanceOpen}
       atlas={run.echo !== undefined && atlasNotice?.echo === run.echo ? atlasNotice : null}
       weekly={summaryWeeklyFrom(run, weeklyCode)}
+      replay={
+        replay
+          ? {
+              kind: run.weekly !== undefined ? 'weekly' : 'echo',
+              ...(run.weekly === undefined ? { onKeep: () => useRun.getState().keepReplay() } : {}),
+              onSave: () => saveReplayFile(replay),
+            }
+          : null
+      }
       loom={{
         starlight,
         rank: rankOf(xp),

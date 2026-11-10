@@ -187,7 +187,11 @@ export function MapView({
           boons={run.boons}
           openRelic={peekRelic}
           calling={run.calling}
-          map={run.map}
+          map={
+            run.echo !== undefined
+              ? { map: run.map, movements: run.movements, echo: run.echo }
+              : run.map
+          }
           openCalling={peekCalling}
         />
 

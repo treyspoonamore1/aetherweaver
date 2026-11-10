@@ -1,6 +1,7 @@
+import type { TierPlace } from './callingText';
 import type { ReactNode } from 'react';
 import type { ReliquaryRelic } from '../../meta/reliquary';
-import type { ActiveBoon, OwnedRelic, RunCalling, RunMap } from '../../meta/types';
+import type { ActiveBoon, OwnedRelic, RunCalling } from '../../meta/types';
 import { Icon } from '../kit/Icon';
 import { Glyph, RELIC_RARITY, RelicGlyph, RelicRarityChip, relicColor } from '../kit/RelicGlyph';
 import { Tip } from '../kit/Tip';
@@ -340,8 +341,8 @@ export function RunStrip({
 }: {
   /** The run's Calling (Phase 3c): emblem and path pips, first in the strip. */
   calling?: RunCalling | null;
-  /** The run's map, so the open tiers say when they come. */
-  map?: RunMap;
+  /** The run's map (with its Echo, Phase 6), so the open tiers say when they come. */
+  map?: TierPlace;
   /** Force the Calling's tooltip open (UI lab). */
   openCalling?: boolean;
   aether: number;

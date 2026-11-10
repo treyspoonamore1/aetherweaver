@@ -8,6 +8,7 @@
  */
 import { expect, test, type Page } from '@playwright/test';
 import { verifyRunReplay } from '../src/meta/runReplay';
+import { weekOf } from '../src/meta/weekly';
 import type { BenchPlay } from '../src/ui/lab/weeklyBenchTypes';
 import '../src/ui/lab/weeklyBenchTypes';
 
@@ -70,5 +71,66 @@ test('Phase 6: a weekly played in a page worker verifies in the page, and plays 
   const note = `Node: ${node.status}: ${node.message} (page: ${first.ms?.toFixed(0)} ms to play, ${verified.ms.toFixed(0)} ms to verify; ${first.ticks} ticks)`;
   test.info().annotations.push({ type: 'node', description: note });
   console.log(note);
+  expect(errors).toEqual([]);
+});
+
+/** The run log's fight steps stored for the run under way (IndexedDB, as the recorder writes). */
+async function storedFightSteps(page: Page): Promise<number> {
+  return page.evaluate(
+    () =>
+      new Promise<number>((resolve) => {
+        const open = indexedDB.open('aetherweaver-replays');
+        open.onerror = () => resolve(-1);
+        open.onsuccess = () => {
+          const db = open.result;
+          if (!db.objectStoreNames.contains('steps')) return resolve(0);
+          const all = db.transaction('steps', 'readonly').objectStore('steps').getAll();
+          all.onsuccess = () =>
+            resolve(
+              (all.result as { k?: string; finalHash?: string }[]).filter(
+                (s) => s.k === 'fight' && typeof s.finalHash === 'string',
+              ).length,
+            );
+          all.onerror = () => resolve(-1);
+        };
+      }),
+  );
+}
+
+test('Phase 6: a weekly’s first fight played through the combat screen hands its replay to the run', async ({
+  page,
+}) => {
+  // A whole fight under SwiftShader (≈ 25 ticks per real second) takes minutes.
+  test.setTimeout(540_000);
+  const errors = trackErrors(page);
+  await page.goto('/?e2e=1&seed=4242');
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+  const week = weekOf(Date.now());
+  await page.evaluate((w) => window.__AWRUN__!.newWeeklyRun(w), week);
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('prep');
+  await expect(page.getByTestId('prep-weekly')).toBeVisible();
+  await page
+    .getByRole('button', { name: /Embark/i })
+    .first()
+    .click();
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('map');
+  expect(await storedFightSteps(page)).toBe(0);
+
+  // The first fight, played by the Skilled bot through the real runtime, frames and all.
+  await page.evaluate(() => window.__AWRUN__!.choose());
+  await page.waitForFunction(() => window.__AW__ !== undefined);
+  const begin = page.getByRole('button', { name: /Begin the fight/i });
+  if (await begin.isVisible().catch(() => false)) await begin.click({ force: true });
+  await page.evaluate(() => window.__AW__!.autoplay('skilled'));
+  await page.evaluate(() => window.__AW__!.setDevTimeScale(2));
+  await expect
+    .poll(() => page.evaluate(() => window.__AWRUN__!.phase()), {
+      timeout: 480_000,
+      intervals: [2000],
+    })
+    .not.toBe('combat');
+  // The fight's replay reached the recorder: its step is stored, so recording is still alive.
+  await expect.poll(() => storedFightSteps(page), { timeout: 20_000 }).toBe(1);
+  expect(await page.evaluate(() => window.__AWRUN__!.results())).toBe(1);
   expect(errors).toEqual([]);
 });

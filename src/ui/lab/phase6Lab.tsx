@@ -7,6 +7,7 @@
  */
 import type { ReactNode } from 'react';
 import { CONTENT } from '../../content';
+import { tyrantAttackOf } from '../../sim';
 import { dissonancePoints } from '../../meta/dissonance';
 import { shopItems } from '../../meta/loom';
 import { STATIONS, introId } from '../screens/loomModel';
@@ -153,14 +154,16 @@ function summaryConstellation() {
 function tyrantHud(blind: boolean): HudSnapshot {
   const base = mockHud('boss');
   const boss = base.boss!;
-  const lancer = CONTENT.enemies.find((e) => e.id === 'glass_lancer');
-  const hold = { attack: 'lancer_lance', from: lancer?.id ?? 'glass_lancer', phase: 1 };
+  // The boss's first phase as the sim's Tyrant table has it (no attack named here).
+  const defId = boss.defId ?? 'hollow_cantor';
+  const entry = tyrantAttackOf(defId, 1)!;
+  const hold = { attack: entry.attack, from: entry.from, phase: 1 };
   return {
     ...base,
     dissonance: blind
       ? { levels: BLIND, points: dissonancePoints(BLIND), blindScore: true }
       : base.dissonance,
-    boss: { ...boss, tyrant: tyrantDecree(boss.defId ?? 'hollow_cantor', hold, { blind }) },
+    boss: { ...boss, tyrant: tyrantDecree(defId, hold, { blind }) },
   };
 }
 

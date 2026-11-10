@@ -1062,3 +1062,57 @@ export function AtlasCodexPage({
     </div>
   );
 }
+
+/**
+ * The Summary's replay of a recorded run (docs/phase-6.md, "Run replays"): a weekly's is kept on
+ * this device by itself, so it only says so; an Echo's can be kept (`onKeep`) and saved as a file.
+ */
+export function SummaryReplayRow({
+  kind,
+  onKeep,
+  onSave,
+}: {
+  kind: 'weekly' | 'echo';
+  onKeep?: () => Promise<boolean>;
+  onSave?: () => void;
+}) {
+  const [kept, setKept] = useState<boolean | null>(null);
+  return (
+    <p
+      className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted"
+      data-testid="summary-replay"
+      data-kind={kind}
+    >
+      <Icon name="upload" size={14} />
+      {kind === 'weekly' ? (
+        <span>
+          Your replay is kept on this device, so a friend’s code can be checked against yours.
+        </span>
+      ) : (
+        <>
+          <span>
+            {kept === true
+              ? 'This Echo’s replay is kept on this device.'
+              : kept === false
+                ? 'It couldn’t be kept here: save it as a file instead.'
+                : 'This Echo’s replay is in memory until you leave.'}
+          </span>
+          {onKeep && kept !== true && (
+            <Button
+              size="sm"
+              onClick={() => void onKeep().then(setKept)}
+              data-testid="summary-replay-keep"
+            >
+              Keep
+            </Button>
+          )}
+        </>
+      )}
+      {onSave && (
+        <Button size="sm" variant="ghost" onClick={onSave} data-testid="summary-replay-save">
+          Save the file
+        </Button>
+      )}
+    </p>
+  );
+}

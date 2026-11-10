@@ -23,6 +23,7 @@ import {
   tierWhenLabel,
   withOption,
   type PathStep,
+  type TierPlace,
 } from './callingText';
 
 export interface CallingViewProps {
@@ -124,7 +125,11 @@ export function CallingView({
     );
   }
 
-  const steps = pathSteps(run.calling, { offerTier: offer.tier, map: run.map });
+  const steps = pathSteps(run.calling, {
+    offerTier: offer.tier,
+    map:
+      run.echo !== undefined ? { map: run.map, movements: run.movements, echo: run.echo } : run.map,
+  });
   return (
     <ScreenFrame tone="gold">
       <div
@@ -160,7 +165,15 @@ export function CallingView({
           </div>
         </header>
 
-        <PathTrack steps={steps} callingId={def.id} map={run.map} />
+        <PathTrack
+          steps={steps}
+          callingId={def.id}
+          map={
+            run.echo !== undefined
+              ? { map: run.map, movements: run.movements, echo: run.echo }
+              : run.map
+          }
+        />
 
         {mastery !== undefined && (
           // Phase 4g: its mastery, and the tiers this run offers (as it embarked).
@@ -217,7 +230,7 @@ function PathTrack({
 }: {
   steps: PathStep[];
   callingId: string;
-  map: RunState['map'];
+  map: TierPlace;
 }) {
   const look = callingLook(callingId);
   const name = callingDef(callingId).name;
@@ -364,6 +377,9 @@ export function CallingScreen() {
   if (!run) return null;
   return (
     <CallingView
+      // Phase 6: an Echo's row can bring two tiers after one fight; the next tier's screen starts
+      // afresh (no retune held over, its own arrival guard against a key held from the first).
+      key={run.callingOffer?.tier ?? -1}
       run={run}
       onPick={pick}
       allowance={allowance}

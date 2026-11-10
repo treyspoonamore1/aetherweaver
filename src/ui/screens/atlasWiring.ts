@@ -73,6 +73,14 @@ const BROWSER: AtlasWiringDeps = {
   verify: verifyReplay,
 };
 
+/** Saves a run's replay as its file (the Summary's Save). */
+export function saveReplayFile(
+  replay: RunReplay,
+  deps: Pick<AtlasWiringDeps, 'save'> = BROWSER,
+): void {
+  void replayFileBytes(replay).then((bytes) => deps.save(replayFileName(replay), bytes));
+}
+
 let job: VerifyJob | null = null;
 
 /**
@@ -82,14 +90,18 @@ let job: VerifyJob | null = null;
 export function recordVerified(
   result: { status: WeeklyResultInput['status']; week?: number; code?: string },
   typed: string | null,
+  now: number,
 ): void {
+  // Only a weekly joins the board: any other replay plays back, with no week to stand in.
+  if (result.status === 'playsBack') return;
+  const status = result.status;
   const profile = useProfile.getState();
   const code = (typed !== null ? normalShareCode(typed) : null) ?? result.code ?? null;
   if (code === null) return;
-  const added = profile.addWeeklyCode(code);
+  const added = profile.addWeeklyCode(code, undefined, now);
   const week = added.ok ? added.week : result.week;
   if (week === undefined) return;
-  profile.setWeeklyStatus(week, added.ok ? added.code : code, result.status);
+  profile.setWeeklyStatus(week, added.ok ? added.code : code, status);
 }
 
 /** The station's actions on the stores. */
@@ -119,7 +131,7 @@ export function atlasActionsFor(deps: AtlasWiringDeps = BROWSER): AtlasActions {
       return true;
     },
     addCode: (text, name) => {
-      const added = useProfile.getState().addWeeklyCode(text, name ?? undefined);
+      const added = useProfile.getState().addWeeklyCode(text, name ?? undefined, deps.now());
       return added.ok ? null : added.error;
     },
     openReplay: (file, code) => {
@@ -141,7 +153,7 @@ export function atlasActionsFor(deps: AtlasWiringDeps = BROWSER): AtlasActions {
             progress: null,
             result: { status: result.status, message: result.message },
           });
-          recordVerified(result, code);
+          recordVerified(result, code, deps.now());
         })
         .catch(() => {
           // Cancelled (another replay opened): that one reports instead.

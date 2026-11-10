@@ -5,7 +5,7 @@ import {
   type CallingDef,
   type CallingOption,
 } from '../../content';
-import type { RunCalling, RunMap } from '../../meta/types';
+import type { RunCalling } from '../../meta/types';
 import { CallingEmblem, CallingGlyph, PathPip, callingLook } from '../kit/CallingGlyph';
 import { Icon } from '../kit/Icon';
 import { Tip } from '../kit/Tip';
@@ -294,7 +294,8 @@ export function CallingStripItem({
   open = false,
 }: {
   calling: RunCalling;
-  map?: RunMap;
+  /** Where its tiers fall: the run's map (with its Echo, Phase 6). */
+  map?: TierPlace;
   /** Force the tooltip open (UI lab). */
   open?: boolean;
 }) {

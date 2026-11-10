@@ -96,6 +96,10 @@ export interface RunHook {
   phase(): RunPhase | null;
   /** Phase 5a: `mode` picks the route (absent: the profile's, as the Title's New run does). */
   newRun(seed: number, mode?: 'prelude' | 'expedition'): void;
+  /** Phase 6: an Echo's run in Prep (the run store's `newEchoRun`). */
+  newEchoRun(echoId: string, seed?: number): void;
+  /** Phase 6: week `week`'s This Week's Song in Prep (the run store's `newWeeklyRun`). */
+  newWeeklyRun(week: number): void;
   embark(): void;
   /** Chooses the first reachable node (or the given one). Returns the node kind. */
   choose(nodeId?: string): string | null;

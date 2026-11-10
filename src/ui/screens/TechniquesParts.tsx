@@ -43,7 +43,7 @@ function storeExpanded(open: boolean): void {
 
 export interface PrepTechniquesProps {
   /** What the run plays (`run.techniques`, which follows the profile in Prep) and its Calling. */
-  run: Pick<RunState, 'techniques' | 'calling'>;
+  run: Pick<RunState, 'techniques' | 'calling'> & Partial<Pick<RunState, 'weekly'>>;
   /** The variants the profile owns. */
   owned: readonly string[];
   /** Settings → Skip the unlocks: every variant can be chosen. */
@@ -83,7 +83,7 @@ export function PrepTechniquesPanel({
     all,
     callingId: run.calling?.id ?? null,
   });
-  const summary = techniquesSummary(owned, all);
+  const summary = techniquesSummary(owned, all, run.weekly !== undefined);
   const [open, setOpen] = useState(() => expanded ?? storedExpanded() ?? summary.choosable);
   const [said, setSaid] = useState<{ text: string; locked: boolean } | null>(null);
   const toggle = () => {

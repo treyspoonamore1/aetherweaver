@@ -1,3 +1,4 @@
+import { contentMovementOf } from '../../meta/run';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useProfile, type RankUp } from '../../app/profileStore';
 import { useRun } from '../../app/runStore';
@@ -181,13 +182,18 @@ export function ResultView({
                   result={r}
                   profileXp={profileXp}
                   dissonance={run.dissonance}
-                  movement={node?.movement ?? 1}
+                  // Phase 6: an Echo's leg pays as the Movement it is built over.
+                  movement={contentMovementOf(run, node?.movement ?? 1)}
                 />
               )}
               {loom && (
                 // Phase 4g: beside the XP, the Starlight the fight paid and its Calling's mastery.
                 <StarlightGainPanel
-                  result={r}
+                  result={
+                    run.echo !== undefined
+                      ? { ...r, movement: contentMovementOf(run, r.movement ?? 1) }
+                      : r
+                  }
                   dissonance={run.dissonance}
                   balance={loom.starlight}
                   rank={loom.rank}

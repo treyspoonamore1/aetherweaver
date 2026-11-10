@@ -421,7 +421,7 @@ export function PrepView({
             onChoose={onCalling}
             openPath={openCallingPath}
             mastery={mastery}
-            at={{ movements: run.movements }}
+            at={{ movements: run.movements, ...(run.echo !== undefined ? { echo: run.echo } : {}) }}
           />
         )}
 

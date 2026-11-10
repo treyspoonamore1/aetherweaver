@@ -296,14 +296,21 @@ export interface TechniquesSummary {
   line: string;
 }
 
-export function techniquesSummary(owned: readonly string[], all: boolean): TechniquesSummary {
+export function techniquesSummary(
+  owned: readonly string[],
+  all: boolean,
+  /** Phase 6: This Week's Song, whose level field opens every variant for its run. */
+  weekly = false,
+): TechniquesSummary {
   const n = fitOwned(owned).length;
   const total = CONTENT.techniqueVariants.length;
-  const line = all
-    ? 'Every variant is open: Settings → Skip the unlocks.'
-    : n === 0
-      ? `Each slot has ${countWord(variantsFor('ward').length)} variants, bought with Starlight. Settings → Skip the unlocks opens them all.`
-      : `${n} of ${total} variants owned. The rest are bought with Starlight.`;
+  const line = weekly
+    ? 'Every variant is open for This Week’s Song: everyone chooses from them all.'
+    : all
+      ? 'Every variant is open: Settings → Skip the unlocks.'
+      : n === 0
+        ? `Each slot has ${countWord(variantsFor('ward').length)} variants, bought with Starlight. Settings → Skip the unlocks opens them all.`
+        : `${n} of ${total} variants owned. The rest are bought with Starlight.`;
   return { owned: n, total, all, choosable: all || n > 0, line };
 }
 
