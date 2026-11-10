@@ -26,6 +26,7 @@ import {
 } from '../../src/sim/fill/relics';
 import { KNOWN_BOONS, KNOWN_RELICS, NO_MODS } from '../../src/sim/mods';
 import type { Entity } from '../../src/sim/state';
+import { canCall } from '../../src/sim/systems/calls';
 import { cueCostNow } from '../../src/sim/systems/conducting';
 import { spawnEnemy } from '../../src/sim/systems/enemies';
 import { pastOf } from '../../src/sim/systems/rewind';
@@ -373,6 +374,18 @@ describe('rare relics', () => {
     }
   });
 
+  it('Sand Glass on a Chronomancer run leaves Rewind (Reel’s clock) alone', () => {
+    const w = world([plain('sand_glass')], { calling: { id: 'chronomancer', path: [] } });
+    expect(w.mods.rewindSeconds).toBeGreaterThan(0);
+    const wv = weaverEntity(w).weaver!;
+    wv.cooldowns.chime = wv.cooldowns.reel = wv.cooldowns.glide = 10;
+    act(w, () => w.events.push(perfectWard(w, heroAt(w, 0))));
+    const cut = val('sand_glass', 'seconds');
+    expect(wv.cooldowns.reel).toBe(10);
+    expect(wv.cooldowns.chime).toBeCloseTo(10 - cut, 9);
+    expect(wv.cooldowns.glide).toBeCloseTo(10 - cut, 9);
+  });
+
   it('Prompt Book: sets the first Crescendo’s discount (W3’s N15b spends it)', () => {
     expect(world([plain('prompt_book')]).mods.firstCrescendoCut).toBe(val('prompt_book', 'cost'));
     expect(world([emp('prompt_book')]).mods.firstCrescendoCut).toBe(
@@ -612,6 +625,25 @@ describe('cursed relics', () => {
         reason: 'locked',
       });
     }
+  });
+
+  it('Iron Mask: no hero calls for an Empower the Thread can’t give; cleansed, they call again', () => {
+    const def = CONTENT.heroes.find((h) => h.call.answer === 'empower')!;
+    const asks = (relics: RelicIn[]) => {
+      const w = world(relics, {
+        party: [def.id, ...['kael', 'vexis', 'brann'].filter((h) => h !== def.id)].slice(0, 3),
+      });
+      const e = w.party.map((id) => w.entities.get(id)!).find((x) => x.hero!.defId === def.id)!;
+      w.encounter.status = 'fighting';
+      w.encounter.startedAt = -100;
+      w.internal.nextCallAt = 0;
+      e.hero!.callCooldown = 0;
+      e.hero!.abilityCooldowns[def.call.ability] = def.call.answerTime * 0.8;
+      return canCall(w, e, def);
+    };
+    expect(asks([])).toBe(true);
+    expect(asks([plain('iron_mask')])).toBe(false);
+    expect(asks([cleansed('iron_mask')])).toBe(true);
   });
 
   it('Iron Mask cleansed: the guard stays, and the Thread Empowers again', () => {

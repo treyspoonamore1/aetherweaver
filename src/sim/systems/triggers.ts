@@ -531,6 +531,8 @@ function apply(
  */
 function cutCooldown(world: World, key: TechniqueKey, seconds: number): boolean {
   const w = weaverOf(world).weaver!;
+  // On a Chronomancer run Reel's clock is Rewind's (systems/rewind.ts): no trigger reaches it.
+  if (key === 'reel' && world.mods.rewindSeconds > 0) return false;
   if (!(seconds > 0) || w.cooldowns[key] <= 0) return false;
   w.cooldowns[key] = Math.max(0, w.cooldowns[key] - seconds);
   if (w.cooldowns[key] > 0) return true;

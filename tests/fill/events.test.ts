@@ -238,6 +238,23 @@ describe('The Quartermaster', () => {
     );
   });
 
+  it('with every legendary relic carried, the war chest is refused, never sold as another rarity', () => {
+    const base = inEvent('quartermaster');
+    const legendary = CONTENT.relics
+      .filter((r) => r.rarity === 'legendary' && (r.movement ?? 1) <= 2)
+      .map((r) => r.id);
+    const full: RunState = {
+      ...base,
+      relics: legendary.map((id) => ({ id })) as RunState['relics'],
+    };
+    expect(Run.eventChoiceProblem(full, 'chest')).toBe('No legendary relic is left to buy.');
+    expect(Run.chooseEvent(full, 'chest')).toBe(full);
+    // The crate still sells a rare one.
+    const crate = Run.chooseEvent(full, 'crate');
+    expect(crate.aether).toBe(430);
+    expect(relicDef(crate.relics.at(-1)!.id).rarity).toBe('rare');
+  });
+
   it('Walk on: nothing happens', () => {
     const run = Run.chooseEvent(inEvent('quartermaster'), 'walk');
     expect([run.aether, run.relics]).toEqual([500, []]);
