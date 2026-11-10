@@ -1,7 +1,10 @@
 /**
  * Phase 6 review A's findings on the fight (Tyrant, Mimicry and the Postlude), each pinned here
- * as it was fixed: Stasis holds Tyrant's clock (F2), Foresight shows the borrowed attack and what
- * it shows is what begins (F3).
+ * as it was fixed: Stasis holds Tyrant's clock (F2); Foresight shows the borrowed attack and what
+ * it shows is what begins (F3); the Postlude keeps at most two damaging telegraphs live (F1); a
+ * pair's event names only standing voices (F5); the Silent Conductor's held attack has one clock
+ * (F4); Mimicry's text (F6a); Tyrant's Decree names only supported answers (F6b); the swapped
+ * table entries are cast, and nothing borrowed touches an aura or the Thread (F6d, Q1).
  */
 import { describe, expect, it } from 'vitest';
 import { attackDef, CONTENT, dissonanceLevel, enemyDef } from '../../src/content';
