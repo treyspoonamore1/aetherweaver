@@ -11,6 +11,7 @@ import { CONTENT, motifDef } from '../../content';
 import { FILL_IDS } from '../../content/fill';
 import type { RunState } from '../../meta/types';
 import { HudView } from '../hud/Hud';
+import { relicHuds } from '../hud/relics';
 import { triggerSource, type TriggerChip } from '../hud/triggers';
 import { Icon } from '../kit/Icon';
 import { FILL_GLYPHS } from '../kit/iconPaths';
@@ -169,13 +170,48 @@ function TriggerHud() {
   );
 }
 
+/** The fill's relics the bar shows in the Ringing view: the two once-a-fight tiles, and others. */
+const RINGING_RELICS = ['spare_strings', 'water_clock', 'echoing_shell', 'everbell', 'iron_mask'];
+
+/**
+ * Concert Pitch's Ringing heading the chips row (2.6 s left), over the fixture's chips, and the
+ * relic bar with the fill's relics: Spare Strings still to come this fight, Water Clock spent.
+ */
+function RingingHud() {
+  const base = mockHud('calm');
+  const ids = RINGING_RELICS.filter((id) => CONTENT.relics.some((r) => r.id === id));
+  const fill = relicHuds({
+    relics: { ids, cleansed: [], metronomeAt: null, thimbleAt: null, veil: false },
+    time: base.seconds,
+    ledger: { perfects: 0, downs: 0, triggers: { echoing_shell: 2 } },
+    once: { spare_strings: true, water_clock: false },
+  });
+  const hud = {
+    ...base,
+    relics: [...base.relics, ...fill],
+    triggers: { ...FIXTURE_TRIGGERS },
+    ringing: 2.6,
+  };
+  return (
+    <World>
+      <HudView
+        hud={hud}
+        callouts={mockCallouts('calm')}
+        decree={null}
+        subtitle="Movement II · node 4 of 7"
+        triggerChips={labTriggerChips(hud.seconds)}
+      />
+    </World>
+  );
+}
+
 function TriggerLinesPanel() {
   const lines = triggerLines({ triggers: { ...FIXTURE_TRIGGERS } }, fillFixtureContent());
   return (
     <div className="bg-ink-950 p-6">
       <Panel tone="solid" className="max-w-2xl p-5">
         <h2 className="mb-3 font-display text-sm font-bold uppercase tracking-wider text-muted">
-          What you did: the triggers (fixture names until the fill merges)
+          What you did: the triggers
         </h2>
         <ul className="flex flex-col gap-2">
           {lines.map((l, i) => (
@@ -281,9 +317,17 @@ export const FILL_VIEWS: FillLabView[] = [
     render: () => <TriggerHud />,
   },
   {
+    id: 'fill-hud-ringing',
+    group: GROUP,
+    label: 'HUD: Concert Pitch ringing (seconds left) and the fill’s relic tiles',
+    w: 1280,
+    h: 720,
+    render: () => <RingingHud />,
+  },
+  {
     id: 'fill-trigger-lines',
     group: GROUP,
-    label: 'Result lines: "X triggered N times" (fixture names)',
+    label: 'Result lines: "X triggered N times"',
     w: 1280,
     h: 480,
     render: () => <TriggerLinesPanel />,
@@ -291,7 +335,7 @@ export const FILL_VIEWS: FillLabView[] = [
   {
     id: 'fill-result',
     group: GROUP,
-    label: 'Result: a fight with triggers (named once the fill merges)',
+    label: 'Result: a fight with triggers',
     w: 1280,
     h: 1700,
     render: () => {
@@ -302,7 +346,7 @@ export const FILL_VIEWS: FillLabView[] = [
   {
     id: 'fill-summary',
     group: GROUP,
-    label: 'Summary: the run’s triggers (named once the fill merges)',
+    label: 'Summary: the run’s triggers',
     w: 1280,
     h: 2000,
     render: () => <SummaryView run={triggerSummaryRun()} onNewRun={noop} onLoom={noop} />,
@@ -328,7 +372,8 @@ export const FILL_VIEWS: FillLabView[] = [
     group: GROUP,
     label: 'Codex: Motifs (Harmonies name their prerequisites)',
     w: 1280,
-    h: 4200,
+    // Every category with the fill's motifs in it (about 8,250 px at 1280).
+    h: 8500,
     render: () => (
       <CodexView onBack={noop} initialTab="motifs" roster={CONTENT.heroes.map((h) => h.id)} />
     ),

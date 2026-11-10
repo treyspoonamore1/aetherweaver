@@ -713,6 +713,11 @@ export interface HudSnapshot {
    * HUD's trigger chips read its rises.
    */
   triggers?: Record<string, number>;
+  /**
+   * Phase 5g: Concert Pitch's Ringing (`field.ringing`): the seconds left while it rings. Absent
+   * otherwise (always without the Harmony). The trigger chips row shows it.
+   */
+  ringing?: number;
 }
 
 export interface PerfStats {
