@@ -543,9 +543,20 @@ describe('Phase 7 save and version contracts', () => {
     }
   });
 
-  it('the saves slot renders nothing (W5 replaces this line when it fills SavesPanel)', async () => {
+  it('the saves slot (W5 filled it): by default the Saves panel only, nothing kept or restorable', async () => {
     const path = '../src/ui/screens/SavesPanel';
     const mod = (await import(/* @vite-ignore */ path)) as Record<string, FunctionComponent>;
-    expect(renderToStaticMarkup(createElement(mod['SavesPanel']!))).toBe('');
+    const html = renderToStaticMarkup(createElement(mod['SavesPanel']!));
+    // One block: the panel, with export and import, and no notice, kept save or restore offer.
+    expect(html.match(/^<div [^>]*data-testid="saves-panel">/)).not.toBeNull();
+    expect(html.match(/data-testid="[^"]+"/g)).toEqual([
+      'data-testid="saves-panel"',
+      'data-testid="saves-export-file"',
+      'data-testid="saves-export-code"',
+      'data-testid="saves-import-file"',
+      'data-testid="saves-code-in"',
+      'data-testid="saves-read-code"',
+    ]);
+    expect(renderToStaticMarkup(createElement(mod['KeptSaveNotice']!))).toBe('');
   });
 });

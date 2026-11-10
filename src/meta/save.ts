@@ -43,6 +43,69 @@ const BACKUP = 'aetherweaver.run.bak';
 const PROFILE_KEY = 'aetherweaver.profile';
 const PROFILE_BACKUP = 'aetherweaver.profile.bak';
 
+/** Where the run and the profile are kept, each with the backup of the save before it. */
+export const SAVE_KEYS = {
+  run: KEY,
+  runBackup: BACKUP,
+  profile: PROFILE_KEY,
+  profileBackup: PROFILE_BACKUP,
+} as const;
+
+/**
+ * A save that wouldn't load (docs/phase-7.md, W5; 05 §8): when neither copy of the run or the
+ * profile loads, each copy's raw text is moved to its key plus this (`aetherweaver.profile.corrupt`,
+ * `aetherweaver.profile.bak.corrupt`) before anything is written, so the saves that follow never
+ * overwrite it. The player is told once and may download it (`src/ui/screens/SavesPanel.tsx`).
+ */
+export const CORRUPT_SUFFIX = '.corrupt';
+
+/** Every key a kept unreadable save may sit under, profile first. */
+export const CORRUPT_KEYS: readonly string[] = [PROFILE_KEY, PROFILE_BACKUP, KEY, BACKUP].map(
+  (k) => k + CORRUPT_SUFFIX,
+);
+
+/** Where a load found what it returned: a copy, or neither (`kept`: their raw text was moved). */
+export interface LoadReport {
+  from: 'main' | 'backup' | 'none';
+  /** Neither copy loaded, and their raw text is now under `CORRUPT_SUFFIX` keys. */
+  kept: boolean;
+}
+
+/**
+ * Neither copy of a save loaded: moves the raw text of each copy that held any to its
+ * `CORRUPT_SUFFIX` key, then clears the copies, so no save that follows overwrites it. A newer
+ * unreadable save replaces an older one kept under the same key. If storage refuses a write, the
+ * copies are left where they are (nothing is lost; they are not kept either). True: kept.
+ */
+function keepUnreadable(
+  store: KeyValueStore,
+  raws: readonly (readonly [string, string])[],
+): boolean {
+  if (raws.length === 0) return false;
+  try {
+    for (const [key, raw] of raws) store.setItem(key + CORRUPT_SUFFIX, raw);
+    for (const [key, raw] of raws) if (store.getItem(key + CORRUPT_SUFFIX) !== raw) return false;
+    for (const [key] of raws) store.removeItem(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** The unreadable saves kept on this device (`CORRUPT_SUFFIX`), each key with its raw text. */
+export function keptUnreadable(store: KeyValueStore): { key: string; raw: string }[] {
+  const out: { key: string; raw: string }[] = [];
+  for (const key of CORRUPT_KEYS) {
+    try {
+      const raw = store.getItem(key);
+      if (raw) out.push({ key, raw });
+    } catch {
+      // Storage that throws keeps nothing we can read.
+    }
+  }
+  return out;
+}
+
 const Num = z.number();
 const Str = z.string();
 
@@ -775,38 +838,60 @@ export function compatibleWithContent(run: RunState): boolean {
 
 /** Loads the saved run, falling back to the backup if the main save is unreadable or stale. */
 export function loadRun(store: KeyValueStore): RunState | null {
+  return readRun(store).run;
+}
+
+/**
+ * `loadRun`, saying where the run came from. When neither copy loads, each copy's raw text is
+ * kept under its `CORRUPT_SUFFIX` key before anything is written (docs/phase-7.md, W5).
+ */
+export function readRun(store: KeyValueStore): { run: RunState | null } & LoadReport {
+  const raws: [string, string][] = [];
   for (const key of [KEY, BACKUP]) {
+    let raw: string | null = null;
     try {
-      const raw = store.getItem(key);
-      if (!raw) continue;
-      const json = migrateRunJson(JSON.parse(raw));
-      const parsed = RunStateSchema.safeParse(json);
-      if (!parsed.success) continue;
-      const run = fitPhase6Keys(parsed.data as RunState, json);
-      if (!run) continue;
-      // Carried relics fitted to the content first (their Inscriptions weigh on the songs the
-      // check below judges), then rebuilt in its relics (attuned first, the rest dormant): one
-      // that's gone leaves, and a save from before attunement plays as this build does.
-      run.carried = run.carried.map(fitRelic).filter((r): r is ReliquaryRelic => r !== null);
-      run.dissonance = fitLevels(run.dissonance);
-      // Bonds (docs/phase-4e.md): talents, Solos and a scene the content still knows. A scene
-      // that's gone sends the run back to its Respite, to choose again.
-      run.bonds = fitRunBonds(run.bonds);
-      const scene = run.scene && CONTENT.scenes.find((s) => s.id === run.scene!.sceneId);
-      if (run.phase === 'scene' && !scene) run.phase = 'respite';
-      run.scene = run.phase === 'scene' && scene ? { heroId: scene.hero, sceneId: scene.id } : null;
-      run.scenes = run.scenes.filter((id) => CONTENT.scenes.some((s) => s.id === id));
-      // Technique variants the content still knows, each in its own slot.
-      run.techniques = fitTechniques(run.techniques, [], true);
-      const fitted = withCarried(run);
-      if (compatibleWithContent(fitted)) {
-        // Deeds no longer in the content drop out of the run's Summary.
-        fitted.deeds = fitted.deeds.filter((id) => DEED_IDS.has(id));
-        return fitted;
-      }
+      raw = store.getItem(key);
     } catch {
-      // Try the backup.
+      // Storage that throws: nothing to load, and nothing to keep.
     }
+    if (!raw) continue;
+    raws.push([key, raw]);
+    const run = runFromText(raw);
+    if (run) return { run, from: key === KEY ? 'main' : 'backup', kept: false };
+  }
+  return { run: null, from: 'none', kept: keepUnreadable(store, raws) };
+}
+
+/** A run save's text as `loadRun` reads it (null: it doesn't load). Never throws. */
+export function runFromText(raw: string): RunState | null {
+  try {
+    const json = migrateRunJson(JSON.parse(raw));
+    const parsed = RunStateSchema.safeParse(json);
+    if (!parsed.success) return null;
+    const run = fitPhase6Keys(parsed.data as RunState, json);
+    if (!run) return null;
+    // Carried relics fitted to the content first (their Inscriptions weigh on the songs the
+    // check below judges), then rebuilt in its relics (attuned first, the rest dormant): one
+    // that's gone leaves, and a save from before attunement plays as this build does.
+    run.carried = run.carried.map(fitRelic).filter((r): r is ReliquaryRelic => r !== null);
+    run.dissonance = fitLevels(run.dissonance);
+    // Bonds (docs/phase-4e.md): talents, Solos and a scene the content still knows. A scene
+    // that's gone sends the run back to its Respite, to choose again.
+    run.bonds = fitRunBonds(run.bonds);
+    const scene = run.scene && CONTENT.scenes.find((s) => s.id === run.scene!.sceneId);
+    if (run.phase === 'scene' && !scene) run.phase = 'respite';
+    run.scene = run.phase === 'scene' && scene ? { heroId: scene.hero, sceneId: scene.id } : null;
+    run.scenes = run.scenes.filter((id) => CONTENT.scenes.some((s) => s.id === id));
+    // Technique variants the content still knows, each in its own slot.
+    run.techniques = fitTechniques(run.techniques, [], true);
+    const fitted = withCarried(run);
+    if (compatibleWithContent(fitted)) {
+      // Deeds no longer in the content drop out of the run's Summary.
+      fitted.deeds = fitted.deeds.filter((id) => DEED_IDS.has(id));
+      return fitted;
+    }
+  } catch {
+    // Unreadable: the caller tries the backup.
   }
   return null;
 }
@@ -1007,84 +1092,107 @@ function fitRoster(profile: Profile): void {
  * starts the crafting rolls of a new or migrated Reliquary (the app passes a random one).
  */
 export function loadProfile(store: KeyValueStore, seed = 1): Profile {
+  return readProfile(store, seed).profile;
+}
+
+/**
+ * `loadProfile`, saying where the profile came from (`none`: a new one). When neither copy loads,
+ * each copy's raw text is kept under its `CORRUPT_SUFFIX` key before anything is written
+ * (docs/phase-7.md, W5), and a new profile starts.
+ */
+export function readProfile(store: KeyValueStore, seed = 1): { profile: Profile } & LoadReport {
+  const raws: [string, string][] = [];
   for (const key of [PROFILE_KEY, PROFILE_BACKUP]) {
+    let raw: string | null = null;
     try {
-      const raw = store.getItem(key);
-      if (!raw) continue;
-      const parsed = ProfileSchema.safeParse(migrateProfileJson(JSON.parse(raw), seed));
-      if (parsed.success) {
-        const profile = parsed.data as Profile;
-        // Forget remembered Chords this build can't play (renamed content). How much they
-        // reserve is the next run's to judge, with its tree and Calling.
-        if (chordProblems(profile.lastChords, undefined, { reserveMult: 0 }).length > 0)
-          profile.lastChords = [];
-        // A tree that no longer connects (renamed nodes) keeps what still does, within every
-        // point there is; Deeds no longer in the content are forgotten.
-        profile.astrolabe = pruneTree(profile.astrolabe, astrolabePoints(MAX_RANK, true));
-        profile.deeds = profile.deeds.filter((id) => DEED_IDS.has(id));
-        profile.deedBest = Object.fromEntries(
-          Object.entries(profile.deedBest).filter(([id]) => DEED_IDS.has(id)),
-        );
-        // Relics, Inscriptions and curses no longer in the content are left behind.
-        profile.reliquary = fitReliquary(profile.reliquary);
-        // Technique variants: the ones the content knows. A choice not owned stays (Skip the
-        // unlocks may have made it): Prep and embark fit it to what's owned.
-        profile.variants = fitOwned(profile.variants);
-        profile.techniques = fitTechniques(profile.techniques, profile.variants, true);
-        // The Loom: a balance that's a count, keepsakes the content knows, a look of them, and
-        // mastery of known Callings.
-        profile.starlight = Math.max(0, Math.floor(profile.starlight));
-        profile.cosmetics = fitCosmetics(profile.cosmetics);
-        profile.mastery = Object.fromEntries(
-          Object.entries(profile.mastery as Record<string, unknown>).filter(
-            (e): e is [string, number] =>
-              CONTENT.callings.some((c) => c.id === e[0]) &&
-              typeof e[1] === 'number' &&
-              Number.isFinite(e[1]) &&
-              e[1] >= 0,
-          ),
-        );
-        profile.look = fitLook(profile);
-        // Sightings: enemies the content knows, each once, and every Movement I enemy.
-        profile.seen = [
-          ...new Set([...profile.seen.filter((id) => ENEMY_IDS.has(id)), ...movementOneEnemies()]),
-        ];
-        // Bonds: heroes, talents and scenes the content knows. Choices stay above a hero's
-        // rank (Skip the unlocks may have made them): Prep and embark fit them to it.
-        profile.bonds = Object.fromEntries(
-          Object.entries(profile.bonds)
-            .filter(([hero]) => bondedHeroes().includes(hero))
-            .map(([hero, bond]) => [hero, fitBond(hero, bond)]),
-        );
-        // The roster (docs/phase-5b.md): heroes the content knows, in content order. A
-        // remembered party must still be 3 distinct heroes (not the default party, which is
-        // never remembered); whether they're in the roster is the next run's to judge, since
-        // Skip the unlocks lives in the settings. An empty key goes, so it stays absent.
-        fitRoster(profile);
-        // Dissonance: levels the content knows, and bests that are counts.
-        const d = profile.dissonance;
-        profile.dissonance = {
-          open: d.open,
-          levels: fitLevels(d.levels),
-          best: Object.fromEntries(
-            Object.entries(d.best).filter(
-              (e): e is [string, number] =>
-                typeof e[1] === 'number' && Number.isFinite(e[1]) && e[1] >= 0,
-            ),
-          ),
-          // Phase 6 (docs/phase-6.md): the Finale-clear record, kept only when there is one.
-          ...(d.finale ? { finale: d.finale } : {}),
-        };
-        // Phase 6: a v10 key that didn't parse goes, so it stays absent (never `undefined`).
-        if (profile.atlas === undefined) delete profile.atlas;
-        if (profile.weekly === undefined) delete profile.weekly;
-        return profile;
-      }
+      raw = store.getItem(key);
     } catch {
-      // Try the backup.
+      // Storage that throws: nothing to load, and nothing to keep.
     }
+    if (!raw) continue;
+    raws.push([key, raw]);
+    const profile = profileFromText(raw, seed);
+    if (profile) return { profile, from: key === PROFILE_KEY ? 'main' : 'backup', kept: false };
   }
-  return newProfile(seed);
+  return { profile: newProfile(seed), from: 'none', kept: keepUnreadable(store, raws) };
+}
+
+/** A profile save's text as `loadProfile` reads it (null: it doesn't load). Never throws. */
+export function profileFromText(raw: string, seed = 1): Profile | null {
+  try {
+    const parsed = ProfileSchema.safeParse(migrateProfileJson(JSON.parse(raw), seed));
+    if (parsed.success) {
+      const profile = parsed.data as Profile;
+      // Forget remembered Chords this build can't play (renamed content). How much they
+      // reserve is the next run's to judge, with its tree and Calling.
+      if (chordProblems(profile.lastChords, undefined, { reserveMult: 0 }).length > 0)
+        profile.lastChords = [];
+      // A tree that no longer connects (renamed nodes) keeps what still does, within every
+      // point there is; Deeds no longer in the content are forgotten.
+      profile.astrolabe = pruneTree(profile.astrolabe, astrolabePoints(MAX_RANK, true));
+      profile.deeds = profile.deeds.filter((id) => DEED_IDS.has(id));
+      profile.deedBest = Object.fromEntries(
+        Object.entries(profile.deedBest).filter(([id]) => DEED_IDS.has(id)),
+      );
+      // Relics, Inscriptions and curses no longer in the content are left behind.
+      profile.reliquary = fitReliquary(profile.reliquary);
+      // Technique variants: the ones the content knows. A choice not owned stays (Skip the
+      // unlocks may have made it): Prep and embark fit it to what's owned.
+      profile.variants = fitOwned(profile.variants);
+      profile.techniques = fitTechniques(profile.techniques, profile.variants, true);
+      // The Loom: a balance that's a count, keepsakes the content knows, a look of them, and
+      // mastery of known Callings.
+      profile.starlight = Math.max(0, Math.floor(profile.starlight));
+      profile.cosmetics = fitCosmetics(profile.cosmetics);
+      profile.mastery = Object.fromEntries(
+        Object.entries(profile.mastery as Record<string, unknown>).filter(
+          (e): e is [string, number] =>
+            CONTENT.callings.some((c) => c.id === e[0]) &&
+            typeof e[1] === 'number' &&
+            Number.isFinite(e[1]) &&
+            e[1] >= 0,
+        ),
+      );
+      profile.look = fitLook(profile);
+      // Sightings: enemies the content knows, each once, and every Movement I enemy.
+      profile.seen = [
+        ...new Set([...profile.seen.filter((id) => ENEMY_IDS.has(id)), ...movementOneEnemies()]),
+      ];
+      // Bonds: heroes, talents and scenes the content knows. Choices stay above a hero's
+      // rank (Skip the unlocks may have made them): Prep and embark fit them to it.
+      profile.bonds = Object.fromEntries(
+        Object.entries(profile.bonds)
+          .filter(([hero]) => bondedHeroes().includes(hero))
+          .map(([hero, bond]) => [hero, fitBond(hero, bond)]),
+      );
+      // The roster (docs/phase-5b.md): heroes the content knows, in content order. A
+      // remembered party must still be 3 distinct heroes (not the default party, which is
+      // never remembered); whether they're in the roster is the next run's to judge, since
+      // Skip the unlocks lives in the settings. An empty key goes, so it stays absent.
+      fitRoster(profile);
+      // Dissonance: levels the content knows, and bests that are counts.
+      const d = profile.dissonance;
+      profile.dissonance = {
+        open: d.open,
+        levels: fitLevels(d.levels),
+        best: Object.fromEntries(
+          Object.entries(d.best).filter(
+            (e): e is [string, number] =>
+              typeof e[1] === 'number' && Number.isFinite(e[1]) && e[1] >= 0,
+          ),
+        ),
+        // Phase 6 (docs/phase-6.md): the Finale-clear record, kept only when there is one.
+        ...(d.finale ? { finale: d.finale } : {}),
+      };
+      // Phase 6: a v10 key that didn't parse goes, so it stays absent (never `undefined`).
+      if (profile.atlas === undefined) delete profile.atlas;
+      if (profile.weekly === undefined) delete profile.weekly;
+      return profile;
+    }
+  } catch {
+    // Unreadable: the caller tries the backup.
+  }
+  return null;
 }
 
 export function saveProfile(store: KeyValueStore, profile: Profile): void {
