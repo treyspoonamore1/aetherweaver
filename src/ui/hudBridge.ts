@@ -16,6 +16,8 @@ import {
   bossPhaseTable,
   canPay,
   crescendoCostOf,
+  cueCostNow,
+  onBeat,
   cutWouldLand,
   deathlessActive,
   fallingFast,
@@ -524,8 +526,11 @@ export function buildHudSnapshot(
       resonance: w?.resonance ?? 0,
       resonanceMax: resonance.max,
       segment: resonance.segment,
-      // Silent Cues (Phase 4d) raises it: the fight's own.
-      cueCost: state.dissonance.cueCost,
+      // Silent Cues (Phase 4d) raises it: the fight's own. Phase 5g: the price a Cue pays now
+      // (`cueCostNow`: Opening Bars, Tempo Rubato, Hollow Crown's floor), for every Calling; it is
+      // `dissonance.cueCost` without those. On the Conductor's downbeat the meter keeps the off-beat
+      // price, as before (his beat strip shows the downbeat's).
+      cueCost: onBeat(state) ? state.dissonance.cueCost : cueCostNow(state),
       // Without Silent Cues' surcharge: the content's, or the Conductor's own.
       cueBase: state.dissonance.cueCost - state.mods.cueCostBonus,
       // Maestro's 75 on a Conductor run (the sim's own), else the content's.
@@ -585,8 +590,13 @@ export function buildHudSnapshot(
     relics: relicHuds({
       relics: state.relics,
       time: state.time,
-      ledger: { perfects: l.perfects, downs: l.downs },
+      ledger: { perfects: l.perfects, downs: l.downs, triggers: l.triggers },
       movement: fightMovement(state),
+      // Phase 5g: the once-a-fight relics the sim keeps outside `relics` (read only when held).
+      once: {
+        spare_strings: !w?.spareUsed,
+        water_clock: !(state as World).internal?.waterClockUsed,
+      },
     }),
     calling: callingHud(
       calling,
@@ -618,6 +628,8 @@ export function buildHudSnapshot(
       : {}),
     ...riftOf(state),
     ...(conducting ? { conducting } : {}),
+    // Phase 5g: the trigger system's fires this fight (absent unless a trigger is held).
+    ...(l.triggers ? { triggers: { ...l.triggers } } : {}),
   };
 }
 

@@ -20,6 +20,8 @@ import { useRun } from '../../app/runStore';
 import type { ActiveBoon } from '../../meta/types';
 import { BossBar } from './BossBar';
 import { RelicBar } from './RelicBar';
+import { TriggerChips } from './TriggerChips';
+import type { TriggerChip } from './triggers';
 import { CallingChip } from './CallingChip';
 import { KeystoneChip } from './KeystoneChip';
 import { DissonanceChip } from './DissonanceChip';
@@ -148,8 +150,11 @@ export function HudView({
   weaverBarLayout,
   healthText,
   reducedBeat,
+  triggerChips,
 }: {
   hud: HudSnapshot;
+  /** UI lab: the trigger chips drawn as given (omitted: read from `hud.triggers`). */
+  triggerChips?: readonly TriggerChip[];
   /** UI lab: the Conductor's beat strip as with reduced motion (omitted: the OS setting). */
   reducedBeat?: boolean;
   /** Where the party frames sit, how big and which way (Settings, or Edit Layout's draft). */
@@ -239,6 +244,9 @@ export function HudView({
           flash={relicFlash}
           carried={carried}
         />
+        {(hud.triggers || triggerChips) && (
+          <TriggerChips triggers={hud.triggers} seconds={hud.seconds} shown={triggerChips} />
+        )}
         {(hud.calling || (hud.astrolabe?.keystones.length ?? 0) > 0 || hud.dissonance) && (
           <div className="flex items-center gap-2">
             {hud.calling && (

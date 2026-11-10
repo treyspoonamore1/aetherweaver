@@ -27,6 +27,7 @@ import {
   TENOR,
 } from '../../content/crucibleIds';
 import type { IconName } from '../kit/iconPaths';
+import { triggerIcon, triggerSentence, triggerTallies, type TriggerContent } from '../hud/triggers';
 
 export const HIGHLIGHT_ICON: Record<EncounterResult['highlights'][number]['kind'], IconName> = {
   perfect: 'ward',
@@ -410,5 +411,22 @@ export function statLines(
       text: `Answered ${s.telegraphsAnswered} of ${s.telegraphsAimed} enemy attacks aimed at your party.`,
     });
   }
+  lines.push(...triggerLines(s));
   return lines;
+}
+
+/**
+ * Phase 5g (docs/phase-5g.md): one line per motif, relic or boon whose rule is a trigger, from
+ * the fight's (or the run's) `triggers`: "Clean Strike triggered 3 times.", named from content;
+ * a held one that never fired reads muted. Nothing without `triggers` (no trigger held).
+ */
+export function triggerLines(
+  s: Pick<EncounterStats, 'triggers'>,
+  content?: TriggerContent,
+): StatLine[] {
+  return triggerTallies(s.triggers, content).map((t) => ({
+    icon: triggerIcon(t.source),
+    text: triggerSentence(t),
+    ...(t.count <= 0 ? { muted: true } : {}),
+  }));
 }

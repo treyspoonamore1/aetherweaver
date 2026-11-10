@@ -46,6 +46,7 @@ import { TEAR_TOO_GRADE } from './dissonanceModel';
 import { movementPlace } from './routeText';
 import type { OwnedRelic, RunState } from '../../meta/types';
 import { plural } from '../kit/format';
+import { glyphKey } from '../kit/iconPaths';
 import {
   CARRIED_LOOK,
   CATEGORY_LOOK,
@@ -304,7 +305,7 @@ export function relicView(r: ReliquaryRelic): RelicView {
     uid: r.uid,
     id: r.id,
     name: def.name,
-    icon: def.icon,
+    icon: glyphKey(def),
     rarity: def.rarity,
     rarityLabel: RARITY_WORD[def.rarity],
     cleansed: def.rarity === 'cursed' && r.cleansed,

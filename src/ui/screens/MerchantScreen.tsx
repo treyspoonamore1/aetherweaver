@@ -5,7 +5,7 @@ import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
 import { Icon } from '../kit/Icon';
 import { playUi, useMood } from '../kit/sound';
-import { MotifCard } from './DraftScreen';
+import { MotifCard, harmonyHave } from './DraftScreen';
 import { relicInfo, shopItemName, shopItemStatus, type ShopItemStatus } from './interlude';
 import { Purse, RelicCard, RunStrip } from './RelicCard';
 import { PartyHealth, SectionTitle } from './shared';
@@ -125,6 +125,7 @@ export function MerchantView({ run, onBuy, onLeave }: MerchantViewProps) {
                     option={{ motifId: item.id, level: item.level, upgrade: item.upgrade }}
                     onPick={() => buy(index)}
                     party={run.party.map((h) => h.heroId)}
+                    have={harmonyHave(run)}
                     disabled={!status.available}
                     dim={item.sold}
                     label={`${shopItemName(item)}${item.upgrade ? `, upgrade to level ${item.level}` : ', new motif'}, ${item.price} Aether${status.problem ? `: ${status.problem}` : ''}`}

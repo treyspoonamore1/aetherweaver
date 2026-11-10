@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { RelicRarity } from '../../content';
 import { Icon } from './Icon';
+import { FILL_GLYPHS } from './iconPaths';
 
 /**
  * Line-art glyphs for relics, boons and events (Phase 3b), keyed by content `icon`. Same
@@ -58,9 +59,12 @@ export const GLYPHS: Readonly<Record<string, string>> = {
     'M3.5 13.5h10 M3.5 16.5h10 M3.5 19.5h10 M7.2 16.5a1.3 1.3 0 1 0 2.6 0 1.3 1.3 0 0 0-2.6 0z M20.5 3.5c-4.5.6-8 4-9.5 9.5 M20.5 3.5c-.4 3.6-3 6.6-7 8 M13.5 9.5l2 2',
 };
 
-/** A relic glyph's path data (a plain diamond for an unknown key). */
+/**
+ * A relic glyph's path data (a plain diamond for an unknown key). Phase 5g: the fill's own
+ * glyphs (`FILL_GLYPHS`, keyed by content id: `glyphKey`) too.
+ */
 export function glyphPath(icon: string): string {
-  return GLYPHS[icon] ?? 'M12 3l7 9-7 9-7-9z';
+  return GLYPHS[icon] ?? FILL_GLYPHS[icon] ?? 'M12 3l7 9-7 9-7-9z';
 }
 
 /** How each relic rarity looks. Colour is never alone: there's a label and a pip glyph too. */

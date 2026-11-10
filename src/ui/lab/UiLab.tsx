@@ -142,6 +142,7 @@ import { LOOM_RUN_VIEWS } from './LoomRunLab';
 import { BRANN_VIEWS } from './brannLab';
 import { SEREN_VIEWS } from './serenLab';
 import { ORO_VIEWS } from './oroLab';
+import { FILL_VIEWS } from './fillLab';
 import {
   conductOfferRun,
   conductResultRun,
@@ -4726,6 +4727,8 @@ const VIEWS: ViewDef[] = [
   // ── Phase 5e: Seren and Oro ──────────────────────────────────────────────────────────
   ...SEREN_VIEWS,
   ...ORO_VIEWS,
+  // ── Phase 5g: the fill (motifs, Harmonies, relics, boons and events) ─────────────────
+  ...FILL_VIEWS,
   {
     id: 'flow',
     group: 'Flow',
