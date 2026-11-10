@@ -43,11 +43,30 @@ export const COSMETICS: ContentInput['cosmetics'] = {
       price: 90,
       colors: { body: '#e7e0cf', trim: '#d4a64a', glow: '#fde68a' },
     },
+    // Phase 6 (docs/phase-6.md, "Rewards"): earned with every star of Borrowed Crowns, never
+    // sold. The schema keeps a price on every robe; an earned one carries the Atelier's top
+    // robe price, which nothing charges (`shopItems`, src/meta/loom.ts, sells no earned look).
+    {
+      id: 'robe_crownless',
+      name: 'Crownless',
+      price: 90,
+      colors: { body: '#2a2433', trim: '#a8a29e', glow: '#e7e5e4' },
+      earned: { constellation: 'borrowed_crowns' },
+    },
   ],
   threads: [
     { id: 'thread_silver', name: 'Silver', price: 60, filament: '#e2e8f0', glow: '#cbd5e1' },
     { id: 'thread_rose', name: 'Rose', price: 70, filament: '#fda4af', glow: '#fb7185' },
     { id: 'thread_starlit', name: 'Starlit', price: 90, filament: '#c7d2fe', glow: '#818cf8' },
+    // Phase 6: earned with every star of Strange Roads, never sold (its price as the robe's).
+    {
+      id: 'thread_wayward',
+      name: 'Wayward',
+      price: 90,
+      filament: '#fde7c4',
+      glow: '#f5b971',
+      earned: { constellation: 'strange_roads' },
+    },
   ],
   titles: [
     { id: 'title_steady_hand', text: 'Steady Hand', price: 40 },
@@ -57,6 +76,13 @@ export const COSMETICS: ContentInput['cosmetics'] = {
     { id: 'title_unbroken', text: 'the Unbroken Vow', earned: { mastery: 'martyr' } },
     { id: 'title_keeper', text: 'Keeper of Hours', earned: { mastery: 'chronomancer' } },
     { id: 'title_flawless', text: 'Flawless', earned: { deed: 'flawless' } },
+    // Phase 6: every star of Hard Bargains, and every star of the Atlas.
+    {
+      id: 'title_hard_bargainer',
+      text: 'Hard Bargainer',
+      earned: { constellation: 'hard_bargains' },
+    },
+    { id: 'title_atlas_walker', text: 'Atlas-Walker', earned: { atlas: true } },
   ],
 };
 
