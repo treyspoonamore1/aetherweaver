@@ -286,6 +286,22 @@ describe('The Bleeding Bell', () => {
     expect(outcomes.size).toBe(2);
   });
 
+  it('Ring it yourself: wins at the odds its text gives, from the event’s own stream', () => {
+    const ring = runEventDef('bleeding_bell').choices.find((c) => c.id === 'ring')!;
+    expect(ring.chance).toBeGreaterThan(0);
+    expect(ring.text).toContain(`${Math.round(ring.chance! * 100)}%`);
+    const seeds = 80;
+    let won = 0;
+    for (let seed = 1; seed <= seeds; seed++) {
+      const at = inEvent('bleeding_bell', expedition(seed));
+      const a = Run.chooseEvent(at, 'ring');
+      // The same run, the same roll.
+      expect(Run.chooseEvent(at, 'ring').event!.won).toBe(a.event!.won);
+      if (a.event!.won) won++;
+    }
+    expect(Math.abs(won / seeds - ring.chance!)).toBeLessThan(0.15);
+  });
+
   it('Pass by: nothing happens', () => {
     const run = Run.chooseEvent(inEvent('bleeding_bell'), 'pass');
     expect([run.aether, run.relics, hpOf(run)]).toEqual([500, [], [1, 1, 1]]);
