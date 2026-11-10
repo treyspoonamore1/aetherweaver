@@ -228,7 +228,6 @@ describe('every new Mods field has a default that does nothing (ground rule 3)',
     expect(harmonies.woundedWardMult(world, hero)).toBe(1);
     expect(harmonies.closedCircleGuard(world, hero, 30, opts)).toBe(0);
     expect(relics.shopRelicBonus([], CONTENT)).toBe(0);
-    expect(relics.waterClockOut(world, hero)).toBe(false);
     expect(relics.ironMaskRefuses(world, undefined)).toBe(false);
     expect(relics.ironMaskGuard(world, hero, 30, opts)).toBe(0);
     expect(relics.cueCostFloor(world, -10)).toBe(-10);

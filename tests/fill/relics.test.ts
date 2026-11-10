@@ -560,9 +560,12 @@ describe('legendary relics', () => {
     const events = act(w, () =>
       dealDamage(w, kael, { source: null, sourceName: 'test', amount: 1e7 }),
     );
-    expect(ofType(events, 'allyDowned')).toHaveLength(1);
+    // The fall is turned back before it counts: no down, only the stand again.
+    expect(ofType(events, 'allyDowned')).toEqual([]);
     expect(ofType(events, 'revived')).toHaveLength(1);
     expect(relicReports(events)).toEqual([]);
+    expect(w.ledger.downs).toBe(0);
+    expect(w.ledger.deaths).toEqual([]);
     expect(kael.health!.downed).toBe(false);
     expect(kael.health!.hp).toBeCloseTo(past.hp, 6);
     expect([kael.x, kael.z]).toEqual([past.x, past.z]);
@@ -571,15 +574,60 @@ describe('legendary relics', () => {
     stepFor(sim, 120);
     hurt(sim, 0, 1e7);
     expect(kael.health!.downed).toBe(true);
+    expect(w.ledger.downs).toBe(1);
+    expect(w.ledger.deaths).toHaveLength(1);
   });
 
   it('Water Clock: not for a hero who was already down then; the turn back stays unspent', () => {
     const w = world([plain('water_clock')]);
     const kael = heroAt(w, 0);
     for (const s of kael.hero!.past) s.up = false;
-    dealDamage(w, kael, { source: null, sourceName: 'test', amount: 1e7 });
+    const events = act(w, () =>
+      dealDamage(w, kael, { source: null, sourceName: 'test', amount: 1e7 }),
+    );
     expect(kael.health!.downed).toBe(true);
     expect('waterClockUsed' in w.internal).toBe(false);
+    // A down it can't undo is a down as ever.
+    expect(ofType(events, 'allyDowned')).toHaveLength(1);
+    expect(w.ledger.downs).toBe(1);
+    expect(w.ledger.deaths).toHaveLength(1);
+  });
+
+  it('Water Clock: a down it undoes pays nothing that pays a down (Lament Pin, the Lantern, Lament’s Answer)', () => {
+    const config = {
+      relics: ['water_clock', 'lament_pin', 'lantern_of_the_lost'],
+      motifs: [{ id: 'laments_answer', level: 3 }],
+    };
+    const sim = sandbox(config);
+    const w = worldOf(sim);
+    stepFor(sim, 60 * 4);
+    const [kael, lyra] = [heroAt(w, 0), heroAt(w, 1)];
+    const ww = weaverEntity(w).weaver!;
+    const resonance = ww.resonance;
+    const solo = lyra.hero!.solo;
+    const events = act(w, () =>
+      dealDamage(w, kael, { source: null, sourceName: 'test', amount: 1e7 }),
+    );
+    expect(kael.health!.downed).toBe(false);
+    expect(w.internal.waterClockUsed).toBe(true);
+    expect(ofType(events, 'allyDowned')).toEqual([]);
+    expect(ofType(events, 'motifTriggered')).toEqual([]);
+    expect(relicReports(events)).toEqual([]);
+    expect(ww.resonance).toBe(resonance);
+    expect(lyra.hero!.solo).toBe(solo);
+    expect(shieldOf(lyra.health!, 'overshield')).toBeUndefined();
+    expect(w.ledger.downs).toBe(0);
+    expect(w.ledger.deaths).toEqual([]);
+    expect(w.ledger.triggers).toEqual({ lament_pin: 0, laments_answer: 0 });
+    // The next down (the turn back spent, its moment untouchable past) pays them all.
+    stepFor(sim, 90);
+    const next = act(w, () =>
+      dealDamage(w, kael, { source: null, sourceName: 'test', amount: 1e7 }),
+    );
+    expect(kael.health!.downed).toBe(true);
+    expect(ofType(next, 'allyDowned')).toHaveLength(1);
+    expect(ww.resonance).toBeGreaterThan(resonance);
+    expect(w.ledger.downs).toBe(1);
   });
 
   it('Water Clock with the Chronomancer: her Rewind’s record is left as it is, and used', () => {
