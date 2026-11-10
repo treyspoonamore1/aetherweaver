@@ -13,7 +13,9 @@ import { defeatLine, finaleCallouts } from '../ui/hud/finaleLook';
 import { captionFor } from '../ui/hud/captions';
 import { FIGHT_END_DELAY_MS, WITHOUT_YOU_GRACE_MS } from '../meta/runEnd';
 import { gameSpeed } from './gameSpeed';
-import { Stage, type QualityTier } from '../render/stage';
+import { AutoQuality, Stage, type QualityTier } from '../render/stage';
+import type { FrameStats } from '../debug/frameStats';
+import type { BenchDriver } from './bench';
 import {
   FixedStepper,
   ReplayRecorder,
@@ -45,7 +47,7 @@ import { CONDUCT_GOLD, FINALE_TURNS_KEY, beatNow, conductingCallouts } from '../
 import { takeHudCommits } from '../ui/perfCounters';
 import { useBeatNow, useUi } from '../ui/store';
 import { useProfile } from './profileStore';
-import { useSettings } from './settings';
+import { optionsOf, useSettings, type QualitySetting, type Settings } from './settings';
 import { buildOutcome } from './outcome';
 import { startWithoutYou, type WithoutYouJob } from './withoutYou';
 
@@ -69,6 +71,14 @@ function slotKeys(): readonly string[] {
 }
 const HUD_INTERVAL_MS = 1000 / 15;
 const PERF_INTERVAL_MS = 250;
+/** Frames one perf window keeps (250 ms at up to 1 kHz). */
+const PERF_FRAMES_MAX = 256;
+
+/**
+ * Where `auto` quality starts the next fight: the tier it last settled on, this page session (so a
+ * slow machine isn't stepped down from high in every fight). High at first.
+ */
+let autoStart: QualityTier = 'high';
 
 /** One combat: the sim config to play and who to tell when it's over. */
 export interface CombatSession {
@@ -78,7 +88,19 @@ export interface CombatSession {
 
 export interface RuntimeOptions {
   session: CombatSession;
-  quality?: QualityTier;
+  /**
+   * A fixed tier, or `auto`, for this runtime whatever Settings say (the bench, tools). Absent:
+   * the player's setting, `optionsOf(settings).quality` (`high` by default, as before), followed
+   * live when it changes.
+   */
+  quality?: QualitySetting;
+  /**
+   * The bench (src/app/bench.ts): the scene's driver adds its commands every tick (after the
+   * player's and any autoplay's), and the sim halts at `haltAt`, so the state there can be hashed.
+   */
+  bench?: { driver: BenchDriver; haltAt: number };
+  /** False: no "without you" re-run in the background (the bench). Default: run fights do one. */
+  withoutYou?: boolean;
 }
 
 /**
@@ -179,9 +201,33 @@ export class GameRuntime {
   /** The sim time `useBeatNow` was last written at (A Tempo). */
   private beatWrittenAt = -1;
   private perfFrames = 0;
-  private perfFrameMs: number[] = [];
+  /** This perf window's CPU frame times (kept in place: the frame loop allocates nothing). */
+  private readonly perfFrameMs = new Float64Array(PERF_FRAMES_MAX);
+  private readonly perfSorted = new Float64Array(PERF_FRAMES_MAX);
   private perfSimMs = 0;
   private perfTicks = 0;
+  /** The quality setting being followed (`pinned`: a tier set by options or the dev panel). */
+  private qualitySetting: QualitySetting;
+  private qualityPinned: boolean;
+  /** `auto` quality's picker and dynamic resolution, while the setting is `auto`. */
+  private auto: AutoQuality | null = null;
+  /** The bench's recorder (null outside the bench). */
+  private frameStats: FrameStats | null = null;
+  private readonly benchDriver: BenchDriver | null;
+  private readonly haltAt: number;
+  /**
+   * The frame handed to the view, filled in place every frame (no per-frame allocation). Views
+   * read it during `sync` and keep no field of it past the next frame.
+   */
+  private readonly frameInfo: FrameInfo;
+  private readonly frameSettings: FrameInfo['settings'];
+  private readonly frameMusic: NonNullable<FrameInfo['music']> = {
+    beatPhase: 0,
+    beatInBar: 0,
+    bar: 0,
+    levels: [0, 0, 0, 0],
+  };
+  private readonly frameSilence = { on: true, notes: 0 };
 
   constructor(
     container: HTMLElement,
@@ -190,9 +236,19 @@ export class GameRuntime {
     this.sim = createSim(options.session.config);
     this.seed = this.sim.config.seed;
     this.withoutYou =
-      this.sim.state.encounter.kind === 'sandbox' ? null : startWithoutYou(options.session.config);
+      this.sim.state.encounter.kind === 'sandbox' || options.withoutYou === false
+        ? null
+        : startWithoutYou(options.session.config);
     this.recorder = new ReplayRecorder(this.sim.config);
-    this.stage = new Stage(container, options.quality ?? 'high');
+    this.benchDriver = options.bench?.driver ?? null;
+    this.haltAt = options.bench?.haltAt ?? -1;
+    // Quality (docs/phase-7.md, decision 8): the option's tier, or `auto` starting where it last
+    // settled. With the key absent this is `high`, as it always was.
+    this.qualityPinned = options.quality !== undefined;
+    const quality = options.quality ?? optionsOf(useSettings.getState().settings).quality;
+    this.qualitySetting = quality;
+    if (quality === 'auto') this.auto = new AutoQuality(autoStart);
+    this.stage = new Stage(container, quality === 'auto' ? autoStart : quality);
     this.camera = new CameraRig(this.stage.camera);
     this.overlay = document.createElement('div');
     this.overlay.className = 'pointer-events-none absolute inset-0 overflow-hidden';
@@ -214,6 +270,23 @@ export class GameRuntime {
       (x, y, out) => this.stage.pickGround(x, y, out),
       (action) => this.onUiAction(action),
     );
+    this.frameSettings = {
+      screenShake: 1,
+      flashes: 1,
+      damageNumbers: true,
+      colorVision: 'normal',
+      allyBars: 'always',
+      slotKeys: keysCache,
+    };
+    this.frameInfo = {
+      realDt: 0,
+      time: 0,
+      alpha: 0,
+      hoveredHero: null,
+      hoveredEnemy: null,
+      aim: null,
+      settings: this.frameSettings,
+    };
     const weaver = this.sim.state.entities.get(this.sim.state.weaverId);
     this.camera.snapTo(weaver?.x ?? 0, weaver?.z ?? 0);
     const kind = this.sim.state.encounter.kind;
@@ -242,9 +315,62 @@ export class GameRuntime {
     useUi.getState().setPaused(paused);
   }
 
+  /** A fixed tier from a tool (the dev panel): Settings are no longer followed in this fight. */
   setQuality(quality: QualityTier): void {
-    this.stage.setQuality(quality);
-    this.view.setQuality(quality);
+    this.qualityPinned = true;
+    this.applyQualitySetting(quality);
+  }
+
+  /** A quality setting from a tool (the dev panel's Auto), pinned like `setQuality`. */
+  setQualitySetting(quality: QualitySetting): void {
+    this.qualityPinned = true;
+    this.applyQualitySetting(quality);
+  }
+
+  /** The quality setting this fight follows: a tier, or `auto`. */
+  get quality(): QualitySetting {
+    return this.qualitySetting;
+  }
+
+  /** The quality as the perf HUD and the bench show it: "high", or "auto · medium · 80%". */
+  get qualityLabel(): string {
+    const tier = this.stage.qualityTier;
+    if (!this.auto) return tier;
+    return `auto · ${tier} · ${Math.round(this.stage.resolutionScale * 100)}%`;
+  }
+
+  /** `auto` quality's tier and scale changes in this fight (0 on a fixed tier). */
+  get qualityChanges(): number {
+    return this.auto?.changes ?? 0;
+  }
+
+  private applyQualitySetting(quality: QualitySetting): void {
+    this.qualitySetting = quality;
+    if (quality === 'auto') {
+      this.auto = new AutoQuality(this.stage.qualityTier);
+      this.applyTier(this.auto.tier);
+      this.stage.setResolutionScale(1);
+      return;
+    }
+    this.auto = null;
+    this.stage.setResolutionScale(1);
+    this.applyTier(quality);
+  }
+
+  private applyTier(tier: QualityTier): void {
+    if (tier === this.stage.qualityTier) return;
+    this.stage.setQuality(tier);
+    this.view.setQuality(tier);
+  }
+
+  /** The bench: records every frame into `stats` from now on (null stops). */
+  recordFrames(stats: FrameStats | null): void {
+    this.frameStats = stats;
+  }
+
+  /** The bench: whether the sim has reached the tick it halts at. */
+  get halted(): boolean {
+    return this.haltAt >= 0 && this.sim.tick >= this.haltAt;
   }
 
   /** Commands from tools (dev panel, test hook, HUD clicks); recorded like player input. */
@@ -289,16 +415,18 @@ export class GameRuntime {
         try {
           for (let i = 0; i < steps; i++) {
             const tick = this.sim.tick;
+            if (this.haltAt >= 0 && tick >= this.haltAt) break;
             let input = i === 0 ? commands : NO_COMMANDS;
             if (this.autoplay) input = [...input, ...this.autoplay.decide(this.sim.state)];
+            if (this.benchDriver) input = this.benchDriver(tick, this.sim.state, input);
             const consumed = this.sim.step(input);
             this.recorder.record(tick, consumed);
+            this.perfTicks++;
           }
         } catch (error) {
           this.crash(error);
         }
         this.perfSimMs += performance.now() - simStart;
-        this.perfTicks += steps;
         const events = this.sim.drainEvents();
         this.dispatch(events);
         for (const listener of this.listeners) {
@@ -316,6 +444,7 @@ export class GameRuntime {
     const alpha = this.stepper.alpha;
     const weaver = state.entities.get(state.weaverId);
     const settings = useSettings.getState().settings;
+    this.followQuality(settings, elapsed);
     this.camera.shakeScale = settings.screenShake;
     if (weaver) {
       const wx = weaver.px + (weaver.x - weaver.px) * alpha;
@@ -325,26 +454,25 @@ export class GameRuntime {
       this.camera.update(wx, wz, aim?.x ?? wx, aim?.z ?? wz, elapsed / 1000);
     }
     this.input.updatePointer(state);
-    this.view.sync(state, {
-      realDt: elapsed / 1000,
-      time: (now - this.startedAt) / 1000,
-      alpha,
-      hoveredHero: this.input.hoveredHero,
-      hoveredEnemy: this.input.hoveredEnemy,
-      aim: this.input.aimPoint,
-      settings: {
-        screenShake: settings.screenShake,
-        flashes: settings.flashes,
-        damageNumbers: settings.damageNumbers,
-        colorVision: settings.colorVision,
-        allyBars: settings.hud.allyBars,
-        slotKeys: slotKeys(),
-      },
-      // Phase 4g: what the Weaver wears (her robe, her Thread's look), from the profile.
-      look: useProfile.getState().profile.look,
-      // The Finale: the music's clock and stems for the Crucible's sky (absent elsewhere).
-      ...(this.crucible ? this.finaleMusic(state) : {}),
-    });
+    const frame = this.frameInfo;
+    frame.realDt = elapsed / 1000;
+    frame.time = (now - this.startedAt) / 1000;
+    frame.alpha = alpha;
+    frame.hoveredHero = this.input.hoveredHero;
+    frame.hoveredEnemy = this.input.hoveredEnemy;
+    frame.aim = this.input.aimPoint;
+    const fs = this.frameSettings;
+    fs.screenShake = settings.screenShake;
+    fs.flashes = settings.flashes;
+    fs.damageNumbers = settings.damageNumbers;
+    fs.colorVision = settings.colorVision;
+    fs.allyBars = settings.hud.allyBars;
+    fs.slotKeys = slotKeys();
+    // Phase 4g: what the Weaver wears (her robe, her Thread's look), from the profile.
+    frame.look = useProfile.getState().profile.look;
+    // The Finale: the music's clock and stems for the Crucible's sky (absent elsewhere).
+    frame.music = this.crucible ? this.finaleMusic(state) : undefined;
+    this.view.sync(state, frame);
     this.stage.render();
     // Continuous layers (heartbeats, thread whine) pause with the game.
     if (!this.paused && !this.hidden) {
@@ -380,33 +508,63 @@ export class GameRuntime {
 
     this.checkEnd(state, now);
 
+    const cpuMs = performance.now() - cpuStart;
+    this.perfFrameMs[this.perfFrames % PERF_FRAMES_MAX] = cpuMs;
     this.perfFrames++;
-    this.perfFrameMs.push(performance.now() - cpuStart);
+    this.frameStats?.record(
+      cpuMs,
+      elapsed,
+      this.stage.drawCalls,
+      this.stage.triangles,
+      state.entities.count,
+    );
     this.perfTimer += elapsed;
     if (this.perfTimer >= PERF_INTERVAL_MS) this.publishPerf(state.entities.count);
   };
+
+  /**
+   * Quality, every frame: the player's setting when it changes (unless a tool pinned one), and on
+   * `auto` this frame's time into the picker (not while paused or hidden, when frames are idle).
+   */
+  private followQuality(settings: Settings, elapsed: number): void {
+    if (!this.qualityPinned) {
+      const quality = optionsOf(settings).quality;
+      if (quality !== this.qualitySetting) this.applyQualitySetting(quality);
+    }
+    const auto = this.auto;
+    if (!auto || this.paused || this.hidden || elapsed <= 0) return;
+    if (auto.sample(elapsed)) {
+      this.applyTier(auto.tier);
+      this.stage.setResolutionScale(auto.scale);
+      autoStart = auto.tier;
+    }
+  }
 
   /**
    * `FrameInfo.music` in the Crucible (docs/phase-5d.md): the director's beat, bar and stem levels
    * (`SynthDirector.musicState()`), and the Grand Silence from public state. Nothing while the
    * audio is locked or off: render then derives a beat from sim time.
    */
-  private finaleMusic(state: WorldState): Pick<FrameInfo, 'music'> {
+  private finaleMusic(state: WorldState): FrameInfo['music'] {
     const audio = getAudio() as ReturnType<typeof getAudio> & {
       musicState?: () => MusicSnapshot | null;
     };
     const snap = audio.musicState?.() ?? null;
-    if (!snap) return {};
+    if (!snap) return undefined;
     const silence = state.field.finale?.silence;
-    return {
-      music: {
-        beatPhase: snap.beatPhase,
-        beatInBar: snap.beatInBar,
-        bar: snap.bar,
-        levels: [snap.levels.pad, snap.levels.pulse, snap.levels.melody, snap.levels.choir],
-        ...(silence ? { silence: { on: true, notes: silence.notes } } : {}),
-      },
-    };
+    const music = this.frameMusic;
+    music.beatPhase = snap.beatPhase;
+    music.beatInBar = snap.beatInBar;
+    music.bar = snap.bar;
+    music.levels[0] = snap.levels.pad;
+    music.levels[1] = snap.levels.pulse;
+    music.levels[2] = snap.levels.melody;
+    music.levels[3] = snap.levels.choir;
+    if (silence) {
+      this.frameSilence.notes = silence.notes;
+      music.silence = this.frameSilence;
+    } else music.silence = undefined;
+    return music;
   }
 
   private checkEnd(state: WorldState, now: number): void {
@@ -441,25 +599,33 @@ export class GameRuntime {
 
   private publishPerf(entities: number): void {
     const seconds = this.perfTimer / 1000;
-    const sorted = [...this.perfFrameMs].sort((a, b) => a - b);
-    const avg = sorted.reduce((s, v) => s + v, 0) / Math.max(1, sorted.length);
-    const p95 = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] ?? 0;
-    const info = this.stage.info();
+    // The window's frames (the latest PERF_FRAMES_MAX of them), sorted in the scratch copy.
+    const n = Math.min(this.perfFrames, PERF_FRAMES_MAX);
+    const sorted = this.perfSorted;
+    let sum = 0;
+    for (let i = 0; i < n; i++) {
+      sorted[i] = this.perfFrameMs[i]!;
+      sum += sorted[i]!;
+    }
+    sorted.subarray(0, n).sort();
+    const avg = sum / Math.max(1, n);
+    const p95 = n > 0 ? sorted[Math.min(n - 1, Math.floor(n * 0.95))]! : 0;
+    const commits = takeHudCommits();
+    this.frameStats?.addCommits(commits, this.perfTimer);
     useUi.getState().setPerf({
       fps: this.perfFrames / seconds,
       frameMs: avg,
       frameMsP95: p95,
       simMsPerTick: this.perfTicks > 0 ? this.perfSimMs / this.perfTicks : 0,
       ticksPerFrame: this.perfTicks / Math.max(1, this.perfFrames),
-      drawCalls: info.calls,
-      triangles: info.triangles,
+      drawCalls: this.stage.drawCalls,
+      triangles: this.stage.triangles,
       entities,
-      hudCommitsPerSec: takeHudCommits() / seconds,
-      quality: this.stage.qualityTier,
+      hudCommitsPerSec: commits / seconds,
+      quality: this.qualityLabel,
     });
     this.perfTimer = 0;
     this.perfFrames = 0;
-    this.perfFrameMs = [];
     this.perfSimMs = 0;
     this.perfTicks = 0;
   }
@@ -880,6 +1046,7 @@ export class GameRuntime {
   };
 
   dispose(): void {
+    if (this.auto) autoStart = this.auto.tier;
     this.withoutYou?.cancel();
     cancelAnimationFrame(this.raf);
     this.raf = 0;

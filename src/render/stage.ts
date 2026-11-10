@@ -1,10 +1,26 @@
 import * as THREE from 'three';
 
 export type QualityTier = 'low' | 'medium' | 'high';
+export const QUALITY_TIERS: readonly QualityTier[] = ['low', 'medium', 'high'];
+
+/** Dynamic resolution's range on `auto` quality (docs/plan/05 §5.1). */
+export const RESOLUTION_SCALE_MIN = 0.6;
+export const RESOLUTION_SCALE_MAX = 1;
+
+/**
+ * The renderer's pixel ratio for a tier on a screen of `dpr`, times the dynamic resolution's
+ * `scale` (1 unless quality is `auto`): ≤ 2 on high, ≤ 1.5 on medium, 1 on low.
+ */
+export function pixelRatioFor(quality: QualityTier, dpr: number, scale = 1): number {
+  const base =
+    quality === 'high' ? Math.min(dpr, 2) : quality === 'medium' ? Math.min(dpr, 1.5) : 1;
+  return base * scale;
+}
 
 /**
  * Owns the WebGL renderer, scene, camera and lights. Knows nothing about the simulation.
- * Quality tiers are a stub for now (pixel ratio + shadows); see docs/plan/05 §5.1.
+ * Quality tiers set the pixel ratio and the shadows (docs/plan/05 §5.1); on `auto` quality the
+ * runtime also scales the resolution (`setResolutionScale`, from `AutoQuality`).
  */
 export class Stage {
   readonly renderer: THREE.WebGLRenderer;
@@ -12,6 +28,7 @@ export class Stage {
   readonly camera = new THREE.PerspectiveCamera(40, 1, 0.5, 220);
   readonly canvas: HTMLCanvasElement;
   private quality: QualityTier = 'high';
+  private scale = 1;
   private readonly keyLight: THREE.DirectionalLight;
   private readonly hemiLight: THREE.HemisphereLight;
   private readonly rimLight: THREE.DirectionalLight;
@@ -73,18 +90,31 @@ export class Stage {
     return this.quality;
   }
 
+  /** The dynamic resolution's scale on the tier's pixel ratio (1 unless quality is `auto`). */
+  get resolutionScale(): number {
+    return this.scale;
+  }
+
   setQuality(quality: QualityTier): void {
     this.quality = quality;
-    const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
-    const pixelRatio =
-      quality === 'high' ? Math.min(dpr, 2) : quality === 'medium' ? Math.min(dpr, 1.5) : 1;
-    this.renderer.setPixelRatio(pixelRatio);
+    this.renderer.setPixelRatio(pixelRatioFor(quality, screenDpr(), this.scale));
     this.renderer.shadowMap.enabled = quality !== 'low';
     this.keyLight.castShadow = quality !== 'low';
     const size = quality === 'high' ? 2048 : 1024;
     this.keyLight.shadow.mapSize.set(size, size);
     this.keyLight.shadow.map?.dispose();
     this.keyLight.shadow.map = null;
+  }
+
+  /**
+   * Dynamic resolution (docs/plan/05 §5.1): the tier's pixel ratio times `scale`, clamped to
+   * 0.6-1. Only a change resizes the drawing buffer.
+   */
+  setResolutionScale(scale: number): void {
+    const s = Math.min(RESOLUTION_SCALE_MAX, Math.max(RESOLUTION_SCALE_MIN, scale));
+    if (s === this.scale) return;
+    this.scale = s;
+    this.renderer.setPixelRatio(pixelRatioFor(this.quality, screenDpr(), s));
   }
 
   /** Per-arena lighting mood (render-owned; the runtime never calls this). */
@@ -148,6 +178,25 @@ export class Stage {
     return true;
   }
 
+  /** Draw calls of the last rendered frame (no allocation: read every frame by the bench). */
+  get drawCalls(): number {
+    return this.renderer.info.render.calls;
+  }
+
+  /** Triangles of the last rendered frame. */
+  get triangles(): number {
+    return this.renderer.info.render.triangles;
+  }
+
+  /** The drawing buffer's size in device pixels. */
+  get bufferWidth(): number {
+    return this.canvas.width;
+  }
+
+  get bufferHeight(): number {
+    return this.canvas.height;
+  }
+
   /** Draw stats for the last rendered frame. */
   info(): { calls: number; triangles: number } {
     return {
@@ -168,4 +217,121 @@ export class Stage {
     this.renderer.dispose();
     this.canvas.remove();
   }
+}
+
+function screenDpr(): number {
+  return typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
+}
+
+/**
+ * `auto` quality's tuning (docs/phase-7.md, W4). Frame times are the real time between frames
+ * (what the player sees, the GPU's share included), never the CPU's part alone.
+ */
+export const AUTO_QUALITY = {
+  /** Frames in one sample window. */
+  window: 30,
+  /** Real ms ignored as a fight opens (shader compiles, the first spawns). */
+  settleMs: 1000,
+  /** The tier is picked over this long after settling; after it only the resolution moves. */
+  pickMs: 6000,
+  /** Real ms ignored after any change (a tier change recompiles; a resize reallocates). */
+  quietMs: 500,
+  /** A window whose 90th-percentile frame is slower than this steps down (below ~50 fps). */
+  slowMs: 20,
+  /**
+   * A window whose 90th-percentile frame is this fast or faster counts toward a step up (~57 fps:
+   * on a 60 Hz screen a frame with time to spare still reads 16.7 ms).
+   */
+  fastMs: 17.5,
+  /** Fast windows in a row a step up takes: with the gap between the two bounds, the hysteresis. */
+  fastWindows: 3,
+} as const;
+
+/** Dynamic resolution's steps, from 1 down to 0.6. */
+const SCALE_STEPS = [1, 0.9, 0.8, 0.7, 0.6] as const;
+
+/**
+ * `auto` quality (docs/plan/05 §5.1, docs/phase-7.md W4): picks a tier from the frame times of the
+ * first seconds of a fight, and runs dynamic resolution between 0.6 and 1.0. A slow window steps
+ * down at once: the tier while it is being picked, else (or already on low) the resolution. A
+ * step up takes `fastWindows` fast windows in a row: the resolution first, and the tier only while
+ * it is being picked and at most once a fight, so it can't swing between two tiers. Pure, and
+ * allocation free: the runtime feeds it every frame.
+ */
+export class AutoQuality {
+  tier: QualityTier;
+  /** The resolution scale (1, 0.9, … 0.6). */
+  scale = 1;
+  /** Tier and scale changes made so far (the bench reads it). */
+  changes = 0;
+  private readonly frames = new Float64Array(AUTO_QUALITY.window);
+  private readonly sorted = new Float64Array(AUTO_QUALITY.window);
+  private n = 0;
+  private clock = 0;
+  private quietUntil: number = AUTO_QUALITY.settleMs;
+  private fastRun = 0;
+  private steppedUp = false;
+  private step = 0;
+
+  constructor(start: QualityTier = 'high') {
+    this.tier = start;
+  }
+
+  /** Whether the tier is still being picked (the first seconds after settling). */
+  get picking(): boolean {
+    return this.clock <= AUTO_QUALITY.settleMs + AUTO_QUALITY.pickMs;
+  }
+
+  /**
+   * One frame's real duration in ms. True when it changed the tier or the scale (the caller then
+   * applies `tier` and `scale`).
+   */
+  sample(frameMs: number): boolean {
+    if (!(frameMs > 0) || !Number.isFinite(frameMs)) return false;
+    this.clock += frameMs;
+    if (this.clock <= this.quietUntil) return false;
+    this.frames[this.n++] = frameMs;
+    if (this.n < AUTO_QUALITY.window) return false;
+    this.n = 0;
+    this.sorted.set(this.frames);
+    this.sorted.sort();
+    const p90 = this.sorted[Math.floor(AUTO_QUALITY.window * 0.9)]!;
+    const picking = this.picking;
+    if (p90 > AUTO_QUALITY.slowMs) {
+      this.fastRun = 0;
+      if (picking && this.tier !== 'low') return this.changed(lowerTier(this.tier), this.step);
+      if (this.step < SCALE_STEPS.length - 1) return this.changed(this.tier, this.step + 1);
+      return false;
+    }
+    if (p90 > AUTO_QUALITY.fastMs) {
+      this.fastRun = 0;
+      return false;
+    }
+    if (++this.fastRun < AUTO_QUALITY.fastWindows) return false;
+    this.fastRun = 0;
+    if (this.step > 0) return this.changed(this.tier, this.step - 1);
+    if (picking && !this.steppedUp && this.tier !== 'high') {
+      this.steppedUp = true;
+      return this.changed(higherTier(this.tier), this.step);
+    }
+    return false;
+  }
+
+  private changed(tier: QualityTier, step: number): true {
+    this.tier = tier;
+    this.step = step;
+    this.scale = SCALE_STEPS[step]!;
+    this.changes++;
+    this.n = 0;
+    this.quietUntil = this.clock + AUTO_QUALITY.quietMs;
+    return true;
+  }
+}
+
+function lowerTier(t: QualityTier): QualityTier {
+  return t === 'high' ? 'medium' : 'low';
+}
+
+function higherTier(t: QualityTier): QualityTier {
+  return t === 'low' ? 'medium' : 'high';
 }
