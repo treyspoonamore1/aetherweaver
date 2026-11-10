@@ -5,8 +5,9 @@
  *
  * - **The rise** (`postludeRise`, called in the kill path before `killEnemy`, so no
  *   `enemyKilled`, no boss `onDeath`, and the encounter stays `fighting`): untouchable for
- *   `POSTLUDE.rise` s, as Restless Dead's rise is (`risen` and `spawning`: hits and statuses pass,
- *   heroes look elsewhere), at `postludeLife` of its life. Everything it had live is dropped, and
+ *   `POSTLUDE.rise` s, as Restless Dead's rise is (hits pass: `invulnerable`; heroes look
+ *   elsewhere: `spawning`; statuses laid on it then are cleared as it stands), but with no
+ *   `risen` and no `enemyRose`, so no Restless Dead mark is drawn; at `postludeLife` of its life. Everything it had live is dropped, and
  *   a Fortissimo Silence still to come is cancelled.
  * - **The choir re-forms**: `POSTLUDE.voices` voices are Raised, in the slot order of the heroes
  *   they sing back (`VOICE_HERO`), with the usual ground warning.
@@ -103,14 +104,16 @@ export function postludeRise(world: World, boss: Entity): boolean {
   delete m4.nextCueAt;
   delete m4.nextRaiseAt;
   delete m4.choirRaise;
-  // Standing up, as Restless Dead's rise: untouchable while it rises.
-  c.risen = true;
+  // Standing up, as Restless Dead's rise does, but without its mark (`risen` stays as it is, so
+  // the views draw no Restless Dead rise on it): untouchable while it rises, and `spawning`, so
+  // heroes look elsewhere and it does nothing.
   c.state = 'spawning';
   c.stateTime = 0;
   c.phase = POSTLUDE_PHASE;
   h.hp = Math.max(1, Math.round(h.maxHp * world.mods.postludeLife));
   h.statuses = [];
   const riseUntil = world.time + POSTLUDE.rise;
+  h.invulnerable = Math.max(h.invulnerable, POSTLUDE.rise);
   // Nothing is cast while it rises (the phase shift's gate).
   world.internal.boss.phaseShiftUntil = Math.max(world.internal.boss.phaseShiftUntil, riseUntil);
   f.postlude = { since: world.time, riseUntil };
@@ -142,14 +145,18 @@ function postludeUpdate(world: World, boss: Entity): void {
   const p = f.postlude!;
   const c = boss.enemy!;
   if (world.time < p.riseUntil - 1e-9) {
-    // Still rising: `spawning` holds (the enemy system would end it after its own spawn time).
+    // Still rising: `spawning` holds (the enemy system would end it after its own spawn time),
+    // and so does its guard (Stasis can stretch the rise).
     c.state = 'spawning';
     c.stateTime = 0;
+    boss.health!.invulnerable = Math.max(boss.health!.invulnerable, p.riseUntil - world.time);
     return;
   }
   if (c.state === 'spawning') {
+    // Risen: whatever was laid on it while it rose passes, as hits did.
     c.state = 'approach';
     c.stateTime = 0;
+    boss.health!.statuses = [];
   }
   const m4 = ensureM4(world);
   if (!p.enraged && world.time >= p.since + POSTLUDE.enrageAfter - 1e-9) {
