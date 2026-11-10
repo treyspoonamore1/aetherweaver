@@ -10,7 +10,14 @@ import { CONTENT } from '../content';
 import { chordProblems, type ReservePool } from '../sim';
 import { astrolabePoints, pruneTree } from './astrolabe';
 import { FIGHT_AETHER, RELIC_OFFERS } from './economy';
-import { canonicalParty, fieldAuraSlots, reserveMult, reservePool, withCarried } from './run';
+import {
+  canonicalParty,
+  fieldAuraSlots,
+  generateEchoMap,
+  reserveMult,
+  reservePool,
+  withCarried,
+} from './run';
 import {
   MAX_RANK,
   movementOneEnemies,
@@ -23,6 +30,7 @@ import { bondedHeroes, fitBond, fitRunBonds } from './bonds';
 import { fitLevels } from './dissonance';
 import { emptyReliquary, fitRelic, fitReliquary, type ReliquaryRelic } from './reliquary';
 import { RUN_SAVE_VERSION, type RunState } from './types';
+import { weeklySeed } from './weekly';
 
 export interface KeyValueStore {
   getItem(key: string): string | null;
@@ -223,6 +231,9 @@ const MarkerSchema = z.object({
     'save',
     'cleanse',
     'reel',
+    // The Chronomancer's Rewind (docs/phase-3e.md): missing here until Phase 6, so a run that
+    // had rewound didn't load.
+    'rewind',
     'cue',
     'crescendo',
     'down',
@@ -233,6 +244,14 @@ const MarkerSchema = z.object({
   ]),
   slot: Num.nullable(),
 });
+
+/** A result's markers: one of a kind this build doesn't know is dropped, not the whole run. */
+const MarkersSchema = z.array(z.unknown()).transform((list) =>
+  list.flatMap((m) => {
+    const parsed = MarkerSchema.safeParse(m);
+    return parsed.success ? [parsed.data] : [];
+  }),
+);
 
 const ResultSchema = z.object({
   nodeId: Str,
@@ -290,7 +309,7 @@ const ResultSchema = z.object({
     }),
   ),
   timeline: z.array(z.object({ time: Num, hp: z.array(Num) })),
-  markers: z.array(MarkerSchema),
+  markers: MarkersSchema,
   heroes: z.array(
     z.object({
       heroId: Str,
@@ -498,11 +517,60 @@ export const RunStateSchema = z.object({
   // Movements (docs/phase-5a.md): runs saved before them are Preludes (no RUN_SAVE_VERSION bump).
   movements: Num.default(1),
   // Phase 6 (docs/phase-6.md, ground rule 9): absent on every ordinary run (no version bump);
-  // kept here because this schema drops a key it doesn't name.
-  echo: Str.optional(),
-  weekly: z.object({ week: Num }).optional(),
-  logId: Str.optional(),
+  // kept here because this schema drops a key it doesn't name. One that doesn't parse reads as
+  // absent here (`loadRun` judges what that leaves: `fitPhase6Keys`).
+  echo: Str.optional().catch(undefined),
+  weekly: z.object({ week: z.number().int() }).optional().catch(undefined),
+  logId: Str.optional().catch(undefined),
 });
+
+/** A run without the Phase 6 keys its schema read as absent (never kept as `undefined`). */
+export function dropAbsentKeys(run: RunState): RunState {
+  for (const key of ['echo', 'weekly', 'logId'] as const)
+    if (key in run && run[key] === undefined) delete run[key];
+  return run;
+}
+
+/**
+ * A run save's Phase 6 keys, as `loadRun` keeps them (docs/phase-6.md, ground rule 9): a log key
+ * that doesn't parse costs only the run's recording (it plays on, unrecorded). A weekly whose
+ * `weekly` doesn't parse is found again from its seed (`weeklySeed(week)`, for the week a share
+ * code can name); an Echo whose `echo` doesn't parse, from its map (the one Echo whose map for
+ * the run's seed it is). A run neither finds is not loaded: played without its week it would be
+ * an ordinary run on a weekly's level field, and an Echo's run can't play without its Echo.
+ * Null: not loaded.
+ */
+function fitPhase6Keys(run: RunState, raw: unknown): RunState | null {
+  const had = (key: string) =>
+    isObj(raw) && key in raw && raw[key] !== undefined && raw[key] !== null;
+  dropAbsentKeys(run);
+  if (had('weekly') && run.weekly === undefined) {
+    const week = weekOfSeed(run.seed);
+    if (week === null) return null;
+    run.weekly = { week };
+  }
+  if (had('echo') && run.echo === undefined) {
+    const echo = echoOfMap(run);
+    if (echo === null) return null;
+    run.echo = echo;
+  }
+  return run;
+}
+
+/** The week whose seed this is (null: none a share code names). */
+function weekOfSeed(seed: number): number | null {
+  for (let week = 0; week < 2 ** 14; week++) if (weeklySeed(week) === seed) return week;
+  return null;
+}
+
+/** The one Echo whose map for the run's seed is the run's map (null: none, or more than one). */
+function echoOfMap(run: RunState): string | null {
+  const shape = (rows: RunState['map']['rows']) =>
+    JSON.stringify(rows.map((row) => row.map((n) => [n.id, n.kind, n.encounterId, n.eventId])));
+  const mine = shape(run.map.rows);
+  const found = CONTENT.echoes.filter((e) => shape(generateEchoMap(run.seed, e).rows) === mine);
+  return found.length === 1 ? found[0]!.id : null;
+}
 
 /** Motif ids renamed since older saves were written. */
 const RENAMED_MOTIFS: Readonly<Record<string, string>> = { call_and_response: 'canon' };
@@ -709,9 +777,11 @@ export function loadRun(store: KeyValueStore): RunState | null {
     try {
       const raw = store.getItem(key);
       if (!raw) continue;
-      const parsed = RunStateSchema.safeParse(migrateRunJson(JSON.parse(raw)));
+      const json = migrateRunJson(JSON.parse(raw));
+      const parsed = RunStateSchema.safeParse(json);
       if (!parsed.success) continue;
-      const run = parsed.data as RunState;
+      const run = fitPhase6Keys(parsed.data as RunState, json);
+      if (!run) continue;
       // Carried relics fitted to the content first (their Inscriptions weigh on the songs the
       // check below judges), then rebuilt in its relics (attuned first, the rest dormant): one
       // that's gone leaves, and a save from before attunement plays as this build does.
@@ -859,7 +929,11 @@ export const ProfileSchema = z.object({
   lastParty: z.array(Str).optional(),
   // Phase 6 (docs/phase-6.md, ground rule 9): optional v10 keys, absent until first written; one
   // that doesn't parse is dropped (`loadProfile` deletes it), not the profile.
-  atlas: z.object({ stars: Counts, best: Counts }).optional().catch(undefined),
+  // Each of the Atlas's records on its own: a `best` that doesn't parse keeps the stars.
+  atlas: z
+    .object({ stars: Counts.catch({}), best: Counts.catch({}) })
+    .optional()
+    .catch(undefined),
   weekly: z
     .array(z.unknown())
     .transform((weeks) =>
