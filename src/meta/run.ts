@@ -305,15 +305,52 @@ export const CALLING_ROWS: readonly number[] = [0, 3, 5, 7];
  * The rows the run's Calling tiers fall on (docs/phase-5d.md): CALLING_ROWS (the Prelude's, and
  * any route that plays Movement I whole), unless the run's route plays Movement I's road, whose
  * own rows they are: on the Finale route, First Light, the all-fight row 2, the Bellwarden and
- * the Cantor's interlude.
+ * the Cantor's interlude. An Echo's are its own route's (`echoCallingRows`).
  */
 export function callingRows(
   run: Pick<RunState, 'movements'> & Partial<Pick<RunState, 'echo'>>,
 ): readonly number[] {
-  // An Echo's legs have no road of their own (docs/phase-6.md): its tiers fall on CALLING_ROWS.
-  if (run.echo !== undefined) return CALLING_ROWS;
+  if (run.echo !== undefined) {
+    const echo = echoDef(run.echo);
+    // An Echo the content no longer has plays its saved map: its tiers fall on CALLING_ROWS.
+    if (echo) return echoCallingRows(echo);
+  }
   const first = routeDefs(run.movements)[0];
   return (first && roadOf(first)?.callingRows) ?? CALLING_ROWS;
+}
+
+const ECHO_CALLING_ROWS = new Map<string, readonly number[]>();
+
+/**
+ * An Echo's Calling rows, from its own route (docs/phase-6.md; its legs have no road of their
+ * own). The rows every path must fight on are the rows of its map (each path crosses every row)
+ * whose every stop is a fight (a skirmish, an elite, a mini-boss or a boss: no event, Merchant,
+ * Forge, Respite or shrine to take instead), before its last row (its last boss, which ends the
+ * run). Tier k (of the n a Calling has, CALLING_ROWS.length) falls on the
+ * round(k × (m − 1) / (n − 1))-th of those m rows: evenly spaced from the first to the last.
+ * With m ≥ n each tier has a row of its own; with fewer, a row brings two tiers, one after the
+ * other (`pickCalling`), so all n come, in order, before the last boss on every path. None for an
+ * Echo that plays with no Calling.
+ */
+export function echoCallingRows(echo: EchoDef): readonly number[] {
+  let rows = ECHO_CALLING_ROWS.get(echo.id);
+  if (!rows) {
+    const kinds = echoRouteDefs(echo).flatMap((def) => def.rows);
+    const fights = kinds
+      .map((row, i) => (i < kinds.length - 1 && row.every((k) => FIGHT_KINDS.has(k)) ? i : -1))
+      .filter((i) => i >= 0);
+    const n = CALLING_ROWS.length;
+    const m = fights.length;
+    rows =
+      echo.twists.noCalling || m === 0
+        ? []
+        : Array.from(
+            { length: n },
+            (_, k) => fights[m === 1 ? 0 : Math.round((k * (m - 1)) / (n - 1))]!,
+          );
+    ECHO_CALLING_ROWS.set(echo.id, rows);
+  }
+  return rows;
 }
 
 const REROLLS = 1;
@@ -1756,7 +1793,9 @@ export function callingTierDue(
   node: Pick<MapNode, 'row' | 'kind' | 'encounterId'>,
 ): CallingOffer | null {
   if (!run.calling || node.kind === 'event' || !node.encounterId) return null;
-  const tier = callingRows(run).indexOf(node.row);
+  // The first tier of this row not yet picked (only an Echo's rows bring two tiers on one row).
+  const path = run.calling.path;
+  const tier = callingRows(run).findIndex((row, k) => row === node.row && path[k] === null);
   const def = callingDef(run.calling.id);
   // Mastery (docs/phase-4g.md): only the tiers it has opened.
   const open = Math.min(def.tiers.length, run.calling.tiersOpen ?? def.tiers.length);
@@ -1786,6 +1825,9 @@ export function pickCalling(
   if (chords && grantsSlot && allowedFor(next, chords, allowance))
     next = { ...next, chords: canonicalChords(chords) };
   const node = run.pending ? findNode(run, run.pending) : undefined;
+  // A row that brings two tiers (an Echo's, `echoCallingRows`) offers the next one now.
+  const again = node ? callingTierDue(next, node) : null;
+  if (again) return { ...next, callingOffer: again };
   return node ? relicThenRewards(next, node) : toMap(next);
 }
 

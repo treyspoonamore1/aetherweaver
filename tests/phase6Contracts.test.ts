@@ -109,14 +109,13 @@ describe('Phase 6 content contracts', () => {
       ...CONTENT,
       echoes: [echo],
       constellations: [{ id: 'test_stars', name: 'Test', reward: 'title_flawless' }],
-      weekly: [
-        {
-          route: 'test_echo',
-          calling: null,
-          party: ['kael', 'lyra', 'vexis'],
-          dissonance: [{ id: 'hardened', rank: 2 }],
-        },
-      ],
+      // A rotation holds exactly twelve entries when it holds any (review B, q4).
+      weekly: Array.from({ length: 12 }, () => ({
+        route: 'test_echo',
+        calling: null,
+        party: ['kael', 'lyra', 'vexis'],
+        dissonance: [{ id: 'hardened', rank: 2 }],
+      })),
     };
     const ok = ContentSchema.safeParse(good);
     expect(ok.success, JSON.stringify(ok.error?.issues.slice(0, 3))).toBe(true);

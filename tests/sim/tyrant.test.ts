@@ -3,12 +3,13 @@
  * once as the phase begins, first cast `first` s in and then on its cooldown × `cooldown`%, under
  * the cap on damaging telegraphs shown at once; a phase shift replaces it. Every entry is cast
  * from its boss in a fight (the doc's check, which swapped the Leech's Latch out: see
- * `TYRANT_TABLE`). The Silent Conductor plays its own closing attacks earlier and leaves the Grand
- * Silence as built. Without the level nothing moves: no key, no event, the golden's hash.
+ * `TYRANT_TABLE`). The Silent Conductor plays one of its own closing attacks more often, on one
+ * clock, and leaves the Grand Silence as built. Without the level nothing moves: no key, no event,
+ * the golden's hash.
  */
 import { describe, expect, it } from 'vitest';
 import { attackDef, dissonanceLevel, enemyDef } from '../../src/content';
-import { BURN_EVERY, TYRANT_BURN } from '../../src/content/crucible';
+import { BURN_EVERY, TYRANT_BURN, TYRANT_OWN } from '../../src/content/crucible';
 import { CONDUCTOR, DOWNBEAT, GRAND_SILENCE, SFORZANDO } from '../../src/content/crucibleIds';
 import { makeBot } from '../../src/bots';
 import { createSim, type Command, type Sim, type SimConfig, type SimEvent } from '../../src/sim';
@@ -215,7 +216,7 @@ describe('Tyrant (docs/phase-6.md)', () => {
       'Tyrant — the Bellwarden takes up the Glass Lancer’s Glass Lance.',
     );
     expect(tyrantDecreeOf(CONDUCTOR, { attack: SFORZANDO, from: CONDUCTOR })).toBe(
-      'Tyrant — the Silent Conductor plays its Sforzando early. Step aside, or Reel the target.',
+      'Tyrant — the Silent Conductor plays its Sforzando more often. Step aside, or Reel the target.',
     );
     for (const [boss, rows] of Object.entries(TYRANT_TABLE))
       for (const row of rows) {
@@ -275,7 +276,7 @@ describe('Tyrant (docs/phase-6.md)', () => {
     expect(['warded', 'perfect']).toContain(answered.outcome);
   });
 
-  it('the Silent Conductor: its own closing attacks earlier, never more than two damaging live', () => {
+  it('the Silent Conductor: its own closing attacks more often, never more than two damaging live', () => {
     const sim = tyrantSim(SCENARIO_CONDUCTOR);
     const w = worldOf(sim);
     const player = makeBot('skilled', SCENARIO_CONDUCTOR.seed);
@@ -296,9 +297,9 @@ describe('Tyrant (docs/phase-6.md)', () => {
     expect(held.filter((h) => h.phase === 2).map((h) => h.attack)).toContain(DOWNBEAT);
     expect(held.every((h) => h.attack === (h.phase === 1 ? SFORZANDO : DOWNBEAT))).toBe(true);
     expect(held.every((h) => h.live <= 2)).toBe(true);
-    // Its cadences: the doc's own (`BURN_EVERY`) in the Overture and the Mirror Choir.
-    expect(tyrantAttackOf(CONDUCTOR, 1)?.every).toBe(BURN_EVERY.sforzando);
-    expect(tyrantAttackOf(CONDUCTOR, 2)?.every).toBe(BURN_EVERY.downbeat);
+    // Its cadences, one clock each (`TYRANT_OWN`), in the Overture and the Mirror Choir.
+    expect(tyrantAttackOf(CONDUCTOR, 1)?.every).toBe(TYRANT_OWN.sforzando);
+    expect(tyrantAttackOf(CONDUCTOR, 2)?.every).toBe(TYRANT_OWN.downbeat);
   }, 120_000);
 
   it('the Grand Silence as built, then the last burn on Tyrant’s cadences', () => {

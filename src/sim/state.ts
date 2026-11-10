@@ -654,7 +654,7 @@ export interface Foreseen {
   second: EntityId | null;
   /** Sim time it's due to begin (it waits while the enemy can't attack). */
   at: number;
-  /** Its index in the enemy's specials (-1: a boss script's scheduled attack). */
+  /** Its index in the enemy's specials (-1: a boss script's scheduled attack; -2: Tyrant's borrowed attack). */
   special: number;
 }
 

@@ -5,12 +5,13 @@
  * `ms` milliseconds since 1970, UTC).
  */
 import { CONTENT, callingDef, heroDef, type WeeklyEntry } from '../content';
+import { WEEKLY_ROTATION_LENGTH } from '../content/schema';
 import type { ChordLoadout } from '../sim';
 import { hashString } from '../sim/core/rng';
 import { dissonancePoints } from './dissonance';
 import { EVERYTHING, type WeeklyCode, type WeeklyWeek } from './profile';
 import * as Run from './run';
-import { decodeShareCode } from './shareCode';
+import { SHARE_FIELDS, decodeShareCode } from './shareCode';
 import type { Grade, RunState } from './types';
 import type { Techniques } from './variants';
 
@@ -20,8 +21,16 @@ import type { Techniques } from './variants';
 export const WEEKLY_EPOCH_MS = 1_767_571_200_000;
 export const DAY_MS = 86_400_000;
 export const WEEK_MS = 7 * DAY_MS;
-/** The rotation cycles every twelve weeks (decision 7). */
-export const WEEKLY_CYCLE = 12;
+/** The rotation cycles every twelve weeks (decision 7); content holds exactly this many. */
+export const WEEKLY_CYCLE = WEEKLY_ROTATION_LENGTH;
+
+/** The last week a share code can name (its 14-bit week field): weeks 0 to 16,383 can be played. */
+export const LAST_WEEK = 2 ** SHARE_FIELDS.week - 1;
+
+/** Can this week be played (and its result named by a share code)? */
+export function weekPlayable(week: number): boolean {
+  return Number.isInteger(week) && week >= 0 && week <= LAST_WEEK;
+}
 
 /** The week a moment falls in: weeks since the epoch, each from Monday 00:00 UTC to the next. */
 export function weekOf(ms: number): number {
@@ -98,14 +107,15 @@ function everyHero(): string[] {
  *
  * The one place a weekly's start is built (the run store's and the verifier's): the run layer's
  * `newWeeklyRun` for every route, the Finale-route Expedition or an Echo. Null without an entry,
- * or for an Echo this build doesn't have.
+ * for an Echo this build doesn't have, or for a week no share code can name (before the epoch,
+ * or past `LAST_WEEK`: a clock far off), so such a run can't start.
  */
 export function weeklyPrep(
   week: number,
   picks: WeeklyPicks,
   entry = weeklyEntry(week),
 ): RunState | null {
-  if (!entry) return null;
+  if (!entry || !weekPlayable(week)) return null;
   if (entry.route !== 'expedition' && !Run.echoDef(entry.route)) return null;
   return Run.newWeeklyRun({ week, seed: weeklySeed(week), entry }, picks.chords, picks.techniques);
 }
@@ -236,9 +246,31 @@ export function bestScore(weeks: readonly WeeklyWeek[] | undefined, week: number
 }
 
 /**
+ * May a code someone shared for `week` be added now (`current`: the week it is now)? Only for a
+ * week of the kept span that ends now: the last `WEEKLY_KEEP_WEEKS` weeks. The refusal's words
+ * otherwise: a week that hasn't begun, or one older than the record keeps.
+ */
+export function addableWeek(
+  week: number,
+  current: number,
+): { ok: true } | { ok: false; error: string } {
+  if (week > current)
+    return { ok: false, error: `This code is for Week ${week}, which hasn’t begun.` };
+  if (week <= current - WEEKLY_KEEP_WEEKS)
+    return {
+      ok: false,
+      error: `This code is for Week ${week}: only the last ${WEEKLY_KEEP_WEEKS} weeks are kept.`,
+    };
+  return { ok: true };
+}
+
+/**
  * The profile's weekly record with one entry added (or, for a code it already holds, updated in
- * place): weeks kept oldest first, the newest `WEEKLY_KEEP_WEEKS`; at most `WEEKLY_MAX_ENTRIES` a
- * week, the lowest-ranked code the player added making room first (their own runs last).
+ * place): weeks kept oldest first, at most `WEEKLY_KEEP_WEEKS` of them; at most
+ * `WEEKLY_MAX_ENTRIES` a week, the lowest-ranked code the player added making room first (their
+ * own runs last). Past the weeks kept, the oldest week holding none of the player's own runs goes
+ * first; a code the player added never pushes out a week of their own (its week isn't added
+ * instead, so `weeklyHolds` says it wasn't), and only a run of their own pushes out their oldest.
  */
 export function withWeeklyEntry(
   weeks: readonly WeeklyWeek[] | undefined,
@@ -260,5 +292,20 @@ export function withWeeklyEntry(
     const drop = [...ranked].reverse().find((r) => !r.entry.mine) ?? ranked[ranked.length - 1]!;
     target.entries.splice(target.entries.indexOf(drop.entry), 1);
   }
-  return all.slice(Math.max(0, all.length - WEEKLY_KEEP_WEEKS));
+  const own = (w: WeeklyWeek) => w.entries.some((e) => e.mine === true);
+  while (all.length > WEEKLY_KEEP_WEEKS) {
+    const spare = all.findIndex((w) => !own(w));
+    const drop = spare >= 0 ? spare : entry.mine === true ? 0 : all.indexOf(target);
+    all.splice(drop, 1);
+  }
+  return all;
+}
+
+/** Does the weekly record hold this code in this week? */
+export function weeklyHolds(
+  weeks: readonly WeeklyWeek[] | undefined,
+  week: number,
+  code: string,
+): boolean {
+  return !!weeks?.find((w) => w.week === week)?.entries.some((e) => e.code === code);
 }

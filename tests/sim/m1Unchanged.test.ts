@@ -9,7 +9,7 @@
  * (docs/phase-5e.md, W8) are appended after the nineteen, which come first and unchanged. The
  * Conductor Calling's three (docs/phase-5f.md, W4) follow the twenty-five, which come first and
  * unchanged. Phase 6's three (docs/phase-6.md, W7: Tyrant, Mimicry, the Postlude) follow the
- * twenty-eight, which come first and unchanged.
+ * twenty-eight, which come first and unchanged, and its Echo golden (W7 part B) the thirty-one.
  */
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../../src/content';
@@ -105,13 +105,25 @@ const TWENTY_EIGHT: Readonly<Record<string, string>> = { ...ALL_PINNED, ...CONDU
  * tunes Phase 6's numbers; the twenty-eight never are.
  */
 const PHASE6_HASHES: Readonly<Record<string, string>> = {
-  'skilled-tyrant-vharun': '9a97b9f283a51ae8',
+  'skilled-tyrant-vharun': '98edc77c35e67af0',
   'novice-mimicry-first-light': '727ddeaca04419a3',
   'skilled-postlude': '3ca13e1f0491dc46',
 };
 
-/** All thirty-one goldens, in golden.json's order. */
-const ALL_GOLDENS: Readonly<Record<string, string>> = { ...TWENTY_EIGHT, ...PHASE6_HASHES };
+/** The thirty-one goldens W7's Echo golden found, in golden.json's order (first, and unchanged). */
+const THIRTY_ONE: Readonly<Record<string, string>> = { ...TWENTY_EIGHT, ...PHASE6_HASHES };
+
+/**
+ * Phase 6's Echo golden (docs/phase-6.md, W7: "one Echo fight with a leg scale"), appended after
+ * the thirty-one: the Hollow Cantor at Bells in the Rift's leg scale (the doc's Choir of Blood has
+ * no leg scale as built).
+ */
+const ECHO_HASHES: Readonly<Record<string, string>> = {
+  'skilled-echo-bells-in-the-rift': '07fd95fcfee7c80b',
+};
+
+/** All thirty-two goldens, in golden.json's order. */
+const ALL_GOLDENS: Readonly<Record<string, string>> = { ...THIRTY_ONE, ...ECHO_HASHES };
 
 describe('Movement I is unchanged (docs/phase-5a.md)', () => {
   it('SIM_VERSION is still 22', () => {
@@ -155,9 +167,17 @@ describe('Movement I is unchanged (docs/phase-5a.md)', () => {
       expect((golden.scenarios as Record<string, string>)[name], name).toBe(hash);
   });
 
-  it('golden.json holds exactly the thirty-one, in order (docs/phase-6.md)', () => {
+  it('golden.json holds the thirty-one first, in order (docs/phase-6.md)', () => {
     expect(Object.keys(PHASE6_HASHES)).toHaveLength(3);
-    expect(Object.keys(ALL_GOLDENS)).toHaveLength(31);
+    expect(Object.keys(THIRTY_ONE)).toHaveLength(31);
+    expect(Object.keys(golden.scenarios).slice(0, 31)).toEqual(Object.keys(THIRTY_ONE));
+    for (const [name, hash] of Object.entries(THIRTY_ONE))
+      expect((golden.scenarios as Record<string, string>)[name], name).toBe(hash);
+  });
+
+  it('golden.json holds exactly the thirty-two, in order (docs/phase-6.md, the Echo golden)', () => {
+    expect(Object.keys(ECHO_HASHES)).toHaveLength(1);
+    expect(Object.keys(ALL_GOLDENS)).toHaveLength(32);
     expect(golden.scenarios).toStrictEqual(ALL_GOLDENS);
     expect(Object.keys(golden.scenarios)).toEqual(Object.keys(ALL_GOLDENS));
   });

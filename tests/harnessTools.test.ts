@@ -133,7 +133,19 @@ import { eventMotif, knownIds, preferredIndex, type RunSummary } from '../tools/
 import { sandbox, worldOf } from './sim/helpers';
 import { EXPERT_RULES, ExpertBot } from '../src/bots/expert';
 import { dissonancePoints } from '../src/meta/dissonance';
-import { expertPolicy, rank20Build, TIER_CALLINGS, TIERS } from '../tools/dissonance';
+import {
+  ECHO_TIERS,
+  echoParty,
+  echoRun,
+  expertPolicy,
+  rank20Build,
+  TIER_CALLINGS,
+  TIERS,
+  weeklyRun,
+} from '../tools/dissonance';
+import { verifyRunReplay, type RunReplay } from '../src/meta/runReplay';
+import { weeklyEntry } from '../src/meta/weekly';
+import { SCENARIO_ECHO_RIFT } from '../tools/scenarios';
 import { dissonanceArg, expertTail } from '../tools/verbs';
 
 /**
@@ -2610,4 +2622,169 @@ describe('the Expert in the harness (docs/phase-6.md, W7)', () => {
     // The other bots' bands are as they were.
     expect(runBand(4, 'skilled')).toMatch(/^won ≥55%/);
   }, 120_000);
+});
+
+describe('Echoes and weeklies in the harness (docs/phase-6.md, W7 part B)', () => {
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  const guardian = Run.CHORD_PRESETS.find((p) => p.id === 'guardian')!.chords;
+
+  it('playRun plays an Echo from Prep to Summary, its fights on its own route', () => {
+    const encounters: string[] = [];
+    const r = playRun(2000, 'skilled', undefined, {
+      echo: 'choir_of_blood',
+      onPhase: (phase, run) => {
+        expect(run.echo).toBe('choir_of_blood');
+        if (phase === 'combat') encounters.push(Run.combatConfig(run)!.encounter!);
+      },
+    });
+    expect(r.fights).toBe(encounters.length);
+    expect(encounters[0]).toBe('first_light');
+    if (r.outcome === 'victory')
+      expect(encounters.slice(-2)).toEqual(['gorehound_matriarch', 'vharun']);
+  }, 120_000);
+
+  it('an Echo leg’s scale reaches its fights, and the Echo golden plays that scale', () => {
+    const scales: unknown[] = [];
+    playRun(2000, 'skilled', undefined, {
+      echo: 'bells_in_the_rift',
+      onPhase: (phase, run) => {
+        if (phase === 'combat') scales.push(Run.combatConfig(run)!.movement);
+      },
+    });
+    expect(scales.length).toBeGreaterThan(0);
+    for (const s of scales) expect(s).toEqual(SCENARIO_ECHO_RIFT.config!.movement);
+    expect(SCENARIO_ECHO_RIFT.config!.encounter).toBe('hollow_cantor');
+    // Choir of Blood's leg names no scale: its fights carry no `movement` key.
+    playRun(2000, 'skilled', undefined, {
+      echo: 'choir_of_blood',
+      onPhase: (phase, run) => {
+        if (phase === 'combat') expect('movement' in Run.combatConfig(run)!).toBe(false);
+      },
+    });
+  }, 180_000);
+
+  it('the Expert plays A Cappella with no Calling, Strangers with its party, The Unrested with its levels', () => {
+    const callings: (string | null)[] = [];
+    // `echoRun` gives it the Luminary by seed (index 1); the Echo drops it.
+    expect(echoRun('a_cappella', 2000, 1, 'expert', guardian, [], true).path).toEqual([]);
+    playRun(2000, 'expert', guardian, {
+      ...rank20Build(),
+      echo: 'a_cappella',
+      calling: 'luminary',
+      ...expertPolicy('luminary'),
+      onPhase: (phase, run) => {
+        callings.push(run.calling?.id ?? null);
+        expect(phase).not.toBe('calling');
+        expect(run.astrolabe).toEqual([]);
+      },
+    });
+    expect(new Set(callings)).toEqual(new Set([null]));
+    expect(echoParty('strangers')).toEqual(['brann', 'seren', 'oro']);
+    expect(rank20Build(echoParty('strangers')).bonds!.map((b) => b.heroId)).toEqual([
+      'brann',
+      'seren',
+      'oro',
+    ]);
+    playRun(2000, 'expert', guardian, {
+      ...rank20Build(echoParty('strangers')),
+      echo: 'strangers',
+      ...expertPolicy(null),
+      onPhase: (_, run) =>
+        expect(run.party.map((h) => h.heroId)).toEqual(['brann', 'seren', 'oro']),
+    });
+    playRun(2000, 'expert', guardian, {
+      echo: 'the_unrested',
+      dissonance: TIERS[1]!.levels,
+      ...expertPolicy(null),
+      onPhase: (phase, run) => {
+        if (phase !== 'combat') return;
+        const levels = Run.combatConfig(run)!.dissonance!.map((l) => l.id);
+        for (const id of ['restless_dead', 'unforgiving', 'hardened', 'wounding_strikes'])
+          expect(levels, id).toContain(id);
+      },
+    });
+  }, 300_000);
+
+  it('playRun plays any week’s weekly (every route), with the entry’s party and Calling', () => {
+    for (const week of [44, 51]) {
+      const entry = weeklyEntry(week)!;
+      let phases = 0;
+      const { summary, score } = weeklyRun(week, 'skilled', guardian, false);
+      playRun(1, 'skilled', guardian, {
+        week,
+        onPhase: (_, run) => {
+          expect(run.weekly).toEqual({ week });
+          expect(run.party.map((h) => h.heroId)).toEqual([...entry.party]);
+          expect(run.calling?.id ?? null).toBe(entry.calling);
+          if (entry.route !== 'expedition') expect(run.echo).toBe(entry.route);
+          phases++;
+        },
+      });
+      expect(phases).toBeGreaterThan(5);
+      expect(score).toBeGreaterThanOrEqual(summary.outcome === 'victory' ? 1000 : 0);
+    }
+  }, 300_000);
+
+  it('a recorded Expert Echo run and Echo-route weekly verify, and recording changes nothing', () => {
+    const week = 51;
+    const entry = weeklyEntry(week)!;
+    expect(entry.route).not.toBe('expedition');
+    const runs: [string, Parameters<typeof playRun>[3]][] = [
+      ['echo', { ...rank20Build(), echo: 'choir_of_blood', ...expertPolicy(null) }],
+      ['weekly', { week, ...expertPolicy(entry.calling) }],
+    ];
+    for (const [name, opts] of runs) {
+      let replay: RunReplay | null = null;
+      const recorded = playRun(2000, 'expert', guardian, {
+        ...opts,
+        onReplay: (r) => (replay = r),
+      });
+      expect(playRun(2000, 'expert', guardian, opts), name).toEqual(recorded);
+      expect(replay, name).not.toBeNull();
+      const file = JSON.parse(JSON.stringify(replay)) as RunReplay;
+      expect(file.kind).toBe(name === 'echo' ? 'echo' : 'weekly');
+      expect(file.steps.filter((s) => s.k === 'fight')).toHaveLength(recorded.fights);
+      const result = verifyRunReplay(file);
+      expect(result.status, `${name}: ${result.message}`).toBe('verified');
+      expect(result.played!.won).toBe(recorded.outcome === 'victory');
+    }
+    expect(() =>
+      playRun(1, 'skilled', undefined, { threatMult: 1.2, onReplay: () => undefined }),
+    ).toThrow(/its own Threat/);
+  }, 300_000);
+
+  it('the star tiers are the tier sets 0, I and II', () => {
+    expect(ECHO_TIERS.map((t) => [t.stars, t.tier.points])).toEqual([
+      [1, 0],
+      [2, 10],
+      [3, 20],
+    ]);
+    expect(TIER_CALLINGS).toHaveLength(5);
+    expect(() => echoParty('nope')).toThrow(/Unknown Echo/);
+  });
+
+  it('dissonance.ts --echoes and --weekly print a row a bot', () => {
+    const run = (...args: string[]) =>
+      execFileSync('npx', ['tsx', 'tools/dissonance.ts', ...args], {
+        cwd: root,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+        .trim()
+        .split('\n');
+    const echoes = run('--echoes', '--seeds', '1', '--echo', 'choir_of_blood', '--only', '0');
+    expect(echoes[0]).toMatch(/^dissonance echoes · expert · Rank 20 build/);
+    expect(echoes[1]).toBe('Choir of Blood · ★ (0 pts) · band Expert 60-95% · length 12-22 min');
+    expect(echoes[2]).toMatch(
+      /^ {2}expert {3}won +\d+% \(\d\/1\) · [\d.]+ min of combat · lost at /,
+    );
+    expect(echoes).toHaveLength(4);
+    const weekly = run('--weekly', '--seeds', '1', '--entry', '3');
+    expect(weekly[0]).toMatch(/^dissonance weekly · expert · the level field/);
+    expect(weekly[1]).toMatch(/^entry 3 · choir_of_blood · .* · weeks 51$/);
+    expect(weekly[2]).toMatch(
+      /^ {2}expert {3}won +\d+% \(\d\/1\) · score \d+ · [\d.]+ min of combat/,
+    );
+    expect(weekly).toHaveLength(4);
+  }, 300_000);
 });

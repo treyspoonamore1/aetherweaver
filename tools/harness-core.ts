@@ -13,7 +13,14 @@ import {
 import { makeBot, type BotKind } from '../src/bots';
 import type { ReliquaryRelic } from '../src/meta/reliquary';
 import * as Run from '../src/meta/run';
-import type { ChordLoadout, DraftOption, MapNode, RunState, ShopItem } from '../src/meta/types';
+import type {
+  ChordLoadout,
+  DraftOption,
+  ForgeChoice,
+  MapNode,
+  RunState,
+  ShopItem,
+} from '../src/meta/types';
 import { weaverShare } from '../src/meta/run';
 import { inhaleTell, inNullZone, inPullZone, isStitched } from '../src/bots/common';
 import {
@@ -25,6 +32,7 @@ import {
   gentle,
   isWeaverVia,
   parryArmed,
+  ReplayRecorder,
   type EntityId,
   type NoteSource,
   type Sim,
@@ -44,6 +52,14 @@ import {
   TENOR,
 } from '../src/content/crucibleIds';
 import { noVariants, type Techniques } from '../src/meta/variants';
+import { EVERYTHING } from '../src/meta/profile';
+import {
+  RunRecorder,
+  allowanceRecord,
+  type ChoiceStep,
+  type RunReplay,
+} from '../src/meta/runReplay';
+import { weeklyStart } from '../src/meta/weekly';
 
 export interface EncounterRun {
   encounter: string;
@@ -1754,6 +1770,15 @@ export type NodePrefer = (options: readonly MapNode[], run: RunState) => number 
 /** What `playRun` does at a Respite (`respitePrefer`): rest, meditate, or the harness's own (rest). */
 export type RespitePrefer = (run: RunState) => 'rest' | 'meditate' | null | undefined;
 
+/**
+ * A run step `playRun` took, as a run replay records it (`onReplay`, docs/phase-6.md "Run
+ * replays"): the step, the run before it and the run it left. Only called while recording.
+ */
+type Note = (step: ChoiceStep, before: RunState, after: RunState) => void;
+
+/** Every step `playRun` takes passes the run layer's full allowance (its defaults). */
+const ALL = allowanceRecord(EVERYTHING);
+
 /** The warnings already printed, so a preference named in a thousand runs warns once. */
 const WARNED = new Set<string>();
 
@@ -1899,7 +1924,13 @@ function shop(
   prefer?: (ids: readonly string[], run: RunState) => number | null | undefined,
   motifPrefer?: readonly string[],
   policy?: ShopPrefer,
+  note?: Note,
 ): RunState {
+  const buy = (index: number) => {
+    const before = run;
+    run = Run.buy(run, index);
+    note?.({ k: 'buy', index }, before, run);
+  };
   for (let guard = 0; guard < 8; guard++) {
     const items = run.shop?.items ?? [];
     // A whole-shop policy (`playRun`'s `shopPrefer`, docs/phase-6.md): its pick, or leave on null;
@@ -1911,7 +1942,7 @@ function shop(
         const item = pick === null ? undefined : items[pick];
         if (!item || item.sold || item.price > run.aether || (!relics && item.kind === 'relic'))
           break;
-        run = Run.buy(run, pick!);
+        buy(pick!);
         continue;
       }
     }
@@ -1932,9 +1963,12 @@ function shop(
             b.item.price - a.item.price,
         )[0];
     if (!want) break;
-    run = Run.buy(run, want.index);
+    buy(want.index);
   }
-  return Run.leaveShop(run);
+  const before = run;
+  run = Run.leaveShop(run);
+  note?.({ k: 'leaveShop' }, before, run);
+  return run;
 }
 
 /** The affordable motif `prefer` names nearest its front; undefined without a list or a match. */
@@ -1969,12 +2003,23 @@ function preferredRelic<T extends { item: { kind: string; id?: string } }>(
 }
 
 /** Lift a curse if there is one, else temper the first motif that can grow. */
-function forge(run: RunState): RunState {
+function forge(run: RunState, note?: Note): RunState {
   const curse = Run.forgeTargets(run, 'cleanse')[0];
   const motif = Run.forgeTargets(run, 'temper')[0];
-  if (curse) run = Run.forge(run, { service: 'cleanse', relicId: curse });
-  else if (motif) run = Run.forge(run, { service: 'temper', motifId: motif });
-  return Run.leaveForge(run);
+  const choice: ForgeChoice | undefined = curse
+    ? { service: 'cleanse', relicId: curse }
+    : motif
+      ? { service: 'temper', motifId: motif }
+      : undefined;
+  let before = run;
+  if (choice) {
+    run = Run.forge(run, choice);
+    note?.({ k: 'forge', choice, allowance: ALL }, before, run);
+  }
+  before = run;
+  run = Run.leaveForge(run);
+  note?.({ k: 'leaveForge' }, before, run);
+  return run;
 }
 
 /**
@@ -1983,7 +2028,12 @@ function forge(run: RunState): RunState {
  * preference is a list naming a motif (`motifOrder`, see `eventMotif`); without one it never picks
  * a motif, as before.
  */
-function event(run: RunState, relics: boolean, motifOrder?: readonly string[]): RunState {
+function event(
+  run: RunState,
+  relics: boolean,
+  motifOrder?: readonly string[],
+  note?: Note,
+): RunState {
   if (run.event && run.event.choice === null) {
     const def = runEventDef(run.event.eventId);
     const motifFor = (c: (typeof def.choices)[number]): string | undefined =>
@@ -1998,10 +2048,25 @@ function event(run: RunState, relics: boolean, motifOrder?: readonly string[]): 
     );
     if (choice) {
       const motifId = motifFor(choice);
+      const before = run;
       run = Run.chooseEvent(run, choice.id, motifId !== undefined ? { motifId } : {});
+      note?.(
+        {
+          k: 'event',
+          choice: choice.id,
+          ...(motifId !== undefined ? { motifId } : {}),
+          allowance: ALL,
+        },
+        before,
+        run,
+      );
     }
   }
-  return run.phase === 'event' ? Run.leaveEvent(run) : run;
+  if (run.phase !== 'event') return run;
+  const before = run;
+  run = Run.leaveEvent(run);
+  note?.({ k: 'leaveEvent' }, before, run);
+  return run;
 }
 
 /**
@@ -2181,6 +2246,26 @@ export function playRun(
     respitePrefer?: RespitePrefer;
     shopPrefer?: ShopPrefer;
     motifOrder?: (run: RunState) => readonly string[];
+    /**
+     * An Echo (docs/phase-6.md, "Design: the Atlas of Echoes"): the run is `Run.newEchoRun` of
+     * it, with the creation options above (its twists drop what it forbids: a tree, a carry, a
+     * Calling, a party) and `party` and `calling` set in Prep as on any run; `movements` is not
+     * read. Its map's `movement` and the summary's Movements count its legs.
+     */
+    echo?: string;
+    /**
+     * A weekly (docs/phase-6.md, "The weekly seed"): the run is `weeklyStart(week, picks)`, every
+     * route the rotation names, with `chords` and `techniques` as its picks; nothing else of the
+     * creation options is read (the week fixes the seed, route, Calling, party and Dissonance).
+     */
+    week?: number;
+    /**
+     * Records the run as the game does (W4's `RunRecorder`: every choice as a step, every fight
+     * with its frames) and gives the replay file at its Summary. Only for a run started here, or
+     * a `start` that has just embarked; not with `threatMult` or `THREAT_PER_ROW` (a fight the
+     * run itself wouldn't give can't verify). Absent, nothing is recorded.
+     */
+    onReplay?: (replay: RunReplay) => void;
   } = {},
 ): RunSummary {
   const relics = opts.relics ?? true;
@@ -2207,7 +2292,19 @@ export function playRun(
   const movements = opts.movements ?? 1;
   let run: RunState;
   let harmony: HarmonyWatch | null;
-  if (opts.start) {
+  if (opts.week !== undefined) {
+    const started = weeklyStart(opts.week, {
+      chords,
+      techniques: { ...noVariants(), ...opts.techniques },
+    });
+    if (!started) throw new Error(`week ${opts.week}: its route can't be started`);
+    run = started;
+    harmony = run.party.some((h) =>
+      bloodRageOf(CONTENT.heroes.find((d) => d.id === h.heroId) ?? {}),
+    )
+      ? new HarmonyWatch()
+      : null;
+  } else if (opts.start) {
     run = opts.start;
     harmony = run.party.some((h) =>
       bloodRageOf(CONTENT.heroes.find((d) => d.id === h.heroId) ?? {}),
@@ -2215,16 +2312,28 @@ export function playRun(
       ? new HarmonyWatch()
       : null;
   } else {
-    const created = Run.newRun(
-      seed,
-      undefined,
-      opts.astrolabe ?? [],
-      opts.carried ?? [],
-      opts.dissonance ?? [],
-      opts.bonds ?? [],
-      { ...noVariants(), ...opts.techniques },
-      movements,
-    );
+    const created =
+      opts.echo !== undefined
+        ? Run.newEchoRun(
+            seed,
+            opts.echo,
+            undefined,
+            opts.astrolabe ?? [],
+            opts.carried ?? [],
+            opts.dissonance ?? [],
+            opts.bonds ?? [],
+            { ...noVariants(), ...opts.techniques },
+          )
+        : Run.newRun(
+            seed,
+            undefined,
+            opts.astrolabe ?? [],
+            opts.carried ?? [],
+            opts.dissonance ?? [],
+            opts.bonds ?? [],
+            { ...noVariants(), ...opts.techniques },
+            movements,
+          );
     const fresh = opts.party ? withParty(created, opts.party) : created;
     // Blood and Silk's offers, for a party with a Blood Rage hero only.
     harmony = fresh.party.some((h) =>
@@ -2238,6 +2347,11 @@ export function playRun(
   let seconds = 0;
   const byMovement: number[] = [0];
   let last = '';
+  // Recording (`onReplay`): every step below is noted with the run before and after it.
+  if (opts.onReplay && (opts.threatMult || process.env.THREAT_PER_ROW !== undefined))
+    throw new Error('playRun: a recorded run plays its own Threat (no threatMult, THREAT_PER_ROW)');
+  const rec = opts.onReplay ? RunRecorder.begin(run) : null;
+  const note: Note | undefined = rec ? (s, before, after) => rec.step(s, before, after) : undefined;
   for (let guard = 0; guard < MAX_PHASES && run.phase !== 'summary'; guard++) {
     opts.onPhase?.(run.phase, run);
     harmony?.look(run);
@@ -2247,7 +2361,10 @@ export function playRun(
         const want = opts.nodePrefer?.(options, run);
         const node = want === null || want === undefined ? undefined : options[want];
         // Prefer fights early (more motifs), otherwise the first option.
-        run = Run.chooseNode(run, (node ?? options[seed % options.length]!).id);
+        const id = (node ?? options[seed % options.length]!).id;
+        const before = run;
+        run = Run.chooseNode(run, id);
+        note?.({ k: 'node', id }, before, run);
         break;
       }
       case 'combat': {
@@ -2259,8 +2376,11 @@ export function playRun(
         if (opts.threatMult) config.threat = (config.threat ?? 1) * opts.threatMult;
         const sim = createSim(config);
         const player = makeBot(bot, config.seed);
+        const frames = rec ? new ReplayRecorder(sim.config) : null;
         for (let t = 0; t < MAX_SECONDS * 60; t++) {
-          sim.step(player.decide(sim.state));
+          const tick = sim.tick;
+          const consumed = sim.step(player.decide(sim.state));
+          frames?.record(tick, consumed);
           const events = sim.drainEvents();
           opts.onEvents?.(events);
           const s = sim.state.encounter.status;
@@ -2278,18 +2398,27 @@ export function playRun(
         const m = movementOfNode(run, run.pending!);
         while (byMovement.length < m) byMovement.push(0);
         byMovement[m - 1]! += sim.state.time;
-        run = Run.finishCombat(
-          run,
-          buildOutcome(
-            sim.state,
-            sim.config.party.map((p) => p.heroId),
-          ),
+        const outcome = buildOutcome(
+          sim.state,
+          sim.config.party.map((p) => p.heroId),
         );
+        const before = run;
+        run = Run.finishCombat(run, outcome);
+        if (rec && frames)
+          rec.fight(
+            frames.export(sim.tick, sim.hash()),
+            outcome.outcome === 'victory',
+            before,
+            run,
+          );
         break;
       }
-      case 'result':
+      case 'result': {
+        const before = run;
         run = Run.continueFromResult(run);
+        note?.({ k: 'continue' }, before, run);
         break;
+      }
       case 'draft': {
         const options = run.draft?.options ?? [];
         const want = !run.draft
@@ -2302,12 +2431,19 @@ export function playRun(
                   options.map((o) => o.motifId),
                 )
               : undefined;
-        run = Run.pickDraft(run, want !== undefined ? want : options.length > 0 ? 0 : null);
+        const index = want !== undefined ? want : options.length > 0 ? 0 : null;
+        const before = run;
+        run = Run.pickDraft(run, index);
+        note?.({ k: 'draft', index }, before, run);
         break;
       }
-      case 'respite':
-        run = Run.respite(run, opts.respitePrefer?.(run) ?? 'rest');
+      case 'respite': {
+        const choice = opts.respitePrefer?.(run) ?? 'rest';
+        const before = run;
+        run = Run.respite(run, choice);
+        note?.({ k: 'respite', choice }, before, run);
         break;
+      }
       case 'calling': {
         const tier = run.callingOffer!.tier;
         const index = opts.path?.[tier] ?? 0;
@@ -2318,7 +2454,13 @@ export function playRun(
           : opts.thirdAura
             ? withNamedAura(run, option.id, opts.thirdAura)
             : withAnotherAura(run, option.id);
+        const before = run;
         run = Run.pickCalling(run, index, filled);
+        note?.(
+          { k: 'calling', index, ...(filled ? { chords: filled } : {}), allowance: ALL },
+          before,
+          run,
+        );
         if (opts.thirdAura && option.values.slots && !run.chords[1]?.auras.includes(opts.thirdAura))
           warnOnce(
             `harness: ${option.id} could not add ${opts.thirdAura} to the field song (${run.chords.map((c) => c.auras.join('+')).join(' | ')}); the songs stay as they are`,
@@ -2335,19 +2477,22 @@ export function playRun(
               : relicIds
                 ? preferredIndex(relicIds, offered)
                 : undefined;
-        run = Run.pickRelic(run, want !== undefined ? want : relics ? 0 : null);
+        const index = want !== undefined ? want : relics ? 0 : null;
+        const before = run;
+        run = Run.pickRelic(run, index);
+        note?.({ k: 'relic', index }, before, run);
         break;
       }
       case 'merchant':
-        run = shop(run, relics, shopPrefer, motifOrder, opts.shopPrefer);
+        run = shop(run, relics, shopPrefer, motifOrder, opts.shopPrefer, note);
         break;
       case 'forge':
-        run = forge(run);
+        run = forge(run, note);
         break;
       case 'event': {
         // A draft list's order first, as before; else `motifOrder`'s (an empty one: none).
         const order = motifOrder ?? opts.motifOrder?.(run);
-        run = event(run, relics, order && order.length > 0 ? order : undefined);
+        run = event(run, relics, order && order.length > 0 ? order : undefined, note);
         break;
       }
       default:
@@ -2357,6 +2502,7 @@ export function playRun(
   if (run.phase !== 'summary')
     throw new Error(`run ${seed} (${bot}) did not end within ${MAX_PHASES} phases`);
   opts.onEnd?.(run);
+  if (rec) opts.onReplay!(rec.finish(run));
   return {
     seed,
     bot,
