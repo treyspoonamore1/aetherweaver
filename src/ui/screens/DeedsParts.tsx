@@ -17,6 +17,7 @@ import {
   type DeedsOpen,
 } from './deedsModel';
 import { SectionTitle } from './shared';
+import { t } from '../text';
 
 /** How a Deed is lit: a ladder Deed in the Astrolabe's starlight, a Calling's in its colour. */
 export interface DeedLook {
@@ -110,7 +111,7 @@ function BestMeter({ best, earned }: { best: DeedBest; earned: boolean }) {
         <span
           className="relative h-1.5 w-14 overflow-hidden rounded-full bg-ink-700"
           role="meter"
-          aria-label={`Best run: ${best.have} of ${best.need}`}
+          aria-label={t('screens.deedsParts.bestRunOf', { have: best.have, need: best.need })}
           aria-valuemin={0}
           aria-valuemax={best.need}
           aria-valuenow={Math.min(best.have, best.need)}
@@ -162,10 +163,10 @@ export function DeedCard({ row }: { row: DeedRow }) {
               className="flex shrink-0 items-center gap-1 text-xs font-semibold"
               style={{ color: look.light }}
             >
-              <Icon name="check" size={13} /> Earned
+              <Icon name="check" size={13} /> {t('screens.deedsParts.earned')}
             </span>
           ) : (
-            <span className="sr-only">Not earned yet.</span>
+            <span className="sr-only">{t('screens.deedsParts.notEarnedYet')}</span>
           )}
         </div>
         <p className={`mt-1 text-sm leading-snug ${row.earned ? 'text-text' : 'text-muted'}`}>
@@ -241,20 +242,23 @@ export function DeedsPage({
       <div className="grid items-start gap-4 lg:grid-cols-[1fr_24rem]">
         <Panel tone="gold" className="p-5">
           <h2 className="flex items-center gap-2 font-display text-xl font-bold text-gold-200">
-            <Icon name="crown" size={22} /> Deeds
+            <Icon name="crown" size={22} /> {t('screens.deedsParts.deeds')}
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-text">
-            Deeds are feats within a run: things you do in one run or one fight. Each is earned
-            after the fight that meets it (one that needs a win, when the boss falls), once and for
-            good. The Training Grounds earn none; a lost or abandoned run keeps what it earned.
+            {t('screens.deedsParts.deedsAreFeatsWithin')}
           </p>
           <p className="mt-2 text-sm leading-relaxed text-text">
-            The {v.ladder.length} on <b style={{ color: STARLIGHT.color }}>the ladder ({STAR})</b>{' '}
-            give an Astrolabe point each: up to {v.pointsMax} more on top of the Ranks’{' '}
-            {astrolabePoints(MAX_RANK)} ({astrolabePoints(MAX_RANK, true)} in all), counted once the
-            Astrolabe opens at Rank {ASTROLABE_RANK}. The {v.badges.length}{' '}
-            <b className="text-gold-300">badges</b> are for the record. A Deed that counts something
-            shows your best run so far.
+            {t('screens.deedsParts.theOn', { length: v.ladder.length })}{' '}
+            <b style={{ color: STARLIGHT.color }}>{t('screens.deedsParts.theLadder', { STAR })}</b>{' '}
+            {t('screens.deedsParts.giveAnAstrolabePoint', {
+              pointsMax: v.pointsMax,
+              astrolabePoints: astrolabePoints(MAX_RANK),
+              astrolabePoints2: astrolabePoints(MAX_RANK, true),
+              ASTROLABE_RANK,
+              length: v.badges.length,
+            })}
+            <b className="text-gold-300">{t('screens.deedsParts.badges')}</b>{' '}
+            {t('screens.deedsParts.areForTheRecord')}
           </p>
         </Panel>
         <Panel tone="solid" className="p-5" data-testid="deeds-tally">
@@ -267,7 +271,7 @@ export function DeedsPage({
           <div
             className="mt-3 h-1.5 overflow-hidden rounded-full bg-ink-700"
             role="meter"
-            aria-label={`Deeds earned: ${v.earned} of ${v.total}`}
+            aria-label={t('screens.deedsParts.deedsEarnedOf', { earned: v.earned, total: v.total })}
             aria-valuemin={0}
             aria-valuemax={v.total}
             aria-valuenow={v.earned}
@@ -279,7 +283,7 @@ export function DeedsPage({
           </div>
           <p className="mt-3 flex items-center gap-2.5 text-xs text-muted">
             <PointPips points={v.points} max={v.pointsMax} />
-            Astrolabe points
+            {t('screens.deedsParts.astrolabePoints')}
           </p>
           {v.waiting && (
             <p className="mt-2 flex items-start gap-1.5 text-xs text-muted">
@@ -294,9 +298,9 @@ export function DeedsPage({
           className="mb-3 flex flex-wrap items-baseline gap-x-2 font-display text-lg font-bold"
           style={{ color: STARLIGHT.color }}
         >
-          {STAR} The ladder
+          {t('screens.deedsParts.theLadder2', { STAR })}
           <span className="font-sans text-sm font-normal text-muted">
-            an Astrolabe point each, easiest first
+            {t('screens.deedsParts.anAstrolabePointEach')}
           </span>
         </h2>
         <ol className={GRID}>
@@ -312,8 +316,10 @@ export function DeedsPage({
           id="deeds-badges"
           className="mb-3 flex flex-wrap items-baseline gap-x-2 font-display text-lg font-bold text-gold-300"
         >
-          Badges
-          <span className="font-sans text-sm font-normal text-muted">for the record</span>
+          {t('screens.deedsParts.badges2')}
+          <span className="font-sans text-sm font-normal text-muted">
+            {t('screens.deedsParts.forTheRecord')}
+          </span>
         </h2>
         <ul className={GRID}>
           {v.badges.map((row) => (
@@ -344,12 +350,13 @@ export function RunDeedsPanel({
         right={
           points > 0 ? (
             <span className="font-mono text-xs text-muted">
-              <span style={{ color: STARLIGHT.color }}>{STAR}</span> an Astrolabe point
+              <span style={{ color: STARLIGHT.color }}>{STAR}</span>{' '}
+              {t('screens.deedsParts.anAstrolabePoint')}
             </span>
           ) : undefined
         }
       >
-        Deeds earned this run
+        {t('screens.deedsParts.deedsEarnedThisRun')}
       </SectionTitle>
       <ul
         className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3"
@@ -417,7 +424,7 @@ export function DeedToastCard({
         <div className="min-w-0 flex-1">
           <p>
             <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-muted">
-              Deed earned
+              {t('screens.deedsParts.deedEarned')}
             </span>
             <span className="sr-only"> · </span>
             <span
@@ -437,7 +444,7 @@ export function DeedToastCard({
       </div>
       {total > 1 && (
         <span className="absolute right-4 top-3 font-mono text-xs text-muted">
-          {index + 1} of {total}
+          {t('screens.deedsParts.of', { value: index + 1, total })}
         </span>
       )}
       <div

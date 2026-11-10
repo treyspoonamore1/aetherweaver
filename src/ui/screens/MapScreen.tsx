@@ -35,20 +35,84 @@ import {
   runMovementOf,
   wantsMovementCard,
 } from './routeText';
+import { t as txt } from '../text';
 
 export const NODE_LOOK: Record<
   NodeKind,
   { icon: IconName; label: string; color: string; size: number }
 > = {
-  skirmish: { icon: 'swords', label: 'Skirmish', color: '#93c5fd', size: 52 },
-  elite: { icon: 'skull', label: 'Elite', color: '#fb923c', size: 56 },
-  shrine: { icon: 'flame', label: 'Shrine', color: '#5eead4', size: 52 },
-  respite: { icon: 'moon', label: 'Respite', color: '#86efac', size: 52 },
-  merchant: { icon: 'purse', label: 'Merchant', color: '#facc15', size: 52 },
-  forge: { icon: 'anvil', label: 'Forge', color: '#f97316', size: 52 },
-  event: { icon: 'event', label: 'Event', color: '#c4b5fd', size: 52 },
-  miniboss: { icon: 'bell', label: 'Mini-boss', color: '#fbbf24', size: 64 },
-  boss: { icon: 'eye', label: 'Boss', color: '#f472b6', size: 72 },
+  skirmish: {
+    icon: 'swords',
+    get label() {
+      return txt('screens.mapScreen.skirmish');
+    },
+    color: '#93c5fd',
+    size: 52,
+  },
+  elite: {
+    icon: 'skull',
+    get label() {
+      return txt('screens.mapScreen.elite');
+    },
+    color: '#fb923c',
+    size: 56,
+  },
+  shrine: {
+    icon: 'flame',
+    get label() {
+      return txt('screens.mapScreen.shrine');
+    },
+    color: '#5eead4',
+    size: 52,
+  },
+  respite: {
+    icon: 'moon',
+    get label() {
+      return txt('screens.mapScreen.respite');
+    },
+    color: '#86efac',
+    size: 52,
+  },
+  merchant: {
+    icon: 'purse',
+    get label() {
+      return txt('screens.mapScreen.merchant');
+    },
+    color: '#facc15',
+    size: 52,
+  },
+  forge: {
+    icon: 'anvil',
+    get label() {
+      return txt('screens.mapScreen.forge');
+    },
+    color: '#f97316',
+    size: 52,
+  },
+  event: {
+    icon: 'event',
+    get label() {
+      return txt('screens.mapScreen.event');
+    },
+    color: '#c4b5fd',
+    size: 52,
+  },
+  miniboss: {
+    icon: 'bell',
+    get label() {
+      return txt('screens.mapScreen.miniBoss');
+    },
+    color: '#fbbf24',
+    size: 64,
+  },
+  boss: {
+    icon: 'eye',
+    get label() {
+      return txt('screens.mapScreen.boss');
+    },
+    color: '#f472b6',
+    size: 72,
+  },
 };
 
 const CHIP_COLOR: Record<RewardChip['tone'], string> = {
@@ -169,14 +233,14 @@ export function MapView({
           title={header.title}
           right={
             <Button variant="ghost" onClick={() => setConfirm(true)}>
-              <Icon name="flag" size={16} /> Abandon run
+              <Icon name="flag" size={16} /> {txt('screens.mapScreen.abandonRun')}
             </Button>
           }
         >
           <p className="mt-2 text-sm text-muted">
             {options.length > 0
-              ? 'Choose where to go next. Glowing nodes are within reach; hover one to see what it offers.'
-              : 'No path forward.'}
+              ? txt('screens.mapScreen.chooseWhereToGo')
+              : txt('screens.mapScreen.noPathForward')}
           </p>
         </ScreenHeader>
         <RunStrip
@@ -201,7 +265,7 @@ export function MapView({
               role="group"
               className="relative mx-auto w-full"
               style={{ aspectRatio: `${W} / ${H}`, maxWidth: 1100 }}
-              aria-label="Map"
+              aria-label={txt('screens.mapScreen.map')}
             >
               <svg
                 className="absolute inset-0 h-full w-full"
@@ -262,9 +326,9 @@ export function MapView({
             <Legend />
           </Panel>
 
-          <aside className="flex flex-col gap-4" aria-label="Run status">
+          <aside className="flex flex-col gap-4" aria-label={txt('screens.mapScreen.runStatus')}>
             <Panel tone="solid" className="p-4">
-              <SectionTitle>Party</SectionTitle>
+              <SectionTitle>{txt('screens.mapScreen.party')}</SectionTitle>
               <div className="flex flex-col gap-3.5">
                 {run.party.map((h) => (
                   <PartyHealth key={h.heroId} hero={h} />
@@ -272,10 +336,12 @@ export function MapView({
               </div>
             </Panel>
             <Panel tone="solid" className="p-4">
-              <SectionTitle>Chord</SectionTitle>
+              <SectionTitle>{txt('screens.mapScreen.chord')}</SectionTitle>
               <div className="flex flex-wrap gap-1.5">
                 {run.chords.every((c) => c.auras.length === 0) && (
-                  <span className="text-sm text-muted">No auras chosen.</span>
+                  <span className="text-sm text-muted">
+                    {txt('screens.mapScreen.noAurasChosen')}
+                  </span>
                 )}
                 {run.chords
                   .flatMap((c) => c.auras)
@@ -292,13 +358,15 @@ export function MapView({
             <Panel tone="solid" className="p-4">
               <SectionTitle
                 right={
-                  <span className="font-mono text-xs text-muted">{run.motifs.length} owned</span>
+                  <span className="font-mono text-xs text-muted">
+                    {txt('screens.mapScreen.owned', { length: run.motifs.length })}
+                  </span>
                 }
               >
-                Motifs
+                {txt('screens.mapScreen.motifs')}
               </SectionTitle>
               {run.motifs.length === 0 ? (
-                <p className="text-sm text-muted">None yet. Win a fight and choose one.</p>
+                <p className="text-sm text-muted">{txt('screens.mapScreen.noneYetWinA')}</p>
               ) : (
                 <ul className="flex flex-col gap-2.5">
                   {run.motifs.map((m) => {
@@ -329,7 +397,7 @@ export function MapView({
       </div>
       {confirm && (
         <Modal
-          title="Abandon this run?"
+          title={txt('screens.mapScreen.abandonThisRun')}
           width="max-w-md"
           onClose={() => setConfirm(false)}
           closeOnEscape
@@ -337,10 +405,10 @@ export function MapView({
           <p className="mt-2 text-sm leading-relaxed text-muted">{abandonLine(run)}</p>
           <div className="mt-5 flex justify-end gap-2">
             <Button data-autofocus onClick={() => setConfirm(false)} sound="back">
-              Keep going
+              {txt('screens.mapScreen.keepGoing')}
             </Button>
             <Button variant="danger" onClick={onAbandon} sound="confirm">
-              Abandon run
+              {txt('screens.mapScreen.abandonRun')}
             </Button>
           </div>
         </Modal>
@@ -378,7 +446,7 @@ function MovementCard({
     >
       <div className="anim-rise flex flex-col items-center px-6 text-center">
         <p className={`font-mono text-xs uppercase tracking-[0.4em] ${look.eyebrow}`}>
-          A new movement
+          {txt('screens.mapScreen.aNewMovement')}
         </p>
         <h2
           className="mt-3 font-display text-4xl font-bold tracking-wide text-gold-300 sm:text-6xl"
@@ -487,7 +555,7 @@ function MapNodeView({
       )}
       {state === 'current' && (
         <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded bg-gold-400 px-1.5 text-xs font-bold leading-4 text-ink-950">
-          You
+          {txt('screens.mapScreen.you')}
         </span>
       )}
       {tier !== null && calling && (
@@ -498,7 +566,7 @@ function MapNodeView({
             borderColor: cLook.color,
             boxShadow: `0 0 10px color-mix(in srgb, ${cLook.color} 60%, transparent)`,
           }}
-          title={`Your Calling grows after this fight (tier ${numeral(tier)})`}
+          title={txt('screens.mapScreen.yourCallingGrowsAfter', { numeral: numeral(tier) })}
           data-testid="calling-mark"
         >
           <CallingGlyph icon={calling.icon} size={15} />
@@ -544,7 +612,7 @@ function MapNodeView({
       ) : (
         <div
           className="flex flex-col items-center"
-          aria-label={`${title}, ${look.label}${state === 'visited' ? ', visited' : state === 'locked' ? ', not reachable yet' : ', you are here'}`}
+          aria-label={`${title}, ${look.label}${state === 'visited' ? txt('screens.mapScreen.visited') : state === 'locked' ? txt('screens.mapScreen.notReachableYet') : txt('screens.mapScreen.youAreHere')}`}
           role="img"
         >
           {body}
@@ -563,8 +631,12 @@ function MapNodeView({
           <Chip color={look.color} icon={look.icon}>
             {look.label}
           </Chip>
-          {enc && par > 0 && <Chip icon="clock">par {clock(par)}</Chip>}
-          {enc && enc.waves.length > 1 && <Chip>{enc.waves.length} waves</Chip>}
+          {enc && par > 0 && (
+            <Chip icon="clock">{txt('screens.mapScreen.par', { par: clock(par) })}</Chip>
+          )}
+          {enc && enc.waves.length > 1 && (
+            <Chip>{txt('screens.mapScreen.waves', { length: enc.waves.length })}</Chip>
+          )}
         </div>
         {enc && <p className="mt-2 text-xs italic leading-relaxed text-muted">{enc.flavor}</p>}
         <p className="mt-2 text-sm leading-snug text-text">{ev ? ev.teaser : node.reward.text}</p>
@@ -580,7 +652,8 @@ function MapNodeView({
           ))}
           {shop && (
             <li className="flex items-center gap-1.5 text-xs text-muted">
-              <Icon name="aether" size={13} /> You carry {run.aether} Aether
+              <Icon name="aether" size={13} />{' '}
+              {txt('screens.mapScreen.youCarryAether', { aether: run.aether })}
             </li>
           )}
         </ul>

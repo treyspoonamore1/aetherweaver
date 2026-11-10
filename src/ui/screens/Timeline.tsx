@@ -3,23 +3,96 @@ import { callingLook } from '../kit/callingLook';
 import { iconPath, type IconName } from '../kit/Icon';
 import { clock } from '../kit/format';
 import type { EncounterResult } from '../../meta/types';
+import { t as txt } from '../text';
 
 type MarkerKind = EncounterResult['markers'][number]['kind'];
 
 export const MARKER: Record<MarkerKind, { icon: IconName; label: string; color: string }> = {
-  perfect: { icon: 'ward', label: 'Perfect Ward', color: '#fcd98a' },
-  save: { icon: 'heart', label: 'Save', color: '#2dd4bf' },
-  cleanse: { icon: 'chime', label: 'Chime', color: '#c4b5fd' },
-  reel: { icon: 'reel', label: 'Reel', color: '#7dd3fc' },
+  perfect: {
+    icon: 'ward',
+    get label() {
+      return txt('screens.timeline.perfectWard');
+    },
+    color: '#fcd98a',
+  },
+  save: {
+    icon: 'heart',
+    get label() {
+      return txt('screens.timeline.save');
+    },
+    color: '#2dd4bf',
+  },
+  cleanse: {
+    icon: 'chime',
+    get label() {
+      return txt('screens.timeline.chime');
+    },
+    color: '#c4b5fd',
+  },
+  reel: {
+    icon: 'reel',
+    get label() {
+      return txt('screens.timeline.reel');
+    },
+    color: '#7dd3fc',
+  },
   // The Chronomancer's Rewind (Phase 3e): its own glyph, in his silver.
-  rewind: { icon: 'rewind', label: 'Rewind', color: callingLook('chronomancer').light },
-  cue: { icon: 'note', label: 'Cue', color: '#fbbf24' },
-  crescendo: { icon: 'sparkle', label: 'Crescendo', color: '#fff1c7' },
-  revive: { icon: 'mend', label: 'Revive', color: '#2dd4bf' },
-  phase: { icon: 'eye', label: 'Boss phase', color: '#cbd5e1' },
-  down: { icon: 'skull', label: 'Hero down', color: '#f43f5e' },
-  response: { icon: 'note', label: 'Call answered', color: '#fde68a' },
-  hold: { icon: 'heart', label: 'Fermata hold', color: '#e2d6f8' },
+  rewind: {
+    icon: 'rewind',
+    get label() {
+      return txt('screens.timeline.rewind');
+    },
+    color: callingLook('chronomancer').light,
+  },
+  cue: {
+    icon: 'note',
+    get label() {
+      return txt('screens.timeline.cue');
+    },
+    color: '#fbbf24',
+  },
+  crescendo: {
+    icon: 'sparkle',
+    get label() {
+      return txt('screens.timeline.crescendo');
+    },
+    color: '#fff1c7',
+  },
+  revive: {
+    icon: 'mend',
+    get label() {
+      return txt('screens.timeline.revive');
+    },
+    color: '#2dd4bf',
+  },
+  phase: {
+    icon: 'eye',
+    get label() {
+      return txt('screens.timeline.bossPhase');
+    },
+    color: '#cbd5e1',
+  },
+  down: {
+    icon: 'skull',
+    get label() {
+      return txt('screens.timeline.heroDown');
+    },
+    color: '#f43f5e',
+  },
+  response: {
+    icon: 'note',
+    get label() {
+      return txt('screens.timeline.callAnswered');
+    },
+    color: '#fde68a',
+  },
+  hold: {
+    icon: 'heart',
+    get label() {
+      return txt('screens.timeline.fermataHold');
+    },
+    color: '#e2d6f8',
+  },
 };
 
 const DASH = [undefined, '7 4', '2 4', '10 3 2 3'] as const;
@@ -107,7 +180,7 @@ export function HpTimeline({
       viewBox={`0 0 ${W} ${H}`}
       className="w-full"
       role="img"
-      aria-label="Party health over time, with your interventions marked"
+      aria-label={txt('screens.timeline.partyHealthOverTime')}
     >
       {[0, 0.5, 1].map((v) => (
         <g key={v}>

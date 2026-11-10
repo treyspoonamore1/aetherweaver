@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { heroDef } from '../../content';
 import { Icon } from '../kit/Icon';
 import type { RunHero } from '../../meta/types';
+import { t } from '../text';
 
 export function HeroDisc({ heroId, size = 40 }: { heroId: string; size?: number }) {
   const def = heroDef(heroId);
@@ -42,16 +43,16 @@ export function PartyHealth({ hero, preview }: { hero: RunHero; preview?: number
           {hero.shaken && (
             <span
               className="flex shrink-0 items-center gap-1 rounded border border-threat/60 bg-threat/10 px-1.5 py-px text-xs font-semibold text-orange-300"
-              title="Shaken: −10% maximum life until you rest"
+              title={t('screens.shared.shaken10MaximumLife')}
             >
-              <Icon name="shaken" size={12} /> Shaken
+              <Icon name="shaken" size={12} /> {t('screens.shared.shaken')}
             </span>
           )}
         </div>
         <div
           className="relative mt-1 h-2.5 overflow-hidden rounded-full bg-ink-700"
           role="meter"
-          aria-label={`${def.name} health`}
+          aria-label={t('screens.shared.health', { name: def.name })}
           aria-valuemin={0}
           aria-valuemax={max}
           aria-valuenow={hp}
@@ -88,7 +89,11 @@ export function Pips({
   color?: string;
 }) {
   return (
-    <span className="inline-flex gap-0.5" role="img" aria-label={`Level ${level} of ${max}`}>
+    <span
+      className="inline-flex gap-0.5"
+      role="img"
+      aria-label={t('screens.shared.levelOf', { level, max })}
+    >
       {Array.from({ length: max }, (_, i) => (
         <Icon
           key={i}

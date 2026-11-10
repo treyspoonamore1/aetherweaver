@@ -25,6 +25,7 @@ import { unforgivingLine } from './dissonanceModel';
 import { BOND_LOOK, heroInk } from '../kit/bondLook';
 import { BONDS_CSS, BondGlyph, HeroPortrait } from './BondsParts';
 import { sceneChoices, type SceneChoiceView } from './bondsModel';
+import { t } from '../text';
 
 export interface RespiteViewProps {
   run: RunState;
@@ -108,61 +109,75 @@ export function RespiteView({
   return (
     <ScreenFrame tone="dusk">
       <div className="mx-auto max-w-5xl px-6 py-8">
-        <ScreenHeader eyebrow="A moment's quiet" title="Respite">
+        <ScreenHeader
+          eyebrow={t('screens.respiteScreen.aMomentSQuiet')}
+          title={t('screens.respiteScreen.respite')}
+        >
           <p className="mt-2 max-w-xl text-sm text-muted">
-            The choir cannot reach this alcove. Take one: tend to your wounds, sit with the song,
-            {choices.length > 0
-              ? ' retune your songs, or sit by the fire with a friend.'
-              : ' or retune your songs.'}
+            {t('screens.respiteScreen.theChoirCannotReach', {
+              value:
+                choices.length > 0
+                  ? t('screens.respiteScreen.retuneYourSongsOr')
+                  : t('screens.respiteScreen.orRetuneYourSongs'),
+            })}
           </p>
         </ScreenHeader>
         <div className="mt-8 grid gap-6 md:grid-cols-3">
           <Choice
             keyLabel="1"
             icon="moon"
-            title="Rest"
+            title={t('screens.respiteScreen.rest')}
             color="#86efac"
             lines={[
               heal > 0
-                ? `Every hero recovers ${Math.round(heal * 100)}% of their life.`
+                ? t('screens.respiteScreen.everyHeroRecoversOf', { round: Math.round(heal * 100) })
                 : unforgivingLine('rest'),
               shaken > 0
-                ? `Steadies ${shaken} Shaken ${shaken === 1 ? 'hero' : 'heroes'} (their life is back to full size).`
-                : 'No one is Shaken right now.',
+                ? t('screens.respiteScreen.steadiesShakenTheirLife', {
+                    shaken,
+                    value: shaken === 1 ? 'hero' : 'heroes',
+                  })
+                : t('screens.respiteScreen.noOneIsShaken'),
             ]}
             onClick={() => onChoose('rest')}
           />
           <Choice
             keyLabel="2"
             icon="note"
-            title="Meditate"
+            title={t('screens.respiteScreen.meditate')}
             color="#c4b5fd"
             lines={[
               upgradable > 0
-                ? `Choose one of your ${upgradable} motifs to strengthen.`
-                : 'You have nothing to strengthen yet, so you will be offered new motifs.',
-              'No healing, and the Shaken stay Shaken.',
+                ? t('screens.respiteScreen.chooseOneOfYour', { upgradable })
+                : t('screens.respiteScreen.youHaveNothingTo'),
+              t('screens.respiteScreen.noHealingAndThe'),
             ]}
             onClick={() => onChoose('meditate')}
           />
           <Choice
             keyLabel="3"
             icon="tune"
-            title="Retune"
+            title={t('screens.respiteScreen.retune')}
             color="#fcd98a"
             lines={[
-              `Rebuild your songs: auras, ornaments, presets. Now singing ${sung.length ? sung.join(', ') : 'nothing'}.`,
-              'No healing and no motif.',
+              t('screens.respiteScreen.rebuildYourSongsAuras', {
+                value: sung.length ? sung.join(', ') : 'nothing',
+              }),
+              t('screens.respiteScreen.noHealingAndNo'),
             ]}
             onClick={() => setRetuning(true)}
           />
         </div>
         {choices.length > 0 && onScene && (
-          <section className="mt-6" aria-label="By the fire" data-testid="respite-scenes">
+          <section
+            className="mt-6"
+            aria-label={t('screens.respiteScreen.byTheFire')}
+            data-testid="respite-scenes"
+          >
             <style>{BONDS_CSS}</style>
             <p className="mb-2.5 flex items-center gap-2 text-sm text-muted">
-              <Icon name="scene" size={16} style={{ color: BOND_LOOK.color }} /> Or, instead of all
-              three: a moment by the fire with one of them.
+              <Icon name="scene" size={16} style={{ color: BOND_LOOK.color }} />{' '}
+              {t('screens.respiteScreen.orInsteadOfAll')}
             </p>
             <div className={`grid gap-4 ${choices.length > 1 ? 'md:grid-cols-2' : ''}`}>
               {choices.map((c) => (
@@ -172,16 +187,14 @@ export function RespiteView({
           </section>
         )}
         <Panel tone="solid" className="mx-auto mt-8 max-w-2xl p-5">
-          <SectionTitle>Your party</SectionTitle>
+          <SectionTitle>{t('screens.respiteScreen.yourParty')}</SectionTitle>
           <div className="flex flex-col gap-4">
             {run.party.map((h) => (
               <PartyHealth key={h.heroId} hero={h} preview={heal > 0 ? heal : undefined} />
             ))}
           </div>
           <p className="mt-3 text-xs text-muted" data-testid="rest-heal" data-heal={heal}>
-            {heal > 0
-              ? 'The hatched part of each bar is what Rest would restore.'
-              : unforgivingLine('party')}
+            {heal > 0 ? t('screens.respiteScreen.theHatchedPartOf') : unforgivingLine('party')}
           </p>
         </Panel>
       </div>
@@ -285,12 +298,21 @@ export interface RetuneCopy {
 }
 
 const RESPITE_RETUNE: RetuneCopy = {
-  eyebrow: 'Respite · Retune',
-  title: 'Retune your songs',
-  blurb:
-    'Retuning takes the whole respite: no healing and no motif. Your motifs stay; only the songs change.',
-  back: 'Rest or meditate instead',
-  confirm: 'Retune and travel on',
+  get eyebrow() {
+    return t('screens.respiteScreen.respiteRetune');
+  },
+  get title() {
+    return t('screens.respiteScreen.retuneYourSongs');
+  },
+  get blurb() {
+    return t('screens.respiteScreen.retuningTakesTheWhole');
+  },
+  get back() {
+    return t('screens.respiteScreen.restOrMeditateInstead');
+  },
+  get confirm() {
+    return t('screens.respiteScreen.retuneAndTravelOn');
+  },
 };
 
 /** The Chord builder as a screen, confirmed with `onRetune` (Respite, forge, Tuning Pool). */
@@ -370,10 +392,10 @@ export function RetuneView({
         <div className="pointer-events-auto flex items-center gap-4">
           <p className="text-sm text-muted" role="status">
             {!legal
-              ? 'Fix your songs first'
+              ? t('screens.respiteScreen.fixYourSongsFirst')
               : unchanged
-                ? 'Same songs as before'
-                : 'Ready to sing the new songs'}
+                ? t('screens.respiteScreen.sameSongsAsBefore')
+                : t('screens.respiteScreen.readyToSingThe')}
           </p>
           {copy.note}
           {extra}

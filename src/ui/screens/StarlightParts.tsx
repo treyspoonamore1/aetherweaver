@@ -12,6 +12,7 @@ import {
   starlightHeadline,
   starlightUse,
 } from './starlightModel';
+import { t } from '../text';
 
 /**
  * Starlight on the run's screens (Phase 4g, docs/phase-4g.md): what each fight paid, beside its
@@ -126,7 +127,10 @@ export function RunStarlightPanel({
             <p className="mt-1 font-mono text-xs text-muted">{balanceText(balance)}</p>
           )}
         </div>
-        <ul className="flex flex-wrap gap-3 sm:ml-auto" aria-label="Where it came from">
+        <ul
+          className="flex flex-wrap gap-3 sm:ml-auto"
+          aria-label={t('screens.starlightParts.whereItCameFrom')}
+        >
           {s.lines.map((l) => (
             <li
               key={l.label}
@@ -145,7 +149,9 @@ export function RunStarlightPanel({
         </ul>
       </div>
       {s.dissonance && (
-        <p className="mt-2 font-mono text-xs text-muted">Fights paid at {s.dissonance}.</p>
+        <p className="mt-2 font-mono text-xs text-muted">
+          {t('screens.starlightParts.fightsPaidAt', { dissonance: s.dissonance })}
+        </p>
       )}
     </Panel>
   );

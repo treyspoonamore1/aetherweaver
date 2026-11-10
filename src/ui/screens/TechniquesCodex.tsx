@@ -4,6 +4,7 @@ import { KeyCap } from '../kit/KeyCap';
 import { Panel } from '../kit/Panel';
 import { TechniqueCard } from './TechniquesParts';
 import { codexLines, optionState, sourceText, techniqueSlots } from './variantsModel';
+import { t } from '../text';
 
 /**
  * The Codex's Techniques page (Phase 4f): what variants are and how they're chosen, kept and had;
@@ -25,7 +26,7 @@ export function TechniquesCodexPage({
     <div className="flex flex-col gap-6" data-testid="codex-techniques">
       <Panel tone="gold" className="p-5">
         <h2 className="flex items-center gap-2 font-display text-xl font-bold text-gold-200">
-          <Icon name="ward" size={22} /> Technique variants
+          <Icon name="ward" size={22} /> {t('screens.techniquesCodex.techniqueVariants')}
         </h2>
         {lines.map((line, i) => (
           <p

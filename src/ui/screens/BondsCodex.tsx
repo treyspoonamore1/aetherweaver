@@ -18,6 +18,7 @@ import {
   tiers,
 } from './bondsModel';
 import { SceneBody } from './SceneParts';
+import { t as txt } from '../text';
 
 const BOND = BOND_LOOK.color;
 
@@ -44,17 +45,14 @@ export function BondsCodexPage({
       <Panel tone="solid" className="border-dashed p-6" data-testid="codex-bonds-locked">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <h2 className="flex items-center gap-2 font-display text-2xl font-bold text-gold-200">
-            <BondGlyph size={26} /> Bonds
+            <BondGlyph size={26} /> {txt('screens.bondsCodex.bonds')}
           </h2>
-          <Chip icon="lock">A hero’s first Bond rank-up</Chip>
+          <Chip icon="lock">{txt('screens.bondsCodex.aHeroSFirst')}</Chip>
         </div>
         <p className="mt-3 max-w-3xl text-sm leading-relaxed text-text">{intro[0]}</p>
         <p className="mt-3 flex items-start gap-1.5 text-sm text-muted">
           <Icon name="lock" size={14} className="mt-0.5 shrink-0" />
-          <span>
-            Every fight pays Bond XP: this page opens with a hero’s first Bond rank-up. Settings →
-            Skip the unlocks opens it now.
-          </span>
+          <span>{txt('screens.bondsCodex.everyFightPaysBond')}</span>
         </p>
       </Panel>
     );
@@ -73,7 +71,7 @@ export function BondsCodexPage({
             className="flex items-center gap-2 font-display text-xl font-bold"
             style={{ color: BOND }}
           >
-            <BondGlyph size={24} /> Bonds
+            <BondGlyph size={24} /> {txt('screens.bondsCodex.bonds')}
           </h2>
           {intro.map((l) => (
             <p key={l} className="mt-2 text-sm leading-relaxed text-text">
@@ -81,7 +79,7 @@ export function BondsCodexPage({
             </p>
           ))}
           <h3 className="mt-4 text-xs font-semibold uppercase tracking-wider text-muted">
-            Bond XP
+            {txt('screens.bondsCodex.bondXp')}
           </h3>
           <p className="mt-1 text-sm leading-relaxed text-text" data-testid="codex-bonds-fight">
             {rules.fight}
@@ -90,13 +88,17 @@ export function BondsCodexPage({
           <p className="mt-1.5 text-sm leading-relaxed text-text">{rules.scene}</p>
         </Panel>
         <Panel tone="solid" className="p-4" data-testid="codex-bonds-ranks">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted">The ranks</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+            {txt('screens.bondsCodex.theRanks')}
+          </p>
           <table className="mt-2 w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-muted">
-                <th className="pb-1 font-semibold">Rank</th>
-                <th className="pb-1 text-right font-semibold">Bond XP</th>
-                <th className="pb-1 pl-4 font-semibold">Opens</th>
+                <th className="pb-1 font-semibold">{txt('screens.bondsCodex.rank')}</th>
+                <th className="pb-1 text-right font-semibold">
+                  {txt('screens.bondsCodex.bondXp')}
+                </th>
+                <th className="pb-1 pl-4 font-semibold">{txt('screens.bondsCodex.opens')}</th>
               </tr>
             </thead>
             <tbody>
@@ -148,7 +150,9 @@ function HeroBondEntry({ heroId, bond }: { heroId: string; bond: Bond }) {
       </div>
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted">Talents</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+            {txt('screens.bondsCodex.talents')}
+          </p>
           <ol className="mt-1.5 flex flex-col gap-2">
             {tiers().map((tier) => (
               <li
@@ -186,7 +190,9 @@ function HeroBondEntry({ heroId, bond }: { heroId: string; bond: Bond }) {
         </div>
         <div className="flex flex-col gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted">Solos</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+              {txt('screens.bondsCodex.solos')}
+            </p>
             <dl className="mt-1.5 flex flex-col gap-2">
               {[own, ...(altView ? [altView] : [])].map((s) => (
                 <div key={s.id} className="rounded-lg bg-ink-900/60 px-3 py-2" data-solo={s.id}>
@@ -194,8 +200,10 @@ function HeroBondEntry({ heroId, bond }: { heroId: string; bond: Bond }) {
                     <Icon name="note" size={14} /> {s.name}
                     <span className="text-xs font-normal text-muted">
                       {s.alt
-                        ? `· alternate, Bond rank ${CONTENT.bondRules.soloRank}`
-                        : '· their own'}
+                        ? txt('screens.bondsCodex.alternateBondRank', {
+                            soloRank: CONTENT.bondRules.soloRank,
+                          })
+                        : txt('screens.bondsCodex.theirOwn')}
                     </span>
                   </dt>
                   <dd className="text-xs leading-snug text-muted">{s.text}</dd>
@@ -205,7 +213,9 @@ function HeroBondEntry({ heroId, bond }: { heroId: string; bond: Bond }) {
             </dl>
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted">Scenes</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+              {txt('screens.bondsCodex.scenes')}
+            </p>
             <ul className="mt-1.5 flex flex-col gap-2">
               {scenes.map((r) => (
                 <li
@@ -225,7 +235,7 @@ function HeroBondEntry({ heroId, bond }: { heroId: string; bond: Bond }) {
                         />
                         {r.title}{' '}
                         <span className="font-mono text-xs font-normal text-muted">
-                          rank {r.rank} · read it again
+                          {txt('screens.bondsCodex.rankReadItAgain', { rank: r.rank })}
                         </span>
                       </summary>
                       <div className="mt-2">
@@ -244,8 +254,13 @@ function HeroBondEntry({ heroId, bond }: { heroId: string; bond: Bond }) {
                         className="mr-1 inline"
                       />
                       <b className="font-semibold text-text">{r.title}</b>{' '}
-                      <span className="font-mono text-xs">rank {r.rank}</span> ·{' '}
-                      {r.state === 'locked' ? 'not yet' : 'waiting for a Respite'}
+                      <span className="font-mono text-xs">
+                        {txt('screens.bondsCodex.rank2', { rank: r.rank })}
+                      </span>{' '}
+                      ·{' '}
+                      {r.state === 'locked'
+                        ? txt('screens.bondsCodex.notYet')
+                        : txt('screens.bondsCodex.waitingForARespite')}
                     </p>
                   )}
                 </li>

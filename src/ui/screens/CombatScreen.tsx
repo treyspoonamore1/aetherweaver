@@ -15,6 +15,7 @@ import { PauseMenu } from '../hud/PauseMenu';
 import { useUi } from '../store';
 import { useFirstSightings } from '../hud/sighting';
 import { combatSubtitle } from './routeText';
+import { t } from '../text';
 
 /** A combat node of the run: the 3D view, the HUD and the modal layers. */
 /**
@@ -31,7 +32,9 @@ export function CombatScreen() {
   const pending = useRun((s) => s.run?.pending ?? null);
   const encounters = useRun((s) => s.run?.encounters ?? 0);
   // "The Prelude · node 3 of 10", or an Expedition's Movement and its node.
-  const subtitle = useRun((s) => (s.run ? combatSubtitle(s.run) : 'The Prelude · node 0 of 0'));
+  const subtitle = useRun((s) =>
+    s.run ? combatSubtitle(s.run) : t('screens.combatScreen.thePreludeNode0'),
+  );
   const movements = useRun((s) => s.run?.movements ?? 1);
   // Phase 6: an Echo's or a weekly's run names itself where a route would.
   const echo = useRun((s) => s.run?.echo);

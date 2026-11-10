@@ -25,6 +25,7 @@ import {
   type PathStep,
   type TierPlace,
 } from './callingText';
+import { t } from '../text';
 
 export interface CallingViewProps {
   run: RunState;
@@ -110,15 +111,18 @@ export function CallingView({
         onRetune={(chords) => onPick(retune, chords)}
         confirmVariant="primary"
         copy={{
-          eyebrow: `The ${def.name} · ${option.name} · a free retune`,
-          title: 'A third voice for your field song',
-          blurb: `Your field song now holds a third aura (the slot marked ${option.name}). Rebuild your songs for free, or keep them and fill it at a Respite or a forge later.`,
-          back: 'Back: choose again',
-          confirm: 'Retune and go on',
+          eyebrow: t('screens.callingScreen.theAFreeRetune', {
+            name: def.name,
+            name2: option.name,
+          }),
+          title: t('screens.callingScreen.aThirdVoiceFor'),
+          blurb: t('screens.callingScreen.yourFieldSongNow', { name: option.name }),
+          back: t('screens.callingScreen.backChooseAgain'),
+          confirm: t('screens.callingScreen.retuneAndGoOn'),
         }}
         extra={
           <Button size="lg" onClick={() => onPick(retune)} sound="confirm">
-            Keep my songs
+            {t('screens.callingScreen.keepMySongs')}
           </Button>
         }
       />
@@ -150,17 +154,19 @@ export function CallingView({
           />
           <div className="min-w-0">
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-muted">
-              The {def.name} · {def.title}
+              {t('screens.callingScreen.the', { name: def.name, title: def.title })}
             </p>
             <h1
               className="mt-1 font-display text-3xl font-bold tracking-wide sm:text-4xl"
               style={{ color: look.text }}
             >
-              Your Calling grows
+              {t('screens.callingScreen.yourCallingGrows')}
             </h1>
             <p className="mt-1 text-sm text-muted">
-              Tier {steps[offer.tier]!.numeral} of {steps.length}. Choose one: it lasts the rest of
-              the run.
+              {t('screens.callingScreen.tierOfChooseOne', {
+                numeral: steps[offer.tier]!.numeral,
+                length: steps.length,
+              })}
             </p>
           </div>
         </header>
@@ -201,7 +207,7 @@ export function CallingView({
 
         <div className="mt-5 rounded-xl border border-ink-600/60 bg-ink-900/60 px-4 py-3">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">
-            Always yours · {passiveName(def.id)}
+            {t('screens.callingScreen.alwaysYours', { passiveName: passiveName(def.id) })}
           </p>
           <CallingPassive def={def} compact />
           {reviveSpentLine(run.calling) && (
@@ -235,7 +241,11 @@ function PathTrack({
   const look = callingLook(callingId);
   const name = callingDef(callingId).name;
   return (
-    <ol className="mt-5 grid grid-cols-4 gap-2" aria-label="Your path" data-testid="calling-path">
+    <ol
+      className="mt-5 grid grid-cols-4 gap-2"
+      aria-label={t('screens.callingScreen.yourPath')}
+      data-testid="calling-path"
+    >
       {steps.map((s, i) => {
         const dim = s.state === 'open' || s.state === 'locked';
         return (
@@ -276,14 +286,14 @@ function PathTrack({
               {s.chosen
                 ? s.chosen.name
                 : s.state === 'offer'
-                  ? `Tier ${s.numeral}: now`
+                  ? t('screens.callingScreen.tierNow', { numeral: s.numeral })
                   : `Tier ${s.numeral}`}
             </span>
             <span className="text-xs leading-tight text-muted">
               {s.state === 'offer'
-                ? 'Choose below'
+                ? t('screens.callingScreen.chooseBelow')
                 : s.state === 'locked'
-                  ? `Locked: ${name} mastery ${s.mastery}`
+                  ? t('screens.callingScreen.lockedMastery', { name, mastery: s.mastery })
                   : tierWhenLabel(s.tier, map)}
             </span>
           </li>
@@ -314,7 +324,7 @@ function OptionCard({
     <button
       type="button"
       onClick={onTake}
-      aria-label={`Take ${o.name}: ${text}`}
+      aria-label={t('screens.callingScreen.take2', { name: o.name, text })}
       className="group flex h-full w-full flex-col rounded-2xl border-2 bg-ink-800/90 p-5 text-left shadow-xl shadow-black/40 transition-all hover:-translate-y-1 hover:bg-ink-700/90 focus-visible:-translate-y-1"
       style={{ borderColor: `color-mix(in srgb, ${look.color} 70%, transparent)` }}
     >
@@ -354,15 +364,14 @@ function OptionCard({
       )}
       {grantsSlot(o) && (
         <span className="mt-2 flex items-center gap-1.5 text-sm text-gold-200">
-          <Icon name="tune" size={15} /> Opens the song builder: retune for free, or keep your
-          songs.
+          <Icon name="tune" size={15} /> {t('screens.callingScreen.opensTheSongBuilder')}
         </span>
       )}
       <span
         className="mt-4 block rounded-lg py-2 text-center text-sm font-semibold text-ink-950 opacity-90 group-hover:opacity-100"
         style={{ background: `linear-gradient(90deg, ${look.color}, ${look.light})` }}
       >
-        Take {o.name}
+        {t('screens.callingScreen.take', { name: o.name })}
       </span>
     </button>
   );

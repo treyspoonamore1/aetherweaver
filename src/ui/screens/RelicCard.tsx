@@ -17,6 +17,7 @@ import { CarriedMark, CarriedRelicTip } from './ReliquaryParts';
 import { carriedSnapshot, relicView } from './reliquaryModel';
 import { pactLine } from './dissonanceModel';
 import { DISCORD_LOOK } from '../kit/dissonanceLook';
+import { t } from '../text';
 
 /** The rule, the curse (struck through once cleansed) and the flavour, for cards and tips. */
 export function RelicBody({
@@ -49,7 +50,9 @@ export function RelicBody({
             style={{ color: relicColor('cursed', lifted) }}
           />
           <span>
-            <b className="font-semibold">{lifted ? 'Curse lifted: ' : 'Curse: '}</b>
+            <b className="font-semibold">
+              {lifted ? t('screens.relicCard.curseLifted') : 'Curse: '}
+            </b>
             <span className={lifted ? 'line-through decoration-2 opacity-70' : ''}>
               {info.curse}
             </span>
@@ -108,7 +111,7 @@ export function RelicCard({
             <RelicRarityChip rarity={info.rarity} cleansed={info.cleansed} />
             {info.runOnly && (
               <span className="rounded border border-ink-500 px-1.5 py-px text-xs text-muted">
-                Between fights
+                {t('screens.relicCard.betweenFights')}
               </span>
             )}
           </div>
@@ -171,13 +174,15 @@ export function RelicBadge({
   const info = ownedRelicInfo(relic);
   const snap = carriedSnapshot(relic, carried);
   const label = relic.carried
-    ? `${relicSentence(info)} Carried from the Reliquary${info.dormant ? '' : ', attuned'}.${
-        snap
+    ? t('screens.relicCard.carriedFromTheReliquary', {
+        relicSentence: relicSentence(info),
+        value: info.dormant ? '' : t('screens.relicCard.attuned'),
+        value2: snap
           ? ` ${relicView(snap)
               .inscriptions.map((i) => `${i.name} ${i.tierLabel}: ${i.text}.`)
               .join(' ')}`
-          : ''
-      }`
+          : '',
+      })
     : `${relicSentence(info)}${relic.pact ? ` ${pactLine()}` : ''}`;
   return (
     <Tip
@@ -364,9 +369,11 @@ export function RunStrip({
       {calling && <CallingStripItem calling={calling} map={map} open={openCalling} />}
       {purse && <Purse aether={aether} />}
       <span className="flex items-center gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted">Relics</span>
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted">
+          {t('screens.relicCard.relics')}
+        </span>
         {relics.length === 0 ? (
-          <span className="text-xs text-muted">none yet</span>
+          <span className="text-xs text-muted">{t('screens.relicCard.noneYet')}</span>
         ) : (
           <span className="flex flex-wrap items-center gap-1.5">
             {relics.map((r, i) => (

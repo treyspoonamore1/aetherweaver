@@ -16,6 +16,7 @@ import { RelicScreen } from './RelicScreen';
 import { RespiteScreen } from './RespiteScreen';
 import { SceneScreen } from './SceneScreen';
 import { SummaryScreen } from './SummaryScreen';
+import { t as txt } from '../text';
 
 // The 3D view (three.js) loads only when a fight starts.
 const CombatScreen = lazy(() =>
@@ -25,7 +26,7 @@ const CombatScreen = lazy(() =>
 function Weaving() {
   return (
     <div className="flex h-full items-center justify-center bg-ink-950 font-display text-gold-300">
-      Weaving…
+      {txt('screens.runScreen.weaving')}
     </div>
   );
 }
@@ -97,9 +98,11 @@ export function RunScreen() {
     return (
       <ScreenFrame>
         <div className="flex h-full flex-col items-center justify-center gap-4">
-          <p className="font-display text-2xl text-gold-300">No expedition under way</p>
+          <p className="font-display text-2xl text-gold-300">
+            {txt('screens.runScreen.noExpeditionUnderWay')}
+          </p>
           <Button variant="primary" onClick={() => setScreen('title')}>
-            Back to the title
+            {txt('screens.runScreen.backToTheTitle')}
           </Button>
         </div>
       </ScreenFrame>

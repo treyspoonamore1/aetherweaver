@@ -1,15 +1,34 @@
 import { splitContribution, type ContributionParts } from '../contribution';
 import { fmt, pct } from '../kit/format';
 import { Icon, type IconName } from '../kit/Icon';
+import { t } from '../text';
 
 /** The two songs' colours on screens, and everything else in the Weaver's grey-gold. */
 export const PART_LOOK: Record<
   'auras' | 'thread' | 'other',
   { color: string; icon: IconName; label: string }
 > = {
-  auras: { color: '#c4b5fd', icon: 'note', label: 'Auras' },
-  thread: { color: 'var(--color-gold-300)', icon: 'thread', label: 'Thread' },
-  other: { color: 'var(--color-ink-500)', icon: 'ward', label: 'Wards & the rest' },
+  auras: {
+    color: '#c4b5fd',
+    icon: 'note',
+    get label() {
+      return t('screens.contributionBar.auras');
+    },
+  },
+  thread: {
+    color: 'var(--color-gold-300)',
+    icon: 'thread',
+    get label() {
+      return t('screens.contributionBar.thread');
+    },
+  },
+  other: {
+    color: 'var(--color-ink-500)',
+    icon: 'ward',
+    get label() {
+      return t('screens.contributionBar.wardsTheRest');
+    },
+  },
 };
 
 /**

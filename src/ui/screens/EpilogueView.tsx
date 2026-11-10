@@ -17,6 +17,7 @@ import { Button } from '../kit/Button';
 import { Icon } from '../kit/Icon';
 import { useReducedMotion } from '../kit/motion';
 import { Panel } from '../kit/Panel';
+import { t as txt } from '../text';
 
 /** One line of the epilogue: narration (no speaker), the Conductor, a hero or the Weaver. */
 export interface EpilogueLine {
@@ -29,10 +30,18 @@ export interface EpilogueLine {
 
 /** Each hero's answer to the Conductor (the first party hero speaks). */
 const HERO_LINES: Readonly<Record<string, string>> = {
-  kael: 'We rest when the song is done. It isn’t.',
-  lyra: 'You never asked if we were tired.',
-  vexis: 'An unfinished equation is still worth solving.',
-  brann: 'Rest? I’ve only just got loud.',
+  get kael() {
+    return txt('screens.epilogueView.weRestWhenThe');
+  },
+  get lyra() {
+    return txt('screens.epilogueView.youNeverAskedIf');
+  },
+  get vexis() {
+    return txt('screens.epilogueView.anUnfinishedEquationIs');
+  },
+  get brann() {
+    return txt('screens.epilogueView.restIVeOnly');
+  },
 };
 
 /**
@@ -41,8 +50,12 @@ const HERO_LINES: Readonly<Record<string, string>> = {
  * speaks when both are present (canonical order). Every other party is unchanged.
  */
 const RECRUIT_LINES: Readonly<Record<string, string>> = {
-  seren: 'You call it rest. I call it forfeit.',
-  oro: 'Even the grove sleeps, and then it wakes.',
+  get seren() {
+    return txt('screens.epilogueView.youCallItRest');
+  },
+  get oro() {
+    return txt('screens.epilogueView.evenTheGroveSleeps');
+  },
 };
 
 /** The hero who answers the Conductor: a recruit with a line first, then the first with one. */
@@ -66,20 +79,20 @@ export function epilogueLines(party: readonly string[]): EpilogueLine[] {
   return [
     {
       speaker: null,
-      text: 'The baton falls. The Conductor’s ribbons are a Weaver’s, grey as ash.',
+      text: txt('screens.epilogueView.theBatonFallsThe'),
     },
     {
-      speaker: 'The Silent Conductor',
-      text: 'I wove the first of them. I only wanted the world to rest.',
+      speaker: txt('screens.epilogueView.theSilentConductor'),
+      text: txt('screens.epilogueView.iWoveTheFirst'),
       color: '#cbd5e1',
     },
     { speaker: hero.name, text: RECRUIT_LINES[first] ?? HERO_LINES[first]!, color: heroInk(first) },
     {
-      speaker: 'The Weaver',
-      text: 'A rest is part of the song. It isn’t the end of it.',
+      speaker: txt('screens.epilogueView.theWeaver'),
+      text: txt('screens.epilogueView.aRestIsPart'),
       color: '#f5d78e',
     },
-    { speaker: null, text: 'Above the Crucible the rings turn, and the world sings on.' },
+    { speaker: null, text: txt('screens.epilogueView.aboveTheCrucibleThe') },
   ];
 }
 
@@ -216,7 +229,7 @@ export function EpilogueView({ party, onDone, still = false }: EpilogueViewProps
       tone="solid"
       className="anim-rise mt-6 p-6"
       role="region"
-      aria-label="Epilogue"
+      aria-label={txt('screens.epilogueView.epilogue')}
       data-testid="epilogue"
       data-lines={lines.length}
       data-ms={epilogueMs(lines.length)}
@@ -224,17 +237,17 @@ export function EpilogueView({ party, onDone, still = false }: EpilogueViewProps
     >
       <div className="flex items-start justify-between gap-4">
         <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.3em] text-muted">
-          <Icon name="baton" size={14} className="text-amber-50" /> Epilogue · the Celestial
-          Crucible
+          <Icon name="baton" size={14} className="text-amber-50" />{' '}
+          {txt('screens.epilogueView.epilogueTheCelestialCrucible')}
         </p>
         <Button
           variant="ghost"
           size="sm"
           onClick={onDone}
           data-testid="epilogue-skip"
-          aria-label="Skip the epilogue"
+          aria-label={txt('screens.epilogueView.skipTheEpilogue')}
         >
-          Skip
+          {txt('screens.epilogueView.skip')}
         </Button>
       </div>
       <ol className="mt-3 flex flex-col gap-2.5" aria-live="polite">

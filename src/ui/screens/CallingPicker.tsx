@@ -13,6 +13,7 @@ import { allCallings, numeral, tierWhenList, type TierPlace } from './callingTex
 import { masteryLevel } from '../../meta/loom';
 import { MasteryStrip } from './MasteryParts';
 import { tiersLine, type PickerMastery } from './masteryModel';
+import { t } from '../text';
 
 export type { PickerMastery };
 
@@ -72,17 +73,19 @@ export function CallingPicker({
           id="calling-title"
           className="font-display text-lg font-bold tracking-wide text-gold-300"
         >
-          Your Calling
+          {t('screens.callingPicker.yourCalling')}
         </h2>
         <p className="text-right text-xs leading-relaxed text-muted">
-          The Weaver’s class for this run, chosen here.
+          {t('screens.callingPicker.theWeaverSClass')}
           {schedule !== null && (
             <>
-              {' '}
-              It grows as you win: {schedule} picks, one of two each, {tierWhenList(schedule, at)}.
+              {t('screens.callingPicker.itGrowsAsYou', {
+                schedule,
+                tierWhenList: tierWhenList(schedule, at),
+              })}
             </>
           )}
-          {mastery && <> Playing a Calling earns mastery, which opens its path.</>}
+          {mastery && <> {t('screens.callingPicker.playingACallingEarns')}</>}
         </p>
       </div>
       <div
@@ -156,11 +159,13 @@ function NoCalling({ selected, onChoose }: { selected: boolean; onChoose(): void
       }`}
     >
       <span className="flex w-full items-center justify-between gap-2">
-        <span className="font-display text-base font-bold text-text">No Calling</span>
+        <span className="font-display text-base font-bold text-text">
+          {t('screens.callingPicker.noCalling')}
+        </span>
         {selected && <Icon name="check" size={16} className="text-gold-300" />}
       </span>
       <span className="text-xs leading-relaxed text-muted">
-        Your songs and your Thread, as always. No path to pick along the way.
+        {t('screens.callingPicker.yourSongsAndYour')}
       </span>
     </button>
   );
@@ -225,8 +230,12 @@ function CallingCard({
         aria-disabled={!open}
         aria-label={
           open
-            ? `The ${def.name}, ${def.title}${selected ? ': chosen' : ''}`
-            : `The ${def.name}: unlocks at Rank ${rank}`
+            ? t('screens.callingPicker.the', {
+                name: def.name,
+                title: def.title,
+                value: selected ? t('screens.callingPicker.chosen2') : '',
+              })
+            : t('screens.callingPicker.theUnlocksAtRank', { name: def.name, rank })
         }
         // The passive in full on hover; the path dialog has it too.
         title={callingText(def).passive}
@@ -247,7 +256,7 @@ function CallingCard({
                 className="inline-flex items-center gap-1 rounded-md px-1.5 text-xs font-bold leading-5 text-ink-950"
                 style={{ background: look.text }}
               >
-                <Icon name="check" size={12} /> Chosen
+                <Icon name="check" size={12} /> {t('screens.callingPicker.chosen')}
               </span>
             )}
           </span>
@@ -257,16 +266,18 @@ function CallingCard({
           <CrescendoLine def={def} compact />
           {!open && (
             <span className="flex items-start gap-1.5 text-xs font-semibold leading-snug text-muted">
-              <Icon name="lock" size={12} className="mt-0.5 shrink-0" /> Reach Weaver Rank {rank} to
-              choose it (or Settings → Skip the unlocks).
+              <Icon name="lock" size={12} className="mt-0.5 shrink-0" />{' '}
+              {t('screens.callingPicker.reachWeaverRankTo', { rank })}
             </span>
           )}
         </span>
       </button>
       {schedule && (
         <span className="block text-xs leading-relaxed text-muted">
-          {def.tiers.length} picks along the way, one of two each:{' '}
-          {tierWhenList(def.tiers.length, at)}.
+          {t('screens.callingPicker.picksAlongTheWay', {
+            length: def.tiers.length,
+            tierWhenList: tierWhenList(def.tiers.length, at),
+          })}
         </span>
       )}
       <span className="mt-auto flex items-center justify-between gap-2 border-t border-ink-600/60 pt-2">
@@ -276,8 +287,11 @@ function CallingCard({
             role="img"
             aria-label={
               shut > 0
-                ? `${def.tiers.length} picks, ${shut} locked by mastery`
-                : `${def.tiers.length} picks`
+                ? t('screens.callingPicker.picksLockedByMastery', {
+                    length: def.tiers.length,
+                    shut,
+                  })
+                : t('screens.callingPicker.picks', { length: def.tiers.length })
             }
             data-testid={`calling-pips-${def.id}`}
           >
@@ -295,15 +309,15 @@ function CallingCard({
             <span
               className="whitespace-nowrap text-xs font-semibold"
               style={{ color: look.text }}
-              title={`Playing the ${def.name} earns its mastery, which opens its path's tiers`}
+              title={t('screens.callingPicker.playingTheEarnsIts2', { name: def.name })}
               data-testid={`calling-level-${def.id}`}
             >
-              Mastery {level}
+              {t('screens.callingPicker.mastery', { level })}
             </span>
           )}
         </span>
         <Button size="sm" variant="secondary" onClick={onView}>
-          <Icon name="book" size={14} /> See the path
+          <Icon name="book" size={14} /> {t('screens.callingPicker.seeThePath')}
         </Button>
       </span>
     </div>
@@ -333,7 +347,12 @@ function CallingPathDialog({
   const look = callingLook(def.id);
   const rank = unlockRank('calling', def.id);
   return (
-    <Modal title={`The ${def.name}`} width="max-w-4xl" onClose={onClose} closeOnEscape>
+    <Modal
+      title={t('screens.callingPicker.the2', { name: def.name })}
+      width="max-w-4xl"
+      onClose={onClose}
+      closeOnEscape
+    >
       <p className="text-sm italic text-muted">
         {def.title} · “{def.flavor}”
       </p>
@@ -344,26 +363,30 @@ function CallingPathDialog({
         className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wider"
         style={{ color: look.text }}
       >
-        The path · one of two at each tier, for the rest of the run
+        {t('screens.callingPicker.thePathOneOf')}
       </p>
       {tiersOpen !== undefined && tiersOpen < def.tiers.length && (
         <p className="-mt-1 mb-2 text-xs text-muted" data-testid="path-mastery">
-          {tiersLine(def.id, tiersOpen, { prep: true })} Playing the {def.name} earns its mastery.
+          {t('screens.callingPicker.playingTheEarnsIts', {
+            tiersLine: tiersLine(def.id, tiersOpen, { prep: true }),
+            name: def.name,
+          })}
         </p>
       )}
       <CallingPathPreview def={def} tiersOpen={tiersOpen} map={at} />
       <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
         {!open && (
           <span className="mr-auto flex items-center gap-1.5 text-sm text-muted">
-            <Icon name="lock" size={14} /> Unlocks at Weaver Rank {rank}
+            <Icon name="lock" size={14} />{' '}
+            {t('screens.callingPicker.unlocksAtWeaverRank', { rank })}
           </span>
         )}
         <Button onClick={onClose} sound="back" data-autofocus>
-          Close
+          {t('screens.callingPicker.close')}
         </Button>
         {open && !selected && (
           <Button variant="primary" onClick={onChoose} sound={null}>
-            Choose the {def.name}
+            {t('screens.callingPicker.chooseThe', { name: def.name })}
           </Button>
         )}
       </div>

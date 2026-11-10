@@ -1,5 +1,6 @@
 import { heroDef, type SceneDef } from '../../content';
 import { heroInk } from '../kit/bondLook';
+import { t } from '../text';
 
 /**
  * A Bond scene's words (docs/phase-4e.md): the lines (a hero's quoted, as their own words;
@@ -63,7 +64,7 @@ export function SceneBody({
             data-testid="scene-reply"
           >
             <span className="mr-2 font-display text-sm font-bold tracking-wide text-gold-300">
-              You
+              {t('screens.sceneParts.you')}
             </span>
             “{chosen.text}”
           </p>

@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react';
 import { useUi } from '../store';
 import { CodexScreen } from './CodexScreen';
 import { SettingsScreen } from './SettingsScreen';
+import { t } from '../text';
 
 // The 3D view only loads when the Training Grounds open; Codex and Settings stay light.
 const TrainingScreen = lazy(() =>
@@ -17,7 +18,7 @@ export function SandboxScreen() {
     <Suspense
       fallback={
         <div className="flex h-full items-center justify-center font-display text-gold-300">
-          Weaving…
+          {t('screens.sandboxScreen.weaving')}
         </div>
       }
     >

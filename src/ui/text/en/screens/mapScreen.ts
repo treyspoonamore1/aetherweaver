@@ -1,0 +1,37 @@
+import type { Catalogue } from '../../catalogue';
+
+/** The `screens.mapScreen.*` messages: `src/ui/screens/MapScreen.tsx`. */
+export const mapScreen = {
+  'screens.mapScreen.abandonRun': 'Abandon run',
+  'screens.mapScreen.party': 'Party',
+  'screens.mapScreen.chord': 'Chord',
+  'screens.mapScreen.noAurasChosen': 'No auras chosen.',
+  'screens.mapScreen.motifs': 'Motifs',
+  'screens.mapScreen.owned': '{length} owned',
+  'screens.mapScreen.noneYetWinA': 'None yet. Win a fight and choose one.',
+  'screens.mapScreen.keepGoing': 'Keep going',
+  'screens.mapScreen.aNewMovement': 'A new movement',
+  'screens.mapScreen.you': 'You',
+  'screens.mapScreen.par': 'par {par}',
+  'screens.mapScreen.waves': '{length} waves',
+  'screens.mapScreen.youCarryAether': 'You carry {aether} Aether',
+  'screens.mapScreen.skirmish': 'Skirmish',
+  'screens.mapScreen.elite': 'Elite',
+  'screens.mapScreen.shrine': 'Shrine',
+  'screens.mapScreen.respite': 'Respite',
+  'screens.mapScreen.merchant': 'Merchant',
+  'screens.mapScreen.forge': 'Forge',
+  'screens.mapScreen.event': 'Event',
+  'screens.mapScreen.miniBoss': 'Mini-boss',
+  'screens.mapScreen.boss': 'Boss',
+  'screens.mapScreen.chooseWhereToGo':
+    'Choose where to go next. Glowing nodes are within reach; hover one to see what it offers.',
+  'screens.mapScreen.noPathForward': 'No path forward.',
+  'screens.mapScreen.map': 'Map',
+  'screens.mapScreen.runStatus': 'Run status',
+  'screens.mapScreen.abandonThisRun': 'Abandon this run?',
+  'screens.mapScreen.yourCallingGrowsAfter': 'Your Calling grows after this fight (tier {numeral})',
+  'screens.mapScreen.visited': ', visited',
+  'screens.mapScreen.notReachableYet': ', not reachable yet',
+  'screens.mapScreen.youAreHere': ', you are here',
+} satisfies Catalogue;

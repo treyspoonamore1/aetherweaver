@@ -28,6 +28,7 @@ import { useAllowance, useFreshUnlocks } from './PrepScreen';
 import { Purse, RelicCard, RunStrip } from './RelicCard';
 import { RetuneView } from './RespiteScreen';
 import { PartyHealth, SectionTitle } from './shared';
+import { t as txt } from '../text';
 
 export const EVENT_COLOR = '#c4b5fd';
 
@@ -140,9 +141,9 @@ export function EventView({
         onRetune={(chords) => onChoose(pendingChoice.id, { chords })}
         copy={{
           eyebrow: `${def.name} · ${pendingChoice.label}`,
-          title: 'Retune your songs',
-          blurb: `${pendingChoice.text} The same rules as Prep; your motifs stay.`,
-          back: 'Back to the choices',
+          title: txt('screens.eventScreen.retuneYourSongs'),
+          blurb: txt('screens.eventScreen.theSameRulesAs', { text: pendingChoice.text }),
+          back: txt('screens.eventScreen.backToTheChoices'),
           confirm: 'Retune',
         }}
       />
@@ -153,7 +154,7 @@ export function EventView({
     <ScreenFrame tone="dusk">
       <div className="mx-auto max-w-6xl px-6 pb-28 pt-8">
         <ScreenHeader
-          eyebrow="An event"
+          eyebrow={txt('screens.eventScreen.anEvent')}
           title={def.name}
           right={<Purse aether={run.aether} size="lg" />}
         />
@@ -207,7 +208,7 @@ export function EventView({
             sound="confirm"
             autoFocus
           >
-            Continue <Icon name="arrow" size={18} />
+            {txt('screens.eventScreen.continue')} <Icon name="arrow" size={18} />
           </Button>
         )}
       </div>
@@ -262,8 +263,12 @@ function ChoiceCard({
             <div className="stripes bg-lethal/80" style={{ width: `${c.odds.lose}%` }} />
           </div>
           <p className="mt-1 flex justify-between font-mono text-xs">
-            <span className="text-heal">{c.odds.win}% it works</span>
-            <span className="text-rose-300">{c.odds.lose}% it doesn’t</span>
+            <span className="text-heal">
+              {txt('screens.eventScreen.itWorks', { win: c.odds.win })}
+            </span>
+            <span className="text-rose-300">
+              {txt('screens.eventScreen.itDoesnT', { lose: c.odds.lose })}
+            </span>
           </p>
         </div>
       )}
@@ -293,9 +298,9 @@ function ChoiceCard({
         ) : (
           <span className="w-full rounded-lg border border-ink-500 py-1.5 text-center font-semibold text-text group-hover:border-gold-400 group-hover:text-gold-200">
             {c.motif !== 'none'
-              ? 'Choose a motif…'
+              ? txt('screens.eventScreen.chooseAMotif')
               : c.retune
-                ? 'Open the song builder…'
+                ? txt('screens.eventScreen.openTheSongBuilder')
                 : 'Choose'}
           </span>
         )}
@@ -327,23 +332,27 @@ function MotifStepPicker({
       <SectionTitle
         right={
           <Button variant="ghost" size="sm" onClick={onBack} sound="back">
-            <Icon name="back" size={14} /> Back to the choices
+            <Icon name="back" size={14} /> {txt('screens.eventScreen.backToTheChoices')}
           </Button>
         }
       >
-        {choice.label}: which motif?
+        {txt('screens.eventScreen.whichMotif', { label: choice.label })}
       </SectionTitle>
       <p className="-mt-1 mb-4 text-sm text-muted">
         {choice.motif === 'upgradable'
-          ? 'Only motifs below their last level can be offered.'
-          : 'Any of your motifs.'}{' '}
+          ? txt('screens.eventScreen.onlyMotifsBelowTheir')
+          : txt('screens.eventScreen.anyOfYourMotifs')}{' '}
         {choice.text}
       </p>
       <MotifPicker
         steps={ids.map((id) => motifStep(run, id, Math.max(1, levels)))}
         odds={odds ? `${odds.win}%` : undefined}
-        risk={odds && loses ? `${odds.lose}%: it shatters, and is lost.` : undefined}
-        verb="Offer it"
+        risk={
+          odds && loses
+            ? txt('screens.eventScreen.itShattersAndIs', { lose: odds.lose })
+            : undefined
+        }
+        verb={txt('screens.eventScreen.offerIt')}
         onPick={onPick}
       />
     </section>
@@ -359,9 +368,13 @@ function Outcome({ run }: { run: RunState }) {
   const lines = gains ? gainLines(gains, run).filter((l) => l.icon !== 'relic') : [];
   const touchedLife = !!gains && (gains.heal > 0 || gains.hurt > 0);
   return (
-    <section className="anim-rise mt-6" aria-label="What happened" data-testid="event-outcome">
+    <section
+      className="anim-rise mt-6"
+      aria-label={txt('screens.eventScreen.whatHappened')}
+      data-testid="event-outcome"
+    >
       <p className="font-mono text-xs uppercase tracking-[0.25em] text-muted">
-        You chose: <span className="text-text">{choice?.label}</span>
+        {txt('screens.eventScreen.youChose')} <span className="text-text">{choice?.label}</span>
       </p>
       {event.won !== null && chance !== undefined && (
         <p
@@ -370,8 +383,8 @@ function Outcome({ run }: { run: RunState }) {
         >
           <Icon name={event.won ? 'check' : 'skull'} size={16} />
           {event.won
-            ? `It worked: the ${Math.round(chance * 100)}% came up.`
-            : `It went wrong: the ${100 - Math.round(chance * 100)}% came up.`}
+            ? txt('screens.eventScreen.itWorkedTheCame', { round: Math.round(chance * 100) })
+            : txt('screens.eventScreen.itWentWrongThe', { value: 100 - Math.round(chance * 100) })}
         </p>
       )}
       <p className="mt-3 max-w-3xl text-xl italic leading-snug text-gold-200">{event.outcome}</p>
@@ -385,12 +398,12 @@ function Outcome({ run }: { run: RunState }) {
         </ul>
       )}
       <Panel tone="solid" className="mt-5 max-w-3xl p-5">
-        <SectionTitle>What changed</SectionTitle>
+        <SectionTitle>{txt('screens.eventScreen.whatChanged')}</SectionTitle>
         <ul className="flex flex-col gap-2.5">
           {gains?.relics.map((id) => (
             <li key={id} className="flex items-start gap-2.5 text-sm text-text">
               <Icon name="relic" size={17} className="mt-0.5 shrink-0 text-heal" />
-              {relicInfo(id).name} is yours for the rest of the run.
+              {txt('screens.eventScreen.isYoursForThe', { name: relicInfo(id).name })}
             </li>
           ))}
           {lines.map((l, i) => (

@@ -34,6 +34,7 @@ import {
   type RankProfile,
   recruitedRankUps,
 } from './rankText';
+import { t as txt } from '../text';
 
 export { unlockIcon };
 
@@ -159,7 +160,11 @@ export function RankPanelView({
   // What the next Rank opens waits for the first run: before it, its words are only jargon.
   const preview = profile.runs > 0;
   return (
-    <Panel className={`px-4 py-3.5 ${className}`} aria-label="Weaver Rank" data-testid="rank-panel">
+    <Panel
+      className={`px-4 py-3.5 ${className}`}
+      aria-label={txt('screens.rank.weaverRank')}
+      data-testid="rank-panel"
+    >
       <div className="flex items-center gap-3">
         <span
           className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-full border-2 border-gold-400 bg-ink-950/70 shadow-[0_0_18px_rgb(245_184_61/0.25)]"
@@ -170,14 +175,14 @@ export function RankPanelView({
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-baseline justify-between gap-x-2">
             <span className="whitespace-nowrap font-display text-base font-bold tracking-wide text-gold-300">
-              Weaver Rank <span className="font-sans">{p.rank}</span>
+              {txt('screens.rank.weaverRank')} <span className="font-sans">{p.rank}</span>
             </span>
             <span className="whitespace-nowrap font-mono text-xs text-muted">{p.record}</span>
           </p>
           <XpBar
             before={p.fraction}
             after={p.fraction}
-            label={`Weaver XP: ${p.progressText}`}
+            label={txt('screens.rank.weaverXp', { progressText: p.progressText })}
             className="mt-1.5"
           />
           <p className="mt-1 font-mono text-xs text-muted">{p.progressText}</p>
@@ -186,7 +191,9 @@ export function RankPanelView({
       {preview && (p.next.length > 0 || p.nextAstrolabe || atelier) && (
         <div className="mt-2.5 border-t border-ink-600/60 pt-2">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted">
-            {unlockAll ? `Rank ${p.nextRank} would open` : `Rank ${p.nextRank} opens`}
+            {unlockAll
+              ? txt('screens.rank.rankWouldOpen', { nextRank: p.nextRank })
+              : txt('screens.rank.rankOpens', { nextRank: p.nextRank })}
           </p>
           <ul className="mt-1 flex flex-col gap-1">
             {p.next.map((u) => (
@@ -233,7 +240,7 @@ export function RankPanelView({
       )}
       {unlockAll && (
         <p className="mt-2 flex items-center gap-1.5 text-xs text-muted">
-          <Icon name="info" size={12} /> Settings: the unlocks are skipped, everything is open.
+          <Icon name="info" size={12} /> {txt('screens.rank.settingsTheUnlocksAre')}
         </p>
       )}
     </Panel>
@@ -274,16 +281,18 @@ export function XpGainPanel({
         </ul>
       )}
       <div className="mt-3 flex items-center gap-2">
-        <span className="shrink-0 text-xs font-semibold text-gold-300">Rank {gain.rank}</span>
+        <span className="shrink-0 text-xs font-semibold text-gold-300">
+          {txt('screens.rank.rank', { rank: gain.rank })}
+        </span>
         <XpBar
           before={gain.before}
           after={gain.after}
-          label={`Weaver XP: ${p.progressText}`}
+          label={txt('screens.rank.weaverXp', { progressText: p.progressText })}
           className="flex-1"
         />
       </div>
       <p className="mt-1 font-mono text-xs text-muted">
-        {gain.rankedUp ? `Rank ${gain.rank} reached · ` : ''}
+        {gain.rankedUp ? txt('screens.rank.rankReached', { rank: gain.rank }) : ''}
         {p.progressText}
       </p>
     </Panel>
@@ -362,7 +371,7 @@ export function RankUpCard({
         }}
       >
         <p className="font-mono text-xs uppercase tracking-[0.4em] text-muted">
-          The Loom remembers
+          {txt('screens.rank.theLoomRemembers')}
         </p>
         <div
           className="anim-glow mx-auto mt-3 flex h-20 w-20 items-center justify-center rounded-full border-4 border-gold-300 bg-ink-950"
@@ -375,7 +384,7 @@ export function RankUpCard({
           className="mt-3 font-display text-3xl font-bold tracking-wide text-gold-300"
         >
           {/* Numerals in the sans, as everywhere: the display face's 1 reads as an I. */}
-          {rankUps.length > 1 ? 'Ranks ' : 'Weaver Rank '}
+          {rankUps.length > 1 ? 'Ranks ' : txt('screens.rank.weaverRank2')}
           <span className="font-sans">
             {rankUps.length > 1 ? rankUps.map((r) => r.rank).join(', ') : top}
           </span>
@@ -424,7 +433,7 @@ export function RankUpCard({
                           <span className="text-sm leading-relaxed text-text">{u.text}</span>
                           {u.kind === 'calling' && (
                             <span className="mt-1 block text-xs text-muted">
-                              Choose it in your next Prep, above the song builder.
+                              {txt('screens.rank.chooseItInYour')}
                             </span>
                           )}
                           {reliquaryUnlockLine(u) && (
@@ -450,7 +459,7 @@ export function RankUpCard({
                             >
                               {rankAstrolabeLine(r.rank, deedPoints)}{' '}
                               <span className="font-normal text-muted">
-                                Open it from the Loom or from Prep.
+                                {txt('screens.rank.openItFromThe')}
                               </span>
                             </span>
                           )}
@@ -512,8 +521,7 @@ export function RankUpCard({
         {firstTime && unlocks.length > 0 && (
           <p className="mt-4 flex items-start gap-2 rounded-lg border border-gold-500/40 bg-gold-400/5 px-3 py-2 text-left text-sm text-gold-100">
             <Icon name="info" size={16} className="mt-0.5 shrink-0 text-gold-300" />
-            New things wait in the song builder (next run’s Prep, or Retune at a Respite). They’re
-            marked New.
+            {txt('screens.rank.newThingsWaitIn')}
           </p>
         )}
         <Button
@@ -524,7 +532,7 @@ export function RankUpCard({
           onClick={onDismiss}
           sound="confirm"
         >
-          Onward <Icon name="arrow" size={18} />
+          {txt('screens.rank.onward')} <Icon name="arrow" size={18} />
         </Button>
       </div>
     </div>
