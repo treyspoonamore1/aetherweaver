@@ -73,6 +73,7 @@ import {
   conductingOf,
   chainOpen,
   cueCostNow,
+  cueGateCost,
   crescendoCostOf,
   finaleFree,
   finaleOn,
@@ -270,7 +271,9 @@ export class NoviceBot implements Bot {
     const call = calling?.e.hero!.call ?? null;
     const answering = !!call && now - call.start > 0.8 && this.rng.chance(0.35);
     const empowerCall = answering && call!.answer === 'empower' && healthy && !downed && !held;
-    const wantEmpower = (shielded && healthy && !downed) || empowerCall;
+    // Iron Mask (docs/phase-5g.md): the Thread can't Empower, and she knows it (the relic says so).
+    const noEmpower = state.mods.noEmpower;
+    const wantEmpower = !noEmpower && ((shielded && healthy && !downed) || empowerCall);
     if (wantEmpower) {
       const to = empowerCall ? calling : party.find((h) => h.defId === 'lyra');
       if (to && wc.threadSlot !== to.slot && wc.threadLock <= 0)
@@ -287,8 +290,10 @@ export class NoviceBot implements Bot {
       if (wc.threadMode === 'bear' ? scary || this.rng.chance(0.6) : scary && this.rng.chance(0.4))
         want = 'bear';
     }
-    // Movement III: Unravel turns her Mend to wounds. Sometimes she notices, and Empowers.
+    // Movement III: Unravel turns her Mend to wounds. Sometimes she notices, and Empowers (not
+    // with Iron Mask: then she Mends on).
     if (
+      !noEmpower &&
       want === 'mend' &&
       unravelUp(state) &&
       (wc.threadMode === 'empower' || this.rng.chance(NOVICE_M3.unravelEmpower))
@@ -440,7 +445,7 @@ export class NoviceBot implements Bot {
     // Cue whoever is ready, now and then; Crescendo when things look bad. (A hero stilled by
     // the Grand Silence can't take a Cue: never so outside the Finale.) A Conductor's Cue
     // already sent this decision stands in for it.
-    if (conducted !== 'cue' && wc.resonance >= state.dissonance.cueCost && this.rng.chance(0.3)) {
+    if (conducted !== 'cue' && wc.resonance >= cueGateCost(state) && this.rng.chance(0.3)) {
       const ready = party.find(
         (h) => h.e.hero!.solo >= 100 && h.e.hero!.soloActive <= 0 && !isStilled(h.e),
       );
@@ -674,7 +679,7 @@ export class NoviceBot implements Bot {
     if (
       this.on('reigniteCue') &&
       this.silenceWatch.burn(state) &&
-      wc.resonance >= state.dissonance.cueCost &&
+      wc.resonance >= cueGateCost(state) &&
       !has('cue')
     ) {
       const ready = party.find((h) => h.e.hero!.solo >= 100 && h.e.hero!.soloActive <= 0);
