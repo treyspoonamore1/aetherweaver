@@ -3,7 +3,8 @@
  * (each fight's stats, grade, kind and outcome; its Calling and tree). Pure: the profile store
  * records them as fights end, the Codex lists them, and ten of them give an Astrolabe point.
  */
-import { CONTENT, deedText, dissonanceLevel, type DeedDef, type EchoDef } from '../content';
+import { CONTENT, deedText, dissonanceLevel, type DeedDef } from '../content';
+import { atlasTotals, completeConstellations, constellationComplete } from './atlas';
 import { treeKeystones } from '../sim';
 import { dissonancePoints, fitLevels } from './dissonance';
 import { movementSpan, type Profile } from './profile';
@@ -249,28 +250,8 @@ export function deedsEarned(run: RunState, earned: readonly string[]): string[] 
 
 // ── Profile Deeds (docs/phase-6.md, "Design: Deeds") ──────────────────────────────────────
 // The Atlas's and the weekly's: judged from the profile when its Atlas or weekly record changes.
-// The reads below are the minimal ones the rules need, on W0's shapes (`Profile.atlas`,
-// `Profile.weekly`); the Atlas's and the weekly's own modules may own fuller versions.
-
-/** Stars lit in the Atlas of Echoes: each Echo's 0 to 3, summed (absent: none). */
-export function atlasStars(profile: Pick<Profile, 'atlas'>): number {
-  const stars = profile.atlas?.stars ?? {};
-  return Object.values(stars).reduce((n, s) => n + Math.max(0, Math.min(3, Math.floor(s))), 0);
-}
-
-/**
- * Is every star of the constellation lit: each of its Echoes at three stars? A constellation with
- * no Echo is never lit.
- */
-export function constellationLit(
-  profile: Pick<Profile, 'atlas'>,
-  constellation: string,
-  echoes: readonly Pick<EchoDef, 'id' | 'constellation'>[] = CONTENT.echoes,
-): boolean {
-  const of = echoes.filter((e) => e.constellation === constellation);
-  const stars = profile.atlas?.stars ?? {};
-  return of.length > 0 && of.every((e) => (stars[e.id] ?? 0) >= 3);
-}
+// The Atlas's reads are meta/atlas.ts's; the weekly's is the minimal one the rule needs, on W0's
+// shape (`Profile.weekly`).
 
 /** Crockford base32 (docs/phase-6.md, "Share codes"): a typed I or L reads 1, an O reads 0. */
 const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
@@ -321,18 +302,15 @@ export function weeksWon(
 export function profileDeedHolds(
   profile: Pick<Profile, 'atlas' | 'weekly'>,
   deed: DeedDef,
-  echoes: readonly Pick<EchoDef, 'id' | 'constellation'>[] = CONTENT.echoes,
 ): boolean {
   const n = deed.values.n ?? 0;
   switch (deed.test) {
     case 'stars':
-      return atlasStars(profile) >= n;
-    case 'constellation': {
-      if (deed.constellation !== undefined)
-        return constellationLit(profile, deed.constellation, echoes);
-      const all = [...new Set(echoes.map((e) => e.constellation))];
-      return all.some((id) => constellationLit(profile, id, echoes));
-    }
+      return atlasTotals(profile.atlas).lit >= n;
+    case 'constellation':
+      return deed.constellation !== undefined
+        ? constellationComplete(profile.atlas, deed.constellation)
+        : completeConstellations(profile.atlas).length > 0;
     case 'weeks':
       return weeksWon(profile) >= n;
     default:
@@ -347,7 +325,7 @@ export function profileDeedProgress(
 ): number | null {
   switch (deed.test) {
     case 'stars':
-      return atlasStars(profile);
+      return atlasTotals(profile.atlas).lit;
     case 'weeks':
       return weeksWon(profile);
     default:

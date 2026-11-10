@@ -5,6 +5,7 @@
  */
 import { create } from 'zustand';
 import { allocate, astrolabePoints, refund } from '../meta/astrolabe';
+import { recordStars, type AtlasRecord } from '../meta/atlas';
 import { deedPoints, deedProgress, deedsEarned, profileDeedsEarned } from '../meta/deeds';
 import {
   allowanceFor,
@@ -156,10 +157,15 @@ export interface ProfileStore {
    */
   recordFinaleDissonance(run: RunState): boolean;
   /**
-   * An Echo run ended (docs/phase-6.md, "Stars"): lights its stars and pays their rewards, then
-   * judges the profile Deeds. Returns the stars it newly lit.
+   * An Echo run ended (docs/phase-6.md, "Stars"): lights its stars, keeps its best, and pays the
+   * newly lit stars' Tuning Shards and Discord Tears (each star once, ever: meta/atlas.ts
+   * `recordStars`), then judges the profile Deeds. Returns what it did, also kept in `atlasNotice`
+   * for the Summary.
    */
-  recordAtlas(run: RunState): number;
+  recordAtlas(run: RunState): AtlasRecord;
+  /** What the last Echo's end did in the Atlas (the Summary's stars line); null until one ends. */
+  atlasNotice: AtlasRecord | null;
+  dismissAtlasNotice(): void;
   /**
    * A weekly run ended (docs/phase-6.md, "The local leaderboard"): keeps the player's own entry
    * in its week, then judges the profile Deeds.
@@ -254,6 +260,7 @@ export const useProfile = create<ProfileStore>()((set, get) => {
     deedNotices: [],
     bondNotices: [],
     recruitNotices: [],
+    atlasNotice: null,
     allowance: () =>
       useSettings.getState().settings.unlockAll
         ? EVERYTHING
@@ -336,6 +343,7 @@ export const useProfile = create<ProfileStore>()((set, get) => {
         deedNotices: [],
         bondNotices: [],
         recruitNotices: [],
+        atlasNotice: null,
       }),
     bondsAll: () => useSettings.getState().settings.unlockAll,
     runBonds: (heroes) => runBonds(get().profile.bonds, heroes, get().bondsAll()),
@@ -584,13 +592,23 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       return true;
     },
     recordAtlas: (run) => {
-      if (run.echo === undefined) return 0;
-      // PART B (W3, src/meta/atlas.ts): `recordStars(profile, run)` lights the run's stars and pays
-      // their first-time rewards here, in one commit; until then no star is lit.
-      const lit = 0;
+      const profile = get().profile;
+      const record = recordStars(profile, run);
+      if (record.atlas !== profile.atlas && record.atlas !== undefined) {
+        const rq = profile.reliquary;
+        commit(
+          {
+            ...profile,
+            atlas: record.atlas,
+            reliquary: { ...rq, shards: rq.shards + record.shards, tears: rq.tears + record.tears },
+          },
+          { atlasNotice: record },
+        );
+      } else if (record.echo !== null) set({ atlasNotice: record });
       get().recordProfileDeeds();
-      return lit;
+      return record;
     },
+    dismissAtlasNotice: () => set({ atlasNotice: null }),
     recordWeekly: (run) => {
       if (run.weekly === undefined) return;
       // PART B (W4, src/meta/weekly.ts and shareCode.ts): the run's score and share code become
