@@ -78,10 +78,10 @@ describe('Phase 6 content contracts', () => {
     ]);
     expect(DEED_TESTS).toHaveLength(17);
     expect(DEED_STATS.at(-1)).toBe('cleanses');
-    // No existing level uses a new effect, and no existing Deed a new rule.
-    for (const d of CONTENT.dissonance)
+    // No earlier level uses a new effect, and no earlier Deed a new rule.
+    for (const d of CONTENT.dissonance.slice(0, 12))
       expect(DISSONANCE_EFFECTS.indexOf(d.effect)).toBeLessThan(12);
-    for (const d of CONTENT.deeds) expect(DEED_TESTS.indexOf(d.test)).toBeLessThan(12);
+    for (const d of CONTENT.deeds.slice(0, 30)) expect(DEED_TESTS.indexOf(d.test)).toBeLessThan(12);
   });
 
   it('an empty Phase 6 list is left out of the content hash; a filled one is hashed', () => {
