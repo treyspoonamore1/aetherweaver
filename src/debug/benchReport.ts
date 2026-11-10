@@ -36,6 +36,19 @@ export interface BenchResult {
   timedOut: boolean;
 }
 
+/** What the bench page shows the e2e test (`window.__AWPERF__`). */
+export interface BenchWindowState {
+  status: 'idle' | 'running' | 'done';
+  results: BenchResult[];
+  text: string;
+}
+
+declare global {
+  interface Window {
+    __AWPERF__?: BenchWindowState;
+  }
+}
+
 export interface BenchEnvironment {
   when: string;
   userAgent: string;

@@ -18,20 +18,9 @@ import { useUi } from '../ui/store';
  *
  * URL: `?lab=bench` lists the scenes; `&scene=finale` (or `all`) starts at once; `&quality=auto`
  * (or low, medium, high: the default) sets the quality; `&measure=600` shortens every scene's
- * measured part to that many ticks (the e2e test).
+ * measured part to that many ticks; `&repeat=8&gap=3000` plays the list 8 times with 3 s between
+ * scenes (the e2e heap test reads the heap in the gaps).
  */
-
-export interface BenchWindowState {
-  status: 'idle' | 'running' | 'done';
-  results: BenchResult[];
-  text: string;
-}
-
-declare global {
-  interface Window {
-    __AWPERF__?: BenchWindowState;
-  }
-}
 
 interface MemoryPerformance extends Performance {
   memory?: { usedJSHeapSize: number };
@@ -48,8 +37,9 @@ function urlQuality(): QualitySetting {
   return (QUALITY_SETTINGS as readonly string[]).includes(q ?? '') ? (q as QualitySetting) : 'high';
 }
 
-function urlMeasure(): number | null {
-  const raw = Number.parseInt(params.get('measure') ?? '', 10);
+/** A positive whole number from the URL, or null. */
+function urlCount(key: string): number | null {
+  const raw = Number.parseInt(params.get(key) ?? '', 10);
   return Number.isFinite(raw) && raw > 0 ? raw : null;
 }
 
@@ -183,8 +173,10 @@ export function BenchPage() {
     async (ids: readonly string[]) => {
       const host = hostRef.current;
       if (!host || running) return;
-      const measure = urlMeasure();
-      const scenes = ids.map((id) => benchScene(id)).filter((s): s is BenchScene => !!s);
+      const measure = urlCount('measure');
+      const gap = urlCount('gap') ?? 0;
+      const once = ids.map((id) => benchScene(id)).filter((s): s is BenchScene => !!s);
+      const scenes = Array.from({ length: urlCount('repeat') ?? 1 }, () => once).flat();
       setResults([]);
       setRunning(scenes[0]?.id ?? null);
       window.__AWPERF__ = { status: 'running', results: [], text: '' };
@@ -204,6 +196,7 @@ export function BenchPage() {
         );
         done.push(result);
         setResults([...done]);
+        if (gap > 0) await wait(gap);
       }
       setRunning(null);
     },
