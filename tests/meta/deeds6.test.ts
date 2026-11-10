@@ -10,6 +10,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { useProfile } from '../../src/app/profileStore';
 import { useSettings } from '../../src/app/settings';
+import { encodeShareCode } from '../../src/meta/shareCode';
 import { CONTENT, type DeedDef } from '../../src/content';
 import { endsRun } from '../../src/meta/runEnd';
 import {
@@ -286,15 +287,18 @@ describe('run kinds (decision 10)', () => {
   });
 });
 
-/** A share code with the won bit as said: every other field zero (doc's table, MSB first). */
+/** A share code (meta/shareCode.ts) whose run was won or not. */
 function code(won: boolean): string {
-  const bits = new Array<number>(140).fill(0);
-  if (won) bits[54] = 1;
-  const alphabet = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
-  let chars = '';
-  for (let i = 0; i < 140; i += 5)
-    chars += alphabet[bits.slice(i, i + 5).reduce((v, b) => v * 2 + b, 0)];
-  return `AW1-${chars.match(/.{4}/g)!.join('-')}`;
+  return encodeShareCode({
+    week: 40,
+    build: '00000000',
+    simVersion: 22,
+    won,
+    fightsWon: 3,
+    score: 1200,
+    seconds: 600,
+    digest: '0000000000',
+  });
 }
 
 describe('the profile rules', () => {
