@@ -163,7 +163,7 @@ export function tyrantDecree(
   answers: readonly AnswerTag[],
 ): string {
   const who = boss.startsWith('The ') ? `the ${boss.slice(4)}` : boss;
-  const taken = foe === boss ? `plays its ${attack} early` : `takes up the ${foe}’s ${attack}`;
+  const taken = foe === boss ? `plays its ${attack} more often` : `takes up the ${foe}’s ${attack}`;
   const head = `Tyrant — ${who} ${taken}.`;
   const said = answers.map((a) => TYRANT_ANSWERS[a]);
   if (said.length === 0) return head;

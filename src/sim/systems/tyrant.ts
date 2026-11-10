@@ -8,16 +8,17 @@
  * after the phase begins. A phase shift replaces it with the next phase's.
  *
  * The Silent Conductor borrows nothing (the Finale's Weaver faces only its choir's answers): it
- * plays its own closing attacks earlier instead, Sforzando in the Overture and Downbeat in the
- * Mirror Choir on their own cadences, nothing in the Grand Silence, and in the last burn (and the
- * Postlude) the Downbeat and Sforzando on `TYRANT_BURN`'s cadences (`closingEvery`).
+ * plays one of its own closing attacks more often instead, Sforzando in the Overture and Downbeat
+ * in the Mirror Choir, on one clock (`TYRANT_OWN`: its own picker leaves that attack to the hold,
+ * `ownHeld`), nothing in the Grand Silence, and in the last burn (and the Postlude) the Downbeat
+ * and Sforzando on `TYRANT_BURN`'s cadences (`closingEvery`).
  *
  * Nothing borrowed silences, steals, shrinks or weakens an aura, and nothing summons (decision 5:
  * no Mute's dome, no Silencing, no Steal Verse). Every call site is behind `world.mods.tyrant`, so
  * no other fight has the key, the event or a draw.
  */
 import { attackDef, enemyDef } from '../../content';
-import { BURN_EVERY, TYRANT_BURN } from '../../content/crucible';
+import { BURN_EVERY, TYRANT_BURN, TYRANT_OWN } from '../../content/crucible';
 import { CONDUCTOR, DOWNBEAT, SFORZANDO } from '../../content/crucibleIds';
 import { tyrantDecree } from '../../content/dissonance';
 import type { Entity, TyrantHold } from '../state';
@@ -72,13 +73,22 @@ export const TYRANT_TABLE: Readonly<Record<string, readonly (TyrantEntry | null)
     { attack: 'maw_inhale', from: 'void_maw' },
     { attack: 'wraith_doubt', from: 'doubt_wraith' },
   ],
-  // The Finale: its own closing attacks, earlier; the Grand Silence stays as built.
+  // The Finale: one of its own closing attacks more often, on one clock; the Grand Silence as built.
   [CONDUCTOR]: [
-    { attack: SFORZANDO, from: CONDUCTOR, every: BURN_EVERY.sforzando },
-    { attack: DOWNBEAT, from: CONDUCTOR, every: BURN_EVERY.downbeat },
+    { attack: SFORZANDO, from: CONDUCTOR, every: TYRANT_OWN.sforzando },
+    { attack: DOWNBEAT, from: CONDUCTOR, every: TYRANT_OWN.downbeat },
     null,
   ],
 };
+
+/**
+ * The boss's own special `attackId` is its phase's hold (the Silent Conductor's): the generic
+ * picker and Foresight leave it to the hold's clock (enemies.ts), so it has one cadence.
+ */
+export function ownHeld(e: Entity, attackId: string): boolean {
+  const c = e.enemy!;
+  return c.tyrant !== undefined && c.tyrant.from === c.defId && c.tyrant.attack === attackId;
+}
 
 /** A borrowed attack that the cap holds back is tried again this long after (as the picker's). */
 const CAP_RETRY = 1.5;
