@@ -353,7 +353,8 @@ export function cueCostFloor(state: WorldState, cost: number): number {
  * N30, Thornwreath: called in `dealDamage` (combat/health.ts) on a hero's hit on an enemy, beside
  * Anthem and Shield Bearer (its extra is the Weaver's share), behind
  * `if (world.mods.thornPct > 0)`; the multiplier for `source`: 1 + `thornPct` while they are
- * below `thornBelow` of their life, else exactly 1.
+ * below `thornBelow` of their life, else exactly 1. Its extra (− 1) is added into the party's
+ * damage factor (Heavy Score's), never multiplied on as a factor of its own.
  */
 export function thornwreathMult(world: World, source: Entity): number {
   if (!(world.mods.thornPct > 0)) return 1;

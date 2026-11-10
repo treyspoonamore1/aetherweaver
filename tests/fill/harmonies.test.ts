@@ -19,18 +19,22 @@ import { Rng } from '../../src/sim/core/rng';
 import {
   applyHarmonyMotif,
   cuttingChorus,
+  empowered,
   harmonyMotifIds,
   LULLABY_EVERY,
   RAZOR_CRIT_CHANCE,
   RAZOR_CRIT_MULT,
   RINGING_SECONDS,
+  soloChargeTime,
   WOUNDED_BELOW,
 } from '../../src/sim/fill/harmonies';
+import { CRIT_CHANCE, CRIT_MULT } from '../../src/sim/systems/heroDamage';
+import { soloSpec } from '../../src/sim/systems/solos';
 import { RAZOR_TICK } from '../../src/sim/fill/silk';
 import { KNOWN_MOTIFS, NO_MODS, resolveMods, type Mods } from '../../src/sim/mods';
 import type { Entity } from '../../src/sim/state';
 import { cueCostNow } from '../../src/sim/systems/conducting';
-import { updateThread } from '../../src/sim/systems/thread';
+import { empowerBonus, updateThread } from '../../src/sim/systems/thread';
 import { resolveConfig, type World } from '../../src/sim/world';
 import { ofType, sandbox, stepFor, stepUntil, worldOf } from '../sim/helpers';
 import { cone, foe, place, setup } from '../sim/serenHelpers';
@@ -172,7 +176,7 @@ describe('the Harmonies fill: content and resolver', () => {
     const cadence = def('guardians_cadence').triggers![0]!;
     expect(cadence).toMatchObject({ on: 'abilityUsed', hero: 'kael', ability: 'shieldBash' });
     expect(cadence.effects).toEqual([
-      { kind: 'damage', amount: 'v', of: 'riposte', at: 'event', radius: 4 },
+      { kind: 'damage', amount: 'v', of: 'riposte', at: 'hero', radius: 4 },
     ]);
     expect(def('riposte_bloom').text).toContain('within 4 m');
     expect(def('crossed_steel').triggers).toEqual([
@@ -337,26 +341,31 @@ describe('Guardian’s Cadence: Kael’s Shield Bash sets off Riposte Bloom at {
     const s = stage(motifs);
     const kael = s.hero(0);
     place(kael, 0, -4);
-    const near = foe(s.w, 'bell_brute', 0, -5.5, { hp: 1e6, stun: true });
+    const near = foe(s.w, 'bell_brute', 0, -2.6, { hp: 1e6, stun: true });
     const side = foe(s.w, 'bell_brute', 2.5, -6, { hp: 1e6, stun: true });
     const far = foe(s.w, 'bell_brute', 9, -5.5, { hp: 1e6, stun: true });
+    // Within 4 m of Kael, but not of the enemy he bashes.
+    const behind = foe(s.w, 'bell_brute', 0, -8.2, { hp: 1e6, stun: true });
     kael.hero!.abilityCooldowns = [0, 99];
     const events = stepUntil(s.sim, (ev) =>
       ev.some((e) => e.type === 'abilityUsed' && e.ability === 'shieldBash'),
     );
     const used = ofType(events, 'abilityUsed').find((e) => e.ability === 'shieldBash')!;
-    return { s, events, used, near, side, far };
+    return { s, events, used, kael, near, side, far, behind };
   }
 
-  it('held with Riposte Bloom: every enemy within 4 m of the bash takes {v}% of the bloom', () => {
+  it('held with Riposte Bloom: every enemy within 4 m of Kael takes {v}% of the bloom', () => {
     const r = bash(held('riposte_bloom', 'guardians_cadence'));
     const amount = (value('riposte_bloom') * value('guardians_cadence')) / 100;
     const struck = dealtBy(r.events, r.s.w.weaverId);
-    const within = [r.near, r.side, r.far].filter(
-      (e) => Math.hypot(e.x - r.used.x, e.z - r.used.z) <= 4 + e.radius,
-    );
-    expect(within.length).toBeGreaterThanOrEqual(2);
+    const reach = (e: Entity, x: number, z: number) => Math.hypot(e.x - x, e.z - z) <= 4 + e.radius;
+    const all = [r.near, r.side, r.far, r.behind];
+    const within = all.filter((e) => reach(e, r.kael.x, r.kael.z));
+    expect(within.length).toBeGreaterThanOrEqual(3);
     expect(within).not.toContain(r.far);
+    // Centred on Kael, not on the bashed enemy (where the event sits).
+    expect(within).toContain(r.behind);
+    expect(reach(r.behind, r.used.x, r.used.z)).toBe(false);
     expect(struck.map((e) => e.target).sort()).toEqual(within.map((e) => e.id).sort());
     for (const e of struck) expect(e.amount + e.absorbed).toBeCloseTo(amount, 6);
     expect(ofType(r.events, 'motifTriggered').map((e) => e.source)).toEqual(['guardians_cadence']);
@@ -753,4 +762,96 @@ describe('each Harmony is offered only once its prerequisites (and its hero or a
       }
     });
   }
+});
+
+// ── The copies (src/sim/fill/harmonies.ts can't import their sources) ─────────────────────
+
+describe('the copied numbers and helpers agree with their sources', () => {
+  it('Cutting Chorus crits as a hero does: the same chance and multiple', () => {
+    expect(RAZOR_CRIT_CHANCE).toBe(CRIT_CHANCE);
+    expect(RAZOR_CRIT_MULT).toBe(CRIT_MULT);
+  });
+
+  it('empowered: what empowerBonus says, over the Thread’s modes, the Prism Loom, afterglow', () => {
+    const states: [string, (s: ReturnType<typeof stage>) => void][] = [
+      ['no Thread', () => {}],
+      [
+        'Mending Kael',
+        (s) => {
+          s.ww.threadSlot = 0;
+          s.ww.threadMode = 'mend';
+        },
+      ],
+      [
+        'Empowering Kael',
+        (s) => {
+          s.ww.threadSlot = 0;
+          s.ww.threadMode = 'empower';
+        },
+      ],
+      [
+        'Empowering Kael, taut',
+        (s) => {
+          s.ww.threadSlot = 0;
+          s.ww.threadMode = 'empower';
+          s.ww.threadTension = 1;
+        },
+      ],
+      [
+        'Empowering Kael, the Weaver down',
+        (s) => {
+          s.ww.threadSlot = 0;
+          s.ww.threadMode = 'empower';
+          s.weaver.health!.downed = true;
+        },
+      ],
+      [
+        'Empowering Kael, Lyra beside him',
+        (s) => {
+          s.ww.threadSlot = 0;
+          s.ww.threadMode = 'empower';
+          place(s.hero(1), s.hero(0).x + 1, s.hero(0).z);
+          place(s.hero(2), s.hero(0).x + 30, s.hero(0).z);
+        },
+      ],
+      [
+        'Lyra’s Empower lingering',
+        (s) => {
+          s.hero(1).hero!.afterglowUntil = s.w.time + 2;
+        },
+      ],
+    ];
+    let seen = 0;
+    for (const relics of [[], ['prism_loom']] as string[][])
+      for (const [name, set] of states) {
+        const s = stage([], { relics });
+        set(s);
+        for (const slot of [0, 1, 2]) {
+          const h = s.hero(slot);
+          const want = empowerBonus(s.w, h).more > 0;
+          expect(empowered(s.w, h), `${name} ${relics.join()} slot ${slot}`).toBe(want);
+          if (want) seen++;
+        }
+      }
+    // Both answers came up.
+    expect(seen).toBeGreaterThan(3);
+  });
+
+  it('soloChargeTime: what soloSpec says, for each hero’s own Solo and every alternate', () => {
+    const party = ['kael', 'lyra', 'vexis', 'brann', 'seren', 'oro'];
+    let alts = 0;
+    for (const trio of [party.slice(0, 3), party.slice(3)]) {
+      const s = stage([], { party: trio });
+      for (const slot of [0, 1, 2]) {
+        const h = s.hero(slot);
+        expect(soloChargeTime(s.w, h), h.hero!.defId).toBe(soloSpec(s.w, h).chargeTime);
+        for (const alt of CONTENT.altSolos.filter((a) => a.hero === h.hero!.defId)) {
+          h.hero!.soloId = alt.id;
+          expect(soloChargeTime(s.w, h), alt.id).toBe(soloSpec(s.w, h).chargeTime);
+          alts++;
+        }
+      }
+    }
+    expect(alts).toBe(CONTENT.altSolos.length);
+  });
 });

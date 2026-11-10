@@ -27,11 +27,14 @@ import { touchingThread } from './threadContact';
 const EPS = 1e-9;
 /**
  * Cutting Chorus: a Razor Silk strike is critical with this chance, for this multiple. The same
- * numbers as a hero's crit (`CRIT_CHANCE`, `CRIT_MULT` in systems/heroDamage.ts, not exported),
+ * numbers as a hero's crit (`CRIT_CHANCE`, `CRIT_MULT` in systems/heroDamage.ts),
  * drawn from the same stream (`world.rng.combat`).
  */
 export const RAZOR_CRIT_CHANCE = 0.1;
 export const RAZOR_CRIT_MULT = 1.6;
+// Copied, not imported: importing systems/heroDamage.ts here reaches systems/thread.ts, which
+// binds the hook call sites before tests/fill/hooks.test.ts can wrap them. tests/fill/
+// harmonies.test.ts pins the copies equal to the originals.
 /** Spindle Lullaby: an enemy it put to sleep can be slept by it again this long after. */
 export const LULLABY_EVERY = 8;
 /** Concert Pitch: the ring lasts this long after a Perfect Ward. */
@@ -218,10 +221,11 @@ export function grandStaffCharge(world: World, hero: Entity, dt: number): void {
  * `hero` is Empowered now: `empowerBonus(world, hero).more > 0` (systems/thread.ts), the test a
  * hero's hit uses (`heroDamage`'s `empowered`). Copied, not imported: a runtime import of a
  * system module that imports this file binds it before `tests/fill/hooks.test.ts` can wrap it.
+ * Exported only so tests/fill/harmonies.test.ts can compare it with its source.
  * The Empowering Thread's potency on the hero (its own, or the Prism Loom's share), else a
  * lingering Empower (`afterglowUntil`), else (the Conductor) a Spotlight.
  */
-function empowered(world: World, hero: Entity): boolean {
+export function empowered(world: World, hero: Entity): boolean {
   if (!(world.content.thread.empowerMore * world.mods.empowerMult > 0)) return false;
   const weaver = world.entities.get(world.weaverId);
   const w = weaver?.weaver;
@@ -249,7 +253,7 @@ function empowered(world: World, hero: Entity): boolean {
  * The hero's Solo charge time, as `soloSpec` (systems/solos.ts) gives it: its own Solo's, or the
  * alternate Solo it has slotted. Copied for the same reason as `empowered`.
  */
-function soloChargeTime(world: World, hero: Entity): number {
+export function soloChargeTime(world: World, hero: Entity): number {
   const h = hero.hero!;
   const own = world.content.heroes.find((d) => d.id === h.defId)?.solo;
   if (own && h.soloId === own.id) return own.chargeTime;
