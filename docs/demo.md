@@ -1,6 +1,6 @@
 # The playtest demo
 
-*2026-10-30 · follows [Phase 4h](phase-4h.md); updated 2026-11-03 for [Phase 5a](phase-5a.md), 2026-11-04 for [Phase 5b](phase-5b.md), 2026-11-05 for [Phase 5c](phase-5c.md), 2026-11-08 for [Phase 5d](phase-5d.md), 2026-11-09 for [Phase 5e](phase-5e.md), and for [Phase 5f](phase-5f.md) and [Phase 5g](phase-5g.md) (Version 13)*
+*2026-10-30 · follows [Phase 4h](phase-4h.md); updated 2026-11-03 for [Phase 5a](phase-5a.md), 2026-11-04 for [Phase 5b](phase-5b.md), 2026-11-05 for [Phase 5c](phase-5c.md), 2026-11-08 for [Phase 5d](phase-5d.md), 2026-11-09 for [Phase 5e](phase-5e.md), for [Phase 5f](phase-5f.md) and [Phase 5g](phase-5g.md) (Version 13), and 2026-11-10 for [Phase 6](phase-6.md) (Version 14)*
 
 A build of the game for playtesters: the Prelude run (Movement I), and since Phase 5a the Expedition, which climbs on past the Hollow Cantor into Movement II (the Crimson Spire and the Crimson Legion), with everything the Loom has opened by then. It's published as a private link (a claude.ai Artifact) that its owner can share. Nothing is collected from players.
 
@@ -29,7 +29,7 @@ npm run build:demo        # VITE_DEMO=1, relative paths, no source maps → dist
 
 ## Publishing
 
-`dist-demo/index.html` is the page, and its `assets/` (109 files, 5.6 MB) are published beside it as the artifact's own files. The page loads nothing from anywhere else.
+`dist-demo/index.html` is the page, and its `assets/` (109 files, 5.6 MB up to Version 13; (FILES files, SIZE) from Version 14) are published beside it as the artifact's own files. The page loads nothing from anywhere else.
 - **Where it is:** [Aetherweaver](https://claude.ai/artifact/WQmazTSTrGDW3SpS4CQ9Uv), a private claude.ai artifact (slug `ee2a9adf-b9b9-4612-abe0-a64652bfb45b`). Only its owner sees it until they share it from its page on claude.ai.
 - **To update it,** rebuild and republish the folder to the same artifact (its slug and current version), so the link stays the same.
 - **Checked before publishing:** the build was served under a content policy like the host's (its own files only, no eval), and both starts were clicked through. Fresh and veteran, the Title, the Loom with its welcome, Prep: no console errors, page errors or failed requests. For the Thread dial's update, a fresh start went on into the Training Grounds, and the dial turned from Mend to Empower on a right-click, again with no errors. For Movement II (version 1793691876-2760), the Veteran start went on to Prep, which opened on the Expedition route ("The Expedition · Movements I-II"), again with no errors; the e2e suite's Expedition smoke plays past the Cantor to Vharun and the Summary. For Phase 5b (version 1793773158-83ac), both starts were clicked through again with no errors, and the e2e roster smoke recruits Brann, picks him in Prep and plays a fight beside him. For Phase 5c (version 1793913565-ae7a), both starts were clicked through again with no errors; the e2e suite (23 tests, all passing) plays an Expedition past Vharun into Movement III, through the Unweaver to the Summary, and checks the Rift's map, a Rift fight's HUD and that Glide never greys out. For Phase 5d (version 1794096200-d582), both starts were clicked through again with no errors; the e2e suite (23 tests, all passing) plays the Expedition on to the Silent Conductor, skips the epilogue with no card over it, then sees the held Rank-up and Bond cards, and the roster smoke takes First Light's road relic before its draft. For Phase 5e (version 1794207886-8a83), both starts were clicked through again with no errors; the e2e suite (24 tests, all passing) adds the roster-of-six smoke: a veteran recruits Brann, Seren and Oro, picks Kael, Seren and Oro in Prep, fights beside them, and sees their frames and their Result and Summary lines. For the rank-and-file enemies' red rim (version 1794254244-18f3, 2026-11-09), both starts were clicked through again with no errors; the unit suite passed, and the e2e suite was not re-run for this render-only change. For Phase 5f and Phase 5g (Version 13, version 1794298241-a148), both starts were clicked through again with no console errors, page errors or failed requests; the unit suite (4,380 tests) passed on the published commit; the e2e suite (31 tests, six of them new for the content fill) passed on the commit before the two tuning changes (Long Phrase, Iron Mask) and was not re-run after them.
@@ -360,3 +360,171 @@ The Expedition's pools are much larger: **63 new motifs** (30 common, 22 rare an
 - Did you try one of the six builds? Did it come together, and how many of its pieces did you see?
 - Did any of the six new events leave you wishing for a different choice, or one you could not read?
 - Did the Prelude feel the same as before?
+
+## Version 14: mastery, the endgame
+
+*For testers.* Version 14 is Phase 6 ([docs/phase-6.md](phase-6.md)): the reasons to play after the first Finale clear. It holds four things, which can be tried together or apart: **three new Dissonance levels** (Tyrant, Mimicry and True Dissonance), **the Atlas of Echoes** (nine remixed runs with stars to light), **This Week's Song** (one run, the same for everyone that week, with share codes and replays that your own device checks), and **fourteen new Deeds**. Only bots have played any of it so far; **What we know is off**, further down, says what that means.
+
+The numbers below are the ones in the game and the tuning's last readings. Where the first build and the tuning differ (the Postlude's life, the weekly entries, Tyrant's pacing), the tuned value is the one given.
+
+### How to reach it
+
+Everything here hangs on Dissonance: **the Atlas of Echoes lights when Dissonance opens**, and Dissonance opens with your first Finale clear at Weaver Rank 15 or above (a clear first and the Rank later works too). As the demo ships, **neither start has it open**:
+
+- **Veteran start:** Rank 12, no Finale clear. In the Loom, *Dissonance* and *The Atlas of Echoes* are both dark and say "Opens with Dissonance" (and the Codex's *Dissonance* and *Atlas of Echoes* tabs read locked). A veteran needs 4,200 more XP to reach Rank 15, and a Finale clear.
+- **Fresh start:** the same, from Rank 1, with every station dark.
+- **The way in: Settings → Progress → *Skip the unlocks*.** Settings is in the Loom's top bar (and in the pause menu); the switch is in the Progress card. It lights both stations at once, with every level, Calling, variant and hero, on either start. Each newly lit station plays its first-contact cards on your first visit; the Atlas's three cards are *Old songs, played strangely*, *Constellations* and *This Week's Song*.
+- **Or earn it:** clear the Finale (Expedition, Prep's Route switch) at Rank 15 or above. Dissonance opens (with a card at the Summary), and the Atlas with it.
+
+With Skip on, find the new things here:
+
+- **The Atlas of Echoes:** a Loom station (mint), on the right of the Loom under Dissonance. It holds the star chart, the Echoes and *This Week's Song*.
+- **The three new levels:** Prep, in the Dissonance section, after Discordant Pact. Prep's total now reads *out of 42*.
+- **The new Deeds:** the Hall of Deeds, once the thing they are about is in sight (table below). The Hall reads 2 of 22 as the veteran ships and 2 of 32 with Skip on.
+- **Beginning an Echo or the weekly:** from the Atlas; both go to a Prep of their own. A run already in progress blocks them ("A run is saved: continue or end it at the Gate first").
+
+### The three new Dissonance levels
+
+Each is listed in Prep with its text and points; the most you can reach is now **42** (it was 30). Each point pays +3% Weaver XP and +4% Tuning Shards; at 42, +126% and +168%. Relic depth and Tears are as before (from 10 and 20 points).
+
+- **Tyrant (4 points).** *Bosses and mini-bosses take up one more attack in each phase, borrowed from the foes of their road.* The boss's first borrowed cast comes 6 seconds into the phase, then at 150% of that attack's own cooldown, so it comes less often than the foe's own did. A decree names it, then what answers it: "Tyrant — the Bellwarden takes up the Glass Lancer's Lance. Ward it, Reel the target, or step aside." The borrowed attacks are:
+
+  | Boss | Phase 1 | Phase 2 | Phase 3 |
+  |---|---|---|---|
+  | The Bellwarden | Glass Lancer's Lance | Lamenter's Dirge | |
+  | The Hollow Cantor | Bell Brute's Toll Cleave | Glass Lancer's Lance | Cantor Acolyte's Mending Hymn (Focus it) |
+  | The Gorehound Matriarch | Impaler's Charge | Leech's Latch | |
+  | Vharun | Impaler's Charge | Impaler's Charge | Lamenter's Dirge |
+  | The Seamstress | Impaler's Charge | Doubt Wraith's Doubt | |
+  | The Unweaver | Null Priest's Rune | Void Maw's Inhale | Doubt Wraith's Doubt |
+  | The Silent Conductor | its own Sforzando, more often | its own Downbeat, more often | none in the Grand Silence |
+
+  None of them cuts your Thread or touches an aura, by rule. The Silent Conductor borrows nothing: it plays its own two closing attacks more often (the bots measured about one cast every 6 to 7 seconds of each), and in the last burn and the Postlude its Downbeat comes every 7 seconds and its Sforzando every 9.
+- **Mimicry (3 points).** *In each wave, 1 enemy that isn't a boss or a mini-boss carries Mimicking: it copies your Empower, Ward or Chime.* The marked enemy is the first of the wave's group with the most life per enemy. Boss and mini-boss waves (7 of the 78 waves) have none. It is the Rift's mirror, so it has the mirror gem and the cast bar showing the icon it will copy, and casting something else cracks the mirror.
+- **True Dissonance (5 points, Expeditions only).** *The Silent Conductor rises from its fall with 60% of its life and plays a fourth phase, the Postlude.* When the blow that would kill the Conductor lands, it stands up once instead: three seconds untouchable (hits and statuses pass through, and your heroes pick another target), then at 60% of its life, with its live telegraphs dropped and any pending Fortissimo Silence cancelled. Two choir voices are raised. Then:
+  - **Pairs:** every 14 seconds it Cues two voices, the second 1.5 seconds after the first, so there are never more than two damaging telegraphs at once.
+  - **Discord** swells at 1.5 a second; at 100 comes Fortissimo Silence, and any Crescendo cancels it, whatever your Calling. Its closing attacks go on.
+  - **After 90 seconds:** Cues every 10 seconds, and Discord twice as fast. The phase ends only when the Conductor falls a second time (an ordinary death).
+  - The boss bar gets a fourth pip, there is a rise countdown, and the decree reads "Postlude — The Conductor will not let the song end, and its choir sings in pairs. Answer both voices, and silence its Fortissimo with your Crescendo."
+  - The Finale fight's par is 40% longer on this level, so the time part of its grade is read against the longer clock.
+  - **Where it plays:** only on a route with the Finale. On a Prelude, Prep says *Expeditions only: a Prelude has no Finale*, the row shows +0 and adds no points. Echoes drop it too, except The Last Rehearsal.
+
+**The tiers the bots were read at.** Prep has no presets for these; they are sets of levels the bots were measured with, and good ones to try:
+
+| Tier | Points | Levels |
+|---|---|---|
+| 0 | 0 | none |
+| I | 10 | Hardened ×2, Wounding Strikes ×2 |
+| II | 20 | Tier I, Restless Dead, Elite Vanguard |
+| III | 30 | Tier II, Tyrant, Mimicry, Short Fuse ×2, Brisk Foes |
+| IV | 42 | every level at its top rank |
+
+### The Atlas of Echoes
+
+*Old songs played strangely: roads you know, with foes, bosses or rules you don't.* The chart draws nine Echoes in three constellations of three, each a star with three points of light. Pick one and its card shows its road, its twists and its three stars; **Begin** goes to its Prep, where the Echo's fixed parts show locked, what it switches off is listed (*Off in this Echo*), and the rest is yours. Then Embark. Its map reads, for example, "Retrograde · leg 1 of 3 · step 1 of 3".
+
+| Constellation | Echo | What it is |
+|---|---|---|
+| **Borrowed Crowns** (all nine stars: the robe *Crownless*) | Choir of Blood | The Reliquary Road (Movement I's road) at the Crimson Ascent's strength, with the Gorehound Matriarch and Vharun at its end. |
+| | Bells in the Rift | The Unravelling Descent (Movement III's road), but the Bellwarden and the Hollow Cantor wait at its end, grown to its strength. |
+| | The Seamstress's Court | The Crimson Ascent at the Descent's strength with no Respite, the Seamstress and the Unweaver at its end. |
+| **Strange Roads** (the Thread look *Wayward*) | Retrograde | The Expedition backwards, in three legs with no Respite: the Descent, the Ascent, then the Reliquary Road, ending at the Hollow Cantor. |
+| | The Last Rehearsal | Nothing but bosses: the Hollow Cantor, Vharun, the Unweaver and the Silent Conductor, with a Respite and a Merchant after each. The only Echo with the Finale, so the only one where True Dissonance plays. |
+| | The Gilded Road | The Crimson Ascent with every fight an elite, ending at Vharun. |
+| **Hard Bargains** (the title *Hard Bargainer*) | A Cappella | The Reliquary Road and the Crimson Ascent to Vharun with no Calling, no Astrolabe and no carried relics. |
+| | Strangers | The same two roads, shortened, ending at Vharun; your party is Brann, Seren and Oro, whoever you have recruited. |
+| | The Unrested | The same road at the Descent's strength; Restless Dead and Unforgiving are always on, and add no points. |
+
+- **Stars.** ★ for clearing it (40 Tuning Shards). ★★ for clearing it at 10 Dissonance or more (60 Shards). ★★★ at 20 or more (40 Shards and 1 Discord Tear). Dissonance counts from the levels you choose in Prep; an Echo's own forced levels count for nothing. A higher star lights the lower ones, and each star pays once, the first time it lights.
+- **Keepsakes.** All nine stars of a constellation earn its keepsake (above). All 27 earn the title *Atlas-Walker*. They are never sold: the Atelier hides an unearned one and shows an earned one with no price.
+- **An Echo is an ordinary run** in every way but its route and twists: a new seed each attempt, the Expedition's motifs, relics, boons and events (including Version 13's), and your Calling's four picks along the road (every Echo but A Cappella; on some one fight brings two in a row). It pays XP, Starlight, Aether, Shards and Tears as any run, and a clear may enshrine a relic. It sets **no Dissonance best** and earns **no run-wide Deed** (it counts for Deeds about one fight).
+- **Its Summary** has an Atlas card: the stars it lit and what they paid. An Echo's replay is kept in memory until you leave; **Keep** stores it on this device and **Save the file** writes a `.awrun` file.
+- **How long.** By the bots' clock at ★: Bells in the Rift 14 minutes, The Gilded Road 16, The Seamstress's Court 16, Choir of Blood 17.5, Strangers 20, A Cappella 20, Retrograde 21.5, The Unrested 22, The Last Rehearsal 23.5. A ★★★ clear runs longer (19 to 33 minutes), since its fights are longer.
+
+### This Week's Song
+
+One run, the same for everyone this week. It lives in the Atlas station, under the chart: the week, the days left, its entry ("Strangers: The Conductor, with Brann, Seren and Oro, at 8 Dissonance"), your best score, **Begin**, **Share**, **Add a code**, **Open a replay**, and a board of this week's results.
+
+- **The week** runs Monday 00:00 UTC to the next Monday, read from your **device's clock**. Week 44 began Monday 9 November 2026. The entry is one of a **rotation of twelve**, in a fixed order that repeats, with a new seed each week. Week 44 is *Strangers* (Conductor; Brann, Seren, Oro; Hardened ×2 and Short Fuse ×2, 8 points). Next: week 45, an Expedition (Conductor; Kael, Lyra, Vexis; Hardened and True Dissonance, 8 points); week 46, Choir of Blood (Martyr; Kael, Lyra, Seren; Unforgiving, 1 point); week 47, Retrograde (Luminary; Kael, Lyra, Vexis; Blind Score, 2 points). Then the cycle starts again.
+- **What is fixed, and what is yours.** Fixed: the seed, the route, the Calling (every tier of its path open; the picks are yours, in the run), the three heroes and the Dissonance levels. Prep shows them locked, under *Everyone plays this*. Yours: your Chords and technique variants, from every aura, ornament and variant. There is no Astrolabe, no carried relics and no Bond talents.
+- **The score.** 1,000 for a won run; 100 for each fight won (200 for a mini-boss, 300 for a boss); plus, for each fight won, by its grade: S 50, A 35, B 20, C 10, D 0. A tie goes to the run with less total fighting time. The board orders by score, then time; it keeps the last 12 weeks and 30 entries a week.
+- **Share codes.** A result is a code of 38 characters: `AW1-`, then 28 letters and digits in seven groups of four. It holds the week, the build, the score, the fights won and the time, and a fingerprint of the run, but no name (the person adding it names it). A typed I or L is read as 1 and O as 0, and spaces and dashes are ignored. Its check bits catch any one wrong character and any two swapped neighbours. **Add a code** takes a code and a name; it answers in words: "This code has a typo: its check letters don't match.", "Not a share code: it starts AW1-.", "This code is for Week N, which hasn't begun." A code is accepted only for the last 12 weeks.
+- **Replays.** Weeklies and Echoes are recorded as you play (Preludes and Expeditions are not). A weekly's own replay is kept by itself at the Summary; **Share** is meant to copy the code and a line ("My Week 44 song: 2,665 points, won. AW1-…") and save the file; **Open a replay** reads a `.awrun` file. A bot's whole weekly was about 530 KB of data (81 KB gzipped); a person's is estimated up to about 1 MB.
+- **What the board's words mean.** Each result carries one of five marks, each with its own glyph as well as its colour:
+  - **Verified:** its replay played through on this device and ended where its code says ("Verified on this device: Week 44, won, 2,165 points, 15 min of fighting.").
+  - **Another version:** verified, though it was recorded on another version of the game.
+  - **Claimed:** only a code, so its replay has not been checked.
+  - **Didn't match:** its replay doesn't play to what its code says, or can't be read, or parts ways partway ("Parts ways at fight 3"). It may have been edited, or recorded in another browser.
+  - **Plays back:** not a weekly (an Echo's replay, say). It plays back as it was recorded, but nothing fixes its start, so it is never *Verified*.
+- **Checking.** Your own finished weekly is re-checked when it ends, in a background worker, with a progress line ("Verifying · fight 4 of 5"). In our test, a bot's recorded week took under six seconds to verify in the page.
+
+### Deeds and keepsakes
+
+Fourteen new Deeds, all badges: no Astrolabe point, 15 Starlight each. The first eleven are in the Hall of Deeds as soon as Dissonance (or Skip) opens; three wait until you have met what they are about.
+
+| Deed | What it asks | Shows up |
+|---|---|---|
+| Absolute Pitch | Make 50 Perfect Wards in one run. | from the start |
+| Silent Bell | Clear Movement III without cleansing a hero. | once you have reached Movement III |
+| Red All the Way | Win an Expedition with Brann, never letting him above 40% life once he falls to it in a fight. | with Brann in your roster, once you have reached Movement II |
+| Out of Tune | Clear the Finale at 10 Dissonance or more. | Dissonance open |
+| Wolf Interval | The same at 20. | Dissonance open |
+| Tritone | The same at 30. | Dissonance open |
+| Resolution | Clear the Finale with every Dissonance level. Earns the title *the Resolved*. | Dissonance open |
+| Final Bar | Beat the Silent Conductor's Postlude. | Dissonance open, and the Finale met |
+| Crownbreaker | Clear the Finale with Tyrant. | Dissonance open |
+| Faint Star | Light a star in the Atlas of Echoes. | the Atlas lit |
+| Whole Constellation | Light every star of one constellation. | the Atlas lit |
+| Every Star | Light every star in the Atlas. | the Atlas lit |
+| Same Song | Win This Week's Song. | the Atlas lit |
+| Every Week a Song | Win This Week's Song in 4 different weeks. | the Atlas lit |
+
+Echoes and Echo-route weeklies never earn the run-wide ones (Absolute Pitch, Silent Bell, Red All the Way, and the Finale-clear Deeds from Out of Tune to Crownbreaker); the Expedition-route weeklies do. Same Song and Every Week a Song read the weeks you won from your codes, and a changed device clock can earn them (see below).
+
+### What to look for
+
+- **The Loom.** With Skip on, the Atlas station is lit and marked new. Without it, did the dark station say how to open it?
+- **The chart.** Stars and lines fill as you light them; each Echo shows three points. The card's three star rows say what each star asks.
+- **Prep under an Echo or the weekly.** The twists, the locked parts, and what is off. Could you say what you could change before you embarked?
+- **The map and the fight.** An Echo's eyebrow says which leg and step you are on; its Result says which Movement the leg is built over.
+- **Tyrant.** At each phase, a decree under the boss bar naming the borrowed attack and its answers. The boss wears a borrowed accent ring (two dashed hoops in the foe's colour) for the phase, and a crown over its head only while it casts the borrowed attack. Did you know the cast was the borrowed one, and what answered it? On the Silent Conductor there is no ring: the crown is in the baton's brass.
+- **Mimicry.** The mirror gem on an ordinary enemy, and the Mimic's cast bar showing the icon it will copy.
+- **The Postlude.** The fourth pip, the rise countdown, the decree said once, the sky rings relighting from the inside out, the pair's cue line and the two answering voices. The enraged state (after 90 seconds) adds a layer of music and no look of its own.
+- **The weekly's panel.** Each status has a word, a glyph and a colour. Did the words tell you what to trust?
+
+**Playing with the sound off.** Everything above has a shape as well as a sound: Tyrant's ring and crown and its decree in words; Mimicry's gem and icon; the Postlude's pip, countdown and decree; the five statuses' glyphs. The Atlas has sounds for each star lit (one, two or three), for a completed constellation, and for a run that verifies and one that doesn't match. Settings has a **Captions** switch (off by default) that also writes key sounds as words.
+
+### What we know is off
+
+- **Only bots have played it.** Every reading below is a bot's. The tuning's best player, the Expert, is the Skilled bot's fight play deciding twice as often and answering calls faster, with a plan for map, drafts and shops, and a **Rank 20** build. A veteran start is Rank 12 and a weekly has no build at all, so expect it to feel harder than these numbers. No person has looked at the new visuals or listened to the new sounds, and reduced motion has not been watched.
+- **Tyrant and Mimicry cost far less than their points suggest.** A point is meant to cost about 8% more enemy life. Measured that way (300 runs each): **Tyrant (4 points) cost the Novice bot −4% (it was a little easier), the Skilled bot +11% and the Expert +7%**; **Mimicry (3 points) cost the Novice +1%, the Skilled bot +7% and the Expert +6%**. Both were meant to cost far more (24 to 40% and 16 to 32%). Tyrant is also uneven: with it, the Seamstress and the Matriarch were *easier* for the Novice bot (24 to 29 of 40 wins, and 28 to 33), while the Unweaver was far harder (24 to 12 of 40). The first build made some bosses easier by letting the borrowed attack take the place of their own (the Bellwarden fell from 6 Novice losses in 40 to none); it was changed so it adds to them, and the figures above are after that change. If a Tyrant fight felt easy, or a Mimicry wave never mattered, that is this.
+- **The tiers, as the Expert read them** (50 runs on each of three sets, Rank 20 build):
+
+  | Tier | Won | Aimed at | |
+  |---|---|---|---|
+  | 0 | 98%, 100%, 98% | at least 90% | inside |
+  | I (10) | 88%, 84%, 90% | 70 to 90% | inside; two sets on the edge |
+  | II (20) | 70%, 80%, 68% | 40 to 70% | **80% is outside**; two on the edge |
+  | III (30) | 32%, 26%, 38% | 15 to 40% | inside; one on the edge |
+  | IV (42) | 18%, 16%, 14% | 2 to 15%, never 0 | two sets on the edge |
+
+  The Skilled bot, the bot most like a good player, won only 4 to 7 points less than the Expert at Tier I (we aimed for at least 10). The Novice and Idle bots were not run at the tiers.
+- **Two Echoes are too easy at the first star.** The Expert won every ★ run of **Retrograde** and **A Cappella** (40 of 40), above the 60 to 95% we aimed for, and four more sit at 95 to 98%. Their ★★★ read 38% and 43%. The Last Rehearsal is a little long (23.5 minutes by the clock, over the 22 we aimed for). ★★ was not read after the Echoes' legs were tuned.
+- **The Postlude is short on Conductor runs: about 14 seconds.** The Conductor Calling's Grand Finale ends it. With no Calling, or the Luminary, the Martyr or the Chronomancer, it lasted 75 to 92 seconds on average (68 over all runs; the shortest 12, the longest 182, a Martyr run); the whole fight ran 13 to 93 seconds longer. If True Dissonance on a Conductor run felt like nothing, that is this. The bots won 93% of Finale cells with it on, against 100% without.
+- **The weekly rotation was read by bots with no build.** Eleven of twelve entries sit in the band for the Expert (50 to 85%); week 45's (the True Dissonance Expedition) read 90%, **too easy**. Two entries sit on the edge of the Skilled bot's band (the Chronomancer week at 75%, the Conductor week with Restless Dead at 20%), and Bells in the Rift (still an Echo, no longer in the rotation) opens on a first fight no bot won on the weekly's level field.
+- **Nothing in a weekly is checked by a server.** There is no server: no global board, nothing signed. Verifying proves that a run follows from its inputs under the game's rules *on this device*. It cannot prove a person played it live: a bot, a slowed-down browser or reloading a fight can all make a valid replay, and the restart count in the file is written by the game and could be changed. **A changed device clock moves you to another week** (the code names its week, so it is harmless, but it can earn Same Song and Every Week a Song). **A hand-made file** is caught where the verifier can catch it (a start that isn't the week's, impossible assists, a fight that doesn't end where it says, a file that is too large or too deeply nested, one that plays on after its end), and not beyond that. **A code alone proves nothing:** it has check letters, not a signature. A replay made in another browser might not verify. A replay from an earlier build is *Another version*, not *Verified*.
+- **A few small things we saw in the browser:** abandoning an Echo shows "Echo cleared" at the top of its Summary, with no star lit (the heading ignores whether you won); abandoning a weekly records a lost run with 0 points, with a code and a Verified mark, on this week's board; the code box is a little too narrow for all 38 characters; and on the keepsake cards the *Locked* tag of *Hard Bargainer* wraps to its own line.
+- **Not yet checked:** the Share button's file download, Keep and Save the file from a real Summary, a weekly played to its end by a person, and the Tyrant, Mimicry and Postlude looks in a live fight.
+
+### Please tell us
+
+- With the veteran or a fresh start, **how did you find the Atlas?** Did the dark station tell you how to open it, and did you reach it with Skip the unlocks?
+- In Prep for an Echo, **could you say what was fixed and what was yours** before you embarked? Did the map's "leg 1 of 3" tell you where you were?
+- **Which star was hard?** Which Echo felt too easy at ★, too hard at ★★ or ★★★, or too long? How many minutes did it take?
+- **Tyrant:** did the decree tell you what to do before it cost you a hero? Could you tell the borrowed attack from the boss's own (ring, crown)? Did it feel like extra danger, or like a nuisance?
+- **Mimicry:** did you notice the marked enemy before it cast? Did it ever change what you did?
+- **True Dissonance:** did the rise read as a second fight? Did you know to hold your Crescendo for Fortissimo Silence? Was the Postlude too long or too short?
+- **The weekly:** did the locked rows in Prep say what everyone shares? Did you share a code, or add a friend's? Did the five words (Verified, Another version, Claimed, Didn't match, Plays back) tell you what to trust, and how long did a check take you?
+- Did you try an Echo or the weekly **with the sound off**? What did you miss?
+- Did a **Deed** appear when you expected it? Which new one did you never understand?
+- Did anything here make the Prelude or an ordinary Expedition feel different from Version 13?
