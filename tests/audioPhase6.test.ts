@@ -30,12 +30,12 @@ import { SfxEngine } from '../src/audio/sfx';
 import { isInScale, midiToHz, scaleMidi } from '../src/audio/theory';
 import { ATLAS_LIMITS, UI_SOUND_NAMES, starsLit } from '../src/audio/ui';
 import type { UiSound } from '../src/audio/types';
-import { ALTO, BASS, CONDUCTOR, SFORZANDO, SOLOS } from '../src/content/crucibleIds';
-import { createSim, type Sim, type SimEvent, type WorldState } from '../src/sim';
+import { ALTO, BASS, CONDUCTOR, DOWNBEAT, SFORZANDO, SOLOS } from '../src/content/crucibleIds';
+import { createSim, tyrantAttackOf, type Sim, type SimEvent, type WorldState } from '../src/sim';
 import { makeBot } from '../src/bots';
 import { dealDamage } from '../src/sim/combat/health';
 import { spawnEnemy } from '../src/sim/systems/enemies';
-import { SCENARIO_BELLWARDEN } from '../tools/scenarios';
+import { SCENARIO_BELLWARDEN, SCENARIO_CONDUCTOR } from '../tools/scenarios';
 import { sandbox, spawn, worldOf } from './sim/helpers';
 
 // ── A recording fake AudioContext (as tests/audioFill.test.ts) ──────────────────────────
@@ -221,6 +221,13 @@ function cast(w: FakeWorld, id: number, owner: number, attack: string, windup = 
 const enemyOf = (w: FakeWorld, id: number) =>
   w.entities.get(id)!.enemy as { tyrant?: unknown; defId?: string };
 
+/** A boss's hold for a phase, from the sim's own table: [foe, attack]. */
+function entry(boss: string, phase: number): [string, string] {
+  const e = tyrantAttackOf(boss, phase);
+  if (!e) throw new Error(`no Tyrant entry for ${boss} ${phase}`);
+  return [e.from, e.attack];
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -243,10 +250,9 @@ describe('the Phase 6 limits', () => {
 describe('Tyrant, heard', () => {
   it('the edict: a horn fifth under a struck crown, in D dorian, in its group, ducking the music', () => {
     const h = lab();
-    const boss = h.world.addTyrant('the_bellwarden', 'glass_lancer', 'lancer_lance', 2);
-    const out = h.fire(
-      ev('tyrantEdict', { boss, phase: 1, attack: 'lancer_lance', from: 'glass_lancer' }),
-    );
+    const [from, attack] = entry('the_bellwarden', 1);
+    const boss = h.world.addTyrant('the_bellwarden', from, attack, 2);
+    const out = h.fire(ev('tyrantEdict', { boss, phase: 1, attack, from }));
     expect(out.groups).toEqual([DISSONANCE_SOUND_GROUPS.edict]);
     expect(out.sources.length).toBeGreaterThan(0);
     for (const f of freqsOf(out.sources)) expect(inKey(f), f.toFixed(1)).toBe(true);
@@ -254,20 +260,20 @@ describe('Tyrant, heard', () => {
     expect(out.sources.some((s) => near(s, hz(7)))).toBe(true);
     expect(h.dis().asked.edict).toBe(1);
     // One a phase: a second at once is gated.
-    expect(
-      h.fire(ev('tyrantEdict', { boss, phase: 1, attack: 'lancer_lance', from: 'glass_lancer' }))
-        .sources.length,
-    ).toBe(0);
+    expect(h.fire(ev('tyrantEdict', { boss, phase: 1, attack, from })).sources.length).toBe(0);
     h.d.dispose();
   });
 
-  const BOSSES: [string, string, string][] = [
-    ['the_bellwarden', 'glass_lancer', 'lancer_lance'],
-    ['vharun_crimson_warden', 'hemomancer', 'hemomancer_blood_pact'],
-    ['the_seamstress', 'doubt_wraith', 'wraith_doubt'],
-    ['the_unweaver', 'null_priest', 'null_rune'],
-    [CONDUCTOR, CONDUCTOR, SFORZANDO],
-  ];
+  /** Each boss's hold in a phase, read from the sim's own table: porcelain, iron, cloth, cloth, glass. */
+  const BOSSES: [string, string, string][] = (
+    [
+      ['the_bellwarden', 1],
+      ['vharun_crimson_warden', 1],
+      ['the_seamstress', 2],
+      ['the_unweaver', 1],
+      [CONDUCTOR, 1],
+    ] as const
+  ).map(([boss, phase]) => [boss, ...entry(boss, phase)]);
 
   for (const [boss, from, attack] of BOSSES)
     it(`${boss}'s ${attack}: the foe's own sound, with the boss's voice under it`, () => {
@@ -326,12 +332,13 @@ describe('Tyrant, heard', () => {
 
   it('only the held attack, and never while Stasis holds the enemies', () => {
     const h = lab();
-    const id = h.world.addTyrant('vharun_crimson_warden', 'leech', 'leech_latch', 2);
+    const [from, attack] = entry('vharun_crimson_warden', 1);
+    const id = h.world.addTyrant('vharun_crimson_warden', from, attack, 2);
     const own = h.fire(cast(h.world, 703, id, 'vharun_execution'));
     expect(own.groups).not.toContain(DISSONANCE_SOUND_GROUPS.tyrant);
     h.advance(1);
     h.world.setStasis(true);
-    const held = h.fire(cast(h.world, 704, id, 'leech_latch'));
+    const held = h.fire(cast(h.world, 704, id, attack));
     expect(held.groups).not.toContain(DISSONANCE_SOUND_GROUPS.tyrant);
     expect(h.dis().asked.tyrant).toBe(0);
     h.d.dispose();
@@ -399,6 +406,13 @@ describe('the Postlude, heard', () => {
     expect(one.groups).not.toContain(DISSONANCE_SOUND_GROUPS.pair);
     expect(one.sources.length).toBeGreaterThan(0);
     expect(cue).toHaveBeenCalledTimes(2);
+    // The first voice gone, the sim sends the second Cue alone (no postludePair): an ordinary
+    // Cue, its own phrase, never left silent.
+    h.advance(2);
+    const alone = h.fire(ev('enemyCued', { boss, soloist: b, solo: SOLOS[BASS]! }));
+    expect(alone.sources.length).toBeGreaterThan(0);
+    expect(alone.groups).not.toContain(DISSONANCE_SOUND_GROUPS.pair);
+    expect(cue).toHaveBeenCalledTimes(3);
     // Two voices that aren't the choir's: nothing of the pair.
     h.advance(2);
     expect(h.fire(ev('postludePair', { voices: [IDS.kael, IDS.lyra] })).sources.length).toBe(0);
@@ -534,7 +548,7 @@ describe('without Phase 6', () => {
     for (let i = 0; i < 5; i++) {
       const id = h.world.addEnemy('vharun_crimson_warden', 2);
       (h.world.entities.get(id)!.enemy as { state: string }).state = 'idle';
-      h.fire(cast(h.world, 800 + i, id, 'leech_latch'));
+      h.fire(cast(h.world, 800 + i, id, entry('vharun_crimson_warden', 1)[1]));
       h.run(1);
     }
     const asked = h.dis().asked;
@@ -702,6 +716,56 @@ describe('with the sim: Tyrant, heard', () => {
     expect(a.dis().asked.edict).toBeGreaterThanOrEqual(1);
     expect(borrowed).toBeGreaterThan(0);
     expect(a.dis().asked.tyrant).toBe(borrowed);
+    a.d.dispose();
+  });
+});
+
+describe('with the sim: the Conductor’s Tyrant, heard', () => {
+  it('its voice under every phase 1 Sforzando and phase 2 Downbeat (all its held casts), none in the Grand Silence', () => {
+    const s = SCENARIO_CONDUCTOR;
+    const sim = createSim({
+      seed: s.seed,
+      ...s.config,
+      debug: true,
+      dissonance: [{ id: 'tyrant', rank: 1 }],
+    });
+    const bot = makeBot('skilled', s.seed);
+    const a = follow(sim);
+    let held = 0;
+    let silenceVoices = 0;
+    const plan: [number, number | null][] = [
+      [22, null],
+      [22, 0.55],
+      [12, 0.29],
+    ];
+    for (const [seconds, pct] of plan)
+      for (let i = 0; i < seconds * 60; i++) {
+        const cmds = bot.decide(sim.state);
+        if (i === 0 && pct !== null) cmds.push({ t: 'debug', op: { op: 'setBossHp', pct } });
+        sim.step(cmds);
+        const events = sim.drainEvents();
+        const boss = sim.state.encounter.bossId;
+        const b = boss === null ? undefined : sim.state.entities.get(boss);
+        const phase = b?.enemy?.phase ?? 0;
+        const own = phase === 1 ? SFORZANDO : phase === 2 ? DOWNBEAT : null;
+        for (const e of events)
+          if (
+            e.type === 'telegraphStarted' &&
+            e.owner === boss &&
+            own !== null &&
+            sim.state.telegraphs.find((t) => t.id === e.telegraph)?.attackId === own
+          ) {
+            // Every one of them is the hold's (its own picker leaves that attack to Tyrant).
+            expect(b!.enemy!.tyrant?.attack).toBe(own);
+            held++;
+          }
+        const before = a.dis().asked.tyrant;
+        a.frame(events);
+        if (sim.state.field.finale?.silence) silenceVoices += a.dis().asked.tyrant - before;
+      }
+    expect(held).toBeGreaterThanOrEqual(2);
+    expect(a.dis().asked.tyrant).toBe(held);
+    expect(silenceVoices).toBe(0);
     a.d.dispose();
   });
 });

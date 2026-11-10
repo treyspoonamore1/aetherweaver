@@ -131,8 +131,10 @@ function materialOf(defId: string | undefined): 'porcelain' | 'iron' | 'cloth' |
 export class DissonanceSounds {
   /** How many of each sound were asked for (tests and the lab). */
   readonly asked: Record<DissonanceGroup, number> = { edict: 0, tyrant: 0, rise: 0, pair: 0 };
-  /** This batch's pair answers: the second voices of its `postludePair`s. */
-  private readonly answering = new Set<EntityId>();
+  /** This batch's pairs: each second voice, and the first it answers. */
+  private readonly answering = new Map<EntityId, EntityId>();
+  /** This batch's pair answers already sung (with their second Cue). */
+  private readonly answered = new Set<EntityId>();
 
   constructor(private readonly h: DissonanceHost) {}
 
@@ -166,7 +168,11 @@ export class DissonanceSounds {
   handle(ev: SimEvent, state: WorldState): void {
     if (ev.type === 'tyrantEdict') this.edict(ev.boss, state);
     else if (ev.type === 'postludeRose') this.rose(ev.boss, state);
-    else if (ev.type === 'postludePair') this.pair(ev.voices, state);
+    // Already sung with its second Cue (answerCue) in this batch; else (no Cue with it) here.
+    else if (ev.type === 'postludePair') {
+      const second = ev.voices[ev.voices.length - 1];
+      if (second !== undefined && !this.answered.has(second)) this.pair(ev.voices, state);
+    }
   }
 
   /** The music's Postlude input from the state: set while there is one, deleted otherwise. */
@@ -281,22 +287,32 @@ export class DissonanceSounds {
   }
 
   /**
-   * Before a batch is played: the voices whose Cue this batch is a pair's answer. The sim pushes
-   * the second voice's `enemyCued` and then `postludePair` (`[first, second]`) in the same tick,
-   * so the second's ordinary Cue phrase is not played: the pair's answer sings it instead
-   * (sfx.ts asks `answers`). The first voice's Cue, 1.5 s earlier, sang its ordinary phrase: the
-   * call.
+   * Before a batch is played: the pairs in it. The sim pushes the second voice's `enemyCued` and
+   * then `postludePair` (`[first, second]`, only while the first still stands) in the same tick.
+   * The second's Cue then sings the pair's answer in place of its ordinary phrase (sfx.ts asks
+   * `answerCue` as it meets the `enemyCued`); the first voice's Cue, 1.5 s before, sang its
+   * ordinary phrase: the call. A second Cue with no pair in its batch is an ordinary Cue.
    */
   scan(events: readonly SimEvent[]): void {
     this.answering.clear();
+    this.answered.clear();
     for (const ev of events)
       if (ev.type === 'postludePair' && ev.voices.length >= 2)
-        this.answering.add(ev.voices[ev.voices.length - 1]!);
+        this.answering.set(ev.voices[ev.voices.length - 1]!, ev.voices[0]!);
   }
 
-  /** This voice's Cue in this batch is a pair's answer (its ordinary Cue phrase is not played). */
-  answers(voice: EntityId): boolean {
-    return this.answering.has(voice);
+  /**
+   * The voice's Cue in this batch is a pair's answer: it sings the answer now and says so (its
+   * ordinary phrase is then not played). False, and its ordinary phrase plays, for any other Cue,
+   * or if the answer can't be sung (a voice with no phrase, or the mix refused it): a Cue is never
+   * left silent.
+   */
+  answerCue(voice: EntityId, state: WorldState): boolean {
+    const first = this.answering.get(voice);
+    if (first === undefined) return false;
+    if (!this.pair([first, voice], state)) return false;
+    this.answered.add(voice);
+    return true;
   }
 
   /**
@@ -304,11 +320,11 @@ export class DissonanceSounds {
    * sings its mirrored phrase (as its Cue would) a third higher, two scale degrees, opening on a
    * soft echo of the call's last note (the first voice's mirrored phrase, which its own Cue sang),
    * from where the second voice stands. In place of the second's ordinary Cue phrase, never over
-   * it; a pair of one voice (no other to Cue) is a plain Cue, and plays nothing here.
+   * it. True when it was played.
    */
-  private pair(voices: readonly EntityId[], state: WorldState): void {
+  private pair(voices: readonly EntityId[], state: WorldState): boolean {
     const [a, b] = voices;
-    if (a === undefined || b === undefined) return;
+    if (a === undefined || b === undefined) return false;
     const motifOf = (id: EntityId) => {
       const defId = state.entities?.get(id)?.enemy?.defId;
       const hero = defId === undefined ? undefined : this.h.mirrorOf(defId);
@@ -316,7 +332,7 @@ export class DissonanceSounds {
     };
     const ma = motifOf(a);
     const mb = motifOf(b);
-    if (!ma || !mb) return;
+    if (!ma || !mb) return false;
     const mirrored = (m: Leitmotif) => {
       const centre = Math.round(m.notes.reduce((n, x) => n + x.idx, 0) / m.notes.length);
       return m.notes.map((n) => ({ ...n, idx: mirrorIndex(n.idx) + 2 * centre }));
@@ -324,7 +340,7 @@ export class DissonanceSounds {
     const call = mirrored(ma);
     const answer = mirrored(mb);
     const echo = call[call.length - 1]!.idx;
-    this.play(
+    const played = this.play(
       'pair',
       (v, t) => {
         // The baton's stroke, as the Cue's.
@@ -345,5 +361,6 @@ export class DissonanceSounds {
       },
       { pan: this.pan(state, b) },
     );
+    return played !== null;
   }
 }
