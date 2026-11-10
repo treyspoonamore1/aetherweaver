@@ -25,8 +25,11 @@ export { pseudo } from './pseudo';
 export { EN, EN_AREAS, type TextKey } from './en';
 export type { Catalogue } from './catalogue';
 
-/** A message's parameters: each fills its `{name}` placeholder. */
-export type TextParams = Readonly<Record<string, string | number>>;
+/**
+ * A message's parameters: each fills its `{name}` placeholder, printed as a template literal
+ * prints it (`String(value)`), so a message prints exactly what the template it replaced did.
+ */
+export type TextParams = Readonly<Record<string, string | number | boolean | null | undefined>>;
 
 /** Fills a template's `{name}` placeholders (a missing parameter leaves its placeholder). */
 export function interpolate(template: string, params?: TextParams): string {

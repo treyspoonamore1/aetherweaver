@@ -173,11 +173,19 @@ function cssToken(tok: string): boolean {
 /** A Tailwind-style class list: lowercase tokens, at least one with a hyphen, colon or bracket. */
 export function looksClass(s: string): boolean {
   const toks = s.trim().split(/\s+/);
+  if (toks.some((tok) => PROSE_WORDS.has(tok.replace(/[,.:;!?]+$/, '')))) return false;
   return (
     toks.every((tok) => /^[a-z0-9:\-[\]/.%#_!()&>*+~=,'"@]+$/.test(tok)) &&
-    toks.some((tok) => /[-:[]/.test(tok))
+    toks.some((tok) => /-|\[|:[a-z[]/.test(tok))
   );
 }
+
+/** Words no class list holds, which mark a lowercase string as prose. */
+const PROSE_WORDS = new Set(
+  'a an the and or but not no of to in on at by for from with as is are was be it its this that these those their them they you your yours he she his her him we our us who what when where while than then once until into onto out up off over under each every all any some one two'.split(
+    ' ',
+  ),
+);
 
 /** Reads as prose: words of two or more letters with whitespace between, and not code. */
 export function human(s: string): boolean {

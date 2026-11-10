@@ -26,6 +26,7 @@ import {
   silencePips,
   silenceText,
 } from './finaleLook';
+import { t as txt } from '../text';
 
 /**
  * Phase 6, Tyrant: the boss's borrowed attack for this phase, as its decree words it (cut to its
@@ -74,11 +75,13 @@ function PostludeLine({ postlude, quiet = false }: { postlude: PostludeHud; quie
         <Icon name="finale" size={14} className="text-gold-200" />
         <span className="uppercase tracking-wider text-gold-200">{POSTLUDE_NAME}</span>
         {postlude.rising !== null && (
-          <span className="text-muted">Rising · untouchable {secondsLabel(postlude.rising)}</span>
+          <span className="text-muted">
+            {txt('hud.bossBar.risingUntouchable', { secondsLabel: secondsLabel(postlude.rising) })}
+          </span>
         )}
         {postlude.enraged && (
           <span className="flex items-center gap-1 text-lethal">
-            <Icon name="hourglass" size={12} /> Faster Cues, faster Discord
+            <Icon name="hourglass" size={12} /> {txt('hud.bossBar.fasterCuesFasterDiscord')}
           </span>
         )}
       </p>
@@ -138,7 +141,7 @@ export function BossBar({
           </h2>
           <div className="flex shrink-0 items-center gap-3 text-xs">
             <span className="font-semibold text-muted">
-              Phase {boss.phase} / {boss.phases}
+              {txt('hud.bossBar.phase', { phase: boss.phase, phases: boss.phases })}
               {boss.postlude && (
                 <span className="ml-1 text-gold-200" data-testid="boss-postlude-phase">
                   · {POSTLUDE_NAME}
@@ -148,17 +151,17 @@ export function BossBar({
             {boss.enrageIn !== null && (
               <span
                 className={`flex items-center gap-1 font-mono font-semibold ${enrageSoon ? 'text-lethal' : 'text-muted'}`}
-                title="Time until the boss enrages"
+                title={txt('hud.bossBar.timeUntilTheBoss')}
               >
                 <Icon name="hourglass" size={13} />
-                Enrage {clock(boss.enrageIn)}
+                {txt('hud.bossBar.enrage', { enrageIn: clock(boss.enrageIn) })}
               </span>
             )}
           </div>
         </div>
         <div
           role="meter"
-          aria-label={`${boss.name} health`}
+          aria-label={txt('hud.bossBar.health', { name: boss.name })}
           aria-valuemin={0}
           aria-valuemax={boss.maxHp}
           aria-valuenow={Math.round(boss.hp)}
@@ -172,7 +175,7 @@ export function BossBar({
             <div
               className="stripes absolute inset-y-0 left-0 transition-[width] duration-150 ease-linear"
               style={{ width: `${shieldPct}%`, backgroundColor: 'rgb(244 114 182 / 0.7)' }}
-              title={`Discord shield ${fmt(boss.shield)}`}
+              title={txt('hud.bossBar.discordShield', { shield: fmt(boss.shield) })}
             />
           )}
           {ticks.map((t) => (
@@ -189,7 +192,9 @@ export function BossBar({
             {fmt(boss.hp)} / {fmt(boss.maxHp)}
           </span>
           {boss.shield > 0 && (
-            <span className="text-pink-300">Discord shield {fmt(boss.shield)}</span>
+            <span className="text-pink-300">
+              {txt('hud.bossBar.discordShield', { shield: fmt(boss.shield) })}
+            </span>
           )}
         </div>
         {/* The Finale (docs/phase-5d.md): the Conductor's Discord, then the Grand Silence's stave. */}
@@ -208,7 +213,7 @@ export function BossBar({
                 )}
               </span>
               <span className="flex flex-wrap items-center justify-end gap-1">
-                <span className="text-xs text-muted">Answer:</span>
+                <span className="text-xs text-muted">{txt('hud.bossBar.answer')}</span>
                 {blind ? (
                   <BlindAnswer />
                 ) : (
@@ -219,10 +224,10 @@ export function BossBar({
                   <span
                     className="flex items-center gap-1 rounded-md border px-1 text-xs font-bold leading-5"
                     style={{ color: '#d8b4fe', borderColor: 'rgb(160 24 248 / 0.6)' }}
-                    title={`${boss.cast.parried} is en garde: your Ward on her parries this blow`}
+                    title={txt('hud.bossBar.isEnGardeYour', { parried: boss.cast.parried })}
                     data-testid="cast-parried"
                   >
-                    <Icon name="blades" size={12} /> Parried
+                    <Icon name="blades" size={12} /> {txt('hud.bossBar.parried')}
                   </span>
                 )}
               </span>
@@ -245,9 +250,13 @@ export function BossBar({
             data-testid="boss-execute"
           >
             <Icon name="skull" size={14} className="text-lethal" />
-            <span className="uppercase tracking-wider text-lethal">Execution</span>
+            <span className="uppercase tracking-wider text-lethal">
+              {txt('hud.bossBar.execution')}
+            </span>
             <span className="font-display text-sm font-bold">{boss.executeTarget}</span>
-            <span className="text-muted">· below {EXECUTE_PCT}% when it lands dies</span>
+            <span className="text-muted">
+              {txt('hud.bossBar.belowWhenItLands', { EXECUTE_PCT })}
+            </span>
           </p>
         )}
         {boss.postlude && (
@@ -270,11 +279,20 @@ export function BossBar({
               background: `color-mix(in srgb, ${CHRONO.color} 18%, rgb(5 8 20 / 0.6))`,
             }}
             role="status"
-            aria-label={`Foresight: ${boss.foreseen.name} ${boss.foreseen.in < 0.05 ? 'is about to begin' : `begins in ${boss.foreseen.in.toFixed(1)} seconds`}${boss.foreseen.target ? `, at ${boss.foreseen.target}` : ''}`}
+            aria-label={txt('hud.bossBar.foresight2', {
+              name: boss.foreseen.name,
+              value:
+                boss.foreseen.in < 0.05
+                  ? txt('hud.bossBar.isAboutToBegin')
+                  : txt('hud.bossBar.beginsInSeconds', { in: boss.foreseen.in.toFixed(1) }),
+              value2: boss.foreseen.target ? `, at ${boss.foreseen.target}` : '',
+            })}
             data-testid="boss-foreseen"
           >
             <CallingGlyph icon="foresight" size={14} />
-            <span className="font-semibold uppercase tracking-wider">Foresight</span>
+            <span className="font-semibold uppercase tracking-wider">
+              {txt('hud.bossBar.foresight')}
+            </span>
             <span className="font-display text-sm font-bold">{boss.foreseen.name}</span>
             {boss.foreseen.target && <span>→ {boss.foreseen.target}</span>}
             <span className="ml-auto font-mono">{secondsLabel(boss.foreseen.in)}</span>
@@ -307,7 +325,7 @@ function BossConditionLine({ condition: c, blind }: { condition: BossCondition; 
         <span
           className="ml-auto h-1.5 w-20 overflow-hidden rounded-full bg-ink-700"
           role="meter"
-          aria-label={`${c.label} health`}
+          aria-label={txt('hud.bossBar.health2', { label: c.label })}
           aria-valuemin={0}
           aria-valuemax={1}
           aria-valuenow={Number(c.bar.toFixed(2))}
@@ -334,7 +352,7 @@ function BlowPips({ pips, pip }: { pips: number; pip: number }) {
     <span
       className="ml-1 flex items-center gap-1"
       role="img"
-      aria-label={`blow ${pip} of ${pips}`}
+      aria-label={txt('hud.bossBar.blowOf', { pip, pips })}
       data-testid="boss-pips"
     >
       {Array.from({ length: pips }, (_, i) => (
@@ -374,7 +392,9 @@ function DecreeLine({ decree, blind }: { decree: { name: string; text: string };
       title={text}
       data-testid="decree-line"
     >
-      <span className="mr-1.5 font-display text-sm font-bold text-violet-100">Decree</span>
+      <span className="mr-1.5 font-display text-sm font-bold text-violet-100">
+        {txt('hud.bossBar.decree')}
+      </span>
       <span className="line-clamp-2">{text || decree.name}</span>
     </p>
   );
@@ -406,15 +426,18 @@ function DiscordStave({
         <Icon name="baton" size={14} style={{ color: DISCORD_INK }} />
         <span>{discordText(discord, blind)}</span>
         {discord.rate > 0 && (
-          <span className="ml-auto whitespace-nowrap font-mono" title="Discord’s rise per second">
-            ▲ +{discord.rate.toFixed(1)}/s
+          <span
+            className="ml-auto whitespace-nowrap font-mono"
+            title={txt('hud.bossBar.discordSRisePer')}
+          >
+            {txt('hud.bossBar.s', { rate: discord.rate.toFixed(1) })}
           </span>
         )}
       </p>
       <div
         className="mt-1 flex gap-1"
         role="meter"
-        aria-label="Conductor’s Discord"
+        aria-label={txt('hud.bossBar.conductorSDiscord')}
         aria-valuemin={0}
         aria-valuemax={discord.max}
         aria-valuenow={Math.floor(discord.value)}
@@ -478,7 +501,7 @@ function SilenceStave({
       </p>
       <ol
         className="relative mt-1 flex items-center justify-between gap-1"
-        aria-label={`${silence.notes} of ${silence.of} notes played`}
+        aria-label={txt('hud.bossBar.ofNotesPlayed', { notes: silence.notes, of: silence.of })}
         data-testid="boss-silence-stave"
       >
         <span className="absolute inset-x-0 top-1/2 h-px bg-slate-400/40" aria-hidden />
@@ -493,7 +516,11 @@ function SilenceStave({
                 background: look ? 'rgb(245 215 142 / 0.16)' : 'rgb(5 8 20 / 0.85)',
                 color: look?.color,
               }}
-              aria-label={look ? `note ${i + 1}: ${look.label}` : `note ${i + 1}: not yet`}
+              aria-label={
+                look
+                  ? txt('hud.bossBar.note', { value: i + 1, label: look.label })
+                  : txt('hud.bossBar.noteNotYet', { value: i + 1 })
+              }
               data-note={source ?? ''}
             >
               {look && <Icon name={look.icon} size={12} />}

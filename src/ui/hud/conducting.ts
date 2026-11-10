@@ -35,6 +35,7 @@ import type {
   FinaleTurnHud,
   HeroHud,
 } from '../store';
+import { t as txt } from '../text';
 
 /** Float slack for sim-time comparisons. */
 const EPS = 1e-9;
@@ -57,7 +58,11 @@ export function cueBadgeLabel(next: {
   cost: number;
 }): string | null {
   const chained = next.link > 1 ? `${linkName(next.link)} ${powerLabel(next.power)}` : null;
-  const beat = next.onBeat ? (next.cost <= 0 ? 'Free' : `On the beat · ${next.cost}`) : null;
+  const beat = next.onBeat
+    ? next.cost <= 0
+      ? 'Free'
+      : txt('hud.conducting.onTheBeat', { cost: next.cost })
+    : null;
   return [chained, beat].filter(Boolean).join(' · ') || null;
 }
 
@@ -382,9 +387,9 @@ export function finaleTurnLabel(t: FinaleTurnHud): string {
     case 'waits':
       return 'waits';
     case 'losing':
-      return 'can’t play';
+      return txt('hud.conducting.canTPlay');
     case 'lost':
-      return (t.played ?? 0) > 0 ? 'played · lost' : 'lost';
+      return (t.played ?? 0) > 0 ? txt('hud.conducting.playedLost') : 'lost';
     case 'plays':
       return 'plays';
     case 'done':
@@ -398,41 +403,54 @@ export function finaleTurnLabel(t: FinaleTurnHud): string {
 export function finaleTurnSentence(name: string, t: FinaleTurnHud): string {
   switch (t.state) {
     case 'next':
-      return `${name} plays the next turn of the Finale`;
+      return txt('hud.conducting.playsTheNextTurn', { name });
     case 'waits':
-      return `${name} waits: their turn is kept until they're free`;
+      return txt('hud.conducting.waitsTheirTurnIs', { name });
     case 'losing':
-      return `${name} can’t play — ${LOST_REASON[t.block ?? 'down']}: their turn will be lost`;
+      return txt('hud.conducting.canTPlayTheir', { name, value: LOST_REASON[t.block ?? 'down'] });
     case 'lost':
       return (t.played ?? 0) > 0
-        ? `${name} played a turn of the Finale and lost ${t.lost === 1 ? 'one' : t.lost}`
-        : `${name} lost their turn`;
+        ? txt('hud.conducting.playedATurnOf', { name, value: t.lost === 1 ? 'one' : t.lost })
+        : txt('hud.conducting.lostTheirTurn', { name });
     case 'plays':
-      return `${name}'s Finale Solo is playing`;
+      return txt('hud.conducting.sFinaleSoloIs', { name });
     case 'done':
-      return `${name} has no turn left in the Finale`;
+      return txt('hud.conducting.hasNoTurnLeft', { name });
     default:
-      return `${name} plays turn ${t.place} of the Finale's queue`;
+      return txt('hud.conducting.playsTurnOfThe', { name, place: t.place });
   }
 }
 
 /** The Calling chip's Marcato: "Marcato" when ready, "Marcato 5s" while it comes back. */
 export function marcatoChipLabel(m: NonNullable<ConductingHud['marcato']>): string {
-  return m.ready ? 'Marcato' : `Marcato ${Math.ceil(m.readyIn - EPS)}s`;
+  return m.ready ? 'Marcato' : txt('hud.conducting.marcatoS', { ceil: Math.ceil(m.readyIn - EPS) });
 }
 
 /** The chip's sentence for the Conductor's states (the chip's aria label adds it). */
 export function conductingChipSentence(c: ConductingHud, crescendoName: string): string {
   return [
     c.finale ? `${crescendoName}: ${finaleNextLabel(c.finale)}.` : '',
-    c.chain ? `${chainLabel(c.chain)}: ${Math.ceil(c.chain.left)} s to Cue another hero.` : '',
+    c.chain
+      ? txt('hud.conducting.sToCueAnother', {
+          chainLabel: chainLabel(c.chain),
+          left: Math.ceil(c.chain.left),
+        })
+      : '',
     c.marcato
       ? c.marcato.ready
-        ? `Marcato ready: your next Directive gives ${pctLabel(c.marcato.pct)} for ${Number(c.marcato.seconds.toFixed(1))} s.`
-        : `Marcato back in ${Math.ceil(c.marcato.readyIn)} s.`
+        ? txt('hud.conducting.marcatoReadyYourNext', {
+            pctLabel: pctLabel(c.marcato.pct),
+            Number: Number(c.marcato.seconds.toFixed(1)),
+          })
+        : txt('hud.conducting.marcatoBackInS', { readyIn: Math.ceil(c.marcato.readyIn) })
       : '',
-    c.ensemble ? `Ensemble ${pctLabel(c.ensemble.bonus)}, ${c.ensemble.heroes} in a row.` : '',
-    c.triad?.holding ? 'Triad holds your Resonance.' : '',
+    c.ensemble
+      ? txt('hud.conducting.ensembleInARow', {
+          pctLabel: pctLabel(c.ensemble.bonus),
+          heroes: c.ensemble.heroes,
+        })
+      : '',
+    c.triad?.holding ? txt('hud.conducting.triadHoldsYourResonance') : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -454,7 +472,9 @@ const LOST_REASON: Record<'down' | 'possessed' | 'stilled' | 'time', string> = {
   down: 'down',
   possessed: 'possessed',
   stilled: 'stilled',
-  time: 'out of time',
+  get time() {
+    return txt('hud.conducting.outOfTime');
+  },
 };
 
 /**
@@ -481,7 +501,7 @@ export function conductingCallouts(
         out.push({
           callout: {
             kind: 'perfect',
-            text: `TRIO · ${who} ${powerLabel(event.power)}`,
+            text: txt('hud.conducting.trio', { who, powerLabel: powerLabel(event.power) }),
             color: gold,
             icon: 'chain' as IconName,
           },
@@ -491,7 +511,7 @@ export function conductingCallouts(
         out.push({
           callout: {
             kind: 'system',
-            text: `DUET · ${who} ${powerLabel(event.power)}`,
+            text: txt('hud.conducting.duet', { who, powerLabel: powerLabel(event.power) }),
             color: gold,
             key: 'conduct:duet',
           },
@@ -500,7 +520,7 @@ export function conductingCallouts(
       // Free only when it cost nothing (under Silent Cues a Cue on the beat pays the surcharge).
       if (event.onBeat && event.cost <= 0)
         out.push({
-          callout: { kind: 'system', text: 'Free Cue · on the beat', color: gold },
+          callout: { kind: 'system', text: txt('hud.conducting.freeCueOnThe'), color: gold },
           ttl: 1300,
         });
       return out;
@@ -508,7 +528,11 @@ export function conductingCallouts(
     case 'reprised':
       return [
         {
-          callout: { kind: 'system', text: `Reprise · every Solo +${event.charge}%`, color: gold },
+          callout: {
+            kind: 'system',
+            text: txt('hud.conducting.repriseEverySolo', { charge: event.charge }),
+            color: gold,
+          },
           ttl: 1600,
         },
       ];
@@ -530,12 +554,12 @@ export function conductingCallouts(
       ];
     }
     case 'finaleTurnLost': {
-      const who = ctx.name(event.hero) ?? 'A hero';
+      const who = ctx.name(event.hero) ?? txt('hud.conducting.aHero');
       return [
         {
           callout: {
             kind: 'system',
-            text: `${who} can’t play — ${LOST_REASON[event.reason]}`,
+            text: txt('hud.conducting.canTPlay2', { who, value: LOST_REASON[event.reason] }),
             color: '#cbd5e1',
             // One toast a hero: Maestro's second turn lost on the same tick replaces the first.
             key: `finale:lost:${event.hero}`,
@@ -549,8 +573,13 @@ export function conductingCallouts(
         {
           callout: {
             kind: 'perfect',
-            text: 'Every Solo is full',
-            detail: `${ctx.crescendoName ?? 'The Finale'} played ${event.fired} ${event.fired === 1 ? 'Solo' : 'Solos'}${event.lost > 0 ? ` · ${event.lost} lost` : ''}`,
+            text: txt('hud.conducting.everySoloIsFull'),
+            detail: txt('hud.conducting.played', {
+              value: ctx.crescendoName ?? txt('hud.conducting.theFinale'),
+              fired: event.fired,
+              value2: event.fired === 1 ? 'Solo' : 'Solos',
+              value3: event.lost > 0 ? txt('hud.conducting.lost', { lost: event.lost }) : '',
+            }),
             color: gold,
             icon: 'finale' as IconName,
           },
@@ -567,7 +596,10 @@ export function marcatoCallout(pct: number, seconds: number): ConductingCallout 
   return {
     callout: {
       kind: 'system',
-      text: `Marcato · ${pctLabel(pct)} for ${Number(seconds.toFixed(1))} s`,
+      text: txt('hud.conducting.marcatoForS', {
+        pctLabel: pctLabel(pct),
+        Number: Number(seconds.toFixed(1)),
+      }),
       color: CONDUCT_GOLD,
     },
     ttl: 1500,

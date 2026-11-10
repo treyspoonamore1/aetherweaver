@@ -4,6 +4,7 @@ import type { StatusHud } from '../store';
 import { STATUS, statusTitle } from './labels';
 import { stacksUrgent } from './legionLook';
 import { doomCount } from './riftLook';
+import { t } from '../text';
 
 /**
  * A status icon inside a countdown ring, with the seconds left beside it. `blind` (Blind Score,
@@ -26,7 +27,7 @@ export function StatusBadge({ status, blind = false }: { status: StatusHud; blin
       className={`inline-flex items-center gap-1 rounded-md bg-ink-950/60 py-0.5 pl-0.5 pr-1.5 ${urgent ? 'animate-pulse-soft' : ''}`}
       title={statusTitle(look, blind)}
       role="img"
-      aria-label={`${look.label}${stacks > 1 ? `, ${stacks} stacks` : ''}${timed ? `, ${secs} seconds left` : ''}${urgent && !blind && look.answer ? `. ${look.answer}` : ''}`}
+      aria-label={`${look.label}${stacks > 1 ? t('hud.statusBadge.stacks', { stacks }) : ''}${timed ? t('hud.statusBadge.secondsLeft', { secs }) : ''}${urgent && !blind && look.answer ? `. ${look.answer}` : ''}`}
       style={{
         color: look.color,
         boxShadow: urgent ? `0 0 0 1px ${look.color}, 0 0 10px ${look.color}` : undefined,
@@ -48,7 +49,11 @@ export function StatusBadge({ status, blind = false }: { status: StatusHud; blin
       )}
       <span className="font-mono text-xs leading-none">{timed ? `${secs}s` : look.label}</span>
       {urgent && !blind && look.answer?.startsWith('Chime') && (
-        <span className="ml-0.5 text-gold-200" title="Chime it away" data-testid="status-chime">
+        <span
+          className="ml-0.5 text-gold-200"
+          title={t('hud.statusBadge.chimeItAway')}
+          data-testid="status-chime"
+        >
           <Icon name="chime" size={12} />
         </span>
       )}

@@ -7,6 +7,7 @@
  */
 import { CONTENT, type Content, type MotifDef, type RelicRarity } from '../../content';
 import type { IconName } from '../kit/iconPaths';
+import { t as txt } from '../text';
 
 /** What fired: a motif (its category), a relic (its rarity) or a boon or bane. */
 export interface TriggerSource {
@@ -158,7 +159,7 @@ export function ringingChip(
     source,
     seconds,
     text: `${source.name} ${shown} s`,
-    label: `${source.name}: ringing, every hero deals more damage, ${shown} seconds left`,
+    label: txt('hud.triggers.ringingEveryHeroDeals', { name: source.name, shown }),
   };
 }
 
@@ -188,7 +189,10 @@ export function triggerTallies(
 
 /** "Clean Strike triggered 3 times." / "… once." / "… never triggered." */
 export function triggerSentence(t: TriggerTally): string {
-  if (t.count <= 0) return `${t.source.name} never triggered.`;
-  if (t.count === 1) return `${t.source.name} triggered once.`;
-  return `${t.source.name} triggered ${t.count.toLocaleString('en-US')} times.`;
+  if (t.count <= 0) return txt('hud.triggers.neverTriggered', { name: t.source.name });
+  if (t.count === 1) return txt('hud.triggers.triggeredOnce', { name: t.source.name });
+  return txt('hud.triggers.triggeredTimes', {
+    name: t.source.name,
+    toLocaleString: t.count.toLocaleString('en-US'),
+  });
 }

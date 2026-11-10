@@ -2,6 +2,7 @@ import { CONTENT } from '../../content';
 import { Panel } from '../kit/Panel';
 import { REWIND_NAME } from '../screens/callingText';
 import { bindingLabel } from './labels';
+import { t as txt } from '../text';
 
 /**
  * A quiet controls reminder (bottom-right). Shown for the first fights and in training. `bear`:
@@ -37,10 +38,10 @@ export function KeyHints({
       `${bindingLabel('moveUp')}${bindingLabel('moveLeft')}${bindingLabel('moveDown')}${bindingLabel('moveRight')}`,
       'Move',
     ],
-    ['1–4 / click', 'Thread a hero'],
-    ['RMB', 'Mend ⇄ Empower'],
+    [txt('hud.keyHints.n14Click'), txt('hud.keyHints.threadAHero')],
+    ['RMB', txt('hud.keyHints.mendEmpower')],
     ...(bear
-      ? [[bindingLabel('bear'), 'Bear: take part of their wounds'] as [string, string]]
+      ? [[bindingLabel('bear'), txt('hud.keyHints.bearTakePartOf')] as [string, string]]
       : []),
     [
       `${bindingLabel('ward')} ${bindingLabel('chime')} ${bindingLabel('reel')} ${bindingLabel('glide')}`,
@@ -49,19 +50,25 @@ export function KeyHints({
     [
       `${bindingLabel('cue')} / ⇧1–4`,
       chainWindow !== undefined
-        ? `Cue a Solo · another within ${Number(chainWindow.toFixed(1))} s: a Duet`
-        : 'Cue a Solo',
+        ? txt('hud.keyHints.cueASoloAnother', { Number: Number(chainWindow.toFixed(1)) })
+        : txt('hud.keyHints.cueASolo'),
     ],
     [bindingLabel('crescendo'), crescendoName ? `Crescendo: ${crescendoName}` : 'Crescendo'],
-    [`hold ${bindingLabel('directiveWheel')} / MMB`, 'Directive wheel'],
-    [`${bindingLabel('directiveFocus')} / MMB click`, 'Focus an enemy'],
-    [bindingLabel('plant'), 'Plant Pedal Point'],
+    [
+      txt('hud.keyHints.holdMmb', { bindingLabel: bindingLabel('directiveWheel') }),
+      txt('hud.keyHints.directiveWheel'),
+    ],
+    [
+      txt('hud.keyHints.mmbClick', { bindingLabel: bindingLabel('directiveFocus') }),
+      txt('hud.keyHints.focusAnEnemy'),
+    ],
+    [bindingLabel('plant'), txt('hud.keyHints.plantPedalPoint')],
     [bindingLabel('pause'), 'Pause'],
   ];
   return (
     <Panel
       className="absolute right-4 top-4 hidden px-4 py-3 min-[1180px]:block"
-      aria-label="Controls"
+      aria-label={txt('hud.keyHints.controls')}
     >
       <dl className="grid grid-cols-[auto_auto] gap-x-3 gap-y-1 text-xs">
         {rows.map(([key, what]) => (

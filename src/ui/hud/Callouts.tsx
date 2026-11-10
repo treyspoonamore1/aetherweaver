@@ -6,6 +6,7 @@ import { AnswerGlyph } from './AnswerGlyph';
 import { allyDef, allyOf, sightingDef, sightingOf } from './sighting';
 import { shownDecree } from './legionLook';
 import { heroInk } from '../kit/bondLook';
+import { t as txt } from '../text';
 
 /** The party as the decree banner reads it (docs/phase-5b.md): who is in it, who is condemned. */
 type CalloutParty = readonly Pick<HeroHud, 'defId' | 'execute'>[];
@@ -136,7 +137,7 @@ function DecreeBanner({ c, blind, party }: { c: Callout; blind: boolean; party?:
       style={fadeStyle(ttl, 'banner-in 0.45s cubic-bezier(0.2,0.9,0.3,1.2) both')}
     >
       <p className="font-display text-xs font-semibold uppercase tracking-[0.3em] text-violet-300">
-        Decree
+        {txt('hud.callouts.decree')}
       </p>
       <p className="font-display text-xl font-bold text-violet-100">{c.text}</p>
       {detail && <p className="mt-0.5 text-sm text-violet-200">{detail}</p>}
@@ -167,18 +168,21 @@ function NewFoe({ c, blind }: { c: Callout; blind: boolean }) {
       className="w-72 rounded-xl border border-gold-500/60 bg-ink-950/88 px-4 py-3 shadow-xl shadow-black/60"
       style={fadeStyle(ttl, 'toast-in 0.3s ease-out both')}
       role="status"
-      aria-label={`New foe: ${c.text}. ${blind ? '' : (c.detail ?? '')}`}
+      aria-label={txt('hud.callouts.newFoe2', {
+        text: c.text,
+        value: blind ? '' : (c.detail ?? ''),
+      })}
       data-testid="new-foe"
       data-foe={defId ?? undefined}
     >
       <p className="flex items-center gap-1.5 font-mono text-xs font-semibold uppercase tracking-[0.25em] text-gold-300">
-        <Icon name="sparkle" size={13} /> New foe
+        <Icon name="sparkle" size={13} /> {txt('hud.callouts.newFoe')}
       </p>
       <p className="mt-0.5 font-display text-lg font-bold leading-tight text-gold-100">{c.text}</p>
       {c.detail && !blind && <p className="mt-1 text-sm leading-snug text-text">{c.detail}</p>}
       {s && s.answers.length > 0 && !blind && (
         <p className="mt-1.5 flex flex-wrap items-center gap-1 text-xs text-muted">
-          Answer:
+          {txt('hud.callouts.answer')}
           {s.answers.map((a) => (
             <AnswerGlyph key={a} tag={a} party={party} />
           ))}
@@ -202,12 +206,12 @@ function NewAlly({ c }: { c: Callout }) {
       className="w-80 rounded-xl border bg-ink-950/90 px-4 py-3 shadow-xl shadow-black/60"
       style={{ ...fadeStyle(ttl, 'toast-in 0.3s ease-out both'), borderColor: a.color }}
       role="status"
-      aria-label={`New ally: ${a.name}. ${a.lines.join(' ')}`}
+      aria-label={txt('hud.callouts.newAlly2', { name: a.name, lines: a.lines.join(' ') })}
       data-testid="new-ally"
       data-ally={defId ?? undefined}
     >
       <p className="flex items-center gap-1.5 font-mono text-xs font-semibold uppercase tracking-[0.25em] text-gold-300">
-        <Icon name="sparkle" size={13} /> New ally
+        <Icon name="sparkle" size={13} /> {txt('hud.callouts.newAlly')}
       </p>
       <p
         className="mt-0.5 font-display text-lg font-bold leading-tight"

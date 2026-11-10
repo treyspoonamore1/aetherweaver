@@ -6,6 +6,7 @@ import { relicDef, relicValues, type RelicRarity } from '../../content';
 import { relicAwake } from '../../sim';
 import { glyphKey } from '../kit/iconPaths';
 import { movementPlace } from '../screens/routeText';
+import { t } from '../text';
 
 export interface RelicHud {
   id: string;
@@ -100,7 +101,7 @@ export function relicHuds(src: RelicSource): RelicHud[] {
     };
     // A Rift relic carried into an earlier Movement's fight sleeps: no effect, so no live tile.
     if (src.movement !== undefined && !relicAwake(def, src.movement)) {
-      const wakes = `Wakes in ${movementPlace(def.movement ?? 1)}`;
+      const wakes = t('hud.relics.wakesIn', { movementPlace: movementPlace(def.movement ?? 1) });
       out.push({
         ...base,
         kind: 'passive',
@@ -108,7 +109,7 @@ export function relicHuds(src: RelicSource): RelicHud[] {
         remaining: 0,
         total: 0,
         pulse: 0,
-        label: `${def.name}: asleep in this fight. ${wakes}`,
+        label: t('hud.relics.asleepInThisFight', { name: def.name, wakes }),
         asleep: wakes,
       });
       continue;
@@ -140,7 +141,7 @@ export function relicHuds(src: RelicSource): RelicHud[] {
         remaining: 0,
         total: 0,
         pulse: once ? 0 : 1,
-        label: `${def.name}: ${once ? 'ready, once this fight' : 'spent this fight'}`,
+        label: `${def.name}: ${once ? t('hud.relics.readyOnceThisFight') : t('hud.relics.spentThisFight')}`,
       });
       continue;
     }
@@ -152,7 +153,7 @@ export function relicHuds(src: RelicSource): RelicHud[] {
         remaining: 0,
         total: 0,
         pulse: src.relics.veil ? 0 : 1,
-        label: `${def.name}: ${src.relics.veil ? 'ready, once this fight' : 'spent this fight'}`,
+        label: `${def.name}: ${src.relics.veil ? t('hud.relics.readyOnceThisFight') : t('hud.relics.spentThisFight')}`,
       });
       continue;
     }

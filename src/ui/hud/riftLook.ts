@@ -9,6 +9,7 @@ import { DOOM_CHIME_AT, EMBOLDENED_MULT } from '../../content/unstitched';
 import type { IconName } from '../kit/iconPaths';
 import type { BossHud } from '../store';
 import type { ThreadCutCause } from '../../sim';
+import { t } from '../text';
 
 /** Doom's ignition count: the Doom-touched payload's `burst.at` (its `maxStacks`), from content. */
 export function doomMax(): number {
@@ -40,12 +41,12 @@ export const CUT_CAUSE_NAME: Readonly<Record<ThreadCutCause, string>> = {
 
 /** "Cut · 3.0 s (Snip)": the Thread chip after an enemy cut, while its lock runs. */
 export function cutPlate(cause: ThreadCutCause, lock: number): string {
-  return `Cut · ${lock.toFixed(1)} s (${CUT_CAUSE_NAME[cause]})`;
+  return t('hud.riftLook.cutS', { lock: lock.toFixed(1), value: CUT_CAUSE_NAME[cause] });
 }
 
 /** "Unravelled · 5 s": the Thread chip while Unravel turns Mend. */
 export function unravelPlate(left: number): string {
-  return `Unravelled · ${Math.max(0, Math.ceil(left))} s`;
+  return t('hud.riftLook.unravelledS', { max: Math.max(0, Math.ceil(left)) });
 }
 
 /** A condition under the boss bar: its glyph and words (never colour alone). */
@@ -81,7 +82,7 @@ export function bossConditions(boss: BossHud): BossCondition[] {
     out.push({
       id: 'bloodmoon',
       icon: 'moon',
-      label: 'Bloodmoon',
+      label: t('hud.riftLook.bloodmoon'),
       text: BLOODMOON_TEXT,
       color: '#fca5a5',
     });
@@ -89,42 +90,42 @@ export function bossConditions(boss: BossHud): BossCondition[] {
     out.push({
       id: 'spindles',
       icon: 'spindle',
-      label: `Spindles ×${boss.spindles}`,
-      text: `−${spindleCutPct()}% damage to the boss · Focus them`,
+      label: t('hud.riftLook.spindles', { spindles: boss.spindles }),
+      text: t('hud.riftLook.damageToTheBoss', { spindleCutPct: spindleCutPct() }),
       color: '#c7d2fe',
     });
   if (boss.stolen)
     out.push({
       id: 'stolen',
       icon: 'note',
-      label: 'Stolen',
-      text: `${boss.stolen.name} is muted · Focus the Stolen Verse to take it back`,
+      label: t('hud.riftLook.stolen'),
+      text: t('hud.riftLook.isMutedFocusThe', { name: boss.stolen.name }),
       color: '#e9d5ff',
     });
   if (boss.unravelLeft !== undefined && boss.unravelLeft > 0)
     out.push({
       id: 'unravel',
       icon: 'empower',
-      label: 'Unravel',
-      text: `your Mend wounds · Empower · ${Math.ceil(boss.unravelLeft)} s`,
+      label: t('hud.riftLook.unravel'),
+      text: t('hud.riftLook.yourMendWoundsEmpower', { unravelLeft: Math.ceil(boss.unravelLeft) }),
       color: '#fda4af',
     });
   if (boss.mirrorWard)
     out.push({
       id: 'mirrorWard',
       icon: 'mirror',
-      label: 'Mirror Ward',
+      label: t('hud.riftLook.mirrorWard'),
       text: boss.mirrorWard.casting
-        ? 'casting on its champion · interrupt it'
-        : `up on its champion · ${Math.ceil(boss.mirrorWard.upLeft)} s · Focus the champion`,
+        ? t('hud.riftLook.castingOnItsChampion')
+        : t('hud.riftLook.upOnItsChampion', { upLeft: Math.ceil(boss.mirrorWard.upLeft) }),
       color: '#cbd5e1',
     });
   if (boss.champion)
     out.push({
       id: 'champion',
       icon: 'mirror',
-      label: 'Hollow Champion',
-      text: `${EMBOLDENED_PCT}% harder while the Unweaver lives · Focus it`,
+      label: t('hud.riftLook.hollowChampion'),
+      text: t('hud.riftLook.harderWhileTheUnweaver', { EMBOLDENED_PCT }),
       color: '#cbd5e1',
       bar:
         boss.champion.maxHp > 0
@@ -135,8 +136,11 @@ export function bossConditions(boss: BossHud): BossCondition[] {
     out.push({
       id: 'stitched',
       icon: 'needle',
-      label: boss.stitched > 1 ? `Stitched ×${boss.stitched}` : 'Stitched',
-      text: 'rooted heroes · Chime each one free',
+      label:
+        boss.stitched > 1
+          ? t('hud.riftLook.stitched', { stitched: boss.stitched })
+          : t('hud.riftLook.stitched2'),
+      text: t('hud.riftLook.rootedHeroesChimeEach'),
       color: '#c4b5fd',
     });
   return out;

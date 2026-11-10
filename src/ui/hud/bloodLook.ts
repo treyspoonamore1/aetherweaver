@@ -9,6 +9,7 @@
 import { healthBands, raging } from '../../app/healthLevels';
 import { CONTENT } from '../../content';
 import type { HeroHud } from '../store';
+import { t as txt } from '../text';
 
 /** The ember of Brann's raging band: warm, never the lethal red or the threat orange. */
 export const RAGING_COLOR = '#c2410c';
@@ -77,7 +78,7 @@ export function bloodTicks(h: Pick<HeroHud, 'defId' | 'talents' | 'blood'>): Blo
   if (below !== undefined)
     ticks.push({
       at: below,
-      title: `${Math.round(below * 100)}%: Bloodlust — below it he won’t Rally, and Blood Rage runs hot`,
+      title: txt('hud.bloodLook.bloodlustBelowItHe', { round: Math.round(below * 100) }),
     });
   const hymn = h.talents.includes('berserkers_hymn')
     ? (talentValue('berserkers_hymn', 'below') ?? 30) / 100
@@ -86,18 +87,21 @@ export function bloodTicks(h: Pick<HeroHud, 'defId' | 'talents' | 'blood'>): Blo
   if (hymn > 0 || silk > 0) {
     const at = Math.max(hymn, silk);
     const says = [
-      ...(hymn === at ? ['Berserker’s Hymn — every hero hits harder'] : []),
-      ...(silk === at ? ['Blood and Silk — Empower him for Resonance'] : []),
+      ...(hymn === at ? [txt('hud.bloodLook.berserkerSHymnEvery')] : []),
+      ...(silk === at ? [txt('hud.bloodLook.bloodAndSilkEmpower')] : []),
     ];
     ticks.push({ at, title: `${Math.round(at * 100)}%: ${says.join('; ')}` });
   }
   ticks.push({
     at: bands.critical,
-    title: `${Math.round(bands.critical * 100)}%: critical — Ward him now`,
+    title: txt('hud.bloodLook.criticalWardHimNow', { round: Math.round(bands.critical * 100) }),
   });
   if (h.talents.includes('deathless')) {
     const at = (talentValue('deathless', 'pct') ?? 10) / 100;
-    ticks.push({ at, title: `${Math.round(at * 100)}%: Deathless — once a fight, he can’t die` });
+    ticks.push({
+      at,
+      title: txt('hud.bloodLook.deathlessOnceAFight', { round: Math.round(at * 100) }),
+    });
   }
   return ticks.sort((a, b) => b.at - a.at);
 }
@@ -127,38 +131,46 @@ export function bloodChips(h: Pick<HeroHud, 'name' | 'blood' | 'dead' | 'downed'
   if (b.deathless)
     out.push({
       id: 'deathless',
-      label: 'Deathless',
-      title: `Deathless: ${h.name} can’t drop below 1 life while it lasts`,
+      label: txt('hud.bloodLook.deathless'),
+      title: txt('hud.bloodLook.deathlessCanTDrop', { name: h.name }),
     });
   if (b.bloodlust)
     out.push({
       id: 'bloodlust',
-      label: 'Bloodlust · no Rally',
-      title: `Bloodlust: ${h.name} won’t come back for a Rally. Ward him (Iron Will) or Reel him`,
+      label: txt('hud.bloodLook.bloodlustNoRally'),
+      title: txt('hud.bloodLook.bloodlustWonTCome', { name: h.name }),
     });
   if (b.rage >= 0.005)
     out.push({
       id: 'rage',
       label: rageLabel(b.rage),
-      title: `Blood Rage: ${h.name} hits ${rageLabel(b.rage)} harder, the lower his life`,
+      title: txt('hud.bloodLook.bloodRageHitsHarder', {
+        name: h.name,
+        rageLabel: rageLabel(b.rage),
+      }),
     });
   if (b.bled > 0)
     out.push({
       id: 'bloodlet',
-      label: `Bloodlet ×${b.bled}`,
-      title: `Bloodletting: his next ${b.bled === 1 ? 'swing hits' : `${b.bled} swings hit`} harder, all round him. The life he spent isn’t damage`,
+      label: txt('hud.bloodLook.bloodlet', { bled: b.bled }),
+      title: txt('hud.bloodLook.bloodlettingHisNextHarder', {
+        value:
+          b.bled === 1
+            ? txt('hud.bloodLook.swingHits')
+            : txt('hud.bloodLook.swingsHit', { bled: b.bled }),
+      }),
     });
   if (b.oath >= 1)
     out.push({
       id: 'oath',
-      label: `Oath +${Math.round(b.oath)}`,
-      title: `Blood Oath: your overheal rides on his next swing (+${Math.round(b.oath)})`,
+      label: txt('hud.bloodLook.oath', { oath: Math.round(b.oath) }),
+      title: txt('hud.bloodLook.bloodOathYourOverheal', { oath: Math.round(b.oath) }),
     });
   if (b.tithe)
     out.push({
       id: 'tithe',
-      label: 'Tithe',
-      title: 'Blood Tithe: your Ward on him is stronger, and gives back Spirit when it breaks',
+      label: txt('hud.bloodLook.tithe'),
+      title: txt('hud.bloodLook.bloodTitheYourWard'),
     });
   return out;
 }

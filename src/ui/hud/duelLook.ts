@@ -8,6 +8,7 @@
  */
 import { CONTENT, heroDef } from '../../content';
 import type { HeroHud } from '../store';
+import { t } from '../text';
 
 /** Seren's rapier violet (her def's colour): every chip and her outline. Never silver. */
 export const DUEL_VIOLET = heroDef('seren').color;
@@ -72,63 +73,66 @@ export function duelChips(
       keys.rallyHome
         ? {
             id: 'over',
-            label: 'Overextended · Rally',
+            label: t('hud.duelLook.overextendedRally'),
             key: keys.rally,
             alarm: true,
-            title: `Overextended: the pack has closed on ${h.name}. Rally brings her home; she always comes`,
+            title: t('hud.duelLook.overextendedThePackHas', { name: h.name }),
           }
         : {
             id: 'over',
-            label: 'Overextended · Reel',
+            label: t('hud.duelLook.overextendedReel'),
             key: keys.reel,
             alarm: true,
-            title: `Overextended: the pack has closed on ${h.name}. Reel her home, or Rally: she always comes`,
+            title: t('hud.duelLook.overextendedThePackHas2', { name: h.name }),
           },
     );
   if (outOfReach(h))
     out.push({
       id: 'reach',
-      label: 'Out of reach · Glide closer',
+      label: t('hud.duelLook.outOfReachGlide'),
       alarm: true,
-      title: `${h.name} is beyond your Ward and Reel: Glide toward her`,
+      title: t('hud.duelLook.isBeyondYourWard', { name: h.name }),
     });
   if (d.killShot)
     out.push({
       id: 'killShot',
-      label: 'Kill shot',
-      title: `Your Perfect Ward: ${h.name} strikes a kill shot`,
+      label: t('hud.duelLook.killShot'),
+      title: t('hud.duelLook.yourPerfectWardStrikes', { name: h.name }),
     });
   if (d.waltz)
     out.push({
       id: 'waltz',
-      label: 'Blade Waltz',
-      title: `Blade Waltz: every melee blow at ${h.name} is parried, Ward or not`,
+      label: t('hud.duelLook.bladeWaltz'),
+      title: t('hud.duelLook.bladeWaltzEveryMelee', { name: h.name }),
     });
   else if (d.armed)
     out.push(
       (d.charges ?? 1) >= 2
         ? {
             id: 'garde',
-            label: 'Parry ×2',
-            title: `En garde: your Ward on ${h.name} parries the next two melee blows at her, and she answers each threefold`,
+            label: t('hud.duelLook.parry2'),
+            title: t('hud.duelLook.enGardeYourWard', { name: h.name }),
           }
         : {
             id: 'garde',
-            label: 'En garde',
-            title: `En garde: your Ward on ${h.name} parries the next melee blow at her, and she answers it threefold`,
+            label: t('hud.duelLook.enGarde'),
+            title: t('hud.duelLook.enGardeYourWard2', { name: h.name }),
           },
     );
   if (d.cuts)
     out.push({
       id: 'cuts',
-      label: `Cuts ${Math.max(0, d.cuts.left).toFixed(1)} s`,
-      title: `Thousand Cuts: ${h.name} can’t be hit until she returns`,
+      label: t('hud.duelLook.cutsS', { max: Math.max(0, d.cuts.left).toFixed(1) }),
+      title: t('hud.duelLook.thousandCutsCanT', { name: h.name }),
     });
   if (d.quarryName)
     out.push({
       id: 'duel',
-      label: `Duelling ${d.quarryName}`,
-      title: `Showboat: ${h.name} duels ${quarryInSentence(d.quarryName)}, outside your songs but never beyond your reach. Focus moves her duel`,
+      label: t('hud.duelLook.duelling', { quarryName: d.quarryName }),
+      title: t('hud.duelLook.showboatDuelsOutsideYour', {
+        name: h.name,
+        quarryInSentence: quarryInSentence(d.quarryName),
+      }),
     });
   return out;
 }

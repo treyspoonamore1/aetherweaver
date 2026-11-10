@@ -1,0 +1,30 @@
+import type { Catalogue } from '../../catalogue';
+
+/** The `hud.bossBar.*` messages: `src/ui/hud/BossBar.tsx`. */
+export const bossBar = {
+  'hud.bossBar.risingUntouchable': 'Rising · untouchable {secondsLabel}',
+  'hud.bossBar.fasterCuesFasterDiscord': 'Faster Cues, faster Discord',
+  'hud.bossBar.phase': 'Phase {phase} / {phases}',
+  'hud.bossBar.enrage': 'Enrage {enrageIn}',
+  'hud.bossBar.discordShield': 'Discord shield {shield}',
+  'hud.bossBar.answer': 'Answer:',
+  'hud.bossBar.parried': 'Parried',
+  'hud.bossBar.execution': 'Execution',
+  'hud.bossBar.belowWhenItLands': '· below {EXECUTE_PCT}% when it lands dies',
+  'hud.bossBar.foresight': 'Foresight',
+  'hud.bossBar.decree': 'Decree',
+  'hud.bossBar.s': '▲ +{rate}/s',
+  'hud.bossBar.timeUntilTheBoss': 'Time until the boss enrages',
+  'hud.bossBar.health': '{name} health',
+  'hud.bossBar.isEnGardeYour': '{parried} is en garde: your Ward on her parries this blow',
+  'hud.bossBar.foresight2': 'Foresight: {name} {value}{value2}',
+  'hud.bossBar.isAboutToBegin': 'is about to begin',
+  'hud.bossBar.beginsInSeconds': 'begins in {in} seconds',
+  'hud.bossBar.health2': '{label} health',
+  'hud.bossBar.blowOf': 'blow {pip} of {pips}',
+  'hud.bossBar.discordSRisePer': 'Discord’s rise per second',
+  'hud.bossBar.conductorSDiscord': 'Conductor’s Discord',
+  'hud.bossBar.ofNotesPlayed': '{notes} of {of} notes played',
+  'hud.bossBar.note': 'note {value}: {label}',
+  'hud.bossBar.noteNotYet': 'note {value}: not yet',
+} satisfies Catalogue;

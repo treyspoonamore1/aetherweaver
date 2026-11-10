@@ -8,6 +8,7 @@ import { Modal } from '../kit/Modal';
 import { bindingLabel } from './labels';
 import { useUi } from '../store';
 import { abandonLine } from '../screens/routeText';
+import { t } from '../text';
 
 /**
  * Pause menu (Esc): resume, settings, Edit HUD layout (the party frames moved and sized,
@@ -35,11 +36,11 @@ export function PauseMenu({
   const [view, setView] = useState<'menu' | 'settings' | 'confirm'>('menu');
   if (view === 'settings') {
     return (
-      <Modal title="Settings" width="max-w-2xl">
+      <Modal title={t('hud.pauseMenu.settings')} width="max-w-2xl">
         <SettingsPanel compact context={mode} />
         <div className="mt-5 flex justify-end">
           <Button variant="primary" data-autofocus onClick={() => setView('menu')} sound="back">
-            <Icon name="back" size={16} /> Back to the pause menu
+            <Icon name="back" size={16} /> {t('hud.pauseMenu.backToThePause')}
           </Button>
         </div>
       </Modal>
@@ -47,46 +48,46 @@ export function PauseMenu({
   }
   if (view === 'confirm') {
     return (
-      <Modal title="Abandon this run?" width="max-w-md">
+      <Modal title={t('hud.pauseMenu.abandonThisRun')} width="max-w-md">
         <p className="mt-2 text-sm leading-relaxed text-muted">
           {abandonLine({ movements, ...run }, true)}
         </p>
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" data-autofocus onClick={() => setView('menu')} sound="back">
-            Keep playing
+            {t('hud.pauseMenu.keepPlaying')}
           </Button>
           <Button variant="danger" onClick={onAbandon} sound="confirm">
-            Abandon run
+            {t('hud.pauseMenu.abandonRun')}
           </Button>
         </div>
       </Modal>
     );
   }
   return (
-    <Modal title="Paused" width="max-w-sm">
-      <p className="mt-1 text-sm text-muted">The simulation is frozen.</p>
+    <Modal title={t('hud.pauseMenu.paused')} width="max-w-sm">
+      <p className="mt-1 text-sm text-muted">{t('hud.pauseMenu.theSimulationIsFrozen')}</p>
       <div className="mt-5 flex flex-col gap-2">
         <Button variant="primary" size="lg" data-autofocus onClick={onResume} sound="confirm">
-          <Icon name="play" size={16} /> Resume
+          <Icon name="play" size={16} /> {t('hud.pauseMenu.resume')}
           <KeyCap label={bindingLabel('pause')} />
         </Button>
         <Button size="lg" onClick={() => setView('settings')}>
-          <Icon name="gear" size={16} /> Settings
+          <Icon name="gear" size={16} /> {t('hud.pauseMenu.settings')}
         </Button>
         <Button
           size="lg"
           onClick={() => useUi.getState().setLayoutEditing(true)}
           data-testid="edit-layout"
         >
-          <Icon name="move" size={16} /> Edit HUD layout
+          <Icon name="move" size={16} /> {t('hud.pauseMenu.editHudLayout')}
         </Button>
         {mode === 'run' ? (
           <Button variant="danger" size="lg" onClick={() => setView('confirm')}>
-            <Icon name="flag" size={16} /> Abandon run
+            <Icon name="flag" size={16} /> {t('hud.pauseMenu.abandonRun')}
           </Button>
         ) : (
           <Button size="lg" onClick={onLeave} sound="back">
-            <Icon name="home" size={16} /> Leave Training Grounds
+            <Icon name="home" size={16} /> {t('hud.pauseMenu.leaveTrainingGrounds')}
           </Button>
         )}
       </div>

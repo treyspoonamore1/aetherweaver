@@ -4,6 +4,7 @@ import { KeyCap } from '../kit/KeyCap';
 import { Modal } from '../kit/Modal';
 import { bindingLabel } from './labels';
 import { levelName } from '../screens/dissonanceModel';
+import { t } from '../text';
 
 const STORE_KEY = 'aetherweaver.howto.v1';
 
@@ -67,16 +68,27 @@ function cueRow(cue: CuePrimer | null, conduct: ConductPrimer | null): Row {
     return {
       icon: 'chain',
       keys: [bindingLabel('cue'), bindingLabel('crescendo')],
-      title: 'Lead them: Duets and Trios',
-      body: `Good support fills Resonance. As the Conductor a Cue costs ${conduct.cueCost}${cue ? ` (${levelName('cue_cost')} raises it this run)` : ''}. Cue a second hero within ${Number(conduct.chainWindow.toFixed(1))} s of the first and their Solo plays as a Duet, ${morePct(conduct.duet)} stronger; a third in a row is a Trio, ${morePct(conduct.trio)} stronger. ${conduct.crescendoName} costs ${conduct.crescendoCost}: every hero plays their Solo in turn, rising, then every Solo is full again.`,
+      title: t('hud.howToPlay.leadThemDuetsAnd'),
+      body: t('hud.howToPlay.goodSupportFillsResonance', {
+        cueCost: conduct.cueCost,
+        value: cue ? t('hud.howToPlay.raisesItThisRun', { levelName: levelName('cue_cost') }) : '',
+        Number: Number(conduct.chainWindow.toFixed(1)),
+        morePct: morePct(conduct.duet),
+        morePct2: morePct(conduct.trio),
+        crescendoName: conduct.crescendoName,
+        crescendoCost: conduct.crescendoCost,
+      }),
     };
   return {
     icon: 'note',
     keys: [bindingLabel('cue'), bindingLabel('crescendo')],
-    title: 'Build Resonance',
+    title: t('hud.howToPlay.buildResonance'),
     body: cue
-      ? `Good support fills Resonance. Spend ${cue.cost} Resonance to Cue a charged hero’s Solo (${levelName('cue_cost')} raises it this run), or a full song on your Crescendo.`
-      : 'Good support fills Resonance. Spend a segment to Cue a charged hero’s Solo, or a full song on your Crescendo.',
+      ? t('hud.howToPlay.goodSupportFillsResonance2', {
+          cost: cue.cost,
+          levelName: levelName('cue_cost'),
+        })
+      : t('hud.howToPlay.goodSupportFillsResonance3'),
   };
 }
 
@@ -90,39 +102,47 @@ function rows(
     {
       icon: 'move',
       keys: (['moveUp', 'moveLeft', 'moveDown', 'moveRight'] as const).map(bindingLabel),
-      title: 'You are the Weaver',
-      body: 'Walk with the keys. Your party follows, fights on its own, and fights better inside your aura field.',
+      title: t('hud.howToPlay.youAreTheWeaver'),
+      body: t('hud.howToPlay.walkWithTheKeys'),
     },
     {
       icon: 'thread',
       keys: ['1', '2', '3', 'RMB', ...(bear ? [bindingLabel('bear')] : [])],
-      title: 'Thread a hero',
-      body: `Click a party frame (or press its number) to tie your Thread to that hero. Mend heals them; right-click switches to Empower for extra damage. Your beam song pours into whoever you thread.${bear ? ` As the Martyr, ${bindingLabel('bear')} Bears: you take part of what they would lose, and your songs hold your Life instead of your Spirit.` : ''}`,
+      title: t('hud.howToPlay.threadAHero'),
+      body: t('hud.howToPlay.clickAPartyFrame', {
+        value: bear
+          ? t('hud.howToPlay.asTheMartyrBears', { bindingLabel: bindingLabel('bear') })
+          : '',
+      }),
     },
     {
       icon: 'ward',
       keys: [bindingLabel('ward')],
-      title: 'Ward before the hit',
-      body: 'Watch the striped bar on a hero’s frame: that is damage on its way. Ward them just before it lands for a Perfect Ward.',
+      title: t('hud.howToPlay.wardBeforeTheHit'),
+      body: t('hud.howToPlay.watchTheStripedBar'),
     },
     {
       icon: 'call',
       keys: [],
-      title: 'Answer their calls',
-      body: 'Before a big move a hero calls for help: a gold glyph on their frame shows what they want, its key and a countdown. Answer in time and the move becomes a Flourish.',
+      title: t('hud.howToPlay.answerTheirCalls'),
+      body: t('hud.howToPlay.beforeABigMove'),
     },
     rewind
       ? {
           icon: 'rewind',
           keys: [bindingLabel('chime'), bindingLabel('reel')],
-          title: 'Chime and Rewind',
-          body: `Chime cleanses marks in a circle under your cursor. As the Chronomancer, ${bindingLabel('reel')} Rewinds instead of Reeling: your threaded hero goes back ${rewind.seconds} s, to where they stood and the life they had (never less than now). ${rewind.cooldown} s cooldown. Once a run, it stands back up a hero who fell in that time.`,
+          title: t('hud.howToPlay.chimeAndRewind'),
+          body: t('hud.howToPlay.chimeCleansesMarksIn', {
+            bindingLabel: bindingLabel('reel'),
+            seconds: rewind.seconds,
+            cooldown: rewind.cooldown,
+          }),
         }
       : {
           icon: 'chime',
           keys: [bindingLabel('chime'), bindingLabel('reel')],
-          title: 'Chime and Reel',
-          body: 'Chime cleanses marks in a circle under your cursor. Reel yanks a hero out of danger and to your side.',
+          title: t('hud.howToPlay.chimeAndReel'),
+          body: t('hud.howToPlay.chimeCleansesMarksIn2'),
         },
     cueRow(cue, conduct),
   ];
@@ -149,8 +169,8 @@ export function HowToPlay({
   conduct?: ConductPrimer | null;
 }) {
   return (
-    <Modal title="How to play" width="max-w-2xl" onClose={onClose} closeOnEscape>
-      <p className="mt-1 text-sm text-muted">The fight is paused until you begin.</p>
+    <Modal title={t('hud.howToPlay.howToPlay')} width="max-w-2xl" onClose={onClose} closeOnEscape>
+      <p className="mt-1 text-sm text-muted">{t('hud.howToPlay.theFightIsPaused')}</p>
       <ul className="mt-4 flex flex-col gap-3">
         {rows(bear, rewind, cue, conduct).map((r) => (
           <li
@@ -176,10 +196,10 @@ export function HowToPlay({
       </ul>
       <div className="mt-5 flex items-center justify-between gap-3">
         <p className="text-xs text-muted">
-          <KeyCap label="Esc" /> pauses at any time.
+          <KeyCap label={t('hud.howToPlay.esc')} /> {t('hud.howToPlay.pausesAtAnyTime')}
         </p>
         <Button variant="primary" size="lg" data-autofocus onClick={onClose} sound="confirm">
-          Begin the fight
+          {t('hud.howToPlay.beginTheFight')}
         </Button>
       </div>
     </Modal>

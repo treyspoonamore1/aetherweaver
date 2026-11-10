@@ -4,6 +4,7 @@ import { BLIND_LOOK, DISCORD_LOOK } from '../kit/dissonanceLook';
 import { blindLine, cueLine, hudDissonanceView } from '../screens/dissonanceModel';
 import { RankPips } from '../screens/DissonanceParts';
 import type { DissonanceHud } from '../store';
+import { t } from '../text';
 
 /**
  * The Dissonance in force this fight (Phase 4d), beside the Calling and keystone chips: its glyph
@@ -40,7 +41,8 @@ export function DissonanceChip({
               className="flex items-center gap-1.5 font-display text-base"
               style={{ color: DISCORD_LOOK.color }}
             >
-              <Icon name={DISCORD_LOOK.icon} size={16} /> Dissonance {v.points}
+              <Icon name={DISCORD_LOOK.icon} size={16} />{' '}
+              {t('hud.dissonanceChip.dissonance', { points: v.points })}
             </b>
             <span className="font-mono text-xs text-muted">
               {v.levels.length} {v.levels.length === 1 ? 'level' : 'levels'}
