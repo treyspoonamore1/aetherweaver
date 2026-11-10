@@ -692,7 +692,7 @@ Appended after `discordant_pact` in `src/content/dissonance.ts`, effects appende
 
 **State and events.** `EnemyComponent.tyrant?: TyrantHold` (`{ attack, from, phase, readyAt }`), `FinaleField.postlude?: PostludeField` (`{ since, riseUntil, enraged? }`), `internal.m4.postlude?: PostludeClocks` (`{ nextPairAt, secondAt?, second?, first? }`; W1 added `first`). All absent on every other fight. Events appended after `needled`: `tyrantEdict` (`{ tick, boss, phase, attack, from }`), `postludeRose` (`{ boss, hp }`), `postludePair` (`{ voices }`). The edict emits no `decree` event; the HUD reads `tyrantEdict` and `enemy.tyrant`.
 
-**Tyrant** (`src/sim/systems/tyrant.ts`: `TYRANT_TABLE`, `tyrantAttackOf`, `tyrantUpdate`, `enterTyrantPhase`, `tryTyrant`, `closingEvery`, `tyrantDecreeOf`, `tyrantForeseeable`). It applies to the fight's `bossId` (the boss, or the mini-boss of a mini-boss fight). On entering a phase the boss takes up that phase's entry; its first cast comes 6 s into the phase, then the attack's own cooldown × 1.5; it waits while two or more damaging telegraphs are live. Stasis holds its clock as it holds the boss's own cooldowns (`holdEnemyTime` moves `readyAt`). Foresight lists the held attack (marked `special = -2`, `TYRANT_FORESEEN`), and `tryTyrant` honours what Foresight promised. The table as built:
+**Tyrant** (`src/sim/systems/tyrant.ts`: `TYRANT_TABLE`, `tyrantAttackOf`, `tyrantUpdate`, `enterTyrantPhase`, `tryTyrant`, `closingEvery`, `tyrantDecreeOf`, `tyrantForeseeable`). It applies to the fight's `bossId` (the boss, or the mini-boss of a mini-boss fight). On entering a phase the boss takes up that phase's entry; its first cast comes 6 s into the phase, then the attack's own cooldown × 1.5; it waits while two or more damaging telegraphs are live. Stasis holds its clock as it holds the boss's own cooldowns (`holdEnemyTime` moves `readyAt`). Foresight lists the held attack (marked `special = -2`, `TYRANT_FORESEEN`), and `tryTyrant` honours what Foresight promised. [Round 2: the picker tries the borrowed attack last, only when no special of the boss's own begins, and credits the time a borrowed cast and its recovery take to the boss's own clocks; Foresight lists it after the boss's own specials, so an own special due as soon is shown and begins first. See *Tuning*, *Round 2*.] The table as built:
 
 | Boss | Phase 1 | Phase 2 | Phase 3 |
 |---|---|---|---|
@@ -956,7 +956,7 @@ The entries' comments state their points; `tests/meta/weekly.test.ts`'s line for
 
 1. **The Expert's map rule first** (as asked). Tiers 0-IV at 20 seeds on 2000 and 900007, the old rule against "never an elite" (`r1-cur`, `r1-never`, 40 runs a tier): 39 / 40 against 40 / 40 at tier 0, 34 / 40 against 34 / 40 at I, **14 / 40 against 31 / 40 at II, 3 / 40 against 9 / 40 at III, 3 / 40 against 9 / 40 at IV**. With the old rule the Expert took 1.1-1.9 elites a run at II-IV and lost 25, 33 and 34 runs there in an elite (Shattered Choir, Muted Nave, Shield Wall with Elite Vanguard's extra elite and affix). An elite's relic never paid back in these runs: at tiers 0 and I the two rules tie. The rule settled on weighs the route's Dissonance (its total and Elite Vanguard itself) and the party's state, and keeps elites where they cost nothing measurable: it plays as the old rule at tiers 0 and I and never takes an elite at II-IV. On the level field (the weekly, no build), "never" against the rule read 38 / 72 against 43 / 72 over the twelve entries at 6 weeks each (`wk1n`, `wk1`), so the rule stays there too.
 2. **True Dissonance's Postlude** in the Finale cell (Expert, `c1`, `c1td`, `c2*`-`c4*`): without the level 40 / 40 won, the fight 142-158 s (52 s on Conductor runs); with it at 30% life 39 / 40, the Postlude 32 s on average (36-41 s by Calling, 6 s on Conductor runs). Life 0.5, 0.6 and 0.7 gave Postludes of 69, 83 and 93 s without the Conductor Calling; faster Discord (2/s), a shorter Cue gap (11 s) and an earlier enrage (60 s) changed neither the length nor the wins by more than a run (37-39 / 40 for every variant). 0.6 was kept: the Postlude sits in the middle of its band, and the longest single one (182 s, a Martyr run) stays near the band's top. `finalePar` 40 was kept: without the Conductor Calling the fight grows 73-93 s (83 on average, 41% of the 200 s par).
-3. **Tyrant and Mimicry by 4d's method** (`d4`, `d4m`): Tyrant reads **−7.1%** enemy life (82.0% won against the base's 75.0%), Mimicry **+0.9%**, against bands of 24-40% and 16-32%. Mimicry's count is its only lever: 2 a wave read +3.4%, 3 a wave +3.2%, so it stays at 1 (decision 3's readability). Tyrant makes the Prelude **easier**: in the Bellwarden's cell (the Novice, the bare kit and the tree, 40 seeds, `ty-*`) it wins 34 / 40 without Tyrant and 40 / 40 with it, downs 2.1 → 0.3 a fight, and 40 / 40 again at a cooldown multiple of 100%, 38 / 40 at 250% and 40 / 40 with the Bell Brute's Toll Cleave in phase 1; at the Hollow Cantor it costs downs (4.9 → 8.1) but no wins. The cause is in the sim, not its numbers: the borrowed attack is the picker's first try (`tryTyrant`, `src/sim/systems/enemies.ts:503`), so each cast takes the place of one of the boss's own specials (the Bellwarden's Tolls, Slam and Call, which summons). In whole Expert runs at tier III, Tyrant and Mimicry each cost about three runs in 40 (on the same 40 runs: 13 / 40 without Tyrant, 13 / 40 without Mimicry, 10 / 40 with both; `tnoty`, `tnomim`, `tf-0`/`tf-1`); a cooldown multiple of 100% or 75% with a first cast at 3 s (`tv1`, `tv2`), a 75% Postlude (`tv3`) and faster closing attacks (`TYRANT_BURN` 5 / 7 s, `tv4`) moved tiers III and IV by no more than noise. None was kept.
+3. **Tyrant and Mimicry by 4d's method** (`d4`, `d4m`): Tyrant reads **−7.1%** enemy life (82.0% won against the base's 75.0%), Mimicry **+0.9%**, against bands of 24-40% and 16-32%. Mimicry's count is its only lever: 2 a wave read +3.4%, 3 a wave +3.2%, so it stays at 1 (decision 3's readability). Tyrant makes the Prelude **easier**: in the Bellwarden's cell (the Novice, the bare kit and the tree, 40 seeds, `ty-*`) it wins 34 / 40 without Tyrant and 40 / 40 with it, downs 2.1 → 0.3 a fight, and 40 / 40 again at a cooldown multiple of 100%, 38 / 40 at 250% and 40 / 40 with the Bell Brute's Toll Cleave in phase 1; at the Hollow Cantor it costs downs (4.9 → 8.1) but no wins. The cause is in the sim, not its numbers: the borrowed attack is the picker's first try (`tryTyrant`, `src/sim/systems/enemies.ts:503`), so each cast takes the place of one of the boss's own specials (the Bellwarden's Tolls, Slam and Call, which summons). [Round 2: the picker now tries the borrowed attack last and credits its time to the boss's own clocks; see *Round 2* below.] In whole Expert runs at tier III, Tyrant and Mimicry each cost about three runs in 40 (on the same 40 runs: 13 / 40 without Tyrant, 13 / 40 without Mimicry, 10 / 40 with both; `tnoty`, `tnomim`, `tf-0`/`tf-1`); a cooldown multiple of 100% or 75% with a first cast at 3 s (`tv1`, `tv2`), a 75% Postlude (`tv3`) and faster closing attacks (`TYRANT_BURN` 5 / 7 s, `tv4`) moved tiers III and IV by no more than noise. None was kept.
 4. **The Echoes** (`e1`, `e2`, `ef`, `ev1`-`ev5`, `g0`, `g1`). By the doc's clock, eight of nine Echoes were already inside the length band at ★ (14.0-21.7 min); only Strangers (26.6) was over it, its party fighting slowest. Each was read at ★ and ★★★ (Tier 0's and Tier II's levels) on 40 runs: ★ read 93-100% on all nine and ★★★ 58-90% on five (Choir of Blood, the Seamstress's Court, Retrograde, the Last Rehearsal, the Unrested), so the Echoes were made harder, by scale first (whole legs at a later Movement's scale) and by Respite rows where scale alone fell short, and Strangers shorter. The Gilded Road read 0 / 10 at ★★★ on the first look and 7 / 40 at the protocol's size, so it was left as built (a fixed Blood Forge first and a richer first row read 9 / 40, no different). Choir of Blood without its two Respites read the same as with them (22 / 40); its scale did the work.
 5. **The weekly rotation** (`wk1`-`wk5`, `wf`, `wf2`-`wf4`): screened at 6-12 weeks an entry, then read at 40. Two causes dominated: the party on the level field (entries 0, 9 and 10 lost most runs with Kael, Vexis and Seren, Kael, Seren and Oro, or Kael, Brann and Oro), and Echoes whose first fight is at Movement III's scale (Bells in the Rift, and after round 4 the Last Rehearsal and the Unrested), which a party with no build seldom survives. Entry 9 was also read at Hardened, Wounding Strikes and True Dissonance (10 points): the Expert won 36 / 40 either way, so the 8-point entry was kept.
 
@@ -970,7 +970,7 @@ The entries' comments state their points; `tests/meta/weekly.test.ts`'s line for
 | I (10) | 44/50 (88%) edge | 42/50 (84%) inside | 45/50 (90%) edge | 70-90% | **met** | 25/30 (83%) / 24/30 (80%) / 25/30 (83%) | ≤ Expert − 10: **missed** on all three (−5 / −4 / −7) |
 | II (20) | 35/50 (70%) edge | 40/50 (80%) **outside** | 34/50 (68%) edge | 40-70% | **missed** on 900007 | 16/30 (53%) / 11/30 (37%) / 10/30 (33%) | ≤ Expert − 10: met |
 | III (30) | 16/50 (32%) inside | 13/50 (26%) inside | 19/50 (38%) edge | 15-40% | **met** | 3/30 (10%) / 2/30 (7%) / 4/30 (13%) | ≤ Expert − 5: met |
-| IV (42) | 11/50 (22%) **outside** | 7/50 (14%) edge | 9/50 (18%) edge | 2-15%, > 0 on every set | **missed** on 2000 (above 0 on all three) | 5/30 (17%) / 2/30 (7%) / 1/30 (3%) | reported |
+| IV (42) | 11/50 (22%) **outside** | 7/50 (14%) edge | 9/50 (18%) edge | 2-15%, > 0 on every set | **missed** on 2000 (above 0 on all three) | 5/30 (17%) / 2/30 (7%) / 1/30 (3%) | reported [Round 2: 18% / 16% / 14%, met] |
 
 Reached the Finale over the three sets: tier 0 148 / 150, I 132, II 109, III 52, IV 31; won ÷ reached 100%, 99%, 100%, 92%, 87%. Minutes of combat a run: 17.5, 23.7, 21.8, 13.9, 12.6. At tier IV the Postlude (the fight's end less the rise) lasted 127-192 s on the runs without the Conductor Calling and 17-49 s on Conductor runs. The Novice and the Idle bot were not run at the tiers.
 
@@ -978,7 +978,7 @@ Reached the Finale over the three sets: tier 0 148 / 150, I 132, II 109, III 52,
 
 | Level | Novice wins | Costs like | Band | Verdict |
 |---|---|---|---|---|
-| Tyrant (4 points) | 82.0% | −7.1% enemy life | 24-40% | **missed** (below; the level makes the Prelude easier) |
+| Tyrant (4 points) | 82.0% | −7.1% enemy life | 24-40% | **missed** (below; the level makes the Prelude easier) [Round 2: 79.3%, −4.1%, still missed; Skilled +11.4%, Expert +7.2%] |
 | Mimicry (3 points) | 74.0% | +0.9% | 16-32% | **missed** (below; 2 a wave +3.4%, 3 a wave +3.2%) |
 
 **True Dissonance on the Finale cell** (Expert, arrival kit IV and the Rank 20 tree, the Calling by seed, 20 seeds on cell bases 1000 and 500003; `c1`, `c2c`).
@@ -1020,7 +1020,7 @@ The ★ cells are read pooled over the two sets (40 runs; a set of 20 can't show
 | 1 | Expedition · Conductor · Kael, Lyra, Brann · Brisk Foes, Short Fuse, Restless Dead | 7 | 31/40 (78%) | inside | 8/40 (20%) | edge | 3440 / 1809 |
 | 2 | Expedition · no Calling · Kael, Lyra, Vexis · Elite Vanguard | 5 | 25/40 (63%) | inside | 21/40 (53%) | inside | 3182 / 2493 |
 | 3 | Choir of Blood · Luminary · Kael, Lyra, Vexis · Brisk Foes, Short Fuse | 2 | 19/40 (48%) | edge | 19/40 (48%) | inside | 1160 / 1215 |
-| 4 | Expedition · Martyr · Kael, Lyra, Seren · Silent Cues, Tyrant | 5 | 22/40 (55%) | inside | 22/40 (55%) | inside | 2779 / 2535 |
+| 4 | Expedition · Martyr · Kael, Lyra, Seren · Silent Cues, Tyrant | 5 | 22/40 (55%) | inside | 22/40 (55%) | inside | 2779 / 2535 [Round 2: the entry is Tyrant alone (4): 28/40 and 26/40] |
 | 5 | A Cappella · no Calling · Lyra, Vexis, Oro · Brisk Foes, Hardened | 4 | 27/40 (68%) | inside | 22/40 (55%) | inside | 1986 / 1643 |
 | 6 | Expedition · Luminary · Lyra, Vexis, Seren · Silent Cues, Mimicry | 4 | 22/40 (55%) | inside | 20/40 (50%) | inside | 2951 / 2839 |
 | 7 | Retrograde · Chronomancer · Kael, Vexis, Brann · Fragile Threads, Wounding Strikes | 3 | 28/40 (70%) | inside | 21/40 (53%) | inside | 2027 / 1562 |
@@ -1042,10 +1042,10 @@ The ★ cells are read pooled over the two sets (40 runs; a set of 20 can't show
 | Tier II, Skilled ≤ Expert − 10 | met |
 | Tier III, Expert 15-40% | met |
 | Tier III, Skilled ≤ Expert − 5 | met |
-| Tier IV, Expert 2-15% and above 0 on every set | **missed** on 2000 (22%); edge on the other two; above 0 on all three |
+| Tier IV, Expert 2-15% and above 0 on every set | **missed** on 2000 (22%); edge on the other two; above 0 on all three [Round 2: met, 18 / 16 / 14%] |
 | Novice and Idle at the tiers | not measured |
-| Tyrant costs like 24-40% enemy life | **missed** (−7%) |
-| Mimicry costs like 16-32% | **missed** (+1%) |
+| Tyrant costs like 24-40% enemy life | **missed** (−7%) [Round 2: still missed, −4.1% for the Novice] |
+| Mimicry costs like 16-32% | **missed** (+1%) [Round 2: still missed; Skilled +7.4%, Expert +6.2%] |
 | True Dissonance, Finale cell: wins ≥ 75% | met (93%) |
 | … and ≥ 10 points below without it | **missed** (7.5) |
 | … the Postlude 45-120 s | met on average and for every Calling but the Conductor (14 s) |
@@ -1062,8 +1062,8 @@ The ★ cells are read pooled over the two sets (40 runs; a set of 20 can't show
 ### Missed bands: causes and options
 
 1. **Tier II (80% on 900007) and the Skilled bot at Tier I.** Tier II's set holds no Phase 6 level, so none of this phase's levers reaches it: the reading is the Expert's (Rank 20 build, and the map rule once it stops taking elites at 20 points). The same build makes the Skilled bot nearly as strong at Tier I (82% against the Expert's 87%): the bands were extrapolated for an Expert that no phase had measured (*Assumed, not yet verified*). Options: restate Tier II's band (the three sets read 68-80%), or accept; restate the Tier I gap; or move existing levels' numbers (this phase forbids it).
-2. **Tier IV on 2000 (22%; 14% and 18% on the others).** Of 150 runs, 31 reach the Finale and 27 win there; most losses are Movement I and II fights and the Hollow Cantor, where the extra levels are the existing twelve's. Phase 6's levers act only at the bosses (Tyrant) and the Finale (the Postlude): a harder Tyrant clock and a 75% Postlude moved tier IV by no more than noise. Options: accept (edge on two sets); a much harder Postlude (it would break the cell's 45-120 s band); or restate the band.
-3. **Tyrant and Mimicry's costs.** Tyrant: the borrowed attack replaces one of the boss's own specials each time it is cast, so on the Bellwarden it makes the fight easier (above); no cooldown, first cast or table entry the levers allow changes that. Mimicry: a mirror copies one Empower, Ward or Chime a cast, and the Novice barely notices it at any count. Options: in the sim (W1's), cast the borrowed attack beside the boss's own picks (for example only when no own special is ready, or on its own clock outside the picker), then re-read; lower the two levels' points (which changes the tier sets' totals: your call); or accept that the points price danger the Expert meets at bosses rather than what 4d's Prelude measures.
+2. **Tier IV on 2000 (22%; 14% and 18% on the others).** Of 150 runs, 31 reach the Finale and 27 win there; most losses are Movement I and II fights and the Hollow Cantor, where the extra levels are the existing twelve's. Phase 6's levers act only at the bosses (Tyrant) and the Finale (the Postlude): a harder Tyrant clock and a 75% Postlude moved tier IV by no more than noise. Options: accept (edge on two sets); a much harder Postlude (it would break the cell's 45-120 s band); or restate the band. [Round 2: 18% on 2000, on the edge; see *Round 2*.]
+3. **Tyrant and Mimicry's costs.** Tyrant: the borrowed attack replaces one of the boss's own specials each time it is cast, so on the Bellwarden it makes the fight easier (above); no cooldown, first cast or table entry the levers allow changes that. [Round 2 made the sim change (the borrowed attack is cast on top of the boss's own) and re-read both levels: see *Round 2* below.] Mimicry: a mirror copies one Empower, Ward or Chime a cast, and the Novice barely notices it at any count. Options: in the sim (W1's), cast the borrowed attack beside the boss's own picks (for example only when no own special is ready, or on its own clock outside the picker), then re-read; lower the two levels' points (which changes the tier sets' totals: your call); or accept that the points price danger the Expert meets at bosses rather than what 4d's Prelude measures.
 4. **True Dissonance's 10-point gap and the Conductor Calling's Postlude.** The Expert wins every Finale cell without the level, so "10 below" means ≤ 90%; every Postlude variant read 92-97%. On a Conductor run the Grand Finale ends the Postlude in about 14 s. Options: read the gap on a harder cell (Tier IV's Finale converts 87%); accept; or a Conductor-only Postlude rule (a sim change).
 5. **Echoes ★ above 95% on Retrograde and A Cappella** (and four more on the edge at 95-98%). The Expert at Rank 20 wins nearly every ★ run; harder legs moved ★★★ into its band while ★ stayed high. Options: accept, or harden further (★★★ would fall toward 10%).
 6. **The Last Rehearsal's length** (23.5 min, band 22): its Cantor and Vharun at Movement III's scale take longer. Options: one choice row of a Respite or a Merchant after each boss (the text promises both), or accept.
@@ -1072,7 +1072,7 @@ The ★ cells are read pooled over the two sets (40 runs; a set of 20 can't show
 ### For the owner
 
 - **The Expert's map rule** (above) is a policy choice: a different sensible rule gives different tier readings, and Tier II's 68-80% follows from it.
-- **Tyrant's picker priority** (item 3): a sim change, not a number.
+- **Tyrant's picker priority** (item 3): a sim change, not a number. [Made in round 2.]
 - **Restating the tier bands** for the Expert as measured (items 1 and 2).
 - **Echo texts changed** with their legs (Choir of Blood, the Seamstress's Court, Retrograde, the Last Rehearsal and the Unrested now say their strength or "no Respite"); `ECHO_STARS` untouched.
 - **Rotation entries 10 and 11** change route (Bells in the Rift and the Unrested leave the rotation; Choir of Blood and Retrograde appear twice, each with another Calling and party). Bells in the Rift is unwinnable on the level field as built.
@@ -1083,3 +1083,103 @@ The ★ cells are read pooled over the two sets (40 runs; a set of 20 can't show
 - The Novice and Idle bots at the tiers; Echo ★★ after the legs moved; presets × Callings split by Calling; replay verification time and size.
 - The Finale cell at the protocol's three cell sets (two were read).
 - `tools/dissonance.ts --tiers`, `--echoes` and `--weekly` themselves were not run at these sizes: the scratch runner plays the same `playRun` options, and its per-run lines are kept.
+
+### Round 2: Tyrant adds to the boss; Mimicry re-read
+
+A second round on the two levels whose cost read below its band. Scratch folder `/home/user/aw-work/6/w8b/` (`LOG.md` in order; every reading is a file there). Boss cells: `bcell.mts` (each boss's encounter on its Movement's default kit, bare in Movement I, `arrival`, `arrival3`, `arrival4`; the Rank 20 tree; no Calling; 40 seeds from cell base 1000, + i × 7919; it counts the boss's casts, own and borrowed, over the minutes it stands). Costs: `d4b.mts`, 4d's method for any bot (the tool's 300 Prelude runs on its seeds, the Rank 20 build, Guardian; the Expert with its run policy). Tier and weekly readings: round 1's `run.mts`.
+
+**The cause, measured** (`m0-none`, `m0-ty`: as round 1 left it). With Tyrant the boss cast fewer of its own specials a minute: the Bellwarden 76% (Novice) and 79% (Skilled) of its rate without the level, the Hollow Cantor 95% / 90%, Vharun 93% / 89%, the Seamstress 94% / 94%, the Unweaver 98% / 99%, the Matriarch 99% / 101%; the Silent Conductor's own (its Cues, Raises, Fortissimo and Grand Silence, its two closing attacks left out) 101% / 96%. The Bellwarden lost most where the picker reaches last: Resound 3.3 → 1.8 a minute, the Inward Toll 5.3 → 3.2. Its own specials keep it casting about 85% of the time, so every borrowed cast that went first took one of their turns.
+
+**The design chosen** (`src/sim/systems/enemies.ts`, all behind `world.mods.tyrant`):
+
+1. The borrowed attack is the picker's **last** try: `trySpecial` tries it only when no special of the boss's own begins; `foresee` lists it after the boss's own, so an own special due as soon is shown and begins first.
+2. **Its time is credited to the boss's own clocks.** While the boss casts a borrowed attack its own cooldowns keep running below zero, and at the cast's end those that would come due within the recovery are wound on by it (`RECOVER_TIME`); when such a special is next cast, its new cooldown is shortened by the time it waited. So a borrowed cast pushes none of the boss's own clocks back. The Silent Conductor's hold is its own attack on its own clock (`TYRANT_OWN`), so it takes no credit and its cadence is as before.
+3. **What Foresight shows begins.** A borrowed attack Foresight has shown is tried first on the tick it is due, so an own special that comes into reach on that tick cannot replace it (round 2 found the breach while trying a later first cast: Vharun showed the Impaler's Charge and began Twin Cleave).
+
+Why this one: it changes no cast path (the borrowed attack still begins through `beginAttack` as the boss's cast, with its id in `enemy.cast.attackId` and the telegraph's `attackId`, so the crown, the voice, the HUD's line, the Expert's rules and Foresight read it as before), adds no state and no hashed key (a cooldown below zero is the only new value, on Tyrant fights only), and leaves the cap, Stasis (cooldowns and the hold's clock wait as before), the Conductor's single clock, the Grand Silence and the Postlude untouched. Tried and rejected: casting the borrowed attack only when it would end before the boss's next own attack comes due. It never lets a long wind-up into a boss that is nearly always casting: the Bellwarden's phase-2 Dirge (5 s) and the Cantor's phase-3 Mending Hymn were not cast within 50 s (`tests/sim/tyrant.test.ts`), so it would have forced table changes. A parallel cast was not needed.
+
+**Own specials, with Tyrant against without** (`m2-ty`, `m1-ty` for the Conductor; 40 seeds a bot; the borrowed attack's casts a minute on top):
+
+| Boss | Bot | Won without | Won with | Downs a fight | Own specials a minute (with ÷ without) | Borrowed a minute |
+|---|---|---|---|---|---|---|
+| The Bellwarden | Novice | 34/40 | 33/40 | 2.1 → 1.8 | 18.8 → 17.7 (94%) | 2.0 |
+| The Hollow Cantor | Novice | 26/40 | 26/40 | 4.9 → 6.2 | 13.0 → 12.7 (97%) | 4.2 |
+| The Gorehound Matriarch | Novice | 28/40 | **33/40** | 2.2 → 1.9 | 14.7 → 14.8 (100%) | 3.2 |
+| Vharun | Novice | 29/40 | 27/40 | 7.5 → 8.2 | 14.1 → 13.5 (95%) | 3.2 |
+| The Seamstress | Novice | 24/40 | **29/40** | 3.2 → 2.7 | 26.1 → 25.4 (97%) | 2.9 |
+| The Unweaver | Novice | 24/40 | 12/40 | 4.6 → 7.5 | 10.7 → 10.6 (99%) | 3.1 |
+| The Silent Conductor | Novice | 11/40 | 9/40 | 4.4 → 3.9 | 9.5 → 9.6 (101%) | 7.6 (its held Sforzando and Downbeat) |
+| The Bellwarden | Skilled | 40/40 | 40/40 | 0.0 → 0.1 | 16.9 → 16.6 (98%) | 2.2 |
+| The Hollow Cantor | Skilled | 38/40 | 32/40 | 1.7 → 2.2 | 12.9 → 12.6 (97%) | 4.0 |
+| The Gorehound Matriarch | Skilled | 40/40 | 40/40 | 0.1 → 0.1 | 13.2 → 13.5 (102%) | 3.3 |
+| Vharun | Skilled | 40/40 | 38/40 | 0.7 → 1.3 | 13.6 → 12.7 (93%) | 3.9 |
+| The Seamstress | Skilled | 36/40 | **40/40** | 0.8 → 0.3 | 25.1 → 24.3 (97%) | 3.1 |
+| The Unweaver | Skilled | 38/40 | 40/40 | 0.5 → 0.3 | 10.3 → 10.2 (99%) | 3.0 |
+| The Silent Conductor | Skilled | 38/40 | 39/40 | 0.3 → 0.5 | 10.1 → 9.8 (97%) | 6.8 (held) |
+
+Every boss now casts its own specials at 93-102% of its rate without the level (the round-1 sim: 76-101%), and the borrowed attack on top, 2.0-4.2 casts a minute. What is left of the gap is not pacing: at Vharun the Impaler's Charge carries it away from its tank and Twin Cleave waits on the walk back (2.8 → 2.4 a minute); at the Bellwarden, which casts its own specials about 85% of the time, the credited clocks come due together and the picker's order favours its first-listed specials (Resound 3.3 → 2.8). The Bellwarden's cell is no longer easier (34 → 33; the round-1 sim read 40 / 40). The borrowed attack's rate itself fell where the boss is busiest (the Bellwarden's phase-2 Dirge 2.0 → 0.4 a minute, its Lance 2.6 → 1.6), and every table entry is still cast, so the table is unchanged. With the round-1 sim the cells read 40 / 26 / 28 / 39 / 29 / 14 / 9 of 40 (Novice) and 40 / 27 / 39 / 40 / 40 / 38 / 40 (Skilled) in the table's order.
+
+Cells that still read easier with Tyrant: the Seamstress for both bots (+5 and +4 runs in 40, with fewer downs), the Matriarch for the Novice (+5); the Unweaver (+2, Skilled) and the Conductor (+1, Skilled) are within a run or two. A borrowed telegraph is also something to answer: a Perfect Ward on it refunds Spirit, staggers the boss and gives Resonance (`combat/telegraphs.ts`), so a borrowed attack that hits for little can give a party that answers it more than it takes (a likely reading of the Seamstress's and the Matriarch's cells, whose first phase borrows the Impaler's Charge; not separately measured). No cooldown or first cast removes that (below); the options are for the owner.
+
+**Tests** (`tests/sim/tyrantPacing.test.ts`): for each of the seven bosses, on its golden fight's seed and two more, its own specials a minute with Tyrant at least 90% of the rate without (`TOLERANCE`; the 40-seed readings above are within 7%) and more than three borrowed casts; an own special that is ready begins before the borrowed attack, which follows once nothing of its own is ready; a borrowed attack Foresight has shown begins ahead of a ready own special; an own special that came due during a borrowed cast has its next cooldown shortened by its wait. Against the round-1 sim the Bellwarden's case and the three staged cases fail; the other six bosses' cases pass there too (the old priority cost them under 10%). Every test in `tests/sim/tyrant.test.ts` and `tests/sim/reviewA.test.ts` passes unchanged (no pinned cadence moved).
+
+**Tyrant's values** (4d's method, the Novice, 300 Prelude runs, base 75.0%, ×1.25 40.7%; `ty4d`, `ty4d2`, `ty4d3`):
+
+| `cooldown` / `first` | Novice wins | Costs like |
+|---|---|---|
+| round-1 sim, 150 / 6 | 82.0% | −7.1% |
+| 150 / 6 | 79.3% | −4.1% |
+| 100 / 6 | 83.0% | −8.3% |
+| 250 / 6 | 81.0% | −6.0% |
+| 400 / 6 | 80.3% | −5.2% |
+| 150 / 9 | 77.3% | −2.1% |
+| 150 / 12 | 73.7% | +1.2% |
+| 150 / 18 | 73.7% | +1.2% |
+| 100 / 12 | 76.7% | −1.6% |
+| 250 / 12 | 78.7% | −3.5% |
+
+At 300 runs one standard error is about 2.5 points of win rate, about 3% of "enemy life": the best row (+1.2%) is within half an error of no cost, and more borrowed casts read easier, not harder. No cadence the levers allow makes Tyrant cost what its band asks (24-40%), or clearly anything. The Prelude's gap is at the Bellwarden: on the same 300 runs at 150 / 6 the Novice won 264 of 272 Bellwarden fights with Tyrant and 254 of 272 without, and the Hollow Cantor the same share both ways (`pw-none`, `pw-ty`). A first cast at 12 s read best but was not kept: it makes the Bellwarden's phase-2 Dirge too rare to be cast within the 50 s `tyrant.test.ts` allows, changes which runs reach the staged Postlude in `reviewA.test.ts`, and its lead over 6 s is about 1.5 standard errors. **Tyrant's values stay `cooldown` 150, `first` 6; `TYRANT_OWN` and `TYRANT_BURN` unchanged** (so the True Dissonance Finale cell was not re-read).
+
+Read the same way for the bots that play the kit (each at ×1.75, on the bases measured for Mimicry below; `tyS`, `mimE`), Tyrant at 150 / 6 costs like **+11.4%** for the Skilled bot (66.7% won against 77.3%; ×1.25 51.3%) and **+7.2%** for the Expert (76.7% against 81.0%; ×1.25 63.3%): clearly positive for both, about half and a third of the band's floor. Only the Novice's reading, the one the band names, sits near zero.
+
+**Mimicry, re-read** (4d's method on the same 300 seeds, each bot at a Threat where it wins about three runs in four: ×1.75 for the Skilled bot and the Expert, which at ×1 win 100% and 97.5%; `find.txt`, `mimS`, `mimE`):
+
+| Bot (Threat) | Base | ×1.25 | 1 a wave | 2 a wave | 3 a wave | Band |
+|---|---|---|---|---|---|---|
+| Novice (×1; round 1's `d4`, `d4m`) | 75.0% | 40.7% | 74.0%, +0.9% | 71.0%, +3.4% | 71.3%, +3.2% | 16-32% |
+| Skilled (×1.75) | 77.3% | 51.3% | 70.7%, **+7.4%** | 73.3%, +4.6% | 73.7%, +4.2% | 16-32% |
+| Expert (×1.75, its run policy) | 81.0% | 63.3% | 77.3%, **+6.2%** | 80.7%, +0.6% | 80.0%, +1.8% | 16-32% |
+
+A bot that plays the kit does feel the mirror more than the Novice (+6-7% at one a wave, against the Novice's +1%), so round 1's reading understated it; but no count reaches the band for any bot, and more mirrors a wave read no costlier (each row's spread is within about two standard errors, about ±3%). **`perWave` stays 1**, and nothing else of Mimicry moved. The owner's options: accept a level that costs like 6-7% for a player who uses the kit (about one point on 4d's scale of 8% a point, against its 3); lower its points (which changes the tier sets' totals); or a design change (for example a copy stronger than the technique it copies; the mirror is already the wave's heaviest enemy).
+
+**Tier IV, re-read** (the Expert, 50 seeds on each of 2000, 900007 and 333003; `tIV-0`, `tIV-1`; band 2-15% and above 0 on every set; round 1 read 22 / 14 / 18%):
+
+| Set | Round 1 | Round 2 | Verdict |
+|---|---|---|---|
+| 2000 | 11/50 (22%) | 9/50 (18%) | edge (one standard error, 5.4 points, above 15%) |
+| 900007 | 7/50 (14%) | 8/50 (16%) | edge |
+| 333003 | 9/50 (18%) | 7/50 (14%) | inside |
+
+**Met** by the doc's reading (inside or on the edge on every set, above 0 on all three; round 1 missed on 2000). 29 of 150 runs reached the Finale (round 1: 31) and 24 won there (27). The Hollow Cantor, where Tyrant now adds and takes nothing, is still the most common loss (16 / 17 / 12 runs, against round 1's 12 / 16 / 15).
+
+**Weekly entries** (40 runs a cell, the 20 weeks holding the entry from week 44 and from week 1044; bands Expert 50-85%, Skilled 25-70%):
+
+| # | Entry | Expert | Skilled | Verdict |
+|---|---|---|---|---|
+| 4 | as round 1 left it: Martyr · Kael, Lyra, Seren · Silent Cues, Tyrant (5) | 16/40 (40%) (round 1 22/40) | 21/40 (53%) (round 1 22/40) | Expert **outside** (16 of its 24 losses at the Hollow Cantor) |
+| 4 | Short Fuse, Tyrant (5), tried | 11/40 (28%) | 21/40 (53%) | Expert outside |
+| 4 | **Tyrant alone (4), adopted** | **28/40 (70%)** | **26/40 (65%)** | both inside |
+| 6 | Luminary · Lyra, Vexis, Seren · Silent Cues, Mimicry (4), unchanged | 22/40 (55%) | 20/40 (50%) | both inside (as round 1, run for run) |
+
+Entry 4 now reads "Tyrant" alone (`src/content/weekly.ts`, its comment "four points"; read again from the committed content, `wk4e`: the same 80 runs); the twelve entries keep their lints. Entry 6 has no Tyrant and Mimicry did not change, so it plays as before.
+
+**What moved in round 2**: `src/sim/systems/enemies.ts` (the pacing above) and the comments of `src/sim/systems/tyrant.ts`; weekly entry 4, Silent Cues and Tyrant (5) → Tyrant (4). Nothing else: Tyrant's `cooldown` 150 and `first` 6, `TYRANT_OWN` (5.5 / 4.5 s), `TYRANT_BURN` (7 / 9 s), Mimicry's `perWave` 1, the Tyrant table, every level's points. Goldens (`npx tsx tools/update-golden.ts`, dry run, then `--write`): `contentVersion` `c-d4e8f1fbf5775748` → `c-691f26eff5775748`, `skilled-tyrant-vharun` `98edc77c35e67af0` → `6a1cfc180a7f1f31` (`PHASE6_HASHES` in `tests/sim/m1Unchanged.test.ts`); every other golden, `skilled-postlude`, `novice-mimicry-first-light` and `skilled-echo-bells-in-the-rift` among them, unchanged (neither plays Tyrant).
+
+**Outside its band after round 2, and the options**
+
+1. **Tyrant's cost by 4d's method** (band 24-40%): the Novice reads −4.1% at the values kept (+1.2% at best, a first cast at 12 s); the Skilled bot +11.4%, the Expert +7.2%. The sim change took away what Tyrant took from a boss, but the borrowed attacks themselves add little a Novice Prelude feels. Options: (a) accept, and read Tyrant's 4 points as the danger it adds for a player who plays the kit (Skilled and Expert above); (b) lower its points (this changes the tier sets' totals); (c) heavier borrowed attacks, by the table (lever 3; this round changed no entry, since every entry is still cast) or by a new value scaling a borrowed attack's damage (a sim change); (d) a first cast at 12 s, after restaging the two tests that read the cadence (the Bellwarden's phase-2 Dirge within 50 s, and the seed of the staged Postlude with Tyrant).
+2. **Boss cells still easier with Tyrant**: the Seamstress for both bots (24 → 29 and 36 → 40 of 40) and the Matriarch for the Novice (28 → 33); both borrow the Impaler's Charge in their first phase. No value moves this without moving every boss. Options: accept (each of the three is within about two standard errors of no change at 40 runs); or another table entry for those two first phases (the owner's: the Seamstress's design entry, the Shears' Dash, cuts the Thread and is excluded by decision 5).
+3. **Mimicry's cost** (band 16-32%): +0.9% (Novice), +7.4% (Skilled), +6.2% (Expert) at one a wave; no count reaches the band for any bot. `perWave` stays 1; the options are above (accept, its points, or a design change).
+4. **Tier IV on 2000** reads 18%, on the edge rather than outside (round 1: 22%, outside): met by the doc's reading, but the margin is one standard error.
+
+**Not measured in round 2**: the Expert's own boss cells (the Expert check at the arrival kit was needed only if a value made Tyrant harder, and none moved); the True Dissonance Finale cell (`TYRANT_OWN` and `TYRANT_BURN` unchanged); tiers 0-III (their sets hold no Tyrant or Mimicry); the other ten weekly entries (none plays Tyrant; entry 6 is the only one with Mimicry); Echoes (no Echo tier plays either level); boss cells on other cell bases or with a Calling; 4d's method on another seed set.
