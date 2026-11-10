@@ -405,6 +405,24 @@ describe('rare relics', () => {
     }
   });
 
+  it('Thornwreath with Heavy Score adds into its factor, never multiplies on it', () => {
+    const w = world([plain('thornwreath'), plain('heavy_score')]);
+    const party = w.mods.partyDamageMult;
+    expect(party).toBeGreaterThan(1);
+    const pct = val('thornwreath', 'pct') / 100;
+    const kael = heroAt(w, 0);
+    const hit = () => {
+      const foe = addEnemy(w, 'hollow_chorister', kael.x, kael.z - 3);
+      foe.health!.hp = foe.health!.maxHp = 1e6;
+      return dealDamage(w, foe, { source: kael.id, sourceName: 'test', amount: 100 });
+    };
+    const high = hit();
+    kael.health!.hp = kael.health!.maxHp * (val('thornwreath', 'below') / 100) * 0.99;
+    const low = hit();
+    expect(low.dealt / high.dealt).toBeCloseTo((party + pct) / party, 9);
+    expect(low.dealt / high.dealt).not.toBeCloseTo(1 + pct, 3);
+  });
+
   it('Bell Clapper: a Chime stuns the ordinary enemies it reaches, never an elite', () => {
     for (const empowered of [false, true]) {
       const sim = sandbox({ relics: [empowered ? emp('bell_clapper') : plain('bell_clapper')] });
