@@ -286,7 +286,13 @@ describe('the pad in a fight', () => {
     expect(tap(input, 'faceDown')).toEqual([]);
     tap(input, 'start');
     expect(ui).toEqual(['pause', 'pause']);
+    // Resumed by a button still down (the pause menu's Resume): it presses nothing.
+    // (The menu's poll can run first in a frame: the press and the resume before the fight reads.)
+    pad.press('faceDown');
     input.setEnabled(true);
+    expect(frame(input)).toEqual([]);
+    pad.press('faceDown', false);
+    expect(frame(input)).toEqual([]);
     expect(fightHasPad()).toBe(true);
     input.dispose();
     expect(fightHasPad()).toBe(false);

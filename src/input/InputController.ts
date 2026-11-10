@@ -233,6 +233,8 @@ export class InputController {
 
   /** When disabled (paused, menus), held keys are released and no commands are produced. */
   setEnabled(enabled: boolean): void {
+    // Resumed: a pad button already down (the one that pressed Resume) presses nothing.
+    if (enabled && !this.enabled) this.padPrimed = false;
     this.enabled = enabled;
     // A paused fight leaves the pad to the menus (the pause menu), and takes it back on resume.
     setFightPad(this, enabled && !this.disposed);
@@ -423,12 +425,14 @@ export class InputController {
       this.roleKeyDown(event, opts);
       return;
     }
-    event.preventDefault();
     if (UI_ACTIONS.has(action)) {
+      event.preventDefault();
       if (!event.repeat) this.onUiAction(action);
       return;
     }
+    // Paused, a game key is the menu's (the pause menu's arrows move its focus: Phase 7, W1).
     if (!this.enabled) return;
+    event.preventDefault();
     this.heldCodes.add(event.code);
     this.held.add(action);
     if (event.repeat) return;
@@ -564,9 +568,9 @@ export class InputController {
   /** A key bound to a mouse role. */
   private roleKeyDown(event: KeyboardEvent, opts: Readonly<InputSettings>): void {
     const role = this.roleOf(event.code, opts);
-    if (!role) return;
+    if (!role || !this.enabled) return;
     event.preventDefault();
-    if (!this.enabled || event.repeat) return;
+    if (event.repeat) return;
     this.touched = true;
     this.rolePress(role, event.code);
   }

@@ -129,7 +129,7 @@ export function padMenuKeys(r: PadReader): number {
 
 /** What can take focus, in a menu. */
 const FOCUSABLE =
-  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [data-nav]';
+  'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [data-nav]';
 
 function visible(el: HTMLElement): boolean {
   return el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
@@ -140,9 +140,11 @@ function visible(el: HTMLElement): boolean {
  * the page.
  */
 export function menuScope(): HTMLElement {
-  const dialogs = document.querySelectorAll<HTMLElement>(
-    '[aria-modal="true"], [role="dialog"], [role="alertdialog"]',
-  );
+  const selector = '[aria-modal="true"], [role="dialog"], [role="alertdialog"]';
+  // The dialog that has focus, if one does; else the last one open.
+  const own = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>(selector);
+  if (own && visible(own)) return own;
+  const dialogs = document.querySelectorAll<HTMLElement>(selector);
   for (let i = dialogs.length - 1; i >= 0; i--) if (visible(dialogs[i]!)) return dialogs[i]!;
   return document.querySelector<HTMLElement>('main') ?? document.body;
 }
@@ -161,10 +163,7 @@ export function spatialFocus(root: HTMLElement, key: string): boolean {
   const items = focusables(root);
   if (items.length === 0) return false;
   const at = items.indexOf(document.activeElement as HTMLElement);
-  if (at < 0) {
-    items[0]!.focus();
-    return true;
-  }
+  if (at < 0) return focusFirst(root);
   const others = items.filter((_, i) => i !== at);
   const next = nextInDirection(
     items[at]!.getBoundingClientRect(),
@@ -174,6 +173,16 @@ export function spatialFocus(root: HTMLElement, key: string): boolean {
   if (next < 0) return false;
   others[next]!.focus();
   return true;
+}
+
+/** Focuses the first control in `root` that takes focus (`[data-nav]` places first). */
+function focusFirst(root: HTMLElement): boolean {
+  const nav = [...root.querySelectorAll<HTMLElement>('[data-nav]')].filter(visible);
+  for (const el of [...nav, ...focusables(root)]) {
+    el.focus();
+    if (document.activeElement === el) return true;
+  }
+  return false;
 }
 
 /** Sets a React-controlled input's value as typing would (React reads the native setter). */
@@ -216,13 +225,12 @@ export function sendMenuKey(key: MenuKey): void {
   const focused = active && active !== document.body ? active : null;
   if (key === 'Enter') {
     if (focused) focused.click();
-    else focusables(menuScope())[0]?.focus();
+    else focusFirst(menuScope());
     return;
   }
   if (!focused && key !== 'Escape') {
-    // Nothing focused yet: the screen's first control takes focus.
-    const scope = menuScope();
-    (scope.querySelector<HTMLElement>('[data-nav]') ?? focusables(scope)[0])?.focus();
+    // Nothing focused yet: the screen's first control takes focus (its stations first).
+    focusFirst(menuScope());
     return;
   }
   if (focused && stepValue(focused, key)) return;
