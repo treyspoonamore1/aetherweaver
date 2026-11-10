@@ -171,7 +171,7 @@ export function decodeShareCode(text: string): DecodedShareCode {
   const bits: number[] = [];
   for (const ch of body) {
     const v = ALPHABET.indexOf(ch);
-    if (v < 0) return { ok: false, error: `Not a share code: “${ch}” isn't one of its letters.` };
+    if (v < 0) return { ok: false, error: `Not a share code: “${ch}” isn’t one of its letters.` };
     pushNumber(bits, v, 5);
   }
   const data = bits.slice(0, bits.length - CHECK);

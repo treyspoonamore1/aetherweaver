@@ -769,7 +769,7 @@ export function verifyRunReplay(
     if (canonical(raw) !== canonical(expected))
       return fail(
         'start',
-        `Doesn’t match its week: its start isn’t what Week ${week} plays (${startDiff(raw, expected)} differs).`,
+        `Doesn’t match its week: its start isn’t what Week ${week} plays (it differs in ${startDiff(raw, expected)}).`,
       );
     run = built;
     const lesser = replay.steps.findIndex((s) => 'allowance' in s && s.allowance !== 'all');
