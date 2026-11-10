@@ -191,10 +191,12 @@ describe('the Echoes and constellations as content', () => {
   it('a leg plays at its named Movement’s scale; without one, each encounter at its own', () => {
     const scales = (id: string) => echoRoute(echoDef(id)!).map((l) => l.scale);
     const m = (n: number) => CONTENT.movements[n - 1]!.scale;
-    expect(scales('retrograde')).toEqual([m(1), m(2), m(3)]);
+    // As tuned (docs/phase-6.md, "Tuning"): Retrograde's first leg at Movement II's scale, Choir
+    // of Blood's whole road at Movement II's.
+    expect(scales('retrograde')).toEqual([m(2), m(2), m(3)]);
     expect(scales('bells_in_the_rift')).toEqual([m(3)]);
-    expect(scales('choir_of_blood')).toEqual([null]);
-    // Choir of Blood: Movement I's foes at I's scale, its crowns at Movement II's (their own).
+    expect(scales('choir_of_blood')).toEqual([m(2)]);
+    // Choir of Blood: its crowns are Movement II's.
     const choir = echoDef('choir_of_blood')!.legs[0]!;
     expect(encounterDef(choir.miniboss!).movement).toBe(2);
     expect(encounterDef(choir.boss).movement).toBe(2);

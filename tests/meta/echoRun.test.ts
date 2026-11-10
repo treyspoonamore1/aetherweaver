@@ -753,7 +753,7 @@ describe('the real Echoes', () => {
       expect(n.reward.draft).toBe('common');
   });
 
-  it('a leg’s scale reaches only its own fights (Retrograde; Choir of Blood has none)', () => {
+  it('a leg’s scale reaches only its own fights (Retrograde; A Cappella has none)', () => {
     const run = Run.embark(Run.newEchoRun(5, 'retrograde'));
     const legs = echo('retrograde').legs;
     for (const n of fightsOf(run)) {
@@ -761,9 +761,9 @@ describe('the real Echoes', () => {
       const scale = legs[n.movement - 1]!.scale!;
       expect(config.movement, n.id).toStrictEqual({ ...CONTENT.movements[scale - 1]!.scale });
     }
-    const blood = Run.embark(Run.newEchoRun(5, 'choir_of_blood'));
-    for (const n of fightsOf(blood))
-      expect('movement' in Run.combatConfig(at(blood, n))!).toBe(false);
+    const plain = Run.embark(Run.newEchoRun(5, 'a_cappella'));
+    for (const n of fightsOf(plain))
+      expect('movement' in Run.combatConfig(at(plain, n))!).toBe(false);
     // Retrograde's first leg is Movement III's: its offers are, though it is the run's first.
     expect(Run.offerMovement({ ...run, path: [run.map.rows[0]![0]!.id] })).toBe(3);
   });

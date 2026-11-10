@@ -58,6 +58,48 @@ const SHORT_ASCENT: Leg = {
   boss: 'vharun',
 };
 
+/**
+ * Strangers' road (tuned, docs/phase-6.md "Tuning"): its party fights slower, so both legs drop
+ * their forks and Movement II its Matriarch; First Light pays an epic motif and a relic offer.
+ */
+const STRANGERS_LEGS: Leg[] = [
+  {
+    movement: 'hollow_choir',
+    rows: [['skirmish'], ['miniboss'], ['respite', 'merchant', 'forge'], ['boss']],
+    fixed: [
+      { row: 0, encounter: 'first_light' },
+      { row: 1, encounter: 'bellwarden' },
+      { row: 3, encounter: 'hollow_cantor' },
+    ],
+    rewards: [{ row: 0, draft: 'epic', relics: 2 }],
+    boss: 'hollow_cantor',
+  },
+  {
+    movement: 'crimson_legion',
+    rows: [['skirmish'], ['respite', 'merchant', 'forge'], ['boss']],
+    fixed: [
+      { row: 0, encounter: 'crimson_gate' },
+      { row: 2, encounter: 'vharun' },
+    ],
+    boss: 'vharun',
+  },
+];
+
+/**
+ * The Unrested's road (tuned): the same two legs, every fight at the Unravelling Descent's
+ * strength, and Movement I's road without its richer first rows.
+ */
+const UNRESTED_LEGS: Leg[] = [
+  {
+    movement: 'hollow_choir',
+    rows: REHEARSED_CHOIR.rows!,
+    fixed: REHEARSED_CHOIR.fixed!,
+    boss: 'hollow_cantor',
+    scale: 3,
+  },
+  { ...SHORT_ASCENT, scale: 3 },
+];
+
 /** The Echoes, in the Atlas's order: three constellations of three. */
 export const ECHOES: ContentInput['echoes'] = [
   // ── Borrowed Crowns: other Movements' bosses ──
@@ -65,8 +107,8 @@ export const ECHOES: ContentInput['echoes'] = [
     id: 'choir_of_blood',
     name: 'Choir of Blood',
     constellation: 'borrowed_crowns',
-    text: 'The Reliquary Road, but the Gorehound Matriarch and Vharun wait at its end.',
-    legs: [{ movement: 'hollow_choir', miniboss: 'gorehound_matriarch', boss: 'vharun' }],
+    text: 'The Reliquary Road at the Crimson Ascent’s strength, and the Gorehound Matriarch and Vharun wait at its end.',
+    legs: [{ movement: 'hollow_choir', miniboss: 'gorehound_matriarch', boss: 'vharun', scale: 2 }],
     twists: {},
   },
   {
@@ -93,10 +135,19 @@ export const ECHOES: ContentInput['echoes'] = [
     id: 'seamstress_court',
     name: 'The Seamstress’s Court',
     constellation: 'borrowed_crowns',
-    text: 'The Crimson Ascent, but the Seamstress and the Unweaver wait at its end.',
+    text: 'The Crimson Ascent at the Unravelling Descent’s strength, with no Respite, and the Seamstress and the Unweaver wait at its end.',
     legs: [
       {
         movement: 'crimson_legion',
+        rows: [
+          ['skirmish'],
+          ['skirmish', 'skirmish'],
+          ['skirmish', 'elite', 'event'],
+          ['skirmish', 'elite', 'merchant'],
+          ['miniboss'],
+          ['merchant', 'forge', 'event'],
+          ['boss'],
+        ],
         fixed: [
           { row: 0, encounter: 'crimson_gate' },
           { row: 4, encounter: 'the_seamstress' },
@@ -104,6 +155,7 @@ export const ECHOES: ContentInput['echoes'] = [
         ],
         miniboss: 'the_seamstress',
         boss: 'the_unweaver',
+        scale: 3,
       },
     ],
     twists: {},
@@ -113,7 +165,7 @@ export const ECHOES: ContentInput['echoes'] = [
     id: 'retrograde',
     name: 'Retrograde',
     constellation: 'strange_roads',
-    text: 'The Expedition backwards: the Unravelling Descent at the Reliquary Road’s strength, the Crimson Ascent at its own, then the Reliquary Road at the Descent’s, ending at the Hollow Cantor.',
+    text: 'The Expedition backwards, with no Respite: the Unravelling Descent and then the Crimson Ascent at the Ascent’s strength, then the Reliquary Road at the Descent’s, ending at the Hollow Cantor.',
     legs: [
       {
         movement: 'unstitched',
@@ -123,18 +175,18 @@ export const ECHOES: ContentInput['echoes'] = [
           { row: 2, encounter: 'the_unweaver' },
         ],
         boss: 'the_unweaver',
-        scale: 1,
+        scale: 2,
       },
       {
         movement: 'crimson_legion',
-        rows: [['skirmish', 'elite', 'event'], ['respite', 'merchant', 'forge'], ['boss']],
+        rows: [['skirmish', 'elite', 'event'], ['merchant', 'forge', 'event'], ['boss']],
         fixed: [{ row: 2, encounter: 'vharun' }],
         boss: 'vharun',
         scale: 2,
       },
       {
         movement: 'hollow_choir',
-        rows: [['skirmish', 'elite', 'event'], ['respite', 'merchant', 'forge'], ['boss']],
+        rows: [['skirmish', 'elite', 'event'], ['merchant', 'forge', 'event'], ['boss']],
         fixed: [{ row: 2, encounter: 'hollow_cantor' }],
         boss: 'hollow_cantor',
         scale: 3,
@@ -146,19 +198,21 @@ export const ECHOES: ContentInput['echoes'] = [
     id: 'last_rehearsal',
     name: 'The Last Rehearsal',
     constellation: 'strange_roads',
-    text: 'Nothing but bosses: the Hollow Cantor, Vharun, the Unweaver and the Silent Conductor, with a Respite and a Merchant after each.',
+    text: 'Nothing but bosses: the Hollow Cantor and Vharun grown to the Unravelling Descent’s strength, then the Unweaver and the Silent Conductor, with a Respite and a Merchant after each.',
     legs: [
       {
         movement: 'hollow_choir',
         rows: [['boss']],
         fixed: [{ row: 0, encounter: 'hollow_cantor' }],
         boss: 'hollow_cantor',
+        scale: 3,
       },
       {
         movement: 'crimson_legion',
         rows: [['respite'], ['merchant'], ['boss']],
         fixed: [{ row: 2, encounter: 'vharun' }],
         boss: 'vharun',
+        scale: 3,
       },
       {
         movement: 'unstitched',
@@ -217,15 +271,15 @@ export const ECHOES: ContentInput['echoes'] = [
     name: 'Strangers',
     constellation: 'hard_bargains',
     text: 'The Reliquary Road and the Crimson Ascent, ending at Vharun. Your party is Brann, Seren and Oro, whoever you have recruited.',
-    legs: [REHEARSED_CHOIR, SHORT_ASCENT],
+    legs: STRANGERS_LEGS,
     twists: { party: ['brann', 'seren', 'oro'] },
   },
   {
     id: 'the_unrested',
     name: 'The Unrested',
     constellation: 'hard_bargains',
-    text: 'The Reliquary Road and the Crimson Ascent, ending at Vharun. Restless Dead and Unforgiving are always on, and add no points.',
-    legs: [REHEARSED_CHOIR, SHORT_ASCENT],
+    text: 'The Reliquary Road and the Crimson Ascent at the Unravelling Descent’s strength, ending at Vharun. Restless Dead and Unforgiving are always on, and add no points.',
+    legs: UNRESTED_LEGS,
     twists: {
       dissonance: [
         { id: 'restless_dead', rank: 1 },
