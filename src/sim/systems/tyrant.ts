@@ -7,6 +7,11 @@
  * telegraphs shown at once, on its own cooldown × `tyrantCooldownMult`, first `tyrantFirst` s
  * after the phase begins. A phase shift replaces it with the next phase's.
  *
+ * It is added to the boss, never put in place of its own: the picker tries it last, only when no
+ * special of the boss's own begins, and the time a borrowed cast and its recovery take is credited
+ * to the boss's own clocks (one that came due meanwhile has its next cooldown shortened by its
+ * wait, enemies.ts), so the boss casts its own specials as often as without the level.
+ *
  * The Silent Conductor borrows nothing (the Finale's Weaver faces only its choir's answers): it
  * plays one of its own closing attacks more often instead, Sforzando in the Overture and Downbeat
  * in the Mirror Choir, on one clock (`TYRANT_OWN`: its own picker leaves that attack to the hold,
@@ -162,8 +167,8 @@ export function tyrantForeseeable(
 }
 
 /**
- * The generic picker's first try for a boss on a Tyrant run (enemies.ts, `trySpecial`): its
- * borrowed attack once it is ready, unless the cap on damaging telegraphs shown at once holds it
+ * The generic picker's last try for a boss on a Tyrant run (enemies.ts, `trySpecial`, once no
+ * special of its own has begun): its borrowed attack once it is ready, unless the cap on damaging telegraphs shown at once holds it
  * back (it is tried again `CAP_RETRY` s on). What Foresight showed of it is kept (its target, if
  * rolled early). True if it began.
  */

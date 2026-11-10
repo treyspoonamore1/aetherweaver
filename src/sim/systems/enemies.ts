@@ -295,8 +295,12 @@ export function updateEnemies(world: World, dt: number): void {
     }
     if (c.guard) turnGuard(world, e, def, dt);
     if (c.attackCooldown > 0) c.attackCooldown -= dt;
+    // Tyrant (docs/phase-6.md): while the boss casts a borrowed attack, its own clocks are
+    // credited for the time it takes: one that is ready keeps running below zero, and its next
+    // cooldown is shortened by as much (trySpecial), so the borrowed cast pushes none of them back.
+    const credit = world.mods.tyrant && borrowing(e);
     for (let i = 0; i < c.specialCooldowns.length; i++) {
-      if (c.specialCooldowns[i]! > 0) c.specialCooldowns[i] = c.specialCooldowns[i]! - dt;
+      if (c.specialCooldowns[i]! > 0 || credit) c.specialCooldowns[i] = c.specialCooldowns[i]! - dt;
     }
 
     if (c.cast) {
@@ -499,8 +503,6 @@ function trySpecial(world: World, e: Entity, def: EnemyDef, target: Entity): boo
   // A follow-up is coming (Movement II): it owns the next cast.
   if (world.internal.m2?.followUp?.owner === e.id) return false;
   const rules = boss ? rulesOf(c) : null;
-  // Tyrant (docs/phase-6.md): the phase's borrowed attack first, once it is ready.
-  if (world.mods.tyrant && boss && tryTyrant(world, e, target)) return true;
   // Its affixes' specials too (Movement III's Mimicking): `def.specials` itself without.
   const specials = specialsOf(def, c.affixes);
   for (let i = 0; i < specials.length; i++) {
@@ -516,12 +518,25 @@ function trySpecial(world: World, e: Entity, def: EnemyDef, target: Entity): boo
       continue;
     }
     const promised = c.foreseen?.special === i ? c.foreseen : null;
+    // Tyrant: the time it waited, ready, while the boss cast a borrowed attack is given back.
+    const waited = world.mods.tyrant && boss ? Math.min(0, c.specialCooldowns[i]!) : 0;
     if (beginAttack(world, e, attack, target, promised)) {
-      c.specialCooldowns[i] = attack.cooldown * cooldownMult(world, e);
+      c.specialCooldowns[i] = attack.cooldown * cooldownMult(world, e) + waited;
       return true;
     }
   }
+  // Tyrant (docs/phase-6.md): the phase's borrowed attack, once it is ready, only when no special
+  // of the boss's own begins: it is cast on top of the boss's own, never in place of one.
+  if (world.mods.tyrant && boss && tryTyrant(world, e, target)) return true;
   return false;
+}
+
+/** Is the boss casting its phase's borrowed attack (Tyrant; not the Conductor's own held one)? */
+function borrowing(e: Entity): boolean {
+  const c = e.enemy!;
+  return (
+    c.tyrant !== undefined && c.tyrant.from !== c.defId && c.cast?.attackId === c.tyrant.attack
+  );
 }
 
 function cooldownMult(world: World, e: Entity): number {
@@ -1073,11 +1088,6 @@ function foresee(world: World, e: Entity, def: EnemyDef): void {
     options.push({ special: -1, attackId: script.attackId, at: Math.max(script.at, free) });
   // A chained toll (or a follow-up) owns the boss's next cast.
   if (!script?.owns) {
-    // Tyrant (docs/phase-6.md): the phase's borrowed attack, which `trySpecial` tries first.
-    if (world.mods.tyrant && boss && c.tyrant) {
-      const held = tyrantForeseeable(world, e, free);
-      if (held && canBegin(world, e, attackDef(held.attackId))) options.push(held);
-    }
     const rules = boss ? rulesOf(c) : null;
     // Its affixes' specials too, as `trySpecial` sees them.
     const specials = specialsOf(def, c.affixes);
@@ -1089,6 +1099,12 @@ function foresee(world: World, e: Entity, def: EnemyDef): void {
       if (!pickable(attack, rules) || !canBegin(world, e, attack)) continue;
       const at = Math.max(free, world.time + stun + Math.max(0, c.specialCooldowns[i]!));
       options.push({ special: i, attackId: id, at });
+    }
+    // Tyrant (docs/phase-6.md): the phase's borrowed attack, which `trySpecial` tries last (a
+    // special of the boss's own due as soon goes first: the earlier candidate wins a tie).
+    if (world.mods.tyrant && boss && c.tyrant) {
+      const held = tyrantForeseeable(world, e, free);
+      if (held && canBegin(world, e, attackDef(held.attackId))) options.push(held);
     }
   }
   let next: Choice | null = null;
@@ -1270,6 +1286,12 @@ function updateCast(world: World, e: Entity, def: EnemyDef, dt: number): void {
     }
   }
   if (world.time >= cast.end - 1e-9) {
+    // Tyrant: the recovery after a borrowed cast is credited too (docs/phase-6.md): a clock of
+    // its own that would come due before it ends is wound on by it, as if it had kept running.
+    if (world.mods.tyrant && borrowing(e))
+      for (let i = 0; i < c.specialCooldowns.length; i++)
+        if (c.specialCooldowns[i]! < RECOVER_TIME)
+          c.specialCooldowns[i] = c.specialCooldowns[i]! - RECOVER_TIME;
     c.cast = null;
     setState(c, 'recover');
   }
