@@ -64,12 +64,42 @@ for (let k = 0; k < STICK_DIRECTIONS; k++) {
 }
 
 /**
+ * A shaped stick (`shapeStickOf`'s `out`). A class, not an `{ x, z }` literal: literals share one
+ * hidden class with every other `{ x, z }` in the game, and if any of them ever holds a non-number,
+ * each number written to one is boxed afresh (an allocation a frame).
+ */
+export class StickMove {
+  x = 0;
+  z = 0;
+}
+
+/** A stick's two axes, as `shapeStickOf` reads them (a `PadReader`'s left stick). */
+export interface StickAxes {
+  lx: number;
+  ly: number;
+}
+
+const SCRATCH: StickAxes = { lx: 0, ly: 0 };
+
+/**
  * The left stick as a movement intent, written into `out` (x right, z down the screen as the
  * keys' `moveVector`): centred inside the dead zone, else one of 64 directions at a push in
  * eighths, full past STICK_FULL. Returns false when centred.
  */
 export function shapeStick(x: number, y: number, out: { x: number; z: number }): boolean {
-  const m = Math.hypot(x, y);
+  SCRATCH.lx = x;
+  SCRATCH.ly = y;
+  return shapeStickOf(SCRATCH, out);
+}
+
+/**
+ * `shapeStick` reading the axes from an object, so a per-frame caller passes no loose numbers
+ * (a call that isn't inlined boxes each one: an allocation a frame).
+ */
+export function shapeStickOf(stick: StickAxes, out: { x: number; z: number }): boolean {
+  const x = stick.lx;
+  const y = stick.ly;
+  const m = Math.sqrt(x * x + y * y);
   if (!(m > STICK_DEAD_ZONE)) {
     out.x = 0;
     out.z = 0;
@@ -132,19 +162,24 @@ export class PadReader {
         if (down) this.mask |= 1 << i;
       }
       if (!sticks && pad.axes.length >= 2) {
+        // Read inline, not through a helper: a helper's number result is boxed (an allocation)
+        // wherever the call isn't inlined.
         sticks = true;
-        this.lx = finite(pad.axes[0]);
-        this.ly = finite(pad.axes[1]);
-        this.rx = pad.axes.length >= 4 ? finite(pad.axes[2]) : 0;
-        this.ry = pad.axes.length >= 4 ? finite(pad.axes[3]) : 0;
+        const axes = pad.axes;
+        const lx = axes[0]!;
+        const ly = axes[1]!;
+        this.lx = Number.isFinite(lx) ? lx : 0;
+        this.ly = Number.isFinite(ly) ? ly : 0;
+        if (axes.length >= 4) {
+          const rx = axes[2]!;
+          const ry = axes[3]!;
+          this.rx = Number.isFinite(rx) ? rx : 0;
+          this.ry = Number.isFinite(ry) ? ry : 0;
+        }
       }
     }
     return this.connected;
   }
-}
-
-function finite(v: number | undefined): number {
-  return typeof v === 'number' && Number.isFinite(v) ? v : 0;
 }
 
 /** Whether a source has a connected pad right now. */

@@ -13,7 +13,15 @@ import {
   type PadBindable,
 } from './actions';
 import { liveBindings, subscribeBindings } from './bindings';
-import { PadReader, anyPad, browserPads, setFightPad, shapeStick, type PadSource } from './gamepad';
+import {
+  PadReader,
+  StickMove,
+  anyPad,
+  browserPads,
+  setFightPad,
+  shapeStickOf,
+  type PadSource,
+} from './gamepad';
 import { isModifierToken, modifierOf, mouseCode, type MouseRole } from './inputMap';
 import { buildPadIndex, livePadBindings, type FullPadBindings } from './padBindings';
 import { enemyAt, heroAt } from './smartCast';
@@ -155,7 +163,8 @@ export class InputController {
   // ── Phase 7 ──
   /** The last world seen (`updatePointer`): a pad press reads its targets from it. */
   private state: WorldState | null = null;
-  private readonly weaverAt = { x: 0, z: 0 };
+  /** The Weaver's position as last seen (a class: see `StickMove`, written every frame). */
+  private readonly weaverAt = new StickMove();
   /** The Thread's mode as last seen (hold-for-Empower reads it). */
   private threadMode: ThreadMode = 'mend';
   /** Thread mode held (hold mode): the input holding it, and the command its press queued. */
@@ -172,7 +181,7 @@ export class InputController {
   private padLive = false;
   private padPrimed = false;
   private padPrev = 0;
-  private readonly stick = { x: 0, z: 0 };
+  private readonly stick = new StickMove();
   private stickOn = false;
   private reticleArmed = true;
   /** The pad's reticle: the hero it stands on, by slot (null: none yet). */
@@ -867,8 +876,11 @@ export class InputController {
     return this.padIndex;
   }
 
-  /** Reads the pad once (a frame): presses and releases, the left stick, the right stick. */
-  private pollPad(): void {
+  /**
+   * Reads the pad once (a frame): presses and releases, the left stick, the right stick.
+   * `updatePointer` calls it; it allocates nothing (tests/gamepad.test.ts polls it alone).
+   */
+  pollPad(): void {
     if (!this.padLive) return;
     const r = this.reader;
     if (!r.read(this.pads)) {
@@ -899,7 +911,7 @@ export class InputController {
       }
     }
     // The left stick moves (shaped, then quantised as the keys are in `collect`).
-    this.stickOn = this.enabled && shapeStick(r.lx, r.ly, this.stick);
+    this.stickOn = this.enabled && shapeStickOf(r, this.stick);
     if (this.stickOn) {
       this.lastDevice = 'pad';
       this.touched = true;
@@ -924,7 +936,7 @@ export class InputController {
         this.touched = true;
         this.stepReticle(push > 0 ? 1 : -1);
       }
-    } else if (!this.reticleArmed && Math.hypot(r.rx, r.ry) < RETICLE_REARM) {
+    } else if (!this.reticleArmed && r.rx * r.rx + r.ry * r.ry < RETICLE_REARM * RETICLE_REARM) {
       this.reticleArmed = true;
     }
   }
