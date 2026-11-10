@@ -88,7 +88,7 @@ export function sceneLines(r: BenchResult): string[] {
     `  triangles: p95 ${count(f.trianglesP95)}, max ${count(f.trianglesMax)}; budget <= ${count(BUDGETS.triangles)}: ${mark(f.trianglesMax <= BUDGETS.triangles)}`,
     `  entities: up to ${f.entitiesMax}`,
     `  HUD React commits: ${f.commitsPerSec.toFixed(1)} a second; budget <= ${BUDGETS.commitsPerSec}: ${mark(f.commitsPerSec <= BUDGETS.commitsPerSec)}`,
-    `  JS heap: ${heap}`,
+    `  JS heap (performance.memory, rounded by Chromium unless it runs with --enable-precise-memory-info): ${heap}`,
     `  quality at the end: ${r.quality} (auto's changes: ${r.qualityChanges}); canvas ${r.canvas.width}x${r.canvas.height} device pixels`,
     `  sim hash at tick ${r.toTick}: ${r.hash}`,
     ...(r.errors.length > 0 ? [`  errors: ${r.errors.join(' | ')}`] : []),

@@ -99,6 +99,15 @@ describe('quality: auto on scripted frame times', () => {
     expect(auto.scale).toBe(0.6);
   });
 
+  it('a machine drawing two frames a second is still judged while the tier is picked', () => {
+    const auto = new AutoQuality();
+    feed(auto, 480, 1 + AUTO_QUALITY.pickMs / 1000);
+    expect(auto.tier).toBe('low');
+    feed(auto, 480, 30);
+    expect(auto.scale).toBe(0.6);
+    expect(auto.changes).toBe(6);
+  });
+
   it('one long frame in a window (a hitch) changes nothing', () => {
     const auto = new AutoQuality();
     let changed = 0;

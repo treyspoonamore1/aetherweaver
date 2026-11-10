@@ -230,6 +230,12 @@ function screenDpr(): number {
 export const AUTO_QUALITY = {
   /** Frames in one sample window. */
   window: 30,
+  /**
+   * A window also closes after this much real time once it holds `minFrames`, so a machine
+   * drawing a few frames a second is still judged while the tier is being picked.
+   */
+  windowMs: 1000,
+  minFrames: 4,
   /** Real ms ignored as a fight opens (shader compiles, the first spawns). */
   settleMs: 1000,
   /** The tier is picked over this long after settling; after it only the resolution moves. */
@@ -267,6 +273,7 @@ export class AutoQuality {
   private readonly frames = new Float64Array(AUTO_QUALITY.window);
   private readonly sorted = new Float64Array(AUTO_QUALITY.window);
   private n = 0;
+  private windowMs = 0;
   private clock = 0;
   private quietUntil: number = AUTO_QUALITY.settleMs;
   private fastRun = 0;
@@ -291,11 +298,27 @@ export class AutoQuality {
     this.clock += frameMs;
     if (this.clock <= this.quietUntil) return false;
     this.frames[this.n++] = frameMs;
-    if (this.n < AUTO_QUALITY.window) return false;
+    this.windowMs += frameMs;
+    const n = this.n;
+    if (
+      n < AUTO_QUALITY.window &&
+      (this.windowMs < AUTO_QUALITY.windowMs || n < AUTO_QUALITY.minFrames)
+    )
+      return false;
     this.n = 0;
-    this.sorted.set(this.frames);
-    this.sorted.sort();
-    const p90 = this.sorted[Math.floor(AUTO_QUALITY.window * 0.9)]!;
+    this.windowMs = 0;
+    // Insertion sort into the scratch copy: at most 30 values, and nothing allocated.
+    const sorted = this.sorted;
+    for (let i = 0; i < n; i++) {
+      const v = this.frames[i]!;
+      let j = i - 1;
+      while (j >= 0 && sorted[j]! > v) {
+        sorted[j + 1] = sorted[j]!;
+        j--;
+      }
+      sorted[j + 1] = v;
+    }
+    const p90 = sorted[Math.floor(n * 0.9)]!;
     const picking = this.picking;
     if (p90 > AUTO_QUALITY.slowMs) {
       this.fastRun = 0;
@@ -323,6 +346,7 @@ export class AutoQuality {
     this.scale = SCALE_STEPS[step]!;
     this.changes++;
     this.n = 0;
+    this.windowMs = 0;
     this.quietUntil = this.clock + AUTO_QUALITY.quietMs;
     return true;
   }

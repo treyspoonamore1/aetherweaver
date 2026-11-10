@@ -402,7 +402,10 @@ export class GameRuntime {
   private frame = (now: number): void => {
     this.raf = requestAnimationFrame(this.frame);
     const cpuStart = performance.now();
-    const elapsed = this.lastFrame < 0 ? 0 : Math.min(250, now - this.lastFrame);
+    // The real time since the last frame (the bench and `auto` quality read it), and the same
+    // clamped for the clocks, so a stall never turns into a burst of ticks.
+    const interval = this.lastFrame < 0 ? 0 : now - this.lastFrame;
+    const elapsed = Math.min(250, interval);
     this.lastFrame = now;
     if (this.startedAt < 0) this.startedAt = now;
 
@@ -444,7 +447,7 @@ export class GameRuntime {
     const alpha = this.stepper.alpha;
     const weaver = state.entities.get(state.weaverId);
     const settings = useSettings.getState().settings;
-    this.followQuality(settings, elapsed);
+    this.followQuality(settings, interval);
     this.camera.shakeScale = settings.screenShake;
     if (weaver) {
       const wx = weaver.px + (weaver.x - weaver.px) * alpha;
@@ -513,7 +516,7 @@ export class GameRuntime {
     this.perfFrames++;
     this.frameStats?.record(
       cpuMs,
-      elapsed,
+      interval,
       this.stage.drawCalls,
       this.stage.triangles,
       state.entities.count,
@@ -526,14 +529,14 @@ export class GameRuntime {
    * Quality, every frame: the player's setting when it changes (unless a tool pinned one), and on
    * `auto` this frame's time into the picker (not while paused or hidden, when frames are idle).
    */
-  private followQuality(settings: Settings, elapsed: number): void {
+  private followQuality(settings: Settings, interval: number): void {
     if (!this.qualityPinned) {
       const quality = optionsOf(settings).quality;
       if (quality !== this.qualitySetting) this.applyQualitySetting(quality);
     }
     const auto = this.auto;
-    if (!auto || this.paused || this.hidden || elapsed <= 0) return;
-    if (auto.sample(elapsed)) {
+    if (!auto || this.paused || this.hidden || interval <= 0) return;
+    if (auto.sample(interval)) {
       this.applyTier(auto.tier);
       this.stage.setResolutionScale(auto.scale);
       autoStart = auto.tier;
