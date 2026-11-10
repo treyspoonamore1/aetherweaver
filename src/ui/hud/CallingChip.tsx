@@ -98,7 +98,7 @@ export function CallingChip({
           )}
           {conducting.ensemble && (
             <span
-              className="inline-flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 text-[11px] font-semibold leading-4"
+              className="inline-flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 text-[0.75rem] font-semibold leading-4"
               style={{
                 color: look.light,
                 borderColor: `color-mix(in srgb, ${look.light} 50%, transparent)`,
@@ -193,7 +193,7 @@ function State({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 text-[11px] font-semibold leading-4 ${dim ? 'line-through opacity-70' : ''}`}
+      className={`inline-flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 text-[0.75rem] font-semibold leading-4 ${dim ? 'line-through opacity-70' : ''}`}
       style={{
         color,
         borderColor: `color-mix(in srgb, ${color} 50%, transparent)`,

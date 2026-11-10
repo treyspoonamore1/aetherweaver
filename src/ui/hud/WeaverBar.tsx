@@ -361,7 +361,7 @@ function SpiritBar({ weaver: w }: { weaver: WeaverHud }) {
           <Icon name="sparkle" size={12} style={{ color: SPIRIT }} /> Spirit
           {w.pool === 'life' && (
             <span
-              className="text-[11px]"
+              className="text-[0.75rem]"
               title="Your songs reserve Life, so all your Spirit is free"
             >
               · all free
@@ -656,7 +656,7 @@ function TechniqueButton({
         {t.variant && (
           // Phase 4f: the variant this slot plays, by name.
           <span
-            className={`truncate whitespace-nowrap text-[10px] font-semibold leading-3 ${charged ? 'ml-0.5' : ''}`}
+            className={`truncate whitespace-nowrap text-[0.75rem] font-semibold leading-3 ${charged ? 'ml-0.5' : ''}`}
             style={{ color: ready ? VARIANT_LOOK.light : 'var(--color-muted)' }}
             data-testid="technique-variant"
           >
@@ -807,7 +807,7 @@ function ResonanceArc({
       </svg>
       {ticks.length > 0 && !active && (
         <span
-          className="absolute inset-x-0 top-[1.3rem] flex items-center justify-center gap-0.5 font-mono text-[11px] font-bold leading-none"
+          className="absolute inset-x-0 top-[1.3rem] flex items-center justify-center gap-0.5 font-mono text-[0.75rem] font-bold leading-none"
           style={{ color: tickColor }}
           aria-hidden
           data-testid="cue-cost"

@@ -125,7 +125,7 @@ export function TierBadge({ tier, size = 'md' }: { tier: number; size?: 'sm' | '
   const look = tierLook(tier);
   const dims =
     size === 'sm'
-      ? 'h-5 min-w-6 px-0.5 text-[11px]'
+      ? 'h-5 min-w-6 px-0.5 text-[0.75rem]'
       : size === 'lg'
         ? 'h-9 min-w-11 text-base'
         : 'h-7 min-w-9 text-xs';
@@ -229,7 +229,7 @@ export function InscriptionLine({
             {!compact && <CategoryTag category={row.category} />}
           </span>
           {!compact && (
-            <span className="flex items-center gap-1.5 font-mono text-[11px] text-muted">
+            <span className="flex items-center gap-1.5 font-mono text-[0.75rem] text-muted">
               {row.fixed ? `only ${row.rangeText}` : `range ${row.rangeText}`}
               {!row.fixed && <WithinBar row={row} />}
             </span>
@@ -369,7 +369,7 @@ export function InscriptionList({
 export function StateChip({ look, small = false }: { look: StateLook; small?: boolean }) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-md border font-semibold ${small ? 'px-1 py-px text-[11px]' : 'px-1.5 py-0.5 text-xs'}`}
+      className={`inline-flex shrink-0 items-center gap-1 rounded-md border font-semibold ${small ? 'px-1 py-px text-[0.75rem]' : 'px-1.5 py-0.5 text-xs'}`}
       style={{
         color: look.color,
         borderColor: `color-mix(in srgb, ${look.color} 55%, transparent)`,
@@ -395,7 +395,7 @@ export function CarriedChip({
   const color = role === 'attuned' ? CARRIED_LOOK.color : '#cbd5e1';
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-md border font-semibold ${small ? 'px-1 py-px text-[11px]' : 'px-1.5 py-0.5 text-xs'}`}
+      className={`inline-flex shrink-0 items-center gap-1 rounded-md border font-semibold ${small ? 'px-1 py-px text-[0.75rem]' : 'px-1.5 py-0.5 text-xs'}`}
       style={{
         color,
         borderColor: `color-mix(in srgb, ${color} 55%, transparent)`,
@@ -632,7 +632,7 @@ export function InstabilityBar({
         />
       </div>
       {!compact && (
-        <div className="relative mt-0.5 h-4 font-mono text-[11px] text-muted" aria-hidden>
+        <div className="relative mt-0.5 h-4 font-mono text-[0.75rem] text-muted" aria-hidden>
           <span className="absolute left-0">0</span>
           <span
             className="absolute -translate-x-1/2 font-semibold"
@@ -729,7 +729,7 @@ export function CarriedRelicTip({
       {dormant && <span className="block text-xs leading-snug text-muted">{DORMANT_LINE}</span>}
       {view && (
         <span className="mt-0.5 block border-t border-ink-600/70 pt-1.5">
-          <span className="mb-0.5 block text-[11px] font-semibold uppercase tracking-wider text-muted">
+          <span className="mb-0.5 block text-[0.75rem] font-semibold uppercase tracking-wider text-muted">
             From the Reliquary
           </span>
           <InscriptionList view={view} compact />

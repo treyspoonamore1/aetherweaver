@@ -140,7 +140,7 @@ export function ThreadDial({ view }: { view: ThreadDialView }) {
         />
       )}
       <span
-        className="absolute left-1/2 top-full -mt-2.5 -translate-x-1/2 whitespace-nowrap rounded-md border bg-ink-950 px-1.5 py-px text-[0.625rem] font-bold uppercase leading-tight tracking-wider"
+        className="absolute left-1/2 top-full -mt-2.5 -translate-x-1/2 whitespace-nowrap rounded-md border bg-ink-950 px-1.5 py-px text-[0.75rem] font-bold uppercase leading-tight tracking-wider"
         style={{ color: ring, borderColor: mix(ring, 70) }}
         data-testid="thread-dial-plate"
       >
