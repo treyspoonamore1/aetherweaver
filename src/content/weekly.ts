@@ -5,11 +5,10 @@
  * three heroes (in content order) and the Dissonance; the seed is new every week.
  *
  * `WEEKLY_ROTATION_DESIGNED` is the whole designed cycle of twelve. Nine of its entries name what
- * other Phase 6 streams add (the Atlas's Echoes, and the Tyrant, Mimicry and True Dissonance
- * levels), which the content lint refuses until they exist, so `WEEKLY_ROTATION` (registered in
- * `src/content/index.ts`) holds only the first three, which name nothing new. Once the Echoes and
- * the levels are in content, `WEEKLY_ROTATION` becomes the whole designed list: an append, since
- * the three registered today are its first three.
+ * other Phase 6 streams added (the Atlas's Echoes, and the Tyrant, Mimicry and True Dissonance
+ * levels); until those were in content `WEEKLY_ROTATION` (registered in `src/content/index.ts`)
+ * held only the first three. It is now the whole designed list: an append, since those three are
+ * its first three.
  *
  * Decision 5: no entry plays Muted Choir, the one level that acts on auras.
  */
@@ -123,14 +122,12 @@ export const WEEKLY_ROTATION_DESIGNED: readonly Entry[] = [
   },
 ];
 
-/** How many of the designed entries name only what content holds today (see the header). */
-const REGISTERED_TODAY = 3;
-
 /**
- * The registered rotation: the designed entries that name only what content holds today (its
- * first three). See the header for when it becomes the whole designed list.
+ * The registered rotation: the whole designed cycle, now that the Echoes and the three new levels
+ * are in content (the first three, registered first, kept their places).
  */
-export const WEEKLY_ROTATION: ContentInput['weekly'] = WEEKLY_ROTATION_DESIGNED.slice(
-  0,
-  REGISTERED_TODAY,
-).map((e) => ({ ...e, party: [...e.party], dissonance: e.dissonance.map((l) => ({ ...l })) }));
+export const WEEKLY_ROTATION: ContentInput['weekly'] = WEEKLY_ROTATION_DESIGNED.map((e) => ({
+  ...e,
+  party: [...e.party],
+  dissonance: e.dissonance.map((l) => ({ ...l })),
+}));

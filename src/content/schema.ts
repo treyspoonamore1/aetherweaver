@@ -2666,6 +2666,16 @@ function lintPhase6(
       issue(`${where}: route "${w.route}" is neither 'expedition' nor an Echo`);
     if (w.calling !== null && !callings.has(w.calling))
       issue(`${where}: unknown calling "${w.calling}"`);
+    // An Echo route's own twists must agree with the entry (docs/phase-6.md, W2): no Calling
+    // where the Echo has none, and the Echo's own party where it names one.
+    const echo = c.echoes.find((e) => e.id === w.route);
+    if (echo?.twists.noCalling && w.calling !== null)
+      issue(`${where}: "${echo.id}" plays with no Calling, so its calling must be null`);
+    const fixed = echo?.twists.party;
+    if (fixed && [...fixed].sort().join() !== [...w.party].sort().join())
+      issue(
+        `${where}: "${echo!.id}" fixes its party (${fixed.join(', ')}); the entry must name it`,
+      );
     party(w.party, where);
     levelsOk(w.dissonance, where);
   });
