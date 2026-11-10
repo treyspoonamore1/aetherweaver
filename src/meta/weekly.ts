@@ -8,11 +8,11 @@ import { CONTENT, callingDef, heroDef, type WeeklyEntry } from '../content';
 import type { ChordLoadout } from '../sim';
 import { hashString } from '../sim/core/rng';
 import { dissonancePoints } from './dissonance';
-import { EVERYTHING, EXPEDITION_MOVEMENTS, type WeeklyCode, type WeeklyWeek } from './profile';
+import { EVERYTHING, type WeeklyCode, type WeeklyWeek } from './profile';
 import * as Run from './run';
 import { decodeShareCode } from './shareCode';
 import type { Grade, RunState } from './types';
-import { fitTechniques, type Techniques } from './variants';
+import type { Techniques } from './variants';
 
 // ── The week ───────────────────────────────────────────────────────────────────────────────
 
@@ -96,32 +96,18 @@ function everyHero(): string[] {
  * relics, no Bond talents or alternate Solos; Chords and variants under the full allowance.
  * Null when the entry's route can't be started here.
  *
- * The one place a weekly's start is built. Today it builds the Finale-route Expedition; an Echo
- * route answers null until the run layer can start an Echo run (Phase 6's W2:
- * `newWeeklyRun(week, chords, techniques)` in `src/meta/run.ts`, which this calls for every route
- * once it exists).
+ * The one place a weekly's start is built (the run store's and the verifier's): the run layer's
+ * `newWeeklyRun` for every route, the Finale-route Expedition or an Echo. Null without an entry,
+ * or for an Echo this build doesn't have.
  */
 export function weeklyPrep(
   week: number,
   picks: WeeklyPicks,
   entry = weeklyEntry(week),
 ): RunState | null {
-  if (!entry || entry.route !== 'expedition') return null;
-  const techniques = fitTechniques(picks.techniques, [], true);
-  let run = Run.newRun(
-    weeklySeed(week),
-    undefined,
-    [],
-    [],
-    entry.dissonance,
-    [],
-    techniques,
-    EXPEDITION_MOVEMENTS,
-  );
-  run = Run.setParty(run, entry.party, everyHero());
-  run = Run.setCalling(run, entry.calling, EVERYTHING);
-  run = Run.setChords(run, picks.chords, EVERYTHING);
-  return { ...run, weekly: { week } };
+  if (!entry) return null;
+  if (entry.route !== 'expedition' && !Run.echoDef(entry.route)) return null;
+  return Run.newWeeklyRun({ week, seed: weeklySeed(week), entry }, picks.chords, picks.techniques);
 }
 
 /**

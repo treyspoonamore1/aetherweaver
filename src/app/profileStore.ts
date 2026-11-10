@@ -5,7 +5,11 @@
  */
 import { create } from 'zustand';
 import { allocate, astrolabePoints, refund } from '../meta/astrolabe';
-import { deedPoints, deedProgress, deedsEarned } from '../meta/deeds';
+import { recordStars, type AtlasRecord } from '../meta/atlas';
+import { REPLAY_NAME_MAX, shareCodeOf, type RunReplay } from '../meta/runReplay';
+import { decodeShareCode, normalShareCode } from '../meta/shareCode';
+import { withWeeklyEntry } from '../meta/weekly';
+import { deedPoints, deedProgress, deedsEarned, profileDeedsEarned } from '../meta/deeds';
 import {
   allowanceFor,
   awardXp,
@@ -18,6 +22,7 @@ import {
   type Profile,
   type RunMode,
   type Unlock,
+  type WeeklyStatus,
 } from '../meta/profile';
 import {
   ascend,
@@ -35,13 +40,14 @@ import {
 } from '../meta/reliquary';
 import {
   bestKey,
+  chosenLevels,
   dissonancePoints,
-  fitLevels,
+  finaleClearPoints,
   opensFrom,
   opensWith,
   type DissonanceChoice,
 } from '../meta/dissonance';
-import { canonicalParty, chordsToRemember } from '../meta/run';
+import { canonicalParty, chordsToRemember, setsDissonanceRecords } from '../meta/run';
 import {
   addBondXp,
   altSoloOf,
@@ -147,6 +153,42 @@ export interface ProfileStore {
    * one the profile records, and any win may set a new best for its Calling.
    */
   recordDissonance(run: RunState): { opened: boolean; best: boolean };
+  // ── Phase 6 (docs/phase-6.md) ──
+  /**
+   * A run ended: a Finale clear on a Prelude or an Expedition (never an Echo or a weekly,
+   * decisions 10 and 12) may set its Calling's best Finale-clear Dissonance
+   * (`profile.dissonance.finale`). True when it set a new record.
+   */
+  recordFinaleDissonance(run: RunState): boolean;
+  /**
+   * An Echo run ended (docs/phase-6.md, "Stars"): lights its stars, keeps its best, and pays the
+   * newly lit stars' Tuning Shards and Discord Tears (each star once, ever: meta/atlas.ts
+   * `recordStars`), then judges the profile Deeds. Returns what it did, also kept in `atlasNotice`
+   * for the Summary.
+   */
+  recordAtlas(run: RunState): AtlasRecord;
+  /** What the last Echo's end did in the Atlas (the Summary's stars line); null until one ends. */
+  atlasNotice: AtlasRecord | null;
+  dismissAtlasNotice(): void;
+  /**
+   * A weekly run ended (docs/phase-6.md, "The local leaderboard"): its replay's share code
+   * becomes the player's own entry (`mine`) in its week, Claimed until it is verified again
+   * (`setWeeklyStatus`); then the profile Deeds are judged. Returns the code (null: no replay,
+   * so no entry).
+   */
+  recordWeekly(run: RunState, replay?: RunReplay | null): string | null;
+  /** A weekly entry's verification came in: its status (and its kept replay's key, if any). */
+  setWeeklyStatus(week: number, code: string, status: WeeklyStatus, replay?: string): void;
+  /**
+   * Adds a code someone shared (the weekly panel's Add a code), named by the player, Claimed
+   * until its replay is verified. The code's week, or why it can't be added.
+   */
+  addWeeklyCode(
+    text: string,
+    name?: string,
+  ): { ok: true; week: number; code: string } | { ok: false; error: string };
+  /** The Atlas or the weekly record changed: records the profile Deeds now earned; returns them. */
+  recordProfileDeeds(): string[];
   /** Bonds (docs/phase-4e.md): every talent and Solo can be chosen (Skip the unlocks). */
   bondsAll(): boolean;
   /** What a run's heroes play with: the profile's choices their Bond ranks open. */
@@ -234,6 +276,7 @@ export const useProfile = create<ProfileStore>()((set, get) => {
     deedNotices: [],
     bondNotices: [],
     recruitNotices: [],
+    atlasNotice: null,
     allowance: () =>
       useSettings.getState().settings.unlockAll
         ? EVERYTHING
@@ -296,6 +339,7 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       }
       if (earned.length === 0 && best === profile.deedBest) return earned;
       // Each Deed earned pays its Starlight (docs/phase-4g.md).
+      // (Phase 6's profile Deeds are judged apart, by `recordProfileDeeds`.)
       const starlight = profile.starlight + starlightForDeeds(earned);
       commit(
         { ...profile, deeds: [...profile.deeds, ...earned], deedBest: best, starlight },
@@ -315,6 +359,7 @@ export const useProfile = create<ProfileStore>()((set, get) => {
         deedNotices: [],
         bondNotices: [],
         recruitNotices: [],
+        atlasNotice: null,
       }),
     bondsAll: () => useSettings.getState().settings.unlockAll,
     runBonds: (heroes) => runBonds(get().profile.bonds, heroes, get().bondsAll()),
@@ -520,7 +565,8 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       get().profile.dissonance.open || useSettings.getState().settings.unlockAll,
     setDissonance: (levels) => {
       const profile = get().profile;
-      const fitted = fitLevels(levels);
+      // The levels a player chooses: never an Echo's forced ones (docs/phase-6.md).
+      const fitted = chosenLevels(levels);
       if (JSON.stringify(fitted) === JSON.stringify(profile.dissonance.levels)) return;
       commit({ ...profile, dissonance: { ...profile.dissonance, levels: fitted } });
     },
@@ -531,7 +577,8 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       // A Finale clear at Rank 15+ opens it (docs/phase-5d.md): this run's, or one the profile
       // already records (its `song_goes_on` Deed) once the Rank is reached. Open stays open.
       const opened = !d.open && (opensWith(run, rank) || opensFrom(profile.deeds, rank));
-      if (run.outcome !== 'victory') {
+      // An Echo or a weekly sets no best (docs/phase-6.md, decision 10): it may still open it.
+      if (run.outcome !== 'victory' || !setsDissonanceRecords(run)) {
         if (opened) commit({ ...profile, dissonance: { ...d, open: true } });
         return { opened, best: false };
       }
@@ -548,6 +595,102 @@ export const useProfile = create<ProfileStore>()((set, get) => {
         },
       });
       return { opened, best };
+    },
+    recordFinaleDissonance: (run) => {
+      const points = run.outcome === 'victory' ? finaleClearPoints(run) : null;
+      if (points === null) return false;
+      const profile = get().profile;
+      const d = profile.dissonance;
+      const key = bestKey(run);
+      const was = d.finale?.[key];
+      if (was !== undefined && was >= points) return false;
+      commit({ ...profile, dissonance: { ...d, finale: { ...d.finale, [key]: points } } });
+      return true;
+    },
+    recordAtlas: (run) => {
+      const profile = get().profile;
+      const record = recordStars(profile, run);
+      if (record.atlas !== profile.atlas && record.atlas !== undefined) {
+        const rq = profile.reliquary;
+        commit(
+          {
+            ...profile,
+            atlas: record.atlas,
+            reliquary: { ...rq, shards: rq.shards + record.shards, tears: rq.tears + record.tears },
+          },
+          { atlasNotice: record },
+        );
+      } else if (record.echo !== null) set({ atlasNotice: record });
+      get().recordProfileDeeds();
+      return record;
+    },
+    dismissAtlasNotice: () => set({ atlasNotice: null }),
+    recordWeekly: (run, replay) => {
+      const week = run.weekly?.week;
+      if (week === undefined || !replay || replay.week !== week) {
+        get().recordProfileDeeds();
+        return null;
+      }
+      const code = shareCodeOf({ ...replay, week });
+      const profile = get().profile;
+      commit({
+        ...profile,
+        weekly: withWeeklyEntry(profile.weekly, week, { code, mine: true, status: 'claimed' }),
+      });
+      get().recordProfileDeeds();
+      return code;
+    },
+    setWeeklyStatus: (week, code, status, replay) => {
+      const profile = get().profile;
+      const held = profile.weekly
+        ?.find((w) => w.week === week)
+        ?.entries.find((e) => e.code === code);
+      if (!held || (held.status === status && (replay === undefined || held.replay === replay)))
+        return;
+      commit({
+        ...profile,
+        weekly: withWeeklyEntry(profile.weekly, week, {
+          code,
+          status,
+          ...(replay !== undefined ? { replay } : {}),
+        }),
+      });
+      get().recordProfileDeeds();
+    },
+    addWeeklyCode: (text, name) => {
+      const code = normalShareCode(text);
+      const read = decodeShareCode(text);
+      if (!read.ok || code === null)
+        return { ok: false, error: read.ok ? 'Not a code.' : read.error };
+      const profile = get().profile;
+      const trimmed = name?.trim().slice(0, REPLAY_NAME_MAX);
+      const held = profile.weekly
+        ?.find((w) => w.week === read.claim.week)
+        ?.entries.find((e) => e.code === code);
+      if (!held)
+        commit({
+          ...profile,
+          weekly: withWeeklyEntry(profile.weekly, read.claim.week, {
+            code,
+            ...(trimmed ? { name: trimmed } : {}),
+            status: 'claimed',
+          }),
+        });
+      return { ok: true, week: read.claim.week, code };
+    },
+    recordProfileDeeds: () => {
+      const profile = get().profile;
+      const earned = profileDeedsEarned(profile);
+      if (earned.length === 0) return earned;
+      commit(
+        {
+          ...profile,
+          deeds: [...profile.deeds, ...earned],
+          starlight: profile.starlight + starlightForDeeds(earned),
+        },
+        { deedNotices: [...get().deedNotices, ...earned] },
+      );
+      return earned;
     },
     payReliquary: ({ shards, tears }) => {
       if (shards <= 0 && tears <= 0) return;

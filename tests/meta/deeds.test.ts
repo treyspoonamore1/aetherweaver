@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { useProfile } from '../../src/app/profileStore';
 import { useRun } from '../../src/app/runStore';
 import { useSettings } from '../../src/app/settings';
+import { encodeShareCode } from '../../src/meta/shareCode';
 import { CONTENT, deedText, type DeedDef } from '../../src/content';
 import { astrolabePoints } from '../../src/meta/astrolabe';
 import {
@@ -15,9 +16,10 @@ import {
   deedPoints,
   deedProgress,
   deedsEarned,
+  profileDeedHolds,
 } from '../../src/meta/deeds';
 import { storage } from '../../src/app/storage';
-import { newProfile, PROFILE_VERSION, RANK_XP } from '../../src/meta/profile';
+import { newProfile, PROFILE_VERSION, RANK_XP, type Profile } from '../../src/meta/profile';
 import * as Run from '../../src/meta/run';
 import { loadProfile, loadRun, type KeyValueStore } from '../../src/meta/save';
 import type { EncounterResult, EncounterStats, RunState } from '../../src/meta/types';
@@ -76,8 +78,39 @@ function runOf(results: EncounterResult[], over: Partial<RunState> = {}): RunSta
 const deed = (id: string): DeedDef => CONTENT.deeds.find((d) => d.id === id)!;
 const CAUSES: SaveCause[] = ['ward', 'mend', 'chime', 'reel', 'fermata', 'dome', 'rewind'];
 
-/** A run built from the Deed's own data that earns it, and its near miss that doesn't. */
-function meetsAndMisses(d: DeedDef): [RunState, RunState] {
+/** What a Deed is judged on: a run, or (Phase 6's profile rules) the profile. */
+type Judged = RunState | Pick<Profile, 'atlas' | 'weekly'>;
+
+/** Does the run, or the profile, earn the Deed? */
+function holds(on: Judged, d: DeedDef): boolean {
+  return 'results' in on ? deedHolds(on, d) : profileDeedHolds(on, d);
+}
+
+/** A share code (meta/shareCode.ts) whose run was won or not. */
+function shareCode(won: boolean): string {
+  return encodeShareCode({
+    week: 40,
+    build: '00000000',
+    simVersion: 22,
+    won,
+    fightsWon: 3,
+    score: 1200,
+    seconds: 600,
+    digest: '0000000000',
+  });
+}
+
+/** A Finale clear (docs/phase-5d.md): the Silent Conductor beaten, ending the run. */
+const FINALE = fight({
+  encounterId: 'the_silent_conductor',
+  name: 'The Silent Conductor',
+  kind: 'boss',
+  movement: 4,
+  wonRun: true,
+});
+
+/** A run (or a profile) built from the Deed's own data that earns it, and its near miss. */
+function meetsAndMisses(d: DeedDef): [Judged, Judged] {
   const n = d.values.n ?? 0;
   const calling = (id: string) => ({ id, path: [] });
   switch (d.test) {
@@ -99,6 +132,8 @@ function meetsAndMisses(d: DeedDef): [RunState, RunState] {
         { encounterId: d.encounter!, grade: d.grade ?? 'B' },
         { downs: downs ?? 0 },
       );
+      // A level it names (Final Bar, docs/phase-6.md) is on in both runs.
+      const on = d.level ? { dissonance: [{ id: d.level, rank: 1 }] } : {};
       // With no downs or grade to miss (The Song Goes On: beat it at all), losing it misses.
       const no =
         downs !== undefined
@@ -106,7 +141,7 @@ function meetsAndMisses(d: DeedDef): [RunState, RunState] {
           : d.grade !== undefined
             ? { ...yes, grade: 'A' as const }
             : { ...yes, outcome: 'defeat' as const };
-      return [runOf([yes]), runOf([no])];
+      return [runOf([yes], on), runOf([no], on)];
     }
     case 'callAll':
       // Two calls a stun or the fight's end cut short don't count against it; one missed does.
@@ -167,6 +202,17 @@ function meetsAndMisses(d: DeedDef): [RunState, RunState] {
         blood: blood(peakAfterLow),
       });
       const won = (peak: number) => fight({ encounterId: d.encounter!, heroes: [hero(peak)] });
+      if (d.encounter === undefined) {
+        // Red All the Way (docs/phase-6.md): a won Expedition with the hero, every fight judged.
+        const party = ['kael', 'lyra', d.hero!].map((heroId) => ({
+          heroId,
+          hpPct: 1,
+          shaken: false,
+        }));
+        const exp = { movements: CONTENT.movements.length, party };
+        const end = { ...FINALE, heroes: [hero(-1)] };
+        return [runOf([won(pct), won(-1), end], exp), runOf([won(pct), won(pct + 0.01), end], exp)];
+      }
       return [runOf([won(pct)]), runOf([won(pct + 0.01), won(-1)])];
     }
     case 'heroTally': {
@@ -219,13 +265,59 @@ function meetsAndMisses(d: DeedDef): [RunState, RunState] {
         ]),
       ];
     }
-    // Phase 6's rules (docs/phase-6.md): no Deed names them yet; W2 writes their fixtures.
-    case 'movementWithout':
-    case 'dissonance':
-    case 'stars':
-    case 'constellation':
-    case 'weeks':
-      throw new Error(`no fixture for a "${d.test}" Deed yet`);
+    // Phase 6's rules (docs/phase-6.md, "Design: Deeds").
+    case 'movementWithout': {
+      // Silent Bell: the Movement's boss beaten, its stat at 0 in every one of its fights.
+      const m = d.movement!;
+      const of = (n: number) => fight({ movement: m }, { [d.stat!]: n });
+      const boss = fight({ kind: 'boss', movement: m, wonRun: false, encounterId: 'the_unweaver' });
+      return [runOf([of(0), boss]), runOf([of(0), of(1), boss])];
+    }
+    case 'dissonance': {
+      // The Finale cleared at its total (and its level on, or every level at its top rank).
+      const all = CONTENT.dissonance.map((l) => ({ id: l.id, rank: l.ranks }));
+      const enough = d.allLevels
+        ? all
+        : [...(d.level ? [{ id: d.level, rank: 1 }] : []), ...all.filter((l) => l.id !== d.level)];
+      const near = d.allLevels ? all.slice(1) : d.level ? all.filter((l) => l.id !== d.level) : [];
+      const exp = { movements: CONTENT.movements.length };
+      return [
+        runOf([FINALE], { ...exp, dissonance: enough }),
+        runOf([FINALE], { ...exp, dissonance: near }),
+      ];
+    }
+    case 'stars': {
+      // Lit stars, n of them and one fewer, over the Atlas's Echoes in order.
+      const atlas = (count: number) => {
+        const stars: Record<string, number> = {};
+        for (const e of CONTENT.echoes) {
+          const lit = Math.min(3, count);
+          if (lit > 0) stars[e.id] = lit;
+          count -= lit;
+        }
+        return { atlas: { stars, best: {} } };
+      };
+      return [atlas(n), atlas(n - 1)];
+    }
+    case 'constellation': {
+      const id = d.constellation ?? CONTENT.constellations[0]!.id;
+      const of = CONTENT.echoes.filter((e) => e.constellation === id);
+      const stars = Object.fromEntries(of.map((e) => [e.id, 3]));
+      return [
+        { atlas: { stars, best: {} } },
+        { atlas: { stars: { ...stars, [of[0]!.id]: 2 }, best: {} } },
+      ];
+    }
+    case 'weeks': {
+      // The player's own verified wins in n different weeks, and in one fewer.
+      const weeks = (count: number) => ({
+        weekly: Array.from({ length: count }, (_, i) => ({
+          week: 40 + i,
+          entries: [{ code: shareCode(true), mine: true as const, status: 'verified' as const }],
+        })),
+      });
+      return [weeks(n), weeks(n - 1)];
+    }
   }
 }
 
@@ -235,9 +327,9 @@ beforeEach(() => {
 });
 
 describe('the Deeds', () => {
-  it('thirty, ten of them giving a point, each text filled from its data', () => {
-    // The Conductor's badge (docs/phase-5f.md) is the thirtieth.
-    expect(CONTENT.deeds).toHaveLength(30);
+  it('forty-four, ten of them giving a point, each text filled from its data', () => {
+    // The Conductor's badge (docs/phase-5f.md) is the thirtieth; Phase 6's fourteen follow.
+    expect(CONTENT.deeds).toHaveLength(44);
     expect(CONTENT.deeds.filter((d) => d.points === 1)).toHaveLength(DEED_POINTS_MAX);
     for (const d of CONTENT.deeds) expect(deedText(d), d.id).not.toMatch(/[{}]/);
     expect(deedText(deed('unrung'))).toBe('Beat the Bellwarden with no hero going down.');
@@ -257,9 +349,31 @@ describe('the Deeds', () => {
       // Seren's and Oro's (docs/phase-5e.md), last.
       ['debt_paid', 0],
       ['not_a_leaf_lost', 0],
-      // The Conductor's (docs/phase-5f.md), last of all.
+      // The Conductor's (docs/phase-5f.md).
       ['curtain_call', 0],
+      // Phase 6's fourteen badges (docs/phase-6.md, decision 11: no point), last of all.
+      ['absolute_pitch', 0],
+      ['silent_bell', 0],
+      ['red_all_the_way', 0],
+      ['out_of_tune', 0],
+      ['wolf_interval', 0],
+      ['tritone', 0],
+      ['resolution', 0],
+      ['final_bar', 0],
+      ['crownbreaker', 0],
+      ['faint_star', 0],
+      ['whole_constellation', 0],
+      ['atlas_walker', 0],
+      ['same_song', 0],
+      ['every_week_a_song', 0],
     ]);
+    expect(deedText(deed('absolute_pitch'))).toBe('Make 50 Perfect Wards in one run.');
+    expect(deedText(deed('red_all_the_way'))).toBe(
+      'Win an Expedition with Brann, never letting him above 40% life once he falls to it in a fight.',
+    );
+    expect(deedText(deed('wolf_interval'))).toBe('Clear the Finale at 20 Dissonance or more.');
+    expect(deedText(deed('final_bar'))).toBe('Beat the Silent Conductor’s Postlude.');
+    expect(deedText(deed('every_week_a_song'))).toBe('Win This Week’s Song in 4 different weeks.');
     expect(deedText(deed('debt_paid'))).toBe(
       'Beat the Gorehound Matriarch with Seren, parrying 8 blows: the hounds’ swings count too.',
     );
@@ -284,10 +398,11 @@ describe('the Deeds', () => {
   it('a hero’s Deed is in sight only with a roster that has the hero (docs/phase-5b.md)', () => {
     const all = CONTENT.enemies.map((e) => e.id);
     const plain = deedsInSight(all).map((d) => d.id);
-    // Every Deed but Brann's, Seren's and Oro's (Movement III's and the Finale's badges count:
-    // docs/phase-5c.md, docs/phase-5d.md).
-    expect(plain).toHaveLength(27);
+    // Every Deed but Brann's two, Seren's and Oro's (Movement III's and the Finale's badges
+    // count: docs/phase-5c.md, docs/phase-5d.md; Red All the Way is Brann's, docs/phase-6.md).
+    expect(plain).toHaveLength(40);
     expect(plain).not.toContain('in_the_red');
+    expect(plain).not.toContain('red_all_the_way');
     expect(plain).not.toContain('debt_paid');
     expect(plain).not.toContain('not_a_leaf_lost');
     expect(deedsInSight(all, ['kael', 'lyra', 'vexis']).map((d) => d.id)).toEqual(plain);
@@ -304,17 +419,41 @@ describe('the Deeds', () => {
     ).toEqual(CONTENT.deeds.map((d) => d.id));
     // Its fight is Movement II's: not before the Spire is sighted, roster or not.
     const prelude = newProfile().seen;
-    expect(deedsInSight(prelude, ['brann']).map((d) => d.id)).toEqual(
-      deedsInSight(prelude).map((d) => d.id),
-    );
+    // (Red All the Way names no fight, so the Hall shows it with Brann from the start.)
+    expect(
+      deedsInSight(prelude, ['brann'])
+        .map((d) => d.id)
+        .filter((id) => id !== 'red_all_the_way'),
+    ).toEqual(deedsInSight(prelude).map((d) => d.id));
     expect(deedsInSight(prelude).map((d) => d.id)).not.toContain('in_the_red');
   });
 
   it('every one can be earned, and a near miss doesn’t earn it', () => {
     for (const d of CONTENT.deeds) {
       const [yes, no] = meetsAndMisses(d);
-      expect(deedHolds(yes, d), d.id).toBe(true);
-      expect(deedHolds(no, d), d.id).toBe(false);
+      expect(holds(yes, d), d.id).toBe(true);
+      expect(holds(no, d), d.id).toBe(false);
+    }
+  });
+
+  it('the fixtures for Phase 6’s rules earn and miss fixture Deeds of each (docs/phase-6.md)', () => {
+    const base = { name: 'X', points: 0 as const, text: 'x' };
+    const fixtures: DeedDef[] = [
+      { ...base, id: 'a', test: 'movementWithout', movement: 3, stat: 'cleanses', values: {} },
+      { ...base, id: 'b', test: 'dissonance', values: { points: 20 } },
+      { ...base, id: 'c', test: 'dissonance', level: 'elite_vanguard', values: {} },
+      { ...base, id: 'd', test: 'dissonance', allLevels: true, values: {} },
+      { ...base, id: 'e', test: 'stars', values: { n: 1 } },
+      { ...base, id: 'f', test: 'stars', values: { n: 27 } },
+      { ...base, id: 'g', test: 'constellation', values: {} },
+      { ...base, id: 'h', test: 'constellation', constellation: 'hard_bargains', values: {} },
+      { ...base, id: 'i', test: 'weeks', values: { n: 4 } },
+      { ...base, id: 'j', test: 'heroCeiling', hero: 'brann', values: { pct: 40 } },
+    ];
+    for (const d of fixtures) {
+      const [yes, no] = meetsAndMisses(d);
+      expect(holds(yes, d), d.id).toBe(true);
+      expect(holds(no, d), d.id).toBe(false);
     }
   });
 

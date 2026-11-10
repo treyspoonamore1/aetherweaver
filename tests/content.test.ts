@@ -11,7 +11,7 @@ import {
 } from '../src/content/crucible';
 import * as ids from '../src/content/crucibleIds';
 import { FINALE } from '../src/content/crucibleRun';
-import { FINALE_DEEDS } from '../src/content/deeds';
+import { FINALE_DEEDS, PHASE6_DEEDS } from '../src/content/deeds';
 import { ROSTER_DEEDS } from '../src/content/rosterDeeds';
 import { EffectBundleSchema } from '../src/content/effects';
 import { ContentSchema, isFieldMovement, type FinaleMovementDef } from '../src/content/schema';
@@ -614,8 +614,16 @@ describe('Movement III: the Unstitched (docs/phase-5c.md)', () => {
       const four = list.findIndex((x) => x.movement === 4);
       if (four >= 0) expect(list.slice(four).every((x) => x.movement === 4)).toBe(true);
     }
-    // Then the Finale's two (docs/phase-5d.md), then Seren's and Oro's (docs/phase-5e.md).
-    expect(CONTENT.deeds.slice(-7, -5).map((d) => d.id)).toEqual(['whole_cloth', 'needle_sure']);
+    // Then the Finale's two (docs/phase-5d.md), then Seren's and Oro's (docs/phase-5e.md). Found
+    // by id (Phase 6 appends its Deeds after all of these).
+    const deedIds = CONTENT.deeds.map((d) => d.id);
+    const cloth = deedIds.indexOf('whole_cloth');
+    expect(deedIds.slice(cloth, cloth + 4)).toEqual([
+      'whole_cloth',
+      'needle_sure',
+      'song_goes_on',
+      'not_one_silent',
+    ]);
     // Seren's and Oro's Bond motifs follow it (docs/phase-5e.md).
     // Phase 5g's motifs are appended after all of these.
     expect(preFill(CONTENT.motifs).at(-3)).toMatchObject({
@@ -1392,10 +1400,13 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
     expect(parsed.success ? '' : parsed.error.issues.map((i) => i.message).join('\n')).toBe('');
     // …followed only by Seren's and Oro's (ROSTER_DEEDS, docs/phase-5e.md), then the
     // Conductor's one badge (docs/phase-5f.md).
-    expect(
-      CONTENT.deeds.slice(-FINALE_DEEDS.length - ROSTER_DEEDS.length - 1, -ROSTER_DEEDS.length - 1),
-    ).toStrictEqual(FINALE_DEEDS);
-    expect(CONTENT.deeds.slice(-ROSTER_DEEDS.length - 1, -1)).toStrictEqual(ROSTER_DEEDS);
+    // Found by id: Phase 6's Deeds (PHASE6_DEEDS) are appended after the Conductor's.
+    const finale = CONTENT.deeds.findIndex((d) => d.id === FINALE_DEEDS[0]!.id);
+    expect(CONTENT.deeds.slice(finale, finale + FINALE_DEEDS.length)).toStrictEqual(FINALE_DEEDS);
+    const roster = finale + FINALE_DEEDS.length;
+    expect(CONTENT.deeds.slice(roster, roster + ROSTER_DEEDS.length)).toStrictEqual(ROSTER_DEEDS);
+    expect(CONTENT.deeds[roster + ROSTER_DEEDS.length]!.id).toBe('curtain_call');
+    expect(CONTENT.deeds.slice(roster + ROSTER_DEEDS.length + 1)).toStrictEqual(PHASE6_DEEDS);
   });
 
   it('two badge Deeds, no point, both on the Conductor’s fight', () => {
