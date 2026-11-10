@@ -57,9 +57,10 @@ import {
 } from '../../content/unstitched';
 import { FINALE_MIN_WINDUP } from '../../content/crucible';
 import { enemyRooted, untauntedTarget } from './grove';
+import { tryTyrant } from './tyrant';
 
 /** Normal enemies may have at most this many telegraphs up at once (readability cap). */
-const READABILITY_CAP = 2;
+export const READABILITY_CAP = 2;
 const SPAWN_TIME = 0.8;
 /** Seconds an enemy stands recovering after a cast before it can act again. */
 const RECOVER_TIME = 0.5;
@@ -498,6 +499,8 @@ function trySpecial(world: World, e: Entity, def: EnemyDef, target: Entity): boo
   // A follow-up is coming (Movement II): it owns the next cast.
   if (world.internal.m2?.followUp?.owner === e.id) return false;
   const rules = boss ? rulesOf(c) : null;
+  // Tyrant (docs/phase-6.md): the phase's borrowed attack first, once it is ready.
+  if (world.mods.tyrant && boss && tryTyrant(world, e, target)) return true;
   // Its affixes' specials too (Movement III's Mimicking): `def.specials` itself without.
   const specials = specialsOf(def, c.affixes);
   for (let i = 0; i < specials.length; i++) {
