@@ -577,6 +577,8 @@ export interface SimInternal {
     until: number;
     /** Cast during Stasis (Eternal Moment). */
     stasis?: true;
+    /** Phase 5g, Breath Between: what a rested Link cost (its Perfect gives back no more). */
+    restPaid?: number;
   } | null;
   /**
    * Movement II boss scripts (docs/phase-5a.md): a follow-up attack due (`reverse`: aimed 180°

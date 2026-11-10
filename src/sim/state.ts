@@ -69,6 +69,11 @@ export interface Shield {
   plain?: true;
   /** A Ward on Seren that has parried once (Riposte Chain, docs/phase-5e.md). Absent elsewhere. */
   parried?: true;
+  /**
+   * Phase 5g, Breath Between: what a rested Ward really cost; its Perfect gives back no more.
+   * Absent on every other shield (only a rested Ward with the motif held has it).
+   */
+  restPaid?: number;
 }
 
 export type StatusId =

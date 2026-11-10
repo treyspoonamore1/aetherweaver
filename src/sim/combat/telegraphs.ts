@@ -46,7 +46,7 @@ import { riposteBash } from '../systems/heroes';
 import { duelMelee, duelResolved, markKillShot } from '../systems/duel';
 import { cutThread } from '../systems/thread';
 import { cutWouldLand, threadSegment } from '../rules3';
-import { needleCatch } from '../fill/silk';
+import { needleCatch, needleKept } from '../fill/silk';
 import { concertPitchRing } from '../fill/harmonies';
 
 export interface TelegraphSpec {
@@ -484,6 +484,8 @@ function hitEntity(
     ...(e.hero?.duel && duelMelee(t, attack, e) ? { melee: true as const } : {}),
   });
   if (result.parried) duelResolved(world, t, e, result, wouldDie);
+  // Phase 5g (N4): the Needle's catch is credited with the life it kept (fill/silk.ts).
+  if (landing !== damage) needleKept(world, e, damage - landing);
   if (mark !== null) removeStatus(world, e, mark, 'detonated');
   if (verdict && (e.hero || e.weaver) && failedVictim(world, e, result)) verdict.failed.push(e.id);
   if (verdict && e.hero && result.dealt > 0) verdict.struck.push(e.id);
@@ -599,8 +601,10 @@ function perfect(
   const weaver = world.entities.get(world.weaverId);
   if (weaver?.weaver) {
     const w = weaver.weaver;
-    const refund =
-      slotCost(world, 'ward', tech.cost) * world.mods.techCostMult * tech.perfectRefund;
+    let refund = slotCost(world, 'ward', tech.cost) * world.mods.techCostMult * tech.perfectRefund;
+    // Phase 5g (N8): a rested Ward (Breath Between) gives back no more than it really cost.
+    const restPaid = ward ? ward.restPaid : world.internal.link?.restPaid;
+    if (restPaid !== undefined) refund = Math.min(refund, restPaid);
     // Eldritch Conduit (the Astrolabe): what was paid in Life comes back as Life.
     if (world.mods.techniquesCostLife) w.selfHealAcc += heal(world, weaver, refund, 'self', false);
     else w.spirit = Math.min(w.maxSpirit - w.reservedSpirit, w.spirit + refund);
