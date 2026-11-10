@@ -397,7 +397,9 @@ describe('the Deeds', () => {
 
   it('a hero’s Deed is in sight only with a roster that has the hero (docs/phase-5b.md)', () => {
     const all = CONTENT.enemies.map((e) => e.id);
-    const plain = deedsInSight(all).map((d) => d.id);
+    // With Dissonance open (`endgame`), so Phase 6's Deeds of Dissonance and the Atlas show too:
+    // this is about the roster.
+    const plain = deedsInSight(all, undefined, true).map((d) => d.id);
     // Every Deed but Brann's two, Seren's and Oro's (Movement III's and the Finale's badges
     // count: docs/phase-5c.md, docs/phase-5d.md; Red All the Way is Brann's, docs/phase-6.md).
     expect(plain).toHaveLength(40);
@@ -405,26 +407,25 @@ describe('the Deeds', () => {
     expect(plain).not.toContain('red_all_the_way');
     expect(plain).not.toContain('debt_paid');
     expect(plain).not.toContain('not_a_leaf_lost');
-    expect(deedsInSight(all, ['kael', 'lyra', 'vexis']).map((d) => d.id)).toEqual(plain);
-    expect(deedsInSight(all, ['kael', 'lyra', 'vexis', 'brann']).map((d) => d.id)).toEqual(
+    expect(deedsInSight(all, ['kael', 'lyra', 'vexis'], true).map((d) => d.id)).toEqual(plain);
+    expect(deedsInSight(all, ['kael', 'lyra', 'vexis', 'brann'], true).map((d) => d.id)).toEqual(
       CONTENT.deeds.map((d) => d.id).filter((id) => id !== 'debt_paid' && id !== 'not_a_leaf_lost'),
     );
     // Each hero's own badge with them (docs/phase-5e.md).
     // (The Conductor's badge, docs/phase-5f.md, comes after hers in content order.)
-    expect(deedsInSight(all, ['kael', 'lyra', 'vexis', 'seren']).map((d) => d.id)).toEqual(
+    expect(deedsInSight(all, ['kael', 'lyra', 'vexis', 'seren'], true).map((d) => d.id)).toEqual(
       CONTENT.deeds.map((d) => d.id).filter((id) => plain.includes(id) || id === 'debt_paid'),
     );
     expect(
-      deedsInSight(all, ['kael', 'lyra', 'vexis', 'brann', 'seren', 'oro']).map((d) => d.id),
+      deedsInSight(all, ['kael', 'lyra', 'vexis', 'brann', 'seren', 'oro'], true).map((d) => d.id),
     ).toEqual(CONTENT.deeds.map((d) => d.id));
     // Its fight is Movement II's: not before the Spire is sighted, roster or not.
     const prelude = newProfile().seen;
-    // (Red All the Way names no fight, so the Hall shows it with Brann from the start.)
-    expect(
-      deedsInSight(prelude, ['brann'])
-        .map((d) => d.id)
-        .filter((id) => id !== 'red_all_the_way'),
-    ).toEqual(deedsInSight(prelude).map((d) => d.id));
+    // (Red All the Way names no fight, but it is an Expedition's: it waits for the Spire too.)
+    expect(deedsInSight(prelude, ['brann']).map((d) => d.id)).toEqual(
+      deedsInSight(prelude).map((d) => d.id),
+    );
+    expect(deedsInSight(prelude, ['brann']).map((d) => d.id)).not.toContain('red_all_the_way');
     expect(deedsInSight(prelude).map((d) => d.id)).not.toContain('in_the_red');
   });
 
