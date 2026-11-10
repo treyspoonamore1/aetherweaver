@@ -481,6 +481,50 @@ export const SCENARIO_CONDUCTING_SILENT = botScenario(
   },
 );
 
+// ── Phase 6's levels (docs/phase-6.md, W7: goldens): appended after skilled-conducting-silent, so
+// the twenty-eight earlier hashes are untouched. Each plays its fight with one new level on, by the
+// bot the name says (never the Expert, whose rules are W8's to tune). ──
+
+/**
+ * Vharun with the Skilled bot and Tyrant, on the arrival kit: each phase's borrowed attack and its
+ * edict (the Hemomancer's Blood Pact, the Impaler's Charge, the Lamenter's Dirge) beside its own.
+ */
+export const SCENARIO_TYRANT_VHARUN = botScenario(
+  'skilled-tyrant-vharun',
+  'skilled',
+  1313,
+  60 * 180,
+  {
+    encounter: 'vharun',
+    ...kitConfig(ARRIVAL_KIT),
+    dissonance: [{ id: 'tyrant', rank: 1 }],
+  },
+);
+
+/** A Novice at First Light with Mimicry: one Mimicking foe a wave, its mirror and its crack. */
+export const SCENARIO_MIMICRY_FIRST_LIGHT = botScenario(
+  'novice-mimicry-first-light',
+  'novice',
+  2424,
+  60 * 40,
+  {
+    encounter: 'first_light',
+    auras: ['sostenuto', 'fortissimo'],
+    dissonance: [{ id: 'mimicry', rank: 1 }],
+  },
+);
+
+/**
+ * The Silent Conductor with the Skilled bot and True Dissonance, from its start to its second
+ * fall: the three phases, the rise, the re-formed choir's duets, the Postlude's Discord and its
+ * closing attacks.
+ */
+export const SCENARIO_POSTLUDE = botScenario('skilled-postlude', 'skilled', 3535, 60 * 240, {
+  encounter: CONDUCTOR,
+  ...kitConfig(ARRIVAL4_KIT),
+  dissonance: [{ id: 'true_dissonance', rank: 1 }],
+});
+
 /**
  * The bench's hound pack (not a golden): the Matriarch's fight with a pack of hounds already
  * loose, so Pack Call stacks on top of them; the Movement II entity peak.
@@ -535,4 +579,7 @@ export const SCENARIOS: readonly Scenario[] = [
   SCENARIO_CONDUCTING_BELLWARDEN,
   SCENARIO_CONDUCTING_FIRST_LIGHT,
   SCENARIO_CONDUCTING_SILENT,
+  SCENARIO_TYRANT_VHARUN,
+  SCENARIO_MIMICRY_FIRST_LIGHT,
+  SCENARIO_POSTLUDE,
 ];
