@@ -224,3 +224,128 @@ describe('the Choir motifs, each at every level and without it', () => {
     expect(fight(true)).toEqual(fight(false));
   });
 });
+
+describe('Breath Between with the other things that read a technique’s price', () => {
+  it('Stillwater Bell refunds a share of what a rested Chime really cost', () => {
+    const chime = CONTENT.techniques.chime.cost;
+    const paidFor = (motifs: { id: string; level: number }[]) => {
+      const sim = createSim({
+        seed: 7,
+        encounter: 'the_seamstress',
+        debug: true,
+        auras: [],
+        relics: ['stillwater_bell'],
+        motifs,
+      });
+      stepFor(sim, 1, [{ t: 'debug', op: { op: 'killEnemies' } }]);
+      const w = worldOf(sim);
+      const ww = w.entities.get(w.weaverId)!.weaver!;
+      ww.lastCastAt = -10;
+      ww.spirit = 50;
+      const before = ww.spirit;
+      stepFor(sim, 1, [{ t: 'tech', id: 'chime', point: { x: 0, z: -3 } }]);
+      return { paid: w.chimes[0]!.paid!, spent: before - ww.spirit };
+    };
+    // Without the motif the Bell reads the list price; with it, what the rest made it.
+    expect(paidFor([]).paid).toBeCloseTo(chime, 9);
+    const v = def('breath_between').values[2]! / 100;
+    const r = paidFor([{ id: 'breath_between', level: 3 }]);
+    expect(r.paid).toBeCloseTo(chime * (1 - v), 9);
+  });
+
+  it('a rested Ward that turns Perfect gives back no more than it cost', () => {
+    const ward = CONTENT.techniques.ward;
+    /** Spirit gained from the Ward's cast to the Perfect, and the Ward's recorded price. */
+    const perfect = (motifs: { id: string; level: number }[]) => {
+      const s = createSim({ seed: 7, encounter: 'sandbox', debug: true, auras: [], motifs });
+      stepFor(s, 1, [{ t: 'debug', op: { op: 'drill', slot: 0, windup: 1 } }]);
+      const t = s.state.telegraphs.find((x) => x.drill)!;
+      const w = worldOf(s);
+      const ww = w.entities.get(w.weaverId)!.weaver!;
+      while (s.state.time < t.perfectFrom + 0.05) stepFor(s, 1);
+      ww.lastCastAt = -10;
+      ww.spirit = 40;
+      const events = stepFor(s, 1, [{ t: 'tech', id: 'ward', slot: 0 }]);
+      const kael = w.entities.get(w.party[0]!)!;
+      const restPaid = kael.health!.shields.find((x) => x.kind === 'ward')?.restPaid;
+      const cast = ww.spirit;
+      const out = [...events];
+      while (!out.some((e) => e.type === 'perfectWard')) out.push(...stepFor(s, 1));
+      return { gained: ww.spirit - cast, restPaid };
+    };
+    const plain = perfect([]);
+    expect(plain.restPaid).toBeUndefined();
+    const v = def('breath_between').values[2]! / 100;
+    const rested = perfect([{ id: 'breath_between', level: 3 }]);
+    const paid = ward.cost * (1 - v);
+    expect(rested.restPaid).toBeCloseTo(paid, 9);
+    // The list refund is half the price; a Ward bought for less refunds only what it cost.
+    const list = ward.cost * ward.perfectRefund;
+    expect(paid).toBeLessThan(list);
+    expect(plain.gained - rested.gained).toBeCloseTo(list - paid, 6);
+  });
+});
+
+describe('the fill’s guards are credited only with the life they kept', () => {
+  const kaelIn = (motifs: { id: string; level: number }[], relics: string[] = []) => {
+    const sim = createSim({
+      seed: 7,
+      encounter: 'sandbox',
+      debug: true,
+      auras: ['allegro', 'fortissimo'],
+      motifs,
+      relics,
+    });
+    stepFor(sim, 1);
+    const w = worldOf(sim);
+    const kael = w.entities.get(w.party[0]!)!;
+    expect(kael.hero!.inField).toBe(true);
+    return { w, kael };
+  };
+  const sets: [string, { id: string; level: number }[], string[]][] = [
+    ['Full Chord', [{ id: 'full_chord', level: 3 }], []],
+    ['Closed Circle', [{ id: 'closed_circle', level: 1 }], []],
+    ['Iron Mask', [], ['iron_mask']],
+    [
+      'all three',
+      [
+        { id: 'full_chord', level: 3 },
+        { id: 'closed_circle', level: 1 },
+      ],
+      ['iron_mask'],
+    ],
+  ];
+
+  it('a hit that downs the hero anyway credits nothing, however many guards there are', () => {
+    for (const [name, motifs, relics] of sets) {
+      const { w, kael } = kaelIn(motifs, relics);
+      kael.health!.hp = 50;
+      const before = w.ledger.shielded;
+      const r = dealDamage(w, kael, { source: null, sourceName: 'test', amount: 2000 });
+      expect(r.downed, name).toBe(true);
+      expect(w.ledger.shielded - before, name).toBe(0);
+    }
+  });
+
+  it('a hit they live through credits what the guards took off, never more than the life left', () => {
+    for (const [name, motifs, relics] of sets) {
+      const plain = kaelIn([]);
+      const guarded = kaelIn(motifs, relics);
+      const hit = (x: ReturnType<typeof kaelIn>) => {
+        const before = x.w.ledger.shielded;
+        const support = x.kael.hero!.supportReceived;
+        const r = dealDamage(x.w, x.kael, { source: null, sourceName: 'test', amount: 100 });
+        return {
+          dealt: r.dealt,
+          shielded: x.w.ledger.shielded - before,
+          support: x.kael.hero!.supportReceived - support,
+        };
+      };
+      const a = hit(plain);
+      const b = hit(guarded);
+      expect(b.dealt, name).toBeLessThan(a.dealt);
+      expect(b.shielded - a.shielded, name).toBeCloseTo(a.dealt - b.dealt, 6);
+      expect(b.support - a.support, name).toBeCloseTo(a.dealt - b.dealt, 6);
+    }
+  });
+});

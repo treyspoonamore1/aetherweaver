@@ -665,6 +665,17 @@ describe('Wounded Healer: below half your Life, Mend heals {v}% more and Wards a
     expect(mend(held('wounded_healer'), WOUNDED_BELOW)).toBeCloseTo(mend([], WOUNDED_BELOW), 9);
     inert(warded([], 0.4).s.w);
   });
+
+  it('a Chorale’s Wards are larger too', () => {
+    const chorale = (motifs: Held, life: number) => {
+      const s = stage(motifs, { techniques: { ward: 'chorale' } });
+      s.weaver.health!.hp = s.ww.maxLife * life;
+      stepFor(s.sim, 1, [ward(0)]);
+      return shieldOf(s.hero(0).health!, 'ward')!.amount;
+    };
+    expect(chorale(held('wounded_healer'), 0.4) / chorale([], 0.4)).toBeCloseTo(k, 9);
+    expect(chorale(held('wounded_healer'), 0.6)).toBeCloseTo(chorale([], 0.6), 9);
+  });
 });
 
 // ── Closed Circle ───────────────────────────────────────────────────────────────────────────

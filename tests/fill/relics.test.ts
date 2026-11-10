@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 // The sim first, as it loads in the game (systems/enemies.ts registers itself with health.ts).
 import '../../src/sim';
-import { CONTENT, relicDef } from '../../src/content';
+import { CONTENT, relicDef, relicText } from '../../src/content';
 import { FILL_BOONS, FILL_RELICS } from '../../src/content/fill';
 import { ContentSchema } from '../../src/content/schema';
 import * as Run from '../../src/meta/run';
@@ -26,6 +26,7 @@ import {
 } from '../../src/sim/fill/relics';
 import { KNOWN_BOONS, KNOWN_RELICS, NO_MODS } from '../../src/sim/mods';
 import type { Entity } from '../../src/sim/state';
+import { answerCall, canCall, startCall } from '../../src/sim/systems/calls';
 import { cueCostNow } from '../../src/sim/systems/conducting';
 import { spawnEnemy } from '../../src/sim/systems/enemies';
 import { pastOf } from '../../src/sim/systems/rewind';
@@ -203,6 +204,24 @@ describe('common relics', () => {
     expect(world().mods.responseBonus).toBe(0);
   });
 
+  it('Tin Whistle: an answered call really pays its Resonance on top (Empowered: more)', () => {
+    const gain = (relics: RelicIn[]) => {
+      const w = world(relics);
+      const kael = heroAt(w, 0);
+      const def = CONTENT.heroes.find((h) => h.id === kael.hero!.defId)!;
+      startCall(w, kael, def);
+      const wv = weaverEntity(w).weaver!;
+      const before = wv.resonance;
+      answerCall(w, kael, def.call.answer);
+      expect(w.ledger.responses).toBe(1);
+      return wv.resonance - before;
+    };
+    const base = gain([]);
+    expect(base).toBeCloseTo(CONTENT.resonance.gains.response, 9);
+    expect(gain([plain('tin_whistle')]) - base).toBeCloseTo(val('tin_whistle', 'resonance'), 9);
+    expect(gain([emp('tin_whistle')]) - base).toBeCloseTo(val('tin_whistle', 'resonance', true), 9);
+  });
+
   it('Black Ribbon: a heavy foe falling heals every hero; a light one doesn’t', () => {
     for (const empowered of [false, true]) {
       const w = world([empowered ? emp('black_ribbon') : plain('black_ribbon')]);
@@ -239,6 +258,16 @@ describe('common relics', () => {
     expect(ofType(heavy, 'enemyKilled')).toHaveLength(1);
     expect(fires(heavy, 'black_ribbon')).toHaveLength(0);
     expect(w.ledger.triggers).toEqual({ black_ribbon: 0 });
+  });
+
+  it('Pedlar’s Ledger reads right plain and Empowered (no “2 more relic”)', () => {
+    const def = relicDef('pedlars_ledger');
+    expect(relicText(def)).toBe(
+      `Every merchant’s relic shelf holds ${val('pedlars_ledger', 'more')} more.`,
+    );
+    expect(relicText(def, true)).toBe(
+      `Every merchant’s relic shelf holds ${val('pedlars_ledger', 'more', true)} more.`,
+    );
   });
 
   it('Pedlar’s Ledger: merchants stock one more relic (Empowered: two; dormant: none)', () => {
@@ -373,12 +402,52 @@ describe('rare relics', () => {
     }
   });
 
+  it('Sand Glass on a Chronomancer run leaves Rewind (Reel’s clock) alone', () => {
+    const w = world([plain('sand_glass')], { calling: { id: 'chronomancer', path: [] } });
+    expect(w.mods.rewindSeconds).toBeGreaterThan(0);
+    const wv = weaverEntity(w).weaver!;
+    wv.cooldowns.chime = wv.cooldowns.reel = wv.cooldowns.glide = 10;
+    act(w, () => w.events.push(perfectWard(w, heroAt(w, 0))));
+    const cut = val('sand_glass', 'seconds');
+    expect(wv.cooldowns.reel).toBe(10);
+    expect(wv.cooldowns.chime).toBeCloseTo(10 - cut, 9);
+    expect(wv.cooldowns.glide).toBeCloseTo(10 - cut, 9);
+  });
+
   it('Prompt Book: sets the first Crescendo’s discount (W3’s N15b spends it)', () => {
     expect(world([plain('prompt_book')]).mods.firstCrescendoCut).toBe(val('prompt_book', 'cost'));
     expect(world([emp('prompt_book')]).mods.firstCrescendoCut).toBe(
       val('prompt_book', 'cost', true),
     );
     expect(world().mods.firstCrescendoCut).toBe(0);
+  });
+
+  it('Prompt Book: the first Crescendo of a fight really costs less, the next the full price', () => {
+    const full = CONTENT.resonance.crescendoCost;
+    const cut = val('prompt_book', 'cost');
+    const play = (relics: RelicIn[]) => {
+      const sim = sandbox({ relics });
+      const w = worldOf(sim);
+      const wv = weaverEntity(w).weaver!;
+      wv.resonance = full - cut;
+      stepFor(sim, 1, [{ t: 'crescendo' }]);
+      return { sim, w, wv };
+    };
+    // Without it, that much Resonance buys no Crescendo.
+    expect(play([]).wv.crescendo).toBe(0);
+    const { sim, w, wv } = play([plain('prompt_book')]);
+    expect(wv.crescendo).toBeGreaterThan(0);
+    expect(wv.resonance).toBeCloseTo(0, 6);
+    expect(w.ledger.crescendos).toBe(1);
+    // Once it has played out, the second costs the full price again.
+    stepUntil(sim, () => wv.crescendo <= 0);
+    wv.resonance = full - cut;
+    stepFor(sim, 1, [{ t: 'crescendo' }]);
+    expect(w.ledger.crescendos).toBe(1);
+    wv.resonance = full;
+    stepFor(sim, 1, [{ t: 'crescendo' }]);
+    expect(w.ledger.crescendos).toBe(2);
+    expect(wv.crescendo).toBeGreaterThan(0);
   });
 
   it('Thornwreath: heroes below the line deal more (Empowered: more), the extra yours', () => {
@@ -547,9 +616,12 @@ describe('legendary relics', () => {
     const events = act(w, () =>
       dealDamage(w, kael, { source: null, sourceName: 'test', amount: 1e7 }),
     );
-    expect(ofType(events, 'allyDowned')).toHaveLength(1);
+    // The fall is turned back before it counts: no down, only the stand again.
+    expect(ofType(events, 'allyDowned')).toEqual([]);
     expect(ofType(events, 'revived')).toHaveLength(1);
     expect(relicReports(events)).toEqual([]);
+    expect(w.ledger.downs).toBe(0);
+    expect(w.ledger.deaths).toEqual([]);
     expect(kael.health!.downed).toBe(false);
     expect(kael.health!.hp).toBeCloseTo(past.hp, 6);
     expect([kael.x, kael.z]).toEqual([past.x, past.z]);
@@ -558,15 +630,60 @@ describe('legendary relics', () => {
     stepFor(sim, 120);
     hurt(sim, 0, 1e7);
     expect(kael.health!.downed).toBe(true);
+    expect(w.ledger.downs).toBe(1);
+    expect(w.ledger.deaths).toHaveLength(1);
   });
 
   it('Water Clock: not for a hero who was already down then; the turn back stays unspent', () => {
     const w = world([plain('water_clock')]);
     const kael = heroAt(w, 0);
     for (const s of kael.hero!.past) s.up = false;
-    dealDamage(w, kael, { source: null, sourceName: 'test', amount: 1e7 });
+    const events = act(w, () =>
+      dealDamage(w, kael, { source: null, sourceName: 'test', amount: 1e7 }),
+    );
     expect(kael.health!.downed).toBe(true);
     expect('waterClockUsed' in w.internal).toBe(false);
+    // A down it can't undo is a down as ever.
+    expect(ofType(events, 'allyDowned')).toHaveLength(1);
+    expect(w.ledger.downs).toBe(1);
+    expect(w.ledger.deaths).toHaveLength(1);
+  });
+
+  it('Water Clock: a down it undoes pays nothing that pays a down (Lament Pin, the Lantern, Lament’s Answer)', () => {
+    const config = {
+      relics: ['water_clock', 'lament_pin', 'lantern_of_the_lost'],
+      motifs: [{ id: 'laments_answer', level: 3 }],
+    };
+    const sim = sandbox(config);
+    const w = worldOf(sim);
+    stepFor(sim, 60 * 4);
+    const [kael, lyra] = [heroAt(w, 0), heroAt(w, 1)];
+    const ww = weaverEntity(w).weaver!;
+    const resonance = ww.resonance;
+    const solo = lyra.hero!.solo;
+    const events = act(w, () =>
+      dealDamage(w, kael, { source: null, sourceName: 'test', amount: 1e7 }),
+    );
+    expect(kael.health!.downed).toBe(false);
+    expect(w.internal.waterClockUsed).toBe(true);
+    expect(ofType(events, 'allyDowned')).toEqual([]);
+    expect(ofType(events, 'motifTriggered')).toEqual([]);
+    expect(relicReports(events)).toEqual([]);
+    expect(ww.resonance).toBe(resonance);
+    expect(lyra.hero!.solo).toBe(solo);
+    expect(shieldOf(lyra.health!, 'overshield')).toBeUndefined();
+    expect(w.ledger.downs).toBe(0);
+    expect(w.ledger.deaths).toEqual([]);
+    expect(w.ledger.triggers).toEqual({ lament_pin: 0, laments_answer: 0 });
+    // The next down (the turn back spent, its moment untouchable past) pays them all.
+    stepFor(sim, 90);
+    const next = act(w, () =>
+      dealDamage(w, kael, { source: null, sourceName: 'test', amount: 1e7 }),
+    );
+    expect(kael.health!.downed).toBe(true);
+    expect(ofType(next, 'allyDowned')).toHaveLength(1);
+    expect(ww.resonance).toBeGreaterThan(resonance);
+    expect(w.ledger.downs).toBe(1);
   });
 
   it('Water Clock with the Chronomancer: her Rewind’s record is left as it is, and used', () => {
@@ -612,6 +729,25 @@ describe('cursed relics', () => {
         reason: 'locked',
       });
     }
+  });
+
+  it('Iron Mask: no hero calls for an Empower the Thread can’t give; cleansed, they call again', () => {
+    const def = CONTENT.heroes.find((h) => h.call.answer === 'empower')!;
+    const asks = (relics: RelicIn[]) => {
+      const w = world(relics, {
+        party: [def.id, ...['kael', 'vexis', 'brann'].filter((h) => h !== def.id)].slice(0, 3),
+      });
+      const e = w.party.map((id) => w.entities.get(id)!).find((x) => x.hero!.defId === def.id)!;
+      w.encounter.status = 'fighting';
+      w.encounter.startedAt = -100;
+      w.internal.nextCallAt = 0;
+      e.hero!.callCooldown = 0;
+      e.hero!.abilityCooldowns[def.call.ability] = def.call.answerTime * 0.8;
+      return canCall(w, e, def);
+    };
+    expect(asks([])).toBe(true);
+    expect(asks([plain('iron_mask')])).toBe(false);
+    expect(asks([cleansed('iron_mask')])).toBe(true);
   });
 
   it('Iron Mask cleansed: the guard stays, and the Thread Empowers again', () => {

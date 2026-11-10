@@ -36,7 +36,7 @@ import { placeStar, startSolo } from './solos';
 import { conductCue, cueCostNow, reprise, startFinale } from './conducting';
 import { bloodLine } from './blood';
 import { lastBastionMult } from '../fill/aegis';
-import { restCast, restCost } from '../fill/choir';
+import { restCast, restCost, rested } from '../fill/choir';
 import { crescendoCostCut } from '../fill/finale';
 import { woundedWardMult } from '../fill/harmonies';
 import { everbellCast } from '../fill/relics';
@@ -147,7 +147,10 @@ export function castWard(world: World, slot: PartySlot | undefined): void {
   if (w.wardCharges <= 0 && !stasis) return reject(world, 'ward', 'cooldown');
   if (distSq(hero.x, hero.z, weaver.x, weaver.z) > def.range * def.range)
     return reject(world, 'ward', 'range');
-  if (!spend(world, weaver, 'ward', slotCost(world, 'ward', def.cost))) return;
+  const cost = slotCost(world, 'ward', def.cost);
+  // Phase 5g (N8): a rested Ward's real price, which caps its Perfect's refund (fill/choir.ts).
+  const restPaid = world.mods.restDiscount > 0 && rested(world) ? paidCost(world, cost) : undefined;
+  if (!spend(world, weaver, 'ward', cost)) return;
   if (!stasis) {
     w.wardCharges--;
     if (w.cooldowns.ward <= 0) {
@@ -156,10 +159,10 @@ export function castWard(world: World, slot: PartySlot | undefined): void {
     }
   }
   w.lastTechnique = 'ward';
-  if (variant === 'chorale') return chorale(world, weaver, hero, stasis);
+  if (variant === 'chorale') return chorale(world, weaver, hero, stasis, restPaid);
   // Aegis Link (docs/phase-4f.md): with no other hero standing, the hero alone is linked.
   if (variant === 'aegis_link')
-    return aegisLink(world, hero, linkPartner(world, weaver, hero) ?? hero, stasis);
+    return aegisLink(world, hero, linkPartner(world, weaver, hero) ?? hero, stasis, restPaid);
   const strength = world.mods.wardBarrierMult * world.mods.aegisWardMult;
   let amount = (hero.health!.maxHp * def.barrierPct + def.barrierFlat) * strength;
   // Blood Tithe (docs/phase-5b.md): a Ward on Brann below his line is stronger and gives Spirit
@@ -176,6 +179,7 @@ export function castWard(world: World, slot: PartySlot | undefined): void {
   if (ward && tithe) ward.tithe = true;
   // Eternal Moment: a Ward cast during Stasis that turns out Perfect gives Resonance.
   if (ward && stasis) ward.stasis = true;
+  if (ward && restPaid !== undefined) ward.restPaid = restPaid;
   // Martyr's Aegis: each Ward shields the Weaver too, sized from her own Life.
   if (world.mods.aegisSelf) {
     const self = (weaver.health!.maxHp * def.barrierPct + def.barrierFlat) * strength;
@@ -202,10 +206,11 @@ export function castChime(world: World, point: Vec2 | undefined): void {
   const stasis = world.field.stasis;
   if (w.cooldowns.chime > 0 && !stasis) return reject(world, 'chime', 'cooldown');
   const cost = slotCost(world, 'chime', def.cost);
-  if (!spend(world, weaver, 'chime', cost)) return;
   // Stillwater Bell refunds a share of what this Chime really cost (Stasis included), so the
   // paid cost rides the Chime. Set only with the Rift relic, so no other fight sees the key.
+  // Read before `spend`, which ends Breath Between's rest (Phase 5g) along with paying.
   const paid = world.mods.stillwaterRefund > 0 ? paidCost(world, cost) : undefined;
+  if (!spend(world, weaver, 'chime', cost)) return;
   if (!stasis) {
     const base = slotCooldown(world, 'chime', def.cooldown);
     const cut = world.mods.chimeCooldownCut;
@@ -587,7 +592,14 @@ function variantField(id: string | null): { variant?: string } {
  * Ward's modifiers shape them; the one on the hero you Ward is Perfect as a Ward is, the others
  * only absorb (combat/telegraphs.ts).
  */
-function chorale(world: World, weaver: Entity, hero: Entity, stasis: boolean): void {
+function chorale(
+  world: World,
+  weaver: Entity,
+  hero: Entity,
+  stasis: boolean,
+  /** Phase 5g (N8): a rested Ward's real price (Breath Between); absent otherwise. */
+  restPaid?: number,
+): void {
   const radius = variantValue(world, 'chorale', 'radius');
   const pct = variantValue(world, 'chorale', 'pct') / 100;
   const flat = variantValue(world, 'chorale', 'flat');
@@ -601,12 +613,16 @@ function chorale(world: World, weaver: Entity, hero: Entity, stasis: boolean): v
     if (!isActive(ally)) continue;
     const reach = radius + ally.radius;
     if (distSq(ally.x, ally.z, hero.x, hero.z) > reach * reach) continue;
-    const amount = (ally.health.maxHp * pct + flat) * strength;
+    let amount = (ally.health.maxHp * pct + flat) * strength;
+    // Phase 5g (N6, N22): Last Bastion and Wounded Healer on a Chorale's Wards too.
+    if (world.mods.lowWardBonus > 0) amount *= lastBastionMult(world, ally);
+    if (world.mods.woundedBonus > 0) amount *= woundedWardMult(world, ally);
     const ward = addShield(world, ally, 'ward', amount, duration, true);
     if (!ward) continue;
     ward.chorale = true;
     if (ally.id !== hero.id) ward.plain = true;
     if (stasis) ward.stasis = true;
+    if (restPaid !== undefined && ally.id === hero.id) ward.restPaid = restPaid;
     targets.push(ally.id);
   }
   // Martyr's Aegis: the burst shields the Weaver too, sized from her own Life.
@@ -654,11 +670,19 @@ function linkPartner(world: World, weaver: Entity, hero: Entity): Entity | null 
  * Aegis Link (a Ward variant): two heroes share what hits them (combat/health.ts). `partner` is
  * `hero` again when no other hero is standing: then what hits them is only lighter.
  */
-function aegisLink(world: World, hero: Entity, partner: Entity, stasis: boolean): void {
+function aegisLink(
+  world: World,
+  hero: Entity,
+  partner: Entity,
+  stasis: boolean,
+  /** Phase 5g (N8): a rested Link's real price (Breath Between); absent otherwise. */
+  restPaid?: number,
+): void {
   const until = world.time + variantValue(world, 'aegis_link', 'seconds');
   world.internal.link = { a: hero.id, b: partner.id, weaver: false, appliedAt: world.time, until };
   // Eternal Moment: a Link cast during Stasis that turns out Perfect gives Resonance.
   if (stasis) world.internal.link.stasis = true;
+  if (restPaid !== undefined) world.internal.link.restPaid = restPaid;
   world.events.push({
     type: 'techniqueCast',
     tick: world.tick,

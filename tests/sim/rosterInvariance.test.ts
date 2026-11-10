@@ -67,6 +67,7 @@ const FORBIDDEN = new Set([
   'waterClockUsed',
   'needleUntil',
   'lastCastAt',
+  'restPaid',
   'spareUsed',
   'chimeCharges',
   'chimeRecharge',

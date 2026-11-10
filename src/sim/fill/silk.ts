@@ -184,9 +184,9 @@ export function needleAttach(world: World, hero: Entity): void {
  * It catches only while it is in time (`time ≤ needleUntil`) and the Thread is still on that hero
  * (so sweeping the Thread across the party doesn't arm everyone): `needlePct` of the hit is
  * negated, half a Perfect Ward's Resonance is given (`gains.perfectWard / 2`; never Ringing
- * Parry's extra), `needled { hero, telegraph, negated }` is emitted, and the negated damage is
- * credited to `ledger.shielded` (the Weaver's turned-aside damage that isn't a Perfect's). No Ward
- * refund, no stagger, not a Perfect: nothing that pays a Perfect Ward fires on it.
+ * Parry's extra), and `needled { hero, telegraph, negated }` is emitted. Its credit comes once the
+ * rest has landed (`needleKept`). No Ward refund, no stagger, not a Perfect: nothing that pays a
+ * Perfect Ward fires on it.
  */
 export function needleCatch(world: World, t: Telegraph, e: Entity, damage: number): number {
   const h = e.hero;
@@ -207,9 +207,22 @@ export function needleCatch(world: World, t: Telegraph, e: Entity, damage: numbe
     telegraph: t.id,
     negated,
   });
-  world.ledger.shielded += negated;
   gainResonance(world, world.content.resonance.gains.perfectWard / 2, 'thread the needle');
   return damage - negated;
+}
+
+/**
+ * N4, Thread the Needle (the credit): called in `hitEntity` (combat/telegraphs.ts) once the rest of
+ * a caught hit has landed, behind `if (landing !== damage)`; `negated` is what the catch took off.
+ * Credited to `ledger.shielded` and the hero's support with the life it kept, as a Perfect Ward's
+ * is: what they still stand on, at most what it took off; none if the hit downs them anyway.
+ */
+export function needleKept(world: World, e: Entity, negated: number): void {
+  const h = e.health;
+  if (!h || h.downed || h.dead || !(negated > 0)) return;
+  const kept = Math.min(negated, h.hp);
+  world.ledger.shielded += kept;
+  if (e.hero) e.hero.supportReceived += kept;
 }
 
 /**
