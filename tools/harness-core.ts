@@ -8,6 +8,7 @@ import {
   isFieldMovement,
   movementDef,
   runEventDef,
+  type EventChoice,
 } from '../src/content';
 import { makeBot, type BotKind } from '../src/bots';
 import type { ReliquaryRelic } from '../src/meta/reliquary';
@@ -1743,6 +1744,13 @@ export type RelicPrefer =
 /** The warnings already printed, so a preference named in a thousand runs warns once. */
 const WARNED = new Set<string>();
 
+/** One line on stderr, the first time it comes up. */
+function warnOnce(line: string): void {
+  if (WARNED.has(line)) return;
+  WARNED.add(line);
+  console.error(line);
+}
+
 /**
  * `ids` without those `CONTENT` doesn't hold (a preference written with the doc's ids before the
  * content that adds them has merged). One line on stderr, once, naming what was skipped.
@@ -1864,27 +1872,55 @@ export function calibratedThreat(run: RunState, id: string, perRow: number): num
 
 /**
  * The harness's shopping list (docs/phase-3b.md): relics first, the dearest it can afford,
- * then motifs; healing when the party is hurt. Deterministic, not clever.
+ * then motifs; healing when the party is hurt. Deterministic, not clever. With a relic
+ * preference (`playRun`'s `relicPrefer`, docs/phase-5g.md), the relic it names first among those
+ * it can afford is bought before any other; nothing named on the cloth: the list as before. A
+ * merchant is where the harness gets a cursed relic (12% of a cloth's relics; relic offers have
+ * no cursed odds).
  */
-function shop(run: RunState, relics: boolean): RunState {
+function shop(
+  run: RunState,
+  relics: boolean,
+  prefer?: (ids: readonly string[], run: RunState) => number | null | undefined,
+): RunState {
   for (let guard = 0; guard < 8; guard++) {
     const items = run.shop?.items ?? [];
     const hurt = run.party.reduce((s, h) => s + h.hpPct, 0) / Math.max(1, run.party.length) < 0.6;
-    const want = items
+    const affordable = items
       .map((item, index) => ({ item, index }))
-      .filter(({ item }) => !item.sold && item.price <= run.aether)
-      .filter(({ item }) => item.kind !== 'heal' || hurt)
-      .filter(({ item }) => relics || item.kind !== 'relic')
-      .sort(
-        (a, b) =>
-          (a.item.kind === 'relic' ? 0 : a.item.kind === 'heal' ? 1 : 2) -
-            (b.item.kind === 'relic' ? 0 : b.item.kind === 'heal' ? 1 : 2) ||
-          b.item.price - a.item.price,
-      )[0];
+      .filter(({ item }) => !item.sold && item.price <= run.aether);
+    const want =
+      preferredRelic(affordable, relics, run, prefer) ??
+      affordable
+        .filter(({ item }) => item.kind !== 'heal' || hurt)
+        .filter(({ item }) => relics || item.kind !== 'relic')
+        .sort(
+          (a, b) =>
+            (a.item.kind === 'relic' ? 0 : a.item.kind === 'heal' ? 1 : 2) -
+              (b.item.kind === 'relic' ? 0 : b.item.kind === 'heal' ? 1 : 2) ||
+            b.item.price - a.item.price,
+        )[0];
     if (!want) break;
     run = Run.buy(run, want.index);
   }
   return Run.leaveShop(run);
+}
+
+/** The affordable relic `prefer` picks (by its index among their ids); undefined without one. */
+function preferredRelic<T extends { item: { kind: string; id?: string } }>(
+  affordable: readonly T[],
+  relics: boolean,
+  run: RunState,
+  prefer?: (ids: readonly string[], run: RunState) => number | null | undefined,
+): T | undefined {
+  if (!prefer || !relics) return undefined;
+  const offered = affordable.filter(({ item }) => item.kind === 'relic');
+  if (offered.length === 0) return undefined;
+  const i = prefer(
+    offered.map(({ item }) => item.id ?? ''),
+    run,
+  );
+  return i === null || i === undefined ? undefined : offered[i];
 }
 
 /** Lift a curse if there is one, else temper the first motif that can grow. */
@@ -1896,21 +1932,67 @@ function forge(run: RunState): RunState {
   return Run.leaveForge(run);
 }
 
-/** The first choice it can make without picking a motif or new Chords (or a relic, if off). */
-function event(run: RunState, relics: boolean): RunState {
+/**
+ * The first choice it can make without new Chords (or a relic, if off). One that asks for a
+ * motif (The Unravelled Tapestry, Lost Weaver's Echo, docs/phase-5g.md) only on a run whose draft
+ * preference is a list naming a motif (`motifOrder`, see `eventMotif`); without one it never picks
+ * a motif, as before.
+ */
+function event(run: RunState, relics: boolean, motifOrder?: readonly string[]): RunState {
   if (run.event && run.event.choice === null) {
     const def = runEventDef(run.event.eventId);
+    const motifFor = (c: (typeof def.choices)[number]): string | undefined =>
+      motifOrder && c.motif !== 'none' ? eventMotif(run, c, motifOrder) : undefined;
     const choice = def.choices.find(
       (c) =>
-        c.motif === 'none' &&
+        (c.motif === 'none' || motifFor(c) !== undefined) &&
         !c.effects.some((e) => e.kind === 'retune') &&
         (relics ||
           ![...c.effects, ...c.fail].some((e) => e.kind === 'relic' || e.kind === 'fight')) &&
         Run.eventChoiceProblem(run, c.id) === null,
     );
-    if (choice) run = Run.chooseEvent(run, choice.id);
+    if (choice) {
+      const motifId = motifFor(choice);
+      run = Run.chooseEvent(run, choice.id, motifId !== undefined ? { motifId } : {});
+    }
   }
   return run.phase === 'event' ? Run.leaveEvent(run) : run;
+}
+
+/**
+ * The motif an event choice that asks for one is made with (docs/phase-5g.md, review B8). The
+ * run's motifs are ranked by the draft preference (`order`: those it names, in its order), then
+ * the rest in the order the run took them. A choice that loses the motif (`loseMotif`: the
+ * Tapestry's Pull) gives up the lowest-ranked one no owned Harmony requires, never a Harmony
+ * itself (a build's lists end on its Harmonies, which are what it drafts for); any other (an
+ * upgrade: Reweave, Listen) takes the highest-ranked one that can still grow (`motif:
+ * 'upgradable'`), or the highest-ranked at all (`motif: 'any'`). Undefined when none fits, and
+ * the choice is not taken.
+ */
+export function eventMotif(
+  run: RunState,
+  choice: Pick<EventChoice, 'motif' | 'effects'>,
+  order: readonly string[],
+): string | undefined {
+  const owned = run.motifs.map((m) => m.id);
+  const ranked = [
+    ...order.filter((id) => owned.includes(id)),
+    ...owned.filter((id) => !order.includes(id)),
+  ];
+  if (choice.effects.some((e) => e.kind === 'loseMotif')) {
+    const needed = new Set(
+      run.motifs.flatMap((m) => CONTENT.motifs.find((d) => d.id === m.id)?.requires.motifs ?? []),
+    );
+    const harmony = (id: string) =>
+      (CONTENT.motifs.find((d) => d.id === id)?.requires.motifs?.length ?? 0) > 0;
+    return [...ranked].reverse().find((id) => !needed.has(id) && !harmony(id));
+  }
+  if (choice.motif === 'upgradable')
+    return ranked.find((id) => {
+      const def = CONTENT.motifs.find((d) => d.id === id);
+      return !!def && run.motifs.find((m) => m.id === id)!.level < def.values.length;
+    });
+  return ranked[0];
 }
 
 /** The most Spirit the bots will reserve when they fill a free slot (the presets reserve 55–73%). */
@@ -1944,6 +2026,36 @@ function withAnotherAura(run: RunState, option: string): ChordLoadout[] | undefi
       if (Run.chordsLegal(chords, slots) && chordReserve(chords) <= MAX_RESERVE) return chords;
     }
   return undefined;
+}
+
+/**
+ * Third Voice's free retune with the aura a build names (`playRun`'s `thirdAura`,
+ * docs/phase-5g.md): that aura in the field song, the songs as they are, or with the Grace Note on
+ * the field song (added if no song has it, or moved there from the beam song: the free retune can
+ * move it), the legal one that reserves least. `MAX_RESERVE` doesn't apply: the build named its
+ * aura. Undefined when none is legal (the caller warns: the build didn't get what it claims).
+ */
+function withNamedAura(run: RunState, option: string, aura: string): ChordLoadout[] | undefined {
+  const path = run.calling!.path.map((p, i) => (i === run.callingOffer!.tier ? option : p));
+  const slots = Run.fieldAuraSlots({ ...run, calling: { ...run.calling!, path } });
+  const base = run.chords.map((c) => ({ auras: [...c.auras], ornaments: [...c.ornaments] }));
+  const field = base[1];
+  if (!field || field.auras.includes(aura) || base.some((c) => c.auras.includes(aura)))
+    return undefined;
+  const grace = 'grace_note';
+  const variants = [base];
+  if (!field.ornaments.includes(grace) && field.ornaments.length < CONTENT.weaver.ornamentSlots)
+    variants.push(
+      base.map((c, i) =>
+        i === 1
+          ? { ...c, ornaments: [...c.ornaments, grace] }
+          : { ...c, ornaments: c.ornaments.filter((o) => o !== grace) },
+      ),
+    );
+  return variants
+    .map((v) => v.map((c, i) => (i === 1 ? { ...c, auras: [...c.auras, aura] } : c)))
+    .filter((chords) => Run.chordsLegal(chords, slots))
+    .sort((a, b) => chordReserve(a) - chordReserve(b))[0];
 }
 
 /** Plays a whole Prelude run: map choices, fights, drafts (first option), respites (rest). */
@@ -2000,9 +2112,17 @@ export function playRun(
     /**
      * What to take at a draft and at a relic offer (docs/phase-5g.md, "The six builds"); absent
      * (or naming nothing on offer): the first option, as before. Neither draws a random number.
+     * The relic preference also goes first at a merchant; a draft list that names a motif also
+     * lets an event choice that asks for one be taken (`eventMotif`).
      */
     draftPrefer?: DraftPrefer;
     relicPrefer?: RelicPrefer;
+    /**
+     * The aura Third Voice's free retune adds to the field song (a build's, docs/phase-5g.md);
+     * absent: the harness's own fill (`withAnotherAura`), as before. When it can't be fitted the
+     * songs stay as they are and one line goes to stderr.
+     */
+    thirdAura?: string;
   } = {},
 ): RunSummary {
   const relics = opts.relics ?? true;
@@ -2014,6 +2134,16 @@ export function playRun(
     opts.relicPrefer && typeof opts.relicPrefer !== 'function'
       ? knownIds('relic', opts.relicPrefer)
       : undefined;
+  // A merchant honours the relic preference too (docs/phase-5g.md); absent, its list as before.
+  const relicFn = typeof opts.relicPrefer === 'function' ? opts.relicPrefer : undefined;
+  const shopPrefer = relicFn
+    ? relicFn
+    : relicIds
+      ? (ids: readonly string[]) => preferredIndex(relicIds, ids)
+      : undefined;
+  // An event's motif choice is taken only with a draft preference that names a motif (`event`).
+  // A function ranks none, and a list naming nothing CONTENT holds plays as no preference.
+  const motifOrder = draftIds && draftIds.length > 0 ? draftIds : undefined;
   const triggers: Record<string, number> = {};
   const triggerFights: Record<string, { held: number; fired: number }> = {};
   const movements = opts.movements ?? 1;
@@ -2123,8 +2253,16 @@ export function playRun(
         const index = opts.path?.[tier] ?? 0;
         const option = callingOption(run.callingOffer!.options[index]!);
         // An option that grants a slot (Third Voice): fill it, if any aura fits.
-        const filled = option.values.slots ? withAnotherAura(run, option.id) : undefined;
+        const filled = !option.values.slots
+          ? undefined
+          : opts.thirdAura
+            ? withNamedAura(run, option.id, opts.thirdAura)
+            : withAnotherAura(run, option.id);
         run = Run.pickCalling(run, index, filled);
+        if (opts.thirdAura && option.values.slots && !run.chords[1]?.auras.includes(opts.thirdAura))
+          warnOnce(
+            `harness: ${option.id} could not add ${opts.thirdAura} to the field song (${run.chords.map((c) => c.auras.join('+')).join(' | ')}); the songs stay as they are`,
+          );
         break;
       }
       case 'relic': {
@@ -2141,13 +2279,13 @@ export function playRun(
         break;
       }
       case 'merchant':
-        run = shop(run, relics);
+        run = shop(run, relics, shopPrefer);
         break;
       case 'forge':
         run = forge(run);
         break;
       case 'event':
-        run = event(run, relics);
+        run = event(run, relics, motifOrder);
         break;
       default:
         throw new Error(`unexpected phase ${run.phase}`);

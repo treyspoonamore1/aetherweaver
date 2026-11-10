@@ -94,7 +94,7 @@ import {
   kitFor,
 } from '../tools/kits';
 import { SCENARIO_HOUND_PACK } from '../tools/scenarios';
-import { CONTENT } from '../src/content';
+import { CONTENT, runEventDef } from '../src/content';
 import {
   ALTO,
   BASS,
@@ -114,15 +114,22 @@ import {
   BUILDS,
   buildByCode,
   buildChords,
+  buildLacks,
   buildPath,
+  buildStandings,
+  draftOrder,
+  holdingBuilds,
   listedHeld,
   measureBuild,
   median,
   playBuild,
+  relicReach,
   viableBuilds,
+  withinSpread,
 } from '../tools/builds';
 import { levelsFor, motifsWith, partyFor } from '../tools/motifs';
-import { knownIds, preferredIndex, type RunSummary } from '../tools/harness-core';
+import { FILL_STRONGEST, NAMED_SETS, SETS } from '../tools/reliquary';
+import { eventMotif, knownIds, preferredIndex, type RunSummary } from '../tools/harness-core';
 import { sandbox, worldOf } from './sim/helpers';
 
 /**
@@ -1988,6 +1995,91 @@ describe('playRun’s draftPrefer and relicPrefer (docs/phase-5g.md, W10)', () =
     expect(skipped.motifs).toEqual([]);
   }, 120_000);
 
+  it('buys the preferred relic first at a merchant, a cursed one included (review C3)', () => {
+    // The relics bought at a run's first merchant (seed 7's cloth: Sand Glass 80, Spare Strings 50,
+    // Pedlar's Ledger 50, with 98 Aether; seed 8's: Black Ribbon 50, Glass Halo 30, Hollow Bell 80,
+    // with 60). With no preference the dearest it can afford goes first.
+    const bought = (seed: number, relicPrefer?: string[]) => {
+      let before: string[] | null = null;
+      let after: string[] | null = null;
+      let shopping = false;
+      playRun(seed, 'skilled', undefined, {
+        ...route,
+        ...(relicPrefer ? { relicPrefer } : {}),
+        onPhase: (phase, run) => {
+          if (shopping && after === null) after = run.relics.map((r) => r.id);
+          if (phase === 'merchant' && before === null) {
+            before = run.relics.map((r) => r.id);
+            shopping = true;
+          }
+        },
+      });
+      return after!.filter((id) => !before!.includes(id));
+    };
+    expect(bought(7)).toEqual(['sand_glass']);
+    expect(bought(7, ['spare_strings'])).toEqual(['spare_strings']);
+    expect(bought(8)).toEqual(['black_ribbon']);
+    // A cursed relic: no relic offer has cursed odds, so a merchant is where a preset gets one.
+    expect(CONTENT.relics.find((r) => r.id === 'glass_halo')!.rarity).toBe('cursed');
+    expect(bought(8, ['glass_halo'])).toEqual(['glass_halo']);
+  }, 120_000);
+
+  it('takes an event choice that asks for a motif by the draft preference (review B8)', () => {
+    const def = (id: string) => CONTENT.motifs.find((m) => m.id === id)!;
+    const reweave = {
+      motif: 'upgradable' as const,
+      effects: [{ kind: 'motifLevels' as const, levels: 1 }],
+    };
+    const pull = { motif: 'any' as const, effects: [{ kind: 'loseMotif' as const }] };
+    const top = (id: string) => def(id).values.length;
+    const run = {
+      motifs: [
+        { id: 'deep_roots', level: 1 },
+        { id: 'close_harmony', level: top('close_harmony') },
+        { id: 'massed_voices', level: 1 },
+        { id: 'long_phrase', level: 1 },
+        { id: 'closed_circle', level: 1 },
+      ],
+    } as RunState;
+    const order = draftOrder(buildByCode('CS'));
+    // Upgrade: the listed motif nearest the front that can still grow (Close Harmony is at its top).
+    expect(eventMotif(run, reweave, order)).toBe('massed_voices');
+    // Removal: the lowest ranked (an unlisted one first) that no owned Harmony needs, never a Harmony.
+    expect(eventMotif(run, pull, order)).toBe('deep_roots');
+    const listedOnly = { motifs: run.motifs.filter((m) => m.id !== 'deep_roots') } as RunState;
+    // Closed Circle needs Massed Voices and Close Harmony; it is a Harmony itself.
+    expect(eventMotif(listedOnly, pull, order)).toBe('long_phrase');
+    // Nothing named owned: the order the run took them.
+    expect(eventMotif(run, reweave, ['razor_silk'])).toBe('deep_roots');
+    // A whole run meeting the Unravelled Tapestry (seed 40, Movements I-III): with no preference
+    // the harness leaves it; with one it pays 50 Aether to Reweave, the motif `eventMotif` names.
+    const tapestry = (draftPrefer?: string[]) => {
+      let at: RunState | null = null;
+      let next: RunState | null = null;
+      let prev = '';
+      playRun(40, 'skilled', undefined, {
+        movements: 3,
+        ...(draftPrefer ? { draftPrefer } : {}),
+        onPhase: (phase, r) => {
+          if (prev === 'event' && at && !next) next = r;
+          if (phase === 'event' && r.event?.eventId === 'unravelled_tapestry' && !at) at = r;
+          prev = phase;
+        },
+      });
+      return { at: at!, next: next! };
+    };
+    const plain = tapestry();
+    expect(plain.next.aether).toBe(plain.at.aether);
+    expect(plain.next.motifs).toEqual(plain.at.motifs);
+    const pref = tapestry(['deep_roots']);
+    const choice = runEventDef('unravelled_tapestry').choices[0]!;
+    const want = eventMotif(pref.at, choice, ['deep_roots'])!;
+    expect(want).toBeDefined();
+    expect(pref.next.aether).toBe(pref.at.aether - choice.cost);
+    const level = (r: RunState) => r.motifs.find((m) => m.id === want)!.level;
+    expect(level(pref.next)).toBe(level(pref.at) + 1);
+  }, 120_000);
+
   it('skips an id CONTENT does not hold, with one warning line on stderr', () => {
     const lines: string[] = [];
     const warn = vi.spyOn(console, 'error').mockImplementation((l: string) => void lines.push(l));
@@ -2079,6 +2171,33 @@ describe('the build presets and report (tools/builds.ts)', () => {
     const named = BUILDS.flatMap((b) => [...b.draftPrefer, ...b.relicPrefer]);
     if (FILL_IDS.length > 0) expect(named.filter((id) => !have.has(id))).toEqual([]);
     else expect(named.filter((id) => FILL_IDS.includes(id))).toEqual([]);
+    // Every build takes the relics the doc says serve "all", Pedlar's Ledger among them.
+    for (const b of BUILDS) expect(b.relicPrefer).toContain('pedlars_ledger');
+    // Each build drafts by its list in the doc's order, with every listed Harmony's prerequisites
+    // (from content) before it: MA reaches Tempo Rubato and Grand Staff, RD Crossed Steel.
+    for (const b of BUILDS) {
+      const order = draftOrder(b);
+      expect(order.filter((id) => b.draftPrefer.includes(id))).toEqual([...b.draftPrefer]);
+      expect(new Set(order).size).toBe(order.length);
+      for (const id of b.draftPrefer)
+        for (const need of CONTENT.motifs.find((m) => m.id === id)?.requires.motifs ?? [])
+          expect(order.indexOf(need), `${b.code}: ${need} before ${id}`).toBeLessThan(
+            order.indexOf(id),
+          );
+    }
+    if (FILL_IDS.length > 0) {
+      const ma = draftOrder(buildByCode('MA'));
+      expect(ma.slice(-4)).toEqual(['canon', 'tempo_rubato', 'golden_filament', 'grand_staff']);
+      expect(draftOrder(buildByCode('RD')).slice(-2)).toEqual(['en_garde', 'crossed_steel']);
+      // Cursed relics come only from merchants on the Finale route; none is out of reach.
+      const reach = relicReach(BUILDS, 4);
+      expect([...reach.unobtainable.keys()]).toEqual([]);
+      expect([...reach.merchantOnly.keys()].sort()).toEqual([
+        'hollow_crown',
+        'iron_mask',
+        'red_ink',
+      ]);
+    }
   });
 
   it('plays a build with its Calling, path, party and Chords', () => {
@@ -2088,7 +2207,9 @@ describe('the build presets and report (tools/builds.ts)', () => {
     const warn = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     try {
       let start: RunState | undefined;
+      let end: RunState | undefined;
       const summary = playRun(2000, 'skilled', buildChords(cs), {
+        onEnd: (r) => (end = r),
         movements: 2,
         party: [...cs.party],
         calling: cs.calling!,
@@ -2099,7 +2220,26 @@ describe('the build presets and report (tools/builds.ts)', () => {
       });
       expect(start!.chords).toEqual(buildChords(cs));
       expect(start!.calling!.id).toBe('luminary');
-      expect(summary.path.slice(0, 2)).toEqual(['wide_choir', 'dawnward']);
+      // Every pick the run made is the preset's (seed 2000 makes all four; Third Voice is the third).
+      expect(summary.path.length).toBeGreaterThanOrEqual(3);
+      expect(summary.path).toEqual(cs.path.slice(0, summary.path.length));
+      // Without the preset's aura the harness's own fill finds nothing within its reserve cap:
+      // Anchor's songs stay at two auras (review B5).
+      expect(end!.chords[1]!.auras).toEqual(['lullaby', 'sostenuto']);
+      // The build itself: every path pick, and Third Voice fills the field song with its aura.
+      const built = playBuild(cs, 2000, 'skilled', 2);
+      expect(built.path.length).toBeGreaterThanOrEqual(3);
+      expect(built.path).toEqual(cs.path.slice(0, built.path.length));
+      expect(cs.thirdAura).toBe('fermata');
+      expect(built.songs[1]).toEqual(['lullaby', 'sostenuto', 'fermata']);
+      expect(buildLacks(cs, built).filter((l) => !l.endsWith('listed'))).toEqual([]);
+      // An aura that can't be added (the beam song holds it) is said, and the run flagged.
+      const lines: string[] = [];
+      warn.mockImplementation((l: string) => void lines.push(l));
+      const failed = playBuild({ ...cs, thirdAura: 'fortissimo' }, 2000, 'skilled', 2);
+      expect(failed.songs[1]).toEqual(['lullaby', 'sostenuto']);
+      expect(lines.some((l) => l.includes('could not add fortissimo'))).toBe(true);
+      expect(buildLacks({ ...cs, thirdAura: 'fortissimo' }, failed)).toContain('no fortissimo');
       const rd = playBuild(buildByCode('RD'), 2000, 'skilled', 2);
       expect(rd.seed).toBe(2000);
       expect(rd.path).toEqual([]);
@@ -2126,31 +2266,72 @@ describe('the build presets and report (tools/builds.ts)', () => {
       fake(true, 4, ['steady_hands', 'riposte_bloom', 'clean_strike', 'x'], 5),
       fake(false, 3, ['steady_hands']),
       fake(false, 4, ['steady_hands', 'riposte_bloom', 'shatterglass']),
-    ];
+    ].map((run, i) => ({ ...run, seed: 100 + i }));
     expect(listedHeld(b, runs[0]!)).toBe(3);
     const r = measureBuild(b, runs, 4);
     expect([r.runs, r.won, r.reached, r.together, r.togetherReached, r.listed]).toEqual([
       3, 1, 2, 2, 2, 7,
     ]);
+    // Only the runs that were the build count as built; the other is named, with what it lacked.
+    expect([r.asBuilt, r.wonAsBuilt]).toEqual([2, 1]);
+    expect(r.lacking).toEqual([{ seed: 101, lacks: ['1 of 3 listed'] }]);
+    // CS claims a third aura: a run that took Third Voice without it, or never reached it, isn't CS.
+    const cs = buildByCode('CS');
+    const csRun = (path: string[], field: string[]) => ({
+      ...fake(true, 4, cs.draftPrefer.slice(0, 3)),
+      seed: 1,
+      path,
+      songs: [['fortissimo'], field],
+    });
+    expect(buildLacks(cs, csRun(cs.path.slice(0, 2), ['lullaby', 'sostenuto']))).toEqual([
+      'third_voice not reached',
+    ]);
+    expect(buildLacks(cs, csRun(cs.path.slice(0, 3), ['lullaby', 'sostenuto']))).toEqual([
+      'no fermata',
+    ]);
+    expect(buildLacks(cs, csRun([...cs.path], ['lullaby', 'sostenuto', 'fermata']))).toEqual([]);
     expect(r.triggers.shatterglass).toEqual({ held: 2, fired: 1, fires: 5 });
     expect(median([3, 1, 2])).toBe(2);
     expect(median([1, 2, 3, 10])).toBe(2.5);
-    // Viable: won ≥ 50%, holding the build in ≥ 60% of runs, no more than 15 points over the median.
-    const mk = (code: string, won: number): ReturnType<typeof measureBuild> => ({
+    // The band's three conditions, apart (review C9): viable is won ≥ 50%; holding the build is
+    // ≥ 3 listed in ≥ 60% of runs; within the spread is no more than 15 points over the median.
+    const mk = (code: string, won: number, together = 7): ReturnType<typeof measureBuild> => ({
       ...measureBuild(buildByCode(code), [], 4),
       runs: 10,
       won,
-      together: 7,
+      together,
     });
     expect(viableBuilds([mk('CS', 6), mk('PP', 5), mk('BS', 4), mk('RL', 6), mk('MA', 6)])).toEqual(
       ['CS', 'PP', 'RL', 'MA'],
     );
-    // 9 of 10 against a median of 5.5 is more than 15 points over.
-    expect(viableBuilds([mk('CS', 9), mk('PP', 5), mk('BS', 5), mk('RL', 6)])).toEqual([
-      'PP',
-      'BS',
-      'RL',
-    ]);
+    // 9 of 10 against a median of 5.5 is more than 15 points over: too strong, and still viable.
+    const strong = [mk('CS', 9), mk('PP', 5), mk('BS', 5), mk('RL', 6, 5)];
+    expect(viableBuilds(strong)).toEqual(['CS', 'PP', 'BS', 'RL']);
+    expect(withinSpread(strong)).toEqual(['PP', 'BS', 'RL']);
+    expect(holdingBuilds(strong)).toEqual(['CS', 'PP', 'BS']);
+    expect(buildStandings(strong)[0]).toEqual({
+      code: 'CS',
+      viable: true,
+      holds: true,
+      withinSpread: false,
+    });
+  });
+
+  it('names the meta cap’s set of three new relics, read only when asked for (review C10)', () => {
+    // The default report's sets are as they were; the new one is named.
+    expect(Object.keys(SETS)).not.toContain('fill-strongest');
+    expect(FILL_STRONGEST).toHaveLength(3);
+    if (FILL_IDS.length > 0) {
+      const set = NAMED_SETS['fill-strongest']!();
+      expect(set.map((r) => r.id)).toEqual([...FILL_STRONGEST]);
+      for (const r of set) {
+        expect(FILL_IDS).toContain(r.id);
+        const def = CONTENT.relics.find((d) => d.id === r.id)!;
+        expect(def.rarity).not.toBe('cursed');
+        expect(def.runOnly ?? false).toBe(false);
+        expect(r.inscriptions).toEqual([]);
+      }
+    }
   });
 
   it('prints its table at --seeds 2, and the three sets with --sets', () => {
@@ -2158,9 +2339,14 @@ describe('the build presets and report (tools/builds.ts)', () => {
     expect(out).toContain('# Build report');
     expect(out).toContain('## skilled');
     expect(out).toContain('| Build | Runs | Won | Reached 2 |');
+    expect(out).toContain('| As built | Won as built |');
     for (const b of BUILDS) expect(out).toContain(`| ${b.code} ${b.name} | 2 |`);
     expect(out).toContain('| (default party, no build) | 2 |');
-    expect(out).toMatch(/Viable builds .*: \d of 6 \(band ≥5 of 6\)/);
+    expect(out).toMatch(/Viable builds \(won ≥50%\): \d of 6 \(band ≥5 of 6\)/);
+    expect(out).toMatch(/Within the spread \(≤15 points above the median\): \d of 6/);
+    expect(out).toMatch(/Holding their build \(≥3 listed in ≥60% of runs\): \d of 6/);
+    expect(out).toContain('| Build | Won | Viable (won ≥50%) |');
+    expect(out).toContain("Relic preferences this route can't give");
     const sets = run(['--seeds', '1', '--movements', '2', '--builds', 'CS', '--sets']);
     expect(sets.match(/^## Set \d of 3: runs from \d+$/gm)).toEqual([
       '## Set 1 of 3: runs from 2000',

@@ -5,6 +5,8 @@
  *   npx tsx tools/reliquary.ts --power --seeds 400 --bots novice         sets at ×1.15 enemy life
  *   npx tsx tools/reliquary.ts --power --sets cores,typical --threat 1.3
  *   npx tsx tools/reliquary.ts --career --runs 40 --bots skilled          materials and crafting
+ *   npx tsx tools/reliquary.ts --power --seeds 400 --sets fill-strongest  the meta cap's set
+ *   npx tsx tools/reliquary.ts --power --sets fill-strongest --fill-relics everbell,water_clock,sand_glass
  *
  * Power: a set worth +15% wins as often against enemies with 15% more life as no set does
  * against the usual ones (as the Astrolabe was measured). Read on a logistic scale between the
@@ -16,7 +18,8 @@
  * push-your-luck policy (Inscribe to four, then Ascend the lowest tier while the Fracture chance
  * stays at or under 20%, then Dissonate with a Tear).
  */
-import { inscriptionDef, relicDef, type InscriptionCategory } from '../src/content';
+import { CONTENT, inscriptionDef, relicDef, type InscriptionCategory } from '../src/content';
+import { FILL_IDS } from '../src/content/fill';
 import type { BotKind } from '../src/bots';
 import { RANK_XP, rankOf } from '../src/meta/profile';
 import {
@@ -155,6 +158,39 @@ export const SETS: Record<string, () => ReliquaryRelic[]> = {
   ],
 };
 
+/**
+ * The meta cap's set (docs/phase-5g.md, Bands: "`tools/reliquary.ts --power --seeds 400` with a
+ * new set of the three strongest new relics carried"), cores alone. The doc doesn't say what
+ * "strongest" is, so this default was read off `tools/relics.ts --seeds 2 --bots novice,skilled`
+ * (2026-11-10, 5g-bots): at Movement I, the fights this report's Prelude runs play, every cell wins
+ * 100% for both bots, so it ranks nothing; at Movement 4 (the Silent Conductor) Black Ribbon,
+ * Echoing Shell, Sand Glass, Everbell and Water Clock each won one more fight in 4 than no relic.
+ * Ranked by Δ win summed over both reports and bots, then Δ downs (fewer first): Echoing Shell and
+ * Water Clock, then Sand Glass. Cursed relics (their curse is the price) and run-only ones (they
+ * can't be carried) are left out. Two seeds are noise: `--fill-relics a,b,c` overrides it.
+ */
+export const FILL_STRONGEST: readonly string[] = ['echoing_shell', 'water_clock', 'sand_glass'];
+
+/** The fill relics the meta cap's set carries: `--fill-relics`, else `FILL_STRONGEST`. */
+function fillRelics(): string[] {
+  const ids = get('fill-relics')?.split(',') ?? [...FILL_STRONGEST];
+  for (const id of ids) {
+    const def = CONTENT.relics.find((r) => r.id === id);
+    if (!def) throw new Error(`--fill-relics: "${id}" is not a relic`);
+    if (def.runOnly) throw new Error(`--fill-relics: ${id} is run-only and can't be carried`);
+    if (!FILL_IDS.includes(id)) console.error(`reliquary: ${id} is not one of Phase 5g's relics`);
+  }
+  return ids;
+}
+
+/**
+ * Sets read only when named (`--sets`), so the default report reads as before: the meta cap's
+ * three strongest new relics (`FILL_STRONGEST`), cores alone.
+ */
+export const NAMED_SETS: Record<string, () => ReliquaryRelic[]> = {
+  'fill-strongest': () => fillRelics().map((id, i) => relicOf(i + 1, id, [])),
+};
+
 // ── Power ────────────────────────────────────────────────────────────────────────────
 
 const logit = (p: number) => {
@@ -191,8 +227,11 @@ function power(): void {
       console.log(`${bot}: no set ${pct(hi)} · at ×${threat} ${pct(lo)}`);
     }
     for (const name of names) {
-      const make = SETS[name];
-      if (!make) throw new Error(`Unknown set "${name}" (${Object.keys(SETS)})`);
+      const make = SETS[name] ?? NAMED_SETS[name];
+      if (!make)
+        throw new Error(
+          `Unknown set "${name}" (${[...Object.keys(SETS), ...Object.keys(NAMED_SETS)]})`,
+        );
       const win = runs(make(), threat);
       const worth =
         Number.isFinite(lo) && Number.isFinite(hi) && hi !== lo

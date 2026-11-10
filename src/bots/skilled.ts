@@ -146,6 +146,7 @@ import {
   marcatoReady,
   soloFullIn,
   soloReach,
+  chimeCovers,
   type Circle,
   type BloodView,
   type DuelView,
@@ -177,7 +178,7 @@ export interface SkilledOptions {
    * docs/phase-5d.md) to leave off. Absent, every rule plays, so the default options object is
    * unchanged.
    */
-  skip?: ReadonlySet<M3Rule | FinaleRule | RosterRule | ConductingRule>;
+  skip?: ReadonlySet<M3Rule | FinaleRule | RosterRule | ConductingRule | FillRule>;
 }
 
 /**
@@ -272,6 +273,22 @@ export const CONDUCTING_RULES = [
   'conductMarcato',
 ] as const;
 export type ConductingRule = (typeof CONDUCTING_RULES)[number];
+
+/**
+ * The Skilled bot's Phase 5g rules (docs/phase-5g.md: a bot rule once a misplay is shown), each
+ * one a name `SkilledOptions.skip` can turn off. Each is gated on its relic's state, so a fight
+ * without the relic plays exactly as before.
+ */
+export const FILL_RULES = [
+  /**
+   * Iron Mask (`mods.noEmpower`): never ask for Empower (every toggle to it is refused). The
+   * Thread's picks stand and it stays in Mend; under Unravel the Martyr Bears as ever.
+   */
+  'ironMask',
+  /** Everbell (`weaver.chimeCharges`): no second Chime onto a hero a Chime in the air covers. */
+  'everbellChime',
+] as const;
+export type FillRule = (typeof FILL_RULES)[number];
 
 /**
  * The Skilled bot's Seren and Oro rules (docs/phase-5e.md, "Skilled ROSTER_RULES"), each one a
@@ -742,11 +759,18 @@ export class SkilledBot implements Bot {
     }
 
     // ── Chime: cleanse marks late (clutch), or anyone silenced/stunned. ──
+    // Everbell (docs/phase-5g.md, `everbellChime`): with a charge left the Chime is ready again at
+    // once, so a hero a Chime in the air already covers is no pick; the next charge goes to another
+    // who needs it. `party` itself without the relic or with no Chime in the air.
+    const everbell =
+      wc.chimeCharges !== undefined && state.chimes.length > 0 && this.on('everbellChime');
+    const chimeable = everbell ? party.filter((h) => !chimeCovers(state, h.e)) : party;
+    const uncovered = (h: HeroView) => !everbell || !chimeCovers(state, h.e);
     if (silence && this.on('silenceChime')) {
       // The Grand Silence (docs/phase-5d.md): only the clutch on a Rest's Dirge (a note), and
       // first, whatever else this decision did; never an early Chime the next Rest would miss.
       if (!silenced && wc.cooldowns.chime <= 0 && affords(state, 'chime')) {
-        const pick = party.find((h) => clutchDue(h.e) && dist(h.e, w) < tech.chime.range);
+        const pick = chimeable.find((h) => clutchDue(h.e) && dist(h.e, w) < tech.chime.range);
         if (pick && this.notice()) {
           out.push({ t: 'tech', id: 'chime', point: { x: pick.e.x, z: pick.e.z } });
           acted = true;
@@ -755,7 +779,7 @@ export class SkilledBot implements Bot {
     } else if (!acted && !silenced && wc.cooldowns.chime <= 0 && affords(state, 'chime')) {
       let pick: HeroView | null = null;
       let clutch = false;
-      for (const h of party) {
+      for (const h of chimeable) {
         const dirge = statusRemaining(h.e, 'dirge');
         const flight = tech.chime.flight + 0.1;
         if (
@@ -771,13 +795,19 @@ export class SkilledBot implements Bot {
           pick = h;
       }
       // Movement III, after a clutch Dirge (docs/phase-5c.md, the Chime order): null without one.
-      if (!clutch) pick = this.chimeM3(party, w) ?? pick;
+      if (!clutch) pick = this.chimeM3(chimeable, w) ?? pick;
       // Movement II: the cluster with the most bleed, a latched hero, or a Wounded one who's low.
-      pick ??= chimeCluster(party, w, tech.chime.range, tech.chime.radius);
+      pick ??= chimeCluster(chimeable, w, tech.chime.range, tech.chime.radius);
       if (pick && dist(pick.e, w) < tech.chime.range && this.notice()) {
         out.push({ t: 'tech', id: 'chime', point: { x: pick.e.x, z: pick.e.z } });
         acted = true;
-      } else if (!pick && holding && dist(holding.e, w) < tech.chime.range && this.notice()) {
+      } else if (
+        !pick &&
+        holding &&
+        uncovered(holding) &&
+        dist(holding.e, w) < tech.chime.range &&
+        this.notice()
+      ) {
         // A Chime heals a held hero too.
         out.push({ t: 'tech', id: 'chime', point: { x: holding.e.x, z: holding.e.z } });
         acted = true;
@@ -785,6 +815,7 @@ export class SkilledBot implements Bot {
         !pick &&
         answerNow &&
         call!.answer === 'chime' &&
+        uncovered(calling!) &&
         dist(calling!.e, w) < tech.chime.range &&
         // Keep the Chime for a Dirge that's coming.
         !party.some((h) => statusRemaining(h.e, 'dirge') < 6) &&
@@ -794,7 +825,7 @@ export class SkilledBot implements Bot {
         acted = true;
       } else if (!pick && mimicWard && affords(state, 'chime', 15)) {
         // A Mimic copying her Ward: a Chime now is her last technique, and the mirror cracks.
-        const near = party
+        const near = chimeable
           .filter((h) => dist(h.e, w) < tech.chime.range)
           .sort((a, b) => effectiveFraction(a.e) - effectiveFraction(b.e))[0];
         if (near) {
@@ -1093,7 +1124,11 @@ export class SkilledBot implements Bot {
     }
     // The Martyr's Bear: just before a big hit on the threaded hero that no shield will stop,
     // take part of it, if she has the life to spare; then back to the Thread's work.
-    let want: ThreadMode = mend ? 'mend' : 'empower';
+    // Iron Mask (docs/phase-5g.md, `ironMask`): the Thread can't Empower. The picks stand (one made
+    // to Empower still carries the beam song to its hero), but the Thread stays in Mend. False
+    // without the relic.
+    const ironMask = state.mods.noEmpower && this.on('ironMask');
+    let want: ThreadMode = mend || ironMask ? 'mend' : 'empower';
     const share = state.calling?.bearShare ?? 0;
     const bearFor = party.find((h) => h.slot === threadingTo(out, wc.threadSlot));
     if (share > 0 && bearFor && !bearFor.e.health!.downed && !held) {
@@ -1109,9 +1144,11 @@ export class SkilledBot implements Bot {
       }
     }
     // Movement III: Unravel turns Mend to wounds, so Empower through it (the Martyr's Bear too);
-    // under Stasis Mend heals as ever. Else a Mimic copying Empower: Mend, and it cracks.
+    // under Stasis Mend heals as ever. Else a Mimic copying Empower: Mend, and it cracks. With
+    // Iron Mask only the Martyr's Bear is left; any other Calling stays in Mend on its pick (every
+    // retarget measured worse, and nothing lets the Thread go but a snap or a cut).
     const unravel = unravelUp(state) !== null && !state.field.stasis && this.on('unravel');
-    if (unravel && want === 'mend') want = share > 0 ? 'bear' : 'empower';
+    if (unravel && want === 'mend') want = share > 0 ? 'bear' : ironMask ? 'mend' : 'empower';
     else if (
       !unravel &&
       want === 'empower' &&
@@ -1129,8 +1166,11 @@ export class SkilledBot implements Bot {
     // The Conductor (docs/phase-5f.md): null without the Calling, and every rule of hers below is
     // behind it, so a run without it makes the decisions it always did.
     const cond = conductingOf(state);
-    /** What a Cue costs now: on the downbeat (A Tempo) less than `segment`. Else `segment`. */
-    const cueNeed = cond ? cueCostNow(state) : segment;
+    /**
+     * What a Cue costs now (`cueCostNow`): on the downbeat (A Tempo) less than `segment`, and less
+     * with Opening Bars, Tempo Rubato or Hollow Crown, for any Calling. Else `segment`.
+     */
+    const cueNeed = cueCostNow(state);
     // The Finale (docs/phase-5d.md): Discord will meet Fortissimo Silence before Resonance spent
     // now could come back, so hold the Cues and the Crescendo for its cancel. False without it.
     const bank =
@@ -1229,7 +1269,7 @@ export class SkilledBot implements Bot {
       );
       const pick = ready.find((h) => !GUARDING.has(h.e.hero!.soloId)) ?? ready[0];
       if (pick) out.push({ t: 'cue', slot: pick.slot });
-    } else if (!cond && !cancelling && wc.resonance >= segment) {
+    } else if (!cond && !cancelling && wc.resonance >= cueNeed) {
       for (const h of party) {
         if (wants(h, false)) {
           out.push({ t: 'cue', slot: h.slot });
@@ -1676,7 +1716,7 @@ export class SkilledBot implements Bot {
   }
 
   /** A Movement III, Finale or roster rule plays unless the ablation skips it (tools/verbs.ts). */
-  private on(rule: M3Rule | FinaleRule | RosterRule | ConductingRule): boolean {
+  private on(rule: M3Rule | FinaleRule | RosterRule | ConductingRule | FillRule): boolean {
     return this.opts.skip?.has(rule) !== true;
   }
 

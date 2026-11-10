@@ -1249,3 +1249,27 @@ export function soloFullIn(state: WorldState, h: HeroView): number {
   const chargeTime = c.soloId === def.solo.id ? def.solo.chargeTime : (alt?.chargeTime ?? 25);
   return (100 - c.solo) / ((100 / chargeTime) * state.mods.soloChargeMult);
 }
+
+// ── Phase 5g's relics (docs/phase-5g.md): each reader is the plain value, or false, on a fight
+// without its entry, so the bots' other decisions are untouched. ──
+
+/** How far (m) inside a Chime's radius a hero must stand for a Chime in the air to cover them. */
+export const CHIME_COVER_MARGIN = 0.5;
+
+/**
+ * Everbell: a Chime already in the air (`state.chimes`) lands on `e`: its landing point is within
+ * its radius, less `CHIME_COVER_MARGIN`, of where they stand now. False with none in the air.
+ */
+export function chimeCovers(state: WorldState, e: ReadonlyEntity): boolean {
+  return state.chimes.some((c) => dist(e, c) <= c.radius - CHIME_COVER_MARGIN);
+}
+
+/**
+ * What a Cue is gated on: the price paid now (`cueCostNow`: Opening Bars, Tempo Rubato, Hollow
+ * Crown). On a Conductor run, `dissonance.cueCost`, as the bots' own Conductor rules have it. Off
+ * the Conductor and without a Cue discount the two are equal (A Tempo's downbeat is the
+ * Conductor's alone; Hollow Crown's floor never bites at 15 or more), so nothing changes there.
+ */
+export function cueGateCost(state: WorldState): number {
+  return conductingOf(state) ? state.dissonance.cueCost : cueCostNow(state);
+}
