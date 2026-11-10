@@ -11,6 +11,7 @@ import { CONTENT, motifDef } from '../../content';
 import { FILL_IDS } from '../../content/fill';
 import type { RunState } from '../../meta/types';
 import { HudView } from '../hud/Hud';
+import { relicHuds } from '../hud/relics';
 import { triggerSource, type TriggerChip } from '../hud/triggers';
 import { Icon } from '../kit/Icon';
 import { FILL_GLYPHS } from '../kit/iconPaths';
@@ -169,6 +170,41 @@ function TriggerHud() {
   );
 }
 
+/** The fill's relics the bar shows in the Ringing view: the two once-a-fight tiles, and others. */
+const RINGING_RELICS = ['spare_strings', 'water_clock', 'echoing_shell', 'everbell', 'iron_mask'];
+
+/**
+ * Concert Pitch's Ringing heading the chips row (2.6 s left), over the fixture's chips, and the
+ * relic bar with the fill's relics: Spare Strings still to come this fight, Water Clock spent.
+ */
+function RingingHud() {
+  const base = mockHud('calm');
+  const ids = RINGING_RELICS.filter((id) => CONTENT.relics.some((r) => r.id === id));
+  const fill = relicHuds({
+    relics: { ids, cleansed: [], metronomeAt: null, thimbleAt: null, veil: false },
+    time: base.seconds,
+    ledger: { perfects: 0, downs: 0, triggers: { echoing_shell: 2 } },
+    once: { spare_strings: true, water_clock: false },
+  });
+  const hud = {
+    ...base,
+    relics: [...base.relics, ...fill],
+    triggers: { ...FIXTURE_TRIGGERS },
+    ringing: 2.6,
+  };
+  return (
+    <World>
+      <HudView
+        hud={hud}
+        callouts={mockCallouts('calm')}
+        decree={null}
+        subtitle="Movement II · node 4 of 7"
+        triggerChips={labTriggerChips(hud.seconds)}
+      />
+    </World>
+  );
+}
+
 function TriggerLinesPanel() {
   const lines = triggerLines({ triggers: { ...FIXTURE_TRIGGERS } }, fillFixtureContent());
   return (
@@ -279,6 +315,14 @@ export const FILL_VIEWS: FillLabView[] = [
     w: 1280,
     h: 720,
     render: () => <TriggerHud />,
+  },
+  {
+    id: 'fill-hud-ringing',
+    group: GROUP,
+    label: 'HUD: Concert Pitch ringing (seconds left) and the fill’s relic tiles',
+    w: 1280,
+    h: 720,
+    render: () => <RingingHud />,
   },
   {
     id: 'fill-trigger-lines',
