@@ -2602,7 +2602,7 @@ describe('the Expert in the harness (docs/phase-6.md, W7)', () => {
     const off = verbFight('shattered_choir', 1000, new Set(['mimicFocus']), 1, setup, 'expert');
     expect(on.expert!.mimicFocus).toBeGreaterThan(0);
     expect(off.expert!.mimicFocus).toBe(0);
-    expect(expertTail([on])).toMatch(/^ · met tyrantFocus 0\.0 .* mimicFocus [1-9]/);
+    expect(expertTail([on])).toMatch(/^ · met tyrantFocus 0\.0 (.* )?mimicFocus [1-9]/);
     const skilled = verbFight('shattered_choir', 1000, new Set(), 1, setup, 'skilled');
     expect('expert' in skilled).toBe(false);
     expect(expertTail([skilled])).toBe('');
@@ -2654,9 +2654,9 @@ describe('Echoes and weeklies in the harness (docs/phase-6.md, W7 part B)', () =
     expect(scales.length).toBeGreaterThan(0);
     for (const s of scales) expect(s).toEqual(SCENARIO_ECHO_RIFT.config!.movement);
     expect(SCENARIO_ECHO_RIFT.config!.encounter).toBe('hollow_cantor');
-    // Choir of Blood's leg names no scale: its fights carry no `movement` key.
+    // A Cappella's legs name no scale (Choir of Blood's does, as tuned): no `movement` key.
     playRun(2000, 'skilled', undefined, {
-      echo: 'choir_of_blood',
+      echo: 'a_cappella',
       onPhase: (phase, run) => {
         if (phase === 'combat') expect('movement' in Run.combatConfig(run)!).toBe(false);
       },
