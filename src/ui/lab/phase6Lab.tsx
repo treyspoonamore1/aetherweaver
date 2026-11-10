@@ -22,6 +22,7 @@ import { CodexView } from '../screens/CodexScreen';
 import { DeedCard } from '../screens/DeedsParts';
 import { deedRow } from '../screens/deedsModel';
 import { LoomView } from '../screens/LoomScreen';
+import { AtelierView } from '../screens/AtelierScreen';
 import { PrepView } from '../screens/PrepScreen';
 import { SummaryView } from '../screens/SummaryScreen';
 import { veteranProfile } from './loomLab';
@@ -239,6 +240,21 @@ function loomAtlas() {
   );
 }
 
+/** The Atelier with the Atlas's keepsakes: the earned shown as earned, never for sale. */
+function atelierEarned(stage: AtlasStage) {
+  const p = { ...veteranProfile(), atlas: atlasAt(stage) };
+  return (
+    <AtelierView
+      items={shopItems(p, rankOf(p.xp), false)}
+      look={p.look}
+      starlight={p.starlight}
+      onBuy={() => null}
+      onWear={noop}
+      onBack={noop}
+    />
+  );
+}
+
 export const PHASE6_VIEWS: Phase6LabView[] = [
   // ── The Atlas station ──
   {
@@ -288,6 +304,14 @@ export const PHASE6_VIEWS: Phase6LabView[] = [
     w: 1280,
     h: 900,
     render: loomAtlas,
+  },
+  {
+    id: 'p6-atelier-earned',
+    group: ATLAS,
+    label: 'Atelier: the Atlas’s looks earned (shown as earned, never sold)',
+    w: 1280,
+    h: 1900,
+    render: () => atelierEarned('whole'),
   },
   // ── This Week's Song ──
   ...(
