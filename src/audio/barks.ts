@@ -68,7 +68,11 @@ export interface HeroTimbre {
   breath: number;
   /** Time scale of the gestures (a heavier voice speaks slower). */
   pace: number;
-  /** Peak gain of the lower formant at full velocity. */
+  /**
+   * Peak gain of the lower formant at full velocity. Set from the lab's offline audit so every
+   * hero's voice peaks near −27 dBFS at the default sliders: about 14 dB under a hero's leitmotif
+   * and 10 dB under a Mend tick (W7's hand-off has the readings).
+   */
   gain: number;
 }
 
@@ -78,12 +82,12 @@ export interface HeroTimbre {
  * growl; Seren a quick, bright "eh"; Oro a slow, hollow "oo" with a lot of breath.
  */
 export const HERO_TIMBRES: Readonly<Record<string, HeroTimbre>> = {
-  kael: { root: -7, wave: 'sawtooth', formants: [520, 980], breath: 0.12, pace: 1.15, gain: 0.05 },
-  lyra: { root: 4, wave: 'triangle', formants: [820, 1750], breath: 0.3, pace: 0.85, gain: 0.07 },
-  vexis: { root: 2, wave: 'square', formants: [640, 2150], breath: 0.08, pace: 1, gain: 0.035 },
-  brann: { root: -10, wave: 'sawtooth', formants: [430, 860], breath: 0.35, pace: 1.2, gain: 0.05 },
-  seren: { root: 1, wave: 'sawtooth', formants: [760, 1900], breath: 0.15, pace: 0.8, gain: 0.045 },
-  oro: { root: -4, wave: 'triangle', formants: [390, 780], breath: 0.4, pace: 1.3, gain: 0.075 },
+  kael: { root: -7, wave: 'sawtooth', formants: [520, 980], breath: 0.12, pace: 1.15, gain: 0.14 },
+  lyra: { root: 4, wave: 'triangle', formants: [820, 1750], breath: 0.3, pace: 0.85, gain: 0.085 },
+  vexis: { root: 2, wave: 'square', formants: [640, 2150], breath: 0.08, pace: 1, gain: 0.07 },
+  brann: { root: -10, wave: 'sawtooth', formants: [430, 860], breath: 0.35, pace: 1.2, gain: 0.12 },
+  seren: { root: 1, wave: 'sawtooth', formants: [760, 1900], breath: 0.15, pace: 0.8, gain: 0.13 },
+  oro: { root: -4, wave: 'triangle', formants: [390, 780], breath: 0.4, pace: 1.3, gain: 0.09 },
 };
 
 /** One syllable of a gesture: when (seconds, at pace 1), how long, its pitch path, its vowel. */
