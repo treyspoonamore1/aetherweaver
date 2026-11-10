@@ -210,7 +210,10 @@ const NodeSchema = z.object({
     heal: Num,
     aether: Num,
     relics: Num,
-    threat: Num,
+    // Threat (Phase 3b tuning, 17dbc56) came after the v4 bump with no bump of its own: a v4
+    // map saved before it has none, and its fights stay at ×1, as `v3to4` leaves older maps
+    // (found by the fixture written by ad36f11, docs/phase-7.md W5).
+    threat: Num.default(1),
     text: Str,
   }),
   // Movements (docs/phase-5a.md): maps from before them are Movement I's.

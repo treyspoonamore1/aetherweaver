@@ -1,0 +1,17 @@
+{
+  "id": "demo13-fresh",
+  "commit": "2554e69",
+  "subject": "Demo notes: Version 13, the Conductor and the content fill",
+  "why": "demo Version 13, Start fresh",
+  "writtenBy": "build",
+  "versions": {
+    "run": null,
+    "profile": 9,
+    "settings": null
+  },
+  "notes": ["chooseDemo(\"fresh\") through the build’s own stores"],
+  "keys": {
+    "aetherweaver.profile": "{\"version\":9,\"xp\":0,\"introduced\":[],\"lastChords\":[],\"runs\":0,\"wins\":0,\"astrolabe\":[],\"deeds\":[],\"deedBest\":{},\"reliquary\":{\"relics\":[],\"shards\":0,\"tears\":0,\"carry\":[],\"seed\":1179813781,\"next\":1},\"dissonance\":{\"open\":false,\"levels\":[],\"best\":{}},\"bonds\":{},\"variants\":[],\"techniques\":{\"ward\":null,\"chime\":null,\"reel\":null,\"glide\":null},\"starlight\":0,\"cosmetics\":[],\"look\":{\"robe\":null,\"thread\":null,\"title\":null},\"mastery\":{},\"runMode\":\"expedition\",\"seen\":[\"hollow_chorister\",\"bell_brute\",\"lamenter\",\"glass_lancer\",\"mute\",\"cantor_acolyte\",\"the_bellwarden\",\"the_hollow_cantor\"]}",
+    "aetherweaver.demo.start": "fresh"
+  }
+}

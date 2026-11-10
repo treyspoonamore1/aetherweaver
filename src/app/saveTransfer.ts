@@ -194,9 +194,11 @@ export function applyImport(
 }
 
 /**
- * Starts the game again on the saves now in storage. The run held in memory is first made the
- * stored one, so the save the page makes as it unloads (`runStore.ts`, on `pagehide`) writes the
- * run just imported rather than the one it replaced.
+ * Starts the game again on the saves now in storage. The save the page makes as it unloads
+ * (`runStore.ts`, on `pagehide`) would write the run held in memory over the one just imported,
+ * so it is skipped this once: a capturing listener, which runs before it, stops the event. In
+ * case a browser runs it anyway, the run held in memory is first made the stored one, so it
+ * would write the same run (in the loader's key order).
  */
 export function reloadAfterImport(store: KeyValueStore = storage()): void {
   try {
@@ -204,7 +206,9 @@ export function reloadAfterImport(store: KeyValueStore = storage()): void {
   } catch {
     // Nothing held: nothing to write over the import.
   }
-  if (typeof location !== 'undefined') location.reload();
+  if (typeof window === 'undefined') return;
+  window.addEventListener('pagehide', (e) => e.stopImmediatePropagation(), { capture: true });
+  window.location.reload();
 }
 
 /** Are the saves from before the last import still kept? */
