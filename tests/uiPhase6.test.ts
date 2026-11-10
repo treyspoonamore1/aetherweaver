@@ -24,8 +24,10 @@ import {
   weeklyBoard,
   weeklyEntry,
   weeklyPrep,
+  weeklyRecords,
 } from '../src/meta/weekly';
 import type { WeeklyEntry } from '../src/content';
+import type { RunState } from '../src/meta/types';
 
 /** A weekly's run in Prep (the default Chords, no variants). */
 function weeklyPrepRun(week: number, entry: WeeklyEntry) {
@@ -110,6 +112,7 @@ import {
   prepWeeklyView,
   starRows,
   summaryAtlasView,
+  summaryWeeklyFrom,
   summaryWeeklyView,
   twistLines,
   verifyCue,
@@ -1180,5 +1183,126 @@ describe('after the reviews: plays back, the clock on codes, an Echo’s Movemen
         expect(tierWhen(t, place), `${e.id} tier ${t}`).not.toMatch(/undefined|NaN/);
       }
     }
+  });
+});
+
+describe('the Summary follows how the run ended', () => {
+  const echo = CONTENT.echoes[0]!.id;
+  const summary = async (props: Record<string, unknown>) => {
+    const SummaryView = await component<Record<string, unknown>>(
+      '../src/ui/screens/SummaryScreen',
+      'SummaryView',
+    );
+    return renderToStaticMarkup(
+      createElement(SummaryView, { onNewRun: () => {}, onLoom: () => {}, ...props }),
+    );
+  };
+
+  it('an Echo not won lights no star, says so, and pays nothing', async () => {
+    const { summaryRun } = await import('../src/ui/lab/mock');
+    for (const outcome of ['defeat', 'abandoned'] as const) {
+      const record = recordStars({}, { echo, outcome, dissonance: [] });
+      const v = summaryAtlasView(record, false)!;
+      expect(v.title).toBe('Echo not cleared');
+      expect(v.litLine).toBe('No star lit');
+      expect(v.lit).toEqual([]);
+      expect(v.rewards).toBeNull();
+      expect(v.bestLine).toBeNull();
+      expect(v.completions).toEqual([]);
+      const html = await summary({
+        run: { ...summaryRun(outcome), echo },
+        atlas: record,
+      });
+      expect(html).toContain('data-testid="summary-atlas"');
+      expect(html).toContain('data-lit="0"');
+      expect(html).toContain('Echo not cleared');
+      expect(html).toContain('No star lit');
+      expect(html).not.toContain('Echo cleared');
+    }
+  });
+
+  it('an Echo won still reads as cleared, with its stars and rewards', async () => {
+    const { summaryRun } = await import('../src/ui/lab/mock');
+    const record = atlasRecordFor(0, 12, undefined);
+    const v = summaryAtlasView(record, true)!;
+    expect(v).toEqual(summaryAtlasView(record));
+    expect(v.title).toBe(`Echo cleared at ${record.points} Dissonance`);
+    const html = await summary({
+      run: { ...summaryRun('victory'), echo: CONTENT.echoes[0]!.id },
+      atlas: record,
+    });
+    expect(html).toContain(`Echo cleared at ${record.points} Dissonance`);
+    expect(html).toContain(`data-lit="${record.lit.length}"`);
+    expect(html).not.toContain('Echo not cleared');
+    expect(html).not.toContain('No star lit');
+  });
+
+  it('a weekly that played no fight shows a line that nothing was recorded, no card', async () => {
+    const { summaryRun } = await import('../src/ui/lab/mock');
+    const played = { ...summaryRun('abandoned'), weekly: { week: 44 } };
+    expect(played.results.length).toBeGreaterThan(0);
+    expect(summaryWeeklyFrom(played, 'AW1-X')).toMatchObject({ code: 'AW1-X' });
+    const none = { ...played, results: [] };
+    const input = summaryWeeklyFrom(none, 'AW1-X')!;
+    expect(input.code).toBeNull();
+    expect(summaryWeeklyView(input).none).toMatch(/^Nothing was recorded/);
+    expect(summaryWeeklyView(summaryWeeklyFrom(played, 'AW1-X')!).none).toBeUndefined();
+    const html = await summary({ run: none, weekly: input });
+    expect(html).toContain('data-testid="summary-weekly-none"');
+    expect(html).not.toContain('data-testid="summary-weekly"');
+    expect(html).not.toContain('summary-weekly-code');
+    const kept = await summary({ run: played, weekly: summaryWeeklyFrom(played, 'AW1-X') });
+    expect(kept).toContain('data-testid="summary-weekly"');
+    expect(kept).not.toContain('summary-weekly-none');
+  });
+});
+
+describe('a weekly that played no fight records nothing', () => {
+  const NOW = Date.UTC(2026, 10, 11, 12);
+  const week = weekOf(NOW);
+  const replay = () =>
+    ({
+      week,
+      contentVersion: CONTENT_VERSION,
+      simVersion: SIM_VERSION,
+      claim: { won: false, fightsWon: 0, score: 0, seconds: 0, digest: '0123456789' },
+    }) as never;
+  beforeEach(() => {
+    useSettings.getState().reset();
+    useProfile.getState().resetProgress();
+  });
+
+  it('the rule: at least one fight played, won or lost', () => {
+    const base = Run.newRun(7);
+    expect(weeklyRecords({ results: [] })).toBe(false);
+    expect(weeklyRecords(base)).toBe(false);
+    const lost = { ...base, results: [{ outcome: 'defeat' } as never] };
+    expect(weeklyRecords(lost)).toBe(true);
+    expect(weeklyRecords({ results: [{ outcome: 'victory' } as never] })).toBe(true);
+  });
+
+  it('the profile keeps no entry and no code for it; one that fought is kept as before', () => {
+    const none = { ...Run.newRun(7), weekly: { week } } as RunState;
+    expect(useProfile.getState().recordWeekly(none, replay())).toBeNull();
+    expect(useProfile.getState().profile.weekly ?? []).toEqual([]);
+    const fought = { ...none, results: [{ outcome: 'defeat' } as never] };
+    const code = useProfile.getState().recordWeekly(fought, replay());
+    expect(code).toEqual(expect.stringMatching(/^AW1-/));
+    const held = useProfile.getState().profile.weekly!.find((w) => w.week === week)!;
+    expect(held.entries.map((e) => e.code)).toEqual([code]);
+  });
+
+  it('abandoned before any fight: the run store keeps no replay, no code, no board entry', () => {
+    const entry = weeklyEntry(week)!;
+    const run = useRun.getState();
+    run.newWeeklyRun(week, entry);
+    run.embark();
+    expect(useRun.getState().run!.results).toEqual([]);
+    run.abandon();
+    expect(useRun.getState().run!.phase).toBe('summary');
+    expect(useRun.getState().replay).toBeNull();
+    expect(useRun.getState().weeklyCheck).toBeNull();
+    expect(useProfile.getState().profile.weekly ?? []).toEqual([]);
+    run.closeRun();
   });
 });

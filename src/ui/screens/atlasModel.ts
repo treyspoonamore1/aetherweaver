@@ -49,6 +49,7 @@ import {
   weekOf,
   weeklyBoard,
   weeklyEntry,
+  weeklyRecords,
   weeklyScore,
 } from '../../meta/weekly';
 import { fmt, plural } from '../kit/format';
@@ -870,11 +871,31 @@ export interface SummaryAtlasView {
   line: string;
 }
 
-/** What the run's end did in the Atlas (`recordStars`' `AtlasRecord`), in the Summary's words. */
-export function summaryAtlasView(r: AtlasRecord): SummaryAtlasView | null {
+/**
+ * What the run's end did in the Atlas (`recordStars`' `AtlasRecord`), in the Summary's words.
+ * `cleared` is whether the run was won: a lost or abandoned Echo lights no star, and says so.
+ */
+export function summaryAtlasView(r: AtlasRecord, cleared = true): SummaryAtlasView | null {
   if (r.echo === null) return null;
   const echo = echoDef(r.echo);
   const name = echo?.name ?? r.echo;
+  if (!cleared) {
+    const title = 'Echo not cleared';
+    const litLine = 'No star lit';
+    return {
+      echo: r.echo,
+      name,
+      title,
+      litLine,
+      stars: r.stars,
+      lit: [],
+      rewards: null,
+      bestLine: null,
+      completions: [],
+      rows: starRows(r.stars),
+      line: `${title} · ${litLine}`,
+    };
+  }
   const title = r.points > 0 ? `Echo cleared at ${r.points} Dissonance` : 'Echo cleared';
   const n = r.lit.length;
   const litLine = n > 0 ? `${countWord(n)} ${plural(n, 'star')} lit` : null;
@@ -923,6 +944,8 @@ export interface SummaryWeeklyInput {
   score: number;
   won: boolean;
   code: string | null;
+  /** False: the run played no fight, so nothing was recorded (`weeklyRecords`). Omitted: true. */
+  recorded?: boolean;
 }
 
 export interface SummaryWeeklyView {
@@ -932,6 +955,8 @@ export interface SummaryWeeklyView {
   result: string;
   code: string | null;
   canShare: boolean;
+  /** The line that stands in for the card when nothing was recorded (absent: the card shows). */
+  none?: string;
 }
 
 export function summaryWeeklyView(w: SummaryWeeklyInput): SummaryWeeklyView {
@@ -941,6 +966,7 @@ export function summaryWeeklyView(w: SummaryWeeklyInput): SummaryWeeklyView {
     result: w.won ? 'Won' : 'Lost',
     code: w.code,
     canShare: w.code !== null,
+    ...(w.recorded === false ? { none: 'Nothing was recorded: no fight was played.' } : {}),
   };
 }
 
@@ -1024,6 +1050,7 @@ export function summaryWeeklyFrom(
     week: run.weekly.week,
     score: weeklyScore(run),
     won: run.outcome === 'victory',
-    code,
+    code: weeklyRecords(run) ? code : null,
+    ...(weeklyRecords(run) ? {} : { recorded: false }),
   };
 }

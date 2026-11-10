@@ -429,7 +429,9 @@ export function SummaryView({
           />
         )}
 
-        {atlas && atlas.echo !== null && <SummaryAtlasCard record={atlas} />}
+        {atlas && atlas.echo !== null && (
+          <SummaryAtlasCard record={atlas} cleared={run.outcome === 'victory'} />
+        )}
         {weekly && <SummaryWeeklyCard input={weekly} />}
         {replay && <SummaryReplayRow {...replay} />}
 

@@ -8,6 +8,7 @@
 import type { ReactNode } from 'react';
 import { CONTENT } from '../../content';
 import { tyrantAttackOf } from '../../sim';
+import { recordStars } from '../../meta/atlas';
 import { dissonancePoints } from '../../meta/dissonance';
 import { shopItems } from '../../meta/loom';
 import { STATIONS, introId } from '../screens/loomModel';
@@ -25,6 +26,7 @@ import { deedRow } from '../screens/deedsModel';
 import { LoomView } from '../screens/LoomScreen';
 import { AtelierView } from '../screens/AtelierScreen';
 import { WeeklyBenchView } from './weeklyBench';
+import { summaryWeeklyFrom } from '../screens/atlasModel';
 import { PrepView } from '../screens/PrepScreen';
 import { SummaryView } from '../screens/SummaryScreen';
 import { veteranProfile } from './loomLab';
@@ -386,6 +388,24 @@ export const PHASE6_VIEWS: Phase6LabView[] = [
     render: () => summaryEcho('choir_of_blood', 12, 'none'),
   },
   {
+    id: 'p6-summary-echo-abandoned',
+    group: RUN,
+    label: 'Summary: an Echo abandoned (not cleared, no star lit)',
+    w: 1280,
+    h: 900,
+    render: () => {
+      const echo = CONTENT.echoes[0]!.id;
+      return (
+        <SummaryView
+          run={{ ...summaryRun('abandoned'), echo }}
+          onNewRun={noop}
+          onLoom={noop}
+          atlas={recordStars({}, { echo, outcome: 'abandoned', dissonance: [] })}
+        />
+      );
+    },
+  },
+  {
     id: 'p6-summary-constellation',
     group: RUN,
     label: 'Summary: a constellation completed',
@@ -407,6 +427,24 @@ export const PHASE6_VIEWS: Phase6LabView[] = [
         weekly={{ week: 44, score: 3210, won: true, code: weeklyInput('board').shareCode }}
       />
     ),
+  },
+  {
+    id: 'p6-summary-weekly-none',
+    group: RUN,
+    label: 'Summary: a weekly abandoned before any fight (nothing recorded)',
+    w: 1280,
+    h: 900,
+    render: () => {
+      const run = { ...summaryRun('abandoned'), results: [], weekly: { week: 44 } };
+      return (
+        <SummaryView
+          run={run}
+          onNewRun={noop}
+          onLoom={noop}
+          weekly={summaryWeeklyFrom(run, null)}
+        />
+      );
+    },
   },
   {
     id: 'p6-summary-first-clear',

@@ -366,6 +366,12 @@ const DARK_NAME = '#66729a';
 /** Station labels stay legible over the hall's lines and threads. */
 const LABEL_SHADOW = '0 1px 3px #050814, 0 0 10px #050814';
 
+/**
+ * A clear plate behind a label the Weaver's threads would cross (a dark station's, and the Atlas's,
+ * which stands in the path of the threads to Bonds and the Reliquary): the text stays whole.
+ */
+const PLATE = 'lg:rounded-md lg:bg-ink-950/90 lg:px-1.5';
+
 const PLACED =
   'lg:absolute lg:left-[var(--x)] lg:top-[var(--y)] lg:-translate-x-1/2 lg:-translate-y-1/2';
 
@@ -384,6 +390,7 @@ function Station({
   profile: LoomProfile;
 }) {
   const look = STATION_LOOK[s.id];
+  const plate = !s.open || s.id === 'atlas';
   return (
     <button
       type="button"
@@ -413,13 +420,17 @@ function Station({
         )}
       </span>
       <span
-        className="font-display text-base font-bold leading-tight tracking-wide"
+        className={`font-display text-base font-bold leading-tight tracking-wide ${plate ? `${PLATE} lg:whitespace-nowrap` : ''}`}
         style={{ color: s.open ? look.light : DARK_NAME }}
         aria-hidden
       >
         {s.name}
       </span>
-      <span className="text-xs leading-snug text-muted" aria-hidden data-testid="station-line">
+      <span
+        className={`text-xs leading-snug text-muted ${plate ? PLATE : ''}`}
+        aria-hidden
+        data-testid="station-line"
+      >
         {s.line}
       </span>
       {s.open && s.badge && (

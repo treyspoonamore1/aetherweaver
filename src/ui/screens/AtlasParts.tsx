@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ProfileAtlas } from '../../meta/profile';
 import type { AtlasRecord } from '../../meta/atlas';
+import { SHARE_LENGTH } from '../../meta/shareCode';
 import { Button } from '../kit/Button';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { Icon } from '../kit/Icon';
@@ -350,16 +351,18 @@ function KeepsakeChip({ k }: { k: KeepsakeView }) {
         className="mt-0.5 shrink-0"
         style={{ color: k.earned ? LOOK.light : 'var(--color-muted)' }}
       />
-      <span>
-        <b className={k.earned ? 'text-text' : 'text-muted'}>{k.name}</b>{' '}
-        <span className="text-xs text-muted">
-          {k.earned ? (
-            '· Earned'
-          ) : (
-            <>
-              <Icon name="lock" size={11} className="-mt-0.5 inline" /> Locked
-            </>
-          )}
+      <span className="min-w-0 flex-1">
+        <span className="flex items-baseline gap-x-1.5">
+          <b className={`min-w-0 ${k.earned ? 'text-text' : 'text-muted'}`}>{k.name}</b>
+          <span className="shrink-0 whitespace-nowrap text-xs text-muted">
+            {k.earned ? (
+              '· Earned'
+            ) : (
+              <>
+                <Icon name="lock" size={11} className="-mt-0.5 inline" /> Locked
+              </>
+            )}
+          </span>
         </span>
         <span className="block text-xs text-muted">{k.how}</span>
       </span>
@@ -490,13 +493,15 @@ export function WeeklyPanel({ input, initialAdding = false }: WeeklyPanelProps) 
           onSubmit={submit}
           data-testid="weekly-add-form"
         >
-          <label className="flex flex-col text-xs text-muted">
+          <label className="flex max-w-full flex-col text-xs text-muted">
             Code
             <input
               value={code}
               onChange={(e) => setCode(e.currentTarget.value)}
               placeholder="AW1-…"
-              className="mt-0.5 w-80 rounded-md border border-ink-500 bg-ink-900 px-2 py-1 font-mono text-sm text-text"
+              // Wide enough for a whole share code in the field's own mono text.
+              style={{ width: `calc(${SHARE_LENGTH}ch + 1.5rem)`, maxWidth: '100%' }}
+              className="mt-0.5 rounded-md border border-ink-500 bg-ink-900 px-2 py-1 font-mono text-sm text-text"
             />
           </label>
           <label className="flex flex-col text-xs text-muted">
@@ -878,16 +883,25 @@ export function PrepWeeklyPanel({ view }: { view: PrepWeeklyView }) {
 // ── The Summary ────────────────────────────────────────────────────────────────────────
 
 /** The Summary's Atlas card: the stars this run lit, what they paid, a completed constellation. */
-export function SummaryAtlasCard({ record }: { record: AtlasRecord }) {
-  const v = summaryAtlasView(record);
+export function SummaryAtlasCard({
+  record,
+  cleared = true,
+}: {
+  record: AtlasRecord;
+  /** Was the run won? A lost or abandoned Echo lights no star. */
+  cleared?: boolean;
+}) {
+  const v = summaryAtlasView(record, cleared);
   // Once, as the card arrives: the stars lit, then a constellation (or the Atlas) completed.
   useEffect(() => {
-    const cue = atlasCues(record);
+    const cue = atlasCues(
+      cleared ? record : { ...record, lit: [], constellations: [], wholeAtlas: false },
+    );
     if (cue.stars !== null) playUi(ATLAS_SOUNDS.star, { stars: cue.stars });
     if (!cue.constellation) return;
     const t = setTimeout(() => playUi(ATLAS_SOUNDS.constellation), 900);
     return () => clearTimeout(t);
-  }, [record]);
+  }, [record, cleared]);
   if (!v) return null;
   return (
     <Panel
@@ -922,6 +936,12 @@ export function SummaryAtlasCard({ record }: { record: AtlasRecord }) {
 /** The Summary's weekly slot: the score, its code and Share. */
 export function SummaryWeeklyCard({ input }: { input: SummaryWeeklyInput }) {
   const v = summaryWeeklyView(input);
+  if (v.none !== undefined)
+    return (
+      <p className="mt-6 text-sm text-muted" data-testid="summary-weekly-none">
+        {v.none}
+      </p>
+    );
   return (
     <Panel
       tone="solid"

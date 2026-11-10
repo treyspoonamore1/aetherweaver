@@ -14,6 +14,7 @@ import {
   addableWeek,
   weekOf,
   weeklyHolds,
+  weeklyRecords,
   withWeeklyEntry,
 } from '../meta/weekly';
 import { deedPoints, deedProgress, deedsEarned, profileDeedsEarned } from '../meta/deeds';
@@ -637,7 +638,7 @@ export const useProfile = create<ProfileStore>()((set, get) => {
     dismissAtlasNotice: () => set({ atlasNotice: null }),
     recordWeekly: (run, replay) => {
       const week = run.weekly?.week;
-      if (week === undefined || !replay || replay.week !== week) {
+      if (week === undefined || !weeklyRecords(run) || !replay || replay.week !== week) {
         get().recordProfileDeeds();
         return null;
       }

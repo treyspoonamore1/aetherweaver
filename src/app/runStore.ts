@@ -24,7 +24,7 @@ import type { SimConfig } from '../sim';
 import type { Replay } from '../sim/replay';
 import type { WeeklyEntry } from '../content';
 import type { RunReplay, VerifyResult } from '../meta/runReplay';
-import { embarkWeekly, weeklyEntry, weeklyPrep } from '../meta/weekly';
+import { embarkWeekly, weeklyEntry, weeklyPrep, weeklyRecords } from '../meta/weekly';
 import {
   beginRecording,
   finishRecording,
@@ -338,8 +338,10 @@ export const useRun = create<RunStore>()((set, get) => {
     set({ run: next });
     if (ended) {
       useProfile.getState().recordRun(next.outcome === 'victory');
-      // A recorded run's replay file (docs/phase-6.md): made at its Summary, kept in memory.
-      const replay = recordingNow() ? finishRecording(next) : null;
+      // A recorded run's replay file (docs/phase-6.md): made at its Summary, kept in memory. A
+      // weekly that played no fight records nothing, its replay included.
+      const made = recordingNow() ? finishRecording(next) : null;
+      const replay = made && (next.weekly === undefined || weeklyRecords(next)) ? made : null;
       const code = recordEnd(next, replay);
       const week = next.weekly?.week;
       if (replay && code !== null && week !== undefined && next.logId !== undefined)

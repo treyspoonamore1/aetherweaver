@@ -185,6 +185,14 @@ export function weeklyScore(run: Scored): number {
   return score;
 }
 
+/**
+ * Does a finished weekly run leave a record (an entry, a share code, a kept replay)? Only if it
+ * played at least one fight, won or lost: one that ended before any fight records nothing.
+ */
+export function weeklyRecords(run: Pick<RunState, 'results'>): boolean {
+  return run.results.length > 0;
+}
+
 /** Fights the run won. */
 export function fightsWon(run: Pick<RunState, 'results'>): number {
   return run.results.filter((r) => r.outcome === 'victory').length;
