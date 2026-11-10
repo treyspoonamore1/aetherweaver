@@ -17,6 +17,7 @@ import { EntityLayer } from './entities';
 import { FermataView } from './fermata';
 import { Feedback } from './feedback';
 import { FieldView } from './field';
+import { FillView } from './fill';
 import { FxKit } from './fx/kit';
 import { GroveDiscView } from './groveDisc';
 import { beyondReach } from './serenCues';
@@ -65,6 +66,8 @@ export class CombatView implements WorldView {
   readonly variants: VariantsView;
   /** The Cued Ancient's disc (docs/phase-5e.md, Q2): its own decal, made on the first disc. */
   readonly groveDisc: GroveDiscView;
+  /** The content fill (docs/phase-5g.md): Razor Silk, Thread the Needle, trigger fires. */
+  readonly fill: FillView;
   private quality: QualityTier;
   /** The enemies' clock for the telegraph shaders: it waits while Stasis holds them. */
   private enemyClock = 0;
@@ -153,6 +156,7 @@ export class CombatView implements WorldView {
       models: this.entities,
     });
     this.groveDisc = new GroveDiscView(this.root);
+    this.fill = new FillView({ kit: this.kit, recs: this.entities.recs, thread: this.thread });
     this.quality = ctx.quality;
     this.setQuality(ctx.quality);
     void state;
@@ -207,6 +211,7 @@ export class CombatView implements WorldView {
     this.dissonance.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.bonds.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.variants.sync(state, fxDt, frame.time, frame.settings.flashes);
+    this.fill.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.overlay.setStasis(this.chrono.cool);
     this.offscreen(state);
     this.aimMarker(state, frame);
@@ -243,6 +248,7 @@ export class CombatView implements WorldView {
     this.dissonance.handle(events, state);
     this.bonds.handle(events, state);
     this.variants.handle(events, state);
+    this.fill.handle(events, state);
   }
 
   setQuality(quality: QualityTier): void {

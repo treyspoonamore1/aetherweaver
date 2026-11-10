@@ -34,6 +34,7 @@ import {
 } from '../sim';
 import { BUS_NAMES, busTrim, Voice, type BusName, type Engine, type VoiceHandle } from './engine';
 import { ConductSounds } from './conduct';
+import { FillSounds } from './fill';
 import {
   bladeStringNote,
   hollowWoodNote,
@@ -880,6 +881,8 @@ export class SfxEngine {
 
   /** Phase 5f: the Conductor's sounds and A Tempo's beat input (docs/phase-5f.md, "Audio"). */
   readonly conduct: ConductSounds;
+  /** Phase 5g: the content fill's sounds (docs/phase-5g.md): Razor Silk, the Needle, triggers. */
+  readonly fill: FillSounds;
 
   constructor(
     private readonly e: Engine,
@@ -888,6 +891,10 @@ export class SfxEngine {
     this.conduct = new ConductSounds({
       e,
       music,
+      play: (key, max, bus, build, opts) => this.play(key, max, bus, build, opts),
+    });
+    this.fill = new FillSounds({
+      e,
       play: (key, max, bus, build, opts) => this.play(key, max, bus, build, opts),
     });
   }
@@ -1207,6 +1214,11 @@ export class SfxEngine {
       case 'triad':
         this.conduct.handle(ev, state);
         break;
+      // ── Phase 5g: the content fill (only a run holding a trigger or the Needle emits these) ──
+      case 'motifTriggered':
+      case 'needled':
+        this.fill.handle(ev, state);
+        break;
       case 'bloodlust':
         this.refusedRally(ev.hero, state);
         break;
@@ -1334,6 +1346,8 @@ export class SfxEngine {
         if (this.conductorFell) this.finaleEnded(ev.outcome, state);
         // Phase 5f: the Conductor's held sounds let go, and the music stops following the beat.
         this.conduct.stop();
+        // Phase 5g: Razor Silk's clock is forgotten with the fight.
+        this.fill.stop();
         break;
       case 'rewound':
         this.rewound(ev, state);
@@ -7781,6 +7795,8 @@ export class SfxEngine {
     this.followFinale(state, bossPhase);
     // Phase 5f: A Tempo's beat for the music (only with A Tempo on the path) and its tick.
     const beat = this.conduct.update(state);
+    // Phase 5g: Razor Silk's tick (only while `mods.razorDps` is above 0).
+    this.fill.update(state);
     return {
       intensity: this.intensity,
       resonance: weaver?.resonance ?? 0,

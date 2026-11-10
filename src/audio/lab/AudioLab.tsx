@@ -152,6 +152,11 @@ const GROUPS: {
       'Phase 5f · The Conductor (Duets and Trios, the free Cue, the downbeat, the Grand Finale and its cadence, Reprise, Marcato, Ensemble, Spotlight, Triad, his Calling’s UI)',
   },
   {
+    id: 'fill',
+    title:
+      'Phase 5g · The content fill (Razor Silk’s bite, Thread the Needle’s catch, a trigger firing: one for each kind of effect)',
+  },
+  {
     id: 'unstitched',
     title:
       'Phase 5c · The Unstitched (cuts, the Maw, the Wraith, the rune, the Mimic, the Seamstress, Doom, the Unweaver, cloth kills)',
