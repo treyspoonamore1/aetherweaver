@@ -8,7 +8,8 @@
  * the Finale's four (docs/phase-5d.md) at its hand-off, for the next. Seren's and Oro's six
  * (docs/phase-5e.md, W8) are appended after the nineteen, which come first and unchanged. The
  * Conductor Calling's three (docs/phase-5f.md, W4) follow the twenty-five, which come first and
- * unchanged.
+ * unchanged. Phase 6's three (docs/phase-6.md, W7: Tyrant, Mimicry, the Postlude) follow the
+ * twenty-eight, which come first and unchanged.
  */
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../../src/content';
@@ -95,8 +96,22 @@ const CONDUCTING_HASHES: Readonly<Record<string, string>> = {
   'skilled-conducting-silent': 'd200c6af6720f641',
 };
 
-/** All twenty-eight goldens, in golden.json's order. */
-const ALL_GOLDENS: Readonly<Record<string, string>> = { ...ALL_PINNED, ...CONDUCTING_HASHES };
+/** The twenty-eight goldens Phase 6 found, in golden.json's order (first, and unchanged). */
+const TWENTY_EIGHT: Readonly<Record<string, string>> = { ...ALL_PINNED, ...CONDUCTING_HASHES };
+
+/**
+ * Phase 6's three goldens (docs/phase-6.md, W7), appended after the twenty-eight, each with one
+ * new level on. Like the Conductor's they are re-recorded only by W8 (its own goldens) when it
+ * tunes Phase 6's numbers; the twenty-eight never are.
+ */
+const PHASE6_HASHES: Readonly<Record<string, string>> = {
+  'skilled-tyrant-vharun': '9a97b9f283a51ae8',
+  'novice-mimicry-first-light': '727ddeaca04419a3',
+  'skilled-postlude': '3ca13e1f0491dc46',
+};
+
+/** All thirty-one goldens, in golden.json's order. */
+const ALL_GOLDENS: Readonly<Record<string, string>> = { ...TWENTY_EIGHT, ...PHASE6_HASHES };
 
 describe('Movement I is unchanged (docs/phase-5a.md)', () => {
   it('SIM_VERSION is still 22', () => {
@@ -132,11 +147,33 @@ describe('Movement I is unchanged (docs/phase-5a.md)', () => {
       expect((golden.scenarios as Record<string, string>)[name], name).toBe(hash);
   });
 
-  it('golden.json holds exactly the twenty-eight, in order (docs/phase-5f.md)', () => {
+  it('golden.json holds the twenty-eight first, in order (docs/phase-5f.md)', () => {
     expect(Object.keys(CONDUCTING_HASHES)).toHaveLength(3);
-    expect(Object.keys(ALL_GOLDENS)).toHaveLength(28);
+    expect(Object.keys(TWENTY_EIGHT)).toHaveLength(28);
+    expect(Object.keys(golden.scenarios).slice(0, 28)).toEqual(Object.keys(TWENTY_EIGHT));
+    for (const [name, hash] of Object.entries(TWENTY_EIGHT))
+      expect((golden.scenarios as Record<string, string>)[name], name).toBe(hash);
+  });
+
+  it('golden.json holds exactly the thirty-one, in order (docs/phase-6.md)', () => {
+    expect(Object.keys(PHASE6_HASHES)).toHaveLength(3);
+    expect(Object.keys(ALL_GOLDENS)).toHaveLength(31);
     expect(golden.scenarios).toStrictEqual(ALL_GOLDENS);
     expect(Object.keys(golden.scenarios)).toEqual(Object.keys(ALL_GOLDENS));
+  });
+
+  it("Phase 6's three goldens each play one new level, and the twenty-eight none", () => {
+    const want: Readonly<Record<string, string>> = {
+      'skilled-tyrant-vharun': 'tyrant',
+      'novice-mimicry-first-light': 'mimicry',
+      'skilled-postlude': 'true_dissonance',
+    };
+    for (const [name, level] of Object.entries(want))
+      expect(SCENARIOS.find((s) => s.name === name)?.config?.dissonance, name).toEqual([
+        { id: level, rank: 1 },
+      ]);
+    for (const name of Object.keys(TWENTY_EIGHT))
+      expect(SCENARIOS.find((s) => s.name === name)?.config?.dissonance, name).toBeUndefined();
   });
 
   it('the three Conductor goldens play the Calling, and the twenty-five before them none', () => {
@@ -146,6 +183,8 @@ describe('Movement I is unchanged (docs/phase-5a.md)', () => {
       expect(SCENARIOS.find((s) => s.name === name)?.config?.calling?.id, name).not.toBe(
         'conductor',
       );
+    for (const name of Object.keys(PHASE6_HASHES))
+      expect(SCENARIOS.find((s) => s.name === name)?.config?.calling, name).toBeUndefined();
   });
 
   it('the six roster goldens play the parties the doc names, with Seren or Oro in each', () => {

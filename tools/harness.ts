@@ -247,13 +247,34 @@ export function band(
   bot: BotKind,
   party: readonly string[] | null = null,
 ): string {
-  // The Expert (docs/phase-6.md) has no band here: its bands are Phase 6's own (W7).
-  if (bot === 'expert') return '';
+  if (bot === 'expert') return expertBand(encounter, party);
   const def = encounterDef(encounter);
   if (party && rosterTier(party) !== null)
     return rosterBand(def.movement ?? 1, def.kind, bot, party);
   if (party?.includes('brann')) return brannBand(def.movement ?? 1, def.kind, bot, party);
   return MOVEMENT_BANDS[def.movement ?? 1]?.[def.kind]?.[bot] ?? '';
+}
+
+/**
+ * The Expert's cell bands (docs/phase-6.md, "Bands"): the doc sets one cell of its own, the Silent
+ * Conductor with True Dissonance (this harness plays it without, so the row is the reference the
+ * band is read against); every other cell has none for it.
+ */
+function expertBand(encounter: string, party: readonly string[] | null): string {
+  if (party) return '';
+  const def = encounterDef(encounter);
+  if ((def.movement ?? 1) < 4 || def.kind !== 'boss') return '';
+  return 'the reference: with True Dissonance ≥75% and ≥10 below this · Postlude 45-120 s · ≤150 s longer';
+}
+
+/**
+ * The Expert's whole-run bands (docs/phase-6.md, "Bands"): per Dissonance tier, with the Rank 20
+ * build and its run policy, which `tools/dissonance.ts --tiers` plays (this harness plays neither):
+ * on the Finale route the line names them; elsewhere, and for a roster party, none.
+ */
+function expertRunBand(movements: number, party: readonly string[] | null): string {
+  if (party || movements < 4) return '';
+  return 'per tier with the Rank 20 build (tools/dissonance.ts --tiers): 0 ≥90% · I 70-90% · II 40-70% · III 15-40% · IV 2-15%';
 }
 
 /**
@@ -360,8 +381,7 @@ export function runBand(
   bot: BotKind,
   party: readonly string[] | null = null,
 ): string {
-  // The Expert (docs/phase-6.md) has no band here: its bands are Phase 6's own (W7).
-  if (bot === 'expert') return '';
+  if (bot === 'expert') return expertRunBand(movements, party);
   const tier = party ? rosterTier(party) : null;
   if (tier !== null) return rosterRunBand(movements, bot, tier);
   if (movements < 3) return '';

@@ -131,6 +131,10 @@ import { levelsFor, motifsWith, partyFor } from '../tools/motifs';
 import { FILL_STRONGEST, NAMED_SETS, SETS } from '../tools/reliquary';
 import { eventMotif, knownIds, preferredIndex, type RunSummary } from '../tools/harness-core';
 import { sandbox, worldOf } from './sim/helpers';
+import { EXPERT_RULES, ExpertBot } from '../src/bots/expert';
+import { dissonancePoints } from '../src/meta/dissonance';
+import { expertPolicy, rank20Build, TIER_CALLINGS, TIERS } from '../tools/dissonance';
+import { dissonanceArg, expertTail } from '../tools/verbs';
 
 /**
  * A Blood Pact staged on Kael and Lyra (slots 0 and 1), 6 m wide, landing in `windup` seconds;
@@ -2475,5 +2479,135 @@ describe('the motif and relic reports (tools/motifs.ts, tools/relics.ts)', () =>
     const fill = offered.filter((id) => FILL_IDS.includes(id));
     expect(rows.slice(0, existing.length)).toEqual(existing);
     expect(rows.slice(existing.length, existing.length + fill.length)).toEqual(fill);
+  }, 120_000);
+});
+
+describe('the Expert in the harness (docs/phase-6.md, W7)', () => {
+  const SEED = 1;
+  const route = { movements: 2 } as const;
+  const root = fileURLToPath(new URL('..', import.meta.url));
+
+  it('playRun plays exactly as before with its Phase 6 options absent, or deferring', () => {
+    const plain = playRun(SEED, 'skilled', undefined, route);
+    expect(
+      playRun(SEED, 'skilled', undefined, {
+        ...route,
+        nodePrefer: () => undefined,
+        respitePrefer: () => undefined,
+        shopPrefer: () => undefined,
+        motifOrder: () => [],
+      }),
+    ).toEqual(plain);
+  }, 120_000);
+
+  it('playRun takes the node, Respite and shop the options name', () => {
+    const phases: { phase: string; reason?: string; aether?: number }[] = [];
+    let wanted: string | null = null;
+    let walked = 0;
+    playRun(SEED, 'skilled', undefined, {
+      ...route,
+      // Always the last reachable node; meditate at every Respite; buy nothing.
+      nodePrefer: (options) => options.length - 1,
+      respitePrefer: () => 'meditate',
+      shopPrefer: () => null,
+      onPhase: (phase, run) => {
+        if (wanted !== null) {
+          expect(run.path.at(-1)).toBe(wanted);
+          walked++;
+          wanted = null;
+        }
+        if (phase === 'map') wanted = Run.reachable(run).at(-1)!.id;
+        phases.push({ phase, reason: run.draft?.reason, aether: run.aether });
+      },
+    });
+    expect(walked).toBeGreaterThan(5);
+    const respites = phases.filter((p, i) => p.phase === 'respite' && phases[i + 1]);
+    expect(respites.length).toBeGreaterThan(0);
+    expect(phases.some((p) => p.phase === 'merchant')).toBe(true);
+    for (const r of respites) {
+      const next = phases[phases.indexOf(r) + 1]!;
+      expect(next.phase).toBe('draft');
+      expect(next.reason).toBe('meditate');
+    }
+    // A merchant left without a purchase: the Aether is the same when the map comes back.
+    for (const [i, p] of phases.entries())
+      if (p.phase === 'merchant' && phases[i + 1]) expect(phases[i + 1]!.aether).toBe(p.aether);
+  }, 120_000);
+
+  it("the Expert's run policy draws nothing (twice the same) and is not the harness's", () => {
+    const policy = { ...route, ...expertPolicy(null) };
+    const a = playRun(SEED, 'skilled', undefined, policy);
+    expect(playRun(SEED, 'skilled', undefined, policy)).toEqual(a);
+    expect(a).not.toEqual(playRun(SEED, 'skilled', undefined, route));
+  }, 120_000);
+
+  it('the tiers are the doc’s five fixed sets: 0, 10, 20, 30 and every level (42)', () => {
+    expect(TIERS.map((t) => t.points)).toEqual([0, 10, 20, 30, 42]);
+    for (const t of TIERS) expect(dissonancePoints(t.levels), t.name).toBe(t.points);
+    const ids = (n: number) => TIERS[n]!.levels.map((l) => `${l.id}:${l.rank}`);
+    expect(ids(1)).toEqual(['hardened:2', 'wounding_strikes:2']);
+    expect(ids(2)).toEqual([...ids(1), 'restless_dead:1', 'elite_vanguard:1']);
+    expect(ids(3)).toEqual([...ids(2), 'tyrant:1', 'mimicry:1', 'short_fuse:2', 'brisk_foes:1']);
+    expect(ids(4)).toEqual(CONTENT.dissonance.map((d) => `${d.id}:${d.ranks}`));
+    expect(TIER_CALLINGS).toEqual([null, 'luminary', 'martyr', 'chronomancer', 'conductor']);
+    const build = rank20Build();
+    expect(build.astrolabe).toHaveLength(new Set(build.astrolabe).size);
+    expect(build.carried!.length).toBeGreaterThan(0);
+    expect(build.bonds!.map((b) => b.heroId)).toEqual([...CONTENT.defaultParty]);
+  });
+
+  it('dissonance.ts --tiers plays a tier with the Expert and prints its band', () => {
+    const out = execFileSync(
+      'npx',
+      ['tsx', 'tools/dissonance.ts', '--tiers', '--seeds', '1', '--only', '0'],
+      { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+    );
+    const lines = out.trim().split('\n');
+    expect(lines[0]).toMatch(
+      /^dissonance tiers · Finale-route Expeditions · expert · Rank 20 build/,
+    );
+    expect(lines[1]).toMatch(/^tier 0 \(0 pts: none\) · band Expert ≥90%/);
+    expect(lines[2]).toMatch(/^ {2}expert {3}won +\d+% \(\d\/1\) · reached the Finale/);
+    expect(lines).toHaveLength(4);
+  }, 300_000);
+
+  it('verbs.ts ablates the Expert’s rules, at a Dissonance level only when asked', () => {
+    expect(rulesFor(2, 'expert')).toEqual(EXPERT_RULES);
+    expect(rulesFor(4, 'skilled')).toEqual(FINALE_RULES);
+    expect(dissonanceArg(undefined)).toBeUndefined();
+    expect(dissonanceArg('tyrant,hardened:2')).toEqual([
+      { id: 'tyrant', rank: 1 },
+      { id: 'hardened', rank: 2 },
+    ]);
+    expect(() => dissonanceArg('nope')).toThrow(/Unknown Dissonance level/);
+    expect(() => dissonanceArg('tyrant:2')).toThrow(/ranks 1-1/);
+    expect('dissonance' in verbConfig('vharun', 7, 2)).toBe(false);
+    expect(verbConfig('vharun', 7, 2, { dissonance: dissonanceArg('tyrant') }).dissonance).toEqual([
+      { id: 'tyrant', rank: 1 },
+    ]);
+    const setup = { dissonance: dissonanceArg('mimicry') };
+    const on = verbFight('shattered_choir', 1000, new Set(), 1, setup, 'expert');
+    const off = verbFight('shattered_choir', 1000, new Set(['mimicFocus']), 1, setup, 'expert');
+    expect(on.expert!.mimicFocus).toBeGreaterThan(0);
+    expect(off.expert!.mimicFocus).toBe(0);
+    expect(expertTail([on])).toMatch(/^ · met tyrantFocus 0\.0 .* mimicFocus [1-9]/);
+    const skilled = verbFight('shattered_choir', 1000, new Set(), 1, setup, 'skilled');
+    expect('expert' in skilled).toBe(false);
+    expect(expertTail([skilled])).toBe('');
+  }, 120_000);
+
+  it('the harness plays the Expert (--bots expert) and prints its own bands', () => {
+    expect(parseArgs(['--bots', 'expert']).bots).toEqual(['expert']);
+    expect(makeBot('expert', 3)).toBeInstanceOf(ExpertBot);
+    const r = playEncounter({ seed: 1000, encounter: 'first_light' }, 'expert');
+    expect(r.bot).toBe('expert');
+    expect(r.outcome).toBe('victory');
+    expect(band('first_light', 'expert')).toBe('');
+    expect(band('the_silent_conductor', 'expert')).toMatch(/True Dissonance ≥75%/);
+    expect(band('the_silent_conductor', 'expert', NAMED_PARTIES.A!)).toBe('');
+    expect(runBand(4, 'expert')).toMatch(/tools\/dissonance\.ts --tiers/);
+    expect(runBand(2, 'expert')).toBe('');
+    // The other bots' bands are as they were.
+    expect(runBand(4, 'skilled')).toMatch(/^won ≥55%/);
   }, 120_000);
 });
