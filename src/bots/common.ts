@@ -20,6 +20,7 @@ import {
   fallingFast,
   gentle,
   onBeat,
+  openChain,
   overextended,
   parryArmed,
   parryable,
@@ -1197,16 +1198,15 @@ export function beatSoon(state: WorldState): number | null {
 
 /**
  * The open chain a Cue could still join: who is in it and how long (s) until its window shuts;
- * null with no chain, a full one (three long) or a closed window.
+ * null with no chain, a full one (three long) or a closed window. Which chain is open is the
+ * sim's `openChain`, so the bot's window is the sim's.
  */
 export function chainOpen(
   state: WorldState,
 ): { heroes: readonly EntityId[]; closesIn: number } | null {
-  const c = conductingOf(state);
-  const chain = c?.field.chain;
-  if (!c || !chain || chain.heroes.length >= 3) return null;
-  const closesIn = chain.at + c.view.chainWindow - state.time;
-  return closesIn >= 0 ? { heroes: chain.heroes, closesIn } : null;
+  const chain = openChain(state);
+  if (!chain) return null;
+  return { heroes: chain.heroes, closesIn: chain.at + state.mods.chainWindow - state.time };
 }
 
 /** The Grand Finale is playing. */
@@ -1214,7 +1214,12 @@ export function finaleOn(state: WorldState): boolean {
   return state.field.conducting?.finale !== undefined;
 }
 
-/** Marcato is on the path and can be given now (never given, or its cooldown is over). */
+/**
+ * Marcato is on the path and can be given now (never given, or its cooldown is over). A copy of
+ * the sim's rule, kept (docs/phase-7.md, W9): `marcatoReadyIn` reads ready up to 1e-9 s sooner
+ * (its tolerance), and swapping it in changes the Skilled bot's commands in the golden
+ * `skilled-conducting-silent` (at tick 2236 the cooldown ends 4.5e-13 s after `state.time`).
+ */
 export function marcatoReady(state: WorldState): boolean {
   const c = conductingOf(state);
   if (!c || !c.view.marcato) return false;
