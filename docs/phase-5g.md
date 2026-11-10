@@ -78,7 +78,7 @@ Relics by rarity: common 5 (Silver Thimble, Lantern of the Lost, Featherweight R
 - **The harness drafts the first option, takes the first relic, and picks the first event choice it can afford without choosing a motif** (`tools/harness-core.ts:2015-2016, 2030-2031, 1834-1848`). The order of an event's choices therefore decides what the harness does with it.
 - **The "more"-source lint doesn't exist.** `src/content/effects.ts:48-50` says content lint caps "more" sources at 4 a stat (02 §12 rule 1); nothing does (phase 5f found the same, docs/phase-5f.md:163). Ground rule 8 adds a hand-kept registry test.
 - **The word `window` is banned** in sim and content code, strings included (`tests/architecture.test.ts:60`). New texts say "within 0.35 s", never "window".
-- **Barrier kinds matter.** `addShield` replaces a shield of the same kind (`src/sim/combat/health.ts:228-230`). Ostinato's aura barrier is kind `barrier` (`src/sim/systems/field.ts:406`); every motif and relic barrier today is `overshield` (`thread.ts:106, 231`; `health.ts:188, 1469`). New barriers are `overshield` too, so they never displace Ostinato's (that would change an aura). Like Taut Release's today, a new overshield replaces an older overshield, including a chorus pulse's (`techniques.ts:1032`); that existing behaviour is unchanged and reported, not an aura change.
+- **Barrier kinds matter.** `addShield` replaces a shield of the same kind (`src/sim/combat/health.ts:228-230`). Ostinato's aura barrier is kind `barrier` (`src/sim/systems/field.ts:406`); every motif and relic barrier today is `overshield` (`thread.ts:106, 231`; `health.ts:188, 1469`). New barriers are `overshield` too, so they never displace Ostinato's (that would change an aura). Like Taut Release's today, a new overshield replaces an older overshield, including a chorus pulse's (`techniques.ts:1032`); that existing behaviour is unchanged and reported, not an aura change. As built, a trigger's barrier is kept off a hero's own overshield (an uncued Aegis Wall) and off a bigger one of the Weaver's, and replaces only a smaller one of hers.
 
 **Bible examples that exist under another name, or a bible name the game uses for something else.**
 
@@ -106,7 +106,7 @@ The fill is grouped so each new entry strengthens at least one build. These are 
 
 | Code | Build | How it plays | Calling and path (harness) | Party | Chords | Drafts first |
 |---|---|---|---|---|---|---|
-| **CS** | Choir Sovereign | hold the party in a planted field and let the songs carry them; few active saves | Luminary: Wide Choir, Dawnward, Third Voice, Sovereign Symphony | Kael, Lyra, Vexis | Anchor (Lullaby + Sostenuto planted; Third Voice fills a third) | Massed Voices, Close Harmony, Full Chord, Breath Between, Long Phrase, Stray Stitch, Closed Circle |
+| **CS** | Choir Sovereign | hold the party in a planted field and let the songs carry them; few active saves | Luminary: Wide Choir, Dawnward, Third Voice, Sovereign Symphony | Kael, Lyra, Vexis | Anchor (Lullaby + Sostenuto planted; Third Voice fills a third, as built Fermata) | Massed Voices, Close Harmony, Full Chord, Breath Between, Long Phrase, Stray Stitch, Closed Circle |
 | **PP** | Perfect Pitch | every well-timed Ward detonates, refunds and rings | Chronomancer: Foresight, Echo Ward, Temporal Mastery, Eternal Moment | Kael, Lyra, Vexis | Bastion | Steady Hands, Thread the Needle, Riposte Bloom, Tender Guard, Clean Strike, Ringing Steel, Shatterglass, Concert Pitch |
 | **BS** | Bleeding Saint | soak at low Life and turn your wounds into their healing | Martyr: Penitence, Blood Font, Undying Devotion, Sanguine Covenant | Kael, Lyra, Vexis | Guardian | Kindred Wound, Last Bastion, Vigil Song, Saving Grace, Breath Between, Wounded Healer |
 | **RL** | Razor Loom | the Thread as a weapon: string it through packs, snap it on purpose | none | Kael, Lyra, Vexis | All In | Razor Silk, Whiplash, Slack Line, Quickening Thread, Gilded Wake, Constellation Lines, Cutting Chorus |
@@ -131,33 +131,33 @@ Every new motif carries `requires: { expedition: true }` (decision 4); a hero-ga
 |---|---|---|---|---|---|
 | Razor Silk (`razor_silk`) | rare | Enemies touching your Thread take {v} damage a second. (30 / 50 / 70) | the first Weaver damage that depends on where the Thread runs; Guard Strand only stops bolts | New N1 | RL |
 | Whiplash (`whiplash`) | common | When the Thread snaps, enemies within 3 m of the hero it leaves take {v} damage. (120 / 180 / 240) | Taut Release turns a snap into a barrier; this turns it into an attack | Trigger: on `threadSnapped` → damage around its target | RL |
-| Slack Line (`slack_line`) | common | When the Thread snaps at range, it reattaches {v}% sooner. (30 / 45 / 60) | Knotted Cord shortens enemy cuts only (`relics.ts:176-184`); this is the range snap | New N2 | RL |
+| Slack Line (`slack_line`) | common | When the Thread snaps at range, you can attach it again {v}% sooner. (30 / 45 / 60; *as designed: "it reattaches {v}% sooner"*) | Knotted Cord shortens enemy cuts only (`relics.ts:176-184`); this is the range snap | New N2 | RL |
 | Gilded Wake (`gilded_wake`) | common | Empower stays on a hero for {v} s after the Thread leaves them. (1 / 1.5 / 2) | the Astrolabe's Afterglow does this for a single node; with both, the longer applies | Existing `empowerLinger` (the larger of the two) | RL, MA |
 | Quickening Thread (`quickening_thread`) | common | Empower's attack speed is {v}% greater. (50 / 75 / 100) | Golden Filament raises Empower's damage, not its speed | New N3 | RL, MA |
 | Brimming Thread (`brimming_thread`) | rare | Mend's overhealing becomes a barrier of up to {v}% of the hero's life, for 4 s. (8 / 12 / 16) | the Overflowing Grace keystone's effect without its Ward penalty, and smaller; with both, the keystone's cap applies | Existing `graceShieldPct`, `graceShieldDuration` | RD |
 | Warded Weft (`warded_weft`) | common | Mend heals {v}% more on a hero your Ward is on. (20 / 30 / 40) | Lifeline keys on low life; this on a Ward. Adds to the Astrolabe's Lifeguard | Existing `mendWarded` (adds) | PP, RD |
 | Thread the Needle (`thread_the_needle`) | epic | Moving the Thread onto a hero within 0.35 s before a telegraph strikes them negates {v}% of the hit and gives half a Perfect Ward's Resonance. (50) | the first well-timed save that isn't a Ward; rewards retargeting on the beat of a hit. It is not a Perfect Ward: nothing that pays "a Perfect Ward" fires on it | New N4 | PP |
 | Gilt Edge (`gilt_edge`) | common | Kills by an Empowered hero give {v} more Resonance. (2 / 3 / 4) | adds to the existing +2 for an Empowered kill (`health.ts:1863`) | New N5 | MA |
-| Stray Stitch (`stray_stitch`) | rare | While you Mend, every {v} s the most hurt other hero in your field heals 4% of their life. (5 / 4 / 3) | the Prism Loom spreads by distance from the threaded hero; this follows need, inside the field | Trigger: every {v} s while Mending → heal the lowest other hero in the field | CS |
-| Spindle Turn (`spindle_turn`) | common | Moving the Thread to another hero gives back {v} Spirit, at most once every 3 s. (2 / 3 / 4) | Relay Weave heals and Silver Thimble shields on a retarget; this feeds Spirit | Trigger: on `threadAttached` → Spirit, every 3 s | MA, RL |
+| Stray Stitch (`stray_stitch`) | rare | For every {v} s you spend Mending, in all, the most hurt other hero in your field heals 4% of their life. (5 / 4 / 3; *as designed: "While you Mend, every {v} s ..."*) | the Prism Loom spreads by distance from the threaded hero; this follows need, inside the field | Trigger: every {v} s while Mending → heal the lowest other hero in the field | CS |
+| Spindle Turn (`spindle_turn`) | common | Moving the Thread to another hero gives back {v} Spirit, at most once every 3 s. (2 / 3 / 4) | Relay Weave heals and Silver Thimble shields on a retarget; this feeds Spirit | Trigger: on `threadAttached` (a move to another hero, condition `moved`) → Spirit, every 3 s | MA, RL |
 | Kindred Wound (`kindred_wound`) | rare | When you take damage, the hero you Thread heals {v}% of it. (25 / 35 / 45) | the only motif that pays off the Weaver being hit; Bear makes it constant | Trigger: on `damageTaken` with the Weaver as target → heal the threaded hero | BS |
 
 ### Aegis: Ward, Chime, Reel and Glide (12 new; 7 → 19)
 
 | Motif (id) | Rarity | Text (L1 / L2 / L3) | Distinct from | Sim | Builds |
 |---|---|---|---|---|---|
-| Shatterglass (`shatterglass`) | rare | When a Ward breaks, its shards strike the 3 nearest enemies within 5 m of the hero for {v} damage each. (100 / 150 / 200) | Riposte Bloom pays a Perfect; this pays a Ward that was used up | Trigger: on `shieldBroken` (a Ward) → damage to 3 nearest | PP, RD |
+| Shatterglass (`shatterglass`) | rare | When a Ward breaks, its shards strike the 3 nearest enemies within 5 m of whoever held it for {v} damage each. (100 / 150 / 200; *as designed: "of the hero"*) | Riposte Bloom pays a Perfect; this pays a Ward that was used up | Trigger: on `shieldBroken` (a Ward, condition `usedUp`: not a Perfect's spend) → damage to 3 nearest | PP, RD |
 | Sister Ward (`sister_ward`) | rare | When you Ward a hero, the nearest other hero within 6 m gains a barrier of {v}% of their life for 3 s. (12 / 18 / 24) | Twin Aegis gives charges; Chorale is a variant that replaces the Ward. The plan's *Twin Aegis* effect | Trigger: on `techniqueCast` (Ward) → barrier on the nearest other hero | RD, PP |
 | Clean Strike (`clean_strike`) | common | A Perfect Ward gives back {v} Spirit. (6 / 9 / 12) | the only Perfect payoff in Spirit | Trigger: on `perfectWard` → Spirit | PP |
 | Ringing Steel (`ringing_steel`) | common | A Perfect Ward staggers its attacker {v}% longer. (30 / 50 / 70) | control, not damage; the Astrolabe's Ringing Parry is the same lever and they multiply | Existing `staggerMult` (multiplies) | PP |
-| Clutch Peal (`clutch_peal`) | common | A Clutch Cleanse gives {v} more Resonance. (5 / 8 / 10) | the first Chime payoff in Resonance | Trigger: on `cleansed` with `clutch` → Resonance | PP, MA |
+| Clutch Peal (`clutch_peal`) | common | A Clutch Cleanse gives {v} more Resonance. (5 / 8 / 10) | the first Chime payoff in Resonance | Trigger: on `chimeLanded` with `clutch` → Resonance (once a Chime; see *As built*) | PP, MA |
 | Bright Peal (`bright_peal`) | common | Every hero your Chime cleanses gains a barrier of {v}% of their life for 3 s. (8 / 12 / 16) | Absolve is a variant that heals and guards; this keeps the default Chime and adds a barrier | Trigger: on `cleansed` (removed > 0) → barrier on the target | RD |
-| Safe Harbour (`safe_harbour`) | common | A hero you Reel lands with a barrier of {v}% of their life for 3 s. (10 / 15 / 20) | Fisher's Knot shortens Reel's cooldown; Anchor is a variant | Trigger: on `reeled` → barrier on the target | RD |
-| Light Step (`light_step`) | common | Where you land a Glide, every hero within 3 m heals {v}% of their life. (4 / 6 / 8) | the first Glide that helps the party | Trigger: on `glided` → heal heroes within 3 m of the landing | CS |
+| Safe Harbour (`safe_harbour`) | common | A hero you Reel gains a barrier of {v}% of their life for 3 s. (10 / 15 / 20; *as designed: "lands with"*) | Fisher's Knot shortens Reel's cooldown; Anchor is a variant | Trigger: on `reeled` → barrier on the target; and on `techniqueCast` of Swap or Anchor (condition `variant`), which pull no one in and emit no `reeled` | RD |
+| Light Step (`light_step`) | common | Where you land a Glide, every hero within 3 m heals {v}% of their life. (4 / 6 / 8) | the first Glide that helps the party | Trigger: on `glided` → heal heroes within 3 m of the landing; and on `techniqueCast` of Phase Step (condition `variant`), which emits no `glided` | CS |
 | Shieldsong (`shieldsong`) | common | A hero your Ward is on deals {v}% more damage. (10 / 15 / 20) | adds to the Astrolabe's Shield Bearer; the Ward as a buff | Existing `wardedDamage` (adds) | RD, PP |
-| Second Toll (`second_toll`) | rare | After a Clutch Cleanse, Chime recovers {v} s at once. (3 / 4.5 / 6) | Hollow Bell and Stillwater Bell shorten the cooldown always; this rewards the clutch | Trigger: on `cleansed` with `clutch` → Chime cooldown −{v} s | PP |
+| Second Toll (`second_toll`) | rare | After a Clutch Cleanse, Chime recovers {v} s at once. (3 / 4.5 / 6) | Hollow Bell and Stillwater Bell shorten the cooldown always; this rewards the clutch. A Clutch Cleanse only exists against a Dirge (see *As built*) | Trigger: on `chimeLanded` with `clutch` → Chime cooldown −{v} s (with Everbell, its recharge clock too) | PP |
 | Tender Guard (`tender_guard`) | common | A Perfect Ward heals its hero {v}% of their life. (8 / 12 / 16) | Glass Halo heals everyone at a cost; this heals the one you guarded, free | Trigger: on `perfectWard` → heal the target | PP |
-| Last Bastion (`last_bastion`) | rare | Your Ward on a hero below 35% of their life is {v}% larger. (30 / 45 / 60) | Blood Tithe does this for Brann alone (`mods.ts:559-562`); this is for anyone | New N6 | BS, RD |
+| Last Bastion (`last_bastion`) | rare | Your Ward on a hero below 35% of their life is {v}% larger. (30 / 45 / 60) | Blood Tithe does this for Brann alone (`mods.ts:559-562`); this is for anyone | New N6 (also on each of a Chorale's Wards; not Aegis Link, which has no barrier) | BS, RD |
 
 ### Choir: the field, outside the auras (5 new; 7 → 12, 18 with W7)
 
@@ -186,8 +186,8 @@ Hero-gated before any draw, as today (`run.ts:2033`), so each changes only runs 
 | Bloodsong (`bloodsong`) | Brann | common | When a barrier on Brann breaks, he heals {v}% of his life, at most once every 4 s. (3 / 4 / 5) | heals through barriers, the healing Blood Rage wants; Blood Rage still halves it | Trigger: on `shieldBroken` (on Brann) → heal him, every 4 s | RD |
 | Edge of the Red (`edge_of_the_red`) | Brann | rare | While Brann is below 30% of his life, your Empower on him is {v}% stronger. (20 / 30 / 40) | Blood and Silk pays Resonance at the same line; this pays damage | New N12 | RD |
 | Cold Steel (`cold_steel`) | Seren | rare | Seren's counters after a parry deal {v}% more. (20 / 30 / 40) | En Garde pays Resonance per parry; this the counter itself | New N13 | RD, PP |
-| Second Intention (`second_intention`) | Seren | common | A Perfect Ward on Seren also gives her a barrier of {v}% of her life. (10 / 15 / 20) | keeps her parry armed after the Ward is spent | Trigger: on `perfectWard` (Seren) → barrier on her | RD, PP |
-| Graft (`graft`) | Oro | rare | Rootbond's Mend on Oro's Saplings is {v}% stronger. (25 / 50 / 75) | Verdant Choir has the Saplings sing; this heals them | New N14 | CS |
+| Second Intention (`second_intention`) | Seren | common | A Perfect Ward on Seren also gives her a barrier of {v}% of her life for 4 s. (10 / 15 / 20; *as designed: no duration in the text*) | a barrier after the Ward is spent. As designed it also kept her parry armed; as built it does not (see *As built*) | Trigger: on `perfectWard` (Seren) → barrier on her | RD, PP |
+| Graft (`graft`) | Oro | rare | Rootbond's Mend on Oro's Saplings is {v}% stronger. (25 / 50 / 75) | Verdant Choir has the Saplings sing; this heals them. The share is one number for all of Oro's summons, so the Ancient gets it too | New N14 | CS |
 | Seed Vault (`seed_vault`) | Oro | common | When one of Oro's Saplings falls, Oro gains a barrier of {v}% of his life for 4 s. (10 / 15 / 20) | the first payoff for a fallen Sapling | Trigger: on `summonFell` (a Sapling) → barrier on its owner | CS |
 
 ### Finale: Resonance, Cues and the Crescendo (12 new; 5 → 17)
@@ -209,19 +209,19 @@ Hero-gated before any draw, as today (`run.ts:2033`), so each changes only runs 
 
 ### Harmonies (10 new; 1 → 11, 12 with W7)
 
-A Harmony is offered once every prerequisite is owned (`run.ts:2040-2043`); a hero or aura gate is checked as for any motif. Harmonies are rarity `epic`, one level, tagged `harmony`, and are the only new entries allowed to be "more" sources (02 §12 rule 1; ground rule 8).
+A Harmony is offered once every prerequisite is owned (`run.ts:2040-2043`); a hero or aura gate is checked as for any motif. Harmonies are rarity `epic`, one level, tagged `harmony`, and are the only new entries allowed to be "more" sources (02 §12 rule 1; ground rule 8). As built, Concert Pitch is not a factor of its own: its bonus is added into the party damage factor (see *As built*).
 
 | Harmony (id) | Requires | Text | Sim | Builds |
 |---|---|---|---|---|
 | Woven Aegis (`woven_aegis`) | Warded Weft + Lingering Aegis | Mend on a hero your Ward is on also refills the Ward by {v}% of the healing. (30) | New N19 | PP, RD |
 | Cutting Chorus (`cutting_chorus`) | Razor Silk; Fortissimo in your songs | With Fortissimo in your songs, Razor Silk deals {v}% more damage and can strike critically. (100) | New N1 (its multiplier and crit) | RL |
 | Guardian's Cadence (`guardians_cadence`) | Kael; Iron Answer + Riposte Bloom | Kael's Shield Bash sets off Riposte Bloom around him at {v}% strength. (50) | Trigger: on `abilityUsed` (Kael's `shieldBash`) → Riposte Bloom's damage × {v}% around him | PP |
-| Spindle Lullaby (`spindle_lullaby`) | Razor Silk; Lullaby in your songs | With Lullaby in your songs, ordinary enemies touching your Thread fall asleep for {v} s, once per enemy every 8 s. (1) | New N1 (the existing `sleep` status) | RL, CS |
+| Spindle Lullaby (`spindle_lullaby`) | Razor Silk; Lullaby in your songs | With Lullaby in your songs, ordinary enemies touching your Thread fall asleep for {v} s, once per enemy every 8 s. (1) | New N1 (the existing `sleep` status; a hero's blow ends any sleep, see *As built*) | RL, CS |
 | Tempo Rubato (`tempo_rubato`) | Canon + Opening Bars | One Cue in every {v} costs no Resonance. (3) | New N15 | MA |
-| Concert Pitch (`concert_pitch`) | Steady Hands + Thread the Needle | A Perfect Ward rings out: every hero deals {v}% more damage for 4 s. (15) | New N20 | PP |
+| Concert Pitch (`concert_pitch`) | Steady Hands + Thread the Needle | A Perfect Ward rings out: every hero deals {v}% more damage for 4 s. (15) | New N20 (added into the party damage factor, not multiplied on) | PP |
 | Grand Staff (`grand_staff`) | Golden Filament + Call and Response | Empowered heroes' Solos charge {v}% faster. (100) | New N21 | MA |
 | Crossed Steel (`crossed_steel`) | Seren; En Garde + Second Intention | Each parry Seren makes brings your Ward {v} s closer. (2) | Trigger: on `parried` → Ward cooldown −{v} s | RD, PP |
-| Wounded Healer (`wounded_healer`) | Kindred Wound + Saving Grace | While you are below half your Life, Mend heals {v}% more and your Wards are {v}% larger. (25) | New N22 | BS |
+| Wounded Healer (`wounded_healer`) | Kindred Wound + Saving Grace | While you are below half your Life, Mend heals {v}% more and your Wards are {v}% larger. (25) | New N22 (a Chorale's Wards too; not Aegis Link) | BS |
 | Closed Circle (`closed_circle`) | Massed Voices + Close Harmony | While every hero stands in your field, they take {v}% less damage. (10) | New N23 | CS |
 
 Each build has at least one Harmony: CS Closed Circle and Spindle Lullaby; PP Concert Pitch, Woven Aegis and Guardian's Cadence; BS Wounded Healer; RL Cutting Chorus and Spindle Lullaby; MA Tempo Rubato and Grand Staff; RD Blood and Silk (exists) and Crossed Steel.
@@ -230,26 +230,26 @@ W0 adds the missing lint that every `requires.motifs` id names a real motif (tod
 
 ### Relics (18 new; 21 → 39, 40 with W7)
 
-Every new relic carries `expedition: true` (decision 4). Every one with numbers has `empowered` values for the Reliquary's Dissonate (`schema.ts:950`), about +50% on its main number; the column gives them.
+Every new relic carries `expedition: true` (decision 4). Every one with numbers has `empowered` values for the Reliquary's Dissonate (`schema.ts:950`), about +50% on its main number; the column gives them. Three have none, because the column gave none: Everbell, Water Clock and Hollow Crown roll as Dissonant (see *As built*).
 
 | Relic (id) | Rarity | Text | Values (empowered) | Distinct from | Sim | Builds |
 |---|---|---|---|---|---|---|
 | Pilgrim's Lamp (`pilgrims_lamp`) | common | When a hero is revived, they gain a barrier worth {barrier}% of their life for {seconds} s. | barrier 25 (35), seconds 4 | the Lantern pays when a hero goes down; this when they come back | Trigger: on `revived` → barrier | all |
 | Tin Whistle (`tin_whistle`) | common | Answering a hero's call gives {resonance} more Resonance. | resonance 5 (8) | adds to the Astrolabe's Ready Answer | Existing `responseBonus` (adds) | MA |
 | Black Ribbon (`black_ribbon`) | common | When a heavy foe falls (a Bell Brute, Impaler, Crimson Sentinel, Void Maw, Hollow Champion, or the Mirror Bass or Tenor), every hero heals {heal}% of their life. | heal 10 (15) | the first relic that pays a kill; "heavy foe" is content's `role: 'brute'` | Trigger: on `enemyKilled` whose def has `role: 'brute'` → heal, all | all |
-| Pedlar's Ledger (`pedlars_ledger`) | common | Merchants stock {more} more relic. | more 1 (2); `runOnly` | Star Chart widens drafts; this widens shops | New N25 (run layer) | all |
-| Spare Strings (`spare_strings`) | common | Once per fight, the first time your Thread snaps at range, it reattaches at once. | none | Slack Line shortens every snap; this forgives one | New N24 | RL |
+| Pedlar's Ledger (`pedlars_ledger`) | common | Every merchant's relic shelf holds {more} more. (*as designed: "Merchants stock {more} more relic."*) | more 1 (2); `runOnly` | Star Chart widens drafts; this widens shops | New N25 (run layer) | all |
+| Spare Strings (`spare_strings`) | common | Once per fight, the first time your Thread snaps at range, it doesn't lock: you can thread again at once. (*as designed: "it reattaches at once"*) | none | Slack Line shortens every snap; this forgives one | New N24 | RL |
 | Echoing Shell (`echoing_shell`) | rare | A Perfect Ward charges every other hero's Solo by {pct}%. | pct 10 (15) | Tuning Fork charges the guarded hero's | Trigger: on `perfectWard` → Solo charge, the others | PP, MA |
 | Lament Pin (`lament_pin`) | rare | When a hero goes down, you gain {resonance} Resonance. | resonance 25 (35) | turns a loss into a Crescendo sooner | Trigger: on `allyDowned` → Resonance | BS |
-| Sand Glass (`sand_glass`) | rare | After a Perfect Ward, your Chime, Reel and Glide recover {seconds} s. | seconds 1.5 (2) | the Perfect already refunds the Ward; this the other three | Trigger: on `perfectWard` → those cooldowns −{seconds} s | PP |
+| Sand Glass (`sand_glass`) | rare | After a Perfect Ward, your Chime, Reel and Glide recover {seconds} s. | seconds 1.5 (2) | the Perfect already refunds the Ward; this the other three. The Chronomancer's Rewind lives in Reel's cooldown and is left alone | Trigger: on `perfectWard` → those cooldowns −{seconds} s (not Reel's while Rewind is held; with Everbell, the Chime's recharge clock) | PP |
 | Prompt Book (`prompt_book`) | rare | Your first Crescendo in each fight costs {cost} less Resonance. | cost 15 (20) | Cantor's Hymnal starts you with Resonance; this lowers the price once | New N15b | MA, PP |
-| Thornwreath (`thornwreath`) | rare | Heroes below {below}% of their life deal {pct}% more damage. | below 30, pct 20 (30) | the low-life play the Red Line wants, for any hero | New N30 | RD, BS |
+| Thornwreath (`thornwreath`) | rare | Heroes below {below}% of their life deal {pct}% more damage. | below 30, pct 20 (30) | the low-life play the Red Line wants, for any hero | New N30 (added into the party damage factor, not multiplied on) | RD, BS |
 | Bell Clapper (`bell_clapper`) | rare | Your Chime stuns ordinary enemies it reaches for {seconds} s. | seconds 1 (1.5) | the first Chime that controls | Trigger: on `chimeLanded` → `stun` on ordinary enemies within its radius | PP, CS |
 | Mender's Needle (`menders_needle`) | rare | Mend revives a downed hero {pct}% faster. | pct 50 (75) | multiplies with the Astrolabe's revive nodes | Existing `reviveSpeedMult` (multiplies) | all |
-| Everbell (`everbell`) | legendary | Your Chime holds {charges} charges. | charges 2 | Ward charges exist (Twin Aegis, First Score); the Chime has none | New N26 | PP |
+| Everbell (`everbell`) | legendary | Your Chime holds {charges} charges. | charges 2 | Ward charges exist (Twin Aegis, First Score); the Chime has none | New N26 (a recharge clock of its own; Second Toll and Sand Glass cut it) | PP |
 | Heartwood Lute (`heartwood_lute`) | legendary | Your Crescendo also fills every hero's Solo. | none | Taking Bows charges Solos when it ends, partly; this fills them as it starts | Trigger: on `crescendoStart` → Solo charge 100, all | MA |
-| Water Clock (`water_clock`) | legendary | Once per fight, when a hero goes down, time turns back for them: they stand again with the life and the place they had {seconds} s before. | seconds 3 | Sacrificial Lamb and Martyr's Veil move a lethal hit; this undoes it, after the fact | New N27 | BS, all |
-| Iron Mask (`iron_mask`) | cursed | Your heroes take {pct}% less damage. *Curse:* your Thread can't Empower. | pct 12 (18); *was 15 (20), W11* | a defence for a Mend-only build, paid with half the Thread | New N28 | CS, BS |
+| Water Clock (`water_clock`) | legendary | Once per fight, when a hero goes down, time turns back for them: they stand again with the life and the place they had {seconds} s before. | seconds 3 | Sacrificial Lamb and Martyr's Veil move a lethal hit; this undoes it, after the fact. As built the down is undone before it is counted: it leaves no down, death record or `allyDowned` | New N27 | BS, all |
+| Iron Mask (`iron_mask`) | cursed | Your heroes take {pct}% less damage. *Curse:* your Thread can't Empower. | pct 12 (18); *was 15 (20), W11* | a defence for a Mend-only build, paid with half the Thread. While it is held no Empower call is issued or counted | New N28 | CS, BS |
 | Red Ink (`red_ink`) | cursed | Every Perfect Ward gives {resonance} more Resonance. *Curse:* your Ward recovers {slower} s slower. | resonance 10 (15), slower 3 | Glass Halo shrinks the Ward; this slows it | Trigger: on `perfectWard` → Resonance; curse: existing `wardCooldownCut` at −{slower} unless cleansed | PP |
 | Hollow Crown (`hollow_crown`) | cursed | Cues cost {cut} less Resonance. *Curse:* Solos charge {pct}% slower. | cut 10, pct 25 | cheaper Cues, fewer of them ready | Existing `cueCostBonus` (−{cut}) and `soloChargeMult` (×0.75 unless cleansed), plus New N29 (a Cue never costs below 0) | MA |
 
@@ -257,7 +257,7 @@ Rarities after the fill: common 10, rare 16, legendary 8, cursed 5 (39); W7's Di
 
 ### Events and boons (6 events, 2 boons; events 10 → 16)
 
-Each lists its choices **in order**: the harness takes the first it can (`harness-core.ts:1834-1848`). Every event keeps a free choice with nothing to pick (`schema.ts:2605-2616`). Only existing effect kinds are used (`schema.ts:975-1002`).
+Each lists its choices **in order**: the harness takes the first it can (`harness-core.ts:1834-1848`). A choice that asks for a motif is taken only when the run has a draft preference list (see *As built*). Every event keeps a free choice with nothing to pick (`schema.ts:2605-2616`). Only existing effect kinds are used (`schema.ts:975-1002`).
 
 | Event (id) | Movement | Scene | Choices, in order |
 |---|---|---|---|
@@ -275,7 +275,7 @@ New boons (appended after Mended Loom, `relics.ts:259`):
 | Steadied (`steadied`) | boon | Your heroes deal {pct}% more damage. | pct 10 | 2 | Existing `partyDamageMult` (multiplies) |
 | Faltering (`faltering`) | bane | Your heroes deal {pct}% less damage. | pct 10 | 1 | Existing `partyDamageMult` (multiplies) |
 
-To verify in W6: the Movement lint (`schema.ts:1932-1986`) accepts `mirror_hall`, a Movement III skirmish, as an event fight. If it does not, Lost Weaver's Echo fights `unstitched_vanguard`, as the Loose Thread's *Pull* does.
+Verified in W6: the Movement lint accepts `mirror_hall`, a Movement III skirmish, as an event fight, so Lost Weaver's Echo fights it and the `unstitched_vanguard` fallback was not needed. The Quartermaster's two paid choices are refused when no relic of their rarity is left to sell (`eventChoiceProblem`, `src/meta/run.ts`).
 
 ## W7: auras and ornaments (needs your approval before it is built)
 
@@ -324,12 +324,12 @@ W7 also owns these auras' and ornaments' looks (colours through `tests/colorVisi
 
 A new system, `src/sim/systems/triggers.ts`, that runs once a tick and reacts to the events emitted earlier that tick. It replaces about forty bespoke hooks with one interpreter, and it is inert on every existing run.
 
-- **Where.** `stepWorld` (`src/sim/api.ts:75-125`) records `const mark = world.events.length` as its first line (a local, not state) and calls `if (world.internal.triggers) updateTriggers(world, mark)` immediately before `updateLedger(world)`. Without a trigger-holding motif or relic, `world.internal.triggers` is absent and nothing runs.
-- **What it reads.** Events from `mark` to the length at entry, in emission order; triggers in the order the run's motifs, relics and boons were resolved. Effects it applies emit events too; those are not read in the same pass.
-- **Events it reacts to:** `perfectWard`, `save`, `cleansed`, `chimeLanded`, `reeled`, `glided`, `threadAttached`, `threadSnapped`, `techniqueCast`, `shieldBroken`, `damageTaken` (with the Weaver as target), `abilityUsed`, `cued`, `crescendoStart`, `crescendoEnd`, `allyDowned`, `revived`, `parried`, `summonFell`, `enemyKilled`, and a timer (`every s`). Conditions: a target hero by content id, the Thread's mode, a Crescendo playing, another Cue within s, `clutch`, the slain enemy's content role.
-- **Effects it can apply**, each through the existing function that already does it: a barrier (`addShield` with kind `overshield`, from the Weaver, `health.ts:201`); a heal (`heal`, `:601`); Resonance (`gainResonance`, `resonance.ts:10`); Spirit; Solo charge; damage around a point or to the nearest n enemies (`dealDamage`, `health.ts:784`, credited as Riposte Bloom's nova is, `telegraphs.ts:670`); a status on ordinary enemies within a radius (`addStatus`, `:283`: `stun`, `sleep`); a technique's cooldown; a hero ability's cooldown; Empower for s (`hero.afterglowUntil`); the Crescendo's remaining time, capped.
-- **Limits.** Each trigger has an optional `every` (seconds between fires) and `perFight`; their clocks live in `world.internal.triggers` (hashed, absent without triggers).
-- **What it tells the views.** Each fire emits `motifTriggered { source, target? }` (new, appended to the event union) for the UI, render and audio, and counts into `ledger.triggers?: Record<string, number>` (absent without triggers) for the harness and the Result.
+- **Where.** `stepWorld` (`src/sim/api.ts:75-125`) records `const mark = world.events.length` as its first line (a local, not state) and calls `if (world.internal.triggers) updateTriggers(world, mark, dt)` immediately before `updateLedger(world)`. Without a trigger-holding motif or relic, `world.internal.triggers` is absent and nothing runs.
+- **What it reads.** Events from `mark` to the length at entry, in emission order; triggers in the order the run's motifs, relics and boons were resolved. Effects it applies emit events too; as designed they were not read at all, as built the next tick's pass reads them once, before that tick's own (a kill by a trigger's damage reaches Black Ribbon), and the pass returns at once when the fight is over (see *As built*).
+- **Events it reacts to:** `perfectWard`, `save`, `cleansed`, `chimeLanded`, `reeled`, `glided`, `threadAttached`, `threadSnapped`, `techniqueCast`, `shieldBroken`, `damageTaken` (with the Weaver as target), `abilityUsed`, `cued`, `crescendoStart`, `crescendoEnd`, `allyDowned`, `revived`, `parried`, `summonFell`, `enemyKilled`, and a timer (`every s`). Conditions: a target hero by content id, the Thread's mode, a Crescendo playing, another Cue within s, `clutch`, the slain enemy's content role. As built it also has `technique`, `ability`, `shield`, `summon` and `removed`, which the tables needed, and later `usedUp`, `moved` and `variant` (see *As built*).
+- **Effects it can apply**, each through the existing function that already does it: a barrier (`addShield` with kind `overshield`, from the Weaver, `health.ts:201`); a heal (`heal`, `:601`); Resonance (`gainResonance`, `resonance.ts:10`); Spirit; Solo charge; damage around a point or to the nearest n enemies (`dealDamage`, `health.ts:784`, credited as Riposte Bloom's nova is, `telegraphs.ts:670`); a status on ordinary enemies within a radius (`addStatus`, `:283`: `stun`, `sleep`); a technique's cooldown; a hero ability's cooldown; Empower for s (`hero.afterglowUntil`); the Crescendo's remaining time, capped. Where an effect is centred (`at`) is the event, the Weaver, the threaded hero or, as built, `hero` (the event's hero wherever the event itself sits).
+- **Limits.** Each trigger has an optional `every` (seconds between fires) and `perFight`; their clocks live in `world.internal.triggers` (hashed, absent without triggers). As built a fire in which no effect did anything spends neither its count nor its cooldown.
+- **What it tells the views.** Each fire that did something emits `motifTriggered { source, target? }` (new, appended to the event union) for the UI, render and audio, and counts into `ledger.triggers?: Record<string, number>` (absent without triggers) for the harness and the Result.
 - **Draws.** None. Targets are chosen by distance, then entity id.
 
 ### New hooks (W0 places the call sites; the owning stream writes the bodies)
@@ -338,21 +338,21 @@ Each is a guarded one-line call in the shared file into the owning stream's `src
 
 | # | For | Shared file and site | What |
 |---|---|---|---|
-| N1 | Razor Silk, Constellation Lines, Cutting Chorus, Spindle Lullaby | `systems/thread.ts` `updateThread`; a shared test `onThread(world, enemy)` in `sim/fill/threadContact.ts` (W0 writes it: the segment from the Weaver to the threaded hero against the enemy's radius) | damage every 0.5 s to touching enemies (`razorDps`), its multiplier and crit (`razorMult`, `razorCrit`), sleep (`razorSleep`) |
+| N1 | Razor Silk, Constellation Lines, Cutting Chorus, Spindle Lullaby | `systems/thread.ts` `updateThread`; a shared test `onThread(world, enemy)` in `sim/fill/threadContact.ts` (W0 writes it: the segment from the Weaver to the threaded hero against the enemy's radius) | damage every 0.5 s to touching enemies (`razorDps`), its multiplier and crit (`razorMult`, `razorCrit`), sleep (`razorSleep`). As built Spindle Lullaby has its own call site in `updateThread`, and Cutting Chorus is read from inside Razor Silk's damage |
 | N2 | Slack Line | `thread.ts`, the range snap's lockout | `snapLockMult` (the enemy cut's lock is `cutLockMult`, untouched) |
 | N3 | Quickening Thread | `thread.ts:318` | `empowerSpeedMult` on `empowerAttackSpeed` |
 | N4 | Thread the Needle | `thread.ts` on attach sets `hero.needleUntil?`; `combat/telegraphs.ts` before a telegraph's damage to a hero | negate `needlePct` of the hit; give half a Perfect's Resonance (10); emit `needled` (new event). No cooldown refund or stagger |
 | N5 | Gilt Edge | `health.ts:1863`, beside the Empowered-kill gain | `empoweredKillBonus` |
 | N6 | Last Bastion | `systems/techniques.ts`, the Ward's barrier, beside Blood Tithe | `lowWardBonus`, `lowWardBelow` |
 | N7 | Close Harmony | `systems/weaver.ts`, Spirit regen | `huddleRegen` while 3+ heroes have `inField` |
-| N8 | Breath Between | `techniques.ts`, technique cost | `restDiscount` after 4 s without a cast (`weaver.lastCastAt?`) |
+| N8 | Breath Between | `techniques.ts`, technique cost | `restDiscount` after 4 s without a cast (`weaver.lastCastAt?`). As built also in `techniqueCost` (`astrolabe.ts`), so the HUD and bots show the same price, and a rested Ward's Perfect refund is capped at what it cost (`Shield.restPaid`) |
 | N9 | Full Chord | `health.ts`, damage taken, beside Haloed (`:917`) | `perAuraGuard` × auras in the songs, heroes `inField` |
-| N10, N10b | Inner Orbit; Constellation Lines' Starbolt | `systems/heroes.ts`, cast time; Starbolt's landing | `orbitCast` for Vexis `inField`; Starbolt calls `onThread` |
+| N10, N10b | Inner Orbit; Constellation Lines' Starbolt | `systems/heroes.ts`, cast time; Starbolt's landing | `orbitCast` for Vexis `inField`; Starbolt calls `onThread` (as built when the bolt is queued, not when it lands) |
 | N11 | Split Fletching | Lyra's arrow hit (`systems/hits.ts`) | `pierce` share while Empowered |
 | N12 | Edge of the Red | `thread.ts` `empowerBonus` | `redEdge` while the hero has Blood Rage and is below 30% |
 | N13 | Cold Steel | `systems/duel.ts`, the parry counter | `counterBonus` |
 | N14 | Graft | `systems/grove.ts`, Rootbond's share | `graftMult` |
-| N15, N15b | Opening Bars, Tempo Rubato; Prompt Book | `systems/conducting.ts` `cueCostNow` and `crescendoCostOf`, so the HUD and bots read the same number (docs/phase-5f.md:364-365) | `firstCueCut`, `freeCueEvery` (counted from `ledger.cues`), `firstCrescendoCut` |
+| N15, N15b | Opening Bars, Tempo Rubato; Prompt Book | `systems/conducting.ts` `cueCostNow` and `crescendoCostOf`, so the HUD and bots read the same number (docs/phase-5f.md:364-365) | `firstCueCut`, `freeCueEvery` (counted from `ledger.cues`), `firstCrescendoCut`. As built the Crescendo itself never used `crescendoCostOf`, so its check and spend (`techniques.ts`) go through the hook too |
 | N16 | Tenuto | `combat/resonance.ts:37-44`, the 5 s idle | `fadeDelay` |
 | N17 | Tuning Up | `world.ts`, hero spawn | `startSoloCharge` (beside The Last Note's `startSolos`, `world.ts:1159`) |
 | N18 | Vigil Song | `thread.ts`, Mend | `vigilResonance` below 30% |
@@ -362,10 +362,10 @@ Each is a guarded one-line call in the shared file into the owning stream's `src
 | N22 | Wounded Healer | `thread.ts` (Mend) and `techniques.ts` (Ward) | `woundedBonus` below half the Weaver's Life |
 | N23 | Closed Circle | `health.ts`, damage taken | `circleGuard` while every standing hero is `inField` |
 | N24 | Spare Strings | `thread.ts`, the range snap | `spareSnap` once a fight (`weaver.spareUsed?`) |
-| N25 | Pedlar's Ledger | `src/meta/run.ts` `makeShop` (`:1713`), `SHOP_RELICS` + the relic's value | run layer only |
-| N26 | Everbell | `techniques.ts`, Chime cooldown, as Ward charges are | `chimeCharges` (`weaver.chimeCharges?`) |
-| N27 | Water Clock | `systems/rewind.ts` `recordPast` (`:28-40`) records when the relic is held, on its own guard line beside the Chronomancer's; `health.ts` `heroOut` path rewinds once | `waterClock` seconds; the history buffer is allocated at spawn only with the relic |
-| N28 | Iron Mask | `thread.ts` (Empower refused) and `health.ts` (damage taken) | `maskGuard`, `noEmpower` |
+| N25 | Pedlar's Ledger | `src/meta/run.ts` `makeShop` (`:1713`), `SHOP_RELICS` + the relic's value | run layer only (unguarded: there is no `Mods` in the run layer, so it adds 0 without the relic) |
+| N26 | Everbell | `techniques.ts`, Chime cooldown, as Ward charges are | `chimeCharges` (`weaver.chimeCharges?`). As built also a spawn site (`world.ts`) and a recharge site (`weaver.ts`), with `weaver.chimeRecharge` as the charge clock |
+| N27 | Water Clock | `systems/rewind.ts` `recordPast` (`:28-40`) records when the relic is held, on its own guard line beside the Chronomancer's; `health.ts` `heroOut` path rewinds once (as built in `downHero`, before the down is counted; the `heroOut` site was removed) | `waterClock` seconds; the history buffer is allocated at spawn only with the relic |
+| N28 | Iron Mask | `thread.ts` (Empower refused), `systems/calls.ts` (an Empower call is not issued) and `health.ts` (damage taken) | `maskGuard`, `noEmpower` |
 | N29 | Hollow Crown | `systems/conducting.ts` `cueCostNow` | the Cue's cost is clamped at 0. Today a negative `cueCostBonus` can't happen; on a Conductor run with A Tempo, a Cue on the beat costs `cueCostBonus` alone (docs/phase-5f.md:364), which Hollow Crown would make −10 |
 | N30 | Thornwreath | `health.ts:840-845` | `thornPct`, `thornBelow` |
 
@@ -385,10 +385,10 @@ Each is a guarded one-line call in the shared file into the owning stream's `src
    - `tools/expedition-baseline.json`, `expedition3-baseline.json`, `expedition4-baseline.json` and `expedition4-baseline-{A,B,C,SA,SB,SC,OA,OB,OC}.json` (the tests that replay their first runs, `expedition2Pin`, `movement3Handoff`, `finaleHandoff`, `rosterHandoff` and `rosterInvariance`, then pass unchanged);
    - the two- and three-Movement map fingerprints in `tests/meta/expedition2Pin.test.ts` and `expedition3Pin.test.ts` (new Movement II and III events change those maps), and any other fingerprint of a map with more than one Movement that a grep for `generateMap(` in `tests/` finds;
    - `contentVersion` in `tests/sim/golden.json` (`npx tsx tools/update-golden.ts --write`; it must report no hash change);
-   - the two position checks in `tests/content.test.ts` (`:589`, `CONTENT.motifs.at(-3)`; `:1328`, `CONTENT.relics.slice(-3)`), rewritten to find their entries by id.
+   - the two position checks in `tests/content.test.ts` (`:589`, `CONTENT.motifs.at(-3)`; `:1328`, `CONTENT.relics.slice(-3)`), rewritten to find their entries by id. As built more position checks needed the same: the Brann-gated motif list and the Movement II and III event lists and their order (`tests/content.test.ts`), and `CONTENT.motifs.slice(-2)` in `tests/sim/rosterContracts.test.ts`; and the harness test of the Finale route's Conductor changed its seed (see *As built*).
    Nothing else may be re-recorded. The whole-run reports (`loadouts.ts --runs`, `pacing.ts --route expedition`, `deeds.ts --movements 4`, `brann-bands.ts` and `roster-bands.ts --runs`) move and are measured fresh under *Bands*.
 3. **Triggers and hooks are inert by default.** Every hook starts with an early `if` on its own `Mods` field or optional state, on its own line beside the code it sits by; no shared expression is rewritten. A multiplier helper returns exactly 1 without its motif. New behaviour draws no random number on any existing path; a new draw (none is planned) would be taken only when its motif is held.
-4. **The resolver accumulates.** W0 changes every motif case in `mods.ts:477-576` from `=` to `+=` (additive fields) or `*=` (multipliers). From `NO_MODS` (0 and 1) this is exact in IEEE doubles (0 + v = v, 1 × x = x), and no two existing motifs share a field, so every existing run resolves to the same mods. New motifs and relics then stack with old ones and with the Astrolabe. Where a field takes "the larger" (`empowerLinger`), the new case uses `Math.max`. Two limits on the refactor: the cases of motifs that feed an aura (Warm Hum, Second Verse, Glass Choir, and any other whose field is read in `combat/auras.ts` or `systems/field.ts`) are left exactly as they are, since nothing outside W7 shares their fields; and W0 proves the rest with a test that resolves every existing motif at every level, alone and in 200 random builds with relics, a Calling and an Astrolabe, and compares the result with a frozen copy of the pre-refactor resolver's output. `graceShieldPct` is assigned by the Overflowing Grace keystone after motifs resolve (`src/sim/astrolabe.ts:188-192`), so with the keystone its cap applies; the tables say so.
+4. **The resolver accumulates.** W0 changes every motif case in `mods.ts:477-576` from `=` to `+=` (additive fields) or `*=` (multipliers). From `NO_MODS` (0 and 1) this is exact in IEEE doubles (0 + v = v, 1 × x = x), and no two existing motifs share a field, so every existing run resolves to the same mods. New motifs and relics then stack with old ones and with the Astrolabe. Where a field takes "the larger" (`empowerLinger`), the new case uses `Math.max`. Two limits on the refactor: the cases of motifs that feed an aura (Warm Hum, Second Verse, Glass Choir, and any other whose field is read in `combat/auras.ts` or `systems/field.ts`; as built Presto and Verdant Choir stayed as they were too) are left exactly as they are, since nothing outside W7 shares their fields; and W0 proves the rest with a test that resolves every existing motif at every level, alone and in 200 random builds with relics, a Calling and an Astrolabe, and compares the result with a frozen copy of the pre-refactor resolver's output. `graceShieldPct` is assigned by the Overflowing Grace keystone after motifs resolve (`src/sim/astrolabe.ts:188-192`), so with the keystone its cap applies; the tables say so.
 5. **How the phase proves nothing else moved: the masked replay.**
    - W0 freezes copies of every pin listed in rule 2 into `tests/fill/pre5g/` before anything changes.
    - W0's `tests/fill/masked.test.ts` replaces `src/content/index.ts` for the test (`vi.mock` with the real module, its `CONTENT` filtered to drop every id in `FILL_IDS`, the list `src/content/fill/index.ts` exports of everything this slice adds, and `CONTENT_VERSION` recomputed by a new exported `contentVersionOf(content)`). It then checks: the recomputed version equals the pre-W0 `contentVersion`; all 40 draftSnapshot seeds; the maps for seeds 1-40 on routes 2, 3 and 4; and the first Novice and first Skilled run of every Expedition baseline file, against the frozen copies.
@@ -396,8 +396,8 @@ Each is a guarded one-line call in the shared file into the owning stream's `src
    - If `vi.mock` can't reach a module that reads the pools, W0 instead routes the run layer's pool reads through one pure accessor in `run.ts` and the test filters there. W0 records which in its hand-off.
 6. **Expedition-only, before any draw.** `MotifDef.requires.expedition?: true` and `RelicDef.expedition?: true` are optional keys with no default, so existing content parses to the same JSON and `contentVersion` doesn't move at W0. `eligible` (`run.ts:2030`), `relicPool` (`:1663`) and `pactRelic` (`:1000`, which gains the run's route) drop them on a Prelude (`run.movements === 1`) before the RNG is touched, exactly where the Movement gate sits (`:1652-1660`). A carried Reliquary relic works on any route (only offers are gated). New events have `movement: 2` or `3`.
 7. **Content is appended, in new files.** Each stream writes its entries in its own file under `src/content/fill/` (`silk.ts`, `aegis.ts`, `choir.ts`, `bond.ts`, `finale.ts`, `harmonies.ts`, `relics.ts`, `events.ts`); W0 creates them empty and concatenates them in `src/content/index.ts` **after** every existing list (motifs after Verdant Choir, relics after The First Score, boons after Mended Loom, events after the Mirror Pool), in the order of this doc's tables. No existing definition is edited. `m1Unchanged.test.ts`' content-shape checks (`:282-296`: no motif but Guard Strand has `requires.movement`; only the six listed relics have `movement`) stay as they are: new entries use `expedition`, never `movement`.
-8. **"More" sources, counted by hand.** `tests/fill/moreSources.test.ts` holds a registry of every multiplicative source of hero damage and damage taken (Empower, each Calling's group and Crescendo, the Cue bonus, Heavy Score, Concert Pitch, Cutting Chorus on Razor Silk, Closed Circle, Iron Mask) and checks that no Calling with any one option per tier, plus every Harmony and relic that can be held with it, puts more than 4 on one stat. The heaviest new case: the Conductor with Concert Pitch stacks Empower, the Cue bonus, the Calling's group and Concert Pitch, which is 4. New non-Harmony motifs add into existing fields (`inFieldDamage`, `wardedDamage`, `partyDamageMult`) and create no new factor.
-9. **Saves.** Profile v9 and run save v5 don't bump. Motif, relic, boon and event ids are strings the saves already hold. `EncounterStats` gains `triggers?: Record<string, number>`, and the run save's `StatsSchema` (`save.ts:137-178`, non-strict, which would drop an unknown key) gains it as optional. A run saved before go-live resumes and draws its next offers from the new pools; an offer already rolled keeps its options.
+8. **"More" sources, counted by hand.** `tests/fill/moreSources.test.ts` holds a registry of every multiplicative source of hero damage and damage taken (Empower, each Calling's group and Crescendo, the Cue bonus, Heavy Score, Concert Pitch, Cutting Chorus on Razor Silk, Closed Circle, Iron Mask) and checks that no Calling with any one option per tier, plus every Harmony and relic that can be held with it, puts more than 4 on one stat. The heaviest new case: the Conductor with Concert Pitch stacks Empower, the Cue bonus, the Calling's group and Concert Pitch, which is 4. New non-Harmony motifs add into existing fields (`inFieldDamage`, `wardedDamage`, `partyDamageMult`) and create no new factor. As built the Conductor with Heavy Score and Concert Pitch would have been 5, so Concert Pitch's bonus, and Thornwreath's, are added into the party damage factor (Heavy Score's), and the registry names Full Chord and Iron Mask as the non-Harmony factors on damage taken (see *As built*).
+9. **Saves.** Profile v9 and run save v5 don't bump. Motif, relic, boon and event ids are strings the saves already hold. `EncounterStats` gains `triggers?: Record<string, number>`, and the run save's `StatsSchema` (`save.ts:137-178`, non-strict, which would drop an unknown key) gains it as optional. As built `Shield.restPaid` and `internal.link.restPaid` are two more optional hashed keys, created only with Breath Between's discount. A run saved before go-live resumes and draws its next offers from the new pools; an offer already rolled keeps its options.
 10. **Unlock Ranks.** New motifs, relics and events are not locked (`profile.ts:279`: "Everything not listed here is never locked"). Only W7's auras and ornaments are added to `UNLOCKS`, at the Ranks in W7's tables, appended in Rank order with the existing `aura()` and `ornament()` helpers.
 11. **Names in code.** `window` never appears in content or sim code (rule above). Ids are snake_case and unique across motifs, relics, boons, talents, alternate Solos and Calling options (the bible's names that collide are renamed, decision 9).
 12. **Shared files get call sites, not bodies** (5e rule 8). W0 owns every shared-file line this slice adds; the streams own their `src/sim/fill/*.ts` and `src/content/fill/*.ts` files and never edit a shared sim file. A stream that finds it needs another hook asks the orchestrator, and W0's owner adds the call site.
@@ -443,7 +443,7 @@ Each is a guarded one-line call in the shared file into the owning stream's `src
 | Performance | `npm run sim:bench -- --check` | the budget (docs/plan/05 §12) | under budget, with Razor Silk and ten triggers held at the Unweaver's peak |
 | "More" sources | `tests/fill/moreSources.test.ts` | — | ≤ 4 a stat |
 
-**What the bots can't show.** The bots don't aim the Thread across enemies, so Razor Silk and the entries on it read low in cells; the RL archetype measures them in whole runs, where the Thread crosses packs by chance. The bots don't time retargets to telegraphs, so Thread the Needle and Concert Pitch fire rarely; they are tuned on their fire rate and the PP archetype. Breath Between's discount depends on pacing the Skilled bot doesn't attempt.
+**What the bots can't show.** The bots don't aim the Thread across enemies, so Razor Silk and the entries on it read low in cells; the RL archetype measures them in whole runs, where the Thread crosses packs by chance. The bots don't time retargets to telegraphs, so Thread the Needle and Concert Pitch fire rarely; they are tuned on their fire rate and the PP archetype. Breath Between's discount depends on pacing the Skilled bot doesn't attempt. (As measured, the bots do catch telegraphs with Thread the Needle and do ring Concert Pitch, and Razor Silk reads low in cells as expected: see *Tuning*.)
 
 **Levers, in order** (this slice's own numbers only; never an existing one):
 
@@ -458,7 +458,7 @@ Each is a guarded one-line call in the shared file into the owning stream's `src
 |---|---|---|
 | 1 | Every pin in ground rule 1 is byte-identical; `SIM_VERSION` is 22; only the pins in rule 2 moved, each in one commit | `m1Unchanged.test.ts`, the `--check` tools, the snapshot tests, the reports against the pre-W0 ones, the go-live and final commits' diffs |
 | 2 | The masked replay passes: with this slice's entries removed, every rule-2 pin equals its frozen pre-5g copy and `contentVersion` equals the pre-W0 one | `tests/fill/masked.test.ts` |
-| 3 | Counts: motifs 84 and Harmonies 11, relics 39, events 16 (with W7: auras 10, ornaments 10, motifs 90, Harmonies 12, relics 40); every other category unchanged | `tests/fill/foundations.test.ts` counts `CONTENT` |
+| 3 | Counts: motifs 84 and Harmonies 11, relics 39, events 16 (with W7: auras 10, ornaments 10, motifs 90, Harmonies 12, relics 40); every other category unchanged (met without W7; see *As built*) | `tests/fill/foundations.test.ts` counts `CONTENT` |
 | 4 | Content lint is clean: `CONTENT` parses, `tests/content.test.ts` and the fill tests pass, every Harmony prerequisite names a motif, `moreSources.test.ts` passes | vitest |
 | 5 | No aura definition, number, reach or look changed outside an approved W7 item; without W7 the three aura files are untouched | `git diff --stat`, W12 |
 | 6 | No existing number moved: the Weaver's, every aura's, enemy's, encounter's, Movement's and road's, the heroes', Kael's, Lyra's, Vexis's and Brann's included | `git diff` of every content file outside `src/content/fill/` (W7's approved additions aside), W12 |
@@ -475,11 +475,208 @@ Each is a guarded one-line call in the shared file into the owning stream's `src
 - New event nodes, map rows or road rows (never-moved numbers).
 - New Chord presets, and any change to the presets' Chords.
 - New Deeds, titles, mastery rewards or Starlight prices.
-- New bot rules beyond reading `cueCostNow`, unless an ablation in `tools/verbs.ts` shows a misplay.
+- New bot rules beyond reading `cueCostNow`, unless an ablation in `tools/verbs.ts` shows a misplay. (The reviews showed three misplays and three rules were added; see *As built*.)
 - Changing the draft's rarity odds or offer sizes.
 - A content lint that reads modifier buckets from content (rule 8 counts by hand instead).
 - The 02 §12 rule-8 build-diversity sampler (500 random legal builds); the archetype and preset reports stand in for it here.
 - Music and art passes for the new content beyond the sounds and VFX in W9.
+
+## As built
+
+Written after the build, the two reviews and the tuning pass, from the workstreams' hand-backs and checked against the code on this branch. The sections above keep the design; where the code differs they say "as designed" or point here. The numbers in *Tuning* are the final ones and are not repeated.
+
+### Counts
+
+Counted from the `id:` lines of the entries in `src/content/fill/` (`silk`, `aegis`, `choir`, `bond`, `finale`, `harmonies`, `relics`, `events`), each entry's `rarity`, `category` and `movement`, and the boons' `kind`.
+
+| Category | Designed | As built | Matches |
+|---|---|---|---|
+| Motifs other than Harmonies | 53 new (31 → 84) | 53 new: Silk 12, Aegis 12, Choir 5, Bond 12 (two a hero), Finale 12 | yes |
+| Harmonies | 10 new (1 → 11) | 10 new | yes |
+| All new motifs | 63 (the tables) | 63: 30 common, 22 rare, 11 epic (the ten Harmonies and Thread the Needle). By the category each carries: Silk 15, Aegis 14, Choir 6, Bond 14, Finale 14 | yes |
+| Relics | 18 new (21 → 39) | 18 new. After the fill: common 10 (5 new), rare 16 (7 new), legendary 8 (3 new), cursed 5 (3 new) | yes |
+| Boons and banes | 2 new | Steadied and Faltering (3 → 5) | yes |
+| Events | 6 new (10 → 16) | Movement I 6 (unchanged), Movement II 5 (3 new: Hero's Doubt, The Quartermaster, The Bleeding Bell), Movement III 5 (3 new: Lost Weaver's Echo, The Unravelled Tapestry, The Stopped Clock) | yes |
+
+- `CONTENT.motifs` holds 95 entries, the 32 older ones and the 63 new. The Audit's 31 leaves out Blood and Silk, which it counts as the one Harmony; so the pool is 84 motifs and 11 Harmonies, as exit criterion 3 says. A figure of 44 new motifs in one review's working notes was a miscount of these 63.
+- All four larger entries were built (Razor Silk, Thread the Needle, Water Clock, Everbell). None was cut, so no replacement row applies.
+- W7 was not built (decision 1). The aura and ornament counts are the audit's: 6 auras, 4 ornaments. `src/content/auras.ts`, `ornaments.ts`, `src/sim/combat/auras.ts`, `src/sim/systems/field.ts` and `src/sim/chords.ts` have no change since W0's base.
+- No new Calling, hero, enemy, affix, mini-boss, boss, encounter, technique variant, event node or map row was added.
+
+### The trigger system as built
+
+The schema (`TriggerDefSchema`, `src/content/schema.ts`) allows, on a motif, a relic or a boon:
+
+- **Events (`on`)**: `perfectWard`, `save`, `cleansed`, `chimeLanded`, `reeled`, `glided`, `threadAttached`, `threadSnapped`, `techniqueCast`, `shieldBroken`, `damageTaken` (the Weaver as target), `abilityUsed`, `cued`, `crescendoStart`, `crescendoEnd`, `allyDowned`, `revived`, `parried`, `summonFell`, `enemyKilled`, and `every` (a timer with a `period`).
+- **Conditions**: `hero`, `technique`, `ability`, `shield`, `usedUp`, `moved`, `variant`, `summon`, `thread`, `crescendo`, `cueWithin`, `clutch`, `removed`, `role`.
+- **Limits**: `every` and `perFight`.
+- **Effects**: `barrier`, `heal`, `resonance`, `spirit`, `solo`, `damage`, `status` (`stun`, `sleep`), `cooldown`, `ability`, `empower`, `crescendo`. A hero effect lands `to` the event's hero, the threaded hero, `all`, `others`, `near` (within a radius of a point), `nearestOther`, or the `neediest`, optionally only heroes in the field. A point (`at`) is the `event`, the `weaver`, the `threaded` hero or the `hero`. A value is a number, `'v'` (a motif's value at its level) or a relic's or boon's value name, its Empowered number when it was Empowered.
+
+The design named the events, the conditions `hero`, `thread`, `crescendo`, `cueWithin`, `clutch` and `role`, and the effect kinds. W0 added the conditions `technique`, `ability`, `shield`, `summon` and `removed`, which the tables needed, and the hero targets and points above. The build and its reviews added afterwards, each with the entry that needed it:
+
+- **A fire is tallied and reported only when an effect did something.** `ledger.triggers` and `motifTriggered` count a heal that healed, damage dealt, a barrier added, a status applied, a clock moved or a resource gained. Needed by Sister Ward with no one within 6 m, Tender Guard on a hero at full life, and Stray Stitch and Kindred Wound healing a hero at full life, which had counted as fires and inflated the fire-rate band.
+- **A fire that did nothing spends neither its count nor its cooldown.** Needed by Bloodsong (`every` 4 s) at full life and Spindle Turn at full Spirit, which had used up their limits.
+- **Events a pass's own effects emit are read once, by the next tick's pass,** before that tick's own events. A pass never reads its own effects' events, so a chain advances one tick a step and cannot loop. Only events some held trigger listens to are kept. Needed by Black Ribbon: a kill by Whiplash, Shatterglass or Guardian's Cadence is an `enemyKilled` that fell between passes.
+- **`usedUp`** (on `shieldBroken`): holds when no `perfectWard` on the same holder is among the tick's events, so a Ward used up by a blow, or broken by Seren's parry, fires and a Ward a Perfect spends does not. Needed by Shatterglass.
+- **`moved`** (on `threadAttached`): holds when the Thread goes to a hero other than the one it was last on, never for the first attach. Needed by Spindle Turn.
+- **`variant`** (on `techniqueCast`): holds for one of the named technique variants, never the default. Needed by Safe Harbour (Swap, Anchor) and Light Step (Phase Step), whose variants emit no `reeled` or `glided`.
+- **The `hero` point**: centres an effect on the event's hero where the event itself sits elsewhere (`abilityUsed` sits on the struck enemy). Needed by Guardian's Cadence. It falls back to the Weaver.
+- **No reaction once the fight is over.** `updateTriggers` returns at once when the encounter is won or lost, so a kill that ends the fight, or the last blow's Perfect, triggers nothing. Timers run only while the encounter is `fighting`.
+
+Other points the design did not settle:
+
+- A trigger's barrier is an `overshield` from the Weaver. It is not placed over a hero's own overshield (an uncued Aegis Wall) or over a bigger one of the Weaver's, and it replaces a smaller one of hers.
+- `cleansed` fires once per hero cleansed. An entry that means "once per Clutch Cleanse" uses `chimeLanded` with `clutch` (Clutch Peal, Second Toll).
+- `ledger.triggers` starts at 0 for every held source, so a held trigger that never fires reads 0, not missing.
+- The resolver accumulates as ground rule 4 says; Second Verse, Warm Hum, Glass Choir, Presto and Verdant Choir keep their old assigning cases, Twin Aegis became `+= v - 1`, and a motif listed twice plays its last entry, as assignment did.
+- The Harmony lint (from 5b) required every Harmony to be hero-gated; W0 widened it to hero-gated or Expedition-only, since 8 of the 10 new ones are not hero-gated.
+- Files in `src/sim/fill/` must not import `systems/enemies.ts` or anything that imports it (it fails at module load), so a few helpers are copied: the Harmonies' `empowered` and `soloChargeTime`, and the crit chance and multiplier (`heroDamage.ts` now exports its own, and tests pin the copies to their sources).
+
+### Deviations from the design, by entry
+
+Entries whose behaviour, text or numbers differ from their row in the tables above. An entry not listed is as its row says.
+
+| Entry | What the player sees now | Why |
+|---|---|---|
+| Slack Line | "you can attach it again {v}% sooner": the lockout after a range snap is shorter; the Thread does not reattach by itself. | The design said "it reattaches"; the text was made true (review A, C5). |
+| Stray Stitch | "For every {v} s you spend Mending, in all, ...": Mend time adds up across breaks and is never reset. | The timer never reset; the text says what it does (review A, C2). |
+| Spindle Turn | Pays only when the Thread moves to a different hero than it was last on, not on the first attach or a re-attach to the same hero, and not at full Spirit. | Its text says "to another hero" (review A, C4). |
+| Thread the Needle | Credits only the life it kept, at most the half it negated. It catches only while the Thread is still on that hero at the hit; the arming is spent by the first telegraph to strike the hero. | Review A, B3 (the whole half was credited, 5200 on a 5-hp hero who fell anyway). |
+| Gilded Wake | Does not linger after the Thread snaps or is cut, as the Astrolabe's Afterglow does not. | Left as it was (review A, C3). |
+| Shatterglass | Not on a Perfect Ward's spend (that is Riposte Bloom's); the shards strike near "whoever held" the Ward, so Seren's parry breaking a Ward and the Weaver's Martyr's Aegis Ward also fire it. | `usedUp`; the text was made true (review A, B5). |
+| Safe Harbour, Light Step | Work with every variant: Safe Harbour with Swap and Anchor Reels, Light Step with Phase Step. The barrier starts, and the heal lands, at the cast. | The variants emit no `reeled` or `glided`, so a `variant` rule on `techniqueCast` covers them (review A, B6). |
+| Last Bastion, Wounded Healer | Apply to each of a Chorale's Wards. Not to Aegis Link, which has no barrier. | Review A, B7. |
+| Clutch Peal, Second Toll | Fire once a Chime on a Clutch Cleanse, not once a hero cleansed. Second Toll also cuts Everbell's recharge clock. | `chimeLanded` with `clutch`; review A, C1. |
+| Ringing Steel | Does nothing on bosses (their stagger is capped at 0.5 s), as the Astrolabe's Ringing Parry. | Reported by W2 and the tuning. |
+| Breath Between | The rest is counted from the fight's start until the first cast. A Glide, which costs no Spirit, neither ends the rest nor is discounted. The discount reaches Stillwater Bell (it refunds half of what the Chime really cost) and a rested Ward's Perfect refund (capped at what the Ward cost). | Review A, A1 and B1. |
+| Full Chord, Closed Circle, Iron Mask | Credit only the life the hero kept, shared with the other guards, and none when the hit downs the hero anyway. | Review A, B2 (each had credited alone, up to 100 for a 50-hp hero). |
+| Second Intention | A barrier of {v}% for 4 s (the text now says so). It does not keep Seren's parry armed. | A trigger's barrier is an overshield, and the parry stays armed only with a Ward shield or Blade Waltz (W4; review A, B8). |
+| Graft | Strengthens Rootbond's Mend on the Ancient too. | One share serves all of Oro's summons (W4; review A, C5: left, declared). |
+| Bloodsong | Pays on any barrier of Brann's that breaks, a Ward a Perfect spends included. | `shieldBroken` without `usedUp` (W4). |
+| Constellation Lines | Reads the Thread when the bolt is cast, and never hits the target it was cast at a second time. | W4. |
+| Split Fletching | Only Lyra's Empowered arrows without splash fly on, to the nearest enemy behind the target within 6 m. | W4. |
+| Guardian's Cadence | The bloom is centred on Kael. | First built on the bashed enemy; the `hero` point fixed it (fix, round two). |
+| Spindle Lullaby | Razor Silk's cuts do not wake a sleeper, but any hero's blow does. On the enemy the party is hitting the sleep ends after 0.0 to 0.7 s (W5's measurement), though it still interrupts a cast; it holds on enemies the party leaves alone. | A hero's hit removes `sleep`. |
+| Cutting Chorus | "In your songs" means a Chord carries the aura (not the stolen verse, field not suppressed). A critical strike is one draw of 10% for ×1.6, the heroes' numbers. | W5. |
+| Concert Pitch, Thornwreath | Their bonus is added into the party damage factor (Heavy Score's, the boons'), not multiplied on. | Concert Pitch beside Heavy Score made 5 "more" sources on hero damage for the Luminary and the Conductor (fix, rounds one and two). |
+| Taking Bows | Fills nothing after the Conductor's Grand Finale, which fills the Solos first. | Tuning note. |
+| Pedlar's Ledger | "Every merchant's relic shelf holds {more} more." | Empowered, the old text read "2 more relic" (review B, C12). |
+| Spare Strings | "it doesn't lock: you can thread again at once." It does not reattach the Thread; the first range snap of a fight does not lock. | The hero is out of reach as it snaps (W6; review B, B7: kept). |
+| Sand Glass | Does not touch the Chronomancer's Rewind, which lives in Reel's cooldown. | Review B, B4. |
+| Everbell | The recharge runs on its own clock (`weaver.chimeRecharge`); Second Toll, Sand Glass and Temporal Mastery cut it. | Review A, C1; the Chime is refused while its cooldown runs, so the hook keeps that at 0 while a charge is left. |
+| Water Clock | Acts before the down is counted: an undone down is no down (no `ledger.downs`, death record, `allyDowned`, Lantern or down trigger, so Lament Pin does not pay). `revived` is still emitted, so Pilgrim's Lamp pays its barrier. With the Chronomancer's Rewind it reaches back as far as Rewind's record does. If the hero was already down at the time it reaches back to, it is not spent and the down counts as ever. | Review B, B3 and C7. |
+| Everbell, Water Clock, Hollow Crown | No Empowered values; they roll as Dissonant. | The design's table gave none (W6; review B, B9: kept). |
+| Iron Mask | 12% (18 Empowered), tuned from 15% (20). While it is held no Empower call is issued or counted, and a Thread toggle to Empower is refused. | Tuning; review B, A1. |
+| Long Phrase | 15 / 20 / 25%, tuned from 8 / 12 / 16. | Tuning. |
+| The Quartermaster | Each paid choice is refused when no relic of its rarity is left to sell. | Review B, C5. The pre-5g Tithe Altar and Mirror Pool still sell from an empty rarity (open list). |
+| The Unravelled Tapestry | The harness takes its motif choices only when the run has a draft preference list: Reweave and Pull by that order, never a Harmony for Pull. | Review B, B8 (it had always left). |
+
+### Presentation as built
+
+- **Draft and merchant cards.** A Harmony's card lists its prerequisites under "Needs", each marked owned or missing. A prerequisite's card names every Harmony it leads to, as a two-line block ("Harmony → Woven Aegis" over "with Warded Weft · you have the rest"); the merchant shares the card. The first version wrapped in two cramped columns on the Lingering Aegis card; round two of the presentation follow-ups made it a block.
+- **Codex.** A Harmony shows a "Harmony · needs X + Y" chip, an Expedition-only motif or relic an "Expeditions only" chip. Every new entry is listed.
+- **Icons.** 26 glyphs (18 relics, 6 events, 2 boons) in `FILL_GLYPHS` (`src/ui/kit/iconPaths.ts`), keyed by content id; every relic, boon and event icon read goes through them.
+- **Trigger chips.** The HUD shows one chip per source with its count, newest first, at most three, each gone 2.2 s after its last fire. Concert Pitch's Ringing heads the row with its seconds left while it rings. The Result says "X triggered N times." (or "once", "never triggered"), and the Summary has a panel, "Your motifs and relics at work". The chips do not show which hero a fire landed on (that needs a change in `src/app`).
+- **Relic bar.** A trigger relic flashes when it fires. Spare Strings and Water Clock, which are once-a-fight, show a tile that is ready and then used.
+- **Cue price.** The HUD reads the price from `cueCostNow` for every Calling, so Opening Bars, Tempo Rubato and Hollow Crown's floor show. On the Conductor's downbeat the meter keeps the off-beat price; his beat strip shows the downbeat price.
+- **Look.** Through the existing batches only: no new draw call, no new colour, no camera shake.
+  - A trigger's cue follows its effect's kind and sits on the body, over the head or goes to the Weaver's hand, so none is mistaken for an aura ring: a barrier's shards gather into a shield before the hero; a heal is teal motes and a rising stroke; Resonance is stars falling into the Weaver's hand; Spirit is a thread reeled to her hand; a Solo charge is stars stepping up the body; damage is a burst; a status is a pin over the head; a cooldown or ability is a timer over the head; Empower is a star; a Crescendo's lengthening is a tall rising stroke from her. No fill cue draws a ring or disc on the ground. A trigger with no one to land on draws nothing, and the same source on the same target within 0.15 s plays one cue.
+  - Razor Silk: a glint where the Thread crosses each touching enemy, and a flash with a few shards on a real damage tick.
+  - Thread the Needle: the Thread loops once round the hero's chest, a needle draws it through, and it knots in a glint. It is not a Perfect Ward's flash.
+  - Concert Pitch's Ringing: three thin upright gold streaks rising on each standing hero while it rings, fading over its last 0.6 s. (W9 had left it with no look or sound; the presentation follow-up added both.)
+  - Spare Strings: a coil of spare thread unwinding upward from the Weaver's hand. Water Clock: a clock face over the hero who stood again, its hand running backward, and drops rising up them, with the relic's name called out.
+- **Sound.** All in D dorian on the sfx bus, a notch under the relic sounds (`FILL_PEAK` 0.09), each kind with its own rate gate and voice cap. Razor Silk, one zing a tick; Thread the Needle, rising air and two glass notes (A5 to D6); Ringing, a soft handbell on D5 with a glass D6, and a softer re-strike if a Perfect starts it over; Spare Strings, a plucked fourth (A4 to D5); Water Clock, glass falling D6 C6 A5 and a handbell. A trigger with no target is silent. Spare Strings and Water Clock report no sim event (the audio's relic list is pinned), so their cues read their once-a-fight flags.
+- **Labs.** The UI lab has a "Fill (5g)" group (with a draft view of cards leading to one and two Harmonies); the VFX lab has fill scenarios (Spare Strings walks the Weaver out, as a debug teleport had stretched her ribbons); the audio lab has the groups `fill` and `fillState`.
+- **Auras.** No aura's look, sound or numbers changed.
+
+### Bots and tools as built
+
+- **Three bot rules**, each inert without its entry (24 recorded command streams on fights without Iron Mask, Everbell or a Cue discount match before and after):
+  - `ironMask` (Skilled): with `mods.noEmpower` the bot never asks for Empower and stays in Mend. Under the Unweaver's Unravel the Martyr Bears; other Callings stay in Mend.
+  - `everbellChime` (Skilled): with Everbell the bot does not throw a second Chime at a hero a Chime already in the air covers.
+  - The Cue gate reads `cueCostNow` off the Conductor (`cueGateCost`, Skilled and Novice); on a Conductor run it reads `dissonance.cueCost` as before. Without a discount the two are equal.
+  - The Novice has no Everbell rule.
+- **`tools/builds.ts`** plays the six builds as presets (Calling and path, party, Chords, draft and relic lists) with `--seeds`, `--runs`, `--sets`, `--bot`, `--movements`, `--run-seed-base` and `--builds`. Changes made after review and tuning: CS names Fermata for Third Voice (the harness's own fill found no third aura within its 75% reserve cap and quietly played two); a run that is not the build (third aura, 3 or more listed motifs) is flagged, with "As built" and "Won as built" columns; each Harmony's prerequisites are inserted into the draft order before it; Pedlar's Ledger is in every build's relics; and the viability table has three separate columns (viable: won at least 50%; holds 3 or more listed motifs in at least 60% of runs; within 15 points of the median, otherwise "too strong (+N)"), so a build that wins too much is not counted as unviable.
+- **`tools/motifs.ts`** (new) is `tools/relics.ts`' shape for motifs: each motif at `--levels` (1 and 3 by default) on a Movement's hard fights against the kit alone, marks for `new`, `kit` and `aura`, a "Fired in" column that flags a trigger under half its fights, and `--runs N` for whole runs that draft the motif first.
+- **`tools/relics.ts`** lists the fill's relics after the existing rows and a trigger table when a trigger is held.
+- **`tools/reliquary.ts --sets fill-strongest`** carries the three strongest new relics for the meta-cap band (Echoing Shell, Water Clock and Sand Glass by default; `--fill-relics` overrides, since the default comes from 2 seeds).
+- **The harness** (`playRun`): `draftPrefer` and `relicPrefer` (an ordered id list, or a function), absent meaning today's first option; the merchant honours both, buying a motif the draft list names first (since tuning) and a cursed relic only where the game offers one, at a merchant (12%); an event choice that needs a motif is taken only with a draft list, by `eventMotif`. `RunSummary.triggers` and `triggerFights` report what was held and fired.
+
+### Review
+
+Two independent reviews read the integrated tree (commit `8f3b66f`) with proof tests of their own: A the motifs and the trigger system, B the relics, boons, events, run layer, tools and bots. Each finding that was a defect or needed a decision is below, with what was done. "Fix" means a regression test went with it. B C1 is A C6 found again; A C7 (motifs stay in the "without you" re-run, as before 5g) was a note only and is in the open list.
+
+| Id | Finding | What was done |
+|---|---|---|
+| A A1 | Breath Between with Stillwater Bell: the Bell read the cost after `spend` had ended the rest, and refunded half of 15 for a Chime that cost 6. | Fix: the paid cost is read before the spend. |
+| A B1 | Breath Between with a Perfect Ward: the refund was half the list price, so a rested Ward at L3 paid back more than it cost. | Fix: a rested Ward's Perfect refund is capped at what it cost (new optional hashed `Shield.restPaid` and `internal.link.restPaid`); unchanged without the motif. |
+| A B2 | Full Chord, Closed Circle and Iron Mask each credited `ledger.shielded` alone, even on a hit that downed the hero. | Fix: the hooks only return what they take off; the credit is taken inside the kept-life block with the other guards. |
+| A B3 | Thread the Needle credited the whole negated half, even when the hero fell. | Fix: credit at most the life the hero still has. |
+| A B4 | A kill by trigger damage (Whiplash, Shatterglass, Guardian's Cadence) was never seen by an `enemyKilled` trigger (Black Ribbon). | Fix: events a pass's own effects emit are read once by the next tick's pass. |
+| A B5 | Shatterglass fired on the Weaver's own Martyr's Aegis Ward, while its text said "of the hero". | Mechanic kept, text made true ("whoever held it"). |
+| A B6 | Safe Harbour did nothing with the Swap and Anchor Reels, Light Step nothing with Phase Step. | Fix: the `variant` condition, with no change to any run without the motif. |
+| A B7 | Last Bastion and Wounded Healer skipped a Chorale's Wards (and Aegis Link). | Fix on each Chorale Ward; Aegis Link has no barrier and was left. |
+| A B8 | Second Intention's barrier does not keep Seren's parry armed, and its text gave no duration. | Text gives the 4 s; the parry left as built. |
+| A B9 | Concert Pitch added into the party damage factor rather than multiplied. | Kept; the owner's override is listed below. |
+| A C1 | Second Toll with Everbell: the Chime's cooldown is 0 with a charge in hand, so nothing was cut. | Fix: the recharge clock is cut too. |
+| A C2 | Stray Stitch's Mend time adds up across breaks. | Text says "in all"; behaviour left. |
+| A C3 | Gilded Wake never lingers after a snap or cut. | Left; noted. |
+| A C4 | A fire that did nothing still spent its limits; Spindle Turn fired on any attach. | Fix: such a fire spends nothing; `moved` for Spindle Turn. |
+| A C5 | Slack Line's text said "reattaches" but only the lockout is shortened. Breath Between on Life costs under Eldritch Conduit. Graft on the Ancient. | Slack Line reworded; the other two left (Graft's is declared). |
+| A C6 | `moreSources.test.ts` claimed to name every multiplicative factor but omits pre-5g ones. | Its comments and names say what it counts; the registry was not widened. |
+| A C8 | Thread the Needle is the only non-Harmony epic and fills every epic roll until owned. | Passed to tuning, which kept it epic (see *Tuning*). |
+| A C9 | `updateTriggers`' event loop was not gated on the fight still running. | Fix: it returns at once when the fight is over. A bigger trigger barrier replacing Brimming Thread's grace shield is noted. |
+| B A1 | Iron Mask's curse left Empower calls in place and every one was missed (lost response Resonance, blocked the call-all Deed). | Fix in `calls.ts`: an Empower call is not issued while `noEmpower`. |
+| B B1 | The Skilled bot with Iron Mask asked for Empower hundreds of times and stayed in Mend under Unravel. | Bot rule `ironMask`. |
+| B B2 | The Skilled bot threw Everbell's second Chime while the first was in the air. | Bot rule `everbellChime`. |
+| B B3 | A down Water Clock undid was still counted (Lament Pin paid, the Lantern shielded, a death recap showed). | Fix: Water Clock acts before the down is counted. |
+| B B4 | Sand Glass sped up the Chronomancer's Rewind (it lives in Reel's cooldown). | Fix: Sand Glass leaves Rewind alone. |
+| B B5 | The CS build never got its third aura (`withAnotherAura` gave up silently). | Tools: Fermata named for Third Voice; a preset whose fill fails is flagged. |
+| B B6 | Iron Mask and Full Chord add their own factor on damage taken. | Kept as registered; listed below. |
+| B B7 | Spare Strings does not reattach the Thread. | Text already reworded; kept. |
+| B B8 | The harness never picked a motif for an event, so it always left The Unravelled Tapestry. | Tools: `eventMotif` by the draft order. |
+| B B9 | Everbell, Water Clock and Hollow Crown have no Empowered values. | Kept (the design's table gave none). |
+| B C2 | The bots gated Cues on `dissonance.cueCost`, so Opening Bars and Tempo Rubato went unseen. | Bots: the gate reads `cueCostNow` off the Conductor. |
+| B C3 | The harness shop ignored `relicPrefer`; cursed relics in a list could never be matched; Pedlar's Ledger was not in a build. | Tools: the merchant honours the list, cursed relics only from merchants, Pedlar's Ledger added. |
+| B C4 | A build's list lacked the prerequisites of its Harmonies (Canon, Golden Filament, En Garde). | Tools: prerequisites are inserted before each Harmony. |
+| B C5 | The Quartermaster sold a lower rarity at full price when its pool was empty. | Fix: the choice is refused. The pre-5g Tithe Altar and Mirror Pool have the same flaw and were left. |
+| B C6 | `tests/fill/pre5g/golden.json` was frozen from an earlier commit. | Re-frozen when the Conductor's tuning landed. |
+| B C7 | Dead code: `waterClockOut` was always false. | Removed. |
+| B C8 | Weak tests: Tin Whistle and Prompt Book read only a `Mods` field; the Bleeding Bell's odds were unchecked. | Real behaviour tests. |
+| B C9 | `tools/builds.ts` dropped a build more than 15 points over the median from the viable count. | Tools: viable and within-the-spread are separate columns. |
+| B C10 | The meta-cap band's set of the three strongest new relics was never added to `tools/reliquary.ts`. | Tools: `--sets fill-strongest`. |
+| B C11 | The Dissonance panel treats a run with no `movements` as a Prelude, and its prop types left `movements` out. | Types fixed; the panel's run carries its route. |
+| B C12 | Text nits: Pedlar's Ledger Empowered; Black Ribbon hard-codes its list of heavy foes; the Unravel decree with Iron Mask. | Pedlar's Ledger fixed. The other two noted (open list). |
+
+### Pins and checks
+
+- **What was proved identical first.** At W0, with no entries yet: all 28 goldens and `SIM_VERSION` 22 (`determinism`, `m1Unchanged`, the golden dry run), the four command snapshots, `roster20`, `rosterInvariance`, the Prelude snapshot, the draft snapshot, the Expedition pin tests, the render and audio Spire and Rift snapshots, and every cell baseline: `tools/m1-baseline.ts --check` for Movements 1-4 on the default party and the nine party files (40 runs), the three `expedition-baseline` checks and the nine party Expedition checks, 52 of 52 in all. `contentVersion` was unchanged. At go-live, before anything was re-recorded: `m1Unchanged`, the masked replay and the Prelude snapshot passed, the golden dry run showed only `contentVersion`, and the cell baselines for all four Movements and every party were byte-equal.
+- **The masked replay** (`tests/fill/masked.test.ts`, 16 tests, about 55 s) works through `vi.mock`, with no accessor fallback: it filters `FILL_IDS` out of `CONTENT`, recomputes the version with `contentVersionOf`, and checks that version, all 40 draft-snapshot seeds, the maps of seeds 1-40 on routes 2, 3 and 4, and the first Novice and Skilled run of all 12 Expedition baseline files against the frozen copies in `tests/fill/pre5g/`. It passed at W0, at every content merge and at go-live, and again in the tuning pass (57 tests with `m1Unchanged`). The frozen resolver fixture holds 328 cases (every motif at every level, every relic plain, cleansed and Empowered, every boon, 200 seeded builds); the frozen copies were re-frozen once, when the Conductor's tuning merged from main.
+- **Re-recorded at go-live** (one commit per kind): the golden `contentVersion` only (no hash moved); `draftSnapshot.json` (20 odd, Expedition seeds changed, the 20 even Prelude seeds byte-identical); the map fingerprints in `expedition2Pin` and `expedition3Pin`; the Expedition baselines for I-II, I-III and the Finale route; the nine party baselines; and the seed of the harness test "reaches the Conductor" (2000 to 2003, since seed 2000's run now dies in Movement III under the new pools). The recorder now also writes `triggers` and `triggerFights` into every baseline run, so a change to a trigger count moves these pins too. Before it, 12 tests failed, all of them seeded-run pins or replays of them. After it: 205 files, 4379 tests passed, 8 skipped, none failed; typecheck and lint clean; the three `expedition-baseline --check` runs byte-equal.
+- **After tuning.** Long Phrase and Iron Mask changed values, so the seeded runs move again and the same re-record is due (`pins/rerecord.sh`). The tuning pass verified: the fill tests (15 files, 718 tests) passed; the masked replay and `m1Unchanged` (57) passed; the golden dry run showed only `contentVersion`; two `harnessTools` tests failed, both on the seeded-run baselines the re-record replaces. The pins were then re-recorded on the tuned numbers, in one commit: the draft snapshot and both map fingerprints came out unchanged; the golden `contentVersion` (no scenario hash) and the Expedition baselines for two, three and four Movements and the nine parties changed. On that tree typecheck and lint are clean, the full suite passes (205 files, 4380 tests, 8 skipped), the three `expedition-baseline --check` runs are byte-equal and the golden dry run reports the goldens up to date.
+- **Test counts, by run** (they are not one run's): W0's full suite, 189 files, 3928 passed, 8 skipped; the go-live run above, 205 files, 4379 passed, 8 skipped. At the streams' hand-backs: bond 56, finale 64, harmonies 35, relics 29, events 22, uiFill 32, renderFill 28 and audioFill 22 tests (the last two were rewritten by the fix and presentation rounds). The tuning pass's run of the fill tests was 718 tests in 15 files.
+- **Browser suite** (`e2e/smoke.spec.ts`): 25 of 25 passed before the fill (27.1 minutes), 31 of 31 after (31.9 minutes). Six tests are new: the UI lab's Fill group; the Codex in the app; a trigger in a real fight (Black Ribbon, carried through the Reliquary); the Quartermaster event; the Expedition-only gate; and the VFX lab's fill scenarios. No hook or app change was needed and no defect was found.
+- **Not run**: the rule-1 report tools (`callings`, `astrolabe`, `reliquary --power`, `powercap`, `bonds`, `variants`, `dissonance`, `decrees`, `verbs`) byte for byte against a pre-W0 tree, other than `tools/callings.ts` at reduced flags in the tuning pass; `npm run build`; the full vitest suite after the tuned values; e2e after tuning.
+
+### Open, for the owner
+
+Every open decision and known gap from the hand-backs, with the default taken. The *Tuning* section's own list (*For the owner*: CS's third aura, RD's frame, Thread the Needle staying epic, the holding, spread and fire-rate bands, the Novice, pacing and parties OA and SB, All In and Anchor on the line) stands and is not repeated.
+
+1. **W7: four auras (Requiem, Staccato, Cantabile, Rubato) and six ornaments (Sforzando, Descant, Echo, Counterpoint, Martyr's Tithe, Syncopation), with their six motifs, one Harmony and one relic, are not built** and are held until you approve them (decision 1). Default: the slice ships 6 auras and 4 ornaments and records the gap as accepted.
+2. **The aura line.** Cutting Chorus and Spindle Lullaby read only whether Fortissimo or Lullaby is among the songs, and Massed Voices, Close Harmony, Breath Between, Full Chord and Long Phrase read the field or the number of auras and change none (a W1 test shows the field radius, Chords, aura mask, beam focus and reserved share identical with and without them). Default: this line (decision 2); if you would count them as aura changes, those seven move into W7.
+3. **Concert Pitch and Thornwreath are added into the party damage factor** (Heavy Score's) rather than multiplied on. The other way is to raise the cap of four multiplicative sources for hero damage. Default: additive.
+4. **The "more"-sources registry counts only the Callings' and the fill's factors.** It does not count the older ones (Anthem's `inFieldDamage`, Shield Bearer's `wardedDamage`, Close Ranks, Warden's Key, Fermata's guard, the variants' guards, Oathkeeper, Hunter's Mark, Hawk's Vigil), and the lint 02 §12 describes still does not exist. Default: not widened.
+5. **Iron Mask and Full Chord are registered as non-Harmony "more" factors on damage taken** (with Haloed and Closed Circle that is 4, at the cap), against the design's rule that non-Harmony entries add none. Default: kept.
+6. **Iron Mask against the Unweaver.** The Unravel decree's text still tells the player to switch to Empower (it is hashed content text and was left). No command lets the Thread go, and Unravel can be dodged by re-targeting the Thread every half second, which resets its gather; the bots Bear (the Martyr) or stay in Mend. The bare Unweaver with Iron Mask and no motifs runs to the time limit (534 s); on the kit it was won 20 of 20. Default: left.
+7. **The pre-5g Tithe Altar and Mirror Pool can sell from an empty rarity,** as the Quartermaster did before its fix. Default: left (no pre-5g event is changed).
+8. **Clutch Peal and Second Toll are inert in Movements II and III:** a Clutch Cleanse exists only against a Dirge. Default: left (the tuning section has the reading).
+9. **What the browser tests cover only through the labs:** Harmony cards in a real draft or at a merchant, five of the six events (the Quartermaster is the one in the app), the Ringing chip and the Spare Strings and Water Clock tiles in play, and the chips' text during play.
+10. **The post-tuning pin re-record is done** (see *Pins and checks*); nothing is open here.
+11. **The report tools of ground rule 1** were not compared byte for byte with a pre-W0 tree (only `tools/callings.ts`, at reduced flags). Default: run them before release.
+12. **Texts carry fixed numbers that are not read from `values`:** Last Bastion's 35%, Sister Ward's 6 m and 3 s, Bright Peal's 3 s, Ringing On's 1 s and similar. They are kept in step with the trigger or the sim constant by hand. Default: left.
+13. **Copies that can drift:** the Harmonies' `empowered`, `soloChargeTime` and crit numbers are copied from their sources (an import would fail at module load). Tests pin the copies to the sources; nothing else guards them.
+14. **Left as noted by the reviews:** Gilded Wake does not linger after a snap or a cut; Breath Between's discount also applies to Life costs under Eldritch Conduit; a bigger trigger barrier replaces Brimming Thread's grace shield; motifs stay in the "without you" re-run as before 5g; Black Ribbon's text hard-codes its list of heavy foes; the Novice has no Everbell rule.
+15. **Presentation not yet seen or heard in play:** the sound has not been judged by ear; render cost under many enemies is unmeasured; the heal cue's teal motes are close to Sostenuto's green; in a busy fight the mixer's 70-source limit may drop the Ringing re-strike; `src/audio` now imports from `src/render` (`fillCues`), the first such import. Default: leave until a playtest.
 
 ## Tuning
 
@@ -666,4 +863,4 @@ Thread the Needle and Concert Pitch are not triggers (no tally). Counted directl
 
 ### Exit criterion 7
 
-Five viable presets and five viable archetypes are **met** on all three sets (5 of 6 each, with CS and Anchor on their lines on one set). The other bands are listed above with their readings; the misses are items 1-8 of *Missed bands*, each for your decision. The seeded-run pins (rule 2) are to be re-recorded on these numbers.
+Five viable presets and five viable archetypes are **met** on all three sets (5 of 6 each, with CS and Anchor on their lines on one set). The other bands are listed above with their readings; the misses are items 1-8 of *Missed bands*, each for your decision. The seeded-run pins (rule 2) were re-recorded on these numbers afterwards (see *As built*, Pins and checks).
