@@ -127,19 +127,46 @@ export function enterTyrantPhase(world: World, boss: Entity, phase: number): voi
 }
 
 /**
+ * Foresight's mark for the borrowed attack (`Foreseen.special`): -1 is a boss script's scheduled
+ * attack, an index from 0 one of its own specials.
+ */
+export const TYRANT_FORESEEN = -2;
+
+/**
+ * Foresight's candidate for the hold (enemies.ts, `foresee`, on a Tyrant run only): the borrowed
+ * attack, due once it is ready and the boss is free (`free`), as `tryTyrant` would begin it; none
+ * while the cap on damaging telegraphs would hold it back as things stand.
+ */
+export function tyrantForeseeable(
+  world: World,
+  e: Entity,
+  free: number,
+): { special: number; attackId: string; at: number } | null {
+  const hold = e.enemy!.tyrant;
+  if (!hold) return null;
+  const attack = attackDef(hold.attack);
+  if (attack.effect === 'damage' && liveDamaging(world) >= READABILITY_CAP) return null;
+  return { special: TYRANT_FORESEEN, attackId: hold.attack, at: Math.max(free, hold.readyAt) };
+}
+
+/**
  * The generic picker's first try for a boss on a Tyrant run (enemies.ts, `trySpecial`): its
  * borrowed attack once it is ready, unless the cap on damaging telegraphs shown at once holds it
- * back (it is tried again `CAP_RETRY` s on). True if it began.
+ * back (it is tried again `CAP_RETRY` s on). What Foresight showed of it is kept (its target, if
+ * rolled early). True if it began.
  */
 export function tryTyrant(world: World, e: Entity, target: Entity): boolean {
-  const hold = e.enemy!.tyrant;
+  const c = e.enemy!;
+  const hold = c.tyrant;
   if (!hold || world.time < hold.readyAt - 1e-9) return false;
   const attack = attackDef(hold.attack);
   if (attack.effect === 'damage' && liveDamaging(world) >= READABILITY_CAP) {
     hold.readyAt = world.time + CAP_RETRY;
     return false;
   }
-  if (!beginAttack(world, e, attack, target)) return false;
+  const f = c.foreseen;
+  const promised = f?.special === TYRANT_FORESEEN && f.attackId === hold.attack ? f : null;
+  if (!beginAttack(world, e, attack, target, promised)) return false;
   const entry = tyrantAttackOf(e.enemy!.defId, hold.phase);
   hold.readyAt = world.time + (entry?.every ?? attack.cooldown * world.mods.tyrantCooldownMult);
   return true;

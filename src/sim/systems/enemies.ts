@@ -57,7 +57,7 @@ import {
 } from '../../content/unstitched';
 import { FINALE_MIN_WINDUP } from '../../content/crucible';
 import { enemyRooted, untauntedTarget } from './grove';
-import { tryTyrant } from './tyrant';
+import { tryTyrant, tyrantForeseeable } from './tyrant';
 
 /** Normal enemies may have at most this many telegraphs up at once (readability cap). */
 export const READABILITY_CAP = 2;
@@ -1071,6 +1071,11 @@ function foresee(world: World, e: Entity, def: EnemyDef): void {
     options.push({ special: -1, attackId: script.attackId, at: Math.max(script.at, free) });
   // A chained toll (or a follow-up) owns the boss's next cast.
   if (!script?.owns) {
+    // Tyrant (docs/phase-6.md): the phase's borrowed attack, which `trySpecial` tries first.
+    if (world.mods.tyrant && boss && c.tyrant) {
+      const held = tyrantForeseeable(world, e, free);
+      if (held && canBegin(world, e, attackDef(held.attackId))) options.push(held);
+    }
     const rules = boss ? rulesOf(c) : null;
     // Its affixes' specials too, as `trySpecial` sees them.
     const specials = specialsOf(def, c.affixes);
