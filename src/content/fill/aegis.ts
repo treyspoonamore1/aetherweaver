@@ -27,6 +27,8 @@ export const FILL_AEGIS: ContentInput['motifs'] = [
       {
         on: 'shieldBroken',
         shield: 'ward',
+        // A Ward that was used up; a Perfect's spend is Riposte Bloom's.
+        usedUp: true,
         effects: [{ kind: 'damage', amount: 'v', radius: 5, nearest: 3 }],
       },
     ],

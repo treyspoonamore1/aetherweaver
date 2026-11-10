@@ -27,6 +27,7 @@ import {
   weaver,
   worldOf,
 } from '../sim/helpers';
+import { cone, foe } from '../sim/serenHelpers';
 
 const TECH = CONTENT.techniques;
 const LEVELS = [1, 2, 3] as const;
@@ -201,12 +202,44 @@ describe('Shatterglass: a broken Ward strikes the 3 nearest enemies within 5 m',
     }
   });
 
-  it('a Perfect spends the Ward, and that breaks it too (no enemy near: no damage)', () => {
-    const s = sim('shatterglass', 1);
+  it('a Perfect spends the Ward: that is Riposte Bloom’s, so no shards, even with enemies near', () => {
+    const s = sim('shatterglass', 3);
+    const kael = hero(s, 0);
+    stepFor(s, 1, [spawn('hollow_chorister', kael.x + 1.5, kael.z)]);
+    for (const e of worldOf(s).entities.list())
+      if (e.enemy && e.health) e.health.hp = e.health.maxHp = 1e6;
     const events = drilledPerfect(s);
     expect(ofType(events, 'perfectWard')).toHaveLength(1);
-    expect(tally(s, 'shatterglass')).toBe(1);
+    // The Ward was spent, and its break reported, in the Perfect's tick.
+    expect(events.some((e) => e.type === 'shieldBroken' && e.shield === 'ward')).toBe(true);
+    expect(tally(s, 'shatterglass')).toBe(0);
+    expect(ofType(events, 'motifTriggered')).toEqual([]);
     expect(ofType(events, 'damageTaken').filter((e) => e.source === s.state.weaverId)).toEqual([]);
+  });
+
+  it('a Ward used up by Seren’s parry was used up: it fires', () => {
+    const s = sim('shatterglass', 1, { party: ['lyra', 'vexis', 'seren'] });
+    const w = worldOf(s);
+    const seren = entity(s, 2);
+    const brute = foe(w, 'bell_brute', seren.x, seren.z - 2, { hp: 1e6, stun: true });
+    s.step([{ t: 'tech', id: 'ward', slot: 2 }]);
+    stepFor(s, 30);
+    expect(shieldOf(seren.health!, 'ward')).toBeDefined();
+    const t = cone(w, brute, seren, seren.id, { impact: 1, damage: 500 });
+    const events: ReturnType<typeof s.drainEvents> = [];
+    stepUntil(s, (ev) => {
+      events.push(...ev);
+      return ev.some((e) => e.type === 'telegraphResolved' && e.telegraph === t.id);
+    });
+    expect(ofType(events, 'parried')).toHaveLength(1);
+    expect(ofType(events, 'perfectWard')).toEqual([]);
+    expect(shieldOf(seren.health!, 'ward')).toBeUndefined();
+    expect(tally(s, 'shatterglass')).toBe(1);
+    const shards = ofType(events, 'damageTaken').filter(
+      (e) => e.source === s.state.weaverId && e.target === brute.id,
+    );
+    expect(shards).toHaveLength(1);
+    expect(shards[0]!.amount + shards[0]!.absorbed).toBeCloseTo(value('shatterglass', 1), 6);
   });
 });
 
@@ -246,9 +279,9 @@ describe('Sister Ward: Warding a hero shields the nearest other hero within 6 m'
     const events = s.drainEvents();
     for (const slot of [1, 2])
       expect(shieldOf(entity(s, slot).health!, 'overshield')).toBeUndefined();
-    // The interpreter counts the fire all the same, and reports it with no target.
-    expect(tally(s, 'sister_ward')).toBe(1);
-    expect(ofType(events, 'motifTriggered').some((e) => 'target' in e)).toBe(false);
+    // A barrier on no one is no trigger: no tally, no report.
+    expect(tally(s, 'sister_ward')).toBe(0);
+    expect(ofType(events, 'motifTriggered')).toEqual([]);
   });
 });
 
