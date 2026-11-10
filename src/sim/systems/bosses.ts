@@ -4,7 +4,8 @@
  */
 import { attackDef } from '../../content';
 import { HEAL_CUT } from '../../content/legion';
-import { CONDUCTOR_DECREES } from '../../content/crucible';
+import { CONDUCTOR_DECREES, POSTLUDE_DECREE } from '../../content/crucible';
+import { CONDUCTOR, POSTLUDE_PHASE } from '../../content/crucibleIds';
 import { SIM_DT } from '../constants';
 import { dcos, dsin, len, TWO_PI } from '../core/dmath';
 import { isActive } from '../combat/health';
@@ -15,6 +16,7 @@ import type { Entity } from '../state';
 import type { World } from '../world';
 import { bossScript } from './bossScripts';
 import { beginAttack, beginSilentVerse, ensureM2, fireFollowUp } from './enemies';
+import { tyrantUpdate } from './tyrant';
 
 const PHASE_SHIFT = 2;
 
@@ -162,6 +164,26 @@ const PHASES: Record<string, PhaseDef[]> = {
   ],
 };
 
+/**
+ * True Dissonance's fourth phase (docs/phase-6.md): the Silent Conductor's Postlude, entered only
+ * by its rise (postlude.ts), never by a life threshold, so it is not a row of `PHASES` (whose
+ * table, `bossPhases` and `bossPhaseTable` stay as they are). The picker has no specials in it:
+ * the script casts the closing attacks.
+ */
+const POSTLUDE_DEF: PhaseDef = {
+  at: 0,
+  decree: { name: 'Postlude', text: POSTLUDE_DECREE },
+  answers: ['focus', 'crescendo'],
+  specials: [],
+};
+
+/** `defId`'s phase index `phase` (from 0): its `PHASES` row, or the Conductor's Postlude. */
+function phaseDefOf(defId: string, phase: number): PhaseDef | undefined {
+  const p = PHASES[defId]?.[phase];
+  if (p) return p;
+  return defId === CONDUCTOR && phase === POSTLUDE_PHASE - 1 ? POSTLUDE_DEF : undefined;
+}
+
 export function bossPhases(defId: string): number {
   return PHASES[defId]?.length ?? 1;
 }
@@ -180,6 +202,19 @@ export function bossPhaseTable(defId: string): { at: number; name?: string }[] {
 }
 
 /**
+ * `bossPhaseTable`, with the Silent Conductor's Postlude as a fourth phase when `postlude` is on
+ * (a True Dissonance fight; docs/phase-6.md): the boss bar's fourth pip. Otherwise the same.
+ */
+export function bossPhaseTableWith(
+  defId: string,
+  opts: { postlude?: boolean } = {},
+): { at: number; name?: string }[] {
+  const table = bossPhaseTable(defId);
+  if (opts.postlude !== true || defId !== CONDUCTOR) return table;
+  return [...table, { at: POSTLUDE_DEF.at, name: POSTLUDE_DEF.decree!.name }];
+}
+
+/**
  * The Decree of `defId`'s phase index `phase` (counting from 0) with its answers, or null if it
  * has none. Pure data, for a script that announces a phase's Decree again (docs/phase-5c.md).
  */
@@ -187,7 +222,7 @@ export function phaseDecree(
   defId: string,
   phase: number,
 ): { name: string; text: string; answers: AnswerTag[] } | null {
-  const p = PHASES[defId]?.[phase];
+  const p = phaseDefOf(defId, phase);
   if (!p?.decree) return null;
   return { ...p.decree, answers: p.answers ? [...p.answers] : ['stack', 'move'] };
 }
@@ -197,7 +232,7 @@ export function phaseDecree(
  * every Movement I boss). Pure data: safe to import from enemies.ts despite the module cycle.
  */
 export function phaseRules(defId: string, phase: number): PhaseRules | null {
-  const p = PHASES[defId]?.[phase];
+  const p = phaseDefOf(defId, phase);
   if (!p) return null;
   const { answers, cooldownMult, specials, summonCount } = p;
   if (!answers && cooldownMult === undefined && !specials && !summonCount) return null;
@@ -239,6 +274,8 @@ export function updateBosses(world: World): void {
     const next = phases[c.phase];
     if (next && pct <= next.at) enterPhase(world, boss, c.phase + 1, next);
   }
+  // Tyrant (docs/phase-6.md): the phase just begun (or the fight's first) takes up its attack.
+  if (world.mods.tyrant) tyrantUpdate(world, boss);
 
   // The Sanctuary pools drift whatever Vharun is doing (Stasis freezes them: no update then).
   if (world.field.sanctuary) driftPools(world);

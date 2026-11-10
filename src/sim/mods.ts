@@ -178,7 +178,33 @@ export const FILL_NO_MODS: FillMods = {
   thornBelow: 0,
 };
 
-export interface Mods extends FillMods {
+/**
+ * Phase 6's three Dissonance levels (docs/phase-6.md, "Contracts"): each does nothing by default,
+ * grouped as Phase 5g's `FILL_NO_MODS` is (ground rule 3).
+ */
+export interface Dissonance6Mods {
+  /** Tyrant: bosses and mini-bosses take up a road foe's attack in each phase. */
+  tyrant: boolean;
+  /** Tyrant: the borrowed attack's cooldown × this (its own). */
+  tyrantCooldownMult: number;
+  /** Tyrant: its first cast this many seconds after the phase begins. */
+  tyrantFirst: number;
+  /** Mimicry: enemies in each wave that gain Mimicking (0 = none). */
+  mimicryPerWave: number;
+  /** True Dissonance: the share of its life the Silent Conductor rises with, once (0 = none). */
+  postludeLife: number;
+}
+
+/** Phase 6's defaults: each does nothing. */
+export const DISSONANCE6_NO_MODS: Dissonance6Mods = {
+  tyrant: false,
+  tyrantCooldownMult: 1,
+  tyrantFirst: 0,
+  mimicryPerWave: 0,
+  postludeLife: 0,
+};
+
+export interface Mods extends FillMods, Dissonance6Mods {
   // ── Dissonance (docs/phase-4d.md) ──
   /** Brisk Foes: enemies' speed. */
   enemySpeedMult: number;
@@ -634,6 +660,8 @@ export const NO_MODS: Mods = {
   sacrificialLamb: 0,
   // Phase 5g (docs/phase-5g.md): after every existing default.
   ...FILL_NO_MODS,
+  // Phase 6 (docs/phase-6.md): after Phase 5g's.
+  ...DISSONANCE6_NO_MODS,
 };
 
 /** Blood Tithe's fixed refund: Spirit a Tithe Ward gives back when it breaks (docs/phase-5b.md). */
@@ -842,6 +870,18 @@ function applyDissonance(
       case 'no_respite_heal':
       case 'blind_score':
       case 'cursed_start':
+        break;
+      // Phase 6 (docs/phase-6.md): one rank each.
+      case 'tyrant':
+        m.tyrant = true;
+        m.tyrantCooldownMult = num(v, 'cooldown') / 100;
+        m.tyrantFirst = num(v, 'first');
+        break;
+      case 'mimicry':
+        m.mimicryPerWave = Math.max(m.mimicryPerWave, Math.floor(num(v, 'perWave')));
+        break;
+      case 'true_dissonance':
+        m.postludeLife = num(v, 'life') / 100;
         break;
     }
   }
