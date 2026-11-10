@@ -38,6 +38,17 @@
  *   npx tsx tools/verbs.ts --movement 1 --encounters bellwarden --calling conductor --path 1011
  *   npx tsx tools/verbs.ts --movement 1 --encounters bellwarden --calling conductor --bot novice
  *
+ * The Expert's rules (docs/phase-6.md, "Design: the expert bot"): `--bot expert` plays the Expert
+ * (`ExpertBot`) and ablates its own `EXPERT_RULES` by default (`--rules` may also name any rule it
+ * inherits from the Skilled bot); each row adds in how many decisions a fight each of its rules
+ * was met (its condition held: a rule met may still change nothing the inherited rules don't). Its
+ * rules are met on Phase 6's levels: `--dissonance` (level ids, each `id` or `id:rank`) plays the
+ * fights at them; without it the config has no `dissonance` key, as before.
+ *
+ *   npx tsx tools/verbs.ts --bot expert --movement 2 --encounters vharun --dissonance tyrant
+ *   npx tsx tools/verbs.ts --bot expert --movement 1 --encounters first_light --dissonance mimicry
+ *   npx tsx tools/verbs.ts --bot expert --movement 4 --dissonance true_dissonance --calling conductor --path 0111
+ *
  * Some rules are met only off the default setup: `mawHold` needs a Bloodlusting Brann whom no
  * plain Reel takes out of an Inhale (Swap, the Chronomancer's Rewind). `--party` (A, B, C or 3
  * hero ids, as the harness takes it), `--techniques` (variant ids, e.g. `swap` or
@@ -64,6 +75,7 @@ import {
   type NoviceM4Rule,
   type NoviceRosterRule,
 } from '../src/bots/novice';
+import { EXPERT_RULES, ExpertBot, type ExpertRule, type ExpertSkip } from '../src/bots/expert';
 import type { Bot } from '../src/bots/types';
 import { FINALE_MOVEMENT } from '../src/content/crucibleIds';
 import { CONTENT, callingDef } from '../src/content';
@@ -80,6 +92,7 @@ const MAX_TICKS = 9 * 60 * 60;
  * rules, or the Novice's Finale, roster and Conductor draws.
  */
 export type VerbRule =
+  | ExpertRule
   | M3Rule
   | FinaleRule
   | RosterRule
@@ -88,7 +101,7 @@ export type VerbRule =
   | NoviceRosterRule
   | NoviceConductingRule;
 /** The bot an ablation plays (`--bot`): the Skilled bot by default. */
-export type VerbBot = 'skilled' | 'novice';
+export type VerbBot = 'skilled' | 'novice' | 'expert';
 
 /**
  * The rules a Movement's ablation plays by default: the Finale's from it on, else Movement III's;
@@ -102,6 +115,8 @@ export function rulesFor(
   party: readonly string[] | null = null,
   calling: SimConfig['calling'] | undefined = undefined,
 ): readonly VerbRule[] {
+  // The Expert (docs/phase-6.md): its own rules, whatever the Movement, party or Calling.
+  if (bot === 'expert') return EXPERT_RULES;
   if (calling?.id === 'conductor')
     return bot === 'novice' ? NOVICE_CONDUCTING_RULES : CONDUCTING_RULES;
   if (party && (party.includes('seren') || party.includes('oro')))
@@ -112,6 +127,8 @@ export function rulesFor(
 
 /** Every rule `--rules` may name, by bot. */
 function allRules(bot: VerbBot): readonly string[] {
+  if (bot === 'expert')
+    return [...EXPERT_RULES, ...M3_RULES, ...FINALE_RULES, ...ROSTER_RULES, ...CONDUCTING_RULES];
   return bot === 'novice'
     ? [...NOVICE_M4_RULES, ...NOVICE_ROSTER_RULES, ...NOVICE_CONDUCTING_RULES]
     : [...M3_RULES, ...FINALE_RULES, ...ROSTER_RULES, ...CONDUCTING_RULES];
@@ -132,6 +149,8 @@ export interface VerbFight {
     finales: number;
     marcatos: number;
   };
+  /** The Expert's fights (`--bot expert`): in how many decisions each of its rules was met. */
+  expert?: Record<ExpertRule, number>;
 }
 
 /** Who plays the fights (`--party`, `--techniques`, `--calling`); empty, the default setup. */
@@ -139,6 +158,8 @@ export interface VerbSetup {
   party?: readonly string[];
   techniques?: SimConfig['techniques'];
   calling?: SimConfig['calling'];
+  /** Dissonance levels the fights play at (`--dissonance`; docs/phase-6.md). */
+  dissonance?: SimConfig['dissonance'];
 }
 
 /** The sim config of one fight: the Movement's kit, plus whatever `setup` names (only that). */
@@ -155,7 +176,31 @@ export function verbConfig(
     ...(setup.party ? { party: [...setup.party] } : {}),
     ...(setup.techniques ? { techniques: { ...setup.techniques } } : {}),
     ...(setup.calling ? { calling: setup.calling } : {}),
+    ...(setup.dissonance ? { dissonance: setup.dissonance.map((l) => ({ ...l })) } : {}),
   };
+}
+
+/**
+ * `--dissonance`'s value: level ids, comma-separated, each `id` or `id:rank`. Undefined:
+ * undefined (no key). Throws on an unknown level or a rank outside its ranks.
+ */
+export function dissonanceArg(value: string | undefined): SimConfig['dissonance'] {
+  if (value === undefined) return undefined;
+  return value
+    .split(',')
+    .filter(Boolean)
+    .map((s) => {
+      const [id, r] = s.split(':');
+      const def = CONTENT.dissonance.find((d) => d.id === id);
+      if (!def)
+        throw new Error(
+          `Unknown Dissonance level "${id}" (${CONTENT.dissonance.map((d) => d.id)})`,
+        );
+      const rank = Number(r ?? 1);
+      if (!Number.isInteger(rank) || rank < 1 || rank > def.ranks)
+        throw new Error(`${id} has ranks 1-${def.ranks}, not "${r}"`);
+      return { id: def.id, rank };
+    });
 }
 
 /**
@@ -194,6 +239,8 @@ export function callingArg(
 
 /** The ablation's player: the Skilled bot (the harness's options) or the Novice, `skip` left off. */
 function verbBot(seed: number, skip: ReadonlySet<VerbRule>, bot: VerbBot): Bot {
+  if (bot === 'expert')
+    return new ExpertBot(seed, skip.size > 0 ? { skip: skip as ReadonlySet<ExpertSkip> } : {});
   if (bot === 'novice')
     return new NoviceBot(
       seed,
@@ -230,6 +277,7 @@ export function verbFight(
   }
   const st = sim.state;
   return {
+    ...(bot instanceof ExpertBot ? { expert: { ...bot.play.fires } } : {}),
     won: st.encounter.status === 'victory',
     duration: (st.encounter.endedAt ?? st.time) - st.encounter.startedAt,
     downs: st.ledger.downs,
@@ -247,6 +295,17 @@ export function verbFight(
         }
       : {}),
   };
+}
+
+/**
+ * The Expert's rules a fight (`--bot expert`): in how many decisions each was met, averaged over
+ * `fights`, as a row's tail ('' for any other bot). A rule left off reads 0.
+ */
+export function expertTail(fights: readonly VerbFight[]): string {
+  const x = fights.flatMap((f) => (f.expert ? [f.expert] : []));
+  if (x.length === 0) return '';
+  const m = (r: ExpertRule) => (x.reduce((s, f) => s + f[r], 0) / x.length).toFixed(1);
+  return ` · met ${EXPERT_RULES.map((r) => `${r} ${m(r)}`).join(' ')}`;
 }
 
 /** The Conductor's counts a fight, averaged over `fights`, as a row's tail ('' without any). */
@@ -269,8 +328,8 @@ function main(): void {
   const base = Number(get('seed-base') ?? 1000);
   const encounters = (get('encounters') ?? movementEncounters(movement).join(',')).split(',');
   const botKind = (get('bot') ?? 'skilled') as VerbBot;
-  if (botKind !== 'skilled' && botKind !== 'novice')
-    throw new Error(`--bot is skilled or novice, not "${botKind}"`);
+  if (botKind !== 'skilled' && botKind !== 'novice' && botKind !== 'expert')
+    throw new Error(`--bot is skilled, novice or expert, not "${botKind}"`);
   const party = partyArg(get('party'));
   const calling = callingArg(get('calling'), get('path'));
   const rules = (get('rules')?.split(',') ?? [
@@ -280,15 +339,20 @@ function main(): void {
   const unknown = rules.filter((r) => !known.includes(r));
   if (unknown.length > 0) throw new Error(`Unknown rule "${unknown}" (${known})`);
   const techniques = techniquesArg(get('techniques'));
+  const dissonance = dissonanceArg(get('dissonance'));
   const setup: VerbSetup = {
     ...(party ? { party } : {}),
     ...(techniques ? { techniques } : {}),
     ...(calling ? { calling } : {}),
+    ...(dissonance ? { dissonance } : {}),
   };
   const setupLabel = [
     party ? `party ${party.join(',')}` : '',
     techniques ? `techniques ${Object.values(techniques).join(',')}` : '',
     calling ? `${calling.id} ${(calling.path ?? []).join('/')}` : '',
+    dissonance
+      ? `Dissonance ${dissonance.map((l) => (l.rank > 1 ? `${l.id}×${l.rank}` : l.id)).join(',')}`
+      : '',
   ]
     .filter(Boolean)
     .map((x) => ` · ${x}`)
@@ -297,7 +361,7 @@ function main(): void {
   const signed = (x: number, digits = 0) => `${x >= 0 ? '+' : ''}${x.toFixed(digits)}`;
   const t0 = Date.now();
   console.log(
-    `verb ablation · ${botKind === 'novice' ? 'Novice · ' : ''}Movement ${movement} · ${kitFor(movement).name} · ${seeds} seeds · ${encounters.length} fights · ${rules.length} rules${setupLabel}`,
+    `verb ablation · ${botKind === 'novice' ? 'Novice · ' : botKind === 'expert' ? 'Expert · ' : ''}Movement ${movement} · ${kitFor(movement).name} · ${seeds} seeds · ${encounters.length} fights · ${rules.length} rules${setupLabel}`,
   );
   for (const encounter of encounters) {
     const play = (skip: ReadonlySet<VerbRule>) =>
@@ -313,7 +377,7 @@ function main(): void {
     const onFights = play(new Set());
     const all = sum(onFights);
     console.log(
-      `${encounter.padEnd(18)} every rule       win ${pct(all.win).padStart(4)} · ${all.duration.toFixed(0)} s · downs ${all.downs.toFixed(2)} · share ${pct(all.share)}${conductingTail(onFights)}`,
+      `${encounter.padEnd(18)} every rule       win ${pct(all.win).padStart(4)} · ${all.duration.toFixed(0)} s · downs ${all.downs.toFixed(2)} · share ${pct(all.share)}${conductingTail(onFights)}${expertTail(onFights)}`,
     );
     for (const rule of rules) {
       const offFights = play(new Set([rule]));
@@ -322,9 +386,11 @@ function main(): void {
         off.win === all.win &&
         off.duration === all.duration &&
         off.downs === all.downs &&
-        conductingTail(offFights) === conductingTail(onFights);
+        conductingTail(offFights) === conductingTail(onFights) &&
+        // The Expert's own rule is met where its condition held (whatever the fights then showed).
+        !onFights.some((f) => (f.expert?.[rule as ExpertRule] ?? 0) > 0);
       console.log(
-        `${''.padEnd(18)} −${rule.padEnd(15)} ${same ? 'no change (not met here)' : `win ${pct(off.win).padStart(4)} (${signed(100 * (off.win - all.win))}) · ${off.duration.toFixed(0)} s (${signed(off.duration - all.duration)}) · downs ${off.downs.toFixed(2)} (${signed(off.downs - all.downs, 2)})`}${conductingTail(offFights)}`,
+        `${''.padEnd(18)} −${rule.padEnd(15)} ${same ? 'no change (not met here)' : `win ${pct(off.win).padStart(4)} (${signed(100 * (off.win - all.win))}) · ${off.duration.toFixed(0)} s (${signed(off.duration - all.duration)}) · downs ${off.downs.toFixed(2)} (${signed(off.downs - all.downs, 2)})`}${conductingTail(offFights)}${expertTail(offFights)}`,
       );
     }
   }

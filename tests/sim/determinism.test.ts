@@ -12,6 +12,7 @@ import {
   SCENARIO_FIRST_LIGHT,
   SCENARIO_ORO_BELLWARDEN,
   SCENARIO_PATROL,
+  SCENARIO_POSTLUDE,
   SCENARIO_SEREN_CRIMSON_GATE,
   SCENARIO_UNWEAVER,
   SCENARIO_VHARUN,
@@ -58,7 +59,8 @@ describe('determinism (docs/plan/05 §4.9)', () => {
   // The Conductor (docs/phase-5d.md): Cues, Solos, Discord, Fortissimo Silence, the Grand
   // Silence's notes, Reignite and the burn. Seren and Oro (docs/phase-5e.md): parries, counters
   // and kill shots; summon entities, their taunts, roots, felling and re-sprouting. The Conductor
-  // Calling (docs/phase-5f.md): chains, the beat, Reprise and a Grand Finale of two passes.
+  // Calling (docs/phase-5f.md): chains, the beat, Reprise and a Grand Finale of two passes. True
+  // Dissonance (docs/phase-6.md): the Postlude's rise, its re-formed choir's duets and Discord.
   for (const scenario of [
     SCENARIO_PATROL,
     SCENARIO_FIRST_LIGHT,
@@ -69,6 +71,7 @@ describe('determinism (docs/plan/05 §4.9)', () => {
     SCENARIO_SEREN_CRIMSON_GATE,
     SCENARIO_ORO_BELLWARDEN,
     SCENARIO_CONDUCTING_BELLWARDEN,
+    SCENARIO_POSTLUDE,
   ]) {
     it(`a recorded replay of "${scenario.name}" survives a JSON round-trip and re-simulates bit-exactly`, () => {
       const { replay, hash } = runScenario(scenario);
