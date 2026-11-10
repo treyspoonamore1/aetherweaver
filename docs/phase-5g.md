@@ -545,3 +545,125 @@ Skilled, 30 whole Finale-route Expeditions a build on each set (2000 / 900007 / 
 | Wide Choir | 94 / 96 / 94% | 73 / 80 / 73% |
 
 **Met, 5 of 6 on all three sets** (every preset but All In, which misses on 333003 by one run in 30). The Conductor cells equal Phase 5d's to the point (cells never draft, so this slice can't move them). Anchor is at the line on 333003.
+
+### The bands, on all three sets
+
+Cells: sets 1000 / 500003 / 777001 where named; the motif and relic reports were read with the tools as they are (their own cell seeds, 5000 + i × 7919, one set). Whole runs: 2000 / 900007 / 333003. Every reading is on the final numbers (`b2eccfd`). "Pre-5g" is the same tool on `git archive 4b9886a` (main: W0 and the Conductor's tuning, no content fill), in `pre5g-tree/`.
+
+| Measure | Reading | Size | Verdict |
+|---|---|---|---|
+| Each new motif, Skilled, kit − 3 to the strongest existing of its rarity + 3 (`final-motifs-m{2,3,4}-s20-v3.txt`) | Movement II: every new row inside. Movement III: Thread the Needle −5 (kit 85 / 95 / 100%, with it 75 / 90 / 100%); on cell bases 1000 and 500003 at 20 seeds it reads −2 and 0, and Concert Pitch, which holds it, +2 / −3 / +2 (`ttn-m3-*`). The Silent Conductor: the kit reads 100%, so a row can only fall; 23 of 115 new rows read one seed (−5) or two (Brimming Thread L1, −10) under it, as do 8 of 61 existing rows (Riposte Bloom L3 and Wind at Her Back L3 −15). No new row is above its ceiling anywhere | read at 20 seeds, one cell set, Skilled only | **read at 20**; no miss beyond the cell's one-seed noise |
+| Each new relic, the same; a cursed relic ±5 of no relic (`final-relics-m{2,3,4}-s20-v3.txt`) | Under the −3 floor at the Silent Conductor only: Echoing Shell −15, Everbell −15, Black Ribbon −5 (existing Cracked Metronome and Heavy Score also −15 there; 1 seed = 5 points). Over a ceiling: Water Clock +6 at Movement II against the strongest existing legendary's +2 (by 1 point; +15 and +5 at III and the Conductor, inside). Cursed: Iron Mask +4 / +5 / 0 (inside); Red Ink −1 / −7 / −20 and Hollow Crown −1 / +7 / +10 (outside at III and the Conductor; on cell bases 1000 / 500003 at 20 seeds Red Ink read −1, +2, −5 / −1, −12, +15 and Hollow Crown −1, −2, 0 / +1, −8, +5: the sign flips between bases) | read at 20 seeds, Skilled | **read at 20**; see *Missed* |
+| Trigger fire rates (≥ half the fights held) | table below | cells at 20 seeds; whole runs 30 × 3 × 6 builds | **missed** by 16 of the 35 trigger entries held in whole runs, and by Seed Vault and Crossed Steel in cells |
+| Whole Finale-route Expeditions, default party, Skilled: won ≥ 55%, reached ≥ 65%, won ÷ reached ≥ 80% (`final-harness-run-m4-s200-b*-v3.txt`) | won 67 / 67 / 64%; reached the Finale 68 / 70 / 66%; won ÷ reached 134/135, 134/140, 128/131 (pre-5g: 72 / 68 / 66%, reached 75 / 69 / 67%) | 200 a set | **met**; reached is 1 point over on 333003 |
+| The same, Novice: won 1-6%, won ÷ reached 15-40% pooled | won 1.0 / 1.0 / 1.5% (2 / 2 / 3 of 200); reached the Finale 2 / 3 / 8; won ÷ reached 2/2, 2/3, 3/8, pooled 7/13 = 54% (pre-5g on the same seeds: 2/7, 4/8, 3/8 = 9/23 = 39%) | 200 a set | won **met**; won ÷ reached **missed** |
+| Roster parties, whole runs (5e's bands; `final-roster-runs-m4-s100-*-v3.txt`), Skilled, against the default party on the same 100 seeds (67 / 65 / 67%) | SB 62 / 63 / 50% (−5 / −2 / **−17**; band ≥ default − 10); SC 63 / 57 / 47% (−4 / **−8 / −20**; ≥ default − 5 and ≥ 55%); OA 60 / 59 / 56% (**−7 / −6 / −11**; the same); OB 63 / 59 / 62% (−4 / −6 / −5; ≥ default − 20); OC 76 / 83 / 82% (+9 / +18 / +15); SA 29 / 39 / 43% (unbanded since 5e, its item 7). Pre-5g on the same 100 seeds (`pre5g-roster-runs-*`): default 69 / 65 / 66%, SB 62 / 62 / 60% (−7 / −3 / −6), SC 66 / 53 / 56% (−3 / −12 / −10), OA 69 / 65 / 63% (0 / 0 / −3): SC's miss is Phase 5e's (its item 7); the fill costs OA 6-9 points and SB 10 points on 333003 | 100 a set, Skilled only | **read at 100**: OB and OC inside; SB outside on 333003, SC on two sets, OA on all three |
+| Brann's parties, whole runs (`final-brann-runs-m4-s100-*-v3.txt`), Skilled, against the same default | A 66 / 83 / 65% (−1 / +18 / −2), B 71 / 74 / 68% (+4 / +9 / +1), C 77 / 78 / 81% (+10 / +13 / +14). Read against A and C ≥ default − 5 and B ≥ default − 15 (the parties' bands as 5d read them at the Conductor; 5b set its whole-run bands for the I-II road) | 100 a set, Skilled only | **read at 100**; inside |
+| Pacing, average ≤ 40 (`final-pacing-p16-h3-exp-skilled-b*-v3.txt`, Skilled as 5d read it) | 9001: 41.5 min (won 84%, won III 85%; I + II + III + Finale 13.0 + 12.3 + 12.5 + 3.7); 77003: 38.9 (won 79%). Pre-5g: 39.6 / 39.4, exactly 5d's | 16 players × 3 h | **missed on 9001**, met on 77003 |
+| Five viable presets | 5 of 6 on all three sets | protocol | **met** |
+| Five viable archetypes: ≥ 5 of 6 win ≥ 50% | 5 of 6 on all three sets | protocol | **met** (CS at 50% on 900007) |
+| … each holds ≥ 3 listed in ≥ 60% of its runs | PP only (77 / 70 / 70%) | protocol | **missed** by CS, BS, RL, MA, RD |
+| … none more than 15 points above the median | PP +27 / +32 / +17, MA +27 / +22 / +13 | protocol | **missed** |
+| The Calling reports byte-equal to pre-5g (`callings-cmp-v3.txt`) | `--calling luminary --loadout guardian --seeds 10`, `--calling conductor --loadout steady --seeds 10`, `--cells --movement 4 --seeds 20`, `--cells --movement 3 --encounters the_unweaver --seeds 20`: every file identical | reduced flags (10 seeds a path, 20 a cell; the tool's default is 50) | **met at those sizes** |
+| The meta cap, within +30% (`final-reliquary-power-s400-fillstrongest-v3.txt`) | `--power --seeds 400 --sets fill-strongest --fill-relics water_clock,sand_glass,menders_needle` (the three new relics with the highest summed Δ win over Movements II-IV in the final relic report): worth +14.4% (no set 35.3%, 14.2% at ×1.15; the set 34.3% at ×1.15) | 400, Novice, Guardian (the tool's defaults) | **met** |
+| Performance (`final-simbench-v3.txt`, `fill-bench-v3.txt`) | `npm run sim:bench -- --check`: within budget, every scenario's p95 ≤ 0.164 ms (the Unweaver's peak 0.089). The bench holds no fill entry, so a scratch copy of the Unweaver's peak with Razor Silk and ten trigger motifs at L3 on top of its kit (`scr/fill-bench.ts`): p95 0.086 ms | — | **met** (the fill-held reading is a scratch bench, not the tool) |
+| "More" sources ≤ 4 a stat | `tests/fill/moreSources.test.ts` passes | — | **met** |
+
+### Trigger fire rates
+
+The share of the fights an entry was held in that it fired in. Cells: the final motif and relic reports (Skilled, 20 seeds; for a motif, L1 / L3, which match); whole runs: every build's runs in the final builds report pooled over the three sets (fights held). ⚠ marks under half. A value or a limit can't raise a fire rate (levers 1-2 only make an entry do more when it fires, or fire less often), so none was tuned on it.
+
+| Entry | Movement II · III · the Conductor (cells) | Whole runs (fights held) | Why it fires when it does |
+|---|---|---|---|
+| Whiplash | 40 · 47 · 20% ⚠ | 43% ⚠ (569) | the Thread must snap (at range or cut by an enemy) |
+| Stray Stitch | 94-99 · 95-100 · 100% | 92% (516) | |
+| Spindle Turn | 100 · 100 · 100% | 99% (279) | |
+| Kindred Wound | 64 · 53 · 55% | 66% (554) | the Weaver is hit in about two fights of three |
+| Shatterglass | 20 · 20 · 0% ⚠ | 22% ⚠ (674) | a Ward used up by a blow (`usedUp`), not by a Perfect |
+| Sister Ward | 100 · 100 · 100% | 89% (503) | |
+| Clean Strike | 100 · 100 · 100% | 87% (421) | |
+| Clutch Peal | 0 · 0 · 100% ⚠ | 13% ⚠ (316) | a Clutch Cleanse is a cleanse of a Dirge (`techniques.ts:321`): only Movement I's Lamenters and Hollow Cantor and the Silent Conductor's marks apply one |
+| Bright Peal | 75 · 40 · 100% | 48% ⚠ (316) | a Chime that removes an ailment |
+| Safe Harbour | 85-96 · 85 · 100% | 60% (329) | |
+| Light Step | 34 · 43 · 20% ⚠ | 23% ⚠ (241) | a hero must stand within 3 m of where a Glide lands |
+| Second Toll | 0 · 0 · 100% ⚠ | 14% ⚠ (332) | as Clutch Peal |
+| Tender Guard | 86 · 78 · 90% | 66% (282) | |
+| Penitent Shield | 75 · 65 · 100% | 71% (376) | |
+| Iron Answer | 70 · 52 · 100% | 56% (392) | |
+| Steady Draw | 99 · 97 · 100% | 96% (507) | |
+| Bloodsong | 68 · 92 · 70% | 100% (45) | |
+| Second Intention | 44 · 33 · 20% ⚠ | 61% (18) | a Perfect Ward on Seren: she is seldom the one warded |
+| Seed Vault | 15 · 27 · 5% ⚠ | not held (no build has Oro) | a Sapling must fall |
+| Call and Response | 98-100 · 98 · 100% | 96% (609) | |
+| Taking Bows | 9 · 40 · 10% ⚠ | 17% ⚠ (478) | a Crescendo must end; few cell fights without a Calling reach one, and after the Conductor's Grand Finale it does nothing |
+| Ringing On | 3 · 27 · 45% ⚠ | 11% ⚠ (466) | a Perfect Ward during a Crescendo |
+| Saving Grace | 28 · 30 · 60% ⚠ | 33% ⚠ (662) | a Save must happen |
+| Lament's Answer | 36 · 25 · 5% ⚠ | 21% ⚠ (281) | a hero must go down |
+| Footlights | 98-100 · 98 · 100% | 88% (456) | |
+| Fanfare | 13 · 47 · 100% ⚠ | 45% ⚠ (328) | a Crescendo must begin |
+| Answering Phrase | 85 · 70 · 100% | 69% (497) | |
+| Guardian's Cadence | 100 · 100 · 100% | 100% (19) | |
+| Crossed Steel | 49 · 25 · 60% ⚠ | not held (no build reached it) | a parry by Seren |
+| Pilgrim's Lamp | 23 · 37 · 35% ⚠ | 24% ⚠ (1153) | a hero must be revived |
+| Black Ribbon | 45 · 28 · 100% ⚠ | 32% ⚠ (1330) | a heavy foe must fall (the Conductor's Bass and Tenor always do) |
+| Echoing Shell | 96 · 95 · 100% | 80% (1732) | |
+| Lament Pin | 29 · 53 · 20% ⚠ | 16% ⚠ (1097) | a hero must go down |
+| Sand Glass | 96 · 98 · 100% | 75% (1272) | |
+| Bell Clapper | 75 · 58 · 0% ⚠ | 48% ⚠ (1495) | ordinary enemies within the Chime; the Conductor's fight has none |
+| Heartwood Lute | 15 · 53 · 25% ⚠ | 42% ⚠ (1360) | a Crescendo must begin |
+| Red Ink | 96 · 98 · 100% | 78% (335) | |
+
+Under half in whole runs: 16 of the 35 entries held there (Whiplash, Shatterglass, Clutch Peal, Bright Peal, Light Step, Second Toll, Taking Bows, Ringing On, Saving Grace, Lament's Answer, Fanfare, Pilgrim's Lamp, Black Ribbon, Lament Pin, Bell Clapper, Heartwood Lute); of the two never held there, Seed Vault is under half in every cell and Crossed Steel in two of three. The whole-run rates are a fight-weighted mix of three sets and six builds, rounded from the report's per-build percentages.
+
+Thread the Needle and Concert Pitch are not triggers (no tally). Counted directly in cells (`usage-v1-s10-c1000.txt`, Skilled, 10 seeds, top level, before tuning; nothing it reads moved): Thread the Needle catches 1.3 telegraphs a fight at Movement II and 1.5 at the Conductor, negating 250 and 370 damage a fight; Concert Pitch rings 5.5 and 13.8 times a fight. The bots do use both.
+
+### What the bots can't show (named, not tuned)
+
+- **Razor Silk, Constellation Lines, Cutting Chorus**: the bots don't aim the Thread across enemies. Razor Silk at L3 deals 340 a fight at Movement II and 450 at the Conductor (`usage-v1-*`); its cells read 0 / +3, 0 / +2, −5 / 0. In whole runs RL won 66/120 with Razor Silk at 50 / 80 / 110 against 67/120 at 30 / 50 / 70: the number is not what RL's rate rests on.
+- **Spindle Lullaby**: unmeasured. No cell kit carries Lullaby (it plays marked `aura`, sleeping no one), and no build holds Razor Silk with Lullaby (CS has Lullaby, RL has Razor Silk).
+- **Breath Between**: the Skilled bot doesn't pace its casts (cells +1 / +1, −2 / 0, −5 / −5).
+- **Clutch Peal, Second Toll**: they need a Dirge, which only Movement I's Lamenters and Cantor and the Silent Conductor apply (above); at the Conductor they fire in every fight.
+- **Seed Vault, Graft**: no build has Oro; cells only (Seed Vault 0 / 0, 0 / −2, 0 / 0; Graft 0 / +1, 0 / 0, +5 / 0).
+- **Everbell, Water Clock, Hollow Crown** have no Empowered values (the doc's table gives none); left as built. Their final cells: Everbell +1 / +3 / −15, Water Clock +6 / +15 / +5, Hollow Crown −1 / +7 / +10.
+- **Iron Mask**: read on the kits as asked (final: +4 / +5 / 0 at 12%). The bare Unweaver fight with it and no motifs runs to the time limit (the bots digest); no kit fight does.
+- **Ringing Steel** does nothing on bosses (the stagger cap); cells +1 / +1, +2 / +3, 0 / 0.
+- **Taking Bows** after the Conductor's Grand Finale fills nothing (the Finale fills the Solos first); MA holds it seldom.
+
+### Missed bands: causes and options
+
+1. **The archetypes' holding band (≥ 3 listed motifs in ≥ 60% of runs): only PP holds.** A build drafts from 84 motifs in about 13-15 drafts of three (plus two motifs a merchant), and its list is 6-8 of them; the means are 1.5-3.5 listed held at the end. The merchant now buys a listed motif first (it had ignored the list), and moving three of CS's rares to common left its holding where it was (1.8 / 2.1 held against 1.8 / 2.2), because about 43 commons share the common rolls. Losses count too: runs that die in Movement I hold little. Options: restate the band (≥ 2 listed; or over runs that reached the Finale, where PP reads 79 / 71 / 73%, RL 55 / 72 / 71%, CS 30 / 61 / 71%, MA 48 / 60 / 44%, BS 25 / 29 / 22%); or a guaranteed-Harmony or build-steering offer (out of scope today); or accept.
+2. **The spread band (none more than 15 points above the median): PP on all three sets, MA on two.** The Callings carry them: with no lists at all, PP's frame wins 29 / 28 of 30 and MA's 27 / 27 (`frames-v1-r30-*`), and PP's lists add nothing to it. RD at 0% pulls the median down by 0 / 8 / 7 points. Options: read the spread against the median of the viable builds (PP would then be +27 / +23 / +10, MA +27 / +13 / +6, so PP still misses on two sets); retune the Chronomancer or the Conductor (outside these levers); or accept.
+3. **RD (Red Line) wins 0 of 90.** Its frame (party R, Kael, Brann and Seren, with no Calling) wins nothing without this slice: on the pre-5g tree, 0 of 10 on Wide Choir, Steady, Guardian and Bastion each (`party-pre.mts`, LOG.md), dying in Movements I-II, mostly at Vharun; Phase 5e measured party R's whole runs 65-70 points under the default party (docs/phase-5e.md, the reduced parties). No new entry's number can lift a party that doesn't reach the Finale. Options: give RD a Calling and path (the Martyr's, say, or the Chronomancer's), or another party (Brann and Seren with Lyra); or accept 5 of 6.
+4. **The Novice's won ÷ reached the Finale: 7/13 = 54% pooled against 15-40%.** She reaches the Finale less often than before (13 runs of 600 against 23 on the pre-5g tree, same seeds) and wins there about as often (7 against 9). The band was at its edge before this slice (39.1%, docs/phase-5d.md). The fill dilutes what a first-option drafter takes in Movements I-III (cause, not proven per entry: no single entry stands out among the runs lost at the Hollow Cantor, `cantor-v3-r200-s2000.txt`). Options: accept (13 reaching runs, ±13 points of noise); restate it for the Expedition with 84 motifs; or pool more seeds before deciding.
+5. **Pacing on base 9001: 41.5 minutes against 40** (77003: 38.9, met). On the pre-5g tree the same model reads 39.6 / 39.4 (5d's numbers exactly). The fill lengthens Movement II by 0.7, III by 0.8 and the Finale by 0.4 minutes on 9001 at about the same win rate (84% against 84%); on 77003 fewer wins (79% against 85%) keep the average down. The model's ±1 minute of noise covers part of it. Options: accept; the leaner screen model 5d named (`AROUND`); or a later look at which conditional entries a first-option drafter takes.
+6. **Trigger fire rates: 16 entries under half** (table above). Each is conditional on an event that a good fight seldom has (downs, revives, Crescendos without a Calling, Dirges, broken Wards, Glides). No lever of this slice raises a fire rate. Options: restate the band for entries that fire on a misfortune or a rare event ("fires when its event happens", which they all do), redesign their triggers, or accept.
+7. **Roster parties: OA under default − 5 on all three sets, SB under default − 10 on 333003** (SC's miss predates this slice). Against the pre-5g tree on the same seeds OA falls from 0 / 0 / −3 to −7 / −6 / −11 and SB from −6 to −17 on 333003; the default party moves by −2 / 0 / +1 there. As for the Novice, no single entry is shown to cause it (first-option drafts from a wider pool; Oro's two motifs, Graft and Seed Vault, read 0 to +5 in cells). Options: accept (100 seeds a set: ±5 points); read them at 200 before deciding; or look at Oro's parties' drafts.
+8. **Relic cells outside their band at 20 seeds**: Red Ink and Hollow Crown (cursed) at Movement III and the Conductor, Echoing Shell and Everbell under the floor at the Conductor, Water Clock 1 point over at Movement II. The Conductor's cell moves 5 points a seed, existing relics read −15 there too, and Red Ink's and Hollow Crown's signs flip between cell bases (above), so none was tuned. Options: read them at 50 seeds × 3 sets before deciding.
+
+### Sim notes (reported, not changed)
+
+- Nothing in the sim was found wrong.
+- A *Clutch Cleanse* exists only for a Dirge (`systems/techniques.ts:321`, `dirge <= def.clutchWindow`), so Clutch Peal and Second Toll are inert in every fight without a Dirge (all of Movements II and III).
+- The harness's own Third Voice fill (`withAnotherAura`, `MAX_RESERVE` 0.75) finds no third aura for the Luminary's Anchor songs: a CS run without `thirdAura` plays two auras.
+- The bots catch telegraphs with Thread the Needle (above), unlike what *What the bots can't show* expected.
+
+### For the owner
+
+- **CS's third aura.** `tools/builds.ts` names Fermata for Third Voice; with the Grace Note moved onto the field song it reserves 82.5% of the Weaver's Spirit, under one Ward's cost. That costs CS about 30 points of whole-run wins (two auras: 77 / 70%; Fermata, no lists: 40 / 40%). Long Phrase now gives CS its Ward at L1. A cheaper third aura (or none) is the builds tool's choice, not a number of this slice.
+- **RD's frame** (item 3 above).
+- **Thread the Needle stays epic.** It is offered in 54-59% of the drafts that hold an epic and is held at the end of 113 of 120 default-party runs (`offers-v2-*`). As a rare it would be held in 13 of 120, but PP would hold its build in 48% of runs instead of 72%. Your call whether a one-level epic every run holds is what you want.
+- **The holding, spread and fire-rate bands** (items 1, 2 and 6): restate or accept.
+- **The Novice's won ÷ reached, pacing on 9001 and parties OA and SB** (items 4, 5 and 7).
+- **All In** misses the presets' line on 333003 (47%, 14 of 30), and Anchor sits on it (50%); the band holds at 5 of 6.
+
+### What was not run, or was run smaller
+
+- **Cells at the protocol's size** (50 seeds on each of 1000 / 500003 / 777001): not run for motifs and relics. The final motif and relic reports are `tools/motifs.ts` and `tools/relics.ts` as they are (`--seeds 20`, Skilled only, their own seeds 5000 + i × 7919), with the screen and the A/B cells on 1000 and 500003 at 10-20 seeds. The Novice's rows were not read.
+- **Roster and Brann whole runs** at 100 seeds a set (the protocol's 200), Skilled only.
+- **The Calling report** at reduced flags (10 seeds a path for two Callings' whole Preludes, 20 seeds for the Movement III and Finale cells), compared byte for byte with the same flags on the pre-5g tree.
+- **The meta cap** on the tool's defaults (one seed set, the Novice, Guardian), at the protocol's 400.
+- **Not run**: the full vitest suite (red on purpose until the pins are re-recorded), e2e, `tools/m1-baseline.ts --check` and the Prelude-based reports other than `tools/callings.ts` (astrolabe, powercap, bonds, variants, dissonance, decrees, verbs): none of them can see a pool entry, and no sim or Prelude code moved.
+
+### Exit criterion 7
+
+Five viable presets and five viable archetypes are **met** on all three sets (5 of 6 each, with CS and Anchor on their lines on one set). The other bands are listed above with their readings; the misses are items 1-8 of *Missed bands*, each for your decision. The seeded-run pins (rule 2) are to be re-recorded on these numbers.
