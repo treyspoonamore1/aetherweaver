@@ -135,7 +135,9 @@ const NEUTRAL: ExpertRead = {
 
 /**
  * The Expert's rules as the Skilled bot reads them (`ExpertHooks`), with a tally of the decisions
- * each one acted in (`fires`; it only counts, so a fight plays the same whoever reads it).
+ * in which each one was met (`fires`: its condition held and it set its flag; `restlessHold`
+ * counts the Focuses it took out). A rule met may change nothing the inherited rules don't
+ * already do. It only counts, so a fight plays the same whoever reads it.
  */
 export class ExpertPlay implements ExpertHooks {
   readonly salt = EXPERT_SALT;

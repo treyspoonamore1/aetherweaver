@@ -2344,9 +2344,12 @@ export function playRun(
       case 'forge':
         run = forge(run);
         break;
-      case 'event':
-        run = event(run, relics, motifOrder ?? opts.motifOrder?.(run));
+      case 'event': {
+        // A draft list's order first, as before; else `motifOrder`'s (an empty one: none).
+        const order = motifOrder ?? opts.motifOrder?.(run);
+        run = event(run, relics, order && order.length > 0 ? order : undefined);
         break;
+      }
       default:
         throw new Error(`unexpected phase ${run.phase}`);
     }
