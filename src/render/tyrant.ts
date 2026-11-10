@@ -103,7 +103,7 @@ export class TyrantView {
     this.fired.edicts++;
   }
 
-  sync(state: WorldState, dt: number, time: number, flashes = 1): void {
+  sync(state: WorldState, dt: number, _time: number, flashes = 1): void {
     this.drawn.bands = 0;
     this.drawn.crowns = 0;
     this.drawn.edicts = 0;
@@ -146,7 +146,6 @@ export class TyrantView {
       m.age += dt;
       if (m.age >= EDICT_SECONDS) m.active = false;
     }
-    void time;
   }
 
   /** The two dashed hoops round the body in the foe's accent, a bead at each quarter. */
