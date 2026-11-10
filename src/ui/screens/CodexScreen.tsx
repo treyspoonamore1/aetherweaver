@@ -302,6 +302,7 @@ export function CodexScreen() {
   const earned = useProfile((s) => s.profile.deeds);
   const best = useProfile((s) => s.profile.deedBest);
   const atlas = useProfile((s) => s.profile.atlas);
+  const weekly = useProfile((s) => s.profile.weekly);
   const dissonance = useCodexDissonance();
   const bonds = useCodexBonds();
   const techniques = useCodexTechniques();
@@ -312,7 +313,7 @@ export function CodexScreen() {
       onBack={back}
       allowance={allowance}
       rank={rankOf(xp)}
-      deeds={{ earned, best, atlas }}
+      deeds={{ earned, best, atlas, weekly }}
       atlas={atlas ?? null}
       dissonance={dissonance}
       bonds={bonds}

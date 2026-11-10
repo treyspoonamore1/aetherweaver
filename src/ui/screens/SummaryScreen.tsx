@@ -23,13 +23,15 @@ import {
   techniqueName,
 } from './callingText';
 import { bindingLabel } from '../hud/labels';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { CONTENT } from '../../content';
 import { SONG_GOES_ON } from '../../content/crucibleIds';
 import { finaleCleared } from '../../meta/runEnd';
 import type { AtlasRecord } from '../../meta/atlas';
 import { SummaryAtlasCard, SummaryWeeklyCard } from './AtlasParts';
-import { laterPieces, type SummaryWeeklyInput } from './atlasModel';
+import { laterPieces, summaryWeeklyFrom, type SummaryWeeklyInput } from './atlasModel';
+import { shareCodeOf } from '../../meta/runReplay';
+import { installAtlasActions } from './atlasWiring';
 import { EpilogueView, epilogueDue, markEpilogueSeen, useSkipKeysHeld } from './EpilogueView';
 import { ScreenFrame } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
@@ -1176,7 +1178,14 @@ export function SummaryScreen() {
   const dissonanceOpen = useProfile((s) => s.dissonanceOpen());
   const { rankUps, firstTime, dismiss, deedPoints } = useRankUps();
   const bondCard = useBondCard();
+  // Phase 6: an Echo's stars (the profile store's notice of `recordAtlas`), a weekly's score and
+  // its code (from the replay the run store made at its end; null when it stopped recording).
+  const atlasNotice = useProfile((s) => s.atlasNotice);
+  const replay = useRun((s) => s.replay);
+  // Share on the weekly card reaches the stores through the Atlas's actions.
+  useEffect(() => installAtlasActions(), []);
   if (!run) return null;
+  const weeklyCode = replay && replay.week !== undefined ? shareCodeOf(replay) : null;
   const a = settings.assists;
   const d = DEFAULT_SETTINGS.assists;
   const assisted =
@@ -1195,6 +1204,8 @@ export function SummaryScreen() {
       bonds={bondCard.bonds}
       bondCard={bondCard}
       dissonanceOpen={dissonanceOpen}
+      atlas={run.echo !== undefined && atlasNotice?.echo === run.echo ? atlasNotice : null}
+      weekly={summaryWeeklyFrom(run, weeklyCode)}
       loom={{
         starlight,
         rank: rankOf(xp),
@@ -1207,10 +1218,12 @@ export function SummaryScreen() {
         onRelease: (uid) => useProfile.getState().releaseRelic(uid),
       }}
       onNewRun={() => {
+        useProfile.getState().dismissAtlasNotice();
         useRun.getState().closeRun();
         useRun.getState().newRun();
       }}
       onLoom={() => {
+        useProfile.getState().dismissAtlasNotice();
         useRun.getState().closeRun();
         setScreen('loom');
       }}

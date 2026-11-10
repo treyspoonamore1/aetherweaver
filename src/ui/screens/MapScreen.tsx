@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRun } from '../../app/runStore';
-import { CONTENT, encounterDef, motifDef, movementDef, runEventDef } from '../../content';
+import { CONTENT, encounterDef, motifDef, runEventDef } from '../../content';
 import { findNode, motifLine, nodeThreat, reachable } from '../../meta/run';
 import type { Allowance } from '../../meta/profile';
 import { voiceMapBiome } from './mapBiome';
@@ -30,10 +30,9 @@ import {
   mapHeader,
   markCardShown,
   biomeTone,
-  movementCard,
-  movementCardLook,
-  movementLore,
   movementRows,
+  runMovementCard,
+  runMovementOf,
   wantsMovementCard,
 } from './routeText';
 
@@ -127,7 +126,8 @@ export function MapView({
   // The next reachable stop's Movement, not the last one's (docs/phase-5a.md).
   const header = mapHeader(run);
   const movement = header.movement;
-  const def = movementDef(movement);
+  // Phase 6: an Echo's leg looks like the Movement it is built over (`runMovementDef`).
+  const def = runMovementOf(run, movement);
   const rows = movementRows(run, movement);
   const layout: MapLayout = { rows, first: rows[0]?.[0]?.row ?? 0 };
   const [showCard, setShowCard] = useState(() => card ?? wantsMovementCard(run, movement));
@@ -341,29 +341,25 @@ export function MapView({
           </div>
         </Modal>
       )}
-      {showCard && (
-        <MovementCard movement={movement} movements={run.movements} onClose={closeCard} />
-      )}
+      {showCard && <MovementCard card={runMovementCard(run, movement)} onClose={closeCard} />}
     </ScreenFrame>
   );
 }
 
 /** "Movement II · The Crimson Legion": the title card on first reaching a later Movement. */
 function MovementCard({
-  movement,
-  movements,
+  card: c,
   onClose,
 }: {
-  movement: number;
-  /** The run's route, whose road may shorten the Movement (the Finale route's: docs/phase-5d.md). */
-  movements?: number;
+  /**
+   * The card (`runMovementCard`): its title and stops (the run's route may shorten the Movement,
+   * docs/phase-5d.md), its biome's light (docs/phase-5c.md) and narrative line (the Finale's,
+   * docs/phase-5d.md; earlier cards have none). An Echo's leg names the Echo and its road.
+   */
+  card: ReturnType<typeof runMovementCard>;
   onClose(): void;
 }) {
-  const c = movementCard(movement, movements);
-  // The Finale's card opens with its narrative line (docs/phase-5d.md); earlier cards have none.
-  const lore = movementLore(movement);
-  // Each biome's card in its own light (docs/phase-5c.md): the Spire's crimson, the Rift's indigo.
-  const look = movementCardLook(movement);
+  const { lore, look } = c;
   useEffect(() => {
     const t = setTimeout(onClose, 6000);
     return () => clearTimeout(t);
@@ -435,7 +431,7 @@ function MapNodeView({
   const col = node.row - layout.first;
   const enc = node.encounterId ? encounterDef(node.encounterId) : null;
   // The fight's par at the run's Dissonance (Phase 4d: its extra life lengthens it).
-  const par = enc ? Math.round(enc.par * parMult(run.dissonance ?? [], enc.kind)) : 0;
+  const par = enc ? Math.round(enc.par * parMult(run.dissonance ?? [], enc.kind, enc.id)) : 0;
   const ev = node.kind === 'event' ? eventPreview(node.eventId) : null;
   const eventIcon = node.eventId ? glyphKey(runEventDef(node.eventId)) : null;
   const title = enc?.name ?? ev?.name ?? look.label;

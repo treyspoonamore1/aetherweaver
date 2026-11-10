@@ -18,7 +18,7 @@ export function usePhase6Decrees(key: unknown): void {
     if (!runtime) return;
     return runtime.listen((events, state) => {
       if (events.length === 0) return;
-      const callouts = phase6Callouts(events, state, { rewinds: !!state.calling?.rewind });
+      const callouts = phase6Callouts(events, state);
       if (callouts.length === 0) return;
       const ui = useUi.getState();
       const now = performance.now();

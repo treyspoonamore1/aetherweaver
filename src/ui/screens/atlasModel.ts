@@ -40,7 +40,16 @@ import {
   type AtlasRecord,
 } from '../../meta/atlas';
 import { dissonancePoints, type DissonanceChoice } from '../../meta/dissonance';
-import type { ProfileAtlas, WeeklyCode, WeeklyStatus } from '../../meta/profile';
+import type { ProfileAtlas, WeeklyCode, WeeklyStatus, WeeklyWeek } from '../../meta/profile';
+import {
+  bestScore,
+  daysLeft,
+  entryLine,
+  weekOf,
+  weeklyBoard,
+  weeklyEntry,
+  weeklyScore,
+} from '../../meta/weekly';
 import { fmt, plural } from '../kit/format';
 import type { IconName } from '../kit/iconPaths';
 
@@ -956,4 +965,52 @@ export function verifyCue(status: WeeklyStatus): 'runVerified' | 'runMismatch' |
   if (status === 'mismatch') return 'runMismatch';
   if (status === 'verified' || status === 'otherVersion') return 'runVerified';
   return null;
+}
+
+// ── The weekly panel's input, from the profile (the weekly model's functions) ──────────
+
+/**
+ * The weekly panel's input at `now` (ms since 1970, the caller's clock): the week (`weekOf`), its
+ * days left, its entry and line, your best, the board (`weeklyBoard`), a verification's progress
+ * and answer, and your own code this week (Share's).
+ */
+export function weeklyPanelFrom(
+  weeks: readonly WeeklyWeek[] | undefined,
+  now: number,
+  opts: {
+    progress?: WeeklyProgressInput | null;
+    result?: WeeklyResultInput | null;
+    canBegin: boolean;
+  },
+): WeeklyPanelInput {
+  const week = weekOf(now);
+  const entry = weeklyEntry(week);
+  const rows = weeklyBoard(weeks, week);
+  const mine = rows.find((r) => r.entry.mine === true && r.score !== null) ?? null;
+  return {
+    week,
+    daysLeft: daysLeft(now),
+    entry,
+    entryLine: entry ? entryLine(entry) : '',
+    best: bestScore(weeks, week),
+    rows,
+    progress: opts.progress ?? null,
+    result: opts.result ?? null,
+    canBegin: opts.canBegin,
+    shareCode: mine?.entry.code ?? null,
+  };
+}
+
+/** The Summary's weekly slot for a finished weekly run: its score, won or not, and its code. */
+export function summaryWeeklyFrom(
+  run: Parameters<typeof weeklyScore>[0] & { weekly?: { week: number }; outcome?: string | null },
+  code: string | null,
+): SummaryWeeklyInput | null {
+  if (run.weekly === undefined) return null;
+  return {
+    week: run.weekly.week,
+    score: weeklyScore(run),
+    won: run.outcome === 'victory',
+    code,
+  };
 }

@@ -306,6 +306,11 @@ export function EchoCard({
         <span className="text-xs text-muted" data-testid="echo-best">
           {card.bestLine}
         </span>
+        {onBegin && !canBegin && (
+          <span className="text-xs text-muted" data-testid="echo-begin-note">
+            A run is saved: continue or end it at the Gate first.
+          </span>
+        )}
         {onBegin && (
           <Button
             variant="primary"
@@ -669,7 +674,9 @@ export function AtlasScreenView({
                     >
                       {k.name}
                     </b>
-                    <span className="font-mono text-xs text-muted">{k.progress}</span>
+                    <span className="shrink-0 whitespace-nowrap font-mono text-xs text-muted">
+                      {k.progress}
+                    </span>
                   </p>
                   <ul className="mt-1.5 flex flex-col gap-0.5">
                     {k.echoes.map((e) => (

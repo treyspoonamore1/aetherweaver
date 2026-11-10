@@ -32,6 +32,12 @@ import {
  * first sentence under Blind Score), with the borrowed foe's accent beside the crown: the accent is
  * never alone, the foe and the attack are named.
  */
+/** A decree's words after its own name ("Tyrant — the Bellwarden …" → "the Bellwarden …"). */
+function decreeBody(name: string, text: string): string {
+  const head = `${name} — `;
+  return text.startsWith(head) ? text.slice(head.length) : text;
+}
+
 function TyrantLine({ tyrant }: { tyrant: TyrantDecree }) {
   return (
     <p
@@ -44,7 +50,8 @@ function TyrantLine({ tyrant }: { tyrant: TyrantDecree }) {
     >
       <Icon name="crown" size={14} className="mt-px shrink-0" style={{ color: tyrant.accent }} />
       <span>
-        <b className="uppercase tracking-wider text-gold-200">{tyrant.name}</b> — {tyrant.text}
+        <b className="uppercase tracking-wider text-gold-200">{tyrant.name}</b> —{' '}
+        {decreeBody(tyrant.name, tyrant.text)}
       </span>
     </p>
   );
@@ -75,7 +82,11 @@ function PostludeLine({ postlude, quiet = false }: { postlude: PostludeHud; quie
           </span>
         )}
       </p>
-      {postlude.decree && !quiet && <p className="mt-0.5 leading-snug">{postlude.decree.text}</p>}
+      {postlude.decree && !quiet && (
+        <p className="mt-0.5 leading-snug">
+          {decreeBody(postlude.decree.name, postlude.decree.text)}
+        </p>
+      )}
     </div>
   );
 }

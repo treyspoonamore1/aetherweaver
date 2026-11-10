@@ -6,13 +6,19 @@
  */
 import { getAudio } from '../../audio';
 import { movementDef } from '../../content';
-import { mapMovement } from '../../meta/run';
+import { mapMovement, runMovementDef } from '../../meta/run';
 import type { RunState } from '../../meta/types';
 
-type MapRun = Pick<RunState, 'map' | 'path'>;
+type MapRun = Pick<RunState, 'map' | 'path'> & Partial<Pick<RunState, 'movements' | 'echo'>>;
 
 /** The biome the map of this run is voiced in. */
 export function mapBiome(run: MapRun): ReturnType<typeof movementDef>['biome'] {
+  // Phase 6: an Echo's leg is voiced as the Movement it is built over (`runMovementDef`).
+  if (run.echo !== undefined)
+    return runMovementDef(
+      { movements: run.movements ?? 1, echo: run.echo },
+      mapMovement(run as RunState),
+    ).biome;
   return movementDef(mapMovement(run as RunState)).biome;
 }
 

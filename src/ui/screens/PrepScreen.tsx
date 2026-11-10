@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useProfile } from '../../app/profileStore';
 import { useRun } from '../../app/runStore';
+import * as Run from '../../meta/run';
+import { weeklyEntry } from '../../meta/weekly';
 import { useSettings } from '../../app/settings';
 import { CONTENT } from '../../content';
 import {
@@ -17,6 +19,12 @@ import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import type { ProfileAtlas } from '../../meta/profile';
 import { PrepEchoPanel, PrepWeeklyPanel } from './AtlasParts';
 import { prepEchoView, prepWeeklyView, type PrepWeeklyInput } from './atlasModel';
+
+/** A weekly run's Prep panel input: its week and that week's entry (null: none in content). */
+function prepWeeklyInput(week: number): PrepWeeklyInput | null {
+  const entry = weeklyEntry(week);
+  return entry ? { week, entry } : null;
+}
 import { Button } from '../kit/Button';
 import { Chip } from '../kit/Chip';
 import { Icon } from '../kit/Icon';
@@ -790,6 +798,10 @@ export function PrepScreen() {
   const pickable = prepParty(roster);
   if (!run) return null;
   const rank = rankOf(xp);
+  // Phase 6: a weekly's choices are fixed but its Chords and variants are free (decision 6(a));
+  // an Echo's twists take away what they name (docs/phase-6.md).
+  const weekly = run.weekly !== undefined;
+  const twists = Run.echoTwists(run);
   if (codex)
     return (
       <CodexView
@@ -810,15 +822,16 @@ export function PrepScreen() {
       run={run}
       atlas={atlas}
       onChords={setChords}
-      onCalling={setCalling}
+      onCalling={weekly || twists.noCalling ? undefined : setCalling}
       onEmbark={embark}
       onBack={() => setScreen('loom')}
-      allowance={allowance}
+      allowance={Run.runAllowance(run, allowance)}
+      weekly={weekly ? prepWeeklyInput(run.weekly!.week) : null}
       fresh={fresh}
       freshHeroes={freshRecruits}
       rank={rank}
       astrolabe={
-        astrolabeOpen(rank, unlockAll)
+        !weekly && !twists.noTree && astrolabeOpen(rank, unlockAll)
           ? {
               points: astrolabePoints(rank, unlockAll, deedPoints(deeds)),
               onOpen: () => setScreen('astrolabe'),
@@ -826,32 +839,52 @@ export function PrepScreen() {
           : null
       }
       reliquary={
-        reliquaryOpen(rank, unlockAll)
+        !weekly && !twists.noCarry && reliquaryOpen(rank, unlockAll)
           ? { slots: carrySlots(rank, unlockAll), onOpen: () => setScreen('reliquary') }
           : null
       }
-      dissonance={{
-        open: dissonanceWon || unlockAll,
-        best,
-        onChange: (levels) => useProfile.getState().setDissonance(levels),
-      }}
-      bonds={bondsOpen(bonds, unlockAll) ? { bonds, onOpen: () => setScreen('bonds') } : null}
-      techniques={{
-        owned,
-        all: unlockAll,
-        onChoose: (slot, id) => useProfile.getState().setTechnique(slot, id),
-        onRules: () => setCodex(true),
-      }}
+      dissonance={
+        // A weekly's Dissonance is its entry's, shown locked in its own panel.
+        weekly
+          ? null
+          : {
+              open: dissonanceWon || unlockAll,
+              best,
+              onChange: (levels) => useProfile.getState().setDissonance(levels),
+            }
+      }
+      bonds={
+        !weekly && bondsOpen(bonds, unlockAll) ? { bonds, onOpen: () => setScreen('bonds') } : null
+      }
+      techniques={
+        weekly
+          ? {
+              // Every variant, for this run only (the profile's own choices are untouched).
+              owned: [],
+              all: true,
+              onChoose: (slot, id) =>
+                useRun.getState().setRunTechniques({ ...run.techniques, [slot]: id }),
+              onRules: () => setCodex(true),
+            }
+          : {
+              owned,
+              all: unlockAll,
+              onChoose: (slot, id) => useProfile.getState().setTechnique(slot, id),
+              onRules: () => setCodex(true),
+            }
+      }
       mastery={{
         xp: mastery,
         tiersOpen: (id) => useProfile.getState().tiersOpen(id),
         all: unlockAll,
       }}
       // Phase 5a: the Route, once Expeditions are open; switching keeps the Calling and Chords.
-      route={prepRoute()}
+      route={weekly || run.echo !== undefined ? null : prepRoute()}
       // Phase 5b: the party picker, once the roster outgrows a party.
       party={
-        pickable ? { roster: pickable, onChange: (ids) => useRun.getState().setParty(ids) } : null
+        pickable && !Run.partyFixed(run)
+          ? { roster: pickable, onChange: (ids) => useRun.getState().setParty(ids) }
+          : null
       }
     />
   );

@@ -81,7 +81,9 @@ export type LoomProfile = Pick<
 /** The saved run the Gate can continue (null: none), as much of it as the Gate says. */
 export type GateRun = Pick<RunState, 'phase' | 'path' | 'map'> &
   /** Phase 5a: an Expedition's Gate names its Movement (omitted: a Prelude). */
-  Partial<Pick<RunState, 'movements'>>;
+  Partial<Pick<RunState, 'movements'>> &
+  /** Phase 6: an Echo's Gate names the Echo and its leg (omitted: no Echo). */
+  Partial<Pick<RunState, 'echo'>>;
 
 const NAMES: Readonly<Record<StationId, string>> = {
   gate: 'The Gate',

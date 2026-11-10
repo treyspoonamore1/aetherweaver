@@ -464,9 +464,9 @@ export function buildHudSnapshot(
       ...bossFinale(state, opts.silenceHeard),
     };
     // Phase 6: Tyrant's borrowed attack, and the Postlude's fourth phase (absent without them).
-    Object.assign(boss, bossTyrant(state, bossEntity.id, { rewinds: !!state.calling?.rewind }));
+    Object.assign(boss, bossTyrant(state, bossEntity.id));
     const postlude = bossPostlude(state);
-    if (postlude.postlude) Object.assign(boss, postlude, postludePhases(boss, true));
+    if (postlude.postlude) Object.assign(boss, postlude, postludePhases(boss, true, def.id));
   }
 
   // What the songs reserve from (the Martyr's or Sanguine Font's Life), and the tree's share of
@@ -590,7 +590,7 @@ export function buildHudSnapshot(
       waves: enc.waves,
       elapsed: enc.status === 'intro' ? 0 : (enc.endedAt ?? state.time) - enc.startedAt,
       // As the run grades it (Phase 4d): Dissonance's extra life lengthens the par.
-      par: Math.round(encDef.par * parMult(state.dissonance.levels, encDef.kind)),
+      par: Math.round(encDef.par * parMult(state.dissonance.levels, encDef.kind, encDef.id)),
       enemies,
     },
     directive: state.directive,

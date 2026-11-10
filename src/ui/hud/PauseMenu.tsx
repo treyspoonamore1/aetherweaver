@@ -1,3 +1,4 @@
+import type { RunState } from '../../meta/types';
 import { useState } from 'react';
 import { SettingsPanel } from '../screens/SettingsScreen';
 import { Button } from '../kit/Button';
@@ -18,10 +19,13 @@ export function PauseMenu({
   onAbandon,
   onLeave,
   movements = 1,
+  run,
 }: {
   mode: 'run' | 'training';
   /** The run's Movements (docs/phase-5a.md): 1, the Prelude; more, an Expedition. */
   movements?: number;
+  /** Phase 6: an Echo or a weekly names itself in the abandon dialog (omitted: neither). */
+  run?: Partial<Pick<RunState, 'echo' | 'weekly'>>;
   onResume: () => void;
   /** Run only: gives up the run (goes to the Summary). */
   onAbandon?: () => void;
@@ -45,7 +49,7 @@ export function PauseMenu({
     return (
       <Modal title="Abandon this run?" width="max-w-md">
         <p className="mt-2 text-sm leading-relaxed text-muted">
-          {abandonLine({ movements }, true)}
+          {abandonLine({ movements, ...run }, true)}
         </p>
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" data-autofocus onClick={() => setView('menu')} sound="back">

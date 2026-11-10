@@ -6,6 +6,7 @@
  * are the weekly model's to give and are made up here.
  */
 import { CONTENT, type DeedDef, type WeeklyEntry } from '../../content';
+import { PHASE6_DEEDS } from '../../content/deeds';
 import { STARS_PER_ECHO, recordStars, type AtlasRecord } from '../../meta/atlas';
 import type { ProfileAtlas, WeeklyCode, WeeklyStatus } from '../../meta/profile';
 import type { WeeklyPanelInput, WeeklyRowInput } from '../screens/atlasModel';
@@ -177,116 +178,10 @@ export function weeklyInput(state: WeeklyState, week = 44): WeeklyPanelInput {
   }
 }
 
-// ── The fourteen Deeds (docs/phase-6.md, "Design: Deeds"), until content has them ─────
+// ── The fourteen Deeds (docs/phase-6.md, "Design: Deeds") ────────────────────────────
 
-const lvl = (effect: string) => CONTENT.dissonance.find((d) => d.effect === effect)?.id;
-
-/** The doc's fourteen, shaped by the schema (W0's contract); content's own replace them. */
-export function phase6DeedFixtures(): DeedDef[] {
-  const deeds: DeedDef[] = [
-    {
-      id: 'absolute_pitch',
-      name: 'Absolute Pitch',
-      points: 0,
-      test: 'runCount',
-      stat: 'perfects',
-      values: { n: 50 },
-      text: 'Make {n} Perfect Wards in one run.',
-    },
-    {
-      id: 'silent_bell',
-      name: 'Silent Bell',
-      points: 0,
-      test: 'movementWithout',
-      movement: 3,
-      stat: 'cleanses',
-      values: {},
-      text: 'Clear Movement III without cleansing a hero.',
-    },
-    {
-      id: 'out_of_tune',
-      name: 'Out of Tune',
-      points: 0,
-      test: 'dissonance',
-      values: { points: 10 },
-      text: 'Clear the Finale at {points} Dissonance or more.',
-    },
-    {
-      id: 'wolf_interval',
-      name: 'Wolf Interval',
-      points: 0,
-      test: 'dissonance',
-      values: { points: 20 },
-      text: 'Clear the Finale at {points} Dissonance or more.',
-    },
-    {
-      id: 'tritone',
-      name: 'Tritone',
-      points: 0,
-      test: 'dissonance',
-      values: { points: 30 },
-      text: 'Clear the Finale at {points} Dissonance or more.',
-    },
-    {
-      id: 'resolution',
-      name: 'Resolution',
-      points: 0,
-      test: 'dissonance',
-      allLevels: true,
-      values: {},
-      text: 'Clear the Finale with every Dissonance level.',
-    },
-    {
-      id: 'faint_star',
-      name: 'Faint Star',
-      points: 0,
-      test: 'stars',
-      values: { n: 1 },
-      text: 'Light a star in the Atlas of Echoes.',
-    },
-    {
-      id: 'whole_constellation',
-      name: 'Whole Constellation',
-      points: 0,
-      test: 'constellation',
-      values: {},
-      text: 'Light every star of one constellation.',
-    },
-    {
-      id: 'atlas_walker',
-      name: 'Every Star',
-      points: 0,
-      test: 'stars',
-      values: { n: STARS_PER_ECHO * CONTENT.echoes.length },
-      text: 'Light every star in the Atlas.',
-    },
-    {
-      id: 'same_song',
-      name: 'Same Song',
-      points: 0,
-      test: 'weeks',
-      values: { n: 1 },
-      text: 'Win This Week’s Song.',
-    },
-    {
-      id: 'every_week_a_song',
-      name: 'Every Week a Song',
-      points: 0,
-      test: 'weeks',
-      values: { n: 4 },
-      text: 'Win This Week’s Song in {n} different weeks.',
-    },
-  ];
-  const tyrant = lvl('tyrant');
-  if (tyrant)
-    deeds.push({
-      id: 'crownbreaker',
-      name: 'Crownbreaker',
-      points: 0,
-      test: 'dissonance',
-      level: tyrant,
-      values: {},
-      text: 'Clear the Finale with Tyrant.',
-    });
-  return deeds;
+/** Phase 6's Deeds, as content holds them (`PHASE6_DEEDS`, appended last), in content order. */
+export function phase6Deeds(): DeedDef[] {
+  const ids = new Set(PHASE6_DEEDS.map((d) => d.id));
+  return CONTENT.deeds.filter((d) => ids.has(d.id));
 }

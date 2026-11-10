@@ -30,7 +30,7 @@ import { finaleHud, finaleSummaryRun, mockHud, summaryRun } from './mock';
 import {
   atlasAt,
   atlasRecordFor,
-  phase6DeedFixtures,
+  phase6Deeds,
   weeklyEntryFixture,
   weeklyInput,
   type AtlasStage,
@@ -209,7 +209,7 @@ function deedsStage(atlas: AtlasStage) {
   return (
     <div className="h-full overflow-auto bg-ink-950 p-6">
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {phase6DeedFixtures().map((d) => (
+        {phase6Deeds().map((d) => (
           <DeedCard key={d.id} row={deedRow(d, held, open, null)} />
         ))}
       </ul>

@@ -57,6 +57,7 @@ import {
 } from '../src/ui/lab/mock';
 import {
   LATER_LEVELS,
+  laterLevels,
   TEAR_TOO_GRADE,
   bestRecords,
   bestView,
@@ -407,7 +408,11 @@ describe('open and closed', () => {
       7,
       ...CONTENT.callings.slice(1).map(() => null),
     ]);
+    // Phase 6: the three levels that waited are in content now, so nothing is "still to come".
     expect(LATER_LEVELS.map((l) => l.name)).toEqual(['Tyrant', 'Mimicry', 'True Dissonance']);
+    for (const l of LATER_LEVELS)
+      expect(CONTENT.dissonance.some((d) => d.effect === l.effect)).toBe(true);
+    expect(laterLevels()).toEqual([]);
   });
 });
 

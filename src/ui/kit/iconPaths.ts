@@ -191,6 +191,16 @@ export const PATHS = {
   share:
     'M18 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z M6 9.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z M18 15.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z M8.2 10.8l7.6-4 M8.2 13.2l7.6 4',
   upload: 'M6 3.5h8l4 4v13H6z M14 3.5v4h4 M12 18v-7 M9 13.5l3-3 3 3',
+  // Phase 6's Deeds (docs/phase-6.md, "Design: Deeds"): a tuning fork under a star (Absolute
+  // Pitch), a bell struck through (Silent Bell), a crown broken (Crownbreaker), a sky of stars
+  // (Every Star).
+  forkStar:
+    'M6.5 7v6.5a3.5 3.5 0 0 0 7 0V7 M10 17v4.5 M18 2.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z',
+  bellSlash:
+    'M12 3.5a1 1 0 0 1 1 1v.7A6 6 0 0 1 18 11v4l2 2.5H4L6 15v-4a6 6 0 0 1 5-5.8v-.7a1 1 0 0 1 1-1z M10 20a2 2 0 0 0 4 0 M3.5 3.5l17 17',
+  crownBreak: 'M4 8l3.5 3.5L12 5l4.5 6.5L20 8v10H4z M4 21h16 M13 8.5l-2 3.5 2.5 1.5-2 4',
+  starsMany:
+    'M7 3.5l1 2.5 2.5 1-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1z M17 8.5l1 2.5 2.5 1-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1z M9 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z',
 } as const;
 
 export type IconName = keyof typeof PATHS;

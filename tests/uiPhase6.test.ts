@@ -9,9 +9,28 @@
  */
 import { createElement, type FunctionComponent } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { useProfile } from '../src/app/profileStore';
+import { useRun } from '../src/app/runStore';
+import { setRuntime } from '../src/app/runtimeRegistry';
+import { useSettings } from '../src/app/settings';
+import { CONTENT_VERSION } from '../src/content';
+import * as Run from '../src/meta/run';
+import { buildOf, encodeShareCode, shareLine, type ShareClaim } from '../src/meta/shareCode';
+import { daysLeft, entryLine, weekOf, weeklyBoard, weeklyEntry } from '../src/meta/weekly';
+import { SIM_VERSION } from '../src/sim';
+import { mapBiome } from '../src/ui/screens/mapBiome';
+import { mapHeader, runMovementCard } from '../src/ui/screens/routeText';
+import {
+  atlasActionsFor,
+  useWeeklyVerify,
+  type AtlasWiringDeps,
+} from '../src/ui/screens/atlasWiring';
+import { weeklyPanelFrom } from '../src/ui/screens/atlasModel';
+import { useUi } from '../src/ui/store';
 import { CONTENT, dissonanceLevel, heroDef, type EchoDef } from '../src/content';
 import { ECHO_STARS } from '../src/content/echoes';
+import { POSTLUDE_DECREE } from '../src/content/crucible';
 import {
   STARS_PER_ECHO,
   atlasKeepsakes,
@@ -25,12 +44,11 @@ import {
 import { maxDissonance } from '../src/meta/dissonance';
 import { shopItems, noLook, type ShopItem } from '../src/meta/loom';
 import { WEEKLY_STATUSES, newProfile, type ProfileAtlas } from '../src/meta/profile';
-import { createSim } from '../src/sim';
+import { createSim, tyrantDecreeOf } from '../src/sim';
 import type { World } from '../src/sim/world';
 import { buildHudSnapshot } from '../src/ui/hudBridge';
 import {
   MIMIC,
-  answerSentence,
   bossPostlude,
   bossTyrant,
   mimicrySighting,
@@ -47,7 +65,7 @@ import { ATLAS_SOUNDS, STATION_LOOK } from '../src/ui/kit/loomLook';
 import {
   atlasAt,
   atlasRecordFor,
-  phase6DeedFixtures,
+  phase6Deeds,
   weeklyInput,
   weeklyRows,
 } from '../src/ui/lab/phase6Fixture';
@@ -531,21 +549,21 @@ describe('the Codex: the Atlas page, Dissonance’s still to come', () => {
 
 describe('the Hall of Deeds: the new rules’ glyphs, the profile Deeds’ progress', () => {
   it('each new rule has its own glyph, and cleanses its own', () => {
-    const glyphs = new Map(phase6DeedFixtures().map((d) => [d.test, deedGlyph(d)]));
+    const glyphs = new Map(phase6Deeds().map((d) => [d.test, deedGlyph(d)]));
     expect(glyphs.get('movementWithout')).toBe('bell');
     expect(glyphs.get('dissonance')).toBe('dissonance');
     expect(glyphs.get('stars')).toBe('star');
     expect(glyphs.get('constellation')).toBe('atlas');
     expect(glyphs.get('weeks')).toBe('week');
     for (const g of glyphs.values()) expect(PATHS[g]).toBeTruthy();
-    expect(
-      deedGlyph({ ...phase6DeedFixtures()[0]!, id: 'x', test: 'runCount', stat: 'cleanses' }),
-    ).toBe('purge');
+    expect(deedGlyph({ ...phase6Deeds()[0]!, id: 'x', test: 'runCount', stat: 'cleanses' })).toBe(
+      'purge',
+    );
   });
 
   it('"4 of 27 stars" from the Atlas; a constellation’s nearest; none once earned', () => {
-    const [stars] = phase6DeedFixtures().filter((d) => d.test === 'stars');
-    const constellation = phase6DeedFixtures().find((d) => d.test === 'constellation')!;
+    const [stars] = phase6Deeds().filter((d) => d.test === 'stars');
+    const constellation = phase6Deeds().find((d) => d.test === 'constellation')!;
     const atlas = atlasAt('partway');
     const held = { earned: [], best: {}, atlas };
     expect(deedBest(stars!, held)!.line).toBe(starsLine(atlas));
@@ -599,14 +617,13 @@ describe('in the fight: Tyrant, the Postlude, Mimicry (hand-built states)', () =
   it('Tyrant’s decree: the boss, the foe and its attack, then its answers', () => {
     const lance = CONTENT.attacks.find((a) => a.id === 'lancer_lance')!;
     const d = tyrantDecree('the_bellwarden', { attack: lance.id, from: 'glass_lancer', phase: 1 });
+    // Content's words, through the sim's own builder: no second copy of the text.
     expect(d.text).toBe(
-      `The Bellwarden takes up the ${CONTENT.enemies.find((e) => e.id === 'glass_lancer')!.name}’s ${lance.name}. ${answerSentence(lance.answers)}`,
+      tyrantDecreeOf('the_bellwarden', { attack: lance.id, from: 'glass_lancer' }),
     );
-    expect(answerSentence(['ward', 'reel', 'move'])).toBe(
-      'Ward it, Reel the target, or step aside.',
-    );
-    expect(answerSentence(['ward'])).toBe('Ward it.');
-    expect(answerSentence(['reel'], true)).toBe('Rewind the target.');
+    expect(d.name).toBe(CONTENT.dissonance.find((l) => l.effect === 'tyrant')!.name);
+    expect(d.foe).toBe(CONTENT.enemies.find((e) => e.id === 'glass_lancer')!.name);
+    expect(d.text).toContain(`${d.foe}’s ${lance.name}`);
     // Blind Score cuts it to its first sentence, as every decree.
     const blind = tyrantDecree(
       'the_bellwarden',
@@ -620,7 +637,11 @@ describe('in the fight: Tyrant, the Postlude, Mimicry (hand-built states)', () =
       from: 'the_silent_conductor',
       phase: 1,
     });
-    expect(own.text).toMatch(/^The Silent Conductor plays its /);
+    expect(own.text).toBe(
+      tyrantDecreeOf('the_silent_conductor', { attack: lance.id, from: 'the_silent_conductor' }),
+    );
+    // A boss holding its own attack has no foe to name.
+    expect(own.foe).toBeNull();
   });
 
   it('the boss bar reads `enemy.tyrant`; absent, nothing changes', () => {
@@ -735,7 +756,9 @@ describe('in the fight: Tyrant, the Postlude, Mimicry (hand-built states)', () =
     expect(html).toContain('data-testid="boss-tyrant"');
     expect(html).toContain('data-testid="boss-postlude"');
     expect(html).toContain('Phase 4 / 4');
-    expect(html).toContain(postludeDecree().text);
+    // Its words after its own name (the bar names it once).
+    expect(html).toContain(postludeDecree().text.replace(`${postludeDecree().name} — `, ''));
+    expect(postludeDecree().text).toBe(POSTLUDE_DECREE);
   });
 });
 
@@ -827,4 +850,162 @@ describe('the views render; the lab has a view for each', () => {
       expect(html, v.id).not.toMatch(/undefined|NaN/);
     }
   }, 60_000);
+});
+
+// ── Part B: the wiring ─────────────────────────────────────────────────────────────────
+
+describe('the station’s actions reach the stores', () => {
+  const NOW = Date.UTC(2026, 10, 11, 12);
+  const claim = (over: Partial<ShareClaim> = {}): ShareClaim => ({
+    week: weekOf(NOW),
+    build: buildOf(CONTENT_VERSION),
+    simVersion: SIM_VERSION,
+    won: true,
+    fightsWon: 15,
+    score: 3210,
+    seconds: 1800,
+    digest: '0123456789',
+    ...over,
+  });
+  const fake = () => {
+    const copied: string[] = [];
+    const saved: string[] = [];
+    let answer: { status: 'verified' | 'mismatch'; message: string; week?: number; code?: string } =
+      { status: 'verified', message: 'Verified on this device.' };
+    const deps: AtlasWiringDeps = {
+      now: () => NOW,
+      copy: (t) => copied.push(t),
+      save: (name) => saved.push(name),
+      bytes: async () => new TextEncoder().encode('{}').buffer as ArrayBuffer,
+      verify: (_file, _code, onProgress) => {
+        onProgress?.({ fight: 1, fights: 2, ticks: 10, totalTicks: 20 });
+        return { result: Promise.resolve(answer as never), cancel: () => {} };
+      },
+    };
+    return { deps, copied, saved, answer: (a: typeof answer) => (answer = a) };
+  };
+
+  beforeEach(() => {
+    useSettings.getState().reset();
+    useProfile.getState().resetProgress();
+    useRun.getState().closeRun();
+    useWeeklyVerify.getState().set({ progress: null, result: null });
+  });
+
+  it('Begin on an Echo starts that Echo in Prep; Begin on the weekly starts this week’s', () => {
+    const { deps } = fake();
+    setAtlasActions(atlasActionsFor(deps));
+    expect(beginEcho('retrograde')).toBe(true);
+    expect(useRun.getState().run!.echo).toBe('retrograde');
+    expect(useRun.getState().run!.phase).toBe('prep');
+    expect(useUi.getState().screen).toBe('run');
+    expect(atlasActions().beginWeekly()).toBe(true);
+    expect(useRun.getState().run!.weekly).toEqual({ week: weekOf(NOW) });
+    expect(beginEcho('no_such_echo')).toBe(false);
+  });
+
+  it('Add a code: refused in words, or added Claimed to its week', () => {
+    const { deps } = fake();
+    setAtlasActions(atlasActionsFor(deps));
+    expect(atlasActions().addCode('not a code', null)).toEqual(expect.any(String));
+    const code = encodeShareCode(claim());
+    expect(atlasActions().addCode(code, 'Mara')).toBeNull();
+    const week = useProfile.getState().profile.weekly!.find((w) => w.week === weekOf(NOW))!;
+    expect(week.entries).toEqual([{ code, name: 'Mara', status: 'claimed' }]);
+  });
+
+  it('Open a replay: its progress, then the verifier’s answer, recorded on the board', async () => {
+    const f = fake();
+    setAtlasActions(atlasActionsFor(f.deps));
+    const code = encodeShareCode(claim());
+    f.answer({ status: 'verified', message: 'Verified on this device.', week: weekOf(NOW), code });
+    atlasActions().openReplay(new Blob(['{}']), null);
+    for (let i = 0; i < 10 && useWeeklyVerify.getState().result === null; i++)
+      await new Promise((r) => setTimeout(r, 0));
+    expect(useWeeklyVerify.getState().result).toEqual({
+      status: 'verified',
+      message: 'Verified on this device.',
+    });
+    expect(useWeeklyVerify.getState().progress).toBeNull();
+    const entry = useProfile
+      .getState()
+      .profile.weekly!.find((w) => w.week === weekOf(NOW))!
+      .entries.find((e) => e.code === code)!;
+    expect(entry.status).toBe('verified');
+    // The panel's input is built from the profile and the verification.
+    const input = weeklyPanelFrom(useProfile.getState().profile.weekly, NOW, {
+      ...useWeeklyVerify.getState(),
+      canBegin: true,
+    });
+    expect(input.week).toBe(weekOf(NOW));
+    expect(input.daysLeft).toBe(daysLeft(NOW));
+    expect(input.rows).toEqual(weeklyBoard(useProfile.getState().profile.weekly, weekOf(NOW)));
+    expect(input.entry).toEqual(weeklyEntry(weekOf(NOW)));
+    expect(input.entryLine).toBe(entryLine(input.entry!));
+    expect(input.result!.status).toBe('verified');
+  });
+
+  it('Share copies the share line', () => {
+    const f = fake();
+    setAtlasActions(atlasActionsFor(f.deps));
+    const code = encodeShareCode(claim());
+    expect(atlasActions().shareWeekly(code)).toBe(true);
+    expect(f.copied).toEqual([shareLine(code)]);
+    expect(atlasActions().shareWeekly('nope')).toBe(false);
+  });
+});
+
+describe('the fight’s end hands its replay to the run', () => {
+  it('the outcome and the runtime’s replay, from the same tick', async () => {
+    const { handOff } = (await tsxModule('../src/ui/screens/CombatScreen')) as {
+      handOff(o: unknown): void;
+    };
+    const replay = { version: 6 } as never;
+    const calls: unknown[][] = [];
+    const real = useRun.getState().finishFight;
+    useRun.setState({ finishFight: (o, r) => void calls.push([o, r]) });
+    setRuntime({ exportReplay: () => replay } as never);
+    try {
+      handOff({ outcome: 'victory' });
+      setRuntime(null);
+      handOff({ outcome: 'defeat' });
+    } finally {
+      useRun.setState({ finishFight: real });
+      setRuntime(null);
+    }
+    expect(calls).toEqual([
+      [{ outcome: 'victory' }, replay],
+      [{ outcome: 'defeat' }, null],
+    ]);
+  });
+});
+
+describe('an Echo’s screens read the leg’s Movement', () => {
+  it('the map’s title, biome, card and the fight’s line come from the leg', () => {
+    const run = Run.newEchoRun(7, 'retrograde');
+    const m = mapHeader(run).movement;
+    const leg = Run.runMovementDef(run, m);
+    expect(mapHeader(run).title).toBe(leg.mapTitle);
+    expect(mapHeader(run).eyebrow).toMatch(new RegExp(`^${echo('retrograde').name} · leg 1 of 3`));
+    expect(mapBiome(run)).toBe(leg.biome);
+    // Retrograde opens on the Unravelling Descent: not Movement I's biome.
+    expect(leg.biome).not.toBe(CONTENT.movements[0]!.biome);
+    expect(runMovementCard(run, 1).title).toBe(`${echo('retrograde').name} · leg 1 of 3`);
+    expect(prepEyebrow(run)).toBe(`The Atlas of Echoes · ${echo('retrograde').name}`);
+    const one = Run.newEchoRun(7, 'choir_of_blood');
+    expect(mapHeader(one).eyebrow).toMatch(new RegExp(`^${echo('choir_of_blood').name} · step`));
+    // An ordinary run reads as it did.
+    const prelude = Run.newRun(7);
+    expect(mapHeader(prelude).eyebrow).toMatch(/^The Prelude · Movement I · step/);
+  });
+
+  it('weeks Deeds read their progress from the weekly record', () => {
+    const same = CONTENT.deeds.find((d) => d.test === 'weeks' && d.values.n === 1)!;
+    expect(deedBest(same, { earned: [], best: {} })!.line).toBe('0 of 1 week won');
+    expect(deedBest(same, { earned: [same.id], best: {} })).toBeNull();
+    const four = CONTENT.deeds.find((d) => d.test === 'weeks' && (d.values.n ?? 0) > 1)!;
+    expect(deedBest(four, { earned: [], best: {}, weekly: [] })!.line).toBe(
+      `0 of ${four.values.n} weeks won`,
+    );
+  });
 });

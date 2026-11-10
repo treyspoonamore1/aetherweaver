@@ -10,16 +10,18 @@
  * content (the enemy, the attack and its answers, the levels'); the borrowed foe's accent from
  * `render/tyrantCues.ts`.
  */
-import { CONTENT, enemyDef, type DissonanceEffect } from '../../content';
-import type { WorldState } from '../../sim';
+import { CONTENT, type DissonanceEffect } from '../../content';
+import { POSTLUDE_DECREE } from '../../content/crucible';
+import { CONDUCTOR } from '../../content/crucibleIds';
+import { bossPhaseTableWith, tyrantDecreeOf, type WorldState } from '../../sim';
 import type { SimEventOf } from '../../sim/events';
-import { tyrantAccentHex, tyrantFoeName } from '../../render/tyrantCues';
+import { tyrantFoeName, tyrantMarkHex } from '../../render/tyrantCues';
 import type { AnswerTag } from '../types';
 import { blindDecree } from '../screens/dissonanceModel';
 
-/** A level's name by its effect, as content names it, or `fallback` while content has none. */
-function levelNamed(effect: DissonanceEffect, fallback: string): string {
-  return CONTENT.dissonance.find((d) => d.effect === effect)?.name ?? fallback;
+/** A level's name by its effect, as content names it (its id's words if content has none). */
+function levelNamed(effect: DissonanceEffect): string {
+  return CONTENT.dissonance.find((d) => d.effect === effect)?.name ?? effect;
 }
 
 /** Is a level with this effect on in the fight? */
@@ -29,96 +31,45 @@ export function levelOn(state: Pick<WorldState, 'dissonance'>, effect: Dissonanc
   );
 }
 
-// ── Answers in words ───────────────────────────────────────────────────────────────────
-
-const ANSWER_WORDS: Readonly<Record<AnswerTag, string>> = {
-  ward: 'Ward it',
-  chime: 'Chime it away',
-  reel: 'Reel the target',
-  focus: 'Focus the caster',
-  scatter: 'scatter',
-  stack: 'rally the party',
-  move: 'step aside',
-  dome: 'Cue a dome',
-  mend: 'Mend them above the line',
-  thread: 'move the Thread',
-  empower: 'Empower',
-  crescendo: 'Crescendo',
-};
-
-/** "Ward it, Reel the target, or step aside." from an attack's answer tags (null: none). */
-export function answerSentence(answers: readonly AnswerTag[], rewinds = false): string | null {
-  const words = answers.map((a) =>
-    a === 'reel' && rewinds ? 'Rewind the target' : ANSWER_WORDS[a],
-  );
-  if (words.length === 0) return null;
-  const list =
-    words.length === 1
-      ? words[0]!
-      : `${words.slice(0, -1).join(', ')}${words.length > 2 ? ',' : ''} or ${words.at(-1)}`;
-  return `${list.charAt(0).toUpperCase()}${list.slice(1)}.`;
-}
-
-/** "the Bellwarden" (a name that starts "The" keeps it, lowercased mid-sentence). */
-function theName(name: string): string {
-  return /^the /i.test(name) ? `the ${name.slice(4)}` : `the ${name}`;
-}
-
-/** A name as a sentence's subject: "The Bellwarden", "Vharun, the Crimson Warden". */
-function subject(name: string): string {
-  return /^the /i.test(name) ? `The ${name.slice(4)}` : name;
-}
-
 // ── Tyrant ─────────────────────────────────────────────────────────────────────────────
 
 export interface TyrantDecree {
   /** The decree's name: the level's ("Tyrant"). */
   name: string;
-  /** "The Bellwarden takes up the Glass Lancer’s Glass Lance. Ward it, Reel the target, or step aside." */
+  /**
+   * Content's words (`tyrantDecree`, through the sim's `tyrantDecreeOf`): "Tyrant — the
+   * Bellwarden takes up the Glass Lancer’s Glass Lance. Ward it, …"; cut to its first sentence
+   * under Blind Score, as every decree.
+   */
   text: string;
-  /** The borrowed foe's name ("Glass Lancer"), the attack's ("Glass Lance"). */
-  foe: string;
+  /** The borrowed foe's name ("Glass Lancer"); null for a boss holding its own attack. */
+  foe: string | null;
+  /** The attack's name ("Glass Lance"). */
   attack: string;
   answers: AnswerTag[];
-  /** The borrowed foe's accent (the ring the boss wears for the phase). */
+  /** The colour Tyrant's marks take (the borrowed foe's accent, or the Conductor's brass). */
   accent: string;
   phase: number;
 }
 
 /**
- * Tyrant's decree for a boss holding a borrowed attack: its own name, the foe's and the attack's,
- * then its answers (from the attack's tags), so Blind Score cuts it to the first sentence as it
- * cuts every decree. The Silent Conductor borrows its own attacks: it plays them earlier.
+ * Tyrant's decree for a boss holding a borrowed attack, as content words it (a boss holding its
+ * own attack plays it "early", content's words); Blind Score cuts it to its first sentence.
  */
 export function tyrantDecree(
   bossDefId: string,
   hold: { attack: string; from: string; phase: number },
-  opts: { blind?: boolean; rewinds?: boolean } = {},
+  opts: { blind?: boolean } = {},
 ): TyrantDecree {
-  const boss = (() => {
-    try {
-      return enemyDef(bossDefId).name;
-    } catch {
-      return bossDefId;
-    }
-  })();
   const attack = CONTENT.attacks.find((a) => a.id === hold.attack);
-  const attackName = attack?.name ?? hold.attack;
-  const answers = [...(attack?.answers ?? [])] as AnswerTag[];
-  const own = hold.from === bossDefId;
-  const foe = tyrantFoeName(hold.from);
-  const first = own
-    ? `${subject(boss)} plays its ${attackName} earlier.`
-    : `${subject(boss)} takes up ${theName(foe)}’s ${attackName}.`;
-  const answer = answerSentence(answers, opts.rewinds);
-  const full = answer ? `${first} ${answer}` : first;
+  const full = tyrantDecreeOf(bossDefId, hold);
   return {
-    name: levelNamed('tyrant', 'Tyrant'),
+    name: levelNamed('tyrant'),
     text: opts.blind ? blindDecree(full) : full,
-    foe,
-    attack: attackName,
-    answers,
-    accent: tyrantAccentHex(hold.from),
+    foe: tyrantFoeName(hold.from, bossDefId),
+    attack: attack?.name ?? hold.attack,
+    answers: [...(attack?.answers ?? [])] as AnswerTag[],
+    accent: tyrantMarkHex(hold.from, bossDefId),
     phase: hold.phase,
   };
 }
@@ -127,45 +78,39 @@ export function tyrantDecree(
 export function tyrantEdictDecree(
   state: WorldState,
   event: SimEventOf<'tyrantEdict'>,
-  opts: { rewinds?: boolean } = {},
 ): TyrantDecree | null {
   const boss = state.entities.get(event.boss)?.enemy;
   if (!boss) return null;
   return tyrantDecree(
     boss.defId,
     { attack: event.attack, from: event.from, phase: event.phase },
-    { blind: state.dissonance.blindScore, rewinds: opts.rewinds },
+    { blind: state.dissonance.blindScore },
   );
 }
 
 /** The boss bar's Tyrant line: the boss's borrowed attack while it holds one (absent: none). */
-export function bossTyrant(
-  state: WorldState,
-  bossId: number,
-  opts: { rewinds?: boolean } = {},
-): { tyrant?: TyrantDecree } {
+export function bossTyrant(state: WorldState, bossId: number): { tyrant?: TyrantDecree } {
   const e = state.entities.get(bossId)?.enemy;
   if (!e?.tyrant) return {};
   return {
-    tyrant: tyrantDecree(e.defId, e.tyrant, {
-      blind: state.dissonance.blindScore,
-      rewinds: opts.rewinds,
-    }),
+    tyrant: tyrantDecree(e.defId, e.tyrant, { blind: state.dissonance.blindScore }),
   };
 }
 
 // ── The Postlude ───────────────────────────────────────────────────────────────────────
 
-/** The Postlude's decree (docs/phase-6.md, "True Dissonance"). */
-export const POSTLUDE_NAME = 'Postlude';
-export const POSTLUDE_TEXT =
-  'The Conductor will not let the song end, and its choir sings in pairs. Answer both voices, and silence its Fortissimo with your Crescendo.';
+/**
+ * The Postlude's decree, as content words it (`POSTLUDE_DECREE`, "Postlude — …") and as the sim
+ * announces it at the rise (a boss `decree` named as the fourth phase of `bossPhaseTableWith`).
+ */
+export const POSTLUDE_NAME =
+  bossPhaseTableWith(CONDUCTOR, { postlude: true }).at(-1)?.name ?? 'Postlude';
 
 /** How long the boss bar shows the full decree after the rise, in seconds. */
 export const POSTLUDE_DECREE_S = 10;
 
 export function postludeDecree(blind = false): { name: string; text: string } {
-  return { name: POSTLUDE_NAME, text: blind ? blindDecree(POSTLUDE_TEXT) : POSTLUDE_TEXT };
+  return { name: POSTLUDE_NAME, text: blind ? blindDecree(POSTLUDE_DECREE) : POSTLUDE_DECREE };
 }
 
 export interface PostludeHud {
@@ -194,16 +139,19 @@ export function bossPostlude(state: WorldState): { postlude?: PostludeHud } {
 }
 
 /**
- * The boss bar's phases with the Postlude: a fourth pip, and the bar in it. The Postlude is not a
- * life threshold (it is entered by the rise), so it adds no tick, and the earlier ones go.
+ * The boss bar's phases with the Postlude: the sim's own table with its fourth phase
+ * (`bossPhaseTableWith(defId, { postlude: true })`), and the bar in it (the sim's phase is already
+ * the Postlude's). The Postlude is not a life threshold (it is entered by the rise), so it adds no
+ * tick, and the earlier ones go: the bar is the rise's life alone.
  */
 export function postludePhases(
   base: { phase: number; phases: number; phaseAt?: number[] },
   postlude: boolean,
+  defId: string = CONDUCTOR,
 ): { phase: number; phases: number; phaseAt?: number[] } {
   if (!postlude) return base;
-  // The Postlude's bar is the rise's life alone: the earlier phases' ticks would mislead on it.
-  return { phase: base.phases + 1, phases: base.phases + 1, phaseAt: [] };
+  const phases = Math.max(base.phases, bossPhaseTableWith(defId, { postlude: true }).length);
+  return { phase: Math.max(base.phase, phases), phases, phaseAt: [] };
 }
 
 /** The decree a `postludeRose` announces (the state's Blind Score). */
@@ -262,12 +210,11 @@ export const DECREE_COLOR = '#e9d5ff';
 export function phase6Callouts(
   events: readonly { type: string }[],
   state: WorldState,
-  opts: { rewinds?: boolean } = {},
 ): DecreeCallout[] {
   const out: DecreeCallout[] = [];
   for (const e of events) {
     if (e.type === 'tyrantEdict') {
-      const d = tyrantEdictDecree(state, e as SimEventOf<'tyrantEdict'>, opts);
+      const d = tyrantEdictDecree(state, e as SimEventOf<'tyrantEdict'>);
       if (d) out.push({ kind: 'decree', text: d.name, detail: d.text, color: DECREE_COLOR });
     }
   }

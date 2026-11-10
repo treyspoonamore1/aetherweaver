@@ -5,7 +5,7 @@
  * Expedition's derive from its Movements (content `movements` and their labels,
  * `EXPEDITION_MOVEMENTS`, the route's `routeDefs`) and the map.
  */
-import { CONTENT, encounterDef, movementDef, type Biome } from '../../content';
+import { CONTENT, encounterDef, movementDef, type Biome, type DeedDef } from '../../content';
 import { EXPEDITION_MOVEMENTS, inSentence, movementSpan, routeBoss } from '../../meta/profile';
 import {
   findNode,
@@ -13,6 +13,7 @@ import {
   mapMovement as metaMapMovement,
   routeDefs,
   rowsOfMovement,
+  runMovementDef,
 } from '../../meta/run';
 import type { MapNode, RunState } from '../../meta/types';
 import type { IconName } from '../kit/iconPaths';
@@ -78,6 +79,37 @@ function movementTitle(n: number): string {
 
 type MapRun = Pick<RunState, 'map' | 'path'>;
 
+// ── Phase 6: an Echo's legs (docs/phase-6.md) ────────────────────────────────────────
+
+/** The Echo a run plays, by content's name (null: no Echo, or one content lost). */
+export function echoName(run: Partial<Pick<RunState, 'echo'>>): string | null {
+  if (run.echo === undefined) return null;
+  return CONTENT.echoes.find((e) => e.id === run.echo)?.name ?? run.echo;
+}
+
+/** How many legs an Echo run has (its map's Movements). */
+function legCount(run: Partial<Pick<RunState, 'echo' | 'movements'>>): number {
+  return CONTENT.echoes.find((e) => e.id === run.echo)?.legs.length ?? run.movements ?? 1;
+}
+
+/** "Retrograde · leg 2 of 3", or the Echo's name alone for an Echo of one leg. */
+function echoLegLabel(run: Partial<Pick<RunState, 'echo' | 'movements'>>, n: number): string {
+  const legs = legCount(run);
+  return legs > 1 ? `${echoName(run)} · leg ${n} of ${legs}` : echoName(run)!;
+}
+
+/**
+ * The def the run's Movement (an Echo's leg) `n` plays: its biome, title and road (the meta's
+ * `runMovementDef`; on an Echo, `node.movement` counts legs, not content's Movements).
+ */
+export function runMovementOf(
+  run: Partial<Pick<RunState, 'echo' | 'movements'>>,
+  n: number,
+): ReturnType<typeof movementDef> {
+  if (run.echo === undefined) return movementOrFirst(n);
+  return runMovementDef({ movements: run.movements ?? 1, echo: run.echo }, n);
+}
+
 /**
  * The Movement the map is in: the next reachable stop's, not the last one's (after the Cantor,
  * an Expedition is already climbing Movement II). The meta's rule (`mapMovement`); it reads only
@@ -100,7 +132,7 @@ export function movementStep(run: MapRun, n: number): { step: number; of: number
 }
 
 /** The map's eyebrow and title: the Prelude's as ever; an Expedition's names the Movement. */
-export function mapHeader(run: MapRun & Partial<Pick<RunState, 'movements'>>): {
+export function mapHeader(run: MapRun & Partial<Pick<RunState, 'movements' | 'echo'>>): {
   eyebrow: string;
   title: string;
   movement: number;
@@ -108,6 +140,13 @@ export function mapHeader(run: MapRun & Partial<Pick<RunState, 'movements'>>): {
   const m = mapMovement(run);
   const def = movementOrFirst(m);
   const { step, of } = movementStep(run, m);
+  // Phase 6: an Echo names itself and its leg; the title is the road the leg is built over.
+  if (run.echo !== undefined)
+    return {
+      eyebrow: `${echoLegLabel(run, m)} · step ${step} of ${of}`,
+      title: runMovementOf(run, m).mapTitle,
+      movement: m,
+    };
   if (routeOf(run) === 'prelude')
     return {
       eyebrow: `The Prelude · Movement I · step ${step} of ${of}`,
@@ -221,17 +260,44 @@ export function movementCardLook(n: number): MovementCardLook {
   return CARD_LOOK[movementOrFirst(n).biome] ?? CARD_LOOK.crimson_spire;
 }
 
+/**
+ * A run's card for its Movement (an Echo's leg) `n`: the Movement's card, or on an Echo its leg
+ * ("Retrograde · leg 2 of 3"), the road the leg is built over and its stops to the leg's boss,
+ * with that road's look and narrative line.
+ */
+export function runMovementCard(
+  run: Pick<RunState, 'map'> & Partial<Pick<RunState, 'movements' | 'echo'>>,
+  n: number,
+): { title: string; text: string; look: MovementCardLook; lore: string | null } {
+  if (run.echo === undefined)
+    return {
+      ...movementCard(n, run.movements),
+      look: movementCardLook(n),
+      lore: movementLore(n),
+    };
+  const def = runMovementOf(run, n);
+  const rows = rowsOfMovement(run.map, n).length;
+  const boss = encounterDef(def.boss).name;
+  return {
+    title: echoLegLabel(run, n),
+    text: `${def.mapTitle}: ${rows} ${rows === 1 ? 'stop' : 'stops'} to ${boss}.`,
+    look: CARD_LOOK[def.biome] ?? CARD_LOOK.crimson_spire,
+    lore: MOVEMENT_LORE[def.biome] ?? null,
+  };
+}
+
 /** The combat HUD's line: "The Prelude · node 3 of 10", or "Movement II · node 2 of 7". */
 export function combatSubtitle(
-  run: Pick<RunState, 'map' | 'path' | 'pending' | 'movements'>,
+  run: Pick<RunState, 'map' | 'path' | 'pending' | 'movements'> & Partial<Pick<RunState, 'echo'>>,
 ): string {
-  if (routeOf(run) === 'prelude')
+  if (run.echo === undefined && routeOf(run) === 'prelude')
     return `The Prelude · node ${run.path.length} of ${run.map.rows.length}`;
   const node = run.pending ? findNode(run as RunState, run.pending) : undefined;
   const m = node?.movement ?? 1;
   const of = movementRows(run, m).length;
   const done = run.path.filter((id) => (findNode(run as RunState, id)?.movement ?? 1) === m);
-  return `${movementLabel(m)} · node ${Math.min(Math.max(done.length, 1), of)} of ${of}`;
+  const where = run.echo !== undefined ? echoLegLabel(run, m) : movementLabel(m);
+  return `${where} · node ${Math.min(Math.max(done.length, 1), of)} of ${of}`;
 }
 
 /**
@@ -301,8 +367,12 @@ export function routeHint(route: Route, movements = EXPEDITION_MOVEMENTS): strin
 }
 
 /** "The Prelude ends here…" (the abandon dialogs; `straight`: the pause menu's wording). */
-export function abandonLine(run: Partial<Pick<RunState, 'movements'>>, straight = false): string {
-  return `${routeName(run)} ends here and you go ${straight ? 'straight ' : ''}to the summary. This cannot be undone.`;
+export function abandonLine(
+  run: Partial<Pick<RunState, 'movements' | 'echo' | 'weekly'>>,
+  straight = false,
+): string {
+  const name = echoName(run) ?? (run.weekly !== undefined ? 'This Week’s Song' : routeName(run));
+  return `${name} ends here and you go ${straight ? 'straight ' : ''}to the summary. This cannot be undone.`;
 }
 
 /** The run's final stop: a boss with nothing after it (the Prelude's Cantor, an Expedition's last boss). */
@@ -330,8 +400,13 @@ const VICTORY: Readonly<Record<string, string>> = {
 
 /** The Summary's line under its title: a win names the final boss; a defeat, the Movement reached. */
 export function outcomeSub(
-  run: Pick<RunState, 'map' | 'path' | 'outcome'> & Partial<Pick<RunState, 'movements'>>,
+  run: Pick<RunState, 'map' | 'path' | 'outcome'> & Partial<Pick<RunState, 'movements' | 'echo'>>,
 ): string | null {
+  // Phase 6: an Echo lost names the road its leg was built over.
+  if (run.outcome === 'defeat' && run.echo !== undefined) {
+    const def = runMovementOf(run, movementReached(run));
+    return `The party is lost on ${echoName(run)}’s road, on ${def.mapTitle.replace(/^The /, 'the ')}, but every note you wove is on record.`;
+  }
   if (run.outcome === 'victory') {
     const id = finalEncounter(run) ?? 'hollow_cantor';
     return VICTORY[id] ?? `${encounterDef(id).name} falls.`;
@@ -360,7 +435,12 @@ export function summaryEyebrow(
 }
 
 /** "Continue · step 4 of 10" (the Loom's Gate); an Expedition's names its Movement. */
-export function gateStep(run: MapRun & Partial<Pick<RunState, 'movements'>>): string {
+export function gateStep(run: MapRun & Partial<Pick<RunState, 'movements' | 'echo'>>): string {
+  if (run.echo !== undefined) {
+    const m = mapMovement(run);
+    const { step, of } = movementStep(run, m);
+    return `${echoLegLabel(run, m)} · step ${step} of ${of}`;
+  }
   if (routeOf(run) === 'prelude') {
     const steps = run.map.rows.length;
     return `step ${Math.min(run.path.length + 1, steps)} of ${steps}`;
@@ -387,9 +467,22 @@ export function sightedMovement(seen?: readonly string[]): number {
 }
 
 /** A Deed's Movement: its fight's (1 for any other Deed). */
-export function deedMovement(d: { encounter?: string }): number {
-  if (!d.encounter) return 1;
-  return CONTENT.encounters.find((e) => e.id === d.encounter)?.movement ?? 1;
+export function deedMovement(
+  d: Pick<DeedDef, 'encounter'> & Partial<Pick<DeedDef, 'movement' | 'level' | 'test'>>,
+): number {
+  if (d.encounter) return CONTENT.encounters.find((e) => e.id === d.encounter)?.movement ?? 1;
+  // Phase 6 (docs/phase-6.md): a Movement's Deed (Silent Bell) waits for that Movement; one about
+  // Dissonance, the Atlas or the weekly (all opened by a Finale clear) waits for the Finale.
+  if (d.movement !== undefined) return d.movement;
+  if (
+    d.level !== undefined ||
+    d.test === 'dissonance' ||
+    d.test === 'stars' ||
+    d.test === 'constellation' ||
+    d.test === 'weeks'
+  )
+    return CONTENT.movements.length;
+  return 1;
 }
 
 /**

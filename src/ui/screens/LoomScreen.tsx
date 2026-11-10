@@ -54,6 +54,8 @@ import {
 } from './loomModel';
 import { XpBar } from './Rank';
 import { AtlasScreenView } from './AtlasParts';
+import { weeklyPanelFrom } from './atlasModel';
+import { installAtlasActions, useWeeklyVerify } from './atlasWiring';
 import { useAllowance } from './PrepScreen';
 
 export interface LoomViewProps {
@@ -522,8 +524,13 @@ export function LoomScreen() {
   const codexRoster = useCodexRoster();
   const [run] = useState(savedRun);
   const [codex, setCodex] = useState<'deeds' | 'dissonance' | null>(null);
-  // Phase 6: the Atlas of Echoes opens in place, as the Codex's pages do.
+  // Phase 6: the Atlas of Echoes opens in place, as the Codex's pages do; its buttons reach the
+  // stores through the installed actions, and a verification's progress through its own store.
   const [atlasOpen, setAtlasOpen] = useState(false);
+  const progress = useWeeklyVerify((s) => s.progress);
+  const result = useWeeklyVerify((s) => s.result);
+  const verify = { progress, result };
+  useEffect(() => installAtlasActions(), []);
   const [focusOn, setFocusOn] = useState<StationId | null>(lastStation);
   // The Atelier's items as this profile sees them (its station's badge), as the store's `shop()`.
   const shop = shopItems(profile, rankOf(profile.xp), unlockAll);
@@ -531,7 +538,7 @@ export function LoomScreen() {
     return (
       <AtlasScreenView
         atlas={profile.atlas}
-        weekly={null}
+        weekly={weeklyPanelFrom(profile.weekly, Date.now(), { ...verify, canBegin: !run })}
         canBegin={!run}
         onBack={() => {
           setFocusOn('atlas');
@@ -551,7 +558,12 @@ export function LoomScreen() {
         allowance={allowance}
         seen={profile.seen}
         rank={rankOf(profile.xp)}
-        deeds={{ earned: profile.deeds, best: profile.deedBest, atlas: profile.atlas }}
+        deeds={{
+          earned: profile.deeds,
+          best: profile.deedBest,
+          atlas: profile.atlas,
+          weekly: profile.weekly,
+        }}
         atlas={profile.atlas ?? null}
         dissonance={dissonance}
         bonds={bonds}

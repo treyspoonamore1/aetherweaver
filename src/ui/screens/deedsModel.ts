@@ -5,9 +5,9 @@
  * (`deeds`, `deedBest`) or meta (`deedPoints`, `astrolabePoints`, `unlockRank`).
  */
 import type { UiSound } from '../../audio';
-import { CONTENT, callingDef, deedText, type DeedDef } from '../../content';
+import { CONTENT, callingDef, type DeedDef } from '../../content';
 import { ASTROLABE_RANK, astrolabePoints } from '../../meta/astrolabe';
-import { DEED_POINTS_MAX, deedPoints } from '../../meta/deeds';
+import { DEED_POINTS_MAX, deedLine, deedPoints, profileDeedProgress } from '../../meta/deeds';
 import { MAX_RANK, unlockRank, type Allowance } from '../../meta/profile';
 import type { RunPhase } from '../../meta/types';
 import { callingLook } from '../kit/callingLook';
@@ -15,7 +15,7 @@ import { plural } from '../kit/format';
 import type { IconName } from '../kit/iconPaths';
 import { deedsInSight } from './routeText';
 import { atlasTotals, constellationStars, starsLine } from '../../meta/atlas';
-import type { ProfileAtlas } from '../../meta/profile';
+import type { ProfileAtlas, WeeklyWeek } from '../../meta/profile';
 
 /** Every Deed, in content order: the ladder (easiest first), then the badges. */
 export const DEEDS: readonly DeedDef[] = CONTENT.deeds;
@@ -52,6 +52,24 @@ const OWN_GLYPH: Readonly<Record<string, IconName>> = {
   // The Finale's (docs/phase-5d.md; registered with FINALE): the song, and no voice stilled.
   song_goes_on: 'chorale',
   not_one_silent: 'mute',
+  // Phase 6's fourteen (docs/phase-6.md, "Design: Deeds"), each its own: the fork under a star,
+  // the bell struck through, the cracked guard (Brann's line), Dissonance's rising discord (10,
+  // 20, 30, every level), the Finale's curtain, the broken crown, a star, the Atlas's
+  // constellation, a sky of stars, the week, the clock of weeks.
+  absolute_pitch: 'forkStar',
+  silent_bell: 'bellSlash',
+  red_all_the_way: 'crack',
+  out_of_tune: 'dissonance',
+  wolf_interval: 'dissonate',
+  tritone: 'shatter',
+  resolution: 'ascend',
+  final_bar: 'finale',
+  crownbreaker: 'crownBreak',
+  faint_star: 'star',
+  whole_constellation: 'atlas',
+  atlas_walker: 'starsMany',
+  same_song: 'week',
+  every_week_a_song: 'clock',
 };
 
 /** A counting Deed's glyph: the stat's own, as the Result and Summary draw it. */
@@ -122,6 +140,8 @@ export interface DeedsHeld {
   best: Readonly<Record<string, number>>;
   /** Phase 6: the Atlas's stars, for the profile Deeds' progress (omitted: none lit). */
   atlas?: ProfileAtlas;
+  /** Phase 6: This Week's Song's record, for the weeks Deeds' progress (omitted: none). */
+  weekly?: readonly WeeklyWeek[];
 }
 
 /** What's open to the player: the Callings (by Rank, or Skip the unlocks) and the Astrolabe. */
@@ -141,6 +161,13 @@ export function deedBest(deed: DeedDef, held: DeedsHeld): DeedBest | null {
   // Phase 6's profile Deeds read the Atlas: "4 of 27 stars" until earned.
   if (deed.test === 'stars' || deed.test === 'constellation')
     return held.earned.includes(deed.id) ? null : atlasProgress(deed, held.atlas);
+  if (deed.test === 'weeks') {
+    if (held.earned.includes(deed.id)) return null;
+    const have =
+      profileDeedProgress({ weekly: held.weekly ? [...held.weekly] : undefined }, deed) ?? 0;
+    const need = deed.values.n ?? 1;
+    return { have, need, line: `${have} of ${need} ${plural(need, 'week')} won` };
+  }
   if (!isCounting(deed)) return null;
   const need = deed.values.n ?? 0;
   const have = held.best[deed.id] ?? 0;
@@ -229,7 +256,7 @@ export function deedRow(
   return {
     id: deed.id,
     name: deed.name,
-    text: deedText(deed),
+    text: deedLine(deed),
     point: deed.points > 0,
     pointText: pointLine(deed),
     earned,
@@ -325,7 +352,7 @@ export function deedToast(id: string): DeedToast | null {
     id,
     name: deed.name,
     title: `Deed earned · ${deed.name}`,
-    text: deedText(deed),
+    text: deedLine(deed),
     point: pointLine(deed),
     sound: deed.points > 0 ? 'deedStar' : 'deed',
     glyph: deedGlyph(deed),
@@ -394,7 +421,7 @@ export function runDeeds(ids: readonly string[]): RunDeed[] {
       {
         id,
         name: deed.name,
-        text: deedText(deed),
+        text: deedLine(deed),
         point: deed.points > 0,
         glyph: deedGlyph(deed),
         calling: deed.calling ?? null,
