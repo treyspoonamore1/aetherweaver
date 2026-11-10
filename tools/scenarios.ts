@@ -7,6 +7,7 @@ import { makeBot, type BotKind } from '../src/bots';
 import type { Command } from '../src/sim/commands';
 import type { WorldState } from '../src/sim/state';
 import type { SimConfig } from '../src/sim/world';
+import { CONTENT } from '../src/content';
 import { CONDUCTOR } from '../src/content/crucibleIds';
 import { ARRIVAL3_KIT, ARRIVAL4_KIT, ARRIVAL_KIT, kitConfig } from './kits';
 
@@ -525,6 +526,33 @@ export const SCENARIO_POSTLUDE = botScenario('skilled-postlude', 'skilled', 3535
   dissonance: [{ id: 'true_dissonance', rank: 1 }],
 });
 
+// ── An Echo (docs/phase-6.md, W7: "one Echo fight with a leg scale"): appended after the thirty-one.
+// The doc named it for Choir of Blood, whose legs set no scale as built (its borrowed crowns fight at
+// their own Movement's), so it is the Echo whose leg does: Bells in the Rift. ──
+
+/** Bells in the Rift's leg scale: the Movement its leg names, as `combatConfig` sets it. */
+const RIFT_SCALE = ((): { life: number; damage: number } => {
+  const leg = CONTENT.echoes.find((e) => e.id === 'bells_in_the_rift')!.legs[0]!;
+  const scale = CONTENT.movements[leg.scale! - 1]!.scale;
+  return { life: scale.life, damage: scale.damage };
+})();
+
+/**
+ * The Hollow Cantor with the Skilled bot as Bells in the Rift's boss: its fight at the Rift's
+ * strength (`movement`, the leg's scale), on Movement III's arrival kit.
+ */
+export const SCENARIO_ECHO_RIFT = botScenario(
+  'skilled-echo-bells-in-the-rift',
+  'skilled',
+  2626,
+  60 * 225,
+  {
+    encounter: 'hollow_cantor',
+    ...kitConfig(ARRIVAL3_KIT),
+    movement: RIFT_SCALE,
+  },
+);
+
 /**
  * The bench's hound pack (not a golden): the Matriarch's fight with a pack of hounds already
  * loose, so Pack Call stacks on top of them; the Movement II entity peak.
@@ -582,4 +610,5 @@ export const SCENARIOS: readonly Scenario[] = [
   SCENARIO_TYRANT_VHARUN,
   SCENARIO_MIMICRY_FIRST_LIGHT,
   SCENARIO_POSTLUDE,
+  SCENARIO_ECHO_RIFT,
 ];
