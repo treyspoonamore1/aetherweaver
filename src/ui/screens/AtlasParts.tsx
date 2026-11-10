@@ -85,7 +85,7 @@ export function StarPips({ lit, of, size = 14 }: { lit: number; of: number; size
 // ── The star chart ─────────────────────────────────────────────────────────────────────
 
 const CHART_W = 960;
-const CHART_H = 300;
+const CHART_H = 340;
 
 export function StarChart({
   constellations,
@@ -206,6 +206,9 @@ export function StarChart({
                   x={x}
                   y={y + 46}
                   textAnchor="middle"
+                  stroke="#070a1a"
+                  strokeWidth={4}
+                  paintOrder="stroke"
                   fill={on ? '#eef2ff' : '#9aa6cc'}
                   fontSize={13}
                 >
@@ -281,16 +284,20 @@ export function EchoCard({
           </ul>
         </div>
       )}
-      <ul className="flex flex-col gap-1" data-testid="echo-stars">
+      <ul className="flex flex-col gap-1.5" data-testid="echo-stars">
         {card.stars.map((s) => (
           <li
             key={s.n}
-            className={`flex items-center gap-2 text-sm ${s.lit ? 'text-text' : 'text-muted'}`}
+            className={`flex items-start gap-2 text-sm ${s.lit ? 'text-text' : 'text-muted'}`}
             data-lit={s.lit}
           >
-            <StarPips lit={s.lit ? 1 : 0} of={1} size={15} />
-            <span className="flex-1">{s.rule}</span>
-            <span className="font-mono text-xs">{s.reward}</span>
+            <span className="mt-0.5">
+              <StarPips lit={s.lit ? 1 : 0} of={1} size={15} />
+            </span>
+            <span className="flex-1">
+              {s.rule}
+              <span className="block text-xs text-muted">{s.reward}</span>
+            </span>
             <span className="sr-only">{s.lit ? '(lit)' : '(not lit)'}</span>
           </li>
         ))}
@@ -779,7 +786,9 @@ export function PrepEchoPanel({ view }: { view: PrepEchoView }) {
             Off in this Echo
           </p>
           <ul className="mt-1 flex flex-col gap-0.5 text-sm text-text" data-testid="prep-echo-off">
-            {view.off.length === 0 && <li className="text-muted">Nothing</li>}
+            {view.off.length === 0 && view.forced.length === 0 && (
+              <li className="text-muted">Nothing</li>
+            )}
             {view.off.map((f) => (
               <li key={f} className="flex items-start gap-1.5">
                 <Icon name="close" size={12} className="mt-1 shrink-0 text-muted" /> {f}

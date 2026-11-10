@@ -143,6 +143,7 @@ import { BRANN_VIEWS } from './brannLab';
 import { SEREN_VIEWS } from './serenLab';
 import { ORO_VIEWS } from './oroLab';
 import { FILL_VIEWS } from './fillLab';
+import { PHASE6_VIEWS } from './phase6Lab';
 import {
   conductOfferRun,
   conductResultRun,
@@ -4729,6 +4730,8 @@ const VIEWS: ViewDef[] = [
   ...ORO_VIEWS,
   // ── Phase 5g: the fill (motifs, Harmonies, relics, boons and events) ─────────────────
   ...FILL_VIEWS,
+  // ── Phase 6: the Atlas of Echoes, This Week's Song, Tyrant, Mimicry and the Postlude ──
+  ...PHASE6_VIEWS,
   {
     id: 'flow',
     group: 'Flow',

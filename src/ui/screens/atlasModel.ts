@@ -149,6 +149,11 @@ export function encounterName(id: string): string {
   return CONTENT.encounters.find((e) => e.id === id)?.name ?? id;
 }
 
+/** An encounter's name mid-sentence: "the Unweaver", "Vharun, the Crimson Warden". */
+export function encounterInSentence(id: string): string {
+  return encounterName(id).replace(/^The /, 'the ');
+}
+
 const NODE_WORDS: Readonly<Record<string, string>> = {
   respite: 'a Respite',
   merchant: 'a Merchant',
@@ -172,8 +177,8 @@ export function scaleWords(leg: Pick<EchoLeg, 'scale' | 'movement'>): string | n
 export function legLine(leg: EchoLeg): string {
   const kinds = (leg.rows ?? []).flat();
   const fights = kinds.some((k) => k === 'skirmish' || k === 'elite');
-  const boss = encounterName(leg.boss);
-  const crowned = leg.miniboss ? `${encounterName(leg.miniboss)} and ${boss}` : boss;
+  const boss = encounterInSentence(leg.boss);
+  const crowned = leg.miniboss ? `${encounterInSentence(leg.miniboss)} and ${boss}` : boss;
   let head: string;
   if (leg.rows && !fights) {
     const stops = kinds.filter((k) => k !== 'boss' && k !== 'miniboss').map((k) => NODE_WORDS[k]);
@@ -688,21 +693,21 @@ export const STATUS_LOOK: Readonly<Record<WeeklyStatus, StatusLook>> = {
     status: 'verified',
     word: 'Verified',
     icon: 'check',
-    color: '#7dd3fc',
+    color: '#60a5fa',
     means: 'Its replay played through on this device and ended where its code says.',
   },
   otherVersion: {
     status: 'otherVersion',
     word: 'Another version',
     icon: 'info',
-    color: '#c4b5fd',
+    color: '#e5e7eb',
     means: 'Verified, though it was recorded on another version of the game.',
   },
   claimed: {
     status: 'claimed',
     word: 'Claimed',
     icon: 'flag',
-    color: '#cbd5e1',
+    color: '#8b95a8',
     means: 'Only a code: its replay hasn’t been checked.',
   },
   mismatch: {
