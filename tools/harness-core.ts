@@ -12,7 +12,7 @@ import {
 import { makeBot, type BotKind } from '../src/bots';
 import type { ReliquaryRelic } from '../src/meta/reliquary';
 import * as Run from '../src/meta/run';
-import type { ChordLoadout, RunState } from '../src/meta/types';
+import type { ChordLoadout, DraftOption, RunState } from '../src/meta/types';
 import { weaverShare } from '../src/meta/run';
 import { inhaleTell, inNullZone, inPullZone, isStitched } from '../src/bots/common';
 import {
@@ -95,6 +95,12 @@ export interface EncounterRun {
   finale?: FinaleTally;
   /** The Conductor Calling's fight (docs/phase-5f.md, "Harness"); absent without the Calling. */
   conducting?: ConductingTally;
+  /**
+   * The trigger system's fires this fight by the motif's, relic's or boon's id (the sim's
+   * `ledger.triggers`, docs/phase-5g.md); absent unless a trigger was held, and a held one that
+   * never fired reads 0.
+   */
+  triggers?: Record<string, number>;
 }
 
 /** What made a Grand Silence note (the sim's `NoteSource`). */
@@ -1679,6 +1685,7 @@ export function playEncounter(
     ...(m3 ? { m3: m3.result() } : {}),
     ...(finale ? { finale: finale.result() } : {}),
     ...(conducting ? { conducting: conducting.result(sim) } : {}),
+    ...(l.triggers ? { triggers: { ...l.triggers } } : {}),
   };
 }
 
@@ -1709,6 +1716,65 @@ export interface RunSummary {
    * while both its prerequisites were owned; `prereqsOwned`: both were owned at some offer.
    */
   harmony?: { silkOffered: number; silkOfferedEligible: number; prereqsOwned: boolean };
+  /**
+   * The trigger system over the whole run (docs/phase-5g.md): each held source's fires summed
+   * over the fights, and in how many fights it was held and fired. Absent in a run that never
+   * held a trigger, so every report and baseline from before the fill reads the same.
+   */
+  triggers?: Record<string, number>;
+  triggerFights?: Record<string, { held: number; fired: number }>;
+}
+
+/**
+ * What `playRun` takes at a draft, when a build asks for its motifs (docs/phase-5g.md, "The six
+ * builds"): an ordered list of motif ids (the offered option nearest the front of the list; an
+ * id that is not in `CONTENT` is skipped with one warning on stderr), or a function from the
+ * offer to the index to take (`undefined`: the harness's own choice). Nothing named on offer:
+ * the harness's own choice, the first option.
+ */
+export type DraftPrefer =
+  | readonly string[]
+  | ((options: readonly DraftOption[], run: RunState) => number | null | undefined);
+
+/** The same for a relic offer: relic ids, or a function from the offered ids to an index. */
+export type RelicPrefer =
+  readonly string[] | ((options: readonly string[], run: RunState) => number | null | undefined);
+
+/** The warnings already printed, so a preference named in a thousand runs warns once. */
+const WARNED = new Set<string>();
+
+/**
+ * `ids` without those `CONTENT` doesn't hold (a preference written with the doc's ids before the
+ * content that adds them has merged). One line on stderr, once, naming what was skipped.
+ */
+export function knownIds(kind: 'motif' | 'relic', ids: readonly string[]): string[] {
+  const have = new Set((kind === 'motif' ? CONTENT.motifs : CONTENT.relics).map((d) => d.id));
+  const missing = ids.filter((id) => !have.has(id));
+  if (missing.length > 0) {
+    const line = `harness: preferred ${kind} ids not in CONTENT, skipped: ${missing.join(', ')}`;
+    if (!WARNED.has(line)) {
+      WARNED.add(line);
+      console.error(line);
+    }
+  }
+  return ids.filter((id) => have.has(id));
+}
+
+/** The offered index whose id comes earliest in `ids`; undefined when none is named. */
+export function preferredIndex(
+  ids: readonly string[],
+  offered: readonly string[],
+): number | undefined {
+  let best: number | undefined;
+  let rank = Infinity;
+  for (const [i, id] of offered.entries()) {
+    const r = ids.indexOf(id);
+    if (r >= 0 && r < rank) {
+      rank = r;
+      best = i;
+    }
+  }
+  return best;
 }
 
 /** The Harmony the harness watches for (docs/phase-5b.md), and what it needs owned. */
@@ -1931,9 +1997,25 @@ export function playRun(
      * fights played from it.
      */
     start?: RunState;
+    /**
+     * What to take at a draft and at a relic offer (docs/phase-5g.md, "The six builds"); absent
+     * (or naming nothing on offer): the first option, as before. Neither draws a random number.
+     */
+    draftPrefer?: DraftPrefer;
+    relicPrefer?: RelicPrefer;
   } = {},
 ): RunSummary {
   const relics = opts.relics ?? true;
+  const draftIds =
+    opts.draftPrefer && typeof opts.draftPrefer !== 'function'
+      ? knownIds('motif', opts.draftPrefer)
+      : undefined;
+  const relicIds =
+    opts.relicPrefer && typeof opts.relicPrefer !== 'function'
+      ? knownIds('relic', opts.relicPrefer)
+      : undefined;
+  const triggers: Record<string, number> = {};
+  const triggerFights: Record<string, { held: number; fired: number }> = {};
   const movements = opts.movements ?? 1;
   let run: RunState;
   let harmony: HarmonyWatch | null;
@@ -1995,6 +2077,12 @@ export function playRun(
           if (s === 'victory' || s === 'defeat') break;
         }
         opts.onFight?.();
+        for (const [source, fires] of Object.entries(sim.state.ledger.triggers ?? {})) {
+          triggers[source] = (triggers[source] ?? 0) + fires;
+          const fights = (triggerFights[source] ??= { held: 0, fired: 0 });
+          fights.held++;
+          if (fires > 0) fights.fired++;
+        }
         last = config.encounter ?? '';
         seconds += sim.state.time;
         const m = movementOfNode(run, run.pending!);
@@ -2012,9 +2100,21 @@ export function playRun(
       case 'result':
         run = Run.continueFromResult(run);
         break;
-      case 'draft':
-        run = Run.pickDraft(run, run.draft && run.draft.options.length > 0 ? 0 : null);
+      case 'draft': {
+        const options = run.draft?.options ?? [];
+        const want = !run.draft
+          ? undefined
+          : typeof opts.draftPrefer === 'function'
+            ? opts.draftPrefer(options, run)
+            : draftIds
+              ? preferredIndex(
+                  draftIds,
+                  options.map((o) => o.motifId),
+                )
+              : undefined;
+        run = Run.pickDraft(run, want !== undefined ? want : options.length > 0 ? 0 : null);
         break;
+      }
       case 'respite':
         run = Run.respite(run, 'rest');
         break;
@@ -2027,9 +2127,19 @@ export function playRun(
         run = Run.pickCalling(run, index, filled);
         break;
       }
-      case 'relic':
-        run = Run.pickRelic(run, relics ? 0 : null);
+      case 'relic': {
+        const offered = run.relicOffer?.options ?? [];
+        const want =
+          !relics || !run.relicOffer
+            ? undefined
+            : typeof opts.relicPrefer === 'function'
+              ? opts.relicPrefer(offered, run)
+              : relicIds
+                ? preferredIndex(relicIds, offered)
+                : undefined;
+        run = Run.pickRelic(run, want !== undefined ? want : relics ? 0 : null);
         break;
+      }
       case 'merchant':
         run = shop(run, relics);
         break;
@@ -2073,5 +2183,6 @@ export function playRun(
           },
         }
       : {}),
+    ...(Object.keys(triggers).length > 0 ? { triggers, triggerFights } : {}),
   };
 }

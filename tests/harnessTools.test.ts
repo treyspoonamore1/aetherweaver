@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   BrannWatch,
   CONDUCTING_TALLY_KEYS,
@@ -108,6 +108,20 @@ import * as Run from '../src/meta/run';
 import { THREAT_PER_ROW } from '../src/meta/economy';
 import type { RunState } from '../src/meta/types';
 import { createSim, type Sim, type SimConfig, type SimEvent } from '../src/sim';
+import { FILL_IDS } from '../src/content/fill';
+import {
+  BUILDS,
+  buildByCode,
+  buildChords,
+  buildPath,
+  listedHeld,
+  measureBuild,
+  median,
+  playBuild,
+  viableBuilds,
+} from '../tools/builds';
+import { levelsFor, motifsWith, partyFor } from '../tools/motifs';
+import { knownIds, preferredIndex, type RunSummary } from '../tools/harness-core';
 import { sandbox, worldOf } from './sim/helpers';
 
 /**
@@ -1875,5 +1889,315 @@ describe('the Conductor Calling (docs/phase-5f.md, "Harness")', () => {
     // The other rows have no use columns without --uses.
     const none = out.split('\n').find((l) => / none +win/.test(l))!;
     expect(none).not.toContain('cues');
+  }, 120_000);
+});
+
+describe('playRun’s draftPrefer and relicPrefer (docs/phase-5g.md, W10)', () => {
+  const SEED = 1;
+  const route = { movements: 2 } as const;
+
+  it('leaves a run as it was when no preference is given, or an empty or unmatched one', () => {
+    const plain = playRun(SEED, 'skilled', undefined, route);
+    // A run without a trigger carries no tally keys, so every baseline reads as before.
+    expect('triggers' in plain).toBe(false);
+    expect('triggerFights' in plain).toBe(false);
+    expect(
+      playRun(SEED, 'skilled', undefined, { ...route, draftPrefer: [], relicPrefer: [] }),
+    ).toEqual(plain);
+    // A function that defers takes today's first option.
+    expect(
+      playRun(SEED, 'skilled', undefined, {
+        ...route,
+        draftPrefer: () => undefined,
+        relicPrefer: () => undefined,
+      }),
+    ).toEqual(plain);
+    const warn = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      expect(
+        playRun(SEED, 'skilled', undefined, {
+          ...route,
+          draftPrefer: ['not_a_motif'],
+          relicPrefer: ['not_a_relic'],
+        }),
+      ).toEqual(plain);
+    } finally {
+      warn.mockRestore();
+    }
+  }, 120_000);
+
+  it('takes the offered option the preference names, the one nearest the front of the list', () => {
+    expect(preferredIndex(['b', 'a'], ['a', 'x', 'b'])).toBe(2);
+    expect(preferredIndex(['c'], ['a', 'b'])).toBeUndefined();
+    expect(preferredIndex([], ['a'])).toBeUndefined();
+    // Find the first draft and the first relic offer of a run, then ask for the last option of each.
+    const drafts: string[][] = [];
+    const relics: string[][] = [];
+    playRun(SEED, 'skilled', undefined, {
+      ...route,
+      onPhase: (phase, run) => {
+        if (phase === 'draft' && run.draft) drafts.push(run.draft.options.map((o) => o.motifId));
+        if (phase === 'relic' && run.relicOffer) relics.push([...run.relicOffer.options]);
+      },
+    });
+    const wantMotif = drafts[0]!.at(-1)!;
+    const wantRelic = relics[0]!.at(-1)!;
+    expect(drafts[0]!.length).toBeGreaterThan(1);
+    expect(relics[0]!.length).toBeGreaterThan(1);
+    const states: RunState[] = [];
+    let drafted = false;
+    playRun(SEED, 'skilled', undefined, {
+      ...route,
+      draftPrefer: [wantMotif],
+      relicPrefer: [wantRelic],
+      onPhase: (phase, run) => {
+        if (drafted && states.length === 0) states.push(run);
+        if (phase === 'draft') drafted = true;
+      },
+      onEnd: (run) => {
+        expect(run.relics.some((r) => r.id === wantRelic)).toBe(true);
+      },
+    });
+    // The state right after the first draft holds the named motif.
+    expect(states[0]!.motifs.map((m) => m.id)).toContain(wantMotif);
+    // A function chooses the index too, and null skips every draft.
+    const skipped = playRun(SEED, 'skilled', undefined, { ...route, draftPrefer: () => null });
+    expect(skipped.motifs).toEqual([]);
+  }, 120_000);
+
+  it('skips an id CONTENT does not hold, with one warning line on stderr', () => {
+    const lines: string[] = [];
+    const warn = vi.spyOn(console, 'error').mockImplementation((l: string) => void lines.push(l));
+    try {
+      expect(knownIds('motif', ['deep_roots', 'nope_one', 'nope_two'])).toEqual(['deep_roots']);
+      expect(knownIds('motif', ['deep_roots', 'nope_one', 'nope_two'])).toEqual(['deep_roots']);
+      expect(knownIds('relic', ['nope_relic'])).toEqual([]);
+    } finally {
+      warn.mockRestore();
+    }
+    expect(lines).toEqual([
+      'harness: preferred motif ids not in CONTENT, skipped: nope_one, nope_two',
+      'harness: preferred relic ids not in CONTENT, skipped: nope_relic',
+    ]);
+  });
+
+  it('tallies ledger.triggers per fight and per run, for a held trigger', () => {
+    // No fill content in this tree: give an existing motif a fixture trigger for the test.
+    const held = CONTENT.motifs.find((m) => m.id === 'deep_roots')! as { triggers?: unknown };
+    held.triggers = [{ on: 'every', period: 1, effects: [{ kind: 'spirit', amount: 1 }] }];
+    try {
+      const fight = playEncounter(
+        { seed: 5000, encounter: 'first_light', motifs: [{ id: 'deep_roots', level: 1 }] },
+        'skilled',
+      );
+      expect(fight.triggers!.deep_roots).toBeGreaterThan(0);
+      const run = playRun(SEED, 'skilled', undefined, { ...route, draftPrefer: ['deep_roots'] });
+      expect(run.triggers!.deep_roots).toBeGreaterThan(0);
+      const fights = run.triggerFights!.deep_roots!;
+      expect(fights.held).toBeGreaterThan(0);
+      expect(fights.fired).toBeLessThanOrEqual(fights.held);
+    } finally {
+      delete held.triggers;
+    }
+    // And gone again afterwards: a fight without one carries no tally.
+    expect('triggers' in playEncounter({ seed: 5000, encounter: 'first_light' }, 'skilled')).toBe(
+      false,
+    );
+  }, 120_000);
+});
+
+describe('the build presets and report (tools/builds.ts)', () => {
+  const run = (args: string[]) =>
+    execFileSync('npx', ['tsx', 'tools/builds.ts', ...args], {
+      cwd: fileURLToPath(new URL('..', import.meta.url)),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+  it('has the six builds of the doc, in its order, with Callings, parties and Chords that exist', () => {
+    expect(BUILDS.map((b) => b.code)).toEqual(['CS', 'PP', 'BS', 'RL', 'MA', 'RD']);
+    for (const b of BUILDS) {
+      expect(buildByCode(b.code.toLowerCase())).toBe(b);
+      expect(buildChords(b).length).toBeGreaterThan(0);
+      expect(buildPath(b)).toHaveLength(b.calling ? 4 : 0);
+      expect(b.party).toHaveLength(3);
+      for (const h of b.party) expect(CONTENT.heroes.some((d) => d.id === h)).toBe(true);
+      expect(new Set(b.draftPrefer).size).toBe(b.draftPrefer.length);
+      expect(new Set(b.relicPrefer).size).toBe(b.relicPrefer.length);
+    }
+    expect(BUILDS.find((b) => b.code === 'RD')!.party).toEqual(NAMED_PARTIES.R);
+    expect(BUILDS.filter((b) => b.calling === null).map((b) => b.code)).toEqual(['RL', 'RD']);
+    // Once the content has merged, every id the presets name is in it.
+    const have = new Set([...CONTENT.motifs, ...CONTENT.relics].map((d) => d.id));
+    const named = BUILDS.flatMap((b) => [...b.draftPrefer, ...b.relicPrefer]);
+    if (FILL_IDS.length > 0) expect(named.filter((id) => !have.has(id))).toEqual([]);
+    else expect(named.filter((id) => FILL_IDS.includes(id))).toEqual([]);
+  });
+
+  it('plays a build with its Calling, path, party and Chords', () => {
+    const cs = buildByCode('CS');
+    expect(buildPath(cs)).toEqual([1, 0, 0, 0]);
+    expect(buildPath(buildByCode('MA'))).toEqual([1, 0, 0, 1]);
+    const warn = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      let start: RunState | undefined;
+      const summary = playRun(2000, 'skilled', buildChords(cs), {
+        movements: 2,
+        party: [...cs.party],
+        calling: cs.calling!,
+        path: buildPath(cs),
+        onPhase: (phase, r) => {
+          if (phase === 'map' && !start) start = r;
+        },
+      });
+      expect(start!.chords).toEqual(buildChords(cs));
+      expect(start!.calling!.id).toBe('luminary');
+      expect(summary.path.slice(0, 2)).toEqual(['wide_choir', 'dawnward']);
+      const rd = playBuild(buildByCode('RD'), 2000, 'skilled', 2);
+      expect(rd.seed).toBe(2000);
+      expect(rd.path).toEqual([]);
+    } finally {
+      warn.mockRestore();
+    }
+  }, 120_000);
+
+  it('tallies a build: wins, reaching the last Movement, the listed motifs held, trigger fires', () => {
+    const b = buildByCode('PP');
+    const fake = (won: boolean, reached: number, motifs: string[], fires?: number): RunSummary =>
+      ({
+        outcome: won ? 'victory' : 'defeat',
+        movementReached: reached,
+        motifs: motifs.map((m) => `${m}:1`),
+        ...(fires !== undefined
+          ? {
+              triggers: { shatterglass: fires },
+              triggerFights: { shatterglass: { held: 2, fired: 1 } },
+            }
+          : {}),
+      }) as RunSummary;
+    const runs = [
+      fake(true, 4, ['steady_hands', 'riposte_bloom', 'clean_strike', 'x'], 5),
+      fake(false, 3, ['steady_hands']),
+      fake(false, 4, ['steady_hands', 'riposte_bloom', 'shatterglass']),
+    ];
+    expect(listedHeld(b, runs[0]!)).toBe(3);
+    const r = measureBuild(b, runs, 4);
+    expect([r.runs, r.won, r.reached, r.together, r.togetherReached, r.listed]).toEqual([
+      3, 1, 2, 2, 2, 7,
+    ]);
+    expect(r.triggers.shatterglass).toEqual({ held: 2, fired: 1, fires: 5 });
+    expect(median([3, 1, 2])).toBe(2);
+    expect(median([1, 2, 3, 10])).toBe(2.5);
+    // Viable: won ≥ 50%, holding the build in ≥ 60% of runs, no more than 15 points over the median.
+    const mk = (code: string, won: number): ReturnType<typeof measureBuild> => ({
+      ...measureBuild(buildByCode(code), [], 4),
+      runs: 10,
+      won,
+      together: 7,
+    });
+    expect(viableBuilds([mk('CS', 6), mk('PP', 5), mk('BS', 4), mk('RL', 6), mk('MA', 6)])).toEqual(
+      ['CS', 'PP', 'RL', 'MA'],
+    );
+    // 9 of 10 against a median of 5.5 is more than 15 points over.
+    expect(viableBuilds([mk('CS', 9), mk('PP', 5), mk('BS', 5), mk('RL', 6)])).toEqual([
+      'PP',
+      'BS',
+      'RL',
+    ]);
+  });
+
+  it('prints its table at --seeds 2, and the three sets with --sets', () => {
+    const out = run(['--seeds', '2', '--movements', '2']);
+    expect(out).toContain('# Build report');
+    expect(out).toContain('## skilled');
+    expect(out).toContain('| Build | Runs | Won | Reached 2 |');
+    for (const b of BUILDS) expect(out).toContain(`| ${b.code} ${b.name} | 2 |`);
+    expect(out).toContain('| (default party, no build) | 2 |');
+    expect(out).toMatch(/Viable builds .*: \d of 6 \(band ≥5 of 6\)/);
+    const sets = run(['--seeds', '1', '--movements', '2', '--builds', 'CS', '--sets']);
+    expect(sets.match(/^## Set \d of 3: runs from \d+$/gm)).toEqual([
+      '## Set 1 of 3: runs from 2000',
+      '## Set 2 of 3: runs from 900007',
+      '## Set 3 of 3: runs from 333003',
+    ]);
+    expect(sets).toMatch(/Viable on all 3 sets \(skilled\): \d of 1/);
+  }, 300_000);
+});
+
+describe('the motif and relic reports (tools/motifs.ts, tools/relics.ts)', () => {
+  const run = (tool: string, args: string[]) =>
+    execFileSync('npx', ['tsx', `tools/${tool}.ts`, ...args], {
+      cwd: fileURLToPath(new URL('..', import.meta.url)),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+  it('reads a motif’s levels, party and prerequisites from its definition', () => {
+    const def = (id: string) => CONTENT.motifs.find((m) => m.id === id)!;
+    expect(levelsFor(def('deep_roots'), [1, 3])).toEqual([1, 3]);
+    expect(levelsFor(def('blood_and_silk'), [1, 3])).toEqual([1]);
+    expect(partyFor(def('deep_roots'))).toEqual([...CONTENT.defaultParty]);
+    expect(partyFor(def('blood_and_silk'))).toEqual(['kael', 'lyra', 'brann']);
+    // A kit motif is set to the asked level, not added twice; a Harmony brings its prerequisites.
+    expect(
+      motifsWith(ARRIVAL_KIT, def('deep_roots'), 3).filter((m) => m.id === 'deep_roots'),
+    ).toEqual([{ id: 'deep_roots', level: 3 }]);
+    const silk = motifsWith(ARRIVAL_KIT, def('blood_and_silk'), 1);
+    for (const id of def('blood_and_silk').requires.motifs!)
+      expect(silk.some((m) => m.id === id)).toBe(true);
+    expect(silk.at(-1)).toEqual({ id: 'blood_and_silk', level: 1 });
+  });
+
+  it('prints the motif table at --seeds 2, with whole runs on request', () => {
+    const out = run('motifs', [
+      '--movement',
+      '2',
+      '--seeds',
+      '2',
+      '--bots',
+      'skilled',
+      '--motifs',
+      'deep_roots,lifeline',
+      '--encounters',
+      'shield_wall',
+      '--runs',
+      '2',
+    ]);
+    expect(out).toContain('skilled · 2 seeds · arrival kit · Movement 2');
+    expect(out).toContain(
+      '| Motif | shield_wall | Avg Δ win | Δ downs | Fired in | Fires a fight |',
+    );
+    expect(out).toContain('| (kit alone) |');
+    expect(out).toMatch(/\| deep_roots L1 \(common, kit\) \|/);
+    expect(out).toMatch(/\| lifeline L3 /);
+    expect(out).toContain('Strongest existing motif of each rarity:');
+    expect(out).toContain('## Whole runs (Movement 2');
+    expect(out).toMatch(/\| skilled \| lifeline \| \d+% \| \d+% \| \d+% \| \d+% \| [+-]?\d+ \|/);
+    // With --fill and no fill content, the kit alone is the only row.
+    if (FILL_IDS.length === 0) {
+      const none = run('motifs', [
+        '--movement',
+        '2',
+        '--seeds',
+        '1',
+        '--bots',
+        'skilled',
+        '--fill',
+      ]);
+      expect(none).not.toContain(' L1 (');
+    }
+  }, 300_000);
+
+  it('keeps the relic table’s existing rows, in content order, with the fill’s after them', () => {
+    const out = run('relics', ['--seeds', '2', '--bots', 'skilled', '--encounters', 'bellwarden']);
+    const rows = out
+      .split('\n')
+      .filter((l) => l.startsWith('| ') && !l.startsWith('| Relic') && !l.startsWith('| (none)'))
+      .map((l) => l.split(' | ')[0]!.slice(2));
+    const offered = CONTENT.relics.filter((r) => !r.runOnly).map((r) => r.id);
+    const existing = offered.filter((id) => !FILL_IDS.includes(id));
+    const fill = offered.filter((id) => FILL_IDS.includes(id));
+    expect(rows.slice(0, existing.length)).toEqual(existing);
+    expect(rows.slice(existing.length, existing.length + fill.length)).toEqual(fill);
   }, 120_000);
 });
