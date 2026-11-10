@@ -8,6 +8,8 @@
  * Also the replay file itself: gzipped JSON (the browser's own compression), `.awrun`.
  */
 import {
+  REPLAY_FILE_MAX_BYTES,
+  REPLAY_JSON_MAX_BYTES,
   RUN_REPLAY_EXTENSION,
   parseRunLog,
   parseRunReplay,
@@ -203,20 +205,53 @@ export async function replayFileBytes(replay: RunReplay): Promise<Uint8Array> {
 }
 
 /**
+ * Inflates gzipped bytes chunk by chunk, stopping (null) once they pass `budget` bytes: a small
+ * file that inflates to gigabytes is refused before it fills the memory.
+ */
+async function gunzipWithin(data: Uint8Array, budget: number): Promise<Uint8Array | null> {
+  const stream = new Blob([new Uint8Array(data)])
+    .stream()
+    .pipeThrough(new DecompressionStream('gzip'));
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > budget) {
+      await reader.cancel().catch(() => {});
+      return null;
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const c of chunks) {
+    out.set(c, at);
+    at += c.byteLength;
+  }
+  return out;
+}
+
+/**
  * Reads a replay file's bytes, gzipped or plain JSON, into the JSON value it holds (not yet
- * checked: `verifyRunReplay` reads it). Null when it is neither.
+ * checked: `verifyRunReplay` reads it). Null when it is neither, or when it is larger than a run
+ * replay can be: more than `REPLAY_FILE_MAX_BYTES` as opened, or more than
+ * `REPLAY_JSON_MAX_BYTES` of JSON once inflated (the inflating stops there).
  */
 export async function readReplayFile(bytes: ArrayBuffer | Uint8Array): Promise<unknown> {
   const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  if (data.byteLength > REPLAY_FILE_MAX_BYTES) return null;
   try {
-    let text: string;
+    let json: Uint8Array;
     if (data[0] === 0x1f && data[1] === 0x8b) {
       if (typeof DecompressionStream === 'undefined') return null;
-      const copy = new Uint8Array(data);
-      const stream = new Blob([copy]).stream().pipeThrough(new DecompressionStream('gzip'));
-      text = await new Response(stream).text();
-    } else text = new TextDecoder().decode(data);
-    return JSON.parse(text) as unknown;
+      const inflated = await gunzipWithin(data, REPLAY_JSON_MAX_BYTES);
+      if (!inflated) return null;
+      json = inflated;
+    } else json = data;
+    return JSON.parse(new TextDecoder().decode(json)) as unknown;
   } catch {
     return null;
   }

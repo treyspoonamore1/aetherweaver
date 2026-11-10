@@ -4,6 +4,7 @@
  * meta/run.ts re-exports both.
  */
 import { CONTENT, isFieldMovement } from '../content';
+import { SIM_HZ } from '../sim';
 import type { EncounterResult, MapNode, RunState } from './types';
 
 /** The run's last stop: a boss with nothing after it. (In an Expedition the Cantor isn't.) */
@@ -53,13 +54,14 @@ export function runKind(
 
 /**
  * Do the run-wide Deeds (a won run, Flawless, the Calling badges, the counts, the Finale at a
- * Dissonance) judge this run (decision 10)? On Preludes, Expeditions and weekly runs; not on an
- * Echo, which is shorter. Deeds about one fight count on every run.
+ * Dissonance) judge this run (decision 10)? On Preludes, Expeditions and weekly runs on the
+ * Expedition's route; not on an Echo, which is shorter, nor on a weekly played on an Echo's
+ * route, which is as short (decision 10's reason). Deeds about one fight count on every run.
  */
 export function countsRunWide(
   run: Pick<RunState, 'movements'> & Partial<Pick<RunState, 'echo' | 'weekly'>>,
 ): boolean {
-  return runKind(run) !== 'echo';
+  return run.echo === undefined;
 }
 
 /**
@@ -73,3 +75,22 @@ export function setsDissonanceRecords(
   const kind = runKind(run);
   return kind === 'prelude' || kind === 'expedition';
 }
+
+// ── A fight's end, as the game plays it (shared with the runtime, src/app/runtime.ts) ──────
+
+/** Real milliseconds between an encounter ending and the runtime handing back to the run. */
+export const FIGHT_END_DELAY_MS = 2600;
+/** How much longer the runtime waits for the "without you" re-run before handing back without it. */
+export const WITHOUT_YOU_GRACE_MS = 4000;
+
+/**
+ * The most sim ticks a fight replay may run past the tick its encounter ended (won or lost).
+ * After the end the runtime keeps stepping the sim, at most `FIGHT_END_DELAY_MS +
+ * WITHOUT_YOU_GRACE_MS` of real time (6.6 s: 396 ticks at the real-time scale), and builds the
+ * outcome and exports the fight's replay when it hands back. The limit is twice that, so a fight
+ * played at the dev panel's fastest real-time scale (x2) fits as well, and one more second of
+ * ticks for the frames the runtime steps in batches: 852 ticks. A replay past it was padded
+ * (idle ticks after a win heal the party before the next fight), and doesn't verify.
+ */
+export const FIGHT_TAIL_MAX_TICKS =
+  Math.ceil(((FIGHT_END_DELAY_MS + WITHOUT_YOU_GRACE_MS) * 2 * SIM_HZ) / 1000) + SIM_HZ;

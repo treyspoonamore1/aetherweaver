@@ -4,7 +4,8 @@
  *   npx tsx tools/run-verify.ts <file.awrun|file.json> [share code]
  *     Verifies a run replay (gzipped or plain JSON) as the game does, and prints what the
  *     player would read, the time it took and the file's size. Exit code 0 when it verifies
- *     (on this version or another), 1 when it doesn't.
+ *     (on this version or another), or, for a run that isn't a weekly, plays back as recorded;
+ *     1 when it doesn't.
  *
  *   npx tsx tools/run-verify.ts --record <out.awrun> [--week N] [--bot skilled|novice]
  *     [--prelude --seed N]
@@ -13,7 +14,7 @@
  *     default (week 44 if absent); --prelude records a Prelude with --seed instead. Prints its
  *     share code (weeklies only) and its sizes.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, statSync, writeFileSync } from 'node:fs';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { makeBot, type BotKind } from '../src/bots';
 import { CONTENT } from '../src/content';
@@ -21,6 +22,8 @@ import { buildOutcome } from '../src/meta/outcome';
 import { EVERYTHING, type Allowance } from '../src/meta/profile';
 import * as Run from '../src/meta/run';
 import {
+  REPLAY_FILE_MAX_BYTES,
+  REPLAY_JSON_MAX_BYTES,
   RunRecorder,
   allowanceRecord,
   applyStep,
@@ -82,13 +85,20 @@ export function recordBotRun(
         const sim = createSim(config);
         const recorder = new ReplayRecorder(sim.config);
         const player = makeBot(bot, config.seed);
-        for (let t = 0; t < MAX_FIGHT_SECONDS * 60; t++) {
+        let ended = false;
+        for (let t = 0; t < MAX_FIGHT_SECONDS * 60 && !ended; t++) {
           const tick = sim.tick;
           recorder.record(tick, sim.step(player.decide(sim.state)));
           const s = sim.state.encounter.status;
-          if (s === 'victory' || s === 'defeat') break;
+          ended = s === 'victory' || s === 'defeat';
         }
         ticks += sim.tick;
+        // A fight the bot can't end: the run is given up, as a player would (a fight step must
+        // end its fight, so it is not recorded).
+        if (!ended) {
+          take({ k: 'abandon' });
+          break;
+        }
         const fight = recorder.export(sim.tick, sim.hash());
         const outcome = buildOutcome(
           sim.state,
@@ -170,14 +180,23 @@ export function replayBytes(replay: RunReplay): Buffer {
   return gzipSync(Buffer.from(JSON.stringify(replay)));
 }
 
-/** Reads a replay file, gzipped or plain JSON. */
+/**
+ * Reads a replay file, gzipped or plain JSON; null when it can't be read: not JSON, more than
+ * `REPLAY_FILE_MAX_BYTES` on disk, or more than `REPLAY_JSON_MAX_BYTES` once inflated (the
+ * inflating stops there), as the game reads one (`readReplayFile`).
+ */
 export function readReplay(path: string): unknown {
-  const bytes = readFileSync(path);
-  const text =
-    bytes[0] === 0x1f && bytes[1] === 0x8b
-      ? gunzipSync(bytes).toString('utf8')
-      : bytes.toString('utf8');
-  return JSON.parse(text) as unknown;
+  try {
+    if (statSync(path).size > REPLAY_FILE_MAX_BYTES) return null;
+    const bytes = readFileSync(path);
+    const text =
+      bytes[0] === 0x1f && bytes[1] === 0x8b
+        ? gunzipSync(bytes, { maxOutputLength: REPLAY_JSON_MAX_BYTES }).toString('utf8')
+        : bytes.toString('utf8');
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
 }
 
 function arg(name: string): string | undefined {
@@ -230,9 +249,10 @@ function main(): void {
     );
   if (result.code) console.log(`code: ${result.code}`);
   console.log(
-    `status ${result.status} · verified in ${(ms / 1000).toFixed(1)} s · ${(readFileSync(file).length / 1024).toFixed(1)} KB file`,
+    `status ${result.status} · checked in ${(ms / 1000).toFixed(1)} s · ${(statSync(file).size / 1024).toFixed(1)} KB file`,
   );
-  process.exit(result.status === 'verified' || result.status === 'otherVersion' ? 0 : 1);
+  const good = ['verified', 'otherVersion', 'playsBack'];
+  process.exit(good.includes(result.status) ? 0 : 1);
 }
 
 if (process.argv[1]?.endsWith('run-verify.ts')) main();
