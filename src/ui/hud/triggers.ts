@@ -113,6 +113,55 @@ export function triggerChipText(c: Pick<TriggerChip, 'source' | 'count'>): strin
   return c.count > 1 ? `${c.source.name} ×${c.count}` : c.source.name;
 }
 
+// ── Concert Pitch's Ringing ──────────────────────────────────────────────────────────
+
+/** The Harmony whose Ringing the chips row shows (docs/phase-5g.md, N20). */
+export const RINGING_SOURCE = 'concert_pitch';
+
+/**
+ * The snapshot's `ringing` key from the sim's `field.ringing` (an end time) at sim time `now`: the
+ * seconds left while it rings, else nothing (the key stays absent).
+ */
+export function ringingOf(
+  until: number | undefined,
+  now: number,
+): { ringing: number } | Record<string, never> {
+  return until !== undefined && until > now ? { ringing: until - now } : {};
+}
+
+export interface RingingChip {
+  /** Concert Pitch, named from content (its colour and glyph's source). */
+  source: TriggerSource;
+  /** Seconds left, as shown: tenths, rounded up so it never reads 0.0 while it rings. */
+  seconds: number;
+  /** "Concert Pitch 3.4 s". */
+  text: string;
+  /** What a screen reader hears. */
+  label: string;
+}
+
+/**
+ * The Ringing's chip while it rings (`left`, the snapshot's seconds left; absent or 0: none):
+ * Concert Pitch named from content with the seconds left. Null when it isn't ringing, or content
+ * doesn't know Concert Pitch.
+ */
+export function ringingChip(
+  left: number | null | undefined,
+  content: TriggerContent = CONTENT,
+): RingingChip | null {
+  if (left === null || left === undefined || !(left > 0)) return null;
+  const source = triggerSource(RINGING_SOURCE, content);
+  if (!source) return null;
+  const seconds = Math.ceil(left * 10 - 1e-9) / 10;
+  const shown = seconds.toFixed(1);
+  return {
+    source,
+    seconds,
+    text: `${source.name} ${shown} s`,
+    label: `${source.name}: ringing, every hero deals more damage, ${shown} seconds left`,
+  };
+}
+
 // ── The Result and the Summary ───────────────────────────────────────────────────────
 
 export interface TriggerTally {

@@ -4,6 +4,7 @@ import { Icon } from '../kit/Icon';
 import { useReducedMotion } from '../kit/motion';
 import { relicColor } from '../kit/RelicGlyph';
 import {
+  ringingChip,
   stepTriggerChips,
   triggerChipText,
   triggerIcon,
@@ -31,18 +32,24 @@ function same(a: readonly TriggerChip[], b: readonly TriggerChip[]): boolean {
  * trigger fires, named from content in its category's or rarity's colour with its glyph (colour
  * is never alone). Read from the snapshot's `triggers` counts, so no event stream is needed; one
  * chip a source, counting up while it shows ("Clean Strike ×3"), at most three (`triggers.ts`).
- * Reduced motion: the chips appear without rising. Draws nothing without a trigger held.
+ * Concert Pitch's Ringing (`ringing`, its seconds left) heads the row while it rings: a bell, the
+ * Harmony's name and the seconds counting down, in its category's colour, gone as it ends.
+ * Reduced motion: the chips appear without rising. Draws nothing without a trigger held or a
+ * Ringing.
  */
 export function TriggerChips({
   triggers,
   seconds,
   shown,
+  ringing,
 }: {
   triggers?: Readonly<Record<string, number>>;
   /** Sim seconds (the snapshot's): chips live by sim time, so a pause holds them. */
   seconds: number;
   /** UI lab: these chips, drawn as they are (no counts read). */
   shown?: readonly TriggerChip[];
+  /** Concert Pitch's Ringing: seconds left (absent: not ringing). */
+  ringing?: number;
 }) {
   const reduced = useReducedMotion();
   const [chips, setChips] = useState<readonly TriggerChip[]>([]);
@@ -57,7 +64,8 @@ export function TriggerChips({
     });
   }, [triggers, seconds, shown]);
   const list = shown ?? chips;
-  if (list.length === 0) return null;
+  const ring = ringingChip(ringing);
+  if (list.length === 0 && !ring) return null;
   return (
     <div
       className="flex flex-col items-start gap-1"
@@ -65,6 +73,23 @@ export function TriggerChips({
       role="group"
       aria-label="Triggers"
     >
+      {ring && (
+        <span
+          key="ringing"
+          className={`inline-flex items-center gap-1 rounded-md border bg-ink-900/85 px-1.5 py-0.5 text-xs font-medium tabular-nums shadow shadow-black/40 ${reduced ? '' : 'anim-rise'}`}
+          style={{
+            color: triggerColor(ring.source),
+            borderColor: `color-mix(in srgb, ${triggerColor(ring.source)} 55%, transparent)`,
+          }}
+          data-testid="ringing-chip"
+          data-seconds={ring.seconds}
+          role="img"
+          aria-label={ring.label}
+        >
+          <Icon name="bell" size={12} />
+          {ring.text}
+        </span>
+      )}
       {list.map((c) => {
         const color = triggerColor(c.source);
         const text = triggerChipText(c);
