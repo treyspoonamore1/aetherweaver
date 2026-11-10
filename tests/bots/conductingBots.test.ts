@@ -19,11 +19,12 @@ import {
   marcatoReady,
 } from '../../src/bots/common';
 import { CONTENT } from '../../src/content';
-import { createSim, onBeat, type SimConfig } from '../../src/sim';
+import { createSim, onBeat, type SimConfig, type SimEvent } from '../../src/sim';
 import { StateHasher, hashValue } from '../../src/sim/core/hash';
 import { BAR_SECONDS } from '../../src/sim/constants';
 import { kitConfig, ARRIVAL3_KIT, ARRIVAL4_KIT } from '../../tools/kits';
 import { SCENARIO_CONDUCTING_BELLWARDEN, SCENARIOS } from '../../tools/scenarios';
+import golden from '../sim/golden.json';
 
 /** The golden Bellwarden's path: the beat, Reprise, Ensemble, Maestro (cost 75, twice round). */
 const TEMPO_MAESTRO = ['a_tempo', 'reprise', 'ensemble', 'maestro'];
@@ -359,4 +360,54 @@ describe('the Conductor goldens', () => {
     const silent = SCENARIOS.find((s) => s.name === 'skilled-conducting-silent')!;
     expect(silent.config).toMatchObject(kitConfig(ARRIVAL4_KIT));
   });
+
+  // docs/phase-5f.md, A2: each golden produces the events its name and doc comment name. The
+  // fight is played as tools/runScenario.ts plays it, and its hash is checked against the golden,
+  // so the events are the pinned fight's.
+
+  /** A golden scenario's fight: its events, its end and its hash. */
+  function goldenFight(name: string) {
+    const sc = SCENARIOS.find((s) => s.name === name)!;
+    const sim = createSim({ seed: sc.seed, debug: true, ...sc.config });
+    const drive = sc.driver();
+    const events: SimEvent[] = [];
+    for (let tick = 0; tick < sc.ticks; tick++) {
+      sim.step(drive(tick, sim.state));
+      events.push(...sim.drainEvents());
+    }
+    const of = <K extends SimEvent['type']>(type: K) =>
+      events.filter((e): e is Extract<SimEvent, { type: K }> => e.type === type);
+    expect(sim.hash(), name).toBe((golden.scenarios as Record<string, string>)[name]);
+    return { sc, state: sim.state, of };
+  }
+
+  it('novice-conducting-first-light: the Novice Cues a Solo on the Conductor, under Triad, and wins', () => {
+    const { state, of } = goldenFight('novice-conducting-first-light');
+    expect(state.encounter.status).toBe('victory');
+    // Her Cue: a Cued Solo that starts a chain.
+    expect(of('cued').length).toBeGreaterThanOrEqual(1);
+    expect(of('cueChained').some((e) => e.link === 1)).toBe(true);
+    expect(of('soloStarted').some((e) => e.cued)).toBe(true);
+    expect(state.ledger.cues).toBeGreaterThanOrEqual(1);
+    // Triad (on her path) holds the meter.
+    expect(of('triad').some((e) => e.on)).toBe(true);
+  });
+
+  it('skilled-conducting-silent: Grand Finales, a turn lost to the Grand Silence’s stilling, Marcato and a Duet; the Conductor falls', () => {
+    const { sc, state, of } = goldenFight('skilled-conducting-silent');
+    expect(state.encounter.status).toBe('victory');
+    expect(state.encounter.endedAt!).toBeLessThan(sc.ticks / 60);
+    // Grand Finales played their turns.
+    expect(of('crescendoStart').some((e) => e.calling === 'Grand Finale')).toBe(true);
+    expect(of('finaleTurn').length).toBeGreaterThanOrEqual(1);
+    expect(of('finaleEnded').length).toBeGreaterThanOrEqual(1);
+    // The Grand Silence fell, and a Finale turn was lost to its stilling.
+    expect(of('silenceBegan').length).toBeGreaterThanOrEqual(1);
+    expect(of('finaleTurnLost').some((e) => e.reason === 'stilled')).toBe(true);
+    expect(state.ledger.conducting!.finaleLost).toBeGreaterThanOrEqual(1);
+    // Marcato (on its path) was given, and two Cues chained into a Duet.
+    expect(of('marcato').length).toBeGreaterThanOrEqual(1);
+    expect(of('cueChained').some((e) => e.link === 2)).toBe(true);
+    expect(state.ledger.conducting!.duets).toBeGreaterThanOrEqual(1);
+  }, 60_000);
 });
