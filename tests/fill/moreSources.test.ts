@@ -13,7 +13,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../../src/content';
-import { FILL_IDS } from '../../src/content/fill';
+import { FILL_BOONS, FILL_IDS, FILL_MOTIFS, FILL_RELICS } from '../../src/content/fill';
+import type { SimConfig } from '../../src/sim';
+import { NO_MODS, resolveMods, type Mods } from '../../src/sim/mods';
+import { resolveConfig } from '../../src/sim/world';
 
 type Stat = 'heroDamage' | 'heroDamageTaken' | 'razorDamage';
 type From =
@@ -44,13 +47,14 @@ const REGISTRY: readonly Factor[] = [
     from: [{ always: true }],
   },
   {
-    name: 'Heavy Score’s `partyDamageMult` (health.ts); the boons Steadied and Faltering, and Concert Pitch’s ring (a Harmony, N20, added into the factor), fold into it',
+    name: 'Heavy Score’s `partyDamageMult` (health.ts); the boons Steadied and Faltering, Concert Pitch’s ring (a Harmony, N20) and Thornwreath (N30) are added into the factor',
     stat: 'heroDamage',
     from: [
       { relic: 'heavy_score' },
       { boon: 'steadied' },
       { boon: 'faltering' },
       { motif: 'concert_pitch' },
+      { relic: 'thornwreath' },
     ],
   },
   {
@@ -83,6 +87,11 @@ const REGISTRY: readonly Factor[] = [
     stat: 'heroDamageTaken',
     from: [{ relic: 'iron_mask' }],
   },
+  {
+    name: 'Full Chord (N9; a motif, not a Harmony, kept as a factor by the owner’s decision: 4 at most)',
+    stat: 'heroDamageTaken',
+    from: [{ motif: 'full_chord' }],
+  },
 ];
 
 /** The ids Phase 5g will add that the registry names (docs/phase-5g.md's tables). */
@@ -93,7 +102,46 @@ const FILL_FACTORS = [
   'iron_mask',
   'steadied',
   'faltering',
+  'thornwreath',
+  'full_chord',
 ];
+/** Phase 5g motifs that are a factor of the registry's though not Harmonies. */
+const NON_HARMONY_FACTORS = ['full_chord'];
+
+/**
+ * The `Mods` fields that scale a hero's damage or the damage heroes take (health.ts `dealDamage`,
+ * thread.ts `empowerBonus`, duel.ts's counter, silk.ts's Razor Silk). A Phase 5g entry that sets
+ * one is either named in the registry or listed in `FOLDED` with where its number goes.
+ */
+const DAMAGE_FIELDS = [
+  'partyDamageMult',
+  'inFieldDamage',
+  'wardedDamage',
+  'muteDamageMult',
+  'ringingPct',
+  'thornPct',
+  'empowerMult',
+  'redEdge',
+  'counterBonus',
+  'razorMult',
+  'razorCrit',
+  'haloedReduction',
+  'closeRanks',
+  'perAuraGuard',
+  'circleGuard',
+  'maskGuard',
+  'bearDamageTaken',
+  'bearShare',
+  'wardHitCap',
+] as const;
+
+/** Phase 5g entries whose damage number adds into a factor that already exists (rule 8). */
+const FOLDED: Record<string, string> = {
+  massed_voices: 'adds into Anthem’s `inFieldDamage` (one factor, the Astrolabe’s)',
+  shieldsong: 'adds into Shield Bearer’s `wardedDamage` (one factor, the Astrolabe’s)',
+  edge_of_the_red: 'strengthens Empower, inside its factor (`empowerBonus`)',
+  cold_steel: 'raises one counter’s own power (its share of her attack), not a stat',
+};
 
 const inContent = (f: From): boolean =>
   'always' in f
@@ -147,8 +195,28 @@ describe('"more" sources (docs/phase-5g.md, ground rule 8)', () => {
       const relic = CONTENT.relics.find((r) => r.id === id);
       const boon = CONTENT.boons.find((b) => b.id === id);
       if (motif || relic || boon) expect(FILL_IDS, id).toContain(id);
-      if (motif) expect(motif.requires.motifs, `${id} is a Harmony`).toBeDefined();
+      if (motif && !NON_HARMONY_FACTORS.includes(id))
+        expect(motif.requires.motifs, `${id} is a Harmony`).toBeDefined();
     }
+  });
+
+  it('every Phase 5g entry that scales hero damage or damage taken is registered or folded', () => {
+    const named = new Set(REGISTRY.flatMap((f) => f.from.map((x) => Object.values(x)[0])));
+    const touches = (m: Mods) =>
+      DAMAGE_FIELDS.filter((k) => JSON.stringify(m[k]) !== JSON.stringify(NO_MODS[k]));
+    const found: string[] = [];
+    const check = (id: string, m: Mods) => {
+      if (touches(m).length === 0) return;
+      found.push(id);
+      expect(named.has(id) || id in FOLDED, `${id} sets ${touches(m).join(', ')}`).toBe(true);
+    };
+    const resolve = (config: Partial<SimConfig>) =>
+      resolveMods(resolveConfig({ seed: 1, ...config }), CONTENT);
+    for (const d of FILL_MOTIFS) check(d.id, resolve({ motifs: [{ id: d.id, level: 1 }] }));
+    for (const d of FILL_RELICS) check(d.id, resolve({ relics: [d.id] }));
+    for (const d of FILL_BOONS) check(d.id, resolve({ boons: [d.id] }));
+    // Everything the registry and FOLDED name of the fill is found by the scan (none stale).
+    for (const id of [...FILL_FACTORS, ...Object.keys(FOLDED)]) expect(found, id).toContain(id);
   });
 
   it('no Calling, with any one option per tier and every Harmony, relic and boon, puts more than 4 on a stat', () => {

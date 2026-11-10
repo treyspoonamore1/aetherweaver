@@ -5,8 +5,9 @@ import { empowerBonus } from './thread';
 import { hasTalent, talentValue } from '../bonds';
 import { bloodRageBonus, hymnScale } from './blood';
 
-const CRIT_CHANCE = 0.1;
-const CRIT_MULT = 1.6;
+/** A hero's hit is critical with this chance (before its bonuses), for this multiple. */
+export const CRIT_CHANCE = 0.1;
+export const CRIT_MULT = 1.6;
 
 export interface HeroHit {
   amount: number;

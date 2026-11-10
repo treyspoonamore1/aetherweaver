@@ -292,6 +292,7 @@ function fire(world: World, t: ResolvedTrigger, clock: TriggerClock, s: Subject)
 function pointOf(world: World, at: TriggerPoint | undefined, s: Subject): { x: number; z: number } {
   if (at === 'weaver') return weaverOf(world);
   if (at === 'threaded') return threadedHero(world) ?? weaverOf(world);
+  if (at === 'hero') return s.hero ?? weaverOf(world);
   return s;
 }
 

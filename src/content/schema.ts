@@ -939,8 +939,12 @@ export const TRIGGER_TARGETS = [
 ] as const;
 export type TriggerTarget = (typeof TRIGGER_TARGETS)[number];
 
-/** Where an effect is centred: the event's place (its hero, or its x/z), the Weaver, the threaded hero. */
-export const TRIGGER_POINTS = ['event', 'weaver', 'threaded'] as const;
+/**
+ * Where an effect is centred: the event's place (its hero, or its x/z), the Weaver, the threaded
+ * hero, or the event's hero wherever the event itself sits (`abilityUsed` sits at the struck
+ * enemy; its hero is the one who acted).
+ */
+export const TRIGGER_POINTS = ['event', 'weaver', 'threaded', 'hero'] as const;
 export type TriggerPoint = (typeof TRIGGER_POINTS)[number];
 
 /** Shield kinds, as the sim names them (sim/state.ts `ShieldKind`). */
