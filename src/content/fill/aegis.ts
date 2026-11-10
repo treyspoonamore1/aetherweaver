@@ -13,6 +13,9 @@
  */
 import type { ContentInput } from '../schema';
 
+/** Shatterglass's shards: how many enemies, within how far of whoever held the Ward. */
+const SHARDS = { nearest: 3, radius: 5 } as const;
+
 export const FILL_AEGIS: ContentInput['motifs'] = [
   {
     id: 'shatterglass',
@@ -20,7 +23,7 @@ export const FILL_AEGIS: ContentInput['motifs'] = [
     category: 'aegis',
     rarity: 'rare',
     values: [100, 150, 200],
-    text: 'When a Ward breaks, its shards strike the 3 nearest enemies within 5 m of the hero for {v} damage each.',
+    text: `When a Ward breaks, its shards strike the ${SHARDS.nearest} nearest enemies within ${SHARDS.radius} m of whoever held it for {v} damage each.`,
     requires: { expedition: true },
     tags: ['ward', 'damage'],
     triggers: [
@@ -29,7 +32,7 @@ export const FILL_AEGIS: ContentInput['motifs'] = [
         shield: 'ward',
         // A Ward that was used up; a Perfect's spend is Riposte Bloom's.
         usedUp: true,
-        effects: [{ kind: 'damage', amount: 'v', radius: 5, nearest: 3 }],
+        effects: [{ kind: 'damage', amount: 'v', radius: SHARDS.radius, nearest: SHARDS.nearest }],
       },
     ],
   },

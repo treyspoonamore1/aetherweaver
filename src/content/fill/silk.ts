@@ -9,6 +9,11 @@
  */
 import type { ContentInput } from '../schema';
 
+/** Stray Stitch's heal: a share of the hero's life (percent). */
+const STITCH_PCT = 4;
+/** Spindle Turn: at most once this often (seconds). */
+const TURN_EVERY = 3;
+
 export const FILL_SILK: ContentInput['motifs'] = [
   {
     id: 'razor_silk',
@@ -42,7 +47,7 @@ export const FILL_SILK: ContentInput['motifs'] = [
     category: 'silk',
     rarity: 'common',
     values: [30, 45, 60],
-    text: 'When the Thread snaps at range, it reattaches {v}% sooner.',
+    text: 'When the Thread snaps at range, you can attach it again {v}% sooner.',
     requires: { expedition: true },
     tags: ['thread'],
   },
@@ -114,7 +119,7 @@ export const FILL_SILK: ContentInput['motifs'] = [
     category: 'silk',
     rarity: 'rare',
     values: [5, 4, 3],
-    text: 'While you Mend, every {v} s the most hurt other hero in your field heals 4% of their life.',
+    text: `For every {v} s you spend Mending, in all, the most hurt other hero in your field heals ${STITCH_PCT}% of their life.`,
     requires: { expedition: true },
     tags: ['thread', 'heal', 'field'],
     triggers: [
@@ -122,7 +127,7 @@ export const FILL_SILK: ContentInput['motifs'] = [
         on: 'every',
         period: 'v',
         thread: 'mend',
-        effects: [{ kind: 'heal', pct: 4, to: 'neediest', inField: true }],
+        effects: [{ kind: 'heal', pct: STITCH_PCT, to: 'neediest', inField: true }],
       },
     ],
   },
@@ -132,10 +137,17 @@ export const FILL_SILK: ContentInput['motifs'] = [
     category: 'silk',
     rarity: 'common',
     values: [2, 3, 4],
-    text: 'Moving the Thread to another hero gives back {v} Spirit, at most once every 3 s.',
+    text: `Moving the Thread to another hero gives back {v} Spirit, at most once every ${TURN_EVERY} s.`,
     requires: { expedition: true },
     tags: ['thread', 'spirit'],
-    triggers: [{ on: 'threadAttached', every: 3, effects: [{ kind: 'spirit', amount: 'v' }] }],
+    triggers: [
+      {
+        on: 'threadAttached',
+        moved: true,
+        every: TURN_EVERY,
+        effects: [{ kind: 'spirit', amount: 'v' }],
+      },
+    ],
   },
   {
     id: 'kindred_wound',

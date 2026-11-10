@@ -5,10 +5,11 @@
  * bespoke hook per entry with one interpreter, and it is inert on every existing run: without a
  * trigger held, `world.internal.triggers` is absent and `stepWorld` never calls in.
  *
- * - **When.** Once a tick, just before the ledger samples (sim/api.ts). It reads the tick's
+ * - **When.** Once a tick, just before the ledger samples (sim/api.ts), while the fight is not
+ *   over. It reads the events the last pass's own effects emitted (`carry`), then the tick's
  *   events, from `mark` (the queue's length as the tick began) to the queue's length as it is
  *   entered, in emission order; then the timers (`on: 'every'`). Events its own effects emit are
- *   never read: not in this pass, and not by a later tick (whose mark comes after them).
+ *   never read by the pass that emitted them: the next pass reads them, once.
  * - **What it reads.** Each event's subject (`subjectOf`): its hero (or a fallen summon's owner),
  *   its place, its amount and radius. Conditions (`holds`) and limits (`every`, `perFight`).
  * - **What it does.** Each effect through the sim's own function for it: `addShield` (an
@@ -60,6 +61,14 @@ export interface TriggerState {
   clocks: TriggerClock[];
   /** The last Cue: when, and on whom (for `cueWithin`). Absent before the first. */
   lastCue?: { at: number; hero: EntityId };
+  /** The hero the Thread was last attached to (for `moved`). Absent before the first attach. */
+  lastThread?: EntityId;
+  /**
+   * The events the last pass's own effects emitted that a held trigger listens to (a kill by a
+   * trigger's damage, say): read by the next pass, once, before that tick's own. Absent when
+   * there were none.
+   */
+  carry?: SimEvent[];
 }
 
 /**
@@ -153,16 +162,20 @@ function subjectOf(world: World, e: SimEvent): Subject | null {
   }
 }
 
-/** The tick's events a condition may look across (`usedUp`), from `mark` to `end`. */
+/**
+ * The events read together, which a condition may look across (`usedUp`): a tick's own (from
+ * `mark` to `end` in the queue), or the last pass's carried ones.
+ */
 interface Tick {
+  at(i: number): SimEvent;
   mark: number;
   end: number;
 }
 
 /** A `perfectWard` on `target` among the tick's events (a Perfect spends its Ward: `usedUp`). */
-function perfectedIn(world: World, tick: Tick, target: EntityId): boolean {
+function perfectedIn(tick: Tick, target: EntityId): boolean {
   for (let i = tick.mark; i < tick.end; i++) {
-    const e = world.events.at(i)!;
+    const e = tick.at(i);
     if (e.type === 'perfectWard' && e.target === target) return true;
   }
   return false;
@@ -187,8 +200,11 @@ function holds(
     return false;
   if (def.shield !== undefined && !(e?.type === 'shieldBroken' && e.shield === def.shield))
     return false;
-  if (def.usedUp && !(e?.type === 'shieldBroken' && !perfectedIn(world, tick, e.target)))
-    return false;
+  if (def.usedUp && !(e?.type === 'shieldBroken' && !perfectedIn(tick, e.target))) return false;
+  if (def.moved) {
+    if (e?.type !== 'threadAttached') return false;
+    if (state.lastThread === undefined || state.lastThread === e.hero) return false;
+  }
   if (def.summon !== undefined && !(e?.type === 'summonFell' && e.kind === def.summon))
     return false;
   if (def.clutch && !((e?.type === 'cleansed' || e?.type === 'chimeLanded') && e.clutch))
@@ -228,43 +244,64 @@ export function updateTriggers(world: World, mark: number, dt: number): void {
   if (!state) return;
   const triggers = world.mods.triggers;
   const end = world.events.length;
-  const tick: Tick = { mark, end };
-  for (let i = mark; i < end; i++) {
-    const event = world.events.at(i)!;
-    // A new Crescendo: what the last one was lengthened by no longer counts against its cap.
-    if (event.type === 'crescendoStart') for (const c of state.clocks) c.added = 0;
-    const s = subjectOf(world, event);
-    if (s) {
-      for (const [k, t] of triggers.entries()) {
-        if (t.def.on !== event.type) continue;
-        const clock = state.clocks[k]!;
-        if (holds(world, state, t.def, s, tick) && ready(world, t.def, clock))
-          fire(world, t, clock, s);
-      }
-    }
-    if (event.type === 'cued') state.lastCue = { at: world.time, hero: event.hero };
+  const carried = state.carry;
+  if (carried) delete state.carry;
+  // Nothing reacts once the fight is over (a kill that ends it, the last blow's Perfect).
+  const over = world.encounter.status === 'victory' || world.encounter.status === 'defeat';
+  if (over) return;
+  // The last pass's own events first (its kills, say), then this tick's.
+  if (carried) {
+    const from: Tick = { at: (i) => carried[i]!, mark: 0, end: carried.length };
+    for (let i = 0; i < carried.length; i++) react(world, state, carried[i]!, from);
   }
+  const tick: Tick = { at: (i) => world.events.at(i)!, mark, end };
+  for (let i = mark; i < end; i++) react(world, state, world.events.at(i)!, tick);
   // Timers: `period` seconds of their conditions holding, in a fight.
-  if (world.encounter.status !== 'fighting') return;
-  for (const [k, t] of triggers.entries()) {
-    if (t.def.on !== 'every') continue;
-    const period = t.def.period ?? 0;
-    if (!(period > 0)) continue;
-    const clock = state.clocks[k]!;
-    const s = about(world, null, null);
-    if (!holds(world, state, t.def, s, tick)) continue;
-    clock.held = Math.min(period, clock.held + dt);
-    if (clock.held + EPS < period || !ready(world, t.def, clock)) continue;
-    clock.held = 0;
-    fire(world, t, clock, s);
+  if (world.encounter.status === 'fighting') {
+    for (const [k, t] of triggers.entries()) {
+      if (t.def.on !== 'every') continue;
+      const period = t.def.period ?? 0;
+      if (!(period > 0)) continue;
+      const clock = state.clocks[k]!;
+      const s = about(world, null, null);
+      if (!holds(world, state, t.def, s, tick)) continue;
+      clock.held = Math.min(period, clock.held + dt);
+      if (clock.held + EPS < period || !ready(world, t.def, clock)) continue;
+      clock.held = 0;
+      fire(world, t, clock, s);
+    }
   }
+  // What this pass's effects emitted is never read by this pass: the next one reads it, once.
+  const carry: SimEvent[] = [];
+  for (let i = end; i < world.events.length; i++) {
+    const e = world.events.at(i)!;
+    if (triggers.some((t) => t.def.on === e.type)) carry.push(e);
+  }
+  if (carry.length > 0) state.carry = carry;
+}
+
+/** Every held trigger on `event` (one of `tick`'s), then the clocks the event moves. */
+function react(world: World, state: TriggerState, event: SimEvent, tick: Tick): void {
+  // A new Crescendo: what the last one was lengthened by no longer counts against its cap.
+  if (event.type === 'crescendoStart') for (const c of state.clocks) c.added = 0;
+  const s = subjectOf(world, event);
+  if (s) {
+    for (const [k, t] of world.mods.triggers.entries()) {
+      if (t.def.on !== event.type) continue;
+      const clock = state.clocks[k]!;
+      if (holds(world, state, t.def, s, tick) && ready(world, t.def, clock))
+        fire(world, t, clock, s);
+    }
+  }
+  if (event.type === 'cued') state.lastCue = { at: world.time, hero: event.hero };
+  if (event.type === 'threadAttached') state.lastThread = event.hero;
 }
 
 /**
- * Applies every effect and starts its clock (`fired`, `readyAt`: its limits count every fire).
- * It counts into the ledger and reports `motifTriggered` only when an effect did something: a
- * heal that healed, damage dealt, a barrier added, a status applied, a clock moved, a resource
- * gained. A rule that found no one, or nothing left to give, fired but did not trigger.
+ * Applies every effect. Only when one did something (a heal that healed, damage dealt, a barrier
+ * added, a status applied, a clock moved, a resource gained) does the fire count: its limits'
+ * clocks (`fired`, `readyAt`), the ledger's tally and `motifTriggered`. A rule that found no one,
+ * or nothing left to give, spends nothing and reports nothing.
  */
 function fire(world: World, t: ResolvedTrigger, clock: TriggerClock, s: Subject): void {
   let did = false;
@@ -275,9 +312,9 @@ function fire(world: World, t: ResolvedTrigger, clock: TriggerClock, s: Subject)
     did = true;
     if (first === undefined && landed !== true) first = landed;
   }
+  if (!did) return;
   clock.fired++;
   if (t.def.every !== undefined) clock.readyAt = world.time + t.def.every;
-  if (!did) return;
   const tally = world.ledger.triggers;
   if (tally) tally[t.source] = (tally[t.source] ?? 0) + 1;
   world.events.push({
@@ -533,6 +570,12 @@ function cutCooldown(world: World, key: TechniqueKey, seconds: number): boolean 
   const w = weaverOf(world).weaver!;
   // On a Chronomancer run Reel's clock is Rewind's (systems/rewind.ts): no trigger reaches it.
   if (key === 'reel' && world.mods.rewindSeconds > 0) return false;
+  // Everbell (N26, fill/relics.ts): with a charge in hand the Chime's clock is its recharge.
+  if (key === 'chime' && w.chimeRecharge !== undefined && w.cooldowns.chime <= 0) {
+    if (!(seconds > 0) || !(w.chimeRecharge > 0)) return false;
+    w.chimeRecharge = Math.max(0, w.chimeRecharge - seconds);
+    return true;
+  }
   if (!(seconds > 0) || w.cooldowns[key] <= 0) return false;
   w.cooldowns[key] = Math.max(0, w.cooldowns[key] - seconds);
   if (w.cooldowns[key] > 0) return true;

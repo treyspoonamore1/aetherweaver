@@ -9,6 +9,9 @@
  */
 import type { ContentInput } from '../schema';
 
+/** Second Intention's barrier lasts this long (seconds). */
+const INTENTION_SECONDS = 4;
+
 export const FILL_BOND: ContentInput['motifs'] = [
   // ── Kael ──
   {
@@ -142,14 +145,14 @@ export const FILL_BOND: ContentInput['motifs'] = [
     category: 'bond',
     rarity: 'common',
     values: [10, 15, 20],
-    text: 'A Perfect Ward on Seren also gives her a barrier of {v}% of her life.',
+    text: `A Perfect Ward on Seren also gives her a barrier of {v}% of her life for ${INTENTION_SECONDS} s.`,
     requires: { hero: 'seren', expedition: true },
     tags: ['perfect', 'shield'],
     triggers: [
       {
         on: 'perfectWard',
         hero: 'seren',
-        effects: [{ kind: 'barrier', pct: 'v', seconds: 4 }],
+        effects: [{ kind: 'barrier', pct: 'v', seconds: INTENTION_SECONDS }],
       },
     ],
   },

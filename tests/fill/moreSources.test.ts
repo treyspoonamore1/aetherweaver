@@ -2,10 +2,17 @@
  * "More" sources, counted by hand (docs/phase-5g.md, ground rule 8; docs/plan/02 §12 rule 1:
  * multiplicative "more" bonuses come only from the Thread's Empower, Callings' Crescendos,
  * Harmonies, Cue bonuses and enemy debuffs, and no build stacks more than 4 on one stat).
- * `src/content/effects.ts` says content lint enforces it; nothing does, so this registry names
- * every multiplicative factor on a hero's damage and on the damage heroes take, by what brings
- * it, and checks every Calling with any one option per tier, with every Harmony, relic and boon
- * that can be held beside it, puts at most 4 on a stat.
+ * `src/content/effects.ts` says content lint enforces it; nothing does, so this registry names,
+ * by what brings it, a subset of the multiplicative factors on a hero's damage and on the damage
+ * heroes take: Empower, the Cue bonus, the Callings' groups and Crescendos, Heavy Score's party
+ * factor, and every Phase 5g entry that scales either (registered, or `FOLDED` into a factor
+ * that exists). It checks every Calling with any one option per tier, with every Harmony, relic
+ * and boon that can be held beside it, puts at most 4 of *these* on a stat.
+ *
+ * It does not count the pre-5g factors outside that list: the Astrolabe's (Anthem's
+ * `inFieldDamage`, Shield Bearer's `wardedDamage`, Close Ranks), Warden's Key, Fermata's guard,
+ * the technique variants' guards, Oathkeeper, Hunter's Mark and Hawk's Vigil among them. Its 4
+ * is a cap on the Callings' and the fill's factors, not on every factor a build can stack.
  *
  * A registry entry for an id content doesn't have yet (Phase 5g's, before its stream lands) is
  * counted only once its id is in `CONTENT`. A stream that adds a factor the registry doesn't
@@ -219,7 +226,7 @@ describe('"more" sources (docs/phase-5g.md, ground rule 8)', () => {
     for (const id of [...FILL_FACTORS, ...Object.keys(FOLDED)]) expect(found, id).toContain(id);
   });
 
-  it('no Calling, with any one option per tier and every Harmony, relic and boon, puts more than 4 on a stat', () => {
+  it('no Calling, with any one option per tier and every Harmony, relic and boon, puts more than 4 of the registry’s factors on a stat', () => {
     const over: string[] = [];
     const builds: { calling: string | null; path: string[] }[] = [{ calling: null, path: [] }];
     for (const c of CONTENT.callings)
