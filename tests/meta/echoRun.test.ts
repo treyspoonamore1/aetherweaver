@@ -1022,7 +1022,8 @@ describe('run replays of Echoes and weeklies (docs/phase-6.md, "Run replays")', 
     const { replay } = recordBotRun(start);
     expect(replay.kind).toBe('echo');
     const result = verifyRunReplay(JSON.parse(JSON.stringify(replay)));
-    expect(result.status, result.message).toBe('verified');
+    // Only a weekly's start is rebuilt: an Echo's plays back as recorded (review B, m1).
+    expect(result.status, result.message).toBe('playsBack');
   }, 240_000);
 
   it('a Prelude or an Expedition records nothing and leaves no trace in its save', () => {
@@ -1133,12 +1134,13 @@ describe('the full rotation (docs/phase-6.md, decision 7)', () => {
   }, 240_000);
 
   it('the lint refuses an Echo route whose Calling or party its twists forbid', () => {
+    // The entries given first, the rest of content's rotation after: a rotation holds twelve.
     const parse = (weekly: WeeklyEntry[]) =>
       ContentSchema.safeParse({
         ...structuredClone(CONTENT),
         // This file's fixture Echoes aren't content's.
         echoes: structuredClone(CONTENT.echoes.filter((e) => !FIXTURES.includes(e))),
-        weekly: structuredClone(weekly),
+        weekly: structuredClone([...weekly, ...CONTENT.weekly.slice(weekly.length)]),
       });
     expect(parse([...CONTENT.weekly]).success).toBe(true);
     const calling = parse([

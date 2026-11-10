@@ -30,8 +30,10 @@ import { StateHasher, hashValue } from '../sim/core/hash';
 import { buildOutcome } from './outcome';
 import { EVERYTHING, type Allowance } from './profile';
 import * as Run from './run';
-import { RunStateSchema } from './save';
+import { FIGHT_TAIL_MAX_TICKS } from './runEnd';
+import { RunStateSchema, dropAbsentKeys } from './save';
 import {
+  SHARE_FIELDS,
   buildOf,
   clampClaim,
   decodeShareCode,
@@ -40,7 +42,14 @@ import {
   type ShareClaim,
 } from './shareCode';
 import type { RunState } from './types';
-import { fightSeconds, fightsWon, weeklyPicksOf, weeklyScore, weeklyStart } from './weekly';
+import {
+  LAST_WEEK,
+  fightSeconds,
+  fightsWon,
+  weeklyPicksOf,
+  weeklyScore,
+  weeklyStart,
+} from './weekly';
 
 export { thousands };
 
@@ -52,6 +61,29 @@ export const RUN_REPLAY_EXTENSION = '.awrun';
 export const MAX_FIGHT_TICKS = 60 * 60 * 60;
 /** The most characters of a name a replay's maker may give it. */
 export const REPLAY_NAME_MAX = 24;
+/** The most steps a replay may hold (a guard, far past any real run's few hundred). */
+export const MAX_RUN_STEPS = 20_000;
+/** The deepest a replay file's JSON may nest (a run's state nests about ten deep). */
+export const MAX_REPLAY_DEPTH = 64;
+/**
+ * The largest replay file read, as opened (gzipped or not), and the most bytes of JSON one may
+ * inflate to: a whole Skilled-bot Expedition is about 185 KB gzipped and 1.2 MB of JSON, a
+ * person's run (more aim commands) estimated at a few times that. Past either, a file "can't be
+ * read" rather than fill the memory (a small gzipped file can inflate to gigabytes).
+ */
+export const REPLAY_FILE_MAX_BYTES = 32 * 1024 * 1024;
+export const REPLAY_JSON_MAX_BYTES = 64 * 1024 * 1024;
+
+/**
+ * The values Settings offer for each assist, the only ones a fight can be played with
+ * (`src/app/settings.ts`'s literals; a fight step with any other doesn't verify).
+ */
+export const ASSIST_VALUES = {
+  /** Extra seconds on the Perfect Ward window. */
+  perfectWindowBonus: [0, 0.1, 0.2],
+  /** The telegraphs' wind-up multiplier. */
+  telegraphLead: [1, 1.25, 1.5],
+} as const satisfies Record<string, readonly number[]>;
 
 /** The kind of run (docs/phase-6.md, "Run replays"): a weekly, an Echo, an Expedition, a Prelude. */
 export type ReplayKind = 'weekly' | 'echo' | 'expedition' | 'prelude';
@@ -120,9 +152,18 @@ export function allowanceOf(r: AllowanceRecord): Allowance {
   };
 }
 
+/** A fight's assists. Only values Settings offer verify (`ASSIST_VALUES`, `assistsOffered`). */
 const AssistsSchema = z
   .object({ perfectWindowBonus: z.number(), telegraphLead: z.number(), autonomy: z.boolean() })
   .strict();
+
+/** Were these assists ones Settings offer? (The sim would clamp others silently.) */
+export function assistsOffered(a: { perfectWindowBonus: number; telegraphLead: number }): boolean {
+  return (
+    (ASSIST_VALUES.perfectWindowBonus as readonly number[]).includes(a.perfectWindowBonus) &&
+    (ASSIST_VALUES.telegraphLead as readonly number[]).includes(a.telegraphLead)
+  );
+}
 
 const FrameSchema = z.tuple([z.number().int().nonnegative(), z.array(CommandSchema).min(1)]);
 
@@ -218,14 +259,20 @@ const KindSchema = z.enum(['weekly', 'echo', 'expedition', 'prelude']);
 const LogShape = {
   format: z.literal(RUN_REPLAY_FORMAT),
   version: z.literal(RUN_REPLAY_VERSION),
-  simVersion: z.number().int().nonnegative(),
-  contentVersion: z.string(),
+  /** As a share code holds it (8 bits). */
+  simVersion: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(2 ** SHARE_FIELDS.simVersion - 1),
+  /** `c-` and the content hash's 16 hex digits (`CONTENT_VERSION`). */
+  contentVersion: z.string().regex(/^c-[0-9a-f]{16}$/),
   kind: KindSchema,
-  /** A weekly's week. */
-  week: z.number().int().nonnegative().optional(),
+  /** A weekly's week: one a share code can name. */
+  week: z.number().int().nonnegative().max(LAST_WEEK).optional(),
   /** The run's state as it embarked (phase `map`), without its `logId`. */
   start: z.record(z.string(), z.unknown()),
-  steps: z.array(StepSchema),
+  steps: z.array(StepSchema).max(MAX_RUN_STEPS),
 };
 
 /**
@@ -238,6 +285,12 @@ const AtSchema = z
     path: z.number().int().nonnegative(),
     encounters: z.number().int().nonnegative(),
     phase: z.string(),
+    /**
+     * The run's fingerprint after the last step (`runFingerprint`), so a resumed run whose log
+     * lost a step that changed nothing above (a purchase, a reroll) is told apart. Absent in a
+     * log stored before it was kept: such a log is judged by the rest alone.
+     */
+    fp: Hex16.optional(),
   })
   .strict();
 
@@ -404,6 +457,27 @@ export function stepOfAction(
   const parsed = ChoiceStepSchema.safeParse(plain(raw));
   return parsed.success ? parsed.data : null;
 }
+
+/** The run store actions that are run steps: `stepOfAction` names a step for each it can read. */
+export const STEP_ACTIONS: ReadonlySet<string> = new Set([
+  'chooseNode',
+  'continueFromResult',
+  'pickCalling',
+  'pickRelic',
+  'pickDraft',
+  'rerollDraft',
+  'respite',
+  'retune',
+  'bondScene',
+  'endScene',
+  'buy',
+  'leaveShop',
+  'forge',
+  'leaveForge',
+  'chooseEvent',
+  'leaveEvent',
+  'abandon',
+]);
 
 /** What a step is called in a message ("a draft pick"). */
 function stepName(s: RunStep): string {
@@ -612,28 +686,86 @@ export class RunRecorder {
 }
 
 function atOf(steps: number, run: RunState): RunLog['at'] {
-  return { steps, path: run.path.length, encounters: run.encounters, phase: run.phase };
+  return {
+    steps,
+    path: run.path.length,
+    encounters: run.encounters,
+    phase: run.phase,
+    fp: runFingerprint(run),
+  };
+}
+
+/**
+ * A short hash (16 hex digits) of what a run's steps change: where it stands (phase, path, the
+ * node pending, fights fought and their number), its party's health, Aether and XP, its Chords,
+ * motifs, relics and boons, its Calling's path, and what the place it stands in has left (a
+ * draft's options and rerolls, a relic or Calling offer, a Merchant's sold items, a Forge's
+ * service, an event's choice, a Bond scene). Never the fields the profile writes after a fight
+ * (Bond XP, Deeds, `dissonanceEnd`, the Reliquary's settlement), a result's "without you"
+ * re-run, nor the log's own key; each part is read by its fields, so a run saved and loaded
+ * again has the fingerprint it had.
+ */
+export function runFingerprint(run: RunState): string {
+  const h = new StateHasher();
+  hashValue(
+    h,
+    plain({
+      phase: run.phase,
+      seed: run.seed,
+      path: run.path,
+      pending: run.pending,
+      encounters: run.encounters,
+      results: run.results.map((r) => [r.nodeId, r.outcome]),
+      outcome: run.outcome,
+      aether: run.aether,
+      xp: run.xp,
+      party: run.party.map((p) => [p.heroId, p.hpPct, p.shaken]),
+      chords: run.chords.map((c) => [c.auras, c.ornaments]),
+      motifs: run.motifs.map((m) => [m.id, m.level]),
+      relics: run.relics.map((r) => [r.id, r.cleansed, r.dormant === true]),
+      boons: run.boons.map((b) => [b.id, b.fights]),
+      calling: run.calling ? [run.calling.id, run.calling.path] : null,
+      callingOffer: run.callingOffer ? [run.callingOffer.tier, run.callingOffer.options] : null,
+      draft: run.draft
+        ? [run.draft.rerollsLeft, run.draft.options.map((o) => [o.motifId, o.level])]
+        : null,
+      relicOffer: run.relicOffer ? run.relicOffer.options : null,
+      shop: run.shop ? run.shop.items.map((i) => [i.kind, i.id, i.sold]) : null,
+      forge: run.forge ? [run.forge.nodeId, run.forge.used] : null,
+      event: run.event ? [run.event.eventId, run.event.choice] : null,
+      scene: run.scene ? run.scene.sceneId : null,
+    }),
+  );
+  return h.digest();
 }
 
 /**
  * Does a stored log still fit the run it was recorded for? A run is saved at every step and its
  * log a little later, so after a reload the two can disagree; a log that doesn't fit can't make a
  * replay that verifies, and the app stops recording it. A run in a fight fits a log that left it
- * in that fight (the fight restarts).
+ * in that fight (the fight restarts). A log that keeps the run's fingerprint (`runFingerprint`)
+ * fits only a run with the same one, so a lost step that left the run where it stood (a
+ * purchase, a reroll, a Forge service, a retune) is caught too.
  */
 export function logFits(log: RunLog, run: RunState): boolean {
   return (
     log.at.path === run.path.length &&
     log.at.encounters === run.encounters &&
     log.at.phase === run.phase &&
-    log.start.seed === run.seed
+    log.start.seed === run.seed &&
+    (log.at.fp === undefined || log.at.fp === runFingerprint(run))
   );
 }
 
 // ── Verifying ──────────────────────────────────────────────────────────────────────────────
 
-/** Matches the profile's `WeeklyStatus`: Verified, Verified on another version, Claimed, Didn't match. */
-export type VerifyStatus = 'verified' | 'otherVersion' | 'claimed' | 'mismatch';
+/**
+ * What verifying showed. A weekly's are the profile's `WeeklyStatus`: Verified, Verified on
+ * another version, Claimed, Didn't match. Any other run (an Echo, an Expedition, a Prelude) never
+ * reads Verified: only a weekly's start can be rebuilt (from its week), so one that plays to its
+ * claim `playsBack` (as recorded, on this version or another), its start not checked.
+ */
+export type VerifyStatus = 'verified' | 'otherVersion' | 'claimed' | 'mismatch' | 'playsBack';
 
 /** What kind of problem a replay that didn't verify has. */
 export type VerifyProblem =
@@ -685,13 +817,75 @@ function kindLine(kind: ReplayKind, week: number | undefined): string {
   }
 }
 
-/** The Summary's or the panel's line for a verified run: "Verified on this device: Week 47, won, …". */
+/** What a run played to: "Week 47, won, 3,210 points, 31 min of fighting". */
+function playedLine(kind: ReplayKind, week: number | undefined, p: Omit<RunClaim, 'digest'>) {
+  return `${kindLine(kind, week)}, ${p.won ? 'won' : 'lost'}, ${pointsLine(p.score)}, ${minutesLine(p.seconds)}`;
+}
+
+/** The Summary's or the panel's line for a verified weekly: "Verified on this device: Week 47, won, …". */
 function verifiedLine(
   kind: ReplayKind,
   week: number | undefined,
   p: Omit<RunClaim, 'digest'>,
 ): string {
-  return `Verified on this device: ${kindLine(kind, week)}, ${p.won ? 'won' : 'lost'}, ${pointsLine(p.score)}, ${minutesLine(p.seconds)}.`;
+  return `Verified on this device: ${playedLine(kind, week, p)}.`;
+}
+
+/** Why a run that isn't a weekly is never Verified. */
+const START_UNCHECKED = 'Its start isn’t checked: only a weekly’s start can be rebuilt.';
+
+/** The line for any other run that plays to its claim: "Plays back as recorded on this device: an Echo, …". */
+function playsBackLine(
+  kind: ReplayKind,
+  week: number | undefined,
+  p: Omit<RunClaim, 'digest'>,
+  otherVersion: boolean,
+): string {
+  return otherVersion
+    ? `Plays back as recorded, though it was recorded on another version of the game. ${START_UNCHECKED}`
+    : `Plays back as recorded on this device: ${playedLine(kind, week, p)}. ${START_UNCHECKED}`;
+}
+
+/** A file that can't be read (docs/phase-6.md: what isn't a run replay of this game). */
+export function unreadableResult(
+  message = 'Can’t be read: it isn’t a run replay of this game.',
+): VerifyResult {
+  return { status: 'mismatch', problem: 'file', message };
+}
+const unreadable = unreadableResult;
+
+/** Is this file's JSON nested too deep to be a run replay (checked before it is passed on)? */
+export function replayTooDeep(file: unknown): boolean {
+  return nestedPast(file, MAX_REPLAY_DEPTH);
+}
+
+/**
+ * Is a JSON value nested deeper than `max`? Walked without recursion, so a hostile file can't
+ * overflow the stack here (or later, in the digest or a comparison that walks it).
+ */
+function nestedPast(value: unknown, max: number): boolean {
+  const stack: [unknown, number][] = [[value, 0]];
+  while (stack.length > 0) {
+    const [v, depth] = stack.pop()!;
+    if (v === null || typeof v !== 'object') continue;
+    if (depth >= max) return true;
+    for (const child of Array.isArray(v) ? v : Object.values(v as Record<string, unknown>))
+      if (child !== null && typeof child === 'object') stack.push([child, depth + 1]);
+  }
+  return false;
+}
+
+/** Does every map node name an encounter and an event this version of the game has? */
+function mapKnown(run: RunState): boolean {
+  const encounters = new Set(CONTENT.encounters.map((e) => e.id));
+  const events = new Set(CONTENT.events.map((e) => e.id));
+  return run.map.rows.every((row) =>
+    row.every(
+      (n) =>
+        (n.encounterId === null || encounters.has(n.encounterId)) &&
+        (n.eventId === null || events.has(n.eventId)),
+    ),
+  );
 }
 
 /** The first way a claim and what the replay plays to differ ("the code says 3,210 points; the replay plays to 2,950"). */
@@ -776,13 +970,23 @@ export function verifyRunReplay(
   code?: string,
   opts: { onProgress?: (p: VerifyProgress) => void } = {},
 ): VerifyResult {
-  const replay = parseRunReplay(file);
-  if (!replay)
-    return {
-      status: 'mismatch',
-      problem: 'file',
-      message: 'Can’t be read: it isn’t a run replay of this game.',
-    };
+  // A hostile file answers like any other that can't be read: nothing it holds may throw out of
+  // here (the worker would have nothing to send back).
+  try {
+    if (nestedPast(file, MAX_REPLAY_DEPTH)) return unreadable();
+    const replay = parseRunReplay(file);
+    if (!replay) return unreadable();
+    return verifyParsed(replay, code, opts);
+  } catch {
+    return unreadable('Can’t be read: it holds something this version of the game can’t play.');
+  }
+}
+
+function verifyParsed(
+  replay: RunReplay,
+  code: string | undefined,
+  opts: { onProgress?: (p: VerifyProgress) => void },
+): VerifyResult {
   const { kind, week } = replay;
   const base = { kind, ...(week !== undefined ? { week } : {}) };
   const fail = (
@@ -818,7 +1022,10 @@ export function verifyRunReplay(
   const parsed = RunStateSchema.safeParse(raw);
   if (!parsed.success)
     return fail('file', 'Can’t be read: its start isn’t a run of this version of the game.');
-  let run = parsed.data as RunState;
+  // The run plays from the start as the save's schema reads it, never from the file's own keys.
+  let run = dropAbsentKeys(parsed.data as RunState);
+  if (!mapKnown(run))
+    return fail('file', 'Can’t be read: its start isn’t a run of this version of the game.');
   if (run.phase !== 'map' || run.path.length > 0 || run.results.length > 0 || 'logId' in raw)
     return fail('file', 'Can’t be read: its start isn’t a run as it embarked.');
   if (replayKindOf(run) !== kind)
@@ -851,6 +1058,14 @@ export function verifyRunReplay(
     const s = replay.steps[i]!;
     if (s.k !== 'fight') continue;
     n++;
+    if (!assistsOffered(s.assists))
+      return fail(
+        'fight',
+        `Uses an assist no setting offers in fight ${n}: it can’t be verified.`,
+        {
+          at: { step: i + 1, fight: n },
+        },
+      );
     if (s.debug || s.frames.some(([, cmds]) => cmds.some((c: Command) => c.t === 'debug')))
       return fail(
         'debug',
@@ -908,6 +1123,13 @@ export function verifyRunReplay(
         },
       );
     const sim = createSim(config);
+    const encounter = encounterName(config.encounter);
+    const at = { step: i + 1, fight: fightNo, encounter: config.encounter };
+    // A fight ends when its encounter does (won or lost); the game plays on only a moment past
+    // that (`FIGHT_TAIL_MAX_TICKS`), and never hands back a fight still under way (giving up
+    // mid-fight is a step of its own, which records no fight). Judged once the fight is played
+    // to its recorded tick: a fight that plays out differently says so first.
+    let ended = -1;
     let f = 0;
     for (let tick = 0; tick < s.finalTick; tick++) {
       const frame = s.frames[f];
@@ -917,11 +1139,13 @@ export function verifyRunReplay(
       } else sim.step();
       ticks++;
       if (ticks % PROGRESS_EVERY === 0) progress();
+      if (ended < 0) {
+        const now = sim.state.encounter.status;
+        if (now === 'victory' || now === 'defeat') ended = tick + 1;
+      }
     }
     const status = sim.state.encounter.status;
     const won = status === 'victory';
-    const encounter = encounterName(config.encounter);
-    const at = { step: i + 1, fight: fightNo, encounter: config.encounter };
     if (sim.hash() !== s.finalHash || won !== s.won) {
       const how =
         won !== s.won
@@ -929,6 +1153,18 @@ export function verifyRunReplay(
           : 'it plays out differently here than it was recorded';
       return fail('fight', `Parts ways at fight ${fightNo} (${encounter}): ${how}. ${why}`, { at });
     }
+    if (ended < 0)
+      return fail(
+        'fight',
+        `Parts ways at fight ${fightNo} (${encounter}): it stops while the fight is still under way. ${why}`,
+        { at },
+      );
+    if (s.finalTick - ended > FIGHT_TAIL_MAX_TICKS)
+      return fail(
+        'fight',
+        `Parts ways at fight ${fightNo} (${encounter}): it plays on long past its end. ${why}`,
+        { at },
+      );
     const outcome = buildOutcome(
       sim.state,
       sim.config.party.map((p) => p.heroId),
@@ -972,6 +1208,13 @@ export function verifyRunReplay(
         out,
       );
   }
+  // Only a weekly's start was rebuilt and compared: any other run plays back as recorded.
+  if (kind !== 'weekly')
+    return {
+      status: 'playsBack',
+      message: playsBackLine(kind, week, played, otherVersion),
+      ...out,
+    };
   return {
     status: otherVersion ? 'otherVersion' : 'verified',
     message: otherVersion

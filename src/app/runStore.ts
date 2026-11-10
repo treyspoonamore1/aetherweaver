@@ -30,14 +30,15 @@ import {
   finishRecording,
   keepReplay,
   newLogId,
+  recordAction,
   recordFight,
-  recordStep,
   recordingNow,
   resumeRecording,
-  stepOfAction,
   stopRecording,
 } from './runRecorder';
-import { verifyReplay } from './verify';
+import { openReplayStore } from './replayStore';
+import { verifyReplay, type VerifyJob } from './verify';
+import type { WeeklyStatus } from '../meta/profile';
 import { useProfile } from './profileStore';
 import { useSettings } from './settings';
 import { storage } from './storage';
@@ -134,7 +135,7 @@ export function recordsReplay(run: Pick<RunState, 'weekly' | 'echo'>): boolean {
 /** The step the store just applied, for the run's log (nothing while nothing records). */
 function logStep(prev: RunState, next: RunState, step: RunStepNote | undefined): void {
   if (!step || !recordingNow()) return;
-  recordStep(stepOfAction(step.action, step.args, step.allowance), prev, next);
+  recordAction(step, prev, next);
 }
 
 /** The profile's tree as a run may hold it: within the points the Rank (or the settings) give. */
@@ -235,14 +236,88 @@ function recordEnd(run: RunState, replay: RunReplay | null = null): string | nul
   return run.weekly !== undefined ? profile.recordWeekly(run, replay) : null;
 }
 
+/** A weekly's verification as its entry keeps it (a weekly never `playsBack`; if so, unmatched). */
+function weeklyStatusOf(result: VerifyResult): WeeklyStatus {
+  return result.status === 'playsBack' ? 'mismatch' : result.status;
+}
+
 /**
  * A finished weekly's own replay, verified again on this device (docs/phase-6.md, "The local
  * leaderboard": "yours, re-verified when finished"); its entry takes the result's status.
  */
 function reverify(week: number, code: string, replay: RunReplay): Promise<VerifyResult> {
   const job = verifyReplay(replay, code).result;
-  void job.then((r) => useProfile.getState().setWeeklyStatus(week, code, r.status)).catch(() => {});
+  void job
+    .then((r) => useProfile.getState().setWeeklyStatus(week, code, weeklyStatusOf(r)))
+    .catch(() => {});
   return job;
+}
+
+/**
+ * The player's own weekly replay, kept on the device as it is made (under its log's key), so an
+ * entry still Claimed when the page closed (its re-verification cut short) can be verified at the
+ * next start (`reverifyClaimedWeeklies`). The entry names the kept replay once it is stored; on a
+ * device without IndexedDB nothing is kept, and the entry stays as its re-verification leaves it.
+ */
+function keepOwnWeekly(week: number, code: string, id: string, replay: RunReplay): void {
+  void keepReplay(id, replay, Date.now())
+    .then((kept) => {
+      if (!kept) return;
+      const held = useProfile
+        .getState()
+        .profile.weekly?.find((w) => w.week === week)
+        ?.entries.find((e) => e.code === code);
+      if (held) useProfile.getState().setWeeklyStatus(week, code, held.status, id);
+    })
+    .catch(() => {
+      // Storage full or refused: the entry keeps no replay.
+    });
+}
+
+/**
+ * Verifies again, one after another in the background worker, the player's own weekly entries
+ * still Claimed whose replay was kept (a page closed while its re-verification ran): each takes
+ * the result's status. One whose kept replay is gone (storage cleared) stays Claimed, as a code
+ * alone is, and is looked for again at the next start. Never blocks: it begins after the
+ * current task, and `cancel` stops it (the job under way too). Resolves when it is done.
+ */
+export function reverifyClaimedWeeklies(): { done: Promise<void>; cancel(): void } {
+  let cancelled = false;
+  let job: VerifyJob | null = null;
+  const done = (async () => {
+    await new Promise((r) => setTimeout(r, 0));
+    const claimed = (useProfile.getState().profile.weekly ?? []).flatMap((w) =>
+      w.entries
+        .filter((e) => e.mine === true && e.status === 'claimed' && e.replay !== undefined)
+        .map((e) => ({ week: w.week, code: e.code, id: e.replay! })),
+    );
+    if (claimed.length === 0 || cancelled) return;
+    const store = await openReplayStore();
+    if (!store) return;
+    try {
+      for (const entry of claimed) {
+        if (cancelled) return;
+        const replay = await store.kept(entry.id).catch(() => null);
+        if (!replay || cancelled) continue;
+        job = verifyReplay(replay, entry.code);
+        const result = await job.result.catch(() => null);
+        job = null;
+        if (result && !cancelled)
+          useProfile
+            .getState()
+            .setWeeklyStatus(entry.week, entry.code, weeklyStatusOf(result), entry.id);
+      }
+    } finally {
+      store.close();
+    }
+  })().catch(() => {});
+  return {
+    done,
+    cancel: () => {
+      cancelled = true;
+      job?.cancel();
+    },
+  };
 }
 
 export const useRun = create<RunStore>()((set, get) => {
@@ -267,6 +342,8 @@ export const useRun = create<RunStore>()((set, get) => {
       const replay = recordingNow() ? finishRecording(next) : null;
       const code = recordEnd(next, replay);
       const week = next.weekly?.week;
+      if (replay && code !== null && week !== undefined && next.logId !== undefined)
+        keepOwnWeekly(week, code, next.logId, replay);
       if (replay || get().replay || get().weeklyCheck)
         set({
           replay,
@@ -726,7 +803,12 @@ useProfile.subscribe((state, prev) => {
     useRun.getState().followTechniques();
 });
 
+/** The start-up re-verification of own weekly entries left Claimed (cancel it to stop it). */
+export let startupReverify: { done: Promise<void>; cancel(): void } | null = null;
+
 if (typeof window !== 'undefined') {
   // Save on the way out, so closing the tab never loses a transition.
   window.addEventListener('pagehide', () => saveRun(storage(), useRun.getState().run));
+  // An own weekly entry left Claimed (the page closed mid re-verification) is verified again.
+  startupReverify = reverifyClaimedWeeklies();
 }

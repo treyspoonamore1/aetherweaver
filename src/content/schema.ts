@@ -2581,6 +2581,12 @@ function lintFinale(c: ContentShape, ctx: z.RefinementCtx, sets: LintSets): void
 }
 
 /**
+ * The weekly rotation's length (decision 7): `rotation[week mod 12]`, so a rotation that has any
+ * entry holds exactly this many (a thirteenth would never be played).
+ */
+export const WEEKLY_ROTATION_LENGTH = 12;
+
+/**
  * Phase 6 (docs/phase-6.md): the Atlas's Echoes and constellations, the weekly rotation, and what
  * the Phase 6 Deeds name. Every list is empty until W2-W4 fill it, so today it checks nothing.
  */
@@ -2660,6 +2666,10 @@ function lintPhase6(
   for (const k of c.constellations)
     if (!keepsakes.has(k.reward)) issue(`constellation "${k.id}": unknown keepsake "${k.reward}"`);
   const callings = new Set(c.callings.map((k) => k.id));
+  if (c.weekly.length > 0 && c.weekly.length !== WEEKLY_ROTATION_LENGTH)
+    issue(
+      `the weekly rotation has ${c.weekly.length} entries; one has exactly ${WEEKLY_ROTATION_LENGTH} (week mod ${WEEKLY_ROTATION_LENGTH})`,
+    );
   c.weekly.forEach((w, i) => {
     const where = `weekly entry ${i}`;
     if (w.route !== 'expedition' && !echoes.has(w.route))
