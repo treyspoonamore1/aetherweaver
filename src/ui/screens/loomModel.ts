@@ -30,6 +30,7 @@ import { slotKey } from './variantsModel';
 import { deedsTally } from './deedsModel';
 import { gateStep } from './routeText';
 import { atlasBadge, atlasStationOpen, atlasView, keepsakeLine } from './atlasModel';
+import { t as txt } from '../text';
 
 export type { StationId };
 
@@ -86,16 +87,30 @@ export type GateRun = Pick<RunState, 'phase' | 'path' | 'map'> &
   Partial<Pick<RunState, 'echo'>>;
 
 const NAMES: Readonly<Record<StationId, string>> = {
-  gate: 'The Gate',
-  training: 'Training Grounds',
+  get gate() {
+    return txt('screens.loomModel.theGate');
+  },
+  get training() {
+    return txt('screens.loomModel.trainingGrounds');
+  },
   codex: 'Codex',
-  astrolabe: 'The Astrolabe',
-  atelier: 'The Atelier',
-  reliquary: 'The Reliquary',
+  get astrolabe() {
+    return txt('screens.loomModel.theAstrolabe');
+  },
+  get atelier() {
+    return txt('screens.loomModel.theAtelier');
+  },
+  get reliquary() {
+    return txt('screens.loomModel.theReliquary');
+  },
   bonds: 'Bonds',
-  deeds: 'Hall of Deeds',
+  get deeds() {
+    return txt('screens.loomModel.hallOfDeeds');
+  },
   dissonance: 'Dissonance',
-  atlas: 'The Atlas of Echoes',
+  get atlas() {
+    return txt('screens.loomModel.theAtlasOfEchoes');
+  },
 };
 
 /** A station's name ("The Astrolabe"). */
@@ -204,7 +219,10 @@ export function welcomeDue(introduced: readonly string[]): boolean {
 
 /** What choosing a dark station says (read out): "The Atelier is dark. Starlight’s shop. …" */
 export function darkSaid(id: StationId, rank: number): string {
-  return `${capital(stationProse(id))} is dark. ${darkLine(id, rank)}`;
+  return txt('screens.loomModel.isDark', {
+    capital: capital(stationProse(id)),
+    darkLine: darkLine(id, rank),
+  });
 }
 
 /** "Kael, Lyra and Vexis". */
@@ -231,26 +249,30 @@ export function darkLine(
 ): string {
   switch (id) {
     case 'astrolabe':
-      return `A star map of bonuses. Opens at Weaver Rank ${ASTROLABE_RANK}.`;
+      return txt('screens.loomModel.aStarMapOf', { ASTROLABE_RANK });
     case 'atelier':
-      return `The Starlight shop. Opens at Weaver Rank ${atelierRank()}.`;
+      return txt('screens.loomModel.theStarlightShopOpens', { atelierRank: atelierRank() });
     case 'reliquary':
-      return `Relics kept between runs. Opens at Weaver Rank ${CONTENT.reliquary.slotRanks[0]}.`;
+      return txt('screens.loomModel.relicsKeptBetweenRuns', {
+        value: CONTENT.reliquary.slotRanks[0],
+      });
     case 'bonds':
       // Open from a hero's first Bond rank-up (`bondsOpen`: a rank above 1).
-      return `Your heroes, ${bondedNames(heroes)}, earn Bond XP every fight. Opens when one reaches Bond rank 2.`;
+      return txt('screens.loomModel.yourHeroesEarnBond', { bondedNames: bondedNames(heroes) });
     case 'deeds':
-      return 'Deeds are feats within a run, like winning one. Opens with your first Deed.';
+      return txt('screens.loomModel.deedsAreFeatsWithin');
     case 'dissonance':
-      return `Optional difficulty, for the endgame. ${
-        opensAt(rank)
+      return txt('screens.loomModel.optionalDifficultyForThe', {
+        value: opensAt(rank)
           ? // Dark at its Rank: no Finale cleared yet (a clear and the Rank open it, either order).
-            'Opens with your first Finale clear.'
-          : `Opens at Weaver Rank ${CONTENT.dissonanceRules.openRank} once you have cleared the Finale.`
-      }`;
+            txt('screens.loomModel.opensWithYourFirst')
+          : txt('screens.loomModel.opensAtWeaverRank', {
+              openRank: CONTENT.dissonanceRules.openRank,
+            }),
+      });
     case 'atlas':
       // It lights with Dissonance (docs/phase-6.md, "Design: the Atlas of Echoes").
-      return 'Old roads played strangely, with stars to light. Opens with Dissonance.';
+      return txt('screens.loomModel.oldRoadsPlayedStrangely');
     default:
       return '';
   }
@@ -262,31 +284,31 @@ function litLine(id: StationId, run: GateRun | null): string {
     case 'gate':
       return gateLine(run);
     case 'training':
-      return 'Practise, with nothing at stake';
+      return txt('screens.loomModel.practiseWithNothingAt');
     case 'codex':
-      return 'Every enemy, song and system';
+      return txt('screens.loomModel.everyEnemySongAnd');
     case 'astrolabe':
-      return 'Bonuses chosen between runs';
+      return txt('screens.loomModel.bonusesChosenBetweenRuns');
     case 'atelier':
-      return 'Spend your Starlight';
+      return txt('screens.loomModel.spendYourStarlight');
     case 'reliquary':
-      return 'Relics kept between runs';
+      return txt('screens.loomModel.relicsKeptBetweenRuns2');
     case 'bonds':
-      return 'The heroes’ talents and Solos';
+      return txt('screens.loomModel.theHeroesTalentsAnd');
     case 'deeds':
-      return 'Feats within a run';
+      return txt('screens.loomModel.featsWithinARun');
     case 'dissonance':
-      return 'Harder runs that pay more, set in Prep';
+      return txt('screens.loomModel.harderRunsThatPay');
     case 'atlas':
-      return 'Echoes, and This Week’s Song';
+      return txt('screens.loomModel.echoesAndThisWeek');
   }
 }
 
 /** What the Gate does: begin a run, or continue the one saved ("Continue · step 4 of 10"). */
 export function gateLine(run: GateRun | null): string {
-  if (!run) return 'Begin a run';
-  if (run.phase === 'prep') return 'Continue · your run is in Prep';
-  return `Continue · ${gateStep(run)}`;
+  if (!run) return txt('screens.loomModel.beginARun');
+  if (run.phase === 'prep') return txt('screens.loomModel.continueYourRunIs');
+  return txt('screens.loomModel.continue', { gateStep: gateStep(run) });
 }
 
 /** The Reliquary's materials, short, as its station shows them: "34 Shards · 1 Tear". */
@@ -323,7 +345,7 @@ function badgeOf(
     }
     case 'atelier': {
       const n = affordable(shop, p.starlight);
-      return n > 0 ? `${n} you can afford` : null;
+      return n > 0 ? txt('screens.loomModel.youCanAfford', { n }) : null;
     }
     case 'reliquary':
       return materialsShort(p.reliquary);
@@ -338,11 +360,11 @@ function badgeOf(
         heroRoster(p, unlockAll),
         dissonanceStationOpen(p.dissonance.open, unlockAll),
       );
-      return earned > 0 ? `${earned} of ${total} earned` : null;
+      return earned > 0 ? txt('screens.loomModel.ofEarned', { earned, total }) : null;
     }
     case 'dissonance': {
       const best = Math.max(0, ...Object.values(p.dissonance.best));
-      return best > 0 ? `Best won: ${best}` : null;
+      return best > 0 ? txt('screens.loomModel.bestWon', { best }) : null;
     }
     case 'atlas':
       return atlasBadge(p.atlas);
@@ -361,10 +383,12 @@ export function starlightAbout(
 ): { line: string | null; tip: string } {
   const open = atelierOpen(rank, unlockAll);
   return {
-    line: open ? null : `Spent at the Atelier, which opens at Weaver Rank ${atelierRank()}`,
-    tip: `Starlight: every won fight pays it, and every Deed. Spend it at the Atelier${
-      open ? '' : `, which opens at Weaver Rank ${atelierRank()}`
-    }, on technique variants, robes, Thread looks and titles.`,
+    line: open ? null : txt('screens.loomModel.spentAtTheAtelier', { atelierRank: atelierRank() }),
+    tip: txt('screens.loomModel.starlightEveryWonFight', {
+      value: open
+        ? ''
+        : txt('screens.loomModel.whichOpensAtWeaver', { atelierRank: atelierRank() }),
+    }),
   };
 }
 
@@ -384,7 +408,10 @@ export function freshLine(stations: readonly StationView[]): string | null {
     names.length === 1
       ? names[0]!
       : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
-  return `${capital(list)} ${names.length === 1 ? 'has' : 'have'} lit up: visit to see what’s there.`;
+  return txt('screens.loomModel.litUpVisitTo', {
+    capital: capital(list),
+    value: names.length === 1 ? 'has' : 'have',
+  });
 }
 
 // ── Intros ────────────────────────────────────────────────────────────────────────────
@@ -445,25 +472,25 @@ function firstCallingRank(): number {
 export function welcomeIntro(run: GateRun | null = null): StationIntro {
   return {
     station: 'gate',
-    title: 'The Loom',
+    title: txt('screens.loomModel.theLoom'),
     panels: [
       {
-        heading: 'Your sanctum between runs',
+        heading: txt('screens.loomModel.yourSanctumBetweenRuns'),
         art: [],
-        body: 'Between runs you come back here. Each station is a place to go: to set out, to practise, to read up and, as you play, to grow the Weaver. The dark ones open one by one, and the first visit to each shows you around.',
+        body: txt('screens.loomModel.betweenRunsYouCome'),
       },
       {
-        heading: 'The Gate',
+        heading: txt('screens.loomModel.theGate'),
         art: ['gate'],
-        body: 'Every run starts here. Through the Gate is Prep, where you choose your songs (the auras you sing to your heroes as they fight: healing them, or making them hit harder), then set out on the road. A run you leave waits at the Gate to be continued.',
+        body: txt('screens.loomModel.everyRunStartsHere'),
       },
       {
-        heading: 'The Training Grounds and the Codex',
+        heading: txt('screens.loomModel.theTrainingGroundsAnd'),
         art: ['training', 'codex'],
-        body: `The Training Grounds are a sandbox: your party, enemies to spawn and your build to try, with nothing at stake. Their drill rings a training bell at a hero: Ward them just before the blow lands and it’s a Perfect Ward, the hit negated. The Codex explains every enemy, song and system you meet.`,
+        body: txt('screens.loomModel.theTrainingGroundsAre'),
       },
     ],
-    tryIt: run ? 'Try it: continue your run' : 'Try it: begin a run',
+    tryIt: run ? txt('screens.loomModel.tryItContinueYour') : txt('screens.loomModel.tryItBeginA'),
     seen: WELCOME.map(introId),
   };
 }
@@ -474,7 +501,7 @@ export function stationIntro(id: StationId): StationIntro {
     station: id,
     title: stationName(id),
     panels: panels.map((p) => ({ ...p, art: [id] })),
-    tryIt: `Try it: open ${stationProse(id)}`,
+    tryIt: txt('screens.loomModel.tryItOpen', { stationProse: stationProse(id) }),
     seen: [introId(id)],
   });
   const s = S();
@@ -483,36 +510,54 @@ export function stationIntro(id: StationId): StationIntro {
       return welcomeIntro();
     case 'training':
     case 'codex':
-      return { ...welcomeIntro(), station: id, tryIt: `Try it: open ${stationProse(id)}` };
+      return {
+        ...welcomeIntro(),
+        station: id,
+        tryIt: txt('screens.loomModel.tryItOpen', { stationProse: stationProse(id) }),
+      };
     case 'astrolabe':
       return intro([
         {
-          heading: 'A star map of bonuses',
-          body: `Passive bonuses, chosen between runs. It opens with ${astrolabePoints(ASTROLABE_RANK)} points; every Rank after gives one more, and Deeds (feats in a run, kept in the Hall of Deeds) give up to ${DEED_POINTS_MAX} more. Spend them on stars for the Thread, the songs, your techniques or the heroes.`,
+          heading: txt('screens.loomModel.aStarMapOf2'),
+          body: txt('screens.loomModel.passiveBonusesChosenBetween', {
+            astrolabePoints: astrolabePoints(ASTROLABE_RANK),
+            DEED_POINTS_MAX,
+          }),
         },
         {
-          heading: 'Take a path',
-          body: 'Choose a star to take it and the path to it. To give one back, right-click it, or choose a star you’ve taken and press Give back. Respec gives every point back: it’s all free between runs.',
+          heading: txt('screens.loomModel.takeAPath'),
+          body: txt('screens.loomModel.chooseAStarTo'),
         },
         {
-          heading: 'It goes with you',
-          body: 'A run embarks with the tree you have, and the Training Grounds use it too, so try a change there first. Open it here, or from Prep.',
+          heading: txt('screens.loomModel.itGoesWithYou'),
+          body: txt('screens.loomModel.aRunEmbarksWith'),
         },
       ]);
     case 'atelier': {
       const prices = keepsakePrices();
       return intro([
         {
-          heading: 'Starlight',
-          body: `Every won fight pays Starlight: a skirmish ${s.fights.skirmish}, an elite ${s.fights.elite}, a mini-boss ${s.fights.miniboss}, a boss ${s.fights.boss}, and a won run ${s.winBonus} more. Each Deed pays it too. A lost fight pays nothing, but what the run earned stays.`,
+          heading: txt('screens.loomModel.starlight'),
+          body: txt('screens.loomModel.everyWonFightPays', {
+            skirmish: s.fights.skirmish,
+            elite: s.fights.elite,
+            miniboss: s.fights.miniboss,
+            boss: s.fights.boss,
+            winBonus: s.winBonus,
+          }),
         },
         {
-          heading: 'What it buys',
-          body: `Technique variants, new ways to play one of your four techniques (${fmt(s.variantPrice)} each); robes and Thread looks (${prices.looks}); titles (${prices.titles}). A few are earned instead. A Calling (a class for the Weaver, chosen in Prep from Rank ${firstCallingRank()}) gains mastery as you play it, and its top mastery puts its own variant on sale and earns its title.`,
+          heading: txt('screens.loomModel.whatItBuys'),
+          body: txt('screens.loomModel.techniqueVariantsNewWays', {
+            variantPrice: fmt(s.variantPrice),
+            looks: prices.looks,
+            titles: prices.titles,
+            firstCallingRank: firstCallingRank(),
+          }),
         },
         {
-          heading: 'Yours to wear',
-          body: 'A robe and a Thread look change how the Weaver looks, never how she plays: Mend’s and Empower’s colours stay, so the Thread still says which it is. A variant you buy is chosen in Prep, slot by slot.',
+          heading: txt('screens.loomModel.yoursToWear'),
+          body: txt('screens.loomModel.aRobeAndA'),
         },
       ]);
     }
@@ -521,40 +566,42 @@ export function stationIntro(id: StationId): StationIntro {
       const [one, two, three] = rq.slotRanks;
       return intro([
         {
-          heading: 'Relics that outlive their runs',
-          body: 'A run finds relics, each with an effect of its own. Win the run, and its Summary lets you enshrine one it found: it waits here between runs with its first Inscriptions, small bonuses of its own that crafting adds to.',
+          heading: txt('screens.loomModel.relicsThatOutliveTheir'),
+          body: txt('screens.loomModel.aRunFindsRelics'),
         },
         {
-          heading: 'Craft them',
-          body: `Every run that ends pays crafting materials: Tuning Shards for each fight it won, and a Discord Tear for beating its boss with ${withArticle(rq.tearGrade)} grade. Spend them here to add an Inscription to a relic, roll one again, or raise its tier.`,
+          heading: txt('screens.loomModel.craftThem'),
+          body: txt('screens.loomModel.everyRunThatEnds', {
+            withArticle: withArticle(rq.tearGrade),
+          }),
         },
         {
-          heading: 'Carry them',
-          body: `Choose relics to carry into a run: one from Rank ${one}, two from ${two}, three from ${three}. Each lends the run its Inscriptions, and the first, attuned, plays its own effect too.`,
+          heading: txt('screens.loomModel.carryThem'),
+          body: txt('screens.loomModel.chooseRelicsToCarry', { one, two, three }),
         },
       ]);
     }
     case 'bonds':
       return intro([
         {
-          heading: 'Bonds',
-          body: `Every fight pays ${bondedNames()} Bond XP, more for the support you gave each. Each Bond rank opens something: talents (one of two in each tier), an alternate Solo (a hero’s big move, which they charge as they fight), or a scene by a Respite’s fire.`,
+          heading: txt('screens.loomModel.bonds'),
+          body: txt('screens.loomModel.everyFightPaysBond', { bondedNames: bondedNames() }),
         },
         {
-          heading: 'Who they become',
-          body: 'On each hero’s page, choose one talent a tier (or neither) and which Solo they bring. Choices change freely between runs; a run keeps what it embarked with.',
+          heading: txt('screens.loomModel.whoTheyBecome'),
+          body: txt('screens.loomModel.onEachHeroS'),
         },
       ]);
     case 'deeds': {
       const ladder = CONTENT.deeds.filter((d) => d.points > 0).length;
       return intro([
         {
-          heading: 'Deeds',
-          body: `Feats within a run, from winning one to a run where no hero ever goes down. Each pays Starlight as you earn it, and ${ladder} of them give an Astrolabe point each too.`,
+          heading: txt('screens.loomModel.deeds'),
+          body: txt('screens.loomModel.featsWithinARun2', { ladder }),
         },
         {
-          heading: 'The Hall',
-          body: 'Every Deed hangs here, earned or not: how each is earned, and your best run so far at the Deeds that keep a count.',
+          heading: txt('screens.loomModel.theHall'),
+          body: txt('screens.loomModel.everyDeedHangsHere'),
         },
       ]);
     }
@@ -562,16 +609,19 @@ export function stationIntro(id: StationId): StationIntro {
       const d = CONTENT.dissonanceRules;
       return intro([
         {
-          heading: 'Optional difficulty',
-          body: `For the endgame: levels you turn on before a run. Each makes the fight harder in its own way (tougher enemies, shorter wind-ups, Respites that don’t heal) and is worth points. Each point pays +${d.xpPerPoint}% Weaver XP and +${d.shardsPerPoint}% Tuning Shards, and relics found in harder runs can be crafted to higher tiers.`,
+          heading: txt('screens.loomModel.optionalDifficulty'),
+          body: txt('screens.loomModel.forTheEndgameLevels', {
+            xpPerPoint: d.xpPerPoint,
+            shardsPerPoint: d.shardsPerPoint,
+          }),
         },
         {
-          heading: 'Chosen in Prep',
-          body: 'Turn its levels on in Prep, through the Gate. Your choice is kept from run to run, and a run keeps it to the end.',
+          heading: txt('screens.loomModel.chosenInPrep'),
+          body: txt('screens.loomModel.turnItsLevelsOn'),
         },
         {
-          heading: 'Your records',
-          body: 'Here: the best you’ve won at with each Calling, every level, and what the points pay.',
+          heading: txt('screens.loomModel.yourRecords'),
+          body: txt('screens.loomModel.hereTheBestYou'),
         },
       ]);
     }
@@ -579,14 +629,23 @@ export function stationIntro(id: StationId): StationIntro {
       const v = atlasView(undefined);
       const ks = v.constellations;
       return intro([
-        { heading: 'Old songs, played strangely', body: v.about },
+        { heading: txt('screens.loomModel.oldSongsPlayedStrangely'), body: v.about },
         {
-          heading: 'Constellations',
-          body: `${capital(countWord(ks[0]?.echoes.length ?? 0))} Echoes make a constellation; light all of one’s stars and it gives a keepsake: ${andList(ks.map((k) => `${k.name}, ${keepsakeLine(k.reward?.id ?? '')}`))}. All ${v.of} stars: ${andList(v.keepsakes.filter((k) => !ks.some((c) => c.reward?.id === k.id)).map((k) => keepsakeLine(k.id)))}.`,
+          heading: txt('screens.loomModel.constellations'),
+          body: txt('screens.loomModel.echoesMakeAConstellation', {
+            capital: capital(countWord(ks[0]?.echoes.length ?? 0)),
+            andList: andList(ks.map((k) => `${k.name}, ${keepsakeLine(k.reward?.id ?? '')}`)),
+            of: v.of,
+            andList2: andList(
+              v.keepsakes
+                .filter((k) => !ks.some((c) => c.reward?.id === k.id))
+                .map((k) => keepsakeLine(k.id)),
+            ),
+          }),
         },
         {
-          heading: 'This Week’s Song',
-          body: 'One run, the same for everyone this week: its seed, route, Calling, heroes and Dissonance are fixed, and your Chords are your own. Share your result as a code and a replay; add a friend’s, and this device plays it through to check it.',
+          heading: txt('screens.loomModel.thisWeekSSong'),
+          body: txt('screens.loomModel.oneRunTheSame'),
         },
       ]);
     }
@@ -610,13 +669,13 @@ export function weaverPlate(p: Pick<Profile, 'xp' | 'look'>): {
 } {
   const { rank, into, span } = rankProgress(p.xp);
   return {
-    name: 'The Weaver',
+    name: txt('screens.loomModel.theWeaver'),
     title: titleText(p.look.title),
     rank,
     progress:
       span === null
-        ? `${fmt(p.xp)} XP · the highest Rank for now`
-        : `${fmt(into)} / ${fmt(span)} XP to Rank ${rank + 1}`,
+        ? txt('screens.loomModel.xpTheHighestRank', { xp: fmt(p.xp) })
+        : txt('screens.loomModel.xpToRank', { into: fmt(into), span: fmt(span), value: rank + 1 }),
     fraction: span === null ? 1 : Math.max(0, Math.min(1, into / span)),
   };
 }
@@ -675,33 +734,46 @@ export interface Shelf {
 const SHELVES: readonly { kind: ShopKind; title: string; blurb: string; icon: IconName }[] = [
   {
     kind: 'variant',
-    title: 'Technique variants',
-    blurb:
-      'Another way to play one of your four techniques, yours for good. Choose it in Prep, slot by slot.',
+    get title() {
+      return txt('screens.loomModel.techniqueVariants');
+    },
+    get blurb() {
+      return txt('screens.loomModel.anotherWayToPlay');
+    },
     icon: 'ward',
   },
   {
     kind: 'robe',
-    title: 'Robes',
-    blurb: 'The Weaver’s colours: her robe, its trim and its glow.',
+    get title() {
+      return txt('screens.loomModel.robes');
+    },
+    get blurb() {
+      return txt('screens.loomModel.theWeaverSColours');
+    },
     icon: 'robe',
   },
   {
     kind: 'thread',
-    title: 'Thread looks',
-    blurb: 'The Thread’s filament and glow. Mend’s and Empower’s colours stay.',
+    get title() {
+      return txt('screens.loomModel.threadLooks');
+    },
+    get blurb() {
+      return txt('screens.loomModel.theThreadSFilament');
+    },
     icon: 'thread',
   },
   {
     kind: 'title',
-    title: 'Titles',
-    blurb:
-      // Phase 6: the Atlas earns titles too, once content has one it gives.
-      CONTENT.cosmetics.titles.some(
+    get title() {
+      return txt('screens.loomModel.titles');
+    },
+    get blurb() {
+      return CONTENT.cosmetics.titles.some(
         (t) => t.earned && ('constellation' in t.earned || 'atlas' in t.earned),
       )
-        ? 'Worn under your name in the Loom. Some are earned, not bought: by a Calling’s top mastery, by a Deed, or in the Atlas of Echoes.'
-        : 'Worn under your name in the Loom. Some are earned, not bought: by a Calling’s top mastery, or by a Deed.',
+        ? txt('screens.loomModel.wornUnderYourName')
+        : txt('screens.loomModel.wornUnderYourName2');
+    },
     icon: 'banner',
   },
 ];
@@ -709,7 +781,10 @@ const SHELVES: readonly { kind: ShopKind; title: string; blurb: string; icon: Ic
 /** The variants' shelf says what a Calling's mastery is, where the Atelier first names it. */
 function masteryLine(): string {
   const n = CONTENT.mastery.callings.length;
-  return `${n === 1 ? 'One goes' : `${capital(countWord(n))} go`} on sale with a Calling’s top mastery: a Calling is a class for the Weaver, chosen in Prep from Rank ${firstCallingRank()}, and playing it builds its mastery.`;
+  return txt('screens.loomModel.onSaleWithA', {
+    value: n === 1 ? txt('screens.loomModel.oneGoes') : `${capital(countWord(n))} go`,
+    firstCallingRank: firstCallingRank(),
+  });
 }
 
 /** "three". */
@@ -719,9 +794,15 @@ function countWord(n: number): string {
 
 const OWN_NAMES: Readonly<Record<ShopKind, string | null>> = {
   variant: null,
-  robe: 'The Weaver’s own',
-  thread: 'The Thread’s own',
-  title: 'No title',
+  get robe() {
+    return txt('screens.loomModel.theWeaverSOwn');
+  },
+  get thread() {
+    return txt('screens.loomModel.theThreadSOwn');
+  },
+  get title() {
+    return txt('screens.loomModel.noTitle');
+  },
 };
 
 /**
@@ -791,13 +872,15 @@ export function shelfItem(
   } else if (item.kind === 'variant') {
     if (item.state === 'owned') {
       status = 'Owned';
-      if (variant) note = `Yours: choose it in Prep, under Your techniques (${variant.key}).`;
+      if (variant) note = txt('screens.loomModel.yoursChooseItIn', { key: variant.key });
     } else if (item.state === 'open') {
       status = 'Open';
       action = sold ? 'buy' : null;
       note = sold
-        ? 'Settings → Skip the unlocks lets you play it now, and it’s on sale too, to keep.'
-        : `Settings → Skip the unlocks lets you play it now. ${openWhy(item.id, unskipped, closedWithoutSkip)}`;
+        ? txt('screens.loomModel.settingsSkipTheUnlocks')
+        : txt('screens.loomModel.settingsSkipTheUnlocks2', {
+            openWhy: openWhy(item.id, unskipped, closedWithoutSkip),
+          });
     } else {
       action = 'buy';
     }
@@ -824,26 +907,38 @@ function openWhy(id: string, unskipped: ShopItem | null, closedWithoutSkip: bool
   if (!closedWithoutSkip) return typeset(unskipped?.reason ?? '');
   const calling = masteryFor(id);
   const name = calling ? CONTENT.callings.find((c) => c.id === calling)?.name : null;
-  return `On sale from Weaver Rank ${atelierRank()}${name ? `, with the ${name}’s top mastery` : ''}.`;
+  return txt('screens.loomModel.onSaleFromWeaver', {
+    atelierRank: atelierRank(),
+    value: name ? txt('screens.loomModel.withTheSTop', { name }) : '',
+  });
 }
 
 /** A purchase's line, for the live region: bought, or why not ("Ember: Not enough Starlight."). */
 export function buyLine(item: ShopItem, refusal: string | null, short: number): string {
   if (refusal === null)
     return item.kind === 'variant'
-      ? `${item.name} is yours: choose it in Prep.`
-      : `${item.name} is yours${item.price !== null ? ` for ${fmt(item.price)} Starlight` : ''}. Wear it when you like.`;
-  return `${item.name}: ${typeset(refusal)}${short > 0 ? ` ${fmt(short)} more to go.` : ''}`;
+      ? txt('screens.loomModel.isYoursChooseIt', { name: item.name })
+      : txt('screens.loomModel.isYoursWearIt', {
+          name: item.name,
+          value:
+            item.price !== null
+              ? txt('screens.loomModel.forStarlight', { price: fmt(item.price) })
+              : '',
+        });
+  return `${item.name}: ${typeset(refusal)}${short > 0 ? txt('screens.loomModel.moreToGo', { short: fmt(short) }) : ''}`;
 }
 
 /** What wearing (or taking off) says: "Wearing Ember.", "Back to the Weaver’s own robe." */
 export function wearLine(kind: ShopKind, name: string | null): string {
-  if (name !== null) return kind === 'title' ? `Your title: ${name}.` : `Wearing ${name}.`;
+  if (name !== null)
+    return kind === 'title'
+      ? txt('screens.loomModel.yourTitle', { name })
+      : txt('screens.loomModel.wearing', { name });
   return kind === 'robe'
-    ? 'Back to the Weaver’s own robe.'
+    ? txt('screens.loomModel.backToTheWeaver')
     : kind === 'thread'
-      ? 'Back to the Thread’s own look.'
-      : 'No title.';
+      ? txt('screens.loomModel.backToTheThread')
+      : txt('screens.loomModel.noTitle2');
 }
 
 // ── The rank-up card ─────────────────────────────────────────────────────────────────
@@ -857,8 +952,12 @@ export function atelierUnlock(rank: number): { name: string; text: string; where
   const s = S();
   const prices = keepsakePrices();
   return {
-    name: 'The Atelier',
-    text: `The Starlight shop: technique variants, new ways to play your four techniques (${fmt(s.variantPrice)} each), robes and Thread looks (${prices.looks}) and titles (${prices.titles}). Every won fight pays Starlight.`,
-    where: 'Visit it in the Loom.',
+    name: txt('screens.loomModel.theAtelier'),
+    text: txt('screens.loomModel.theStarlightShopTechnique', {
+      variantPrice: fmt(s.variantPrice),
+      looks: prices.looks,
+      titles: prices.titles,
+    }),
+    where: txt('screens.loomModel.visitItInThe'),
   };
 }

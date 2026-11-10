@@ -24,6 +24,7 @@ import {
   tierWhenLabel,
   type TierPlace,
 } from './callingText';
+import { t as txt } from '../text';
 
 /**
  * Shared pieces of the Calling's screens (Phase 3c, 3d): the axis tags, an option's line, the
@@ -120,7 +121,7 @@ export function OptionLine({
           <AxisChip optionId={option.id} all />
           {chosen && (
             <span className="flex items-center gap-0.5 text-xs font-semibold text-gold-200">
-              <Icon name="check" size={12} /> taken
+              <Icon name="check" size={12} /> {txt('screens.callingParts.taken')}
             </span>
           )}
         </span>
@@ -198,7 +199,7 @@ export function CallingTitle({
           className={`block font-display font-bold leading-tight ${compact ? 'text-lg' : 'text-xl'}`}
           style={{ color: muted ? 'var(--color-text)' : look.text }}
         >
-          The {def.name}
+          {txt('screens.callingParts.the', { name: def.name })}
         </span>
         <span className={`block italic text-muted ${compact ? 'text-xs' : 'text-sm'}`}>
           {def.title}
@@ -235,7 +236,7 @@ export function CallingPathPreview({
   return (
     <ol
       className={`grid gap-3 ${columns === 4 ? 'md:grid-cols-2 xl:grid-cols-4' : 'md:grid-cols-2'}`}
-      aria-label={`The ${def.name}'s path`}
+      aria-label={txt('screens.callingParts.theSPath', { name: def.name })}
     >
       {steps.map((s) => {
         const locked = s.state === 'locked';
@@ -255,11 +256,12 @@ export function CallingPathPreview({
                 className="font-display text-sm font-bold"
                 style={{ color: locked ? 'var(--color-text)' : look.text }}
               >
-                Tier {s.numeral}
+                {txt('screens.callingParts.tier', { numeral: s.numeral })}
               </span>
               {locked ? (
                 <span className="flex items-center gap-1 text-xs font-semibold text-muted">
-                  <Icon name="lock" size={11} /> Locked: mastery {s.mastery}
+                  <Icon name="lock" size={11} />{' '}
+                  {txt('screens.callingParts.lockedMastery', { mastery: s.mastery })}
                 </span>
               ) : (
                 <span className="text-xs text-muted">{tierWhenLabel(s.tier, map)}</span>
@@ -313,7 +315,7 @@ export function CallingStripItem({
           <span className="flex items-center gap-2">
             <CallingEmblem callingId={def.id} icon={def.icon} size={26} />
             <b className="font-display text-base" style={{ color: look.text }}>
-              The {def.name}
+              {txt('screens.callingParts.the', { name: def.name })}
             </b>
             <span className="text-xs italic text-muted">{def.title}</span>
           </span>
@@ -370,7 +372,11 @@ export function CallingStripItem({
             />
           ))}
         </span>
-        {next && <span className="hidden text-xs text-muted sm:inline">next pick {next.when}</span>}
+        {next && (
+          <span className="hidden text-xs text-muted sm:inline">
+            {txt('screens.callingParts.nextPick', { when: next.when })}
+          </span>
+        )}
       </span>
     </Tip>
   );

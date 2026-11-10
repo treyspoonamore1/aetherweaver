@@ -20,6 +20,7 @@ import {
   TENOR,
 } from '../../content/crucibleIds';
 import { FORTISSIMO_NAME, noteSources } from './finaleLook';
+import { t as txt } from '../text';
 
 /** How long a "New foe" card stays, in ms. */
 export const SIGHTING_TTL = 6500;
@@ -50,48 +51,55 @@ function legionLesson(
     case 'sanguine_hound': {
       const bleed = enemyDef(defId).basic.onHit;
       return {
-        lesson: `Every bite adds a Bleed stack${bleed?.maxStacks ? ` (up to ${bleed.maxStacks})` : ''}. Chime the bleeding at 5 stacks or more; a Ward blocks the bites.`,
+        lesson: txt('hud.sighting.everyBiteAddsA', {
+          value: bleed?.maxStacks ? txt('hud.sighting.upTo', { maxStacks: bleed.maxStacks }) : '',
+        }),
         answers: ['chime', 'ward'],
       };
     }
     case 'hemomancer':
       return {
-        lesson:
-          'Its Blood Pact links two heroes: they take more damage and burst together. Scatter — Chime can’t break it.',
+        lesson: txt('hud.sighting.itsBloodPactLinks'),
         answers: ['scatter'],
       };
     case 'impaler':
       return rewinds
         ? {
-            lesson: 'It charges the farthest hero and pins them in place. A Ward stops the pin.',
+            lesson: txt('hud.sighting.itChargesTheFarthest'),
             answers: ['ward'],
           }
         : {
-            lesson:
-              'It charges the farthest hero and pins them in place. Reel frees them; a Ward stops the pin.',
+            lesson: txt('hud.sighting.itChargesTheFarthest2'),
             answers: ['reel', 'ward'],
           };
     case 'crimson_sentinel': {
       const guard = enemyDef(defId).guard;
       return {
-        lesson: `Its shield blocks ${pctOf(guard ? 1 - guard.frontMult : undefined, 0.9)}% of a blow from the front. Focus it, and the party flanks.`,
+        lesson: txt('hud.sighting.itsShieldBlocksOf', {
+          pctOf: pctOf(guard ? 1 - guard.frontMult : undefined, 0.9),
+        }),
         answers: ['focus'],
       };
     }
     case 'leech':
       return {
-        lesson: `It latches on and drinks a hero’s life to heal itself. ${rewinds ? 'Chime frees them.' : 'Reel or Chime frees them.'}`,
+        lesson: txt('hud.sighting.itLatchesOnAnd', {
+          value: rewinds
+            ? txt('hud.sighting.chimeFreesThem')
+            : txt('hud.sighting.reelOrChimeFrees'),
+        }),
         answers: rewinds ? ['chime'] : ['reel', 'chime'],
       };
     case 'gorehound_matriarch':
       return {
-        lesson: `Rend stacks Bleed on the tank, Pounce leaps on the frailest, Pack Call brings hounds. ${rewinds ? 'Chime, Focus.' : 'Chime, Reel, Focus.'}`,
+        lesson: txt('hud.sighting.rendStacksBleedOn', {
+          value: rewinds ? txt('hud.sighting.chimeFocus') : txt('hud.sighting.chimeReelFocus'),
+        }),
         answers: rewinds ? ['chime', 'focus'] : ['chime', 'reel', 'focus'],
       };
     case 'vharun_crimson_warden':
       return {
-        lesson:
-          'Twin Cleave strikes twice; Bloodmoon halves healing outside the pools; Execution kills a hero left low.',
+        lesson: txt('hud.sighting.twinCleaveStrikesTwice'),
         answers: ['ward', 'stack', 'mend'],
       };
     default:
@@ -113,63 +121,59 @@ function riftLesson(
   switch (defId) {
     case 'shears':
       return {
-        lesson:
-          'Shears cut your Thread. Thread a hero on your side of the line, or step across. Focus them.',
+        lesson: txt('hud.sighting.shearsCutYourThread'),
         answers: ['thread', 'focus', 'move'],
       };
     case 'void_maw':
       return rewinds
         ? {
-            lesson:
-              'It breathes in and drags everyone near it into its mouth. Rally the party in the tell; Rewind takes back a hero you lost to the pull.',
+            lesson: txt('hud.sighting.itBreathesInAnd'),
             answers: ['stack', 'move'],
           }
         : {
-            lesson:
-              'It breathes in and drags everyone near it into its mouth. Rally the party in the tell, or Reel one out; Glide yourself clear.',
+            lesson: txt('hud.sighting.itBreathesInAnd2'),
             answers: ['stack', 'reel', 'move'],
           };
     case 'doubt_wraith':
       return {
-        lesson: `Its long cast possesses a hero, who strikes an ally. Focus it to interrupt; Chime the mark, or the possessed hero, to free them.${paradox ? ' Paradox undoes the mark.' : ''}`,
+        lesson: txt('hud.sighting.itsLongCastPossesses', {
+          value: paradox ? txt('hud.sighting.paradoxUndoesTheMark') : '',
+        }),
         answers: ['focus', 'chime', 'ward'],
       };
     case 'null_priest':
       return {
-        lesson: `It closes a rune at your feet: inside, Ward, Chime and ${rewinds ? 'Rewind' : 'Reel'} are refused. Glide or walk out; Glide always works.`,
+        lesson: txt('hud.sighting.itClosesARune', { value: rewinds ? 'Rewind' : 'Reel' }),
         answers: ['move'],
       };
     case 'mimic':
       return {
-        lesson:
-          'It copies your Empower, or your last Ward or Chime, for its strongest ally. Cast something else before it ends to crack the mirror, or Focus it.',
+        lesson: txt('hud.sighting.itCopiesYourEmpower'),
         answers: ['focus'],
       };
     case 'spindle':
       return {
-        lesson: `While a Spindle stands, the Unweaver takes ${spindleCutPct()}% less damage. Focus them.`,
+        lesson: txt('hud.sighting.whileASpindleStands', { spindleCutPct: spindleCutPct() }),
         answers: ['focus'],
       };
     case 'stolen_verse':
       return {
-        lesson: 'It flees with an aura it tore from your song. Focus it to take the aura back.',
+        lesson: txt('hud.sighting.itFleesWithAn'),
         answers: ['focus'],
       };
     case 'mirror_champion':
       return {
-        lesson: `The Unweaver threads it (${EMBOLDENED_PCT}% harder) and Wards it. Interrupt the Mirror Ward, and Focus the champion.`,
+        lesson: txt('hud.sighting.theUnweaverThreadsIt', { EMBOLDENED_PCT }),
         answers: ['focus', 'ward'],
       };
     case 'the_seamstress':
       return {
-        lesson:
-          'Needle Rain falls three times; Stitch roots two heroes; Unpick tears your Thread loose. Dodge or Ward the needles, Chime the Stitch, re-thread at once.',
+        lesson: txt('hud.sighting.needleRainFallsThree'),
         answers: ['move', 'chime', 'thread'],
       };
     case 'the_unweaver':
       return {
-        lesson:
-          'Snip cuts your Thread; Unravel turns your Mend; the Mirror Ward shields its champion. Retarget, Empower, Focus.',
+        lesson: txt('hud.sighting.snipCutsYourThread'),
         answers: ['thread', 'empower', 'focus'],
       };
     default:
@@ -190,43 +194,52 @@ function crucibleLesson(
   paradox: boolean,
   reel: string | null,
 ): { lesson: string; answers: AnswerTag[] } | null {
-  const undo = rewinds && paradox ? ' Paradox cancels it.' : '';
+  const undo = rewinds && paradox ? txt('hud.sighting.paradoxCancelsIt') : '';
   switch (defId) {
     case ALTO:
       return {
-        lesson: `Cued, its Lament marks a hero. Chime it away (in its last second, a Clutch), Ward it, or interrupt the Alto.${undo}`,
+        lesson: txt('hud.sighting.cuedItsLamentMarks', { undo }),
         answers: ['chime', 'ward', 'focus'],
       };
     case BASS:
       return {
-        lesson: `Cued, its Basso Ostinato rings a circle on its target. Ward on the beat (a Perfect), or interrupt the Bass.${rewinds ? ' Rewind steps them back out.' : ''}`,
+        lesson: txt('hud.sighting.cuedItsBassoOstinato', {
+          value: rewinds ? txt('hud.sighting.rewindStepsThemBack') : '',
+        }),
         answers: ['ward', 'dome', 'focus'],
       };
     case TENOR:
       return rewinds
         ? {
-            lesson: `Cued, its Cadenza cuts a line to the farthest hero: more than their life. Rewind them back out of it, step aside, or interrupt the Tenor.${undo}`,
+            lesson: txt('hud.sighting.cuedItsCadenzaCuts', { undo }),
             answers: ['move', 'focus'],
           }
         : reel === 'anchor'
           ? {
-              lesson:
-                'Cued, its Cadenza cuts a line to the farthest hero: more than their life. Step aside, Ward them, or interrupt the Tenor; Anchor holds them, it can’t pull them out.',
+              lesson: txt('hud.sighting.cuedItsCadenzaCuts2'),
               answers: ['move', 'ward', 'focus'],
             }
           : {
-              lesson: `Cued, its Cadenza cuts a line to the farthest hero: more than their life. ${reel === 'swap' ? 'Swap takes the blow on you; step aside,' : 'Reel them out, step aside,'} or interrupt the Tenor.`,
+              lesson: txt('hud.sighting.cuedItsCadenzaCuts3', {
+                value:
+                  reel === 'swap'
+                    ? txt('hud.sighting.swapTakesTheBlow')
+                    : txt('hud.sighting.reelThemOutStep'),
+              }),
               answers: ['reel', 'move', 'focus'],
             };
     case SOPRANO:
       return {
-        lesson:
-          'Cued, its Shatter Aria shatters a circle around a hero. Scatter so it catches one, Ward the one it’s on, or interrupt the Soprano.',
+        lesson: txt('hud.sighting.cuedItsShatterAria'),
         answers: ['scatter', 'move', 'ward', 'focus'],
       };
     case CONDUCTOR:
       return {
-        lesson: `It Cues its mirror-choir; every blow you leave unanswered feeds its Discord, and at ${DISCORD_MAX} it plays ${FORTISSIMO_NAME}: your Crescendo cancels it. At the last it stops the music: only your ${noteSources({ rewinds, reel })} are heard, and eight notes wake your heroes.`,
+        lesson: txt('hud.sighting.itCuesItsMirror', {
+          DISCORD_MAX,
+          FORTISSIMO_NAME,
+          noteSources: noteSources({ rewinds, reel }),
+        }),
         answers: [
           'focus',
           'crescendo',
@@ -429,19 +442,21 @@ export function allyOf(heroId: string): Ally | null {
   // Phase 5e (docs/phase-5e.md): Seren's and Oro's own rules, narrowed by their passive.
   if (def.passive?.id === 'parry')
     lines.push(
-      `Ward her as the blow lands: she parries and counters ${countTimes(def.passive.counterPct)}. A Perfect Ward is a kill shot.`,
-      'She hunts the strongest foe. Reel or Rally her when she’s surrounded.',
+      txt('hud.sighting.wardHerAsThe', { countTimes: countTimes(def.passive.counterPct) }),
+      txt('hud.sighting.sheHuntsTheStrongest'),
     );
   else if (def.passive?.id === 'rootbond')
-    lines.push(
-      'His Saplings take your songs: keep them in your field, or Rally to re-plant them.',
-      'Your Thread on him Mends them too. He won’t fight without a Focus.',
-    );
+    lines.push(txt('hud.sighting.hisSaplingsTakeYour'), txt('hud.sighting.yourThreadOnHim'));
   else if (passive && passive.weaverHealMult < 1)
     lines.push(
-      `Your healing on him is ${passive.weaverHealMult === 0.5 ? 'halved' : `cut to ${Math.round(passive.weaverHealMult * 100)}%`}: his axe heals him, and he hits harder the lower he falls.`,
-      'Ward him and give him barriers: they aren’t cut. Keep him low, but alive.',
-      'Fermata still saves him: one touch of the Thread during the hold.',
+      txt('hud.sighting.yourHealingOnHim', {
+        value:
+          passive.weaverHealMult === 0.5
+            ? 'halved'
+            : txt('hud.sighting.cutTo', { round: Math.round(passive.weaverHealMult * 100) }),
+      }),
+      txt('hud.sighting.wardHimAndGive'),
+      txt('hud.sighting.fermataStillSavesHim'),
     );
   else lines.push(def.quirk.description);
   return { heroId: def.id, name: `${def.name}, ${def.title}`, color: def.color, lines };
@@ -450,7 +465,7 @@ export function allyOf(heroId: string): Ally | null {
 /** A counter's multiple in words: "threefold" (300%), else "for 250%". */
 function countTimes(mult: number): string {
   const fold: Record<number, string> = { 2: 'twofold', 3: 'threefold', 4: 'fourfold' };
-  return fold[mult] ?? `for ${Math.round(mult * 100)}%`;
+  return fold[mult] ?? txt('hud.sighting.for', { round: Math.round(mult * 100) });
 }
 
 /** An ally callout's hero (null for any other callout). */

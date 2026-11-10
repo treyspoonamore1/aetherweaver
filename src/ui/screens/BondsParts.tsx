@@ -31,6 +31,7 @@ import {
 } from './bondsModel';
 import { SceneBody } from './SceneParts';
 import { SectionTitle } from './shared';
+import { t as txt } from '../text';
 
 const BOND = BOND_LOOK.color;
 
@@ -82,8 +83,8 @@ export function BondRankBadge({
         background: 'rgb(10 16 34 / 0.92)',
       }}
       role="img"
-      aria-label={`Bond rank ${rank}`}
-      title={`Bond rank ${rank}`}
+      aria-label={txt('screens.bondsParts.bondRank', { rank })}
+      title={txt('screens.bondsParts.bondRank', { rank })}
       data-testid="bond-rank"
       data-rank={rank}
     >
@@ -191,7 +192,7 @@ export function BondTrack({ steps, heroId }: { steps: readonly TrackStep[]; hero
   return (
     <ol
       className="flex items-start justify-between gap-1"
-      aria-label="Bond ranks"
+      aria-label={txt('screens.bondsParts.bondRanks')}
       data-testid="bond-track"
     >
       {steps.map((s) => {
@@ -200,8 +201,20 @@ export function BondTrack({ steps, heroId }: { steps: readonly TrackStep[]; hero
           <li
             key={s.rank}
             className="flex min-w-0 flex-1 flex-col items-center gap-1"
-            aria-label={`Rank ${s.rank}${s.current ? ', now' : s.reached ? ', reached' : ''}${what ? `: ${what}` : ''}`}
-            title={what ? `Rank ${s.rank}: ${what}` : `Rank ${s.rank}`}
+            aria-label={txt('screens.bondsParts.rank3', {
+              rank: s.rank,
+              value: s.current
+                ? txt('screens.bondsParts.now')
+                : s.reached
+                  ? txt('screens.bondsParts.reached')
+                  : '',
+              value2: what ? `: ${what}` : '',
+            })}
+            title={
+              what
+                ? txt('screens.bondsParts.rank4', { rank: s.rank, what })
+                : txt('screens.bondsParts.rank', { rank: s.rank })
+            }
             data-rank={s.rank}
             data-reached={s.reached}
           >
@@ -270,10 +283,10 @@ export function TalentCard({
             className="flex shrink-0 items-center gap-1 text-xs font-bold"
             style={{ color: heroInk(talent.heroId) }}
           >
-            <Icon name="check" size={14} /> Chosen
+            <Icon name="check" size={14} /> {txt('screens.bondsParts.chosen')}
           </span>
         ) : open ? (
-          <span className="shrink-0 text-xs text-muted">Choose</span>
+          <span className="shrink-0 text-xs text-muted">{txt('screens.bondsParts.choose')}</span>
         ) : (
           <Icon name="lock" size={13} className="shrink-0 text-muted" />
         )}
@@ -307,8 +320,14 @@ export function TierRow({
         className={`flex flex-col items-center justify-center rounded-xl border px-1.5 py-1.5 text-center ${t.open ? 'border-ink-500 bg-ink-900/70' : 'border-dashed border-ink-600 bg-ink-950/50'}`}
       >
         <span id={labelId} className="sr-only">
-          Tier {t.numeral}:{' '}
-          {t.lockLine ?? (t.note ? `${t.note}.` : `open since Bond rank ${t.rank}.`)}
+          {txt('screens.bondsParts.tier', {
+            numeral: t.numeral,
+            value:
+              t.lockLine ??
+              (t.note
+                ? `${t.note}.`
+                : txt('screens.bondsParts.openSinceBondRank', { rank: t.rank })),
+          })}
         </span>
         <span
           className="font-display text-2xl font-bold leading-none"
@@ -327,12 +346,12 @@ export function TierRow({
           </span>
         ) : t.note ? (
           <span className="mt-1 flex flex-col text-xs leading-tight text-muted" aria-hidden>
-            <span>Rank {t.rank}</span>
-            <span>(Skip the unlocks)</span>
+            <span>{txt('screens.bondsParts.rank', { rank: t.rank })}</span>
+            <span>{txt('screens.bondsParts.skipTheUnlocks')}</span>
           </span>
         ) : (
           <span className="mt-1 flex items-center gap-1 text-xs text-muted" aria-hidden>
-            <Icon name="check" size={12} /> Rank {t.rank}
+            <Icon name="check" size={12} /> {txt('screens.bondsParts.rank', { rank: t.rank })}
           </span>
         )}
       </div>
@@ -386,7 +405,7 @@ export function SoloChoice({
   return (
     <div
       role="radiogroup"
-      aria-label={`${name}’s Solo`}
+      aria-label={txt('screens.bondsParts.sSolo', { name })}
       className="grid gap-2 md:grid-cols-2"
       onKeyDown={onKey}
       data-testid="solo-choice"
@@ -420,14 +439,16 @@ export function SoloChoice({
           >
             <span className="flex w-full items-center justify-between gap-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted">
-                {o.key === 'default' ? `${name}’s own` : `Alternate · Bond rank ${view.rank}`}
+                {o.key === 'default'
+                  ? txt('screens.bondsParts.sOwn', { name })
+                  : txt('screens.bondsParts.alternateBondRank', { rank: view.rank })}
               </span>
               {o.chosen ? (
                 <span
                   className="flex items-center gap-1 text-xs font-bold"
                   style={{ color: heroInk(heroId) }}
                 >
-                  <Icon name="check" size={14} /> Brings it
+                  <Icon name="check" size={14} /> {txt('screens.bondsParts.bringsIt')}
                 </span>
               ) : locked ? (
                 <Icon name="lock" size={13} className="text-muted" />
@@ -462,7 +483,7 @@ export function SceneList({
   onRead(id: string): void;
 }) {
   return (
-    <ul className="flex flex-col gap-2" aria-label="Scenes">
+    <ul className="flex flex-col gap-2" aria-label={txt('screens.bondsParts.scenes')}>
       {rows.map((r) => (
         <li
           key={r.id}
@@ -485,7 +506,9 @@ export function SceneList({
               }}
             />
             <b className="min-w-0 flex-1 truncate font-semibold text-text">{r.title}</b>
-            <span className="shrink-0 font-mono text-xs text-muted">rank {r.rank}</span>
+            <span className="shrink-0 font-mono text-xs text-muted">
+              {txt('screens.bondsParts.rank2', { rank: r.rank })}
+            </span>
           </p>
           <p className="mt-0.5 text-xs leading-snug text-muted">{r.line}</p>
           {r.state === 'seen' && (
@@ -496,7 +519,7 @@ export function SceneList({
               onClick={() => onRead(r.id)}
               data-testid={`scene-read-${r.id}`}
             >
-              <Icon name="book" size={13} /> Read it again
+              <Icon name="book" size={13} /> {txt('screens.bondsParts.readItAgain')}
             </Button>
           )}
         </li>
@@ -521,15 +544,15 @@ export function SceneReader({
     <Modal title={scene.title} onClose={onClose} closeOnEscape width="max-w-2xl">
       <div data-testid="scene-reader" data-scene={scene.id}>
         <p className="mt-1 flex items-center gap-2 text-sm text-muted">
-          <HeroPortrait heroId={scene.hero} size={28} /> A scene with {hero.name}, at Bond rank{' '}
-          {scene.rank}
+          <HeroPortrait heroId={scene.hero} size={28} />{' '}
+          {txt('screens.bondsParts.aSceneWithAt', { name: hero.name, rank: scene.rank })}
         </p>
         <div className="scroll-thin mt-4 max-h-[60vh] overflow-y-auto pr-1">
           <SceneBody scene={scene} reply={reply} compact />
         </div>
         <div className="mt-5 flex justify-end">
           <Button variant="primary" onClick={onClose} sound="back" data-autofocus>
-            Close
+            {txt('screens.bondsParts.close')}
           </Button>
         </div>
       </div>
@@ -553,7 +576,7 @@ export function PrepBondsRow({
   return (
     <section
       className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-ink-600/70 bg-ink-900/70 px-3 py-2 ${className}`}
-      aria-label="Bonds: what each hero brings"
+      aria-label={txt('screens.bondsParts.bondsWhatEachHero')}
       data-testid="prep-bonds"
     >
       <Button
@@ -562,9 +585,9 @@ export function PrepBondsRow({
         onClick={onOpen}
         sound="click"
         data-testid="prep-bonds-open"
-        title="Choose your heroes’ talents and Solos"
+        title={txt('screens.bondsParts.chooseYourHeroesTalents')}
       >
-        <BondGlyph size={16} /> Bonds
+        <BondGlyph size={16} /> {txt('screens.bondsParts.bonds')}
       </Button>
       <ul className="flex min-w-0 flex-1 flex-wrap items-center gap-x-5 gap-y-1.5">
         {views.map((v) => (
@@ -581,7 +604,11 @@ export function PrepBondsRow({
             <BondRankBadge rank={v.rank} small />
             {v.talents.length > 0 ? (
               v.talents.map((t) => (
-                <Chip key={t.id} color={heroInk(v.heroId)} title={`Tier ${t.numeral}: ${t.text}`}>
+                <Chip
+                  key={t.id}
+                  color={heroInk(v.heroId)}
+                  title={txt('screens.bondsParts.tier2', { numeral: t.numeral, text: t.text })}
+                >
                   <span className="font-mono">{t.numeral}</span> {t.name}
                 </Chip>
               ))
@@ -686,7 +713,7 @@ export function BondRankUpCard({ notices, bonds, first, unlockAll, onDismiss }: 
         }}
       >
         <p className="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-[0.4em] text-muted">
-          <BondGlyph size={14} /> {first ? 'Something new' : 'Bonds'}
+          <BondGlyph size={14} /> {first ? txt('screens.bondsParts.somethingNew') : 'Bonds'}
         </p>
         <h2
           id="bond-rank-up-title"
@@ -730,7 +757,7 @@ export function BondRankUpCard({ notices, bonds, first, unlockAll, onDismiss }: 
                   <p className="font-display text-lg font-bold leading-tight text-text">
                     {v.name}{' '}
                     <span className="text-sm font-normal" style={{ color: heroInk(v.heroId) }}>
-                      Bond rank {v.rank}
+                      {txt('screens.bondsParts.bondRank', { rank: v.rank })}
                     </span>
                   </p>
                   <ul className="mt-1.5 flex flex-col gap-1.5">
@@ -745,12 +772,12 @@ export function BondRankUpCard({ notices, bonds, first, unlockAll, onDismiss }: 
         </ol>
         {unlockAll && (
           <p className="mt-3 flex items-start gap-1.5 text-xs text-muted">
-            <Icon name="info" size={13} className="mt-px shrink-0" /> {SKIP_RANKUP_LINE}
+            <Icon name="info" size={13} className="mt-px shrink-0" /> {SKIP_RANKUP_LINE()}
           </p>
         )}
         <div className="mt-5 flex justify-center">
           <Button autoFocus variant="primary" size="lg" onClick={onDismiss} sound="confirm">
-            Onward <Icon name="arrow" size={18} />
+            {txt('screens.bondsParts.onward')} <Icon name="arrow" size={18} />
           </Button>
         </div>
       </div>
@@ -806,14 +833,14 @@ export function BondXpLine({ row }: { row: BondXpRow }) {
         before={row.before}
         after={row.after}
         color={row.color}
-        label={`${row.name}’s Bond: ${row.progress}`}
+        label={txt('screens.bondsParts.sBond', { name: row.name, progress: row.progress })}
         className="min-w-[3rem] flex-1"
       />
       <span className="shrink-0 text-xs text-muted">
-        Rank {row.rank}
+        {txt('screens.bondsParts.rank', { rank: row.rank })}
         {row.rankedUp && (
           <span className="ml-1 font-semibold" style={{ color: BOND }}>
-            new
+            {txt('screens.bondsParts.new')}
           </span>
         )}
       </span>
@@ -832,10 +859,14 @@ export function RunBondsPanel({ rows }: { rows: readonly BondXpRow[] }) {
       data-testid="summary-bonds"
     >
       <SectionTitle
-        right={<span className="font-mono text-xs text-muted">Bond XP from this run’s fights</span>}
+        right={
+          <span className="font-mono text-xs text-muted">
+            {txt('screens.bondsParts.bondXpFromThis')}
+          </span>
+        }
       >
         <span className="flex items-center gap-2">
-          <BondGlyph size={18} /> Bonds
+          <BondGlyph size={18} /> {txt('screens.bondsParts.bonds')}
         </span>
       </SectionTitle>
       <ul className="grid gap-4 sm:grid-cols-3">
@@ -854,7 +885,7 @@ export function RunBondsPanel({ rows }: { rows: readonly BondXpRow[] }) {
                   <b className="font-semibold text-text">{r.name}</b>
                   {r.rankedUp && (
                     <span className="truncate text-xs font-semibold" style={{ color: BOND }}>
-                      Rank {r.rank} reached
+                      {txt('screens.bondsParts.rankReached', { rank: r.rank })}
                     </span>
                   )}
                 </span>
@@ -866,7 +897,7 @@ export function RunBondsPanel({ rows }: { rows: readonly BondXpRow[] }) {
                 before={r.before}
                 after={r.after}
                 color={r.color}
-                label={`${r.name}’s Bond: ${r.progress}`}
+                label={txt('screens.bondsParts.sBond', { name: r.name, progress: r.progress })}
                 className="mt-1.5"
               />
               <p className="mt-1 truncate font-mono text-xs text-muted">{r.progress}</p>

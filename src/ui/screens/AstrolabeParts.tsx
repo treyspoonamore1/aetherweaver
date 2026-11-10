@@ -3,6 +3,7 @@ import { AstrolabeGlyph, KeystoneBadge } from '../kit/AstrolabeGlyph';
 import { constellationLook } from '../kit/astrolabeLook';
 import { Tip } from '../kit/Tip';
 import { keystoneParts, keystonesOf, spendLine, starGlyph } from './astrolabeModel';
+import { t } from '../text';
 
 /** A keystone's tooltip: its name, what it gives and its price. */
 export function KeystoneTip({ node }: { node: AstrolabeNode }) {
@@ -16,7 +17,9 @@ export function KeystoneTip({ node }: { node: AstrolabeNode }) {
       >
         <KeystoneBadge glyph={starGlyph(node)} constellation={node.constellation} size={20} />
         {node.name}
-        <span className="font-sans text-xs font-normal text-muted">· Keystone, {look.name}</span>
+        <span className="font-sans text-xs font-normal text-muted">
+          {t('screens.astrolabeParts.keystone', { name: look.name })}
+        </span>
       </span>
       {parts.gains.map((s) => (
         <span key={s} className="text-xs leading-snug text-text">
@@ -47,7 +50,9 @@ export function KeystoneChips({
   return (
     <ul
       className={`flex flex-wrap items-center gap-1.5 ${className}`}
-      aria-label={`Keystones: ${keystones.map((k) => k.name).join(', ')}`}
+      aria-label={t('screens.astrolabeParts.keystones', {
+        keystones: keystones.map((k) => k.name).join(', '),
+      })}
       data-testid="keystone-chips"
     >
       {keystones.map((k) => {
@@ -81,7 +86,7 @@ export function AstrolabeButtonLabel({ spent, points }: { spent: number; points:
   return (
     <>
       <AstrolabeGlyph glyph="weaver_star" size={16} />
-      Astrolabe
+      {t('screens.astrolabeParts.astrolabe')}
       <span
         className={`rounded-md px-1.5 py-px text-xs font-semibold ${
           left > 0

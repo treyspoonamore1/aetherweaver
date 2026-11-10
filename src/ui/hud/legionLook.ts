@@ -8,6 +8,7 @@ import { CONDUCTOR_DECREES } from '../../content/crucible';
 import type { IconName } from '../kit/iconPaths';
 import type { BossHud, HeroHud, StatusHud } from '../store';
 import { DOOM_EMPHASIS } from './riftLook';
+import { t } from '../text';
 
 /**
  * Stacks from which a stacking status asks for its answer (Chime the bleeding at 5 stacks or
@@ -29,9 +30,9 @@ export function stacksUrgent(
 
 /** "healing received halved" (×0.5), "quartered" (×0.25), else the share. */
 export function healCutTitle(cut: number): string {
-  if (Math.abs(cut - 0.5) < 1e-6) return 'healing received halved';
-  if (Math.abs(cut - 0.25) < 1e-6) return 'healing received quartered';
-  return `healing received ×${Math.round(cut * 100) / 100}`;
+  if (Math.abs(cut - 0.5) < 1e-6) return t('hud.legionLook.healingReceivedHalved');
+  if (Math.abs(cut - 0.25) < 1e-6) return t('hud.legionLook.healingReceivedQuartered');
+  return t('hud.legionLook.healingReceived', { value: Math.round(cut * 100) / 100 });
 }
 
 /** Execution's line, from content (`executeBelow`), as a whole percent. */
@@ -126,7 +127,10 @@ export function shownDecree(text: string, party: PartyLook): string {
     const condemned = party.find((h) => h.execute !== undefined);
     if (condemned && healBarelyTakes(condemned)) {
       const him = heroPronouns(condemned.defId).obj;
-      return `Execution — ${heroName(condemned.defId)} is condemned. Ward ${him}: your healing barely takes on ${him}.`;
+      return t('hud.legionLook.executionIsCondemnedWard', {
+        heroName: heroName(condemned.defId),
+        him,
+      });
     }
     return text;
   }

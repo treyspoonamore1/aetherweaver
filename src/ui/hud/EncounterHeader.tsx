@@ -2,6 +2,7 @@ import { clock } from '../kit/format';
 import { Icon } from '../kit/Icon';
 import type { EncounterHud } from '../store';
 import { KIND_LABEL } from './labels';
+import { t } from '../text';
 
 /** Encounter header (top-left): name, wave, timer vs par, foes left. */
 export function EncounterHeader({
@@ -32,8 +33,9 @@ export function EncounterHeader({
       </p>
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 font-mono text-xs text-muted">
         {!sandbox && e.waves > 1 && (
-          <span title="Wave">
-            Wave <b className="text-text">{Math.max(1, e.wave)}</b> / {e.waves}
+          <span title={t('hud.encounterHeader.wave')}>
+            {t('hud.encounterHeader.wave')} <b className="text-text">{Math.max(1, e.wave)}</b> /{' '}
+            {e.waves}
           </span>
         )}
         {sandbox ? (
@@ -41,17 +43,27 @@ export function EncounterHeader({
         ) : (
           <span
             className={`flex items-center gap-1 ${overPar ? 'text-threat' : 'text-text'}`}
-            title={overPar ? 'Over par time' : 'Under par time'}
+            title={
+              overPar ? t('hud.encounterHeader.overParTime') : t('hud.encounterHeader.underParTime')
+            }
           >
             <Icon name="clock" size={12} />
             {clock(e.elapsed)}
-            {e.par > 0 && <span className="text-muted"> / par {clock(e.par)}</span>}
+            {e.par > 0 && (
+              <span className="text-muted">
+                {' '}
+                {t('hud.encounterHeader.par', { par: clock(e.par) })}
+              </span>
+            )}
           </span>
         )}
         {!sandbox && (
-          <span className="flex items-center gap-1" title="Enemies remaining">
+          <span
+            className="flex items-center gap-1"
+            title={t('hud.encounterHeader.enemiesRemaining')}
+          >
             <Icon name="skull" size={12} />
-            {e.enemies} left
+            {t('hud.encounterHeader.left', { enemies: e.enemies })}
           </span>
         )}
       </div>

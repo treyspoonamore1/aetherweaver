@@ -1,6 +1,7 @@
 import { Icon } from '../kit/Icon';
 import type { HeroHud } from '../store';
 import { AnswerGlyph } from './AnswerGlyph';
+import { t } from '../text';
 
 /**
  * A possessed hero's frame (docs/phase-5c.md): an indigo border, never the enemy bar's red or
@@ -31,7 +32,7 @@ export function PossessedStrip({
       data-testid="possessed-strip"
     >
       <Icon name="mask" size={14} />
-      <span className="uppercase tracking-wider">Possessed</span>
+      <span className="uppercase tracking-wider">{t('hud.riftMarks.possessed')}</span>
       {possessed.victim && (
         <span className="flex items-center gap-1 font-semibold" data-testid="possessed-victim">
           <Icon name="arrow" size={12} />
@@ -60,7 +61,7 @@ export function StitchChip({
     <span
       className="flex items-center gap-1 whitespace-nowrap rounded-md border px-1 text-xs font-bold leading-5"
       style={{ borderColor: '#c4b5fd', color: '#ddd6fe', background: 'rgb(46 16 101 / 0.4)' }}
-      title="Stitched together: a Chime frees each one it reaches"
+      title={t('hud.riftMarks.stitchedTogetherAChime')}
       data-testid="stitched-with"
     >
       <Icon name="needle" size={12} />

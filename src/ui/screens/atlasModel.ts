@@ -54,6 +54,7 @@ import {
 } from '../../meta/weekly';
 import { fmt, plural } from '../kit/format';
 import type { IconName } from '../kit/iconPaths';
+import { t as txt } from '../text';
 
 // ── Words ──────────────────────────────────────────────────────────────────────────────
 
@@ -72,7 +73,11 @@ export function countWord(n: number): string {
 
 /** "the robe", "the Thread look", "the title". */
 function keepsakeKindWord(kind: KeepsakeKind): string {
-  return kind === 'robe' ? 'the robe' : kind === 'thread' ? 'the Thread look' : 'the title';
+  return kind === 'robe'
+    ? txt('screens.atlasModel.theRobe')
+    : kind === 'thread'
+      ? txt('screens.atlasModel.theThreadLook')
+      : txt('screens.atlasModel.theTitle');
 }
 
 // ── Keepsakes ──────────────────────────────────────────────────────────────────────────
@@ -129,7 +134,9 @@ export function atlasKeepsakeViews(atlas: ProfileAtlas | undefined): KeepsakeVie
         kind,
         name,
         earned: owned.has(id),
-        how: `Light every star of ${k?.name ?? 'a constellation'}.`,
+        how: txt('screens.atlasModel.lightEveryStarOf', {
+          value: k?.name ?? txt('screens.atlasModel.aConstellation'),
+        }),
       });
     } else if ('atlas' in earned) {
       out.push({
@@ -137,7 +144,7 @@ export function atlasKeepsakeViews(atlas: ProfileAtlas | undefined): KeepsakeVie
         kind,
         name,
         earned: owned.has(id),
-        how: `Light every star in the Atlas (${atlasTotals(undefined).of}).`,
+        how: txt('screens.atlasModel.lightEveryStarIn', { of: atlasTotals(undefined).of }),
       });
     }
   };
@@ -166,10 +173,18 @@ export function encounterInSentence(id: string): string {
 }
 
 const NODE_WORDS: Readonly<Record<string, string>> = {
-  respite: 'a Respite',
-  merchant: 'a Merchant',
-  forge: 'a Forge',
-  event: 'an event',
+  get respite() {
+    return txt('screens.atlasModel.aRespite');
+  },
+  get merchant() {
+    return txt('screens.atlasModel.aMerchant');
+  },
+  get forge() {
+    return txt('screens.atlasModel.aForge');
+  },
+  get event() {
+    return txt('screens.atlasModel.anEvent');
+  },
 };
 
 /** A leg's scale in words: "at the Unravelling Descent’s strength" (null: its own). */
@@ -177,7 +192,10 @@ export function scaleWords(leg: Pick<EchoLeg, 'scale' | 'movement'>): string | n
   if (leg.scale === undefined) return null;
   const m = CONTENT.movements[leg.scale - 1];
   if (!m || m.id === leg.movement) return null;
-  return `at ${roadName(m.id)}’s strength`.replace(/^at The /, 'at the ');
+  return txt('screens.atlasModel.atSStrength', { roadName: roadName(m.id) }).replace(
+    /^at The /,
+    'at the ',
+  );
 }
 
 /**
@@ -193,10 +211,13 @@ export function legLine(leg: EchoLeg): string {
   let head: string;
   if (leg.rows && !fights) {
     const stops = kinds.filter((k) => k !== 'boss' && k !== 'miniboss').map((k) => NODE_WORDS[k]);
-    head = stops.length > 0 ? `${andList(stops as string[])}, then ${boss}` : boss;
+    head =
+      stops.length > 0
+        ? txt('screens.atlasModel.then', { andList: andList(stops as string[]), boss })
+        : boss;
     head = head.charAt(0).toUpperCase() + head.slice(1);
   } else {
-    head = `${roadName(leg.movement)}, ending at ${crowned}`;
+    head = txt('screens.atlasModel.endingAt', { roadName: roadName(leg.movement), crowned });
   }
   const scale = scaleWords(leg);
   return scale ? `${head}, ${scale}` : head;
@@ -207,7 +228,9 @@ export function forcedNames(levels: readonly DissonanceChoice[] | undefined): st
   return andList(
     (levels ?? []).map((l) => {
       const def = dissonanceLevel(l.id);
-      return def.ranks > 1 ? `${def.name} (rank ${l.rank})` : def.name;
+      return def.ranks > 1
+        ? txt('screens.atlasModel.rank', { name: def.name, rank: l.rank })
+        : def.name;
     }),
   );
 }
@@ -222,19 +245,27 @@ export interface TwistLine {
 /** An Echo's twists in words, in a fixed order (none for an Echo with no twist). */
 export function twistLines(t: EchoTwists): TwistLine[] {
   const out: TwistLine[] = [];
-  if (t.noCalling) out.push({ kind: 'noCalling', text: 'No Calling', icon: 'lock' });
-  if (t.noTree) out.push({ kind: 'noTree', text: 'No Astrolabe', icon: 'lock' });
-  if (t.noCarry) out.push({ kind: 'noCarry', text: 'No carried relics', icon: 'lock' });
+  if (t.noCalling)
+    out.push({ kind: 'noCalling', text: txt('screens.atlasModel.noCalling'), icon: 'lock' });
+  if (t.noTree)
+    out.push({ kind: 'noTree', text: txt('screens.atlasModel.noAstrolabe'), icon: 'lock' });
+  if (t.noCarry)
+    out.push({ kind: 'noCarry', text: txt('screens.atlasModel.noCarriedRelics'), icon: 'lock' });
   if (t.party && t.party.length > 0)
     out.push({
       kind: 'party',
-      text: `The party is ${andList(t.party.map((h) => heroDef(h).name))}`,
+      text: txt('screens.atlasModel.thePartyIs', {
+        andList: andList(t.party.map((h) => heroDef(h).name)),
+      }),
       icon: 'heart',
     });
   if (t.dissonance && t.dissonance.length > 0)
     out.push({
       kind: 'dissonance',
-      text: `${forcedNames(t.dissonance)} ${t.dissonance.length === 1 ? 'is' : 'are'} always on, and add no points`,
+      text: txt('screens.atlasModel.alwaysOnAndAdd', {
+        forcedNames: forcedNames(t.dissonance),
+        value: t.dissonance.length === 1 ? 'is' : 'are',
+      }),
       icon: 'dissonance',
     });
   return out;
@@ -301,8 +332,10 @@ export interface EchoCardView {
 }
 
 export function bestLine(best: number | null): string {
-  if (best === null) return 'Not cleared yet';
-  return best > 0 ? `Best clear: ${best} Dissonance` : 'Cleared without Dissonance';
+  if (best === null) return txt('screens.atlasModel.notClearedYet');
+  return best > 0
+    ? txt('screens.atlasModel.bestClearDissonance', { best })
+    : txt('screens.atlasModel.clearedWithoutDissonance');
 }
 
 export function echoCard(echo: EchoDef, atlas: ProfileAtlas | undefined): EchoCardView {
@@ -323,7 +356,14 @@ export function echoCard(echo: EchoDef, atlas: ProfileAtlas | undefined): EchoCa
     stars: starRows(lit),
     best,
     bestLine: bestLine(best),
-    label: `${echo.name}, ${lit} of ${STARS_PER_ECHO} ${plural(STARS_PER_ECHO, 'star')}. ${echo.text} ${bestLine(best)}.`,
+    label: txt('screens.atlasModel.of', {
+      name: echo.name,
+      lit,
+      STARS_PER_ECHO,
+      STARS_PER_ECHOWord: plural(STARS_PER_ECHO, 'star'),
+      text: echo.text,
+      bestLine: bestLine(best),
+    }),
   };
 }
 
@@ -438,7 +478,7 @@ function constellationView(
         kind: r.kind,
         name: r.name,
         earned: owned.has(k.reward),
-        how: `Light every star of ${k.name}.`,
+        how: txt('screens.atlasModel.lightEveryStarOf2', { name: k.name }),
       }
     : null;
   return {
@@ -452,7 +492,11 @@ function constellationView(
     complete: of > 0 && lit === of,
     progress: `${lit} of ${of} ${plural(of, 'star')}`,
     reward,
-    rewardLine: `All ${countWord(of)} ${plural(of, 'star')}: ${keepsakeLine(k.reward)}`,
+    rewardLine: txt('screens.atlasModel.all', {
+      countWord: countWord(of),
+      ofWord: plural(of, 'star'),
+      keepsakeLine: keepsakeLine(k.reward),
+    }),
     labelX: (index + 0.5) * cell,
   };
 }
@@ -478,12 +522,23 @@ export function atlasAbout(): string {
   const ord = ['first', 'second', 'third', 'fourth', 'fifth'];
   const rules = ECHO_STARS.map((s, i) => {
     const which = ord[i] ?? `star ${i + 1}`;
-    if (s.points <= 0) return `${i === 0 ? 'Light the' : 'the'} ${which} by clearing it`;
+    if (s.points <= 0)
+      return txt('screens.atlasModel.byClearingIt', {
+        value: i === 0 ? txt('screens.atlasModel.lightThe') : 'the',
+        which,
+      });
     return i <= 1 || ECHO_STARS[i - 1]!.points <= 0
-      ? `${i === 0 ? 'Light the' : 'the'} ${which} by clearing it at ${s.points} Dissonance`
-      : `the ${which} at ${s.points}`;
+      ? txt('screens.atlasModel.byClearingItAt', {
+          value: i === 0 ? txt('screens.atlasModel.lightThe') : 'the',
+          which,
+          points: s.points,
+        })
+      : txt('screens.atlasModel.theAt', { which, points: s.points });
   });
-  return `Echoes are old songs played strangely: roads you know, with foes, bosses or rules you don’t. Each Echo has ${countWord(STARS_PER_ECHO)} stars. ${rules.join(', ')}.`;
+  return txt('screens.atlasModel.echoesAreOldSongs', {
+    countWord: countWord(STARS_PER_ECHO),
+    rules: rules.join(', '),
+  });
 }
 
 /** The whole Atlas for a profile's `atlas` (absent: nothing lit). */
@@ -557,7 +612,7 @@ export function prepEchoView(echoId: string, atlas?: ProfileAtlas): PrepEchoView
   const own = ['Chords', 'techniques'];
   if (!echo.twists.noCalling) own.unshift('Calling');
   if (!party) own.unshift('party');
-  const yours = `Your ${andList(own)} are your own.`;
+  const yours = txt('screens.atlasModel.yourAreYourOwn', { andList: andList(own) });
   const offLine = off.length > 0 ? `${off.join(', ').replace(/^No/, 'no')}. ` : '';
   return {
     id: echo.id,
@@ -601,12 +656,16 @@ export interface PrepWeeklyView {
 
 /** The route's name: the Expedition, or an Echo's. */
 export function routeWords(route: WeeklyEntry['route']): string {
-  return route === 'expedition' ? 'The Expedition, to the Finale' : (echoDef(route)?.name ?? route);
+  return route === 'expedition'
+    ? txt('screens.atlasModel.theExpeditionToThe')
+    : (echoDef(route)?.name ?? route);
 }
 
 export function prepWeeklyView(input: PrepWeeklyInput): PrepWeeklyView {
   const { week, entry } = input;
-  const calling = entry.calling ? `The ${callingDef(entry.calling).name}` : 'No Calling';
+  const calling = entry.calling
+    ? `The ${callingDef(entry.calling).name}`
+    : txt('screens.atlasModel.noCalling');
   const party = andList(entry.party.map((h) => heroDef(h).name));
   const dissonance = entry.dissonance.map((l) => ({
     id: l.id,
@@ -618,23 +677,30 @@ export function prepWeeklyView(input: PrepWeeklyInput): PrepWeeklyView {
     ? `${points} (${andList(dissonance.map((d) => (dissonanceLevel(d.id).ranks > 1 ? `${d.name} ${d.rank}` : d.name)))})`
     : 'None';
   const fixed: PrepWeeklyView['fixed'] = [
-    { label: 'Route', value: routeWords(entry.route), icon: 'flag' },
-    { label: 'Calling', value: calling, icon: 'crown' },
-    { label: 'Party', value: party, icon: 'heart' },
-    { label: 'Dissonance', value: levels, icon: 'dissonance' },
-    { label: 'Seed', value: `Week ${week}’s`, icon: 'week' },
+    { label: txt('screens.atlasModel.route'), value: routeWords(entry.route), icon: 'flag' },
+    { label: txt('screens.atlasModel.calling'), value: calling, icon: 'crown' },
+    { label: txt('screens.atlasModel.party'), value: party, icon: 'heart' },
+    { label: txt('screens.atlasModel.dissonance'), value: levels, icon: 'dissonance' },
+    {
+      label: txt('screens.atlasModel.seed'),
+      value: txt('screens.atlasModel.weekS', { week }),
+      icon: 'week',
+    },
   ];
-  const yours =
-    'Your Chords and technique variants are yours to choose, from every aura and ornament. No Astrolabe, no carried relics, no Bond talents.';
+  const yours = txt('screens.atlasModel.yourChordsAndTechnique');
   return {
     week,
-    title: `Week ${week} · This Week’s Song`,
+    title: txt('screens.atlasModel.weekThisWeekS', { week }),
     fixed,
     dissonance,
     points,
-    everyone: 'Everyone plays this',
+    everyone: txt('screens.atlasModel.everyonePlaysThis'),
     yours,
-    label: `Week ${week}. Everyone plays this: ${fixed.map((f) => `${f.label} ${f.value}`).join(', ')}. ${yours}`,
+    label: txt('screens.atlasModel.weekEveryonePlaysThis', {
+      week,
+      fixed: fixed.map((f) => `${f.label} ${f.value}`).join(', '),
+      yours,
+    }),
   };
 }
 
@@ -705,40 +771,60 @@ export interface StatusLook {
 export const STATUS_LOOK: Readonly<Record<VerifyStatus, StatusLook>> = {
   verified: {
     status: 'verified',
-    word: 'Verified',
+    get word() {
+      return txt('screens.atlasModel.verified');
+    },
     icon: 'check',
     color: '#60a5fa',
-    means: 'Its replay played through on this device and ended where its code says.',
+    get means() {
+      return txt('screens.atlasModel.itsReplayPlayedThrough');
+    },
   },
   otherVersion: {
     status: 'otherVersion',
-    word: 'Another version',
+    get word() {
+      return txt('screens.atlasModel.anotherVersion');
+    },
     icon: 'info',
     color: '#e5e7eb',
-    means: 'Verified, though it was recorded on another version of the game.',
+    get means() {
+      return txt('screens.atlasModel.verifiedThoughItWas');
+    },
   },
   claimed: {
     status: 'claimed',
-    word: 'Claimed',
+    get word() {
+      return txt('screens.atlasModel.claimed');
+    },
     icon: 'flag',
     color: '#8b95a8',
-    means: 'Only a code: its replay hasn’t been checked.',
+    get means() {
+      return txt('screens.atlasModel.onlyACodeIts');
+    },
   },
   mismatch: {
     status: 'mismatch',
-    word: 'Didn’t match',
+    get word() {
+      return txt('screens.atlasModel.didnTMatch');
+    },
     icon: 'close',
     color: '#fb923c',
-    means: 'Its replay doesn’t play to what its code says.',
+    get means() {
+      return txt('screens.atlasModel.itsReplayDoesnT');
+    },
   },
   // Not a weekly: an Echo's, a Prelude's or an Expedition's replay played back as recorded. It is
   // never "Verified" (nothing fixes its start), so it has its own word, glyph and colour.
   playsBack: {
     status: 'playsBack',
-    word: 'Plays back',
+    get word() {
+      return txt('screens.atlasModel.playsBack');
+    },
     icon: 'play',
     color: '#facc15',
-    means: 'Not a weekly: its replay plays back as it was recorded, but nothing fixes its start.',
+    get means() {
+      return txt('screens.atlasModel.notAWeeklyIts');
+    },
   },
 };
 
@@ -762,13 +848,13 @@ export interface WeeklyRowView {
 /** "31 min", "under a minute". */
 export function minutes(seconds: number): string {
   const m = Math.round(seconds / 60);
-  return m < 1 ? 'under a minute' : `${fmt(m)} min`;
+  return m < 1 ? txt('screens.atlasModel.underAMinute') : `${fmt(m)} min`;
 }
 
 export function weeklyRow(row: WeeklyRowInput, place: number): WeeklyRowView {
   const status = STATUS_LOOK[row.entry.status];
   const mine = !!row.entry.mine;
-  const who = mine ? 'You' : (row.entry.name ?? 'A code');
+  const who = mine ? 'You' : (row.entry.name ?? txt('screens.atlasModel.aCode'));
   const score = row.score === null ? null : fmt(row.score);
   const result =
     row.won === null
@@ -776,7 +862,10 @@ export function weeklyRow(row: WeeklyRowInput, place: number): WeeklyRowView {
       : row.won
         ? 'Won'
         : row.fightsWon !== null
-          ? `Lost after ${row.fightsWon} ${plural(row.fightsWon, 'fight')} won`
+          ? txt('screens.atlasModel.lostAfterWon', {
+              fightsWon: row.fightsWon,
+              fightsWonWord: plural(row.fightsWon, 'fight'),
+            })
           : 'Lost';
   const time = row.seconds === null ? null : minutes(row.seconds);
   return {
@@ -788,7 +877,7 @@ export function weeklyRow(row: WeeklyRowInput, place: number): WeeklyRowView {
     result,
     time,
     status,
-    label: `${place}. ${who}: ${score === null ? 'a code that can’t be read' : `${score} points, ${result}, ${time} of fighting`}. ${status.word}.`,
+    label: `${place}. ${who}: ${score === null ? txt('screens.atlasModel.aCodeThatCan') : txt('screens.atlasModel.pointsOfFighting', { score, result, time })}. ${status.word}.`,
   };
 }
 
@@ -813,7 +902,7 @@ export interface WeeklyPanelView {
 }
 
 export function daysLeftLine(days: number): string {
-  if (days <= 1) return 'Last day';
+  if (days <= 1) return txt('screens.atlasModel.lastDay');
   return `${days} ${plural(days, 'day')} left`;
 }
 
@@ -827,14 +916,20 @@ export function weeklyPanelView(input: WeeklyPanelInput): WeeklyPanelView {
     : 0;
   return {
     week: input.week,
-    title: `Week ${input.week}`,
+    title: txt('screens.atlasModel.week', { week: input.week }),
     left: daysLeftLine(input.daysLeft),
     entry: input.entry ? input.entryLine : null,
-    best: input.best === null ? null : `Your best this week: ${fmt(input.best)}`,
+    best:
+      input.best === null
+        ? null
+        : txt('screens.atlasModel.yourBestThisWeek', { best: fmt(input.best) }),
     rows,
     progress: p
       ? {
-          line: `Verifying · fight ${Math.min(p.fight + 1, Math.max(1, p.fights))} of ${p.fights}`,
+          line: txt('screens.atlasModel.verifyingFightOf', {
+            min: Math.min(p.fight + 1, Math.max(1, p.fights)),
+            fights: p.fights,
+          }),
           fraction,
         }
       : null,
@@ -843,7 +938,7 @@ export function weeklyPanelView(input: WeeklyPanelInput): WeeklyPanelView {
       : null,
     canBegin: input.canBegin && input.entry !== null,
     canShare: input.shareCode !== null,
-    empty: rows.length === 0 ? 'No results yet this week: play it, or add a friend’s code.' : null,
+    empty: rows.length === 0 ? txt('screens.atlasModel.noResultsYetThis') : null,
   };
 }
 
@@ -880,8 +975,8 @@ export function summaryAtlasView(r: AtlasRecord, cleared = true): SummaryAtlasVi
   const echo = echoDef(r.echo);
   const name = echo?.name ?? r.echo;
   if (!cleared) {
-    const title = 'Echo not cleared';
-    const litLine = 'No star lit';
+    const title = txt('screens.atlasModel.echoNotCleared');
+    const litLine = txt('screens.atlasModel.noStarLit');
     return {
       echo: r.echo,
       name,
@@ -896,30 +991,40 @@ export function summaryAtlasView(r: AtlasRecord, cleared = true): SummaryAtlasVi
       line: `${title} · ${litLine}`,
     };
   }
-  const title = r.points > 0 ? `Echo cleared at ${r.points} Dissonance` : 'Echo cleared';
+  const title =
+    r.points > 0
+      ? txt('screens.atlasModel.echoClearedAtDissonance', { points: r.points })
+      : txt('screens.atlasModel.echoCleared');
   const n = r.lit.length;
   const litLine = n > 0 ? `${countWord(n)} ${plural(n, 'star')} lit` : null;
   const parts = [
-    r.shards > 0 ? `+${fmt(r.shards)} Tuning Shards` : null,
-    r.tears > 0 ? `+${r.tears} Discord ${plural(r.tears, 'Tear')}` : null,
+    r.shards > 0 ? txt('screens.atlasModel.tuningShards', { shards: fmt(r.shards) }) : null,
+    r.tears > 0
+      ? txt('screens.atlasModel.discord', { tears: r.tears, tearsWord: plural(r.tears, 'Tear') })
+      : null,
   ].filter((x): x is string => x !== null);
   const rewards = parts.length ? parts.join(' and ') : null;
   const completions = [
     ...r.constellations.map((id) => {
       const k = CONTENT.constellations.find((x) => x.id === id);
-      return `${k?.name ?? id} is complete: ${keepsakeLine(k?.reward ?? '')} is yours.`;
+      return txt('screens.atlasModel.isCompleteIsYours', {
+        value: k?.name ?? id,
+        keepsakeLine: keepsakeLine(k?.reward ?? ''),
+      });
     }),
     ...(r.wholeAtlas
       ? [
-          `Every star in the Atlas is lit${
-            r.keepsakes.length
-              ? `: ${andList(
-                  r.keepsakes
-                    .filter((id) => !CONTENT.constellations.some((k) => k.reward === id))
-                    .map(keepsakeLine),
-                )} is yours`
-              : ''
-          }.`,
+          txt('screens.atlasModel.everyStarInThe', {
+            value: r.keepsakes.length
+              ? txt('screens.atlasModel.isYours', {
+                  andList: andList(
+                    r.keepsakes
+                      .filter((id) => !CONTENT.constellations.some((k) => k.reward === id))
+                      .map(keepsakeLine),
+                  ),
+                })
+              : '',
+          }),
         ]
       : []),
   ];
@@ -931,7 +1036,7 @@ export function summaryAtlasView(r: AtlasRecord, cleared = true): SummaryAtlasVi
     stars: r.stars,
     lit: [...r.lit],
     rewards,
-    bestLine: r.best ? 'A new best for this Echo.' : null,
+    bestLine: r.best ? txt('screens.atlasModel.aNewBestFor') : null,
     completions,
     rows: starRows(r.stars),
     line: [title, litLine, rewards].filter(Boolean).join(' · '),
@@ -961,12 +1066,12 @@ export interface SummaryWeeklyView {
 
 export function summaryWeeklyView(w: SummaryWeeklyInput): SummaryWeeklyView {
   return {
-    title: `This Week’s Song · Week ${w.week}`,
+    title: txt('screens.atlasModel.thisWeekSSong', { week: w.week }),
     score: `${fmt(w.score)} ${plural(w.score, 'point')}`,
     result: w.won ? 'Won' : 'Lost',
     code: w.code,
     canShare: w.code !== null,
-    ...(w.recorded === false ? { none: 'Nothing was recorded: no fight was played.' } : {}),
+    ...(w.recorded === false ? { none: txt('screens.atlasModel.nothingWasRecordedNo') } : {}),
   };
 }
 

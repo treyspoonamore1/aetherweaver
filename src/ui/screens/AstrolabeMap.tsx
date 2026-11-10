@@ -28,6 +28,7 @@ import {
   type StarPreview,
   type StarState,
 } from './astrolabeModel';
+import { t } from '../text';
 
 /** The ring of names round the dial sits this far out from the rim, in map units. */
 const BAND = 1.05;
@@ -77,7 +78,7 @@ export function AstrolabeMap({
   onKey,
   starRef,
   className = '',
-  label = 'The Astrolabe',
+  label = t('screens.astrolabeMap.theAstrolabe'),
 }: AstrolabeMapProps) {
   const owned = useMemo(() => ownedSet(tree), [tree]);
   const path = useMemo(() => new Set(preview?.path ?? []), [preview]);
@@ -357,7 +358,7 @@ function Dial({ tree, mini }: { tree: readonly string[]; mini: boolean }) {
             const flip = c === 'bond';
             const r = flip ? outer - 0.3 : rim + 0.3;
             const d = flip ? arc(r, mid + 44, mid - 44, false) : arc(r, mid - 44, mid + 44);
-            const words = `${look.name} · ${look.blurb}${lit > 0 ? ` · ${lit} lit` : ''}`;
+            const words = `${look.name} · ${look.blurb}${lit > 0 ? t('screens.astrolabeMap.lit', { lit }) : ''}`;
             return (
               <g key={c}>
                 <path

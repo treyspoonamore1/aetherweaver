@@ -1,4 +1,5 @@
 import type { IconName } from './iconPaths';
+import { t } from '../text';
 
 /**
  * How the Astrolabe's constellations look (Phase 4), without React so text modules and tests can
@@ -36,7 +37,9 @@ export const CONSTELLATIONS: readonly Constellation[] = ['silk', 'choir', 'aegis
 export const CONSTELLATION_LOOK: Readonly<Record<Constellation, ConstellationLook>> = {
   silk: {
     name: 'Silk',
-    blurb: 'the Thread',
+    get blurb() {
+      return t('common.astrolabeLook.theThread');
+    },
     color: '#f6c655',
     light: '#fff0c2',
     deep: '#7a5512',
@@ -45,7 +48,9 @@ export const CONSTELLATION_LOOK: Readonly<Record<Constellation, ConstellationLoo
   },
   choir: {
     name: 'Choir',
-    blurb: 'the songs',
+    get blurb() {
+      return t('common.astrolabeLook.theSongs');
+    },
     color: '#a886f9',
     light: '#e6dcff',
     deep: '#45307f',
@@ -54,7 +59,9 @@ export const CONSTELLATION_LOOK: Readonly<Record<Constellation, ConstellationLoo
   },
   aegis: {
     name: 'Aegis',
-    blurb: 'the techniques',
+    get blurb() {
+      return t('common.astrolabeLook.theTechniques');
+    },
     color: '#8fdfef',
     light: '#e0f8fd',
     deep: '#21596a',
@@ -63,7 +70,9 @@ export const CONSTELLATION_LOOK: Readonly<Record<Constellation, ConstellationLoo
   },
   bond: {
     name: 'Bond',
-    blurb: 'the heroes',
+    get blurb() {
+      return t('common.astrolabeLook.theHeroes');
+    },
     color: '#f7726e',
     light: '#ffd9d5',
     deep: '#7d2422',

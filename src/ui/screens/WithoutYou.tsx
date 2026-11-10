@@ -5,6 +5,7 @@ import { Icon, type IconName } from '../kit/Icon';
 import { playUi } from '../kit/sound';
 import { HeroDisc } from './shared';
 import { madeTheDifference, withoutYouLine } from './withoutYouText';
+import { t } from '../text';
 
 export { madeTheDifference, tallyLine, withoutYouLine, withoutYouTally } from './withoutYouText';
 
@@ -15,9 +16,27 @@ const OUTCOME: Record<
   WithoutYou['outcome'] | 'victory' | 'defeat',
   { label: string; icon: IconName; color: string }
 > = {
-  victory: { label: 'Victory', icon: 'crown', color: 'var(--color-gold-300)' },
-  defeat: { label: 'Wiped', icon: 'skull', color: 'var(--color-lethal)' },
-  timeout: { label: 'Stalled', icon: 'hourglass', color: 'var(--color-threat)' },
+  victory: {
+    get label() {
+      return t('screens.withoutYou.victory');
+    },
+    icon: 'crown',
+    color: 'var(--color-gold-300)',
+  },
+  defeat: {
+    get label() {
+      return t('screens.withoutYou.wiped');
+    },
+    icon: 'skull',
+    color: 'var(--color-lethal)',
+  },
+  timeout: {
+    get label() {
+      return t('screens.withoutYou.stalled');
+    },
+    icon: 'hourglass',
+    color: 'var(--color-threat)',
+  },
 };
 
 interface Column {
@@ -90,26 +109,26 @@ export function WithoutYouPanel({
           id="without-you-title"
           className="flex items-center gap-2 font-display text-lg font-bold tracking-wide text-gold-300"
         >
-          <Icon name="eye" size={18} /> Without you
+          <Icon name="eye" size={18} /> {t('screens.withoutYou.withoutYou')}
         </h2>
-        <p className="text-xs text-muted">
-          The Loom replayed this exact fight with the Weaver absent: same enemies, same seed.
-        </p>
+        <p className="text-xs text-muted">{t('screens.withoutYou.theLoomReplayedThis')}</p>
       </div>
       <div className="grid gap-0 md:grid-cols-[1fr_auto_1fr]">
         <ColumnView
-          title="With you"
+          title={t('screens.withoutYou.withYou')}
           col={you}
           heroIds={heroIds}
           lit={r.heroes.map((h) => !h.dead && !h.downed)}
         />
         <div className="hidden items-center justify-center px-2 md:flex" aria-hidden>
-          <span className="font-display text-sm font-bold text-muted">vs</span>
+          <span className="font-display text-sm font-bold text-muted">
+            {t('screens.withoutYou.vs')}
+          </span>
         </div>
         {revealed ? (
           <div className="anim-banner" aria-live="polite">
             <ColumnView
-              title="Without you"
+              title={t('screens.withoutYou.withoutYou')}
               col={alone}
               heroIds={heroIds}
               lit={heroIds.map((_, i) => i < w.standing)}
@@ -124,7 +143,9 @@ export function WithoutYouPanel({
             <span className="anim-spin-slow text-gold-300" aria-hidden>
               <Icon name="hourglass" size={30} />
             </span>
-            <p className="font-display text-base text-gold-200">Replaying the fight without you…</p>
+            <p className="font-display text-base text-gold-200">
+              {t('screens.withoutYou.replayingTheFightWithout')}
+            </p>
           </div>
         )}
       </div>
@@ -139,7 +160,11 @@ export function WithoutYouPanel({
         >
           {difference && <Icon name="star" size={16} solid className="mr-2 inline text-gold-300" />}
           {withoutYouLine(w, r)}
-          {difference && <span className="ml-1 text-gold-300">You made the difference.</span>}
+          {difference && (
+            <span className="ml-1 text-gold-300">
+              {t('screens.withoutYou.youMadeTheDifference')}
+            </span>
+          )}
         </p>
       )}
     </section>
@@ -162,11 +187,11 @@ function ColumnView({
   const o = OUTCOME[col.outcome];
   const rows: [string, string][] = [
     ['Time', clock(col.time)],
-    ['Wave reached', col.wave],
-    ['Heroes went down', String(col.downs)],
-    ['Still standing', `${col.standing} of ${heroIds.length}`],
+    [t('screens.withoutYou.waveReached'), col.wave],
+    [t('screens.withoutYou.heroesWentDown'), String(col.downs)],
+    [t('screens.withoutYou.stillStanding'), `${col.standing} of ${heroIds.length}`],
   ];
-  if (col.bossHp !== null) rows.push(['Boss life left', pct(col.bossHp)]);
+  if (col.bossHp !== null) rows.push([t('screens.withoutYou.bossLifeLeft'), pct(col.bossHp)]);
   return (
     <div className={`p-5 ${dim ? 'bg-ink-950/35' : ''}`}>
       <p className="text-xs font-semibold uppercase tracking-[0.25em] text-muted">{title}</p>
@@ -178,7 +203,10 @@ function ColumnView({
       </p>
       <div
         className="mt-2 flex gap-1.5"
-        aria-label={`${col.standing} of ${heroIds.length} heroes standing`}
+        aria-label={t('screens.withoutYou.ofHeroesStanding', {
+          standing: col.standing,
+          length: heroIds.length,
+        })}
       >
         {heroIds.map((id, i) => (
           <span key={id} className={lit[i] ? '' : 'opacity-30 grayscale'}>

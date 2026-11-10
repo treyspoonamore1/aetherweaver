@@ -21,6 +21,7 @@ import { SHARD_LOOK, TEAR_LOOK } from '../kit/reliquaryLook';
 import { playUi } from '../kit/sound';
 import { bondRanks } from './bondsModel';
 import type { StationIntro, StationView } from './loomModel';
+import { t } from '../text';
 
 /** A dark station: slate lines, no glow (still clear: its name and line are full text). */
 const DARK = { stroke: '#3d4c7d', tint: '#2a3760', light: '#4a5a8e' } as const;
@@ -800,7 +801,7 @@ export function StationIntroDialog({
           </div>
           <div className="min-w-0" aria-live="polite">
             <p className="font-mono text-xs uppercase tracking-[0.25em] text-muted">
-              {at + 1} of {intro.panels.length}
+              {t('screens.loomParts.of', { value: at + 1, length: intro.panels.length })}
             </p>
             <h3
               className="mt-1 font-display text-xl font-bold tracking-wide"
@@ -830,12 +831,12 @@ export function StationIntroDialog({
             sound="back"
             data-testid="intro-later"
           >
-            Later
+            {t('screens.loomParts.later')}
           </Button>
           <div className="flex gap-2">
             {at > 0 && (
               <Button size="sm" onClick={() => turn(at - 1)} sound={null}>
-                <Icon name="back" size={15} /> Back
+                <Icon name="back" size={15} /> {t('screens.loomParts.back')}
               </Button>
             )}
             {last ? (
@@ -856,7 +857,7 @@ export function StationIntroDialog({
                 data-autofocus
                 data-testid="intro-next"
               >
-                Next <Icon name="arrow" size={16} />
+                {t('screens.loomParts.next')} <Icon name="arrow" size={16} />
               </Button>
             )}
           </div>

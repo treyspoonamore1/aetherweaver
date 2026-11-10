@@ -7,6 +7,7 @@
  */
 import { SAPLING_NAMES, heroDef } from '../../content';
 import type { HeroHud } from '../store';
+import { t } from '../text';
 
 /** Oro's moss (his def's colour): the leaf glyphs and the Sapling bars' edge. */
 export const GROVE_MOSS = heroDef('oro').color;
@@ -52,14 +53,20 @@ export function saplingRows(h: Pick<HeroHud, 'name' | 'grove'>): SaplingRow[] {
     const burrowing = !felled && s.burrowing === true;
     const held = !felled && !burrowing && s.held === true;
     const title = felled
-      ? `${name} was felled${respawnIn !== null ? `: it re-sprouts in ${Math.ceil(respawnIn)} s` : ''}`
+      ? t('hud.groveLook.wasFelled', {
+          name,
+          value:
+            respawnIn !== null
+              ? t('hud.groveLook.itReSproutsIn', { respawnIn: Math.ceil(respawnIn) })
+              : '',
+        })
       : burrowing
-        ? `${name} is burrowing: it re-plants ahead of you`
+        ? t('hud.groveLook.isBurrowingItRe', { name })
         : held
-          ? `${name} is held where it stands (${Math.round(s.hpPct * 100)}% life): it hears no songs until it wakes`
+          ? t('hud.groveLook.isHeldWhereIt', { name, round: Math.round(s.hpPct * 100) })
           : s.inField
-            ? `${name} stands in your songs (${Math.round(s.hpPct * 100)}% life)`
-            : `${name} is outside your songs (${Math.round(s.hpPct * 100)}% life): walk back, or Rally to re-plant it`;
+            ? t('hud.groveLook.standsInYourSongs', { name, round: Math.round(s.hpPct * 100) })
+            : t('hud.groveLook.isOutsideYourSongs', { name, round: Math.round(s.hpPct * 100) });
     return {
       index,
       name,
@@ -91,10 +98,10 @@ export function ancientChip(
   const s = Math.ceil(g.ancient);
   const cued = g.ancientCued === true;
   return {
-    label: cued ? `Ancient ${s} s · your field` : `Ancient ${s} s`,
+    label: cued ? t('hud.groveLook.ancientSYourField', { s }) : t('hud.groveLook.ancientS', { s }),
     title: cued
-      ? `The Ancient stands ${s} s more, wreathed in your songs: its disc counts as your field`
-      : `The Ancient stands ${s} s more: it roots, taunts and slams the lesser enemies around it`,
+      ? t('hud.groveLook.theAncientStandsS', { s })
+      : t('hud.groveLook.theAncientStandsS2', { s }),
     cued,
   };
 }
@@ -102,5 +109,5 @@ export function ancientChip(
 /** Gentle on his portrait: tending (no Focus), so he won't fight and his Saplings hit harder. */
 export function tendingTitle(h: Pick<HeroHud, 'name' | 'grove'>): string | null {
   if (!h.grove?.tending) return null;
-  return `Tending: ${h.name} won’t fight without a Focus, and his Saplings fight harder for him`;
+  return t('hud.groveLook.tendingWonTFight', { name: h.name });
 }

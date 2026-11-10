@@ -9,6 +9,7 @@ import { CONTENT, callingDef } from '../../content';
 import { masteryLevel, masteryProgress } from '../../meta/loom';
 import { fmt } from '../kit/format';
 import { listOf, numeral, spanOf, tierMastery } from './callingText';
+import { t as txt } from '../text';
 
 /**
  * Prep's view of mastery (its Calling picker): each Calling's mastery XP (the profile's), how
@@ -44,7 +45,9 @@ export function levelOpens(callingId: string, level: number): string | null {
   const tiers = callingDef(callingId).tiers.length;
   if (level >= masteryTop()) {
     const p = masteryPrizes(callingId);
-    return p ? `the title ${p.title} and ${p.variant} in the Atelier` : null;
+    return p
+      ? txt('screens.masteryModel.theTitleAndIn', { title: p.title, variant: p.variant })
+      : null;
   }
   for (let tier = 0; tier < tiers; tier++)
     if (tierMastery(callingId, tier) === level) return `tier ${numeral(tier)}`;
@@ -71,7 +74,9 @@ export interface MasteryView {
 /** "the title Lightbearer is yours, and Chorale is open in the Atelier" (the top's prizes). */
 function prizesEarned(callingId: string): string | null {
   const p = masteryPrizes(callingId);
-  return p ? `the title ${p.title} is yours, and ${p.variant} is open in the Atelier` : null;
+  return p
+    ? txt('screens.masteryModel.theTitleIsYours', { title: p.title, variant: p.variant })
+    : null;
 }
 
 export function masteryView(callingId: string, xp: number): MasteryView {
@@ -87,11 +92,15 @@ export function masteryView(callingId: string, xp: number): MasteryView {
     fraction: p.span === null ? 1 : Math.max(0, Math.min(1, p.into / p.span)),
     progressText:
       p.span === null
-        ? `Mastered · ${fmt(xp)} mastery XP`
-        : `${fmt(p.into)} / ${fmt(p.span)} to mastery ${p.level + 1}`,
+        ? txt('screens.masteryModel.masteredMasteryXp', { xp: fmt(xp) })
+        : txt('screens.masteryModel.toMastery', {
+            into: fmt(p.into),
+            span: fmt(p.span),
+            value: p.level + 1,
+          }),
     next:
       p.span === null ? null : { level: p.level + 1, opens: levelOpens(callingId, p.level + 1) },
-    mastered: p.span === null && prizes ? `Mastered: ${prizes}.` : null,
+    mastered: p.span === null && prizes ? txt('screens.masteryModel.mastered', { prizes }) : null,
   };
 }
 
@@ -99,8 +108,12 @@ export function masteryView(callingId: string, xp: number): MasteryView {
 export function nextLine(v: MasteryView): string {
   if (!v.next) return v.mastered ?? 'Mastered.';
   return v.next.opens
-    ? `Mastery ${v.next.level} ${v.next.level >= v.top ? 'earns' : 'opens'} ${v.next.opens}.`
-    : `Mastery ${v.next.level} is next.`;
+    ? txt('screens.masteryModel.mastery', {
+        level: v.next.level,
+        value: v.next.level >= v.top ? 'earns' : 'opens',
+        opens: v.next.opens,
+      })
+    : txt('screens.masteryModel.masteryIsNext', { level: v.next.level });
 }
 
 /**
@@ -113,16 +126,24 @@ export function tiersLine(
   opts: { all?: boolean; prep?: boolean } = {},
 ): string {
   const tiers = callingDef(callingId).tiers.length;
-  const offers = opts.prep ? 'This run will offer' : 'This run offers';
-  if (opts.all) return `${offers} every tier: the unlocks are skipped (Settings).`;
-  if (open >= tiers) return `${offers} every tier of the path.`;
+  const offers = opts.prep
+    ? txt('screens.masteryModel.thisRunWillOffer')
+    : txt('screens.masteryModel.thisRunOffers');
+  if (opts.all) return txt('screens.masteryModel.everyTierTheUnlocks', { offers });
+  if (open >= tiers) return txt('screens.masteryModel.everyTierOfThe', { offers });
   const shown = Array.from({ length: Math.max(0, open) }, (_, i) => numeral(i));
   const shut = Array.from({ length: tiers - Math.max(0, open) }, (_, i) => open + i);
   const lockedTiers = spanOf(shut.map((t) => numeral(t)));
   const levels = spanOf(shut.map((t) => String(tierMastery(callingId, t))));
-  return `${offers} ${shown.length === 1 ? 'tier' : 'tiers'} ${listOf(shown)}. ${
-    shut.length === 1 ? 'Tier' : 'Tiers'
-  } ${lockedTiers} ${shut.length === 1 ? 'opens' : 'open'} with mastery ${levels}.`;
+  return txt('screens.masteryModel.withMastery', {
+    offers,
+    value: shown.length === 1 ? 'tier' : 'tiers',
+    listOf: listOf(shown),
+    value2: shut.length === 1 ? 'Tier' : 'Tiers',
+    lockedTiers,
+    value3: shut.length === 1 ? 'opens' : 'open',
+    levels,
+  });
 }
 
 /** What a fight or a run did for a Calling's mastery (the profile already holds it). */
@@ -164,7 +185,11 @@ export function masteryGain(callingId: string, xpAfter: number, earned: number):
   const parts = [
     ...(tiers.length > 0
       ? [
-          `${tiers.length === 1 ? 'tier' : 'tiers'} ${listOf(tiers)}, from your next ${view.name} run`,
+          txt('screens.masteryModel.fromYourNextRun', {
+            value: tiers.length === 1 ? 'tier' : 'tiers',
+            listOf: listOf(tiers),
+            name: view.name,
+          }),
         ]
       : []),
     ...(prize ? [prize] : []),
@@ -175,10 +200,13 @@ export function masteryGain(callingId: string, xpAfter: number, earned: number):
     before: reached.length > 0 ? 0 : frac(xpBefore),
     after: frac(xpAfter),
     reached,
-    headline: `+${fmt(gained)} ${view.name} mastery`,
+    headline: txt('screens.masteryModel.mastery2', { gained: fmt(gained), name: view.name }),
     reachedLine:
       reached.length === 0
         ? null
-        : `Mastery ${listOf(reached.map(String))}: ${parts.join('; ') || 'nothing new to open'}.`,
+        : txt('screens.masteryModel.mastery3', {
+            listOf: listOf(reached.map(String)),
+            value: parts.join('; ') || txt('screens.masteryModel.nothingNewToOpen'),
+          }),
   };
 }

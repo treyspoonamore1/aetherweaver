@@ -27,6 +27,7 @@ import {
 import { band, nextBandDepth } from '../../meta/reliquary';
 import type { RunState } from '../../meta/types';
 import { plural } from '../kit/format';
+import { t } from '../text';
 
 const RULES = () => CONTENT.dissonanceRules;
 
@@ -41,9 +42,29 @@ export const TEAR_TOO_GRADE = 'A';
  * Phase 6 gives it: the Codex names those content doesn't hold yet (`laterLevels`).
  */
 export const LATER_LEVELS: readonly { name: string; text: string; effect: DissonanceEffect }[] = [
-  { name: 'Tyrant', text: 'bosses gain a mechanic in each phase', effect: 'tyrant' },
-  { name: 'Mimicry', text: 'a Mimicking affix', effect: 'mimicry' },
-  { name: 'True Dissonance', text: 'the Finale’s fourth phase', effect: 'true_dissonance' },
+  {
+    name: 'Tyrant',
+    get text() {
+      return t('screens.dissonanceModel.bossesGainAMechanic');
+    },
+    effect: 'tyrant',
+  },
+  {
+    name: 'Mimicry',
+    get text() {
+      return t('screens.dissonanceModel.aMimickingAffix');
+    },
+    effect: 'mimicry',
+  },
+  {
+    get name() {
+      return t('screens.dissonanceModel.trueDissonance');
+    },
+    get text() {
+      return t('screens.dissonanceModel.theFinaleSFourth');
+    },
+    effect: 'true_dissonance',
+  },
 ];
 
 /** The levels still to come: `LATER_LEVELS` without those content now holds (none, once all do). */
@@ -89,14 +110,16 @@ function withArticle(grade: string): string {
 
 /** "Calling" names mid-sentence: "the Luminary", or `none`'s "no Calling". */
 export function callingName(key: string): string {
-  if (key === bestKey({ calling: null })) return 'no Calling';
+  if (key === bestKey({ calling: null })) return t('screens.dissonanceModel.noCalling');
   const def = CONTENT.callings.find((c) => c.id === key);
   return def ? `the ${def.name}` : key;
 }
 
 /** "as the Luminary", "without a Calling". */
 export function asCalling(key: string): string {
-  return key === bestKey({ calling: null }) ? 'without a Calling' : `as ${callingName(key)}`;
+  return key === bestKey({ calling: null })
+    ? t('screens.dissonanceModel.withoutACalling')
+    : `as ${callingName(key)}`;
 }
 
 // ── The levels ────────────────────────────────────────────────────────────────────────
@@ -136,18 +159,26 @@ export interface LevelRow {
 
 /** Why a chosen level has nothing to do in this run (its effect's own reason). */
 export function idleReason(effect: DissonanceEffect): string {
-  if (effect === 'true_dissonance') return `${EXPEDITIONS_ONLY}: a Prelude has no Finale.`;
+  if (effect === 'true_dissonance')
+    return t('screens.dissonanceModel.aPreludeHasNo', { EXPEDITIONS_ONLY });
   return effect === 'cursed_start'
-    ? 'Nothing to give: you carry every cursed relic.'
-    : 'Nothing to change in this run.';
+    ? t('screens.dissonanceModel.nothingToGiveYou')
+    : t('screens.dissonanceModel.nothingToChangeIn');
 }
 
 function rowOf(def: DissonanceLevel, rank: number, played: boolean, forced = false): LevelRow {
   const on = rank > 0;
   const idle = on && !played ? idleReason(def.effect) : null;
   const adds = on && !idle && !forced ? dissonancePoints([{ id: def.id, rank }]) : 0;
-  const pointsLine = def.ranks > 1 ? `${pointsText(def.points)} a rank` : pointsText(def.points);
-  const state = on ? (def.ranks > 1 ? `on, rank ${rank} of ${def.ranks}` : 'on') : 'off';
+  const pointsLine =
+    def.ranks > 1
+      ? t('screens.dissonanceModel.aRank', { pointsText: pointsText(def.points) })
+      : pointsText(def.points);
+  const state = on
+    ? def.ranks > 1
+      ? t('screens.dissonanceModel.onRankOf', { rank, ranks: def.ranks })
+      : 'on'
+    : 'off';
   return {
     id: def.id,
     name: def.name,
@@ -161,8 +192,11 @@ function rowOf(def: DissonanceLevel, rank: number, played: boolean, forced = fal
     idle,
     pointsLine,
     label: forced
-      ? `${def.name}: on, set by the Echo, no points. ${dissonanceText(def)}`
-      : `${def.name}: ${state}. ${idle ?? `${pointsLine}${on ? `, ${adds} now` : ''}.`} ${dissonanceText(def)}`,
+      ? t('screens.dissonanceModel.onSetByThe', {
+          name: def.name,
+          dissonanceText: dissonanceText(def),
+        })
+      : `${def.name}: ${state}. ${idle ?? `${pointsLine}${on ? t('screens.dissonanceModel.now', { adds }) : ''}.`} ${dissonanceText(def)}`,
     ...(forced ? { forced: true as const } : {}),
     ...(expeditionsOnly(def) ? { expeditionsOnly: true as const } : {}),
   };
@@ -237,17 +271,22 @@ export function tearRules(points: number): TearRule[] {
     {
       from: 0,
       applies: true,
-      text: `A boss beaten with ${withArticle(CONTENT.reliquary.tearGrade)} pays a Discord Tear.`,
+      text: t('screens.dissonanceModel.aBossBeatenWith', {
+        withArticle: withArticle(CONTENT.reliquary.tearGrade),
+      }),
     },
     {
       from: r.tearOnA,
       applies: points >= r.tearOnA,
-      text: `From ${pointsText(r.tearOnA)}, ${withArticle(TEAR_TOO_GRADE)} pays one too.`,
+      text: t('screens.dissonanceModel.fromPaysOneToo', {
+        pointsText: pointsText(r.tearOnA),
+        withArticle: withArticle(TEAR_TOO_GRADE),
+      }),
     },
     {
       from: r.tearOnWin,
       applies: points >= r.tearOnWin,
-      text: `From ${pointsText(r.tearOnWin)}, every won run pays one more.`,
+      text: t('screens.dissonanceModel.fromEveryWonRun', { pointsText: pointsText(r.tearOnWin) }),
     },
   ];
 }
@@ -272,8 +311,8 @@ export function rewardView(points: number): RewardView {
     max: maxDissonance(),
     xpPct,
     shardsPct,
-    xpText: `+${xpPct}% Weaver XP`,
-    shardsText: `+${shardsPct}% Tuning Shards`,
+    xpText: t('screens.dissonanceModel.weaverXp', { xpPct }),
+    shardsText: t('screens.dissonanceModel.tuningShards', { shardsPct }),
     tears: tearRules(points),
   };
 }
@@ -310,23 +349,37 @@ export function depthView(depth: number): DepthView {
 /** Prep: "Relics found here can reach T2." */
 export function foundLine(points: number): string {
   const d = depthView(points);
-  if (d.base) return `Relics found here reach ${tierName(d.cap)}, as without Dissonance.`;
-  return `Relics found here can reach ${tierName(d.cap)}${d.next ? '' : ', the best there is'}.`;
+  if (d.base)
+    return t('screens.dissonanceModel.relicsFoundHereReach', { tierName: tierName(d.cap) });
+  return t('screens.dissonanceModel.relicsFoundHereCan', {
+    tierName: tierName(d.cap),
+    value: d.next ? '' : t('screens.dissonanceModel.theBestThereIs'),
+  });
 }
 
 /** Prep: "From 20 points, T1." (null: nothing deeper). */
 export function deeperLine(points: number): string | null {
   const d = depthView(points);
-  return d.next ? `From ${pointsText(d.next.depth)}, ${tierName(d.next.cap)}.` : null;
+  return d.next
+    ? t('screens.dissonanceModel.from', {
+        pointsText: pointsText(d.next.depth),
+        tierName: tierName(d.next.cap),
+      })
+    : null;
 }
 
 /** A relic's depth, after the run that found it: "Won at 12 Dissonance: its Inscriptions can reach T2." */
 export function wonLine(depth: number): string {
   const d = depthView(depth);
-  if (depth <= 0) return `Won without Dissonance: its Inscriptions reach ${tierName(d.cap)}.`;
+  if (depth <= 0)
+    return t('screens.dissonanceModel.wonWithoutDissonanceIts', { tierName: tierName(d.cap) });
   if (d.base)
-    return `Won at ${depth} Dissonance: its Inscriptions reach ${tierName(d.cap)}, as without it.`;
-  return `Won at ${depth} Dissonance: its Inscriptions can reach ${tierName(d.cap)}${d.next ? '' : ', the best there is'}.`;
+    return t('screens.dissonanceModel.wonAtDissonanceIts', { depth, tierName: tierName(d.cap) });
+  return t('screens.dissonanceModel.wonAtDissonanceIts2', {
+    depth,
+    tierName: tierName(d.cap),
+    value: d.next ? '' : t('screens.dissonanceModel.theBestThereIs'),
+  });
 }
 
 /** What a deeper relic would reach: "A relic won at 20 or more reaches T1." (null: none deeper). */
@@ -334,8 +387,17 @@ export function deeperRelicLine(depth: number): string | null {
   const d = depthView(depth);
   if (!d.next) return null;
   const later = CONTENT.reliquary.bands.filter((b) => b.depth > d.next!.depth);
-  const rest = later.map((b) => `at ${b.depth} or more ${tierName(band(b.depth).tierCap)}`);
-  return `A relic won at ${d.next.depth} or more reaches ${tierName(d.next.cap)}${rest.length ? `; ${rest.join('; ')}` : ''}.`;
+  const rest = later.map((b) =>
+    t('screens.dissonanceModel.atOrMore', {
+      depth: b.depth,
+      tierName: tierName(band(b.depth).tierCap),
+    }),
+  );
+  return t('screens.dissonanceModel.aRelicWonAt', {
+    depth: d.next.depth,
+    tierName: tierName(d.next.cap),
+    value: rest.length ? `; ${rest.join('; ')}` : '',
+  });
 }
 
 /** The band's Inscribe odds: "T5 45% · T4 30% · T3 17% · T2 8%" (tiers it can't roll left out). */
@@ -350,8 +412,20 @@ export function oddsLine(depth: number): string {
 export function rememberLine(points: number): string {
   const d = depthView(points);
   if (d.base)
-    return `The relics it found reach ${tierName(d.cap)}, as without Dissonance${d.next ? `: from ${d.next.depth}, ${tierName(d.next.cap)}` : ''}.`;
-  return `The relics it found remember its ${points}: they can reach ${tierName(d.cap)}${d.next ? '' : ', the best there is'}.`;
+    return t('screens.dissonanceModel.theRelicsItFound', {
+      tierName: tierName(d.cap),
+      value: d.next
+        ? t('screens.dissonanceModel.from2', {
+            depth: d.next.depth,
+            tierName: tierName(d.next.cap),
+          })
+        : '',
+    });
+  return t('screens.dissonanceModel.theRelicsItFound2', {
+    points,
+    tierName: tierName(d.cap),
+    value: d.next ? '' : t('screens.dissonanceModel.theBestThereIs'),
+  });
 }
 
 /** "Depth 12". */
@@ -379,8 +453,10 @@ export function relicDepthView(depth: number): RelicDepthView {
   const d = depthView(depth);
   const line = wonLine(depth);
   const deeper = deeperRelicLine(depth);
-  const odds = `Inscribe rolls ${oddsLine(depth)}.`;
-  const cursedLine = `A Cursed Dissonate raises them as far as ${tierName(d.cursedCap)}.`;
+  const odds = t('screens.dissonanceModel.inscribeRolls', { oddsLine: oddsLine(depth) });
+  const cursedLine = t('screens.dissonanceModel.aCursedDissonateRaises', {
+    tierName: tierName(d.cursedCap),
+  });
   return {
     ...d,
     title: depthLabel(depth),
@@ -420,15 +496,17 @@ export function bestView(
   const was = best[key] ?? 0;
   const newBest = points > 0 && points > was;
   const line =
-    was > 0 ? `Best won ${asCalling(key)}: ${was}.` : `No Dissonance won ${asCalling(key)} yet.`;
+    was > 0
+      ? t('screens.dissonanceModel.bestWon', { asCalling: asCalling(key), was })
+      : t('screens.dissonanceModel.noDissonanceWonYet', { asCalling: asCalling(key) });
   let next: string;
   if (newBest)
     next =
       was > 0
-        ? `A win at ${points} would be a new best (+${points - was}).`
-        : `A win at ${points} would set the first best.`;
-  else if (points <= 0) next = 'Choose levels: a win with any of them sets a best.';
-  else next = `A new best takes ${was + 1} or more: this run is at ${points}.`;
+        ? t('screens.dissonanceModel.aWinAtWould', { points, value: points - was })
+        : t('screens.dissonanceModel.aWinAtWould2', { points });
+  else if (points <= 0) next = t('screens.dissonanceModel.chooseLevelsAWin');
+  else next = t('screens.dissonanceModel.aNewBestTakes', { value: was + 1, points });
   return { key, best: was > 0 ? was : null, line, next, newBest };
 }
 
@@ -451,23 +529,29 @@ export function closedLines(rank: number): { lead: string; skip: string } {
   const openRank = RULES().openRank;
   return {
     lead: opensAt(rank)
-      ? `It opens with your first Finale clear at Rank ${openRank} or above: you’re Rank ${rank}, so your next Finale clear does it.`
-      : `It opens at Rank ${openRank} once you have cleared the Finale (you’re Rank ${rank}).`,
-    skip: 'Settings → Skip the unlocks opens it now.',
+      ? t('screens.dissonanceModel.itOpensWithYour', { openRank, rank })
+      : t('screens.dissonanceModel.itOpensAtRank', { openRank, rank }),
+    skip: t('screens.dissonanceModel.settingsSkipTheUnlocks'),
   };
 }
 
 /** What Dissonance is, in a sentence (Prep's closed panel, the Summary's card, the Codex). */
 export function dissonanceBlurb(): string {
-  return 'Opt-in levels, each worth points, chosen before a run: the run’s total makes the fight harder and pays more, and the relics it finds craft further.';
+  return t('screens.dissonanceModel.optInLevelsEach');
 }
 
 /** The bands as one sentence: "a relic won at 10 or more can reach T2, at 20 or more T1". */
 export function bandsSentence(): string {
   const parts = CONTENT.reliquary.bands.map((b, i) =>
     i === 0
-      ? `a relic won at ${b.depth} or more can reach ${tierName(band(b.depth).tierCap)}`
-      : `at ${b.depth} or more ${tierName(band(b.depth).tierCap)}`,
+      ? t('screens.dissonanceModel.aRelicWonAt2', {
+          depth: b.depth,
+          tierName: tierName(band(b.depth).tierCap),
+        })
+      : t('screens.dissonanceModel.atOrMore', {
+          depth: b.depth,
+          tierName: tierName(band(b.depth).tierCap),
+        }),
   );
   return parts.join(', ');
 }
@@ -476,9 +560,15 @@ export function bandsSentence(): string {
 export function openedLines(): string[] {
   const r = RULES();
   return [
-    'Choose its levels in your next Prep: your choice is kept from run to run.',
-    `Each point pays +${r.xpPerPoint}% Weaver XP and +${r.shardsPerPoint}% Tuning Shards. From ${pointsText(r.tearOnA)} a boss beaten with ${withArticle(TEAR_TOO_GRADE)} pays a Discord Tear too; from ${r.tearOnWin}, every won run pays one more.`,
-    `Relics remember: ${bandsSentence()}.`,
+    t('screens.dissonanceModel.chooseItsLevelsIn'),
+    t('screens.dissonanceModel.eachPointPaysWeaver', {
+      xpPerPoint: r.xpPerPoint,
+      shardsPerPoint: r.shardsPerPoint,
+      pointsText: pointsText(r.tearOnA),
+      withArticle: withArticle(TEAR_TOO_GRADE),
+      tearOnWin: r.tearOnWin,
+    }),
+    t('screens.dissonanceModel.relicsRemember', { bandsSentence: bandsSentence() }),
   ];
 }
 
@@ -490,7 +580,11 @@ export function openedLines(): string[] {
 export function dissonanceUnlockLine(u: { kind: string }): string | null {
   if (u.kind !== 'dissonance') return null;
   const r = RULES();
-  return `Once your Finale clear at Rank ${r.openRank} or above opens it, choose its levels in Prep: each point pays +${r.xpPerPoint}% Weaver XP and +${r.shardsPerPoint}% Tuning Shards. Settings → Skip the unlocks opens it now.`;
+  return t('screens.dissonanceModel.onceYourFinaleClear', {
+    openRank: r.openRank,
+    xpPerPoint: r.xpPerPoint,
+    shardsPerPoint: r.shardsPerPoint,
+  });
 }
 
 // ── A run's Dissonance ────────────────────────────────────────────────────────────────
@@ -527,14 +621,20 @@ export function runDissonanceView(
     depth: depthView(points),
     opened: !!run.dissonanceEnd?.opened,
     best,
-    bestLine: best ? `A new best ${asCalling(key)}: ${points}.` : null,
+    bestLine: best
+      ? t('screens.dissonanceModel.aNewBest', { asCalling: asCalling(key), points })
+      : null,
     levelsLine: levelsLine(levels),
   };
 }
 
 /** "Hardened (rank 2), Brisk Foes, Blind Score". */
 export function levelsLine(rows: readonly LevelRow[]): string {
-  return rows.map((r) => (r.ranks > 1 ? `${r.name} (rank ${r.rank})` : r.name)).join(', ');
+  return rows
+    .map((r) =>
+      r.ranks > 1 ? t('screens.dissonanceModel.rank', { name: r.name, rank: r.rank }) : r.name,
+    )
+    .join(', ');
 }
 
 // ── The HUD ───────────────────────────────────────────────────────────────────────────
@@ -570,7 +670,11 @@ export function hudDissonanceView(
     levels: rows,
     blind,
     cueRaised,
-    label: `Dissonance ${points}: ${levelsLine(rows)}.${notes.length ? ` ${notes.join(' ')}` : ''}`,
+    label: t('screens.dissonanceModel.dissonance', {
+      points,
+      levelsLine: levelsLine(rows),
+      value: notes.length ? ` ${notes.join(' ')}` : '',
+    }),
   };
 }
 
@@ -581,7 +685,7 @@ export function pactName(): string {
 
 /** A run's relic that Discordant Pact imposed (`OwnedRelic.pact`): where it came from. */
 export function pactLine(): string {
-  return `From ${pactName()}: the run’s Dissonance imposed it, so it can’t be enshrined.`;
+  return t('screens.dissonanceModel.fromTheRunS', { pactName: pactName() });
 }
 
 /** A level's name by its effect, as content names it ("Blind Score", "Unforgiving"). */
@@ -591,20 +695,20 @@ export function levelName(effect: DissonanceEffect): string {
 
 /** Blind Score in the fight, in a line. */
 export function blindLine(): string {
-  return `${levelName('blind_score')}: the HUD doesn’t name the answer a telegraph wants.`;
+  return t('screens.dissonanceModel.theHudDoesnT', { levelName: levelName('blind_score') });
 }
 
 /** Unforgiving, where a run heals: what it takes away. */
 export function unforgivingLine(what: 'rest' | 'skip' | 'party'): string {
   const name = levelName('no_respite_heal');
-  if (what === 'rest') return `${name} (Dissonance): no healing. Rest only steadies the Shaken.`;
-  if (what === 'skip') return `Skip: no healing here (${name})`;
-  return `${name} (Dissonance): Rest restores no life in this run.`;
+  if (what === 'rest') return t('screens.dissonanceModel.dissonanceNoHealingRest', { name });
+  if (what === 'skip') return t('screens.dissonanceModel.skipNoHealingHere', { name });
+  return t('screens.dissonanceModel.dissonanceRestRestoresNo', { name });
 }
 
 /** "A Cue costs 35 Resonance this fight." */
 export function cueLine(cueCost: number): string {
-  return `A Cue costs ${cueCost} Resonance this fight.`;
+  return t('screens.dissonanceModel.aCueCostsResonance', { cueCost });
 }
 
 /**

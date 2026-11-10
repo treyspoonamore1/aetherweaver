@@ -19,6 +19,7 @@ import { useUi } from '../store';
 import { SpawnPalette } from './TrainingParts';
 import { trainingChoice } from './variantsModel';
 import { WardTrainer } from './WardTrainer';
+import { t as txt } from '../text';
 
 /**
  * Training Grounds: the sandbox encounter with the debug commands enabled, and the Perfect-Ward
@@ -82,7 +83,7 @@ export function TrainingScreen() {
   return (
     <div className="relative h-full w-full select-none overflow-hidden">
       <GameHost session={session} />
-      <Hud subtitle="Sandbox" keyHints={false} />
+      <Hud subtitle={txt('screens.trainingScreen.sandbox')} keyHints={false} />
       {!devOpen && (
         <SpawnPalette
           loadout={loadout}

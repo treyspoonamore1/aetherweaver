@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import type { RelicRarity } from '../../content';
 import { Icon } from './Icon';
 import { FILL_GLYPHS } from './iconPaths';
+import { t } from '../text';
 
 /**
  * Line-art glyphs for relics, boons and events (Phase 3b), keyed by content `icon`. Same
@@ -71,14 +72,47 @@ export function glyphPath(icon: string): string {
 export const RELIC_RARITY: Readonly<
   Record<RelicRarity, { label: string; color: string; pips: number; glow: boolean }>
 > = {
-  common: { label: 'Common', color: '#cbd5e1', pips: 1, glow: false },
-  rare: { label: 'Rare', color: '#60a5fa', pips: 2, glow: false },
-  legendary: { label: 'Legendary', color: '#fdba74', pips: 3, glow: true },
-  cursed: { label: 'Cursed', color: '#fb7185', pips: 0, glow: false },
+  common: {
+    get label() {
+      return t('common.relicGlyph.common');
+    },
+    color: '#cbd5e1',
+    pips: 1,
+    glow: false,
+  },
+  rare: {
+    get label() {
+      return t('common.relicGlyph.rare');
+    },
+    color: '#60a5fa',
+    pips: 2,
+    glow: false,
+  },
+  legendary: {
+    get label() {
+      return t('common.relicGlyph.legendary');
+    },
+    color: '#fdba74',
+    pips: 3,
+    glow: true,
+  },
+  cursed: {
+    get label() {
+      return t('common.relicGlyph.cursed');
+    },
+    color: '#fb7185',
+    pips: 0,
+    glow: false,
+  },
 };
 
 /** A cursed relic whose curse a forge lifted: calm, still marked as once-cursed. */
-export const CLEANSED = { label: 'Cleansed', color: '#a5b4fc' } as const;
+export const CLEANSED = {
+  get label() {
+    return t('common.relicGlyph.cleansed');
+  },
+  color: '#a5b4fc',
+} as const;
 
 /** The colour a relic is drawn in (a cleansed curse is tamed). */
 export function relicColor(rarity: RelicRarity, cleansed = false): string {
@@ -204,7 +238,7 @@ export function RelicRarityChip({
           ))
         )}
       </span>
-      {rarity === 'cursed' && cleansed ? 'Cursed · cleansed' : r.label}
+      {rarity === 'cursed' && cleansed ? t('common.relicGlyph.cursedCleansed') : r.label}
     </span>
   );
 }

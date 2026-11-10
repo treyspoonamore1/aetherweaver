@@ -21,6 +21,7 @@ import { SLOT_ICON, techniqueIcon } from '../kit/variantLook';
 import type { TechniqueHud } from '../store';
 import type { TechniqueKey } from '../types';
 import { REWIND_NAME, rewindsFor } from './callingText';
+import { t as txt } from '../text';
 
 export { TECHNIQUE_SLOTS };
 
@@ -64,13 +65,25 @@ export function defaultText(slot: TechniqueKey): string {
   const t = CONTENT.techniques;
   switch (slot) {
     case 'ward':
-      return `A barrier on the hero you Ward: ${pct(t.ward.barrierPct)} of their life + ${t.ward.barrierFlat}, for ${t.ward.duration} s. Perfect when a hit lands within ${t.ward.perfectWindow} s of it: the hit is negated, and the attacker staggers.`;
+      return txt('screens.variantsModel.aBarrierOnThe', {
+        barrierPct: pct(t.ward.barrierPct),
+        barrierFlat: t.ward.barrierFlat,
+        duration: t.ward.duration,
+        perfectWindow: t.ward.perfectWindow,
+      });
     case 'chime':
-      return `A bell under your cursor: every hero within ${t.chime.radius} m is cleansed of their ailments, healed ${pct(t.chime.healPct)} of their life and immune for ${t.chime.immunity} s.`;
+      return txt('screens.variantsModel.aBellUnderYour', {
+        radius: t.chime.radius,
+        healPct: pct(t.chime.healPct),
+        immunity: t.chime.immunity,
+      });
     case 'reel':
-      return 'Pull the hero you Thread to your side along a ribbon: out of a lethal zone or a beam, and into your field.';
+      return txt('screens.variantsModel.pullTheHeroYou');
     case 'glide':
-      return `A ${t.glide.distance} m dash, untouchable for ${t.glide.iframes} s.`;
+      return txt('screens.variantsModel.aMDashUntouchable', {
+        distance: t.glide.distance,
+        iframes: t.glide.iframes,
+      });
   }
 }
 
@@ -106,16 +119,16 @@ export function variantSource(id: string): VariantSource {
 export function lockText(id: string): string {
   const s = variantSource(id);
   return s.kind === 'mastery'
-    ? `Starlight, from the ${s.callingName}’s top mastery`
-    : `Starlight, from Weaver Rank ${s.rank}`;
+    ? txt('screens.variantsModel.starlightFromTheS', { callingName: s.callingName })
+    : txt('screens.variantsModel.starlightFromWeaverRank', { rank: s.rank });
 }
 
 /** How a variant is had, as the Codex says it. */
 export function sourceText(id: string): string {
   const s = variantSource(id);
   return s.kind === 'mastery'
-    ? `Bought with Starlight, from the ${s.callingName}’s top mastery.`
-    : `Bought with Starlight, from Weaver Rank ${s.rank}.`;
+    ? txt('screens.variantsModel.boughtWithStarlightFrom', { callingName: s.callingName })
+    : txt('screens.variantsModel.boughtWithStarlightFrom2', { rank: s.rank });
 }
 
 // ── A slot's choice ───────────────────────────────────────────────────────────────────
@@ -226,7 +239,7 @@ export function rewindNote(callingId: string | null | undefined): string | null 
   if (!rewindsFor(callingId)) return null;
   const calling = CONTENT.callings.find((c) => c.id === callingId)?.name ?? callingId;
   const reel = defaultName('reel');
-  return `On a ${calling} run, ${REWIND_NAME} takes ${reel}’s slot: the ${reel} choice has no effect on this run. It’s kept for your next.`;
+  return txt('screens.variantsModel.onARunTakes', { calling, REWIND_NAME, reel });
 }
 
 export function techniqueSlots(ctx: TechniqueContext): TechniqueSlotView[] {
@@ -258,7 +271,11 @@ export function techniqueClick(view: TechniqueSlotView, option: TechniqueOption)
     kind: 'choose',
     slot: view.slot,
     id: option.id,
-    announce: `${option.name} on ${view.key}${view.note ? ` (${REWIND_NAME} takes it this run)` : ''}.`,
+    announce: txt('screens.variantsModel.on', {
+      name: option.name,
+      key: view.key,
+      value: view.note ? txt('screens.variantsModel.takesItThisRun', { REWIND_NAME }) : '',
+    }),
   };
 }
 
@@ -280,7 +297,7 @@ export function costLabel(cost: number | null): string {
 
 /** "7 s cooldown". */
 export function cooldownLabel(seconds: number): string {
-  return `${seconds} s cooldown`;
+  return txt('screens.variantsModel.sCooldown', { seconds });
 }
 
 // ── The panel's line ──────────────────────────────────────────────────────────────────
@@ -305,12 +322,14 @@ export function techniquesSummary(
   const n = fitOwned(owned).length;
   const total = CONTENT.techniqueVariants.length;
   const line = weekly
-    ? 'Every variant is open for This Week’s Song: everyone chooses from them all.'
+    ? txt('screens.variantsModel.everyVariantIsOpen')
     : all
-      ? 'Every variant is open: Settings → Skip the unlocks.'
+      ? txt('screens.variantsModel.everyVariantIsOpen2')
       : n === 0
-        ? `Each slot has ${countWord(variantsFor('ward').length)} variants, bought with Starlight. Settings → Skip the unlocks opens them all.`
-        : `${n} of ${total} variants owned. The rest are bought with Starlight.`;
+        ? txt('screens.variantsModel.eachSlotHasVariants', {
+            countWord: countWord(variantsFor('ward').length),
+          })
+        : txt('screens.variantsModel.ofVariantsOwnedThe', { n, total });
   return { owned: n, total, all, choosable: all || n > 0, line };
 }
 
@@ -339,11 +358,12 @@ export interface OptionState {
 }
 
 export function optionState(option: TechniqueOption, all: boolean): OptionState {
-  if (option.id === null) return { kind: 'default', label: 'Always yours' };
-  if (option.owned) return { kind: 'owned', label: 'Owned' };
-  if (all) return { kind: 'open', label: 'Open (Skip the unlocks)' };
+  if (option.id === null)
+    return { kind: 'default', label: txt('screens.variantsModel.alwaysYours') };
+  if (option.owned) return { kind: 'owned', label: txt('screens.variantsModel.owned') };
+  if (all) return { kind: 'open', label: txt('screens.variantsModel.openSkipTheUnlocks') };
   // How it's had is the card's own line (`sourceText`).
-  return { kind: 'locked', label: 'Locked' };
+  return { kind: 'locked', label: txt('screens.variantsModel.locked') };
 }
 
 /** The Codex's opening lines: what variants are, how they're chosen and kept, and had. */
@@ -353,26 +373,41 @@ export function codexLines(): string[] {
   const mastered = CONTENT.techniqueVariants.filter((v) => variantSource(v.id).kind === 'mastery');
   const reel = defaultName('reel');
   const lines = [
-    `Each of your four techniques (${slots.join(', ')}) has ${countWord(variantsFor('ward').length)} variants: the same key and slot, a different way to save someone. Prep shows each slot’s default and its variants; choose one per slot from what you own. The run keeps what it embarked with.`,
-    `A variant keeps its slot’s modifiers: what the Astrolabe or a Calling does to the slot’s cost and cooldown, it does to the variant’s too. What each one does is in its own words below.`,
+    txt('screens.variantsModel.eachOfYourFour', {
+      slots: slots.join(', '),
+      countWord: countWord(variantsFor('ward').length),
+    }),
+    txt('screens.variantsModel.aVariantKeepsIts'),
   ];
   const byMastery = mastered.map((v) => {
     const s = variantSource(v.id);
-    return `${v.name} with the ${s.kind === 'mastery' ? s.callingName : ''}’s`;
+    return txt('screens.variantsModel.withTheS', {
+      name: v.name,
+      value: s.kind === 'mastery' ? s.callingName : '',
+    });
   });
-  const rank = `bought with Starlight from Weaver Rank ${atelierRank()}`;
+  const rank = txt('screens.variantsModel.boughtWithStarlightFrom3', {
+    atelierRank: atelierRank(),
+  });
   const how =
     mastered.length === 0
-      ? `All are ${rank}.`
+      ? txt('screens.variantsModel.allAre', { rank })
       : ranked.length === 0
-        ? `Each opens to buy with a Calling’s top mastery: ${listAnd(byMastery)}.`
-        : `${capital(countWord(ranked.length))} are ${rank}; the other ${countWord(mastered.length)} open to buy with a Calling’s top mastery: ${listAnd(byMastery)}.`;
-  lines.push(
-    `${how} Settings → Skip the unlocks opens them all, and the Training Grounds let you try any of them.`,
-  );
+        ? txt('screens.variantsModel.eachOpensToBuy', { listAnd: listAnd(byMastery) })
+        : txt('screens.variantsModel.areTheOtherOpen', {
+            capital: capital(countWord(ranked.length)),
+            rank,
+            countWord: countWord(mastered.length),
+            listAnd: listAnd(byMastery),
+          });
+  lines.push(txt('screens.variantsModel.settingsSkipTheUnlocks', { how }));
   if (CONTENT.callings.some((c) => rewindsFor(c.id)))
     lines.push(
-      `On a ${CONTENT.callings.find((c) => rewindsFor(c.id))!.name} run, ${REWIND_NAME} takes ${reel}’s slot, so the ${reel} choice has no effect; Prep says so.`,
+      txt('screens.variantsModel.onARunTakes2', {
+        name: CONTENT.callings.find((c) => rewindsFor(c.id))!.name,
+        REWIND_NAME,
+        reel,
+      }),
     );
   return lines;
 }
@@ -408,14 +443,16 @@ export function techniqueTip(
     return {
       slot: t.key,
       name: t.name,
-      sub: `In ${defaultName('reel')}’s slot on this run`,
-      text: `The hero you aim at goes back ${rewindSeconds} s: to where they stood, and the life they had then (never less than now).`,
+      sub: txt('screens.variantsModel.inSSlotOn', { defaultName: defaultName('reel') }),
+      text: txt('screens.variantsModel.theHeroYouAim', { rewindSeconds }),
       stats,
     };
   return {
     slot: t.key,
     name: t.name,
-    sub: t.variant ? `A ${defaultName(t.key)} variant` : null,
+    sub: t.variant
+      ? txt('screens.variantsModel.aVariant', { defaultName: defaultName(t.key) })
+      : null,
     text: t.variant?.text ?? defaultText(t.key),
     stats,
   };

@@ -12,15 +12,31 @@
  * `random`; the command carries them, so the sim stays deterministic.
  */
 import { SIM_DT, type Command, type PartySlot, type SimEvent, type WorldState } from '../../sim';
+import { t as txt } from '../text';
 
 export type DrillSpeed = 'slow' | 'normal' | 'quick';
 export type DrillMode = DrillSpeed | 'mixed';
 
 /** The three speeds: how long the bell's blow winds up. */
 export const DRILL_SPEEDS: Readonly<Record<DrillSpeed, { label: string; windup: number }>> = {
-  slow: { label: 'Slow', windup: 2 },
-  normal: { label: 'Normal', windup: 1.4 },
-  quick: { label: 'Quick', windup: 0.9 },
+  slow: {
+    get label() {
+      return txt('screens.wardDrill.slow');
+    },
+    windup: 2,
+  },
+  normal: {
+    get label() {
+      return txt('screens.wardDrill.normal');
+    },
+    windup: 1.4,
+  },
+  quick: {
+    get label() {
+      return txt('screens.wardDrill.quick');
+    },
+    windup: 0.9,
+  },
 };
 export const DRILL_MODES: readonly DrillMode[] = ['slow', 'normal', 'quick', 'mixed'];
 const SPEEDS: readonly DrillSpeed[] = ['slow', 'normal', 'quick'];
@@ -153,11 +169,11 @@ export function tryTitle(t: Pick<DrillTry, 'kind' | 'ms'>): string {
     case 'perfect':
       return 'Perfect';
     case 'early':
-      return `Early · ${t.ms ?? 0} ms`;
+      return txt('screens.wardDrill.earlyMs', { value: t.ms ?? 0 });
     case 'late':
-      return `Late · ${t.ms ?? 0} ms`;
+      return txt('screens.wardDrill.lateMs', { value: t.ms ?? 0 });
     case 'warded':
-      return 'Warded, not Perfect';
+      return txt('screens.wardDrill.wardedNotPerfect');
     case 'missed':
       return 'Missed';
   }
@@ -165,40 +181,61 @@ export function tryTitle(t: Pick<DrillTry, 'kind' | 'ms'>): string {
 
 /** The sim's reasons for refusing a Ward, as the HUD's callouts say them. */
 const REFUSED: Record<string, string> = {
-  cooldown: 'it wasn’t back yet',
-  spirit: 'not enough Spirit',
-  range: 'out of range',
-  target: 'no hero to Ward',
-  silenced: 'you were silenced',
-  down: 'you were down',
-  life: 'not enough Life',
+  get cooldown() {
+    return txt('screens.wardDrill.itWasnTBack');
+  },
+  get spirit() {
+    return txt('screens.wardDrill.notEnoughSpirit');
+  },
+  get range() {
+    return txt('screens.wardDrill.outOfRange');
+  },
+  get target() {
+    return txt('screens.wardDrill.noHeroToWard');
+  },
+  get silenced() {
+    return txt('screens.wardDrill.youWereSilenced');
+  },
+  get down() {
+    return txt('screens.wardDrill.youWereDown');
+  },
+  get life() {
+    return txt('screens.wardDrill.notEnoughLife');
+  },
 };
 
 /** One sentence on the try: where the Ward fell against the window, or why there was none. */
 export function tryDetail(t: DrillTry, heroName: (slot: number) => string): string {
-  const window = `the ${t.windowMs} ms window`;
-  const last = `the window is the last ${t.windowMs} ms before it lands`;
+  const window = txt('screens.wardDrill.theMsWindow', { windowMs: t.windowMs });
+  const last = txt('screens.wardDrill.theWindowIsThe', { windowMs: t.windowMs });
   switch (t.kind) {
     case 'perfect':
-      return t.ms === null ? `Inside ${window}.` : `${t.ms} ms before it landed, inside ${window}.`;
+      return t.ms === null
+        ? txt('screens.wardDrill.inside', { window })
+        : txt('screens.wardDrill.msBeforeItLanded', { ms: t.ms, window });
     case 'early':
       return t.note?.kind === 'faded'
-        ? `Your Ward had faded before it landed: ${last}.`
-        : `Your Ward held it, but too soon for a Perfect: ${last}.`;
+        ? txt('screens.wardDrill.yourWardHadFaded', { last })
+        : txt('screens.wardDrill.yourWardHeldIt', { last });
     case 'late':
-      return `It landed before your Ward: ${last}.`;
+      return txt('screens.wardDrill.itLandedBeforeYour', { last });
     case 'warded':
-      return 'A barrier took it, but not a Ward cast in the window.';
+      return txt('screens.wardDrill.aBarrierTookIt');
     case 'missed':
       switch (t.note?.kind) {
         case 'elsewhere':
-          return `Your Ward went to ${heroName(t.note.slot)}, not ${heroName(t.slot)}.`;
+          return txt('screens.wardDrill.yourWardWentTo', {
+            heroName: heroName(t.note.slot),
+            heroName2: heroName(t.slot),
+          });
         case 'refused':
-          return `Your Ward was refused: ${REFUSED[t.note.reason] ?? t.note.reason}.`;
+          return txt('screens.wardDrill.yourWardWasRefused', {
+            value: REFUSED[t.note.reason] ?? t.note.reason,
+          });
         case 'slipped':
-          return 'It never landed (a Reel took them clear), but the drill wants a Ward.';
+          return txt('screens.wardDrill.itNeverLandedA');
         default:
-          return `No Ward reached ${heroName(t.slot)}.`;
+          return txt('screens.wardDrill.noWardReached', { heroName: heroName(t.slot) });
       }
   }
 }
@@ -671,11 +708,20 @@ export function statusLine(
   switch (s.kind) {
     case 'idle':
       return v.tries > 0
-        ? `${v.perfects} Perfect of ${v.tries}. Start again when you’re ready.`
-        : `Choose a speed and a hero, then Start. ${heroKey(v.target)} Threads ${heroName(v.target)}, ${wardKey} Wards them.`;
+        ? txt('screens.wardDrill.perfectOfStartAgain', { perfects: v.perfects, tries: v.tries })
+        : txt('screens.wardDrill.chooseASpeedAnd', {
+            heroKey: heroKey(v.target),
+            heroName: heroName(v.target),
+            wardKey,
+          });
     case 'next':
-      return `Next: ${heroName(s.slot)} (${heroKey(s.slot)}), ${DRILL_SPEEDS[s.speed].label.toLowerCase()}, in ${Math.max(0, s.seconds).toFixed(1)} s, your Ward readied for it.`;
+      return txt('screens.wardDrill.nextInSYour', {
+        heroName: heroName(s.slot),
+        heroKey: heroKey(s.slot),
+        label: DRILL_SPEEDS[s.speed].label.toLowerCase(),
+        max: Math.max(0, s.seconds).toFixed(1),
+      });
     case 'blow':
-      return `${heroName(s.slot)}! ${wardKey} as the mark closes.`;
+      return txt('screens.wardDrill.asTheMarkCloses', { heroName: heroName(s.slot), wardKey });
   }
 }

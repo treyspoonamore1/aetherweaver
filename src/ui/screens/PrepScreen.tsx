@@ -85,6 +85,7 @@ import {
   routeOptions,
   type Route,
 } from './routeText';
+import { t as txt } from '../text';
 
 export interface PrepViewProps {
   run: RunState;
@@ -254,9 +255,13 @@ export function useFreshHeroes(): FreshHero[] {
 export function FreshStrip({ fresh }: { fresh: readonly Pick<Unlock, 'id' | 'name' | 'text'>[] }) {
   if (fresh.length === 0) return null;
   return (
-    <Panel tone="gold" className="anim-rise mt-5 p-4" aria-label="Newly unlocked">
+    <Panel
+      tone="gold"
+      className="anim-rise mt-5 p-4"
+      aria-label={txt('screens.prepScreen.newlyUnlocked')}
+    >
       <p className="flex items-center gap-2 font-display text-sm font-bold uppercase tracking-[0.2em] text-gold-300">
-        <Icon name="sparkle" size={15} /> Newly unlocked
+        <Icon name="sparkle" size={15} /> {txt('screens.prepScreen.newlyUnlocked')}
       </p>
       <ul className="mt-2 grid gap-x-6 gap-y-2 md:grid-cols-2">
         {fresh.map((u) => (
@@ -332,7 +337,7 @@ export function PrepView({
       <div className="mx-auto max-w-7xl px-6 pb-28 pt-8">
         <ScreenHeader
           eyebrow={prepEyebrow(run)}
-          title="Prepare your songs"
+          title={txt('screens.prepScreen.prepareYourSongs')}
           right={
             // Stacked, so it stays beside the blurb: the Rank and the way back to the Loom, then
             // the Astrolabe (Phase 4) and the keystones it holds.
@@ -341,16 +346,20 @@ export function PrepView({
                 {rank !== undefined && (
                   <span
                     className="flex items-center gap-1.5 rounded-lg border border-gold-500/50 bg-ink-900/80 px-3 py-1.5 text-sm font-semibold text-gold-200"
-                    title={allowance.all ? 'Settings: the unlocks are skipped' : undefined}
+                    title={
+                      allowance.all ? txt('screens.prepScreen.settingsTheUnlocksAre') : undefined
+                    }
                   >
-                    <Icon name="crown" size={15} /> Weaver Rank {rank}
+                    <Icon name="crown" size={15} /> {txt('screens.prepScreen.weaverRank', { rank })}
                     {allowance.all && (
-                      <span className="font-normal text-muted">· all unlocked</span>
+                      <span className="font-normal text-muted">
+                        {txt('screens.prepScreen.allUnlocked')}
+                      </span>
                     )}
                   </span>
                 )}
                 <Button variant="ghost" onClick={onBack} sound="back">
-                  <Icon name="back" size={16} /> The Loom
+                  <Icon name="back" size={16} /> {txt('screens.prepScreen.theLoom')}
                 </Button>
               </div>
               {astrolabe && (
@@ -360,7 +369,7 @@ export function PrepView({
                   onClick={astrolabe.onOpen}
                   sound="click"
                   data-testid="prep-astrolabe"
-                  title="Your star map of passives: change it freely before you embark"
+                  title={txt('screens.prepScreen.yourStarMapOf')}
                 >
                   <AstrolabeButtonLabel spent={run.astrolabe.length} points={astrolabe.points} />
                 </Button>
@@ -370,15 +379,16 @@ export function PrepView({
           }
         >
           <p className="mt-2 max-w-3xl text-sm text-muted">
-            You are the Weaver. These three fight on their own; you keep them alive and make them
-            hit harder. Your <b style={{ color: SONG_LOOK.beam.color }}>beam song</b> rides the
-            Thread: whoever you thread hears it at {mult(w.beamFocus)}, and everyone else near you
-            hears an echo.
+            {txt('screens.prepScreen.youAreTheWeaver')}{' '}
+            <b style={{ color: SONG_LOOK.beam.color }}>{txt('screens.prepScreen.beamSong')}</b>{' '}
+            {txt('screens.prepScreen.ridesTheThreadWhoever', { mult: mult(w.beamFocus) })}
             {allowance.songs > 1 || allowance.all ? (
               <>
-                {' '}
-                Your <b style={{ color: SONG_LOOK.field.color }}>field song</b> surrounds you, at
-                full strength for everyone near you.
+                {txt('screens.prepScreen.your')}{' '}
+                <b style={{ color: SONG_LOOK.field.color }}>
+                  {txt('screens.prepScreen.fieldSong')}
+                </b>{' '}
+                {txt('screens.prepScreen.surroundsYouAtFull')}
               </>
             ) : null}{' '}
             {poolBlurb(run)}
@@ -446,7 +456,7 @@ export function PrepView({
           />
         )}
 
-        <section className="mt-6" aria-label="Songs">
+        <section className="mt-6" aria-label={txt('screens.prepScreen.songs')}>
           <ChordBuilder
             value={draft}
             onChange={change}
@@ -466,7 +476,7 @@ export function PrepView({
         <div className="mt-8 grid gap-6 lg:grid-cols-[1.35fr_1fr]">
           <section aria-labelledby="party-title">
             <SectionTitle>
-              <span id="party-title">Your party</span>
+              <span id="party-title">{txt('screens.prepScreen.yourParty')}</span>
             </SectionTitle>
             {party && <PartyPicker roster={party.roster} pick={pick} onToggle={choose} />}
             <div className="flex flex-col gap-3">
@@ -483,13 +493,16 @@ export function PrepView({
           <div className="flex flex-col gap-6">
             {route && (
               <Panel tone="solid" className="p-4" data-testid="prep-route">
-                <h2 className="font-display text-base font-bold text-gold-300">Route</h2>
+                <h2 className="font-display text-base font-bold text-gold-300">
+                  {txt('screens.prepScreen.route')}
+                </h2>
                 <p className="mb-3 text-xs text-muted">
-                  The Prelude is Movement I alone; an Expedition climbs on{' '}
-                  {expeditionOnward(expeditionLength(run))}.
+                  {txt('screens.prepScreen.thePreludeIsMovement', {
+                    expeditionOnward: expeditionOnward(expeditionLength(run)),
+                  })}
                 </p>
                 <Segmented
-                  label="This run"
+                  label={txt('screens.prepScreen.thisRun')}
                   hint={routeHint(routeOf(run), expeditionLength(run))}
                   value={routeOf(run)}
                   options={routeOptions()}
@@ -498,17 +511,17 @@ export function PrepView({
               </Panel>
             )}
             <Panel tone="solid" className="p-4">
-              <h2 className="font-display text-base font-bold text-gold-300">Quick assists</h2>
-              <p className="mb-3 text-xs text-muted">
-                Change any time in Settings. Assists never block anything.
-              </p>
+              <h2 className="font-display text-base font-bold text-gold-300">
+                {txt('screens.prepScreen.quickAssists')}
+              </h2>
+              <p className="mb-3 text-xs text-muted">{txt('screens.prepScreen.changeAnyTimeIn')}</p>
               <div className="flex flex-col gap-3.5">
                 <Segmented
-                  label="Telegraph lead"
-                  hint="Enemy attacks wind up longer."
+                  label={txt('screens.prepScreen.telegraphLead')}
+                  hint={txt('screens.prepScreen.enemyAttacksWindUp')}
                   value={settings.assists.telegraphLead}
                   options={[
-                    { value: 1, label: 'Standard' },
+                    { value: 1, label: txt('screens.prepScreen.standard') },
                     { value: 1.25, label: '×1.25' },
                     { value: 1.5, label: '×1.5' },
                   ]}
@@ -517,10 +530,10 @@ export function PrepView({
                   }
                 />
                 <Segmented
-                  label="Perfect Ward window"
+                  label={txt('screens.prepScreen.perfectWardWindow')}
                   value={settings.assists.perfectWindowBonus}
                   options={[
-                    { value: 0, label: 'Standard' },
+                    { value: 0, label: txt('screens.prepScreen.standard') },
                     { value: 0.1, label: '+0.1 s' },
                     { value: 0.2, label: '+0.2 s' },
                   ]}
@@ -529,8 +542,8 @@ export function PrepView({
                   }
                 />
                 <Toggle
-                  label="Hero autonomy"
-                  hint="Heroes fire their own Solos a moment after they charge, unless you Cue them first. Kael saves his wall for a big hit, but never for more than 3 seconds."
+                  label={txt('screens.prepScreen.heroAutonomy')}
+                  hint={txt('screens.prepScreen.heroesFireTheirOwn')}
                   checked={settings.assists.autonomy}
                   onChange={(v) =>
                     update((d) => ({ ...d, assists: { ...d.assists, autonomy: v } }))
@@ -545,16 +558,16 @@ export function PrepView({
         <div className="pointer-events-auto flex items-center gap-4">
           {dissonance?.open && <EmbarkDissonance run={run} />}
           <p className="text-sm text-muted">
-            Seed <span className="font-mono text-text">{run.seed}</span>
+            {txt('screens.prepScreen.seed')} <span className="font-mono text-text">{run.seed}</span>
           </p>
           {!legal && (
             <p className="text-sm font-semibold text-rose-200" role="status">
-              Fix your songs to embark
+              {txt('screens.prepScreen.fixYourSongsTo')}
             </p>
           )}
           {legal && !partyLegal && (
             <p className="text-sm font-semibold text-rose-200" role="status">
-              {pickProblem(pick)} to embark
+              {pickProblem(pick)} {txt('screens.prepScreen.toEmbark')}
             </p>
           )}
           <Button
@@ -565,7 +578,7 @@ export function PrepView({
             disabled={!legal || !partyLegal}
             autoFocus
           >
-            Embark <Icon name="arrow" size={18} />
+            {txt('screens.prepScreen.embark')} <Icon name="arrow" size={18} />
           </Button>
         </div>
       </div>
@@ -593,16 +606,18 @@ function PartyPicker({
   return (
     <Panel tone="solid" className="mb-4 p-4" data-testid="prep-party">
       <p className="mb-3 text-xs text-muted">
-        Choose three. They take the keys {focusKeyLabel(1)}, {focusKeyLabel(2)} and{' '}
-        {focusKeyLabel(3)} in this order, so a hero’s key can change with the party: the key each
-        will take is on their card.
+        {txt('screens.prepScreen.chooseThreeTheyTake', {
+          focusKeyLabel: focusKeyLabel(1),
+          focusKeyLabel2: focusKeyLabel(2),
+          focusKeyLabel3: focusKeyLabel(3),
+        })}
       </p>
       <div
         className="grid gap-2"
         style={{ gridTemplateColumns: `repeat(${pickerColumns(cards.length)}, minmax(0, 1fr))` }}
         data-columns={pickerColumns(cards.length)}
         role="group"
-        aria-label="Choose your party: three heroes"
+        aria-label={txt('screens.prepScreen.chooseYourPartyThree')}
       >
         {cards.map((c) => {
           const def = CONTENT.heroes.find((h) => h.id === c.heroId)!;
@@ -611,7 +626,7 @@ function PartyPicker({
               key={c.heroId}
               type="button"
               aria-pressed={c.selected}
-              aria-label={`${c.name}, ${ROLE_LABEL[c.role]}${c.key ? `: key ${c.keyLabel}` : c.full ? ': drop a hero first' : ''}`}
+              aria-label={`${c.name}, ${ROLE_LABEL[c.role]}${c.key ? txt('screens.prepScreen.key', { keyLabel: c.keyLabel }) : c.full ? txt('screens.prepScreen.dropAHeroFirst') : ''}`}
               onClick={() => onToggle(c.heroId)}
               className={`flex flex-col items-center gap-1.5 rounded-xl border-2 px-2 py-3 text-center transition-colors ${c.selected ? 'bg-ink-800' : 'bg-ink-900/60 opacity-70 hover:opacity-100'} ${c.full ? 'cursor-not-allowed' : ''}`}
               style={{ borderColor: c.selected ? def.color : 'var(--color-ink-600)' }}
@@ -626,7 +641,9 @@ function PartyPicker({
                 <KeyCap label={c.keyLabel ?? String(c.key)} accent />
               ) : (
                 <span className="text-xs text-muted">
-                  {c.full ? 'Drop one first' : 'Not chosen'}
+                  {c.full
+                    ? txt('screens.prepScreen.dropOneFirst')
+                    : txt('screens.prepScreen.notChosen')}
                 </span>
               )}
             </button>
@@ -678,9 +695,16 @@ function HeroCard({ heroId, bond }: { heroId: string; bond?: RunBond }) {
           <div className="mt-1 flex flex-wrap gap-1.5">
             <Chip color={def.color}>{ROLE_LABEL[def.role]}</Chip>
             <Chip>
-              <Icon name="heart" size={12} /> {def.maxHp.toLocaleString('en-US')} life
+              <Icon name="heart" size={12} />{' '}
+              {txt('screens.prepScreen.life', {
+                toLocaleString: def.maxHp.toLocaleString('en-US'),
+              })}
             </Chip>
-            {def.armor > 0 && <Chip icon="ward">{Math.round(def.armor * 100)}% armour</Chip>}
+            {def.armor > 0 && (
+              <Chip icon="ward">
+                {txt('screens.prepScreen.armour', { round: Math.round(def.armor * 100) })}
+              </Chip>
+            )}
           </div>
         </div>
       </div>
@@ -689,7 +713,9 @@ function HeroCard({ heroId, bond }: { heroId: string; bond?: RunBond }) {
           <div key={a.id} className="rounded-lg bg-ink-900/60 px-3 py-2">
             <dt className="font-semibold text-text">
               {a.name}{' '}
-              <span className="font-mono text-xs font-normal text-muted">{a.cooldown}s</span>
+              <span className="font-mono text-xs font-normal text-muted">
+                {txt('screens.prepScreen.s', { cooldown: a.cooldown })}
+              </span>
             </dt>
             <dd className="text-xs leading-relaxed text-muted">{a.description}</dd>
           </div>
@@ -700,9 +726,11 @@ function HeroCard({ heroId, bond }: { heroId: string; bond?: RunBond }) {
           data-solo={solo.id}
         >
           <dt className="flex items-center gap-1.5 font-semibold text-gold-200">
-            <Icon name="note" size={14} /> Solo · {solo.name}
+            <Icon name="note" size={14} /> {txt('screens.prepScreen.solo', { name: solo.name })}
             {solo.alt && (
-              <span className="text-xs font-normal text-muted">(alternate, from their Bond)</span>
+              <span className="text-xs font-normal text-muted">
+                {txt('screens.prepScreen.alternateFromTheirBond')}
+              </span>
             )}
           </dt>
           <dd className="text-xs leading-relaxed text-muted">
@@ -716,13 +744,16 @@ function HeroCard({ heroId, bond }: { heroId: string; bond?: RunBond }) {
             data-talent={t.id}
           >
             <dt className="flex items-center gap-1.5 font-semibold text-text">
-              <Icon name="talent" size={14} className="text-muted" /> Talent {t.numeral} · {t.name}
+              <Icon name="talent" size={14} className="text-muted" />{' '}
+              {txt('screens.prepScreen.talent', { numeral: t.numeral, name: t.name })}
             </dt>
             <dd className="text-xs leading-relaxed text-muted">{t.text}</dd>
           </div>
         ))}
         <div className="rounded-lg bg-ink-900/60 px-3 py-2 sm:col-span-2">
-          <dt className="font-semibold text-text">Quirk · {def.quirk.name}</dt>
+          <dt className="font-semibold text-text">
+            {txt('screens.prepScreen.quirk', { name: def.quirk.name })}
+          </dt>
           <dd className="text-xs leading-relaxed text-muted">{def.quirk.description}</dd>
         </div>
         {passive && (
@@ -731,8 +762,8 @@ function HeroCard({ heroId, bond }: { heroId: string; bond?: RunBond }) {
             data-testid={`prep-passive-${heroId}`}
           >
             <dt className="flex items-center gap-1.5 font-semibold text-text">
-              <Icon name={passiveIcon(def)} size={14} className="text-muted" /> Passive ·{' '}
-              {passive.name}
+              <Icon name={passiveIcon(def)} size={14} className="text-muted" />{' '}
+              {txt('screens.prepScreen.passive', { name: passive.name })}
             </dt>
             <dd className="text-xs leading-relaxed text-muted">{passive.text}</dd>
           </div>
@@ -743,7 +774,8 @@ function HeroCard({ heroId, bond }: { heroId: string; bond?: RunBond }) {
             data-testid={`prep-summons-${heroId}`}
           >
             <dt className="flex items-center gap-1.5 font-semibold text-text">
-              <Icon name="leaf" size={14} className="text-muted" /> Saplings
+              <Icon name="leaf" size={14} className="text-muted" />{' '}
+              {txt('screens.prepScreen.saplings')}
             </dt>
             <dd className="text-xs leading-relaxed text-muted">{summons}</dd>
           </div>
@@ -754,7 +786,8 @@ function HeroCard({ heroId, bond }: { heroId: string; bond?: RunBond }) {
             data-testid={`prep-needs-${heroId}`}
           >
             <dt className="flex items-center gap-1.5 font-semibold text-text">
-              <Icon name="heart" size={14} className="text-muted" /> Needs
+              <Icon name="heart" size={14} className="text-muted" />{' '}
+              {txt('screens.prepScreen.needs')}
             </dt>
             <dd className="text-xs leading-relaxed text-muted">{needs}</dd>
           </div>

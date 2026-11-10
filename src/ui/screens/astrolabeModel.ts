@@ -20,6 +20,7 @@ import {
 import type { Passive } from '../../sim';
 import { CONSTELLATIONS, isConstellation, type Constellation } from '../kit/astrolabeLook';
 import { plural } from '../kit/format';
+import { t } from '../text';
 
 export type StarKind = AstrolabeNode['kind'];
 
@@ -215,10 +216,16 @@ export function starGlyph(node: Pick<AstrolabeNode, 'effect'>): string {
 }
 
 export const KIND_LABEL: Readonly<Record<StarKind, string>> = {
-  start: 'The centre',
-  travel: 'Travel star',
+  get start() {
+    return t('screens.astrolabeModel.theCentre');
+  },
+  get travel() {
+    return t('screens.astrolabeModel.travelStar');
+  },
   notable: 'Notable',
-  great: 'Great notable',
+  get great() {
+    return t('screens.astrolabeModel.greatNotable');
+  },
   keystone: 'Keystone',
 };
 
@@ -341,8 +348,8 @@ export function pointsLine(spent: number, points: number): string {
 
 /** "3 points to spend", "Every point spent", "4 points over". */
 export function spendLine(left: number): string {
-  if (left > 0) return `${pointsWord(left)} to spend`;
-  if (left === 0) return 'Every point spent';
+  if (left > 0) return t('screens.astrolabeModel.toSpend', { pointsWord: pointsWord(left) });
+  if (left === 0) return t('screens.astrolabeModel.everyPointSpent');
   return `${pointsWord(-left)} over`;
 }
 
@@ -352,7 +359,10 @@ export function namesLine(ids: readonly string[], max = 2): string {
   // Travel stars share names ("Blood"): say each once.
   const unique = [...new Set(names)];
   if (unique.length <= max) return unique.join(' and ');
-  return `${unique.slice(0, max - 1).join(', ')} and ${unique.length - max + 1} more`;
+  return t('screens.astrolabeModel.andMore', {
+    unique: unique.slice(0, max - 1).join(', '),
+    value: unique.length - max + 1,
+  });
 }
 
 /** What pointing at a star says it would do, in a line. */
@@ -360,19 +370,29 @@ export function previewLine(p: StarPreview): string {
   const node = astrolabeNode(p.id);
   switch (p.action) {
     case 'centre':
-      return 'The Weaver’s Star: every path begins here, and it’s always yours.';
+      return t('screens.astrolabeModel.theWeaverSStar');
     case 'take':
       return p.cost === 1
-        ? `Take it: ${pointsWord(1)}.`
-        : `Take it and the ${p.cost - 1} on the way: ${pointsWord(p.cost)}.`;
+        ? t('screens.astrolabeModel.takeIt', { pointsWord: pointsWord(1) })
+        : t('screens.astrolabeModel.takeItAndThe', {
+            value: p.cost - 1,
+            pointsWord: pointsWord(p.cost),
+          });
     case 'short':
       return p.left < 0
-        ? `Your tree already holds more than your ${pointsWord(p.points)}: give some back first.`
-        : `Not enough points: ${node.name} takes ${pointsWord(p.cost)}, you have ${pointsWord(p.left)} left.`;
+        ? t('screens.astrolabeModel.yourTreeAlreadyHolds', { pointsWord: pointsWord(p.points) })
+        : t('screens.astrolabeModel.notEnoughPointsTakes', {
+            name: node.name,
+            pointsWord: pointsWord(p.cost),
+            pointsWord2: pointsWord(p.left),
+          });
     case 'mine':
-      return 'Yours. Give it back for a point (right-click, or Delete).';
+      return t('screens.astrolabeModel.yoursGiveItBack');
     case 'held':
-      return `Yours. Something you’ve taken hangs on it: ${namesLine(p.hangs)}. Give ${p.hangs.length === 1 ? 'that' : 'those'} back first.`;
+      return t('screens.astrolabeModel.yoursSomethingYouVe', {
+        namesLine: namesLine(p.hangs),
+        value: p.hangs.length === 1 ? 'that' : 'those',
+      });
   }
 }
 
@@ -392,13 +412,13 @@ export function firstNotableLine(): string {
   if (costs.length === 0) return '';
   const least = Math.min(...costs);
   return costs.every((c) => c === least)
-    ? `Every constellation’s first notable is ${pointsWord(least)} from the centre.`
-    : `The nearest notable is ${pointsWord(least)} from the centre.`;
+    ? t('screens.astrolabeModel.everyConstellationSFirst', { pointsWord: pointsWord(least) })
+    : t('screens.astrolabeModel.theNearestNotableIs', { pointsWord: pointsWord(least) });
 }
 
 /** "Your tree holds 19 points; your Rank and Deeds give 11. Embarking keeps the nearest 11…" */
 export function overBudgetLine(held: number, points: number): string {
-  return `Your tree holds ${pointsWord(held)}, and your Rank and Deeds give ${points}: Skip the unlocks is off. Embarking keeps the ${points} nearest the centre. Give some back to choose which.`;
+  return t('screens.astrolabeModel.yourTreeHoldsAnd', { pointsWord: pointsWord(held), points });
 }
 
 /** The accessible name of a star on the map. */
@@ -414,8 +434,8 @@ export function starLabel(node: AstrolabeNode, state: StarState, p: StarPreview 
       : state === 'owned'
         ? 'Taken. '
         : state === 'takeable'
-          ? 'Can be taken. '
-          : 'Out of reach for now. ';
+          ? t('screens.astrolabeModel.canBeTaken')
+          : t('screens.astrolabeModel.outOfReachFor');
   return `${node.name}. ${what}${astrolabeText(node)}. ${status}${p ? previewLine(p) : ''}`.trim();
 }
 
@@ -495,25 +515,77 @@ export type StatKey =
 
 /** Each stat: the constellation it's shown under, and how it reads with its total. */
 const STATS: readonly { key: StatKey; group: Constellation; text: (v: string) => string }[] = [
-  { key: 'mend', group: 'silk', text: (v) => `Mend +${v}%` },
-  { key: 'empower', group: 'silk', text: (v) => `Empower +${v}%` },
-  { key: 'reach', group: 'silk', text: (v) => `The Thread reaches ${v} m farther` },
-  { key: 'life', group: 'silk', text: (v) => `Your Life +${v}%` },
-  { key: 'aura', group: 'choir', text: (v) => `Aura effect +${v}%` },
-  { key: 'reserve', group: 'choir', text: (v) => `Songs reserve ${v}% less` },
-  { key: 'field', group: 'choir', text: (v) => `Your field is ${v}% wider` },
-  { key: 'ward', group: 'aegis', text: (v) => `Ward barrier +${v}%` },
-  { key: 'wardRecovery', group: 'aegis', text: (v) => `Ward recovers ${v} s faster` },
-  { key: 'perfect', group: 'aegis', text: (v) => `Perfect Wards ${v} s more forgiving` },
-  { key: 'techCost', group: 'aegis', text: (v) => `Techniques cost ${v}% less` },
-  { key: 'techCooldown', group: 'aegis', text: (v) => `Techniques recover ${v}% faster` },
-  { key: 'spiritRegen', group: 'aegis', text: (v) => `Spirit regenerates ${v}% faster` },
-  { key: 'heroLife', group: 'bond', text: (v) => `Heroes +${v}% life` },
-  { key: 'heroDamage', group: 'bond', text: (v) => `Heroes deal ${v}% more damage` },
-  { key: 'bleedOut', group: 'bond', text: (v) => `Downed heroes bleed out ${v}% slower` },
-  { key: 'revive', group: 'bond', text: (v) => `Mend revives ${v}% faster` },
-  { key: 'soloCharge', group: 'bond', text: (v) => `Solos charge ${v}% faster` },
-  { key: 'cuedSolo', group: 'bond', text: (v) => `Cued Solos last ${v}% longer` },
+  { key: 'mend', group: 'silk', text: (v) => t('screens.astrolabeModel.mend', { v }) },
+  { key: 'empower', group: 'silk', text: (v) => t('screens.astrolabeModel.empower', { v }) },
+  {
+    key: 'reach',
+    group: 'silk',
+    text: (v) => t('screens.astrolabeModel.theThreadReachesM', { v }),
+  },
+  { key: 'life', group: 'silk', text: (v) => t('screens.astrolabeModel.yourLife', { v }) },
+  { key: 'aura', group: 'choir', text: (v) => t('screens.astrolabeModel.auraEffect', { v }) },
+  {
+    key: 'reserve',
+    group: 'choir',
+    text: (v) => t('screens.astrolabeModel.songsReserveLess', { v }),
+  },
+  {
+    key: 'field',
+    group: 'choir',
+    text: (v) => t('screens.astrolabeModel.yourFieldIsWider', { v }),
+  },
+  { key: 'ward', group: 'aegis', text: (v) => t('screens.astrolabeModel.wardBarrier', { v }) },
+  {
+    key: 'wardRecovery',
+    group: 'aegis',
+    text: (v) => t('screens.astrolabeModel.wardRecoversSFaster', { v }),
+  },
+  {
+    key: 'perfect',
+    group: 'aegis',
+    text: (v) => t('screens.astrolabeModel.perfectWardsSMore', { v }),
+  },
+  {
+    key: 'techCost',
+    group: 'aegis',
+    text: (v) => t('screens.astrolabeModel.techniquesCostLess', { v }),
+  },
+  {
+    key: 'techCooldown',
+    group: 'aegis',
+    text: (v) => t('screens.astrolabeModel.techniquesRecoverFaster', { v }),
+  },
+  {
+    key: 'spiritRegen',
+    group: 'aegis',
+    text: (v) => t('screens.astrolabeModel.spiritRegeneratesFaster', { v }),
+  },
+  { key: 'heroLife', group: 'bond', text: (v) => t('screens.astrolabeModel.heroesLife', { v }) },
+  {
+    key: 'heroDamage',
+    group: 'bond',
+    text: (v) => t('screens.astrolabeModel.heroesDealMoreDamage', { v }),
+  },
+  {
+    key: 'bleedOut',
+    group: 'bond',
+    text: (v) => t('screens.astrolabeModel.downedHeroesBleedOut', { v }),
+  },
+  {
+    key: 'revive',
+    group: 'bond',
+    text: (v) => t('screens.astrolabeModel.mendRevivesFaster', { v }),
+  },
+  {
+    key: 'soloCharge',
+    group: 'bond',
+    text: (v) => t('screens.astrolabeModel.solosChargeFaster', { v }),
+  },
+  {
+    key: 'cuedSolo',
+    group: 'bond',
+    text: (v) => t('screens.astrolabeModel.cuedSolosLastLonger', { v }),
+  },
 ];
 
 /**
@@ -671,10 +743,14 @@ export function litIn(tree: readonly string[], c: Constellation): number {
 export function rankAstrolabeLine(rank: number, deeds = 0): string | null {
   if (rank < ASTROLABE_RANK) return null;
   const points = astrolabePoints(rank, false, deeds);
-  if (rank === ASTROLABE_RANK) return `It opens with ${pointsWord(points)} to spend.`;
+  if (rank === ASTROLABE_RANK)
+    return t('screens.astrolabeModel.itOpensWithTo', { pointsWord: pointsWord(points) });
   const gain = points - astrolabePoints(rank - 1, false, deeds);
   if (gain <= 0) return null;
-  return `+${pointsWord(gain).replace(' point', ' Astrolabe point')} (${points} in all).`;
+  return t('screens.astrolabeModel.inAll', {
+    replace: pointsWord(gain).replace(' point', ' Astrolabe point'),
+    points,
+  });
 }
 
 /** The Astrolabe is open: the Rank reached it, or Settings → Skip the unlocks. */

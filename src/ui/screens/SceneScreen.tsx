@@ -15,6 +15,7 @@ import { playUi, useMood } from '../kit/sound';
 import { BONDS_CSS, BondGlyph, HeroPortrait } from './BondsParts';
 import { sceneXpLine } from './bondsModel';
 import { SceneBody } from './SceneParts';
+import { t } from '../text';
 
 export interface SceneViewProps {
   run: RunState;
@@ -74,8 +75,8 @@ export function SceneView({ run, onEnd, rank, initialReply = null }: SceneViewPr
           <HeroPortrait heroId={scene.hero} size={92} rank={rank ?? null} lit />
           <div className="min-w-0">
             <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.3em] text-muted">
-              <Icon name="scene" size={14} style={{ color: BOND_LOOK.color }} /> Respite · by the
-              fire
+              <Icon name="scene" size={14} style={{ color: BOND_LOOK.color }} />{' '}
+              {t('screens.sceneScreen.respiteByTheFire')}
             </p>
             <h1 className="mt-1 font-display text-3xl font-bold tracking-wide text-gold-300 sm:text-4xl">
               {scene.title}
@@ -90,7 +91,11 @@ export function SceneView({ run, onEnd, rank, initialReply = null }: SceneViewPr
         </Panel>
         <div className="mt-5 min-h-[3.5rem]" aria-live="polite">
           {reply === null ? (
-            <div className="flex flex-col gap-2 sm:flex-row" role="group" aria-label="Your reply">
+            <div
+              className="flex flex-col gap-2 sm:flex-row"
+              role="group"
+              aria-label={t('screens.sceneScreen.yourReply')}
+            >
               {scene.replies.map((r, i) => (
                 <Button
                   key={i}
@@ -130,7 +135,8 @@ export function SceneView({ run, onEnd, rank, initialReply = null }: SceneViewPr
                 autoFocus
                 data-testid="scene-continue"
               >
-                Continue <KeyCap label="Enter" />
+                {t('screens.sceneScreen.continue')}{' '}
+                <KeyCap label={t('screens.sceneScreen.enter')} />
               </Button>
             </div>
           )}

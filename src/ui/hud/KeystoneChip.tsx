@@ -3,6 +3,7 @@ import { KeystoneBadge } from '../kit/AstrolabeGlyph';
 import { Tip } from '../kit/Tip';
 import { starGlyph } from '../screens/astrolabeModel';
 import { KeystoneTip } from '../screens/AstrolabeParts';
+import { t } from '../text';
 
 /**
  * The Astrolabe's keystones in the fight (Phase 4): one badge each, beside the Calling chip,
@@ -16,7 +17,7 @@ export function KeystoneChip({ keystones }: { keystones: readonly string[] }) {
     <div
       className="pointer-events-auto flex items-center gap-1 rounded-xl border border-ink-600/70 bg-ink-900/80 p-1 shadow-lg shadow-black/40 backdrop-blur-sm"
       role="group"
-      aria-label={`Keystones: ${nodes.map((n) => n.name).join(', ')}`}
+      aria-label={t('hud.keystoneChip.keystones', { map: nodes.map((n) => n.name).join(', ') })}
       data-testid="keystone-chip"
     >
       {nodes.map((n) => (

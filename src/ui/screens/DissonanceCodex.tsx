@@ -24,6 +24,7 @@ import {
   tearRules,
   tierName,
 } from './dissonanceModel';
+import { t as txt } from '../text';
 
 const DISCORD = DISCORD_LOOK.color;
 
@@ -51,15 +52,20 @@ export function DissonanceCodexPage({
       <Panel tone="solid" className="border-dashed p-6" data-testid="codex-dissonance-locked">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <h2 className="flex items-center gap-2 font-display text-2xl font-bold text-gold-200">
-            <Icon name={DISCORD_LOOK.icon} size={26} /> Dissonance
+            <Icon name={DISCORD_LOOK.icon} size={26} /> {txt('screens.dissonanceCodex.dissonance')}
           </h2>
-          <Chip icon="lock">A Finale clear at Rank {rules.openRank}</Chip>
+          <Chip icon="lock">
+            {txt('screens.dissonanceCodex.aFinaleClearAt', { openRank: rules.openRank })}
+          </Chip>
         </div>
         <p className="mt-3 max-w-3xl text-sm leading-relaxed text-text">{unlock?.text}</p>
         <p className="mt-3 flex items-start gap-1.5 text-sm text-muted">
           <Icon name="lock" size={14} className="mt-0.5 shrink-0" />
           <span>
-            {lines.lead} Its rules wait here until then. {lines.skip}
+            {txt('screens.dissonanceCodex.itsRulesWaitHere', {
+              lead: lines.lead,
+              skip: lines.skip,
+            })}
           </span>
         </p>
       </Panel>
@@ -84,29 +90,33 @@ export function DissonanceCodexPage({
             className="flex items-center gap-3 font-display text-xl font-bold"
             style={{ color: DISCORD }}
           >
-            <DiscordDisc size={36} /> Dissonance
+            <DiscordDisc size={36} /> {txt('screens.dissonanceCodex.dissonance')}
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-text">
-            The endgame’s difficulty. {dissonanceBlurb()}
+            {txt('screens.dissonanceCodex.theEndgameSDifficulty', {
+              dissonanceBlurb: dissonanceBlurb(),
+            })}
           </p>
           <p className="mt-2 text-sm leading-relaxed text-text">
-            <b>Choosing.</b> In Prep, turn levels on; some have ranks, each worth its points again.
-            Their points add up to the run’s Dissonance, at most {max}. Prep remembers your last
-            choice, and embarking keeps it for the whole run: changing it later is for the next.
+            <b>{txt('screens.dissonanceCodex.choosing')}</b>{' '}
+            {txt('screens.dissonanceCodex.inPrepTurnLevels', { max })}
           </p>
           <p className="mt-2 text-sm leading-relaxed text-text">
-            <b>Opening.</b> Your first Finale clear at Weaver Rank {rules.openRank} or above opens
-            it, with a card at the run’s Summary; a Finale cleared sooner opens it on reaching that
-            Rank. Settings → Skip the unlocks opens it too.
+            <b>{txt('screens.dissonanceCodex.opening')}</b>{' '}
+            {txt('screens.dissonanceCodex.yourFirstFinaleClear', { openRank: rules.openRank })}
           </p>
           <p className="mt-2 text-sm leading-relaxed text-text">
-            <b>Relics remember.</b> A relic enshrined from a run keeps that run’s points as its{' '}
-            <b>depth</b>: {bandsSentence()}. Relics enshrined before Dissonance have depth 0.
+            <b>{txt('screens.dissonanceCodex.relicsRemember')}</b>{' '}
+            {txt('screens.dissonanceCodex.aRelicEnshrinedFrom')}
+            <b>{txt('screens.dissonanceCodex.depth')}</b>
+            {txt('screens.dissonanceCodex.relicsEnshrinedBeforeDissonance', {
+              bandsSentence: bandsSentence(),
+            })}
           </p>
         </Panel>
         <Panel tone="solid" className="p-4" data-testid="codex-dissonance-records">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted">
-            Your best, by Calling
+            {txt('screens.dissonanceCodex.yourBestByCalling')}
           </p>
           <ul className="mt-2 flex flex-col gap-1.5 text-sm">
             {records.map((r) => (
@@ -127,28 +137,38 @@ export function DissonanceCodexPage({
             ))}
           </ul>
           <p className="mt-2 text-xs leading-snug text-muted">
-            The highest Dissonance you’ve won a run at. A new best is marked at the Summary.
+            {txt('screens.dissonanceCodex.theHighestDissonanceYou')}
           </p>
         </Panel>
       </div>
 
       <Panel tone="solid" className="p-5" data-testid="codex-dissonance-levels">
         <h3 className="font-display text-lg font-bold" style={{ color: DISCORD }}>
-          The levels
+          {txt('screens.dissonanceCodex.theLevels')}
         </h3>
         <p className="mt-1 text-sm text-muted">
-          {rows.length} levels, {pointsText(max)} in all. Most are numbers in the fight; some change
-          who you fight, the run, or only what you see.
+          {txt('screens.dissonanceCodex.levelsInAllMost', {
+            length: rows.length,
+            pointsText: pointsText(max),
+          })}
         </p>
         <div className="mt-3 overflow-x-auto">
           <table className="w-full min-w-[44rem] text-left text-sm">
             <thead className="text-xs uppercase tracking-wider text-muted">
               <tr>
-                <th className="py-1 pr-3 font-semibold">Level</th>
-                <th className="py-1 pr-3 font-semibold">What it does</th>
-                <th className="py-1 pr-3 text-right font-semibold">Ranks</th>
-                <th className="py-1 pr-3 text-right font-semibold">Points</th>
-                <th className="py-1 text-right font-semibold">At most</th>
+                <th className="py-1 pr-3 font-semibold">{txt('screens.dissonanceCodex.level')}</th>
+                <th className="py-1 pr-3 font-semibold">
+                  {txt('screens.dissonanceCodex.whatItDoes')}
+                </th>
+                <th className="py-1 pr-3 text-right font-semibold">
+                  {txt('screens.dissonanceCodex.ranks')}
+                </th>
+                <th className="py-1 pr-3 text-right font-semibold">
+                  {txt('screens.dissonanceCodex.points')}
+                </th>
+                <th className="py-1 text-right font-semibold">
+                  {txt('screens.dissonanceCodex.atMost')}
+                </th>
               </tr>
             </thead>
             <tbody className="align-top">
@@ -169,7 +189,9 @@ export function DissonanceCodexPage({
                   <td className="py-1.5 pr-3 text-right font-mono text-text">{r.ranks}</td>
                   <td className="py-1.5 pr-3 text-right font-mono text-text">
                     {r.points}
-                    {r.ranks > 1 && <span className="text-muted"> each</span>}
+                    {r.ranks > 1 && (
+                      <span className="text-muted"> {txt('screens.dissonanceCodex.each')}</span>
+                    )}
                   </td>
                   <td className="py-1.5 text-right font-mono" style={{ color: DISCORD }}>
                     {r.points * r.ranks}
@@ -183,7 +205,7 @@ export function DissonanceCodexPage({
           <p className="mt-3 flex items-start gap-1.5 text-xs text-muted" data-testid="codex-later">
             <Icon name="hourglass" size={13} className="mt-px shrink-0" />
             <span>
-              Still to come, with new bosses and affixes:{' '}
+              {txt('screens.dissonanceCodex.stillToComeWith')}
               {later.map((l, i) => (
                 <span key={l.name}>
                   {i > 0 && (i === later.length - 1 ? ' and ' : ', ')}
@@ -198,13 +220,15 @@ export function DissonanceCodexPage({
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel tone="solid" className="p-5" data-testid="codex-dissonance-rewards">
-          <h3 className="font-display text-lg font-bold text-gold-300">What it pays</h3>
+          <h3 className="font-display text-lg font-bold text-gold-300">
+            {txt('screens.dissonanceCodex.whatItPays')}
+          </h3>
           <ul className="mt-2 flex flex-col gap-1.5 text-sm">
             <li className="flex items-center gap-2">
               <Icon name="star" size={15} solid className="shrink-0 text-gold-300" />
               <span>
                 <b className="font-mono text-text">+{rules.xpPerPoint}%</b>{' '}
-                <span className="text-muted">Weaver XP for each point, on every fight.</span>
+                <span className="text-muted">{txt('screens.dissonanceCodex.weaverXpForEach')}</span>
               </span>
             </li>
             <li className="flex items-center gap-2">
@@ -216,7 +240,9 @@ export function DissonanceCodexPage({
               />
               <span>
                 <b className="font-mono text-text">+{rules.shardsPerPoint}%</b>{' '}
-                <span className="text-muted">Tuning Shards for each point, at the run’s end.</span>
+                <span className="text-muted">
+                  {txt('screens.dissonanceCodex.tuningShardsForEach')}
+                </span>
               </span>
             </li>
             {tearRules(Infinity).map((t) => (
@@ -234,10 +260,14 @@ export function DissonanceCodexPage({
           <table className="mt-3 w-full text-left text-sm" data-testid="codex-dissonance-totals">
             <thead className="text-xs uppercase tracking-wider text-muted">
               <tr>
-                <th className="py-1 pr-3 font-semibold">At</th>
-                <th className="py-1 pr-3 font-semibold">Weaver XP</th>
-                <th className="py-1 pr-3 font-semibold">Tuning Shards</th>
-                <th className="py-1 font-semibold">Relics reach</th>
+                <th className="py-1 pr-3 font-semibold">{txt('screens.dissonanceCodex.at')}</th>
+                <th className="py-1 pr-3 font-semibold">
+                  {txt('screens.dissonanceCodex.weaverXp')}
+                </th>
+                <th className="py-1 pr-3 font-semibold">
+                  {txt('screens.dissonanceCodex.tuningShards')}
+                </th>
+                <th className="py-1 font-semibold">{txt('screens.dissonanceCodex.relicsReach')}</th>
               </tr>
             </thead>
             <tbody>
@@ -264,19 +294,24 @@ export function DissonanceCodexPage({
         </Panel>
         <Panel tone="solid" className="p-5" data-testid="codex-dissonance-bands">
           <h3 className="font-display text-lg font-bold text-gold-300">
-            How deep: the relics’ bands
+            {txt('screens.dissonanceCodex.howDeepTheRelics')}
           </h3>
           <p className="mt-1 text-sm text-muted">
-            A relic’s depth sets how far crafting takes it. Ascend’s odds, costs and Instability
-            don’t change: reaching {tierName(1)} is still a gamble.
+            {txt('screens.dissonanceCodex.aRelicSDepth', { tierName: tierName(1) })}
           </p>
           <table className="mt-3 w-full text-left text-sm">
             <thead className="text-xs uppercase tracking-wider text-muted">
               <tr>
-                <th className="py-1 pr-3 font-semibold">Depth</th>
-                <th className="py-1 pr-3 font-semibold">Ascend reaches</th>
-                <th className="py-1 pr-3 font-semibold">Inscribe rolls T5 / T4 / T3 / T2 / T1</th>
-                <th className="py-1 font-semibold">Cursed raises to</th>
+                <th className="py-1 pr-3 font-semibold">{txt('screens.dissonanceCodex.depth2')}</th>
+                <th className="py-1 pr-3 font-semibold">
+                  {txt('screens.dissonanceCodex.ascendReaches')}
+                </th>
+                <th className="py-1 pr-3 font-semibold">
+                  {txt('screens.dissonanceCodex.inscribeRollsT5T4')}
+                </th>
+                <th className="py-1 font-semibold">
+                  {txt('screens.dissonanceCodex.cursedRaisesTo')}
+                </th>
               </tr>
             </thead>
             <tbody>

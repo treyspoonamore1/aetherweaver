@@ -18,6 +18,7 @@ import {
 import type { MapNode, RunState } from '../../meta/types';
 import type { IconName } from '../kit/iconPaths';
 import type { BackdropTone } from '../kit/backdropTone';
+import { t } from '../text';
 
 export type Route = 'prelude' | 'expedition';
 
@@ -36,7 +37,9 @@ export function routeOf(run: Partial<Pick<RunState, 'movements'>>): Route {
 
 /** "The Prelude" / "The Expedition". */
 export function routeName(run: Partial<Pick<RunState, 'movements'>>): string {
-  return routeOf(run) === 'expedition' ? 'The Expedition' : 'The Prelude';
+  return routeOf(run) === 'expedition'
+    ? t('screens.routeText.theExpedition')
+    : t('screens.routeText.thePrelude');
 }
 
 const NUMERALS = ['I', 'II', 'III', 'IV', 'V'];
@@ -95,7 +98,9 @@ function legCount(run: Partial<Pick<RunState, 'echo' | 'movements'>>): number {
 /** "Retrograde · leg 2 of 3", or the Echo's name alone for an Echo of one leg. */
 function echoLegLabel(run: Partial<Pick<RunState, 'echo' | 'movements'>>, n: number): string {
   const legs = legCount(run);
-  return legs > 1 ? `${echoName(run)} · leg ${n} of ${legs}` : echoName(run)!;
+  return legs > 1
+    ? t('screens.routeText.legOf', { echoName: echoName(run), n, legs })
+    : echoName(run)!;
 }
 
 /**
@@ -143,18 +148,18 @@ export function mapHeader(run: MapRun & Partial<Pick<RunState, 'movements' | 'ec
   // Phase 6: an Echo names itself and its leg; the title is the road the leg is built over.
   if (run.echo !== undefined)
     return {
-      eyebrow: `${echoLegLabel(run, m)} · step ${step} of ${of}`,
+      eyebrow: t('screens.routeText.stepOf', { echoLegLabel: echoLegLabel(run, m), step, of }),
       title: runMovementOf(run, m).mapTitle,
       movement: m,
     };
   if (routeOf(run) === 'prelude')
     return {
-      eyebrow: `The Prelude · Movement I · step ${step} of ${of}`,
+      eyebrow: t('screens.routeText.thePreludeMovementI', { step, of }),
       title: def.mapTitle,
       movement: m,
     };
   return {
-    eyebrow: `${movementTitle(m)} · step ${step} of ${of}`,
+    eyebrow: t('screens.routeText.stepOf2', { movementTitle: movementTitle(m), step, of }),
     title: def.mapTitle,
     movement: m,
   };
@@ -175,7 +180,12 @@ export function movementCard(n: number, movements?: number): { title: string; te
   const boss = encounterDef(def.boss).name;
   return {
     title: movementTitle(n),
-    text: `${def.mapTitle}: ${rows} ${rows === 1 ? 'stop' : 'stops'} to ${def.label ? inSentence(boss) : boss}.`,
+    text: t('screens.routeText.to', {
+      mapTitle: def.mapTitle,
+      rows,
+      value: rows === 1 ? 'stop' : 'stops',
+      value2: def.label ? inSentence(boss) : boss,
+    }),
   };
 }
 
@@ -185,7 +195,9 @@ export function movementCard(n: number, movements?: number): { title: string; te
  * ending".
  */
 const MOVEMENT_LORE: Readonly<Partial<Record<Biome, string>>> = {
-  celestial_crucible: 'Above the Rift the sky rings like a struck bell. Someone is conducting it.',
+  get celestial_crucible() {
+    return t('screens.routeText.aboveTheRiftThe');
+  },
 };
 
 /** Movement `n`'s narrative line on its card, or null. */
@@ -205,10 +217,18 @@ const BIOME_TONE: Readonly<Record<Biome, BackdropTone | undefined>> = {
 
 /** Each biome as a place, mid-sentence ("the Abyssal Rift"), as the meta's Vharun node says it. */
 const BIOME_PLACE: Readonly<Record<Biome, string>> = {
-  reliquary: 'the Reliquary',
-  crimson_spire: 'the Crimson Spire',
-  abyssal_rift: 'the Abyssal Rift',
-  celestial_crucible: 'the Celestial Crucible',
+  get reliquary() {
+    return t('screens.routeText.theReliquary');
+  },
+  get crimson_spire() {
+    return t('screens.routeText.theCrimsonSpire');
+  },
+  get abyssal_rift() {
+    return t('screens.routeText.theAbyssalRift');
+  },
+  get celestial_crucible() {
+    return t('screens.routeText.theCelestialCrucible');
+  },
 };
 
 /** Movement `n`'s biome as a place, mid-sentence: "the Abyssal Rift". */
@@ -235,23 +255,31 @@ const CARD_LOOK: Readonly<Record<Biome, MovementCardLook>> = {
   reliquary: {
     eyebrow: 'text-gold-200/80',
     glow: '0 0 36px rgb(245 184 61 / 0.45), 0 3px 0 rgb(0 0 0 / 0.55)',
-    button: 'Climb on',
+    get button() {
+      return t('screens.routeText.climbOn');
+    },
   },
   crimson_spire: {
     eyebrow: 'text-rose-200/80',
     glow: '0 0 36px rgb(168 46 52 / 0.6), 0 3px 0 rgb(0 0 0 / 0.55)',
-    button: 'Climb on',
+    get button() {
+      return t('screens.routeText.climbOn');
+    },
   },
   abyssal_rift: {
     eyebrow: 'text-indigo-200/80',
     glow: '0 0 36px rgb(76 70 170 / 0.65), 0 3px 0 rgb(0 0 0 / 0.55)',
-    button: 'Descend',
+    get button() {
+      return t('screens.routeText.descend');
+    },
   },
   // The Finale (docs/phase-5d.md): white-gold, the rings in the sky; you climb out of the Rift.
   celestial_crucible: {
     eyebrow: 'text-amber-50/85',
     glow: '0 0 40px rgb(255 246 224 / 0.55), 0 0 12px rgb(245 215 142 / 0.4), 0 3px 0 rgb(0 0 0 / 0.6)',
-    button: 'Ascend',
+    get button() {
+      return t('screens.routeText.ascend');
+    },
   },
 };
 
@@ -280,7 +308,12 @@ export function runMovementCard(
   const boss = encounterDef(def.boss).name;
   return {
     title: echoLegLabel(run, n),
-    text: `${def.mapTitle}: ${rows} ${rows === 1 ? 'stop' : 'stops'} to ${boss}.`,
+    text: t('screens.routeText.to2', {
+      mapTitle: def.mapTitle,
+      rows,
+      value: rows === 1 ? 'stop' : 'stops',
+      boss,
+    }),
     look: CARD_LOOK[def.biome] ?? CARD_LOOK.crimson_spire,
     lore: MOVEMENT_LORE[def.biome] ?? null,
   };
@@ -291,13 +324,16 @@ export function combatSubtitle(
   run: Pick<RunState, 'map' | 'path' | 'pending' | 'movements'> & Partial<Pick<RunState, 'echo'>>,
 ): string {
   if (run.echo === undefined && routeOf(run) === 'prelude')
-    return `The Prelude · node ${run.path.length} of ${run.map.rows.length}`;
+    return t('screens.routeText.thePreludeNodeOf', {
+      length: run.path.length,
+      length2: run.map.rows.length,
+    });
   const node = run.pending ? findNode(run as RunState, run.pending) : undefined;
   const m = node?.movement ?? 1;
   const of = movementRows(run, m).length;
   const done = run.path.filter((id) => (findNode(run as RunState, id)?.movement ?? 1) === m);
   const where = run.echo !== undefined ? echoLegLabel(run, m) : movementLabel(m);
-  return `${where} · node ${Math.min(Math.max(done.length, 1), of)} of ${of}`;
+  return t('screens.routeText.nodeOf', { where, min: Math.min(Math.max(done.length, 1), of), of });
 }
 
 /**
@@ -306,12 +342,15 @@ export function combatSubtitle(
  */
 export function prepEyebrow(run: Partial<Pick<RunState, 'movements' | 'echo' | 'weekly'>>): string {
   // Phase 6: an Echo names itself; a weekly names its week.
-  if (run.weekly !== undefined) return `This Week’s Song · Week ${run.weekly.week}`;
+  if (run.weekly !== undefined)
+    return t('screens.routeText.thisWeekSSong', { week: run.weekly.week });
   if (run.echo !== undefined)
-    return `The Atlas of Echoes · ${CONTENT.echoes.find((e) => e.id === run.echo)?.name ?? run.echo}`;
+    return t('screens.routeText.theAtlasOfEchoes', {
+      value: CONTENT.echoes.find((e) => e.id === run.echo)?.name ?? run.echo,
+    });
   const n = run.movements ?? 1;
-  if (n < 2) return 'The Prelude · Movement I';
-  return `The Expedition · ${movementSpan(1, n)}`;
+  if (n < 2) return t('screens.routeText.thePreludeMovementI2');
+  return t('screens.routeText.theExpedition2', { movementSpan: movementSpan(1, n) });
 }
 
 /**
@@ -320,8 +359,10 @@ export function prepEyebrow(run: Partial<Pick<RunState, 'movements' | 'echo' | '
  */
 export function titleEyebrow(expedition: boolean, movements = EXPEDITION_MOVEMENTS): string {
   return expedition
-    ? `${movementSpan(1, Math.max(2, movements))} · The Expedition`
-    : 'Movement I · The Prelude';
+    ? t('screens.routeText.theExpedition3', {
+        movementSpan: movementSpan(1, Math.max(2, movements)),
+      })
+    : t('screens.routeText.movementIThePrelude');
 }
 
 /**
@@ -331,7 +372,7 @@ export function titleEyebrow(expedition: boolean, movements = EXPEDITION_MOVEMEN
  */
 export function expeditionOnward(movements = EXPEDITION_MOVEMENTS): string {
   const n = Math.max(2, movements);
-  return n === 2 ? 'into Movement II' : `through ${movementSpan(2, n)}`;
+  return n === 2 ? t('screens.routeText.intoMovementIi') : `through ${movementSpan(2, n)}`;
 }
 
 /**
@@ -346,8 +387,14 @@ export function expeditionLength(run: Partial<Pick<RunState, 'movements'>>): num
 /** The Route toggle's options: "Prelude · ~15 min", "Expedition · ~40 min". */
 export function routeOptions(): { value: Route; label: string }[] {
   return [
-    { value: 'prelude', label: `Prelude · ~${ROUTE_MINUTES.prelude} min` },
-    { value: 'expedition', label: `Expedition · ~${ROUTE_MINUTES.expedition} min` },
+    {
+      value: 'prelude',
+      label: t('screens.routeText.preludeMin', { prelude: ROUTE_MINUTES.prelude }),
+    },
+    {
+      value: 'expedition',
+      label: t('screens.routeText.expeditionMin', { expedition: ROUTE_MINUTES.expedition }),
+    },
   ];
 }
 
@@ -358,12 +405,20 @@ export function routeOptions(): { value: Route; label: string }[] {
  * then Movement II (…), to …").
  */
 export function routeHint(route: Route, movements = EXPEDITION_MOVEMENTS): string {
-  if (route === 'prelude') return `Movement I alone, to ${encounterDef(movementDef(1).boss).name}.`;
+  if (route === 'prelude')
+    return t('screens.routeText.movementIAloneTo', {
+      name: encounterDef(movementDef(1).boss).name,
+    });
   const n = Math.max(2, Math.min(CONTENT.movements.length, movements));
   const last = CONTENT.movements[n - 1]!;
   const boss = encounterDef(last.boss).name;
-  if (n === 2) return `Movement I, then ${movementLabel(n)} (${last.name}), to ${boss}.`;
-  return `${movementSpan(1, n)}, to ${routeBoss(n)}.`;
+  if (n === 2)
+    return t('screens.routeText.movementIThenTo', {
+      movementLabel: movementLabel(n),
+      name: last.name,
+      boss,
+    });
+  return t('screens.routeText.to3', { movementSpan: movementSpan(1, n), routeBoss: routeBoss(n) });
 }
 
 /** "The Prelude ends here…" (the abandon dialogs; `straight`: the pause menu's wording). */
@@ -371,8 +426,10 @@ export function abandonLine(
   run: Partial<Pick<RunState, 'movements' | 'echo' | 'weekly'>>,
   straight = false,
 ): string {
-  const name = echoName(run) ?? (run.weekly !== undefined ? 'This Week’s Song' : routeName(run));
-  return `${name} ends here and you go ${straight ? 'straight ' : ''}to the summary. This cannot be undone.`;
+  const name =
+    echoName(run) ??
+    (run.weekly !== undefined ? t('screens.routeText.thisWeekSSong2') : routeName(run));
+  return t('screens.routeText.endsHereAndYou', { name, value: straight ? 'straight ' : '' });
 }
 
 /** The run's final stop: a boss with nothing after it (the Prelude's Cantor, an Expedition's last boss). */
@@ -391,11 +448,19 @@ export function movementReached(run: MapRun): number {
 }
 
 const VICTORY: Readonly<Record<string, string>> = {
-  hollow_cantor: 'The Hollow Cantor falls and the Reliquary sings again.',
-  vharun: 'Vharun falls, and the Spire’s banners burn.',
-  the_unweaver: 'The Unweaver falls, and the Rift knits shut.',
+  get hollow_cantor() {
+    return t('screens.routeText.theHollowCantorFalls');
+  },
+  get vharun() {
+    return t('screens.routeText.vharunFallsAndThe');
+  },
+  get the_unweaver() {
+    return t('screens.routeText.theUnweaverFallsAnd');
+  },
   // The Finale (docs/phase-5d.md): the run's last victory line.
-  the_silent_conductor: 'The Silent Conductor lowers its baton, and the song goes on.',
+  get the_silent_conductor() {
+    return t('screens.routeText.theSilentConductorLowers');
+  },
 };
 
 /** The Summary's line under its title: a win names the final boss; a defeat, the Movement reached. */
@@ -405,7 +470,10 @@ export function outcomeSub(
   // Phase 6: an Echo lost names the road its leg was built over.
   if (run.outcome === 'defeat' && run.echo !== undefined) {
     const def = runMovementOf(run, movementReached(run));
-    return `The party is lost on ${echoName(run)}’s road, on ${def.mapTitle.replace(/^The /, 'the ')}, but every note you wove is on record.`;
+    return t('screens.routeText.thePartyIsLost', {
+      echoName: echoName(run),
+      replace: def.mapTitle.replace(/^The /, 'the '),
+    });
   }
   if (run.outcome === 'victory') {
     const id = finalEncounter(run) ?? 'hollow_cantor';
@@ -416,9 +484,12 @@ export function outcomeSub(
     const def = movementOrFirst(m);
     // A labelled Movement mid-sentence: "lost in the Finale, in the Celestial Crucible".
     const where = def.label
-      ? `${inSentence(def.label)}, in ${movementPlace(m)}`
+      ? t('screens.routeText.in', {
+          inSentence: inSentence(def.label),
+          movementPlace: movementPlace(m),
+        })
       : `${movementLabel(m)}, ${inSentence(def.name)}`;
-    return `The party is lost in ${where}, but every note you wove is on record.`;
+    return t('screens.routeText.thePartyIsLost2', { where });
   }
   return null;
 }
@@ -428,10 +499,13 @@ export function summaryEyebrow(
   run: Partial<Pick<RunState, 'movements' | 'echo' | 'weekly'>>,
 ): string {
   // Phase 6: an Echo names itself; a weekly names its week.
-  if (run.weekly !== undefined) return `This Week’s Song · Week ${run.weekly.week} · summary`;
+  if (run.weekly !== undefined)
+    return t('screens.routeText.thisWeekSSong3', { week: run.weekly.week });
   if (run.echo !== undefined)
-    return `${CONTENT.echoes.find((e) => e.id === run.echo)?.name ?? run.echo} · summary`;
-  return `${routeName(run)} · summary`;
+    return t('screens.routeText.summary', {
+      value: CONTENT.echoes.find((e) => e.id === run.echo)?.name ?? run.echo,
+    });
+  return t('screens.routeText.summary2', { routeName: routeName(run) });
 }
 
 /** "Continue · step 4 of 10" (the Loom's Gate); an Expedition's names its Movement. */
@@ -439,15 +513,15 @@ export function gateStep(run: MapRun & Partial<Pick<RunState, 'movements' | 'ech
   if (run.echo !== undefined) {
     const m = mapMovement(run);
     const { step, of } = movementStep(run, m);
-    return `${echoLegLabel(run, m)} · step ${step} of ${of}`;
+    return t('screens.routeText.stepOf', { echoLegLabel: echoLegLabel(run, m), step, of });
   }
   if (routeOf(run) === 'prelude') {
     const steps = run.map.rows.length;
-    return `step ${Math.min(run.path.length + 1, steps)} of ${steps}`;
+    return t('screens.routeText.stepOf3', { min: Math.min(run.path.length + 1, steps), steps });
   }
   const m = mapMovement(run);
   const { step, of } = movementStep(run, m);
-  return `${movementLabel(m)} · step ${step} of ${of}`;
+  return t('screens.routeText.stepOf4', { movementLabel: movementLabel(m), step, of });
 }
 
 // ── What the player has met (Codex, Loom): `profile.seen` ────────────────────────────

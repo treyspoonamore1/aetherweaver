@@ -9,6 +9,7 @@ import { CONTENT, callingDef, callingOption, optionTier } from '../../content';
 import { crescendoName, lowLifeMarks } from '../screens/callingText';
 import type { LifeMarkHud } from '../store';
 import type { CallingState } from '../../sim';
+import { t as txt } from '../text';
 
 /** Which Crescendo the Calling sings: the sim's own (`CallingState.crescendo`). */
 export type CallingCrescendo = CallingState['crescendo'];
@@ -231,25 +232,23 @@ export function bearLabel(share: number): string {
 export function callingHudLabel(c: CallingHud): string {
   const taken = c.tiers.flatMap((t) => (t ? [t.name] : []));
   return [
-    `The ${c.name}${taken.length ? `: ${taken.join(', ')}` : ''}.`,
-    c.sunrise ? `Sunrise: Radiance ×${c.sunriseMult}.` : '',
-    c.haloed ? 'Haloed: heroes in your field take less from ordinary hits.' : '',
-    c.sovereign ? 'Sovereign Symphony: every aura is stronger.' : '',
-    c.vow ? `${c.crescendoName}: your heroes can’t drop below 1 life.` : '',
-    c.bearing ? `Bearing: you take ${bearLabel(c.bearShare)} of your threaded hero’s wounds.` : '',
-    c.undying === 'ready' ? 'Undying Devotion: ready.' : '',
-    c.undying === 'spent' ? 'Undying Devotion: spent this fight.' : '',
-    ...c.lowLife.filter((m) => m.active).map((m) => `${m.name}: on.`),
-    c.stasis
-      ? `${c.crescendoName}: every enemy waits, and your techniques have no cooldowns and cost less.`
-      : '',
+    txt('hud.calling.the', { name: c.name, value: taken.length ? `: ${taken.join(', ')}` : '' }),
+    c.sunrise ? txt('hud.calling.sunriseRadiance', { sunriseMult: c.sunriseMult }) : '',
+    c.haloed ? txt('hud.calling.haloedHeroesInYour') : '',
+    c.sovereign ? txt('hud.calling.sovereignSymphonyEveryAura') : '',
+    c.vow ? txt('hud.calling.yourHeroesCanT', { crescendoName: c.crescendoName }) : '',
+    c.bearing ? txt('hud.calling.bearingYouTakeOf', { bearLabel: bearLabel(c.bearShare) }) : '',
+    c.undying === 'ready' ? txt('hud.calling.undyingDevotionReady') : '',
+    c.undying === 'spent' ? txt('hud.calling.undyingDevotionSpentThis') : '',
+    ...c.lowLife.filter((m) => m.active).map((m) => txt('hud.calling.on', { name: m.name })),
+    c.stasis ? txt('hud.calling.everyEnemyWaitsAnd', { crescendoName: c.crescendoName }) : '',
     c.mastery
       ? c.mastery.ready
-        ? 'Temporal Mastery: ready, your next Glide brings back your last technique.'
-        : `Temporal Mastery: back in ${Math.ceil(c.mastery.remaining)} s.`
+        ? txt('hud.calling.temporalMasteryReadyYour')
+        : txt('hud.calling.temporalMasteryBackIn', { remaining: Math.ceil(c.mastery.remaining) })
       : '',
-    c.revive === 'ready' ? 'Rewind can stand a fallen hero back up, once this run.' : '',
-    c.revive === 'spent' ? 'Rewind has stood a hero back up this run: its revive is spent.' : '',
+    c.revive === 'ready' ? txt('hud.calling.rewindCanStandA') : '',
+    c.revive === 'spent' ? txt('hud.calling.rewindHasStoodA') : '',
   ]
     .filter(Boolean)
     .join(' ');

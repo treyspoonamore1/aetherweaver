@@ -15,6 +15,7 @@ import { outOfReach } from './duelLook';
 import { saplingsOutside } from './groveLook';
 import { heroPronouns } from '../screens/rosterModel';
 import { linkName } from '../screens/callingText';
+import { t as txt } from '../text';
 
 /**
  * Contextual coach hints (docs/plan/04 §7). Derived from the HUD snapshot alone; each hint
@@ -158,26 +159,38 @@ function allHints(hud: HudSnapshot): Hint[] {
       const him = heroPronouns(h.defId).obj;
       out.push({
         id: 'brannHold',
-        text: `Fermata holds ${h.name} at 1 life — one touch of the Thread saves ${him}, even halved: ${h.threaded ? `keep Mending ${him}` : `Thread ${him} {${h.slot + 1}}`}`,
+        text: txt('hud.hints.fermataHoldsAt1', {
+          name: h.name,
+          him,
+          value: h.threaded
+            ? txt('hud.hints.keepMending', { him })
+            : txt('hud.hints.thread', { him, value: h.slot + 1 }),
+        }),
       });
     }
     out.push({
       id: 'hold',
       text: h.threaded
-        ? `Fermata is holding ${h.name} at 1 life — keep Mending them, or Chime ${E} on them, before it ends`
-        : `Fermata is holding ${h.name} at 1 life — Thread them {${h.slot + 1}} or Chime ${E} on them before it ends`,
+        ? txt('hud.hints.fermataIsHoldingAt', { name: h.name, E })
+        : txt('hud.hints.fermataIsHoldingAt2', { name: h.name, value: h.slot + 1, E }),
     });
   }
   // The Chronomancer (Phase 3e): Rewind is in Reel's slot. F Rewinds the hovered hero, else
   // the threaded one, so a hero who isn't its target is threaded first.
   const rewind = w.rewind?.ready ? w.rewind : null;
   const toRewind = (h: HeroHud) =>
-    h.rewind?.target ? F : `{${bindingLabel(`focus${h.slot + 1}` as Action)}}, then ${F}`;
+    h.rewind?.target
+      ? F
+      : txt('hud.hints.then', { bindingLabel: bindingLabel(`focus${h.slot + 1}` as Action), F });
   if (rewind) {
     for (const h of party.filter((p) => p.rewind?.kind === 'revive' && p.rewind.inRange)) {
       out.push({
         id: 'rewind-up',
-        text: `${h.name} just went down — press ${toRewind(h)}: Rewind stands them back up, once a run (${secondsLabel(h.rewind!.left)} left)`,
+        text: txt('hud.hints.justWentDownPress', {
+          name: h.name,
+          toRewind: toRewind(h),
+          secondsLabel: secondsLabel(h.rewind!.left),
+        }),
       });
     }
   }
@@ -188,10 +201,14 @@ function allHints(hud: HudSnapshot): Hint[] {
       id: 'call',
       text:
         call.answer === 'ward'
-          ? `${h.name} is calling for a Ward — press ${Q} on them before the ring runs out for ${call.flourish}`
+          ? txt('hud.hints.isCallingForA', { name: h.name, Q, flourish: call.flourish })
           : call.answer === 'chime'
-            ? `${h.name} is calling for a Chime — press ${E} on them before the ring runs out for ${call.flourish}`
-            : `${h.name} is calling for Empower — Thread them {${h.slot + 1}} in Empower {RMB} before the ring runs out for ${call.flourish}`,
+            ? txt('hud.hints.isCallingForA2', { name: h.name, E, flourish: call.flourish })
+            : txt('hud.hints.isCallingForEmpower', {
+                name: h.name,
+                value: h.slot + 1,
+                flourish: call.flourish,
+              }),
     });
   }
 
@@ -203,7 +220,7 @@ function allHints(hud: HudSnapshot): Hint[] {
       if (techReady(hud, 'ward')) {
         out.push({
           id: 'lethal-ward',
-          text: `A lethal hit is coming at ${h.name} — ${wardIt} just before it lands for a Perfect`,
+          text: txt('hud.hints.aLethalHitIs', { name: h.name, wardIt }),
         });
       } else if (w.rewind) {
         // Rewind only helps if where they stood is out of it (or Paradox undoes it).
@@ -212,8 +229,8 @@ function allHints(hud: HudSnapshot): Hint[] {
             id: 'lethal-rewind',
             text:
               h.rewind.escape === 'undo'
-                ? `A lethal hit is coming at ${h.name} — Rewind ${toRewind(h)}: Paradox undoes it`
-                : `${h.name} is in a lethal zone — Rewind ${toRewind(h)} takes them back out of it`,
+                ? txt('hud.hints.aLethalHitIs2', { name: h.name, toRewind: toRewind(h) })
+                : txt('hud.hints.isInALethal', { name: h.name, toRewind: toRewind(h) }),
           });
       } else if (techReady(hud, 'reel')) {
         out.push({ id: 'lethal-reel', text: reelHint(h.name, variantIn(hud, 'reel'), F) });
@@ -224,7 +241,7 @@ function allHints(hud: HudSnapshot): Hint[] {
     if (!h.lethal && h.incoming >= h.maxHp * 0.3 && techReady(hud, 'ward')) {
       out.push({
         id: 'big-hit',
-        text: `A big hit is coming at ${h.name} — ${wardIt} just before it lands for a Perfect`,
+        text: txt('hud.hints.aBigHitIs', { name: h.name, wardIt }),
       });
     }
   }
@@ -235,9 +252,9 @@ function allHints(hud: HudSnapshot): Hint[] {
         id: 'marked',
         text: techReady(hud, 'chime')
           ? chime
-            ? `${h.name} is marked — press ${E} (${variantName(chime)}) to cleanse it`
-            : `${h.name} is marked — press ${E} to Chime it away`
-          : `${h.name} is marked — a Ward ${Q} can still soak the blast`,
+            ? txt('hud.hints.isMarkedPressTo', { name: h.name, E, variantName: variantName(chime) })
+            : txt('hud.hints.isMarkedPressTo2', { name: h.name, E })
+          : txt('hud.hints.isMarkedAWard', { name: h.name, Q }),
       });
     }
   }
@@ -247,7 +264,7 @@ function allHints(hud: HudSnapshot): Hint[] {
   for (const h of party.filter((p) => p.downed && !p.dead)) {
     out.push({
       id: 'downed',
-      text: `${h.name} is down — Thread them {${h.slot + 1}} and let Mend revive them before they bleed out`,
+      text: txt('hud.hints.isDownThreadThem', { name: h.name, value: h.slot + 1 }),
     });
   }
   // A big blow Rewind would give back, while they're still in danger.
@@ -262,7 +279,12 @@ function allHints(hud: HudSnapshot): Hint[] {
       )
         out.push({
           id: 'rewind-back',
-          text: `${h.name} took a big blow — Rewind ${toRewind(h)} gives back ${fmt(r.amount)}: their life and place from ${rewind.seconds} s ago`,
+          text: txt('hud.hints.tookABigBlow', {
+            name: h.name,
+            toRewind: toRewind(h),
+            amount: fmt(r.amount),
+            seconds: rewind.seconds,
+          }),
         });
     }
   }
@@ -279,7 +301,7 @@ function allHints(hud: HudSnapshot): Hint[] {
     ) {
       out.push({
         id: 'bear',
-        text: `${B} Bear — take part of the big hit coming at ${threaded.name} on yourself`,
+        text: txt('hud.hints.bearTakePartOf', { B, name: threaded.name }),
       });
     }
     if (
@@ -290,21 +312,31 @@ function allHints(hud: HudSnapshot): Hint[] {
     ) {
       out.push({
         id: 'bear-back',
-        text: `Bearing stops your ${w.lastMode === 'mend' ? 'Mend' : 'Empower'} on ${threaded.name} — press ${B} again to go back`,
+        text: txt('hud.hints.bearingStopsYourOn', {
+          value: w.lastMode === 'mend' ? 'Mend' : 'Empower',
+          name: threaded.name,
+          B,
+        }),
       });
     }
   }
   if (w.vow && w.bearShare > 0) {
     out.push({
       id: 'vow',
-      text: `${w.crescendoName}: your heroes can’t fall below 1 life — what gets past them comes to you, softened`,
+      text: txt('hud.hints.yourHeroesCanT', { crescendoName: w.crescendoName }),
     });
   }
   if (w.stasis) {
     const less = Math.round((1 - stasisCostMult(hud.calling?.id)) * 100);
     out.push({
       id: 'stasis',
-      text: `${w.crescendoName}: every enemy waits — your techniques have no cooldowns${less > 0 ? ` and cost ${less}% less` : ''} while it lasts. Ward ${Q}, Chime ${E} and Rewind ${F} freely`,
+      text: txt('hud.hints.everyEnemyWaitsYour', {
+        crescendoName: w.crescendoName,
+        value: less > 0 ? txt('hud.hints.andCostLess', { less }) : '',
+        Q,
+        E,
+        F,
+      }),
     });
   }
   // Brann fights best hurt (docs/phase-5b.md): his own hints, never the 'hurt' ones.
@@ -316,7 +348,7 @@ function allHints(hud: HudSnapshot): Hint[] {
     if (!h.threaded) {
       out.push({
         id: 'hurt',
-        text: `${h.name} is hurt — click their frame or press {${h.slot + 1}} to Thread them`,
+        text: txt('hud.hints.isHurtClickTheir', { name: h.name, value: h.slot + 1 }),
       });
     } else if (
       w.threadMode === 'empower' ||
@@ -326,8 +358,11 @@ function allHints(hud: HudSnapshot): Hint[] {
         id: 'hurt-mode',
         text:
           w.threadMode === 'bear'
-            ? `${h.name} is hurt — press {RMB} twice${bearKey ? ` (or ${B}, then {RMB})` : ''} to get back to Mend`
-            : `${h.name} is hurt — press {RMB} to switch the Thread back to Mend`,
+            ? txt('hud.hints.isHurtPressTwice', {
+                name: h.name,
+                value: bearKey ? txt('hud.hints.orThen', { B }) : '',
+              })
+            : txt('hud.hints.isHurtPressTo', { name: h.name }),
       });
     }
   }
@@ -337,8 +372,11 @@ function allHints(hud: HudSnapshot): Hint[] {
       // The hymn circles are the Hollow Cantor's: only while they stand do they help.
       text:
         (hud.hymnCircles ?? 0) > 0
-          ? `Your auras are silenced — bring the party into a hymn circle with Rally {${bindingLabel('directiveRally')}}`
-          : `Your auras are silenced — mark the ${silencerName(hud)} with {${bindingLabel('directiveFocus')}} so the party breaks its dome`,
+          ? txt('hud.hints.yourAurasAreSilenced', { bindingLabel: bindingLabel('directiveRally') })
+          : txt('hud.hints.yourAurasAreSilenced2', {
+              silencerName: silencerName(hud),
+              bindingLabel: bindingLabel('directiveFocus'),
+            }),
     });
   }
   // Seren (docs/phase-5e.md) duels outside your field by design: her own hints say what to do.
@@ -350,8 +388,8 @@ function allHints(hud: HudSnapshot): Hint[] {
       id: 'strayed',
       // Rewind sends a hero back, not to you: on a Chronomancer run, walk to them.
       text: w.rewind
-        ? `${reelTarget.name} is outside your field — move closer so your auras reach them`
-        : `${reelTarget.name} is outside your field — move closer so your auras reach them, or Reel ${F} them in`,
+        ? txt('hud.hints.isOutsideYourField', { name: reelTarget.name })
+        : txt('hud.hints.isOutsideYourField2', { name: reelTarget.name, F }),
     });
   }
   // The beam song: the first time it pours into someone, say what that means.
@@ -362,8 +400,8 @@ function allHints(hud: HudSnapshot): Hint[] {
       id: 'beam',
       text:
         beam.echo > 0
-          ? `Your beam song pours into whoever you thread: ${mult(beam.focus)} on ${focused.name}. Everyone else near you hears an echo`
-          : `Your beam song pours into whoever you thread: ${mult(beam.focus)} on ${focused.name}, and nobody else`,
+          ? txt('hud.hints.yourBeamSongPours', { mult: mult(beam.focus), name: focused.name })
+          : txt('hud.hints.yourBeamSongPours2', { mult: mult(beam.focus), name: focused.name }),
     });
   }
   // The Conductor (docs/phase-5f.md): chain a Duet, Cue on the downbeat, the Grand Finale.
@@ -376,14 +414,29 @@ function allHints(hud: HudSnapshot): Hint[] {
     out.push({
       id: 'cue',
       text: cueHero.soloAuto
-        ? `${cueHero.name}'s ${cueHero.soloName} is ready — press {⇧${cueHero.slot + 1}} now to Cue the stronger form, or it fires on its own`
-        : `${cueHero.name}'s ${cueHero.soloName} is ready — press {⇧${cueHero.slot + 1}} to Cue it (costs ${w.cueCost === w.segment ? 'one Resonance segment' : `${w.cueCost} Resonance`})`,
+        ? txt('hud.hints.sIsReadyPress', {
+            name: cueHero.name,
+            soloName: cueHero.soloName,
+            value: cueHero.slot + 1,
+          })
+        : txt('hud.hints.sIsReadyPress2', {
+            name: cueHero.name,
+            soloName: cueHero.soloName,
+            value: cueHero.slot + 1,
+            value2:
+              w.cueCost === w.segment
+                ? txt('hud.hints.oneResonanceSegment')
+                : `${w.cueCost} Resonance`,
+          }),
     });
   }
   if (w.resonance >= w.crescendoCost && w.crescendo <= 0 && !hud.conducting) {
     out.push({
       id: 'crescendo',
-      text: `Resonance is full — press {${bindingLabel('crescendo')}} for ${w.crescendoName}`,
+      text: txt('hud.hints.resonanceIsFullPress', {
+        bindingLabel: bindingLabel('crescendo'),
+        crescendoName: w.crescendoName,
+      }),
     });
   }
   // Foresight: the first time it shows an attack on its way to someone.
@@ -392,7 +445,11 @@ function allHints(hud: HudSnapshot): Hint[] {
     const f = seen.foreseen.find((x) => x.aimed)!;
     out.push({
       id: 'foresight',
-      text: `Foresight: ${f.name} is coming for ${seen.name} (${f.in < 0.05 ? 'any moment' : `in ${secondsLabel(f.in)}`}) — be ready before it begins`,
+      text: txt('hud.hints.foresightIsComingFor', {
+        name: f.name,
+        name2: seen.name,
+        value: f.in < 0.05 ? txt('hud.hints.anyMoment') : `in ${secondsLabel(f.in)}`,
+      }),
     });
   }
   if (hud.boss?.cast && hud.boss.cast.answers.length > 0) {
@@ -401,7 +458,7 @@ function allHints(hud: HudSnapshot): Hint[] {
       .join(' or ');
     out.push({
       id: 'boss-cast',
-      text: `${hud.boss.cast.name} is coming — answer it with ${names}`,
+      text: txt('hud.hints.isComingAnswerIt', { name: hud.boss.cast.name, names }),
     });
   }
   // Pedal Point: the planted field only helps where the fight is.
@@ -409,7 +466,7 @@ function allHints(hud: HudSnapshot): Hint[] {
     const V = `{${w.plant.key0 ? keyLabel(w.plant.key0) : bindingLabel('plant')}}`;
     out.push({
       id: 'plant',
-      text: `Your Pedal Point field stays where you plant it — press ${V} to plant it under the fight`,
+      text: txt('hud.hints.yourPedalPointField', { V }),
     });
   }
   // The Directive wheel: when the party is spread out, or once the fight has settled.
@@ -419,21 +476,21 @@ function allHints(hud: HudSnapshot): Hint[] {
       id: 'wheel',
       text:
         strays >= 2
-          ? `Your party is spread out — hold {${bindingLabel('directiveWheel')}} and flick toward Rally to call them to you`
-          : `Hold {${bindingLabel('directiveWheel')}} (or the middle mouse button) for the Directive wheel: Focus, Rally, Hold, Scatter`,
+          ? txt('hud.hints.yourPartyIsSpread', { bindingLabel: bindingLabel('directiveWheel') })
+          : txt('hud.hints.holdOrTheMiddle', { bindingLabel: bindingLabel('directiveWheel') }),
     });
   }
   if (w.threadSlot === null && hud.encounter.elapsed > 3 && party.some(alive)) {
     out.push({
       id: 'thread',
-      text: `Click a party frame or press {1} to attach your Thread — Mend heals, Empower hits harder`,
+      text: txt('hud.hints.clickAPartyFrame'),
     });
   }
   // The Chronomancer's first fights: introduce Rewind once the Thread is on someone.
   if (w.rewind && w.threadSlot !== null && hud.encounter.elapsed > 6) {
     out.push({
       id: 'rewind-intro',
-      text: `${F}: Rewind — your threaded hero goes back ${w.rewind.seconds} s: where they stood and the life they had. Once a run, it stands up a hero who just fell. It replaces Reel`,
+      text: txt('hud.hints.rewindYourThreadedHero', { F, seconds: w.rewind.seconds }),
     });
   }
   // The Martyr's first fight: introduce Bear once the Thread is on someone.
@@ -445,9 +502,7 @@ function allHints(hud: HudSnapshot): Hint[] {
   ) {
     out.push({
       id: 'bear-intro',
-      text: bearKey
-        ? `${B}: Bear — take part of a big hit on your threaded hero. Your songs hold your Life, not your Spirit`
-        : 'Bear has no key — bind one in Settings → Controls to take part of a big hit on your threaded hero',
+      text: bearKey ? txt('hud.hints.bearTakePartOf2', { B }) : txt('hud.hints.bearHasNoKey'),
     });
   }
   // Not in the Grand Silence: the stilled party deals nothing and the Conductor cannot be hurt.
@@ -461,7 +516,7 @@ function allHints(hud: HudSnapshot): Hint[] {
   ) {
     out.push({
       id: 'empower',
-      text: `Everyone is healthy — press {RMB} to switch the Thread to Empower and add damage`,
+      text: txt('hud.hints.everyoneIsHealthyPress'),
     });
   }
   return out;
@@ -484,20 +539,28 @@ function conductingHints(hud: HudSnapshot): Hint[] {
   if (c.chain && chained)
     out.push({
       id: 'chain',
-      text: `Cue another within ${Number(c.chain.total.toFixed(1))} s for a ${linkName(chained.cue!.link)}: ${chained.name}, {⇧${chained.slot + 1}}`,
+      text: txt('hud.hints.cueAnotherWithinS', {
+        Number: Number(c.chain.total.toFixed(1)),
+        linkName: linkName(chained.cue!.link),
+        name: chained.name,
+        value: chained.slot + 1,
+      }),
     });
   if (c.beat && ready.length > 0)
     out.push({
       id: 'beat',
       text:
         c.beat.downbeatCost > 0
-          ? `Cue on the downbeat: it costs only ${c.beat.downbeatCost} Resonance. The light under your Resonance shows the beat`
-          : `Cue on the downbeat: it’s free. The light under your Resonance shows the beat`,
+          ? txt('hud.hints.cueOnTheDownbeat', { downbeatCost: c.beat.downbeatCost })
+          : txt('hud.hints.cueOnTheDownbeat2'),
     });
   if (c.finale === null && w.crescendo <= 0 && w.resonance + 1e-9 >= w.crescendoCost)
     out.push({
       id: 'finale',
-      text: `${w.crescendoName} {${bindingLabel('crescendo')}} plays every Solo, rising, then fills them all`,
+      text: txt('hud.hints.playsEverySoloRising', {
+        crescendoName: w.crescendoName,
+        bindingLabel: bindingLabel('crescendo'),
+      }),
     });
   return out;
 }
@@ -517,8 +580,8 @@ export function splitHint(text: string): { key: boolean; text: string }[] {
  * slot (Phase 4f) is named, not explained: what it does is content's (Prep, the tooltip).
  */
 function reelHint(name: string, variant: string | null, F: string): string {
-  if (variant) return `${name} is in a lethal zone — ${variantName(variant)} ${F} on them`;
-  return `${name} is in a lethal zone — Reel them out ${F}`;
+  if (variant) return txt('hud.hints.isInALethal2', { name, variantName: variantName(variant), F });
+  return txt('hud.hints.isInALethal3', { name, F });
 }
 
 // ── Movement II (docs/phase-5a.md) ───────────────────────────────────────────────────
@@ -548,8 +611,12 @@ function movementTwoHints(hud: HudSnapshot, keys: { Q: string; E: string; F: str
       // Brann (docs/phase-5b.md): your healing barely takes on him, so the Ward is the answer;
       // with Blood Oath it takes in full (no live cut), so the generic answer stands.
       text: healBarelyTakes(condemned)
-        ? `${boss.executeTarget} is condemned — Ward ${Q} ${heroPronouns(condemned!.defId).obj}: your healing barely takes on ${heroPronouns(condemned!.defId).obj}`
-        : `${boss.executeTarget} is condemned — lift them above ${pct}% before it lands, or Ward ${Q} them`,
+        ? txt('hud.hints.isCondemnedWardYour', {
+            executeTarget: boss.executeTarget,
+            Q,
+            obj: heroPronouns(condemned!.defId).obj,
+          })
+        : txt('hud.hints.isCondemnedLiftThem', { executeTarget: boss.executeTarget, pct, Q }),
     });
   }
   for (const h of up) {
@@ -557,46 +624,53 @@ function movementTwoHints(hud: HudSnapshot, keys: { Q: string; E: string; F: str
     if (bleed >= BLEED_CHIME_AT)
       out.push({
         id: 'bleed',
-        text: `${h.name} is bleeding ×${bleed} — Chime ${E} on them to cleanse every stack`,
+        text: txt('hud.hints.isBleedingChimeOn', { name: h.name, bleed, E }),
       });
   }
   for (const h of up.filter((p) => p.statuses.some((s) => s.id === 'pinned')))
     out.push({
       id: 'pinned',
       text: hud.weaver.rewind
-        ? `${h.name} is pinned — a Ward ${Q} soaks what the pin deals`
-        : `${h.name} is pinned — Reel ${F} frees them`,
+        ? txt('hud.hints.isPinnedAWard', { name: h.name, Q })
+        : txt('hud.hints.isPinnedReelFrees', { name: h.name, F }),
     });
   for (const h of up.filter((p) => p.statuses.some((s) => s.id === 'latched')))
     out.push({
       id: 'latched',
       // On a Chronomancer run Reel's key casts Rewind, which frees no one: Chime does.
       text: hud.weaver.rewind
-        ? `A Leech has latched onto ${h.name} — Chime ${E} frees them`
-        : `A Leech has latched onto ${h.name} — Reel ${F} or Chime ${E} frees them`,
+        ? txt('hud.hints.aLeechHasLatched', { name: h.name, E })
+        : txt('hud.hints.aLeechHasLatched2', { name: h.name, F, E }),
     });
   const pact = up.filter((p) => p.statuses.some((s) => s.id === 'pact'));
   if (pact.length > 0)
     out.push({
       id: 'pact',
-      text: `${pact.map((h) => h.name).join(' and ')} ${pact.length > 1 ? 'share' : 'carries'} a Blood Pact — Scatter {${bindingLabel('directiveScatter')}}: Chime can’t break it`,
+      text: txt('hud.hints.aBloodPactScatter', {
+        pact: pact.map((h) => h.name).join(' and '),
+        value: pact.length > 1 ? 'share' : 'carries',
+        bindingLabel: bindingLabel('directiveScatter'),
+      }),
     });
   for (const h of up.filter((p) => p.statuses.some((s) => s.id === 'wound')))
     out.push({
       id: 'wound',
-      text: `${h.name} is Wounded: healing on them is halved — Chime ${E} before you Mend`,
+      text: txt('hud.hints.isWoundedHealingOn', { name: h.name, E }),
     });
   // Keyed on the Sentinel blocking a blow (the sim's `guardBlocked`, via the HUD bridge), while
   // nothing is focused.
   if (hud.guardBlocked && hud.focusTarget === null)
     out.push({
       id: 'guard',
-      text: `A Crimson Sentinel’s shield blocks most of a blow from the front — Focus it {${bindingLabel('directiveFocus')}} so the party flanks`,
+      text: txt('hud.hints.aCrimsonSentinelS', { bindingLabel: bindingLabel('directiveFocus') }),
     });
   if (boss?.bloodmoon)
     out.push({
       id: 'bloodmoon',
-      text: `Bloodmoon: healing is halved outside the pools — stand in one and Rally {${bindingLabel('directiveRally')}} the party to you${hud.weaver.rewind ? '' : `. Reel ${F} frees a pinned hero into your pool`}`,
+      text: txt('hud.hints.bloodmoonHealingIsHalved', {
+        bindingLabel: bindingLabel('directiveRally'),
+        value: hud.weaver.rewind ? '' : txt('hud.hints.reelFreesAPinned', { F }),
+      }),
     });
   return out;
 }
@@ -622,13 +696,26 @@ function brannHints(hud: HudSnapshot, keys: { Q: string; F: string }): Hint[] {
         id: 'brannRally',
         // A Void Maw's Inhale (Movement III only) wants him out of the pull, not Warded.
         text: hud.rift?.inhale
-          ? `Bloodlust: ${h.name} won’t Rally below ${bloodlustPct(h.defId)}% — ${mawRescue(hud, F, 'him')}`
-          : `Bloodlust: ${h.name} won’t Rally below ${bloodlustPct(h.defId)}% — Ward ${Q} ${him}${h.talents.includes('iron_will') ? ` (Iron Will brings ${him} back)` : ''}${hud.weaver.rewind ? '' : ` or Reel ${F} ${him}`}`,
+          ? txt('hud.hints.bloodlustWonTRally', {
+              name: h.name,
+              bloodlustPct: bloodlustPct(h.defId),
+              mawRescue: mawRescue(hud, F, 'him'),
+            })
+          : txt('hud.hints.bloodlustWonTRally2', {
+              name: h.name,
+              bloodlustPct: bloodlustPct(h.defId),
+              Q,
+              him,
+              value: h.talents.includes('iron_will')
+                ? txt('hud.hints.ironWillBringsBack', { him })
+                : '',
+              value2: hud.weaver.rewind ? '' : txt('hud.hints.orReel', { F, him }),
+            }),
       });
     if (h.hp < h.maxHp * 0.5)
       out.push({
         id: 'brannLow',
-        text: `${h.name} fights harder hurt — Ward ${Q} ${him}, don’t Mend ${him}`,
+        text: txt('hud.hints.fightsHarderHurtWard', { name: h.name, Q, him }),
       });
   }
   return out;
@@ -654,30 +741,30 @@ function serenHints(hud: HudSnapshot, keys: { Q: string; F: string }): Hint[] {
       if (!hud.weaver.rewind && reel === 'swap')
         out.push({
           id: 'serenSwap',
-          text: `Swap puts you in her duel; Rally ${C} brings her home`,
+          text: txt('hud.hints.swapPutsYouIn', { C }),
         });
       else
         out.push({
           id: 'serenOver',
           text: hud.weaver.rewind
-            ? `${h.name} is surrounded — Rally ${C}: she always comes. Rewind only takes her back as the pack closes`
+            ? txt('hud.hints.isSurroundedRallyShe', { name: h.name, C })
             : reel === 'anchor'
-              ? `${h.name} is surrounded — Rally ${C}: she always comes, and your Anchor holds while she does`
-              : `${h.name} is surrounded — Reel ${F} her home, or Rally ${C}: she always comes`,
+              ? txt('hud.hints.isSurroundedRallyShe2', { name: h.name, C })
+              : txt('hud.hints.isSurroundedReelHer', { name: h.name, F, C }),
         });
     }
     if (outOfReach(h))
       out.push({
         id: 'serenReach',
-        text: `${h.name} is beyond your reach — Glide ${G} toward her so your Ward and Reel reach her`,
+        text: txt('hud.hints.isBeyondYourReach', { name: h.name, G }),
       });
     if (d.quarryName)
       out.push({
         id: 'serenDuel',
-        text: `${h.name} duels alone: Ward ${Q} her before the blow lands, Reel ${F} or Rally ${C} when they surround her`,
+        text: txt('hud.hints.duelsAloneWardHer', { name: h.name, Q, F, C }),
       });
     if (d.armed && !d.waltz)
-      out.push({ id: 'serenKillShot', text: `A Perfect Ward ${Q} on ${h.name} is a kill shot` });
+      out.push({ id: 'serenKillShot', text: txt('hud.hints.aPerfectWardOn', { Q, name: h.name }) });
   }
   return out;
 }
@@ -695,14 +782,17 @@ function oroHints(hud: HudSnapshot): Hint[] {
     if (saplingsOutside(h) > 0 && w.auras.length > 0 && !w.fieldSuppressed)
       out.push({
         id: 'oroOutside',
-        text: `${h.name}’s Saplings are outside your songs: walk back, or Rally ${C} to re-plant them`,
+        text: txt('hud.hints.sSaplingsAreOutside', { name: h.name, C }),
       });
     if (h.grove!.tending && hud.encounter.elapsed > 6 && hud.encounter.enemies > 0)
       out.push({
         id: 'oroGentle',
-        text: `${h.name} won’t fight without a Focus {${bindingLabel('directiveFocus')}}`,
+        text: txt('hud.hints.wonTFightWithout', {
+          name: h.name,
+          bindingLabel: bindingLabel('directiveFocus'),
+        }),
       });
-    if (hud.boss) out.push({ id: 'oroBoss', text: 'Bosses and the biggest foes ignore Saplings' });
+    if (hud.boss) out.push({ id: 'oroBoss', text: txt('hud.hints.bossesAndTheBiggest') });
   }
   return out;
 }
@@ -717,12 +807,17 @@ function oroHints(hud: HudSnapshot): Hint[] {
 function mawRescue(hud: HudSnapshot, F: string, who: 'one' | 'him'): string {
   const them = who === 'one' ? 'them' : 'him';
   if (hud.weaver.rewind)
-    return who === 'one' ? `Rewind ${F} one it drags in` : `Rewind ${F} him back once it drags him`;
+    return who === 'one'
+      ? txt('hud.hints.rewindOneItDrags', { F })
+      : txt('hud.hints.rewindHimBackOnce', { F });
   const reel = variantIn(hud, 'reel');
-  if (reel === 'anchor') return `Anchor ${F} ${who} before it drags ${them} in`;
+  if (reel === 'anchor') return txt('hud.hints.anchorBeforeItDrags', { F, who, them });
   if (reel === 'swap')
-    return `Hold {${bindingLabel('directiveHold')}} so ${who === 'one' ? 'they stay' : 'he stays'} outside it`;
-  return `Reel ${F} ${who} out`;
+    return txt('hud.hints.holdSoOutsideIt', {
+      bindingLabel: bindingLabel('directiveHold'),
+      value: who === 'one' ? txt('hud.hints.theyStay') : txt('hud.hints.heStays'),
+    });
+  return txt('hud.hints.reelOut', { F, who });
 }
 
 /**
@@ -730,7 +825,9 @@ function mawRescue(hud: HudSnapshot, F: string, who: 'one' | 'him'): string {
  * Mute does; the Mute otherwise, as it always read (a downed Weaver silences in every Movement).
  */
 function silencerName(hud: HudSnapshot): string {
-  return hud.rift?.silencer && !hud.foes?.includes('mute') ? 'Silencing elite' : 'Mute';
+  return hud.rift?.silencer && !hud.foes?.includes('mute')
+    ? txt('hud.hints.silencingElite')
+    : 'Mute';
 }
 
 /** Bloodlust's line, as a whole percent (content's `quirk.below`). */
@@ -759,30 +856,41 @@ function movementThreeHints(hud: HudSnapshot, keys: { Q: string; E: string; F: s
   if (w.runeLocked && !w.downed)
     out.push({
       id: 'rune',
-      text: `You stand in a Null rune: Ward, Chime and ${w.rewind ? 'Rewind' : 'Reel'} are refused — Glide {${bindingLabel('glide')}} or walk out of it`,
+      text: txt('hud.hints.youStandInA', {
+        value: w.rewind ? 'Rewind' : 'Reel',
+        bindingLabel: bindingLabel('glide'),
+      }),
     });
   if (rift?.cutComing && w.threadSlot !== null)
     out.push({
       id: 'cut-coming',
-      text: `${rift.cutComing.name} will cut your Thread — Thread a hero on your side of the line, or step across it`,
+      text: txt('hud.hints.willCutYourThread', { name: rift.cutComing.name }),
     });
   if (w.threadCut)
     out.push({
       id: 'cut',
-      text: `Your Thread was cut — re-thread {1}–{3} the moment the lock ends (${secondsLabel(w.threadLock)})`,
+      text: txt('hud.hints.yourThreadWasCut', { secondsLabel: secondsLabel(w.threadLock) }),
     });
   if (rift?.inhale) {
     // A bloodlusting Brann refuses the Rally (docs/phase-5c.md, Void Maw): name what he obeys.
     const lust = up.find((h) => h.blood?.bloodlust);
     const brann = lust
-      ? `. ${lust.name} won’t Rally below ${bloodlustPct(lust.defId)}% — ${mawRescue(hud, F, 'him')}`
+      ? txt('hud.hints.wonTRallyBelow', {
+          name: lust.name,
+          bloodlustPct: bloodlustPct(lust.defId),
+          mawRescue: mawRescue(hud, F, 'him'),
+        })
       : '';
     out.push({
       id: 'inhale',
       text:
         !w.rewind && variantIn(hud, 'reel') === 'swap'
-          ? `A Void Maw breathes in — Rally ${rally} the party to you: Swap puts you in the Maw${brann}`
-          : `A Void Maw breathes in — Rally ${rally} the party to you before the pull, or ${mawRescue(hud, F, 'one')}${brann}`,
+          ? txt('hud.hints.aVoidMawBreathes', { rally, brann })
+          : txt('hud.hints.aVoidMawBreathes2', {
+              rally,
+              mawRescue: mawRescue(hud, F, 'one'),
+              brann,
+            }),
     });
   }
   // The Wraith's cast (`rift.wraithCasting`) names the hero its doubt mark is on; the hint goes the
@@ -792,20 +900,26 @@ function movementThreeHints(hud: HudSnapshot, keys: { Q: string; E: string; F: s
     if (h.possessed)
       out.push({
         id: 'possessed',
-        text: `${h.name} is possessed${h.possessed.victim ? ` and strikes ${h.possessed.victim}` : ''} — Chime ${E} on them frees them`,
+        text: txt('hud.hints.isPossessedChimeOn', {
+          name: h.name,
+          value: h.possessed.victim
+            ? txt('hud.hints.andStrikes', { victim: h.possessed.victim })
+            : '',
+          E,
+        }),
       });
     if (rift?.wraithCasting && !wraithNamed && h.statuses.some((s) => s.id === 'doubt')) {
       wraithNamed = true;
       out.push({
         id: 'wraith',
-        text: `A Doubt Wraith reaches for ${h.name} — Focus it ${focus} to interrupt the cast, or Chime ${E} the mark`,
+        text: txt('hud.hints.aDoubtWraithReaches', { name: h.name, focus, E }),
       });
     }
   }
   if (rift?.wraithCasting && !wraithNamed)
     out.push({
       id: 'wraith',
-      text: `A Doubt Wraith is casting — Focus it ${focus} to interrupt the cast`,
+      text: txt('hud.hints.aDoubtWraithIs', { focus }),
     });
   for (const h of up) {
     const doom = stacksOf(h, 'doom');
@@ -814,8 +928,13 @@ function movementThreeHints(hud: HudSnapshot, keys: { Q: string; E: string; F: s
       out.push({
         id: 'doom',
         text: doomed
-          ? `Doom ignites on ${h.name} — Chime ${E} it, or Ward ${Q} the blast`
-          : `${h.name} carries Doom ${doomCount(doom)} — Chime ${E} before it ignites, or Ward ${Q} the blast`,
+          ? txt('hud.hints.doomIgnitesOnChime', { name: h.name, E, Q })
+          : txt('hud.hints.carriesDoomChimeBefore', {
+              name: h.name,
+              doomCount: doomCount(doom),
+              E,
+              Q,
+            }),
       });
   }
   // A Stitch pairs two heroes up to its whole reach apart, and a Chime frees only those it
@@ -826,31 +945,43 @@ function movementThreeHints(hud: HudSnapshot, keys: { Q: string; E: string; F: s
       id: 'stitched',
       text:
         stitched.length > 1
-          ? `${stitched.map((h) => h.name).join(' and ')} are stitched to the floor — a Chime ${E} frees each one it reaches${w.rewind ? '' : `, a Reel ${F} the one it pulls`}`
-          : `${stitched[0]!.name} is stitched to the floor — Chime ${E} on them frees them${w.rewind ? '' : `, or Reel ${F} them free`}`,
+          ? txt('hud.hints.areStitchedToThe', {
+              stitched: stitched.map((h) => h.name).join(' and '),
+              E,
+              value: w.rewind ? '' : txt('hud.hints.aReelTheOne', { F }),
+            })
+          : txt('hud.hints.isStitchedToThe', {
+              name: stitched[0]!.name,
+              E,
+              value: w.rewind ? '' : txt('hud.hints.orReelThemFree', { F }),
+            }),
     });
   if ((w.unravelLeft ?? 0) > 0 && w.threadMode === 'mend')
     out.push({
       id: 'unravel',
       text:
         w.bearShare > 0 && bindingCode('bear')
-          ? `Unravel: your Mend wounds — press {RMB} for Empower, or Bear {${bindingLabel('bear')}}, until it passes`
-          : `Unravel: your Mend wounds — press {RMB} for Empower until it passes`,
+          ? txt('hud.hints.unravelYourMendWounds', { bindingLabel: bindingLabel('bear') })
+          : txt('hud.hints.unravelYourMendWounds2'),
     });
   if (boss?.spindles)
     out.push({
       id: 'spindles',
-      text: `Spindles shield the boss: −${spindleCutPct()}% damage while one stands — Focus them ${focus}`,
+      text: txt('hud.hints.spindlesShieldTheBoss', { spindleCutPct: spindleCutPct(), focus }),
     });
   if (boss?.stolen)
     out.push({
       id: 'verse',
-      text: `${boss.stolen.name} was stolen — Focus the Stolen Verse ${focus} to take it back${hud.calling?.id === 'luminary' ? ': your Radiance counts one aura fewer until then' : ''}`,
+      text: txt('hud.hints.wasStolenFocusThe', {
+        name: boss.stolen.name,
+        focus,
+        value: hud.calling?.id === 'luminary' ? txt('hud.hints.yourRadianceCountsOne') : '',
+      }),
     });
   if (boss?.mirrorWard?.casting)
     out.push({
       id: 'mirror-ward',
-      text: `The Unweaver Wards its champion — interrupt the Mirror Ward, and Focus the champion ${focus}`,
+      text: txt('hud.hints.theUnweaverWardsIts', { focus }),
     });
   const copy = rift?.mimicCopy;
   if (copy)
@@ -858,10 +989,10 @@ function movementThreeHints(hud: HudSnapshot, keys: { Q: string; E: string; F: s
       id: 'mimic',
       text:
         copy === 'empower'
-          ? `A Mimic is copying your Empower — switch the Thread to Mend {RMB} to crack the mirror`
+          ? txt('hud.hints.aMimicIsCopying3')
           : copy === 'ward'
-            ? `A Mimic is copying your Ward — cast a Chime ${E} instead to crack the mirror, or Focus it ${focus}`
-            : `A Mimic is copying your Chime — cast a Ward ${Q} instead to crack the mirror, or Focus it ${focus}`,
+            ? txt('hud.hints.aMimicIsCopying', { E, focus })
+            : txt('hud.hints.aMimicIsCopying2', { Q, focus }),
     });
   return out;
 }
@@ -881,7 +1012,9 @@ function finaleHints(hud: HudSnapshot): Hint[] {
     const reel = variantIn(hud, 'reel');
     out.push({
       id: 'silence',
-      text: `The Grand Silence: only your ${noteSources({ rewinds: !!w.rewind, reel })} are heard. Eight notes bring your heroes back — even the fallen`,
+      text: txt('hud.hints.theGrandSilenceOnly', {
+        noteSources: noteSources({ rewinds: !!w.rewind, reel }),
+      }),
     });
   }
   if (boss.fortissimo || (boss.discord && boss.discord.value >= boss.discord.max * 0.75))
@@ -889,13 +1022,17 @@ function finaleHints(hud: HudSnapshot): Hint[] {
       id: 'fortissimo',
       text:
         boss.fortissimo && w.resonance >= w.crescendoCost
-          ? `${FORTISSIMO_NAME} — your Crescendo ${crescendo} cancels it: press it now`
-          : `${FORTISSIMO_NAME}: hold ${w.crescendoCost} Resonance — your Crescendo ${crescendo} cancels it`,
+          ? txt('hud.hints.yourCrescendoCancelsIt', { FORTISSIMO_NAME, crescendo })
+          : txt('hud.hints.holdResonanceYourCrescendo', {
+              FORTISSIMO_NAME,
+              crescendoCost: w.crescendoCost,
+              crescendo,
+            }),
     });
   if (boss.cue)
     out.push({
       id: 'discord',
-      text: `Every Solo you let through feeds the Conductor’s Discord: answer it, or interrupt the soloist (Focus {${bindingLabel('directiveFocus')}})`,
+      text: txt('hud.hints.everySoloYouLet', { bindingLabel: bindingLabel('directiveFocus') }),
     });
   return out;
 }

@@ -54,6 +54,7 @@ import {
   FRACTURED_LOOK,
   type StateLook,
 } from '../kit/reliquaryLook';
+import { t } from '../text';
 
 const RULES = () => CONTENT.reliquary;
 
@@ -191,7 +192,15 @@ export function inscriptionRow(
     rangeText: rangeText(def, ins.tier),
     fixed,
     within: fixed ? 1 : Math.max(0, Math.min(1, (ins.value - range[0]) / (range[1] - range[0]))),
-    label: `${def.name}, ${tierLabel(ins.tier)} (tier ${ins.tier} of 5; T1 is the best): ${text}. ${tierLabel(ins.tier)} ${fixed ? 'is always' : 'ranges'} ${rangeText(def, ins.tier)}. ${categoryName(def.category)}.`,
+    label: t('screens.reliquaryModel.tierOf5T1', {
+      name: def.name,
+      tierLabel: tierLabel(ins.tier),
+      tier: ins.tier,
+      text,
+      value: fixed ? t('screens.reliquaryModel.isAlways') : 'ranges',
+      rangeText: rangeText(def, ins.tier),
+      categoryName: categoryName(def.category),
+    }),
   };
 }
 
@@ -281,7 +290,7 @@ export interface RelicView {
 export function wakesLabel(id: string): string | null {
   const n = wakesIn(relicDef(id));
   if (n === null) return null;
-  return `Wakes in ${movementPlace(n)}`;
+  return t('screens.reliquaryModel.wakesIn', { movementPlace: movementPlace(n) });
 }
 
 /** Plenty of everything: what a craft would say if the materials were no object. */
@@ -340,13 +349,26 @@ function emptyFor(r: ReliquaryRelic): Reliquary {
 
 function relicLabel(v: Omit<RelicView, 'label'>): string {
   const parts = [
-    `${v.name}, ${v.rarityLabel.toLowerCase()} relic${v.cleansed ? ', cleansed' : ''}.`,
+    t('screens.reliquaryModel.relic', {
+      name: v.name,
+      rarityLabel: v.rarityLabel.toLowerCase(),
+      value: v.cleansed ? t('screens.reliquaryModel.cleansed') : '',
+    }),
     v.state ? `${v.state.label}.` : '',
-    `${v.used} of ${v.max} ${plural(v.max, 'Inscription')}${v.inscriptions.length ? `: ${v.inscriptions.map((i) => `${i.name} ${i.tierLabel}`).join(', ')}` : ''}.`,
-    v.dissonant ? `Dissonant: ${v.dissonant.name}.` : '',
-    v.curse ? `Curse: ${v.curse.name}.` : '',
-    `Instability ${v.instability}.`,
-    v.depth > 0 ? `Depth ${v.depth}: it can reach T${v.tierCap}.` : '',
+    t('screens.reliquaryModel.of', {
+      used: v.used,
+      max: v.max,
+      maxWord: plural(v.max, 'Inscription'),
+      value: v.inscriptions.length
+        ? `: ${v.inscriptions.map((i) => `${i.name} ${i.tierLabel}`).join(', ')}`
+        : '',
+    }),
+    v.dissonant ? t('screens.reliquaryModel.dissonant', { name: v.dissonant.name }) : '',
+    v.curse ? t('screens.reliquaryModel.curse', { name: v.curse.name }) : '',
+    t('screens.reliquaryModel.instability', { instability: v.instability }),
+    v.depth > 0
+      ? t('screens.reliquaryModel.depthItCanReach', { depth: v.depth, tierCap: v.tierCap })
+      : '',
     v.wakes ? `${v.wakes}.` : '',
   ];
   return parts.filter(Boolean).join(' ');
@@ -381,11 +403,16 @@ export function instabilityView(r: ReliquaryRelic, after: number | null = null):
   const f = RULES().fracture;
   const fracture = fractureChance(r.instability);
   let fractureLine: string;
-  if (!craftable(r)) fractureLine = 'No more crafts: nothing can Fracture it now.';
+  if (!craftable(r)) fractureLine = t('screens.reliquaryModel.noMoreCraftsNothing');
   else if (fracture <= 0)
-    fractureLine = `No risk yet. Past ${f.above}, Inscribe, Retune and Ascend risk a Fracture: ${num(f.perPoint)}% for each point.`;
+    fractureLine = t('screens.reliquaryModel.noRiskYetPast', {
+      above: f.above,
+      perPoint: num(f.perPoint),
+    });
   else
-    fractureLine = `Inscribe, Retune and Ascend now risk a Fracture: ${oddsText(fracture)}. A Dissonate never does.`;
+    fractureLine = t('screens.reliquaryModel.inscribeRetuneAndAscend', {
+      oddsText: oddsText(fracture),
+    });
   return {
     value: r.instability,
     after,
@@ -393,7 +420,10 @@ export function instabilityView(r: ReliquaryRelic, after: number | null = null):
     max: INSTABILITY_MAX,
     fracture,
     fractureAfter: after === null ? null : fractureChance(after),
-    line: `Instability ${r.instability} of ${INSTABILITY_MAX}`,
+    line: t('screens.reliquaryModel.instabilityOf', {
+      instability: r.instability,
+      INSTABILITY_MAX,
+    }),
     fractureLine,
   };
 }
@@ -428,15 +458,15 @@ export function actionBlurb(action: ActionId, relic?: Pick<ReliquaryRelic, 'dept
   const tierCap = band(relic?.depth ?? 0).tierCap;
   switch (action) {
     case 'inscribe':
-      return 'Adds a random Inscription of the kind you choose.';
+      return t('screens.reliquaryModel.addsARandomInscription');
     case 'retune':
-      return 'Rolls one Inscription’s value again, within its tier.';
+      return t('screens.reliquaryModel.rollsOneInscriptionS');
     case 'ascend':
-      return `Tries to raise one Inscription a tier, as far as T${tierCap}. A miss changes nothing.`;
+      return t('screens.reliquaryModel.triesToRaiseOne', { tierCap });
     case 'dissonate':
-      return 'The final gamble, for a Discord Tear: four outcomes, and no crafting after.';
+      return t('screens.reliquaryModel.theFinalGambleFor');
     case 'release':
-      return 'The relic leaves the Reliquary for Tuning Shards.';
+      return t('screens.reliquaryModel.theRelicLeavesThe');
   }
 }
 
@@ -494,9 +524,9 @@ export function retuneChances(ins: { id: string; tier: number; value: number }):
   const same = values.filter((v) => Math.abs(v - ins.value) <= 1e-9).length / n;
   const lower = values.filter((v) => v < ins.value - 1e-9).length / n;
   return [
-    { key: 'higher', label: 'Higher', p: higher, text: oddsText(higher) },
-    { key: 'same', label: 'The same', p: same, text: oddsText(same) },
-    { key: 'lower', label: 'Lower', p: lower, text: oddsText(lower) },
+    { key: 'higher', label: t('screens.reliquaryModel.higher'), p: higher, text: oddsText(higher) },
+    { key: 'same', label: t('screens.reliquaryModel.theSame'), p: same, text: oddsText(same) },
+    { key: 'lower', label: t('screens.reliquaryModel.lower'), p: lower, text: oddsText(lower) },
   ];
 }
 
@@ -510,19 +540,26 @@ export function dissonateChances(r: ReliquaryRelic): Chance[] {
     let detail: string;
     switch (kind) {
       case 'dissonant':
-        detail = `A fifth slot holds one of ${dissonants.length} Dissonant Inscriptions: ${dissonants.map((d) => d.name).join(', ')}.`;
+        detail = t('screens.reliquaryModel.aFifthSlotHolds', {
+          length: dissonants.length,
+          dissonants: dissonants.map((d) => d.name).join(', '),
+        });
         break;
       case 'empowered':
         detail = def.empowered
-          ? `Its own effect grows: ${relicText(def, true)}`
-          : `It has no numbers to grow: that share turns Dissonant.`;
+          ? t('screens.reliquaryModel.itsOwnEffectGrows', { relicText: relicText(def, true) })
+          : t('screens.reliquaryModel.itHasNoNumbers');
         break;
       case 'cursed':
         // As far as the relic's band allows (Phase 4d: T1 for a relic won deeper).
-        detail = `Every Inscription rises a tier, as far as T${band(r.depth ?? 0).cursedTierCap}, and one of ${CONTENT.curses.length} curses joins it: ${CONTENT.curses.map((c) => c.name).join(', ')}.`;
+        detail = t('screens.reliquaryModel.everyInscriptionRisesA', {
+          cursedTierCap: band(r.depth ?? 0).cursedTierCap,
+          length: CONTENT.curses.length,
+          curses: CONTENT.curses.map((c) => c.name).join(', '),
+        });
         break;
       case 'shattered':
-        detail = 'Nothing changes. The Tear is spent.';
+        detail = t('screens.reliquaryModel.nothingChangesTheTear');
         break;
     }
     return { key: kind, label: DISSONANCE_LOOK[kind].label, p, text: oddsText(p), detail };
@@ -560,8 +597,15 @@ export function craftPreview(
         if (left.length > 0)
           stakes.push(
             left.length === 1
-              ? `Adds ${left[0]!.name}: the one ${categoryName(arg)} Inscription it doesn’t have yet.`
-              : `Adds one of the ${left.length} ${categoryName(arg)} Inscriptions it doesn’t have, at random: ${left.map((d) => d.name).join(', ')}.`,
+              ? t('screens.reliquaryModel.addsTheOneInscription', {
+                  name: left[0]!.name,
+                  categoryName: categoryName(arg),
+                })
+              : t('screens.reliquaryModel.addsOneOfThe', {
+                  length: left.length,
+                  categoryName: categoryName(arg),
+                  left: left.map((d) => d.name).join(', '),
+                }),
           );
       }
       break;
@@ -571,7 +615,12 @@ export function craftPreview(
         verb = `Retune ${row.name}`;
         chances.push(...retuneChances(ins!));
         stakes.push(
-          `Rolls ${row.name} again within ${row.tierLabel} (${row.rangeText}), every value as likely; it’s ${row.valueText} now.`,
+          t('screens.reliquaryModel.rollsAgainWithinEvery', {
+            name: row.name,
+            tierLabel: row.tierLabel,
+            rangeText: row.rangeText,
+            valueText: row.valueText,
+          }),
         );
       }
       break;
@@ -583,33 +632,40 @@ export function craftPreview(
         chances.push(
           {
             key: 'rise',
-            label: `Rises to ${tierLabel(to)}`,
+            label: t('screens.reliquaryModel.risesTo', { tierLabel: tierLabel(to) }),
             p,
             text: oddsText(p),
-            detail: `Its value rolls again within ${tierLabel(to)}: ${rangeText(inscriptionDef(row.id), to)}.`,
+            detail: t('screens.reliquaryModel.itsValueRollsAgain', {
+              tierLabel: tierLabel(to),
+              rangeText: rangeText(inscriptionDef(row.id), to),
+            }),
           },
-          { key: 'miss', label: 'Misses', p: 1 - p, text: oddsText(1 - p) },
+          {
+            key: 'miss',
+            label: t('screens.reliquaryModel.misses'),
+            p: 1 - p,
+            text: oddsText(1 - p),
+          },
         );
-        stakes.push(
-          'On a miss nothing changes, but the shards are spent and Instability still rises.',
-        );
+        stakes.push(t('screens.reliquaryModel.onAMissNothing'));
       }
       break;
     case 'dissonate':
       chances.push(...dissonateChances(r));
-      stakes.push(
-        'The final gamble: afterwards it can’t be crafted again. A Dissonate never Fractures.',
-      );
+      stakes.push(t('screens.reliquaryModel.theFinalGambleAfterwards'));
       break;
   }
   if (action !== 'dissonate') {
     if (odds.fracture > 0)
       stakes.push(
-        `If it Fractures (${oddsText(odds.fracture)}), the relic freezes as it is and the ${costText(cost)} are lost. It still works, and can still be carried.`,
+        t('screens.reliquaryModel.ifItFracturesThe', {
+          oddsText: oddsText(odds.fracture),
+          costText: costText(cost),
+        }),
       );
     else
       stakes.push(
-        `No risk of a Fracture: Instability is ${r.instability}, and the risk starts past ${f.above}.`,
+        t('screens.reliquaryModel.noRiskOfA', { instability: r.instability, above: f.above }),
       );
   }
   const fractureText = action === 'dissonate' ? 'none' : oddsText(odds.fracture);
@@ -621,11 +677,22 @@ export function craftPreview(
       : [
           ...(action === 'ascend'
             ? [
-                { label: 'it rises', p: holds * (odds.success ?? 0) },
-                { label: 'it misses', p: holds * (1 - (odds.success ?? 0)) },
+                { label: t('screens.reliquaryModel.itRises'), p: holds * (odds.success ?? 0) },
+                {
+                  label: t('screens.reliquaryModel.itMisses'),
+                  p: holds * (1 - (odds.success ?? 0)),
+                },
               ]
-            : [{ label: action === 'inscribe' ? 'it adds one' : 'it rolls again', p: holds }]),
-          { label: 'it Fractures', p: odds.fracture },
+            : [
+                {
+                  label:
+                    action === 'inscribe'
+                      ? t('screens.reliquaryModel.itAddsOne')
+                      : t('screens.reliquaryModel.itRollsAgain'),
+                  p: holds,
+                },
+              ]),
+          { label: t('screens.reliquaryModel.itFractures'), p: odds.fracture },
         ].map((o) => ({ ...o, text: oddsText(o.p) }));
   return {
     action,
@@ -643,7 +710,13 @@ export function craftPreview(
     blockSound: short ? 'cantAfford' : 'error',
     stakes,
     verb,
-    label: `${verb} for ${costText(cost)}${chances.length ? `: ${chances.map((c) => `${c.label} ${c.text}`).join(', ')}` : ''}. Fracture chance ${fractureText}.${blocked ? ` ${blocked}` : ''}`,
+    label: t('screens.reliquaryModel.forFractureChance', {
+      verb,
+      costText: costText(cost),
+      value: chances.length ? `: ${chances.map((c) => `${c.label} ${c.text}`).join(', ')}` : '',
+      fractureText,
+      value2: blocked ? ` ${blocked}` : '',
+    }),
   };
 }
 
@@ -747,13 +820,26 @@ export function releaseView(r: ReliquaryRelic): ReleaseView {
   const base = v[def.rarity];
   const count = r.inscriptions.length;
   const total = releaseValue(r);
-  const kind = def.rarity === 'cursed' ? 'cursed relic' : `${def.rarity} relic`;
+  const kind =
+    def.rarity === 'cursed' ? t('screens.reliquaryModel.cursedRelic') : `${def.rarity} relic`;
   return {
     total,
     base,
     per: v.perInscription,
     count,
-    line: `${shardsText(total)}: ${base} for a ${kind}${count > 0 ? `, and ${v.perInscription} for each of its ${count} ${plural(count, 'Inscription')}` : ''}.`,
+    line: t('screens.reliquaryModel.forA', {
+      shardsText: shardsText(total),
+      base,
+      kind,
+      value:
+        count > 0
+          ? t('screens.reliquaryModel.andForEachOf', {
+              perInscription: v.perInscription,
+              count,
+              countWord: plural(count, 'Inscription'),
+            })
+          : '',
+    }),
   };
 }
 
@@ -800,7 +886,7 @@ export interface OutcomeView {
 
 /** A Dissonate's roll: what the live region says while it plays. */
 export function rollingLine(name: string): string {
-  return `Dissonating ${name}…`;
+  return t('screens.reliquaryModel.dissonating', { name });
 }
 
 export function outcomeView(rec: CraftRecord): OutcomeView {
@@ -813,12 +899,18 @@ export function outcomeView(rec: CraftRecord): OutcomeView {
       const fine = o.inscription.tier <= RULES().tierCap;
       v = {
         kind: 'inscribed',
-        title: `Inscribed ${row.name} ${row.tierLabel}`,
+        title: t('screens.reliquaryModel.inscribed', { name: row.name, tierLabel: row.tierLabel }),
         lines: [
           row.text,
           row.fixed
-            ? `${row.tierLabel} is always ${row.rangeText}.`
-            : `${row.tierLabel} ranges ${row.rangeText}.`,
+            ? t('screens.reliquaryModel.isAlways2', {
+                tierLabel: row.tierLabel,
+                rangeText: row.rangeText,
+              })
+            : t('screens.reliquaryModel.ranges', {
+                tierLabel: row.tierLabel,
+                rangeText: row.rangeText,
+              }),
         ],
         sound: fine ? 'inscribeFine' : 'inscribe',
         effect: fine ? 'etchFine' : 'etch',
@@ -834,8 +926,15 @@ export function outcomeView(rec: CraftRecord): OutcomeView {
       v = {
         kind: 'retuned',
         title: same
-          ? `Retuned ${def.name}: it stayed at ${valueText(def, o.to)}`
-          : `Retuned ${def.name}: ${valueText(def, o.from)} → ${valueText(def, o.to)}`,
+          ? t('screens.reliquaryModel.retunedItStayedAt', {
+              name: def.name,
+              valueText: valueText(def, o.to),
+            })
+          : t('screens.reliquaryModel.retuned', {
+              name: def.name,
+              valueText: valueText(def, o.from),
+              valueText2: valueText(def, o.to),
+            }),
         lines: [inscriptionText(def, o.to)],
         sound: 'retune',
         effect: 'tune',
@@ -849,7 +948,10 @@ export function outcomeView(rec: CraftRecord): OutcomeView {
       const def = inscriptionDef(was.id);
       v = {
         kind: 'ascended',
-        title: `Ascended ${def.name} to ${tierLabel(o.inscription.tier)}`,
+        title: t('screens.reliquaryModel.ascendedTo', {
+          name: def.name,
+          tierLabel: tierLabel(o.inscription.tier),
+        }),
         lines: [
           `${tierLabel(was.tier)} ${valueText(def, was.value)} → ${tierLabel(o.inscription.tier)} ${valueText(def, o.inscription.value)}`,
           inscriptionText(def, o.inscription.value),
@@ -866,9 +968,15 @@ export function outcomeView(rec: CraftRecord): OutcomeView {
       const def = inscriptionDef(ins.id);
       v = {
         kind: 'missed',
-        title: `Ascend missed: ${def.name} stays ${tierLabel(ins.tier)}`,
+        title: t('screens.reliquaryModel.ascendMissedStays', {
+          name: def.name,
+          tierLabel: tierLabel(ins.tier),
+        }),
         lines: [
-          `The ${costText(rec.cost)} are spent, and Instability rose to ${rec.after.instability}.`,
+          t('screens.reliquaryModel.theAreSpentAnd', {
+            costText: costText(rec.cost),
+            instability: rec.after.instability,
+          }),
         ],
         sound: 'ascendMiss',
         effect: 'miss',
@@ -880,10 +988,13 @@ export function outcomeView(rec: CraftRecord): OutcomeView {
     case 'fractured':
       v = {
         kind: 'fractured',
-        title: `Fractured: ${name} froze as it was`,
+        title: t('screens.reliquaryModel.fracturedFrozeAsIt', { name }),
         lines: [
-          `The ${ACTION_LABEL[rec.action]} didn’t happen, and its ${costText(rec.cost)} are lost.`,
-          'It still works, and can still be carried, but it can’t be crafted again.',
+          t('screens.reliquaryModel.theDidnTHappen', {
+            value: ACTION_LABEL[rec.action],
+            costText: costText(rec.cost),
+          }),
+          t('screens.reliquaryModel.itStillWorksAnd'),
         ],
         sound: 'fracture',
         effect: 'crack',
@@ -910,7 +1021,9 @@ function dissonatedView(
       const row = d?.inscription ? dissonantRow(d.inscription) : null;
       return {
         kind,
-        title: `Dissonant: a fifth slot holds ${row?.name ?? 'a Dissonant Inscription'}`,
+        title: t('screens.reliquaryModel.dissonantAFifthSlot', {
+          value: row?.name ?? t('screens.reliquaryModel.aDissonantInscription'),
+        }),
         lines: [row?.text ?? ''].filter(Boolean),
         sound: 'dissonant',
         effect: 'dissonant',
@@ -921,8 +1034,11 @@ function dissonatedView(
     case 'empowered':
       return {
         kind,
-        title: `Empowered: ${name}’s own effect grows`,
-        lines: [relicText(def, true), `It was: ${relicText(def)}`],
+        title: t('screens.reliquaryModel.empoweredSOwnEffect', { name }),
+        lines: [
+          relicText(def, true),
+          t('screens.reliquaryModel.itWas', { relicText: relicText(def) }),
+        ],
         sound: 'empowered',
         effect: 'empowered',
         target: null,
@@ -940,8 +1056,20 @@ function dissonatedView(
       });
       return {
         kind,
-        title: `Cursed: ${rose.length > 0 ? `${rose.length} ${plural(rose.length, 'Inscription')} rose a tier, and` : 'no Inscription could rise, and'} ${curse?.name ?? 'a curse'} joins it`,
-        lines: [...rose, curse ? `Curse: ${curse.text}.` : ''].filter(Boolean),
+        title: t('screens.reliquaryModel.cursedJoinsIt', {
+          value:
+            rose.length > 0
+              ? t('screens.reliquaryModel.roseATierAnd', {
+                  length: rose.length,
+                  lengthWord: plural(rose.length, 'Inscription'),
+                })
+              : t('screens.reliquaryModel.noInscriptionCouldRise'),
+          value2: curse?.name ?? t('screens.reliquaryModel.aCurse'),
+        }),
+        lines: [
+          ...rose,
+          curse ? t('screens.reliquaryModel.curse2', { text: curse.text }) : '',
+        ].filter(Boolean),
         sound: 'cursedRelic',
         effect: 'cursed',
         target: null,
@@ -951,8 +1079,8 @@ function dissonatedView(
     case 'shattered':
       return {
         kind,
-        title: `Shattered: nothing changes`,
-        lines: [`The Discord Tear is spent, and ${name} stays as it was, for good.`],
+        title: t('screens.reliquaryModel.shatteredNothingChanges'),
+        lines: [t('screens.reliquaryModel.theDiscordTearIs', { name })],
         sound: 'shattered',
         effect: 'shatter',
         target: null,
@@ -963,7 +1091,7 @@ function dissonatedView(
 
 /** A relic released: what the live region and the screen say. */
 export function releasedLine(name: string, shards: number): string {
-  return `Released ${name}: +${shardsText(shards)}.`;
+  return t('screens.reliquaryModel.released', { name, shardsText: shardsText(shards) });
 }
 
 // ── The carry ─────────────────────────────────────────────────────────────────────────
@@ -982,13 +1110,19 @@ export type CarryRole = 'attuned' | 'lends';
 
 export const ROLE_LABEL: Readonly<Record<CarryRole, string>> = {
   attuned: 'Attuned',
-  lends: 'Lends its Inscriptions',
+  get lends() {
+    return t('screens.reliquaryModel.lendsItsInscriptions');
+  },
 };
 
 /** What a slot's relic gives a run. */
 export const ROLE_LINE: Readonly<Record<CarryRole, string>> = {
-  attuned: 'Attuned: its own effect and its Inscriptions',
-  lends: 'Lends its Inscriptions: its own effect sleeps',
+  get attuned() {
+    return t('screens.reliquaryModel.attunedItsOwnEffect');
+  },
+  get lends() {
+    return t('screens.reliquaryModel.lendsItsInscriptionsIts');
+  },
 };
 
 /** A dormant relic, wherever a run shows it. */
@@ -1022,7 +1156,7 @@ export function carrySlotViews(carried: readonly ReliquaryRelic[], slots: number
       open,
       role: carryRole(index),
       relic: open ? (carried[index] ?? null) : null,
-      lockLine: open ? null : `Opens at Rank ${rank}`,
+      lockLine: open ? null : t('screens.reliquaryModel.opensAtRank', { rank }),
     };
   });
 }
@@ -1069,19 +1203,32 @@ export function carryChange(
   const uids = now.map((r) => r.uid);
   if (uids.includes(uid)) return { uids: uids.filter((u) => u !== uid), adding: false };
   const relic = rq.relics.find((r) => r.uid === uid);
-  if (!relic) return { problem: 'That relic isn’t in the Reliquary.' };
+  if (!relic) return { problem: t('screens.reliquaryModel.thatRelicIsnT') };
   const name = relicDef(relic.id).name;
   if (now.some((r) => r.id === relic.id))
     return {
-      problem: `You carry another ${name} already: a run never carries two of the same relic.`,
+      problem: t('screens.reliquaryModel.youCarryAnotherAlready', { name }),
     };
   if (uids.length >= slots) {
     const ranks = RULES().slotRanks;
     if (slots <= 0)
-      return { problem: `The Reliquary opens at Rank ${unlockRank('reliquary', '1')}.` };
+      return {
+        problem: t('screens.reliquaryModel.theReliquaryOpensAt', {
+          unlockRank: unlockRank('reliquary', '1'),
+        }),
+      };
     const next = ranks[slots];
     return {
-      problem: `${slots === 1 ? 'Your carry slot is' : `All ${slots} carry slots are`} full: take a relic out first.${next !== undefined ? ` Rank ${next} opens a ${ORDINAL[slots] ?? 'new'} slot.` : ''}`,
+      problem: t('screens.reliquaryModel.fullTakeARelic', {
+        value:
+          slots === 1
+            ? t('screens.reliquaryModel.yourCarrySlotIs')
+            : t('screens.reliquaryModel.allCarrySlotsAre', { slots }),
+        value2:
+          next !== undefined
+            ? t('screens.reliquaryModel.rankOpensASlot', { next, value: ORDINAL[slots] ?? 'new' })
+            : '',
+      }),
     };
   }
   return { uids: [...uids, uid], adding: true };
@@ -1094,20 +1241,23 @@ export function carryChange(
 export function reliquaryUnlockLine(u: { kind: string; target: string }): string | null {
   const ranks = RULES().slotRanks;
   if (u.kind === 'reliquary') {
-    const later = ranks.slice(1).map((r, i) => `Rank ${r} gives a ${ORDINAL[i + 1] ?? 'new'}`);
-    return `One relic to carry now${later.length ? `; ${andList(later)}` : ''}.`;
+    const later = ranks
+      .slice(1)
+      .map((r, i) => t('screens.reliquaryModel.rankGivesA', { r, value: ORDINAL[i + 1] ?? 'new' }));
+    return t('screens.reliquaryModel.oneRelicToCarry', {
+      value: later.length ? `; ${andList(later)}` : '',
+    });
   }
-  if (u.kind === 'carrySlot')
-    return 'Only the first slot is attuned (its own effect and its Inscriptions); the others lend their Inscriptions. Choose in the Reliquary or from Prep.';
+  if (u.kind === 'carrySlot') return t('screens.reliquaryModel.onlyTheFirstSlot');
   return null;
 }
 
 /** "Carrying 1 of 2" (or "Nothing carried · 2 slots"). */
 export function carryLine(carried: number, slots: number): string {
-  if (slots <= 0) return 'No carry slot yet';
+  if (slots <= 0) return t('screens.reliquaryModel.noCarrySlotYet');
   return carried > 0
-    ? `Carrying ${carried} of ${slots}`
-    : `Nothing carried · ${slots} ${plural(slots, 'slot')}`;
+    ? t('screens.reliquaryModel.carryingOf', { carried, slots })
+    : t('screens.reliquaryModel.nothingCarried', { slots, slotsWord: plural(slots, 'slot') });
 }
 
 // ── Materials ─────────────────────────────────────────────────────────────────────────
@@ -1115,7 +1265,7 @@ export function carryLine(carried: number, slots: number): string {
 function encounterName(kind: 'miniboss' | 'boss'): string {
   return (
     CONTENT.encounters.find((e) => e.kind === kind)?.name ??
-    (kind === 'boss' ? 'the boss' : 'a mini-boss')
+    (kind === 'boss' ? t('screens.reliquaryModel.theBoss') : t('screens.reliquaryModel.aMiniBoss'))
   );
 }
 
@@ -1140,7 +1290,10 @@ function finalBossName(): string {
     midName((CONTENT.encounters.find((e) => e.id === id)?.name ?? id).split(',')[0]!);
   const prelude = name(movements[0]!.boss);
   if (movements.length < 2) return prelude;
-  return `${prelude}, or ${name(movements[movements.length - 1]!.boss)} on an Expedition,`;
+  return t('screens.reliquaryModel.orOnAnExpedition', {
+    prelude,
+    name: name(movements[movements.length - 1]!.boss),
+  });
 }
 
 /** Mid-sentence: "the Hollow Cantor". */
@@ -1154,8 +1307,23 @@ export function materialsHow(): { shards: string; tears: string } {
   const grade = RULES().tearGrade;
   const d = CONTENT.dissonanceRules;
   return {
-    shards: `Every run that ends pays them: ${s.perFight} for each fight it won, ${s.elite} more for an elite, ${s.miniboss} more for ${encounterNames('miniboss').join(' or ')} and ${s.boss} more for ${encounterNames('boss').join(' or ')}. Dissonance adds ${d.shardsPerPoint}% a point.`,
-    tears: `A Discord Tear for beating ${finalBossName()} with ${/^[AEFHILMNORSX]/.test(grade) ? 'an' : 'a'} ${grade}. With Dissonance, from ${d.tearOnA} points an ${TEAR_TOO_GRADE} pays one too, and from ${d.tearOnWin} every won run pays one more.`,
+    shards: t('screens.reliquaryModel.everyRunThatEnds', {
+      perFight: s.perFight,
+      elite: s.elite,
+      miniboss: s.miniboss,
+      encounterNames: encounterNames('miniboss').join(' or '),
+      boss: s.boss,
+      encounterNames2: encounterNames('boss').join(' or '),
+      shardsPerPoint: d.shardsPerPoint,
+    }),
+    tears: t('screens.reliquaryModel.aDiscordTearFor', {
+      finalBossName: finalBossName(),
+      value: /^[AEFHILMNORSX]/.test(grade) ? 'an' : 'a',
+      grade,
+      tearOnA: d.tearOnA,
+      TEAR_TOO_GRADE,
+      tearOnWin: d.tearOnWin,
+    }),
   };
 }
 
@@ -1169,7 +1337,7 @@ export function materialsBadge(rq: Pick<Reliquary, 'shards' | 'tears'>): string 
 
 /** "5 of 12 enshrined". */
 export function capacityLine(count: number): string {
-  return `${count} of ${RULES().capacity} enshrined`;
+  return t('screens.reliquaryModel.ofEnshrined', { count, capacity: RULES().capacity });
 }
 
 export function isFull(rq: Pick<Reliquary, 'relics'>): boolean {
@@ -1180,7 +1348,7 @@ export function isFull(rq: Pick<Reliquary, 'relics'>): boolean {
 
 /** What a run's end paid: "+24 Tuning Shards and +1 Discord Tear". */
 export function paidLine(paid: { shards: number; tears: number }): string {
-  if (paid.shards <= 0 && paid.tears <= 0) return 'nothing: it won no fight';
+  if (paid.shards <= 0 && paid.tears <= 0) return t('screens.reliquaryModel.nothingItWonNo');
   return [
     paid.shards > 0 && `+${shardsText(paid.shards)}`,
     paid.tears > 0 && `+${tearsText(paid.tears)}`,
@@ -1208,7 +1376,11 @@ export function enshrineChoices(run: RunState): EnshrineChoice[] {
       id: r.id,
       cleansed,
       arrives,
-      arrivesLine: `It arrives with ${arrives} ${plural(arrives, 'Inscription')}${cleansed ? ', and cleansed' : ''}.`,
+      arrivesLine: t('screens.reliquaryModel.itArrivesWith', {
+        arrives,
+        arrivesWord: plural(arrives, 'Inscription'),
+        value: cleansed ? t('screens.reliquaryModel.andCleansed') : '',
+      }),
     };
   });
 }
@@ -1218,11 +1390,10 @@ export function enshrineChoices(run: RunState): EnshrineChoice[] {
  * won or not. `run`: the line for that run's route; omitted, both.
  */
 export function enshrineHow(run?: Pick<RunState, 'movements'>): string {
-  if (!run)
-    return 'Win a Prelude, or reach Movement II on an Expedition, to enshrine one of the relics it found';
+  if (!run) return t('screens.reliquaryModel.winAPreludeOr');
   return run.movements >= 2
-    ? 'Reach Movement II to enshrine one of the relics it found'
-    : 'Win a run to enshrine one of the relics it found';
+    ? t('screens.reliquaryModel.reachMovementIiTo')
+    : t('screens.reliquaryModel.winARunTo');
 }
 
 /** Where the Summary's Reliquary panel stands. */

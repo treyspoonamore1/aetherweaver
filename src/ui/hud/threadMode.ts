@@ -7,6 +7,7 @@ import { callingLook } from '../kit/callingLook';
 import type { HeroHud, WeaverHud } from '../store';
 import { bindingCode, bindingLabel } from './labels';
 import { CUT_CAUSE_NAME, cutPlate, unravelPlate } from './riftLook';
+import { t } from '../text';
 
 export type ThreadModeId = WeaverHud['threadMode'];
 
@@ -20,9 +21,27 @@ export interface ThreadModeLook {
 const BEAR_COLOR = callingLook('martyr').color;
 
 const LOOKS: Record<ThreadModeId, ThreadModeLook> = {
-  mend: { color: 'var(--color-mend)', icon: 'mend', label: 'Mend' },
-  empower: { color: 'var(--color-empower)', icon: 'empower', label: 'Empower' },
-  bear: { color: BEAR_COLOR, icon: 'bear', label: 'Bear' },
+  mend: {
+    color: 'var(--color-mend)',
+    icon: 'mend',
+    get label() {
+      return t('hud.threadMode.mend');
+    },
+  },
+  empower: {
+    color: 'var(--color-empower)',
+    icon: 'empower',
+    get label() {
+      return t('hud.threadMode.empower');
+    },
+  },
+  bear: {
+    color: BEAR_COLOR,
+    icon: 'bear',
+    get label() {
+      return t('hud.threadMode.bear');
+    },
+  },
 };
 
 export function threadModeLook(mode: ThreadModeId): ThreadModeLook {
@@ -80,28 +99,41 @@ export function threadDialView(w: WeaverHud, target: HeroHud | null): ThreadDial
   const back = w.lastMode === 'mend' ? 'Mend' : 'Empower';
   const doing =
     mode === 'bear'
-      ? `Bear: you take ${share}% of what ${target?.name ?? 'your threaded hero'} would lose`
+      ? t('hud.threadMode.bearYouTakeOf', {
+          share,
+          value: target?.name ?? t('hud.threadMode.yourThreadedHero'),
+        })
       : mode === 'mend'
-        ? `Mend: your Thread heals ${target?.name ?? 'whoever you thread'}`
-        : `Empower: ${target?.name ?? 'whoever you thread'} hits harder`;
+        ? t('hud.threadMode.mendYourThreadHeals', {
+            value: target?.name ?? t('hud.threadMode.whoeverYouThread'),
+          })
+        : t('hud.threadMode.empowerHitsHarder', {
+            value: target?.name ?? t('hud.threadMode.whoeverYouThread'),
+          });
   const how =
     mode === 'bear'
-      ? `${bearKey ?? 'Bear'} again goes back to ${back}`
-      : `${switchKey} switches to ${other}`;
+      ? t('hud.threadMode.againGoesBackTo', { value: bearKey ?? 'Bear', back })
+      : t('hud.threadMode.switchesTo', { switchKey, other });
   // Movement III (docs/phase-5c.md): an enemy's cut names what cut it; Unravel turns Mend.
   const cut = state === 'snapped' ? w.threadCut : undefined;
   const unravelled = state === 'live' && mode === 'mend' && (w.unravelLeft ?? 0) > 0;
   const says =
     state === 'down'
-      ? `You're down: the Thread is slack until you re-form`
+      ? t('hud.threadMode.youReDownThe')
       : cut
-        ? `${CUT_CAUSE_NAME[cut.cause]} cut the Thread: it can attach again in ${w.threadLock.toFixed(1)} s`
+        ? t('hud.threadMode.cutTheThreadIt', {
+            value: CUT_CAUSE_NAME[cut.cause],
+            threadLock: w.threadLock.toFixed(1),
+          })
         : state === 'snapped'
-          ? `The Thread snapped: it can attach again in ${w.threadLock.toFixed(1)} s`
+          ? t('hud.threadMode.theThreadSnappedIt', { threadLock: w.threadLock.toFixed(1) })
           : state === 'idle'
-            ? `${look.label}, on no one: press 1–3 or click a hero to thread them. ${how}.`
+            ? t('hud.threadMode.onNoOnePress', { label: look.label, how })
             : unravelled
-              ? `Unravel: your Mend wounds ${target?.name ?? 'your threaded hero'}. ${switchKey} switches to Empower.`
+              ? t('hud.threadMode.unravelYourMendWounds', {
+                  value: target?.name ?? t('hud.threadMode.yourThreadedHero'),
+                  switchKey,
+                })
               : `${doing}. ${how}.`;
   const plate = cut
     ? cutPlate(cut.cause, w.threadLock)
@@ -110,7 +142,7 @@ export function threadDialView(w: WeaverHud, target: HeroHud | null): ThreadDial
       : unravelled
         ? unravelPlate(w.unravelLeft ?? 0)
         : mode === 'bear'
-          ? `Bear ${share}%`
+          ? t('hud.threadMode.bear2', { share })
           : look.label;
   return {
     mode,

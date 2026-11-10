@@ -54,6 +54,7 @@ import {
   treeTotals,
   type StarPreview,
 } from './astrolabeModel';
+import { t as txt } from '../text';
 
 export interface AstrolabeViewProps {
   /** The stars taken, in the order they were taken (the centre is never listed). */
@@ -107,7 +108,7 @@ export function AstrolabeView({
   onGiveBack,
   onRespec,
   onBack,
-  backTo = 'The Loom',
+  backTo = txt('screens.astrolabeScreen.theLoom'),
   runUnderWay = false,
   initialPoint = null,
   initialRespec = false,
@@ -219,11 +220,11 @@ export function AstrolabeView({
         <header className="flex items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-muted">
-              Between runs · Weaver Rank {rank}
-              {unlockAll && ' · all unlocked'}
+              {txt('screens.astrolabeScreen.betweenRunsWeaverRank', { rank })}
+              {unlockAll && txt('screens.astrolabeScreen.allUnlocked')}
             </p>
             <h1 className="font-display text-3xl font-bold tracking-wide text-gold-300">
-              The Astrolabe
+              {txt('screens.astrolabeScreen.theAstrolabe')}
             </h1>
           </div>
           <PointsMeter spent={tree.length} points={points} sources={sources} onDeeds={onDeeds} />
@@ -233,12 +234,13 @@ export function AstrolabeView({
               onClick={() => setRespec(true)}
               disabled={tree.length === 0}
               sound="click"
-              title="Give every point back (free between runs)"
+              title={txt('screens.astrolabeScreen.giveEveryPointBack')}
             >
-              <Icon name="reroll" size={16} /> Respec
+              <Icon name="reroll" size={16} /> {txt('screens.astrolabeScreen.respec')}
             </Button>
             <Button variant="ghost" onClick={onBack} sound="back">
-              <Icon name="back" size={16} /> {backTo} <KeyCap label="Esc" />
+              <Icon name="back" size={16} /> {backTo}{' '}
+              <KeyCap label={txt('screens.astrolabeScreen.esc')} />
             </Button>
           </div>
         </header>
@@ -252,7 +254,9 @@ export function AstrolabeView({
                 dropped={dropped}
                 buzz={buzz}
                 className="h-full w-full"
-                label={`The Astrolabe: ${pointsLine(tree.length, points)}. Arrow keys move between stars; Enter takes one, Delete gives one back.`}
+                label={txt('screens.astrolabeScreen.theAstrolabeArrowKeys', {
+                  pointsLine: pointsLine(tree.length, points),
+                })}
                 onPoint={(id, via) =>
                   point(
                     id,
@@ -275,14 +279,13 @@ export function AstrolabeView({
           </div>
           <aside
             className="flex w-[28.5rem] shrink-0 flex-col gap-3"
-            aria-label="Your tree"
+            aria-label={txt('screens.astrolabeScreen.yourTree')}
             data-testid="astrolabe-side"
           >
             {runUnderWay && (
               <p className="flex items-start gap-2 rounded-lg border border-ink-600 bg-ink-900/80 px-3 py-2 text-xs text-muted">
                 <Icon name="info" size={14} className="mt-px shrink-0 text-gold-300" />
-                Your run under way keeps the tree it embarked with: what you change here is for the
-                next one.
+                {txt('screens.astrolabeScreen.yourRunUnderWay')}
               </p>
             )}
             {left < 0 && (
@@ -305,10 +308,15 @@ export function AstrolabeView({
         </div>
       </div>
       {respec && (
-        <Modal title="Give every point back?" onClose={() => setRespec(false)} closeOnEscape>
+        <Modal
+          title={txt('screens.astrolabeScreen.giveEveryPointBack2')}
+          onClose={() => setRespec(false)}
+          closeOnEscape
+        >
           <p className="mt-3 text-sm leading-relaxed text-text">
-            Every star you lit goes dark, and your {pointsWord(tree.length)} come back to spend
-            again. It’s free between runs.
+            {txt('screens.astrolabeScreen.everyStarYouLit', {
+              pointsWord: pointsWord(tree.length),
+            })}
           </p>
           <div className="mt-5 flex justify-end gap-2">
             <Button
@@ -317,7 +325,7 @@ export function AstrolabeView({
               sound="back"
               data-autofocus
             >
-              Keep my tree
+              {txt('screens.astrolabeScreen.keepMyTree')}
             </Button>
             <Button
               variant="danger"
@@ -329,7 +337,7 @@ export function AstrolabeView({
                 setRespec(false);
               }}
             >
-              <Icon name="reroll" size={16} /> Give everything back
+              <Icon name="reroll" size={16} /> {txt('screens.astrolabeScreen.giveEverythingBack')}
             </Button>
           </div>
         </Modal>
@@ -401,7 +409,7 @@ function PointsMeter({
               type="button"
               onClick={onDeeds}
               className="text-gold-200 underline decoration-gold-400/50 decoration-dotted underline-offset-2 hover:text-gold-100"
-              title="The Deeds, in the Codex: each on the ladder gives a point"
+              title={txt('screens.astrolabeScreen.theDeedsInThe')}
               data-testid="astrolabe-deeds"
             >
               {pointSourceParts(sources).deeds}
@@ -468,7 +476,10 @@ function StarText({ node, compact = false }: { node: AstrolabeNode; compact?: bo
       <ul className={`flex flex-col gap-1 ${compact ? 'text-xs' : 'text-sm'} leading-snug`}>
         {parts.gains.map((s) => (
           <li key={s} className="flex gap-1.5 text-text">
-            <span className="font-bold text-gold-300" aria-label="Gives">
+            <span
+              className="font-bold text-gold-300"
+              aria-label={txt('screens.astrolabeScreen.gives')}
+            >
               +
             </span>
             {s}
@@ -476,7 +487,10 @@ function StarText({ node, compact = false }: { node: AstrolabeNode; compact?: bo
         ))}
         {parts.prices.map((s) => (
           <li key={s} className="flex gap-1.5 text-rose-200">
-            <span className="font-bold text-rose-300" aria-label="Price">
+            <span
+              className="font-bold text-rose-300"
+              aria-label={txt('screens.astrolabeScreen.price')}
+            >
               −
             </span>
             {s}
@@ -599,10 +613,11 @@ function StarCard({
   if (!p) {
     return (
       <Panel tone="solid" className="p-4" data-testid="star-card">
-        <p className="font-display text-base font-bold text-gold-200">Plan a path</p>
+        <p className="font-display text-base font-bold text-gold-200">
+          {txt('screens.astrolabeScreen.planAPath')}
+        </p>
         <p className="mt-1 text-sm leading-relaxed text-muted">
-          Point at a star: the path to it lights up, with what it costs. Take it and every star on
-          the way; give one back if nothing you’ve taken hangs on it.
+          {txt('screens.astrolabeScreen.pointAtAStar')}
         </p>
         <Legend />
       </Panel>
@@ -636,7 +651,7 @@ function StarCard({
                 aria-disabled={p.action !== 'take'}
                 data-testid="star-take"
               >
-                Take · {pointsWord(p.cost)}
+                {txt('screens.astrolabeScreen.take', { pointsWord: pointsWord(p.cost) })}
               </Button>
             )}
             {(p.action === 'mine' || p.action === 'held') && (
@@ -648,7 +663,7 @@ function StarCard({
                 aria-disabled={p.action !== 'mine'}
                 data-testid="star-give-back"
               >
-                <Icon name="back" size={14} /> Give back
+                <Icon name="back" size={14} /> {txt('screens.astrolabeScreen.giveBack')}
               </Button>
             )}
           </span>
@@ -675,34 +690,40 @@ function Legend() {
             className="h-3 w-3 rounded-full"
             style={{ background: silk, boxShadow: `0 0 8px ${silk}` }}
           />,
-          'Lit: yours',
+          txt('screens.astrolabeScreen.litYours'),
         )}
         {row(
           <span className="h-3 w-3 rounded-full border-2" style={{ borderColor: silk }} />,
-          'Touches your tree',
+          txt('screens.astrolabeScreen.touchesYourTree'),
         )}
         {row(
           <span className="h-3 w-3 rounded-full border opacity-50" style={{ borderColor: silk }} />,
-          'Out of reach for now',
+          txt('screens.astrolabeScreen.outOfReachFor'),
         )}
         {row(
           <span className="h-3 w-3 rotate-45 border-2" style={{ borderColor: silk }} />,
-          'Keystone: a rule, with a price',
+          txt('screens.astrolabeScreen.keystoneARuleWith'),
         )}
       </ul>
       <ul className="flex flex-col gap-1">
         <li className="flex items-center gap-1.5">
-          <KeyCap label="Click" /> or <KeyCap label="Enter" /> take
+          <KeyCap label={txt('screens.astrolabeScreen.click')} />{' '}
+          {txt('screens.astrolabeScreen.or')}{' '}
+          <KeyCap label={txt('screens.astrolabeScreen.enter')} />{' '}
+          {txt('screens.astrolabeScreen.take2')}
         </li>
         <li className="flex items-center gap-1.5">
-          <KeyCap label="Right-click" className="whitespace-nowrap" /> or <KeyCap label="Del" />{' '}
-          give back
+          <KeyCap label={txt('screens.astrolabeScreen.rightClick')} className="whitespace-nowrap" />{' '}
+          {txt('screens.astrolabeScreen.or')} <KeyCap label={txt('screens.astrolabeScreen.del')} />{' '}
+          {txt('screens.astrolabeScreen.giveBack2')}
         </li>
         <li className="flex items-center gap-1.5">
-          <KeyCap label="Tab" /> <KeyCap label="← ↑ → ↓" /> move
+          <KeyCap label={txt('screens.astrolabeScreen.tab')} /> <KeyCap label="← ↑ → ↓" />{' '}
+          {txt('screens.astrolabeScreen.move')}
         </li>
         <li className="flex items-center gap-1.5">
-          <KeyCap label="Esc" /> back
+          <KeyCap label={txt('screens.astrolabeScreen.esc')} />{' '}
+          {txt('screens.astrolabeScreen.back')}
         </li>
       </ul>
     </div>
@@ -719,9 +740,13 @@ function TreeSummary({ tree }: { tree: readonly string[] }) {
       className="scroll-thin min-h-0 flex-1 overflow-y-auto p-4"
       data-testid="astrolabe-totals"
     >
-      <h2 className="font-display text-base font-bold text-gold-300">What your tree adds up to</h2>
+      <h2 className="font-display text-base font-bold text-gold-300">
+        {txt('screens.astrolabeScreen.whatYourTreeAdds')}
+      </h2>
       {empty ? (
-        <p className="mt-1 text-sm text-muted">Nothing yet. {firstNotableLine()}</p>
+        <p className="mt-1 text-sm text-muted">
+          {txt('screens.astrolabeScreen.nothingYet', { firstNotableLine: firstNotableLine() })}
+        </p>
       ) : (
         <div className="mt-2 flex flex-col gap-2.5">
           {t.groups.map((g) => {
@@ -748,9 +773,12 @@ function TreeSummary({ tree }: { tree: readonly string[] }) {
             );
           })}
           {t.keystones.length > 0 && (
-            <section aria-label="Keystones" data-testid="astrolabe-keystones">
+            <section
+              aria-label={txt('screens.astrolabeScreen.keystones')}
+              data-testid="astrolabe-keystones"
+            >
               <p className="text-xs font-bold uppercase tracking-wider text-gold-200">
-                Keystones · each with its price
+                {txt('screens.astrolabeScreen.keystonesEachWithIts')}
               </p>
               <ul className="mt-1 flex flex-col gap-2">
                 {t.keystones.map((n) => (
@@ -771,8 +799,10 @@ function TreeSummary({ tree }: { tree: readonly string[] }) {
             </section>
           )}
           {t.rules.length > 0 && (
-            <section aria-label="Notables">
-              <p className="text-xs font-bold uppercase tracking-wider text-gold-200">Notables</p>
+            <section aria-label={txt('screens.astrolabeScreen.notables')}>
+              <p className="text-xs font-bold uppercase tracking-wider text-gold-200">
+                {txt('screens.astrolabeScreen.notables')}
+              </p>
               <ul className="mt-0.5 flex flex-col gap-1">
                 {t.rules.map((n) => (
                   <li key={n.id} className="flex items-start gap-2 text-sm">
@@ -849,7 +879,7 @@ export function AstrolabeScreen() {
       onGiveBack={(id) => void giveBackStar(id)}
       onRespec={() => void respecStars()}
       onBack={back}
-      backTo={previous === 'run' ? 'Prep' : 'The Loom'}
+      backTo={previous === 'run' ? 'Prep' : txt('screens.astrolabeScreen.theLoom')}
       runUnderWay={runUnderWay}
     />
   );

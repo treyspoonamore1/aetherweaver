@@ -36,6 +36,7 @@ import {
 } from '../../meta/bonds';
 import type { EncounterResult, RunPhase, RunState } from '../../meta/types';
 import { fmt, pct } from '../kit/format';
+import { t as txt } from '../text';
 
 const RULES = () => CONTENT.bondRules;
 
@@ -191,8 +192,12 @@ export function bondProgressView(xp: number): BondProgressView {
     fraction: span === null ? 1 : Math.max(0, Math.min(1, into / span)),
     text:
       span === null
-        ? `${fmt(xp)} Bond XP · the highest rank`
-        : `${fmt(into)} / ${fmt(span)} Bond XP to rank ${rank + 1}`,
+        ? txt('screens.bondsModel.bondXpTheHighest', { xp: fmt(xp) })
+        : txt('screens.bondsModel.bondXpToRank', {
+            into: fmt(into),
+            span: fmt(span),
+            value: rank + 1,
+          }),
   };
 }
 
@@ -234,13 +239,23 @@ export function opensAt(heroId: string, rank: number): OpensItem[] {
       kind: 'tier',
       rank,
       id: `tier-${o.tier}`,
-      phrase: `talents, tier ${numeral(o.tier)}`,
+      phrase: txt('screens.bondsModel.talentsTier', { numeral: numeral(o.tier) }),
     });
   const alt = altSoloOf(heroId);
   if (o.solo && alt)
-    out.push({ kind: 'solo', rank, id: alt.id, phrase: `the alternate Solo, ${alt.name}` });
+    out.push({
+      kind: 'solo',
+      rank,
+      id: alt.id,
+      phrase: txt('screens.bondsModel.theAlternateSolo', { name: alt.name }),
+    });
   for (const s of o.scenes)
-    out.push({ kind: 'scene', rank, id: s.id, phrase: `a scene, “${s.title}”` });
+    out.push({
+      kind: 'scene',
+      rank,
+      id: s.id,
+      phrase: txt('screens.bondsModel.aScene', { title: s.title }),
+    });
   return out;
 }
 
@@ -265,7 +280,10 @@ export function nextOpening(
 export function nextLine(heroId: string, rank: number): string | null {
   const next = nextOpening(heroId, rank);
   if (!next) return null;
-  return `Rank ${next.rank} opens ${listAnd(next.items.map((i) => i.phrase))}.`;
+  return txt('screens.bondsModel.rankOpens', {
+    rank: next.rank,
+    listAnd: listAnd(next.items.map((i) => i.phrase)),
+  });
 }
 
 /** One rank on a hero's Bond track. */
@@ -294,16 +312,16 @@ export function bondTrack(heroId: string, xp: number): TrackStep[] {
 
 /** "Opens at Bond rank 6." */
 export function lockLine(rank: number): string {
-  return `Opens at Bond rank ${rank}.`;
+  return txt('screens.bondsModel.opensAtBondRank', { rank });
 }
 
 /** "The alternate Solo opens at Bond rank 10." */
 export function soloLockLine(rank: number): string {
-  return `The alternate Solo opens at Bond rank ${rank}.`;
+  return txt('screens.bondsModel.theAlternateSoloOpens', { rank });
 }
 
 /** Open only because of Settings → Skip the unlocks. */
-export const SKIP_NOTE = 'Open with Skip the unlocks';
+export const SKIP_NOTE = (): string => txt('screens.bondsModel.openWithSkipThe');
 
 export interface TierView {
   tier: number;
@@ -341,7 +359,7 @@ export function tierViews(heroId: string, bond: Bond, unlockAll: boolean): TierV
       chosen,
       talents: choices.map((t) => ({ ...talentView(t), chosen: t.id === chosen })),
       lockLine: open ? null : lockLine(at),
-      note: open && !reached ? SKIP_NOTE : null,
+      note: open && !reached ? SKIP_NOTE() : null,
     };
   });
 }
@@ -389,7 +407,7 @@ export function soloChoiceView(
       { key: 'alt', solo: soloView(heroId, alt.id), chosen: chosen === 'alt' },
     ],
     lockLine: open ? null : lockLine(at),
-    note: open && !reached ? SKIP_NOTE : null,
+    note: open && !reached ? SKIP_NOTE() : null,
   };
 }
 
@@ -434,12 +452,12 @@ export function sceneRows(heroId: string, bond: Bond): SceneRow[] {
       const line =
         state === 'seen'
           ? replyText
-            ? `Seen. You said “${replyText}”`
+            ? txt('screens.bondsModel.seenYouSaid', { replyText })
             : 'Seen.'
           : state === 'waiting'
-            ? `Waits for a Respite: sit with ${name} there instead of resting (+${fmt(xp)} Bond XP).`
+            ? txt('screens.bondsModel.waitsForARespite', { name, xp: fmt(xp) })
             : state === 'queued'
-              ? `Waits for a Respite, after “${next?.title ?? ''}”.`
+              ? txt('screens.bondsModel.waitsForARespite2', { value: next?.title ?? '' })
               : lockLine(s.rank);
       return { id: s.id, title: s.title, rank: s.rank, state, reply, replyText, xp, line };
     });
@@ -481,23 +499,22 @@ export function bondPage(heroId: string, bond: Bond, unlockAll: boolean): BondPa
 export function talentAnnounce(heroId: string, tier: number, id: string | null): string {
   const name = heroDef(heroId).name;
   return id
-    ? `${name}: ${talentDef(id).name}, tier ${numeral(tier)}.`
-    : `${name}: no talent in tier ${numeral(tier)}.`;
+    ? txt('screens.bondsModel.tier', { name, name2: talentDef(id).name, numeral: numeral(tier) })
+    : txt('screens.bondsModel.noTalentInTier', { name, numeral: numeral(tier) });
 }
 
 export function soloAnnounce(heroId: string, key: 'default' | 'alt'): string {
   const solo = soloView(heroId, key === 'alt' ? (altSoloOf(heroId)?.id ?? null) : null);
-  return `${heroDef(heroId).name} brings ${solo.name}.`;
+  return txt('screens.bondsModel.brings', { name: heroDef(heroId).name, name2: solo.name });
 }
 
 /** The Bonds screen's line under Skip the unlocks. */
 export function skipLine(): string {
-  return `Settings → Skip the unlocks: every talent and Solo can be chosen, as if each Bond were at rank ${maxBondRank()}. Scenes still wait for real ranks.`;
+  return txt('screens.bondsModel.settingsSkipTheUnlocks', { maxBondRank: maxBondRank() });
 }
 
 /** The line for a run under way (the screen opened from the Loom mid-run). */
-export const RUN_UNDER_WAY =
-  'Your run under way keeps the talents and Solos it embarked with: what you change here is for the next one.';
+export const RUN_UNDER_WAY = (): string => txt('screens.bondsModel.yourRunUnderWay');
 
 // ── Prep ──────────────────────────────────────────────────────────────────────────────
 
@@ -549,8 +566,8 @@ export function prepBondViews(
           talents.length > 0
             ? null
             : openTiers > 0
-              ? 'No talent chosen'
-              : `Talents from Bond rank ${tierRank(1)}`,
+              ? txt('screens.bondsModel.noTalentChosen')
+              : txt('screens.bondsModel.talentsFromBondRank', { tierRank: tierRank(1) }),
       };
     });
 }
@@ -582,7 +599,7 @@ export interface BondRankUpView {
 }
 
 /** Where talents and Solos are chosen. */
-export const WHERE_TO_CHOOSE = 'on the Bonds screen, from the Loom or from Prep';
+export const WHERE_TO_CHOOSE = (): string => txt('screens.bondsModel.onTheBondsScreen');
 
 /** One Bond rank-up's card: what the rank opened for the hero (`rankOpens`). */
 export function bondRankUpView(n: BondNotice, bond?: Bond): BondRankUpView {
@@ -593,8 +610,12 @@ export function bondRankUpView(n: BondNotice, bond?: Bond): BondRankUpView {
     const [a, b] = talentChoices(n.heroId, o.tier);
     opens.push({
       kind: 'tier',
-      title: `Talents, tier ${numeral(o.tier)}`,
-      text: `${a?.name ?? ''} or ${b?.name ?? ''}. Choose one, or neither, ${WHERE_TO_CHOOSE}.`,
+      title: txt('screens.bondsModel.talentsTier2', { numeral: numeral(o.tier) }),
+      text: txt('screens.bondsModel.orChooseOneOr', {
+        value: a?.name ?? '',
+        value2: b?.name ?? '',
+        WHERE_TO_CHOOSE: WHERE_TO_CHOOSE(),
+      }),
       detail: null,
     });
   }
@@ -604,7 +625,11 @@ export function bondRankUpView(n: BondNotice, bond?: Bond): BondRankUpView {
     opens.push({
       kind: 'solo',
       title: alt.name,
-      text: `${owner(def.name)} alternate Solo. Choose which Solo ${def.name} brings ${WHERE_TO_CHOOSE}.`,
+      text: txt('screens.bondsModel.alternateSoloChooseWhich', {
+        owner: owner(def.name),
+        name: def.name,
+        WHERE_TO_CHOOSE: WHERE_TO_CHOOSE(),
+      }),
       detail: `${lines.text} ${lines.cued}`,
     });
   }
@@ -615,8 +640,12 @@ export function bondRankUpView(n: BondNotice, bond?: Bond): BondRankUpView {
       kind: 'scene',
       title: `“${s.title}”`,
       text: after
-        ? `A scene with ${def.name}: it waits for a Respite, after “${after.title}” (+${fmt(sceneXp(s))} Bond XP).`
-        : `A scene with ${def.name} waits for a Respite: sit with ${def.name} there instead of resting (+${fmt(sceneXp(s))} Bond XP).`,
+        ? txt('screens.bondsModel.aSceneWithIt', {
+            name: def.name,
+            title: after.title,
+            sceneXp: fmt(sceneXp(s)),
+          })
+        : txt('screens.bondsModel.aSceneWithWaits', { name: def.name, sceneXp: fmt(sceneXp(s)) }),
       detail: null,
     });
   }
@@ -624,8 +653,8 @@ export function bondRankUpView(n: BondNotice, bond?: Bond): BondRankUpView {
     const next = nextLine(n.heroId, n.rank);
     opens.push({
       kind: 'none',
-      title: `Bond rank ${n.rank}`,
-      text: `Nothing new opens at this rank.${next ? ` ${next}` : ''}`,
+      title: txt('screens.bondsModel.bondRank', { rank: n.rank }),
+      text: txt('screens.bondsModel.nothingNewOpensAt', { value: next ? ` ${next}` : '' }),
       detail: null,
     });
   }
@@ -643,8 +672,9 @@ export function bondRankUpView(n: BondNotice, bond?: Bond): BondRankUpView {
 /** The rank-up card's heading: "Kael’s Bond deepens", or "Bonds deepen". */
 export function bondRankUpTitle(notices: readonly BondNotice[]): string {
   const heroes = [...new Set(notices.map((n) => n.heroId))];
-  if (heroes.length === 1) return `${owner(heroDef(heroes[0]!).name)} Bond deepens`;
-  return 'Bonds deepen';
+  if (heroes.length === 1)
+    return txt('screens.bondsModel.bondDeepens', { owner: owner(heroDef(heroes[0]!).name) });
+  return txt('screens.bondsModel.bondsDeepen');
 }
 
 /** The first Bond rank-up ever: what Bonds are, and where to choose. */
@@ -656,15 +686,19 @@ export function bondsIntroLines(heroes: readonly string[] = starters()): string[
   ].sort((a, b) => a - b);
   const perHero = CONTENT.scenes.filter((s) => s.hero === heroes[0]).length;
   return [
-    `${listAnd(names)} grow with you. Every fight pays each of them Bond XP, and more for your support of them: your healing, shields and saves, and the damage you add to theirs.`,
-    `Their Bond ranks open talents (at ranks ${listAnd(r.talentRanks.map(String))}: one of two each), an alternate Solo (rank ${r.soloRank}) and ${countWord(perHero)} scenes each (ranks ${listAnd(sceneRanks.map(String))}), told at a Respite instead of resting.`,
-    `Choose talents and Solos ${WHERE_TO_CHOOSE}. They change freely between runs; a run keeps the ones it embarks with.`,
+    txt('screens.bondsModel.growWithYouEvery', { listAnd: listAnd(names) }),
+    txt('screens.bondsModel.theirBondRanksOpen', {
+      listAnd: listAnd(r.talentRanks.map(String)),
+      soloRank: r.soloRank,
+      countWord: countWord(perHero),
+      listAnd2: listAnd(sceneRanks.map(String)),
+    }),
+    txt('screens.bondsModel.chooseTalentsAndSolos', { WHERE_TO_CHOOSE: WHERE_TO_CHOOSE() }),
   ];
 }
 
 /** The card's line under Skip the unlocks. */
-export const SKIP_RANKUP_LINE =
-  'Skip the unlocks: every talent and Solo can be chosen already. Scenes wait for these ranks.';
+export const SKIP_RANKUP_LINE = (): string => txt('screens.bondsModel.skipTheUnlocksEvery');
 
 /**
  * The Bond rank-up card is up: the Result, the Summary and the map (after a scene) show it once
@@ -733,7 +767,7 @@ export function bondXpRows(
 
 /** "+18 Bond XP". */
 export function bondXpHeadline(xp: number): string {
-  return `+${fmt(xp)} Bond XP`;
+  return txt('screens.bondsModel.bondXp', { xp: fmt(xp) });
 }
 
 /** The Bond XP a run paid each hero: its fights' (`EncounterResult.bondXp`) and its scenes'. */
@@ -781,13 +815,13 @@ export function sceneChoices(scenes: readonly SceneDef[], firstKey = 4): SceneCh
       name: def.name,
       color: def.color,
       key: String(firstKey + i),
-      title: `Sit with ${def.name}`,
+      title: txt('screens.bondsModel.sitWith', { name: def.name }),
       sceneTitle: s.title,
       xp,
       lines: [
-        `“${s.title}”: a few words with ${def.name} by the fire.`,
-        `+${fmt(xp)} Bond XP with ${def.name}.`,
-        'No healing and no motif.',
+        txt('screens.bondsModel.aFewWordsWith', { title: s.title, name: def.name }),
+        txt('screens.bondsModel.bondXpWith', { xp: fmt(xp), name: def.name }),
+        txt('screens.bondsModel.noHealingAndNo'),
       ],
     };
   });
@@ -829,10 +863,18 @@ export function heroBondTip(
 // ── The Codex ─────────────────────────────────────────────────────────────────────────
 
 const KIND_PHRASE: Record<string, string> = {
-  skirmish: 'a skirmish',
-  elite: 'an elite',
-  miniboss: 'a mini-boss',
-  boss: 'the boss',
+  get skirmish() {
+    return txt('screens.bondsModel.aSkirmish');
+  },
+  get elite() {
+    return txt('screens.bondsModel.anElite');
+  },
+  get miniboss() {
+    return txt('screens.bondsModel.aMiniBoss');
+  },
+  get boss() {
+    return txt('screens.bondsModel.theBoss');
+  },
 };
 
 /** "×1.5". */
@@ -845,9 +887,12 @@ export function bondRulesLines(): { fight: string; weights: string; scene: strin
   const r = RULES();
   const kinds = Object.entries(r.kinds).map(([k, m]) => `${KIND_PHRASE[k] ?? k} ${times(m)}`);
   return {
-    fight: `After every fight, each hero in it earns ${fmt(r.base)} Bond XP, and a share of ${fmt(r.pool)} more by your support of them that fight: your healing and shields on them, the damage your songs and Thread added to theirs, and the life your saves kept. Without any support, the share isn’t paid.`,
-    weights: `Both scale with the fight: ${listAnd(kinds)}. A lost fight pays ${pct(r.loss)} of that.`,
-    scene: `A scene pays ${pct(r.scene)} of the Bond XP between its rank and the next, once.`,
+    fight: txt('screens.bondsModel.afterEveryFightEach', { base: fmt(r.base), pool: fmt(r.pool) }),
+    weights: txt('screens.bondsModel.bothScaleWithThe', {
+      listAnd: listAnd(kinds),
+      loss: pct(r.loss),
+    }),
+    scene: txt('screens.bondsModel.aScenePaysOf', { scene: pct(r.scene) }),
   };
 }
 
@@ -868,16 +913,19 @@ export function rankRows(heroes: readonly string[] = starters()): RankRow[] {
     const rank = i + 1;
     const opens: string[] = [];
     const tier = r.talentRanks.indexOf(rank);
-    if (tier >= 0) opens.push(`Talents, tier ${numeral(tier + 1)}`);
-    if (rank === r.soloRank) opens.push('The alternate Solo');
+    if (tier >= 0)
+      opens.push(txt('screens.bondsModel.talentsTier2', { numeral: numeral(tier + 1) }));
+    if (rank === r.soloRank) opens.push(txt('screens.bondsModel.theAlternateSolo2'));
     // A scene's XP is its rank's (`sceneXp`): the same for every hero at that rank.
     const scenes = CONTENT.scenes.filter((s) => s.rank === rank && heroes.includes(s.hero));
     if (scenes.length > 0) {
       const at = [...new Set(scenes.map((s) => s.hero))];
       const who = heroes.every((h) => at.includes(h))
-        ? 'A scene each'
-        : `A scene with ${listAnd(at.map((h) => heroDef(h).name))}`;
-      opens.push(`${who} (${fmt(sceneXp(scenes[0]!))} Bond XP)`);
+        ? txt('screens.bondsModel.aSceneEach')
+        : txt('screens.bondsModel.aSceneWith', {
+            listAnd: listAnd(at.map((h) => heroDef(h).name)),
+          });
+      opens.push(txt('screens.bondsModel.bondXp2', { who, sceneXp: fmt(sceneXp(scenes[0]!)) }));
     }
     return { rank, xp, step: i === 0 ? 0 : xp - r.ranks[i - 1]!, opens };
   });

@@ -9,6 +9,7 @@ import { MotifCard, harmonyHave } from './DraftScreen';
 import { relicInfo, shopItemName, shopItemStatus, type ShopItemStatus } from './interlude';
 import { Purse, RelicCard, RunStrip } from './RelicCard';
 import { PartyHealth, SectionTitle } from './shared';
+import { t } from '../text';
 
 export interface MerchantViewProps {
   run: RunState;
@@ -29,7 +30,7 @@ function BuyLine({
   if (item.sold)
     return (
       <span className="flex items-center justify-center gap-1.5 rounded-lg border border-heal/50 bg-heal/10 py-2 text-sm font-semibold text-heal">
-        <Icon name="check" size={15} /> Sold: yours now
+        <Icon name="check" size={15} /> {t('screens.merchantScreen.soldYoursNow')}
       </span>
     );
   return (
@@ -60,7 +61,12 @@ export function MerchantView({ run, onBuy, onLeave }: MerchantViewProps) {
       return;
     }
     playUi('buy');
-    setSaid(`Bought ${shopItemName(item)} for ${item.price} Aether.`);
+    setSaid(
+      t('screens.merchantScreen.boughtForAether', {
+        shopItemName: shopItemName(item),
+        price: item.price,
+      }),
+    );
     onBuy(i);
   };
   const items = shop.items.map((item, index) => ({ item, index }));
@@ -72,13 +78,12 @@ export function MerchantView({ run, onBuy, onLeave }: MerchantViewProps) {
     <ScreenFrame tone="gold">
       <div className="mx-auto max-w-6xl px-6 pb-28 pt-8">
         <ScreenHeader
-          eyebrow="A merchant · each item once"
-          title="The Merchant"
+          eyebrow={t('screens.merchantScreen.aMerchantEachItem')}
+          title={t('screens.merchantScreen.theMerchant')}
           right={<Purse aether={run.aether} size="lg" />}
         >
           <p className="mt-2 max-w-2xl text-sm text-muted">
-            A pack-mule of a merchant, all bells and pockets. Pay in Aether; what you buy is yours
-            for the rest of the run.
+            {t('screens.merchantScreen.aPackMuleOf')}
           </p>
         </ScreenHeader>
         <RunStrip
@@ -92,8 +97,8 @@ export function MerchantView({ run, onBuy, onLeave }: MerchantViewProps) {
           boons={run.boons}
         />
 
-        <section className="mt-6" aria-label="Relics for sale">
-          <SectionTitle>Relics</SectionTitle>
+        <section className="mt-6" aria-label={t('screens.merchantScreen.relicsForSale')}>
+          <SectionTitle>{t('screens.merchantScreen.relics')}</SectionTitle>
           <ul className="grid gap-5 md:grid-cols-3">
             {relics.map(({ item, index }) => {
               const info = relicInfo(item.id);
@@ -105,7 +110,14 @@ export function MerchantView({ run, onBuy, onLeave }: MerchantViewProps) {
                     onClick={() => buy(index)}
                     disabled={!status.available}
                     dim={item.sold}
-                    label={`${info.name}, ${info.rarityLabel} relic, ${item.price} Aether${status.problem ? `: ${status.problem}` : ''}. ${info.rule}${info.curse ? ` Curse: ${info.curse}` : ''}`}
+                    label={t('screens.merchantScreen.relicAether', {
+                      name: info.name,
+                      rarityLabel: info.rarityLabel,
+                      price: item.price,
+                      value: status.problem ? `: ${status.problem}` : '',
+                      rule: info.rule,
+                      value2: info.curse ? ` Curse: ${info.curse}` : '',
+                    })}
                     footer={<BuyLine item={item} status={status} />}
                   />
                 </li>
@@ -114,8 +126,8 @@ export function MerchantView({ run, onBuy, onLeave }: MerchantViewProps) {
           </ul>
         </section>
 
-        <section className="mt-8" aria-label="Motifs and healing for sale">
-          <SectionTitle>Motifs and healing</SectionTitle>
+        <section className="mt-8" aria-label={t('screens.merchantScreen.motifsAndHealingFor')}>
+          <SectionTitle>{t('screens.merchantScreen.motifsAndHealing')}</SectionTitle>
           <ul className="grid gap-5 md:grid-cols-3">
             {motifs.map(({ item, index }) => {
               const status = shopItemStatus(run, item);
@@ -128,13 +140,20 @@ export function MerchantView({ run, onBuy, onLeave }: MerchantViewProps) {
                     have={harmonyHave(run)}
                     disabled={!status.available}
                     dim={item.sold}
-                    label={`${shopItemName(item)}${item.upgrade ? `, upgrade to level ${item.level}` : ', new motif'}, ${item.price} Aether${status.problem ? `: ${status.problem}` : ''}`}
+                    label={t('screens.merchantScreen.aether', {
+                      shopItemName: shopItemName(item),
+                      value: item.upgrade
+                        ? t('screens.merchantScreen.upgradeToLevel', { level: item.level })
+                        : t('screens.merchantScreen.newMotif'),
+                      price: item.price,
+                      value2: status.problem ? `: ${status.problem}` : '',
+                    })}
                     action={
                       <span className="mt-4 block">
                         <BuyLine
                           item={item}
                           status={status}
-                          verb={item.upgrade ? 'Strengthen' : 'Weave in'}
+                          verb={item.upgrade ? 'Strengthen' : t('screens.merchantScreen.weaveIn')}
                         />
                       </span>
                     }
@@ -167,7 +186,7 @@ export function MerchantView({ run, onBuy, onLeave }: MerchantViewProps) {
           onClick={onLeave}
           sound="confirm"
         >
-          Leave the merchant <Icon name="arrow" size={18} />
+          {t('screens.merchantScreen.leaveTheMerchant')} <Icon name="arrow" size={18} />
         </Button>
       </div>
     </ScreenFrame>
@@ -193,18 +212,24 @@ function HealCard({
       type="button"
       onClick={onBuy}
       aria-disabled={!status.available || undefined}
-      aria-label={`Healing: every hero heals ${pctText} of their life, ${item.price} Aether${status.problem ? `: ${status.problem}` : ''}`}
+      aria-label={t('screens.merchantScreen.healingEveryHeroHeals', {
+        pctText,
+        price: item.price,
+        value: status.problem ? `: ${status.problem}` : '',
+      })}
       className={`group flex h-full w-full flex-col rounded-2xl border-2 border-heal/70 bg-ink-800/90 p-5 text-left shadow-xl shadow-black/40 transition-all ${status.available ? 'hover:-translate-y-1.5 hover:bg-ink-700/90' : 'cursor-not-allowed'} ${item.sold ? 'opacity-55 saturate-50' : ''}`}
     >
       <span className="flex items-center gap-1.5 text-sm font-semibold text-heal">
-        <Icon name="heart" size={18} /> Healing
-        <span className="text-xs font-normal text-muted">for the whole party</span>
+        <Icon name="heart" size={18} /> {t('screens.merchantScreen.healing')}
+        <span className="text-xs font-normal text-muted">
+          {t('screens.merchantScreen.forTheWholeParty')}
+        </span>
       </span>
       <h2 className="mt-3 font-display text-2xl font-bold leading-tight text-text">
-        A draught of light
+        {t('screens.merchantScreen.aDraughtOfLight')}
       </h2>
       <p className="mt-3 text-base leading-relaxed text-text">
-        Every hero heals {pctText} of their life.
+        {t('screens.merchantScreen.everyHeroHealsOf', { pctText })}
       </p>
       <div className="mt-3 flex flex-col gap-2.5">
         {run.party.map((h) => (
@@ -212,7 +237,7 @@ function HealCard({
         ))}
       </div>
       {full && !item.sold && (
-        <p className="mt-2 text-xs text-muted">Everyone is at full life: it would do nothing.</p>
+        <p className="mt-2 text-xs text-muted">{t('screens.merchantScreen.everyoneIsAtFull')}</p>
       )}
       <span className="mt-auto block pt-4">
         <BuyLine item={item} status={status} verb="Drink" />

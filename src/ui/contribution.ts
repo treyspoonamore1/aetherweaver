@@ -4,6 +4,7 @@
  * the HUD's live readout and the Result / Summary screens. Pure.
  */
 import { fmt } from './kit/format';
+import { t } from './text';
 
 export interface ContributionParts {
   auras: { healing: number; shielded: number; amplified: number };
@@ -55,7 +56,7 @@ export function auraVerbs(a: ContributionParts['auras']): string | null {
   const parts = [
     a.healing >= 1 && `healed ${fmt(a.healing)}`,
     a.shielded >= 1 && `shielded ${fmt(a.shielded)}`,
-    a.amplified >= 1 && `added ${fmt(a.amplified)} damage`,
+    a.amplified >= 1 && t('common.contribution.addedDamage', { amplified: fmt(a.amplified) }),
   ].filter((p): p is string => !!p);
   return parts.length === 0 ? null : joinAnd(parts);
 }

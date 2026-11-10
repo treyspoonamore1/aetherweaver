@@ -12,11 +12,13 @@ import { createRoot } from 'react-dom/client';
 import { App } from './app/App';
 import { installRunHook } from './app/testHook';
 import { loadKeyboardLayout } from './input/keyLabel';
+import { installLocale } from './ui/text/install';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('#root missing');
 
 void loadKeyboardLayout();
+installLocale();
 installRunHook();
 createRoot(root).render(
   <StrictMode>

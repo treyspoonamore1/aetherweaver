@@ -2,6 +2,7 @@ import type { InscriptionCategory } from '../../content';
 import type { DissonanceKind } from '../../meta/reliquary';
 import { CONSTELLATION_LOOK, STARLIGHT } from './astrolabeLook';
 import type { IconName } from './iconPaths';
+import { t } from '../text';
 
 /**
  * How the Reliquary looks (Phase 4c, docs/phase-4c.md), without React so text modules and tests
@@ -81,17 +82,53 @@ export interface StateLook {
 
 /** What a Dissonate left on a relic. */
 export const DISSONANCE_LOOK: Readonly<Record<DissonanceKind, StateLook>> = {
-  dissonant: { label: 'Dissonant', color: '#d8b4fe', icon: 'dissonate' },
-  empowered: { label: 'Empowered', color: '#fcd98a', icon: 'empower' },
-  cursed: { label: 'Cursed', color: '#fda4af', icon: 'skull' },
-  shattered: { label: 'Shattered', color: '#cbd5e1', icon: 'shatter' },
+  dissonant: {
+    get label() {
+      return t('common.reliquaryLook.dissonant');
+    },
+    color: '#d8b4fe',
+    icon: 'dissonate',
+  },
+  empowered: {
+    get label() {
+      return t('common.reliquaryLook.empowered');
+    },
+    color: '#fcd98a',
+    icon: 'empower',
+  },
+  cursed: {
+    get label() {
+      return t('common.reliquaryLook.cursed');
+    },
+    color: '#fda4af',
+    icon: 'skull',
+  },
+  shattered: {
+    get label() {
+      return t('common.reliquaryLook.shattered');
+    },
+    color: '#cbd5e1',
+    icon: 'shatter',
+  },
 };
 
 /** A relic a craft froze. */
-export const FRACTURED_LOOK: StateLook = { label: 'Fractured', color: '#fdba74', icon: 'crack' };
+export const FRACTURED_LOOK: StateLook = {
+  get label() {
+    return t('common.reliquaryLook.fractured');
+  },
+  color: '#fdba74',
+  icon: 'crack',
+};
 
 /** A relic chosen to carry into the next run (or carried by this one). */
-export const CARRIED_LOOK: StateLook = { label: 'Carried', color: '#fcd98a', icon: 'carry' };
+export const CARRIED_LOOK: StateLook = {
+  get label() {
+    return t('common.reliquaryLook.carried');
+  },
+  color: '#fcd98a',
+  icon: 'carry',
+};
 
 /** The materials: Tuning Shards (a crystal's ice) and Discord Tears (a bruised violet). */
 export const SHARD_LOOK = { color: '#b6e6ff', icon: 'shard' } as const;

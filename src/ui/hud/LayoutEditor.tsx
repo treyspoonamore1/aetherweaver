@@ -19,6 +19,7 @@ import { Icon } from '../kit/Icon';
 import { Segmented, Slider } from '../kit/Slider';
 import { useUi } from '../store';
 import { coversTopBand, placeFor, toolbarSpot, type Box, type ToolbarSpot } from './framesLayout';
+import { t as txt } from '../text';
 
 /** The panels Edit HUD layout moves. */
 export type PanelId = 'frames' | 'weaverBar';
@@ -40,19 +41,31 @@ const PANELS: Record<
   }
 > = {
   frames: {
-    name: 'Party frames',
-    called: 'the party frames',
+    get name() {
+      return txt('hud.layoutEditor.partyFrames');
+    },
+    get called() {
+      return txt('hud.layoutEditor.thePartyFrames');
+    },
     selector: '[data-testid="party-frames"]',
     handle: 'frames-handle',
-    home: 'Bottom left',
+    get home() {
+      return txt('hud.layoutEditor.bottomLeft');
+    },
     scale: [0.75, 1.5],
   },
   weaverBar: {
-    name: 'Weaver bar',
-    called: 'the Weaver bar',
+    get name() {
+      return txt('hud.layoutEditor.weaverBar');
+    },
+    get called() {
+      return txt('hud.layoutEditor.theWeaverBar');
+    },
     selector: '[data-testid="weaver-bar-anchor"]',
     handle: 'weaver-bar-handle',
-    home: 'Bottom middle',
+    get home() {
+      return txt('hud.layoutEditor.bottomMiddle');
+    },
     scale: [0.75, 1.25],
   },
 };
@@ -224,7 +237,7 @@ export function LayoutEditor({
       className="pointer-events-auto absolute inset-0 z-40"
       data-testid="layout-editor"
       role="dialog"
-      aria-label="Edit HUD layout"
+      aria-label={txt('hud.layoutEditor.editHudLayout')}
     >
       {/* Guides: the screen's middle, where panels snap. */}
       <div className="absolute inset-y-0 left-1/2 w-px bg-gold-300/25" aria-hidden />
@@ -256,7 +269,7 @@ export function LayoutEditor({
             }}
             tabIndex={0}
             role="slider"
-            aria-label={`Move ${p.called}: drag, or use the arrow keys`}
+            aria-label={txt('hud.layoutEditor.moveDragOrUse', { called: p.called })}
             aria-valuetext={placeText(at, p.home)}
             onFocus={() => setSelected(id)}
             onPointerDown={onPointerDown(id)}
@@ -273,7 +286,12 @@ export function LayoutEditor({
               }`}
             >
               <Icon name="move" size={13} /> {p.name}
-              {on && <span className="font-normal text-gold-200/75"> · drag to move</span>}
+              {on && (
+                <span className="font-normal text-gold-200/75">
+                  {' '}
+                  {txt('hud.layoutEditor.dragToMove')}
+                </span>
+              )}
             </span>
           </div>
         );
@@ -286,16 +304,20 @@ export function LayoutEditor({
         data-spot={spot}
       >
         <h2 className="font-display text-base font-bold tracking-wide text-gold-300">
-          Edit HUD layout
+          {txt('hud.layoutEditor.editHudLayout')}
         </h2>
         <p className="mt-1 text-xs leading-relaxed text-muted">
-          Drag the party frames or the Weaver bar anywhere: by the fight, wherever your eyes are.
-          Near the middle they snap to it. Arrow keys nudge the one chosen.
+          {txt('hud.layoutEditor.dragThePartyFrames')}
         </p>
         <div className="mt-3 flex flex-col gap-3">
-          <Segmented label="Panel" value={selected} options={CHOICES} onChange={setSelected} />
+          <Segmented
+            label={txt('hud.layoutEditor.panel')}
+            value={selected}
+            options={CHOICES}
+            onChange={setSelected}
+          />
           <Slider
-            label="Size"
+            label={txt('hud.layoutEditor.size')}
             value={layouts[selected].scale}
             min={chosen.scale[0]}
             max={chosen.scale[1]}
@@ -304,11 +326,11 @@ export function LayoutEditor({
           />
           {selected === 'frames' && (
             <Segmented
-              label="Frames"
+              label={txt('hud.layoutEditor.frames')}
               value={frames.orientation}
               options={[
-                { value: 'vertical', label: 'Stacked' },
-                { value: 'horizontal', label: 'Side by side' },
+                { value: 'vertical', label: txt('hud.layoutEditor.stacked') },
+                { value: 'horizontal', label: txt('hud.layoutEditor.sideBySide') },
               ]}
               onChange={(v) => change('frames', { orientation: v }, true)}
             />
@@ -321,13 +343,13 @@ export function LayoutEditor({
             data-testid="layout-over-top"
           >
             <Icon name="info" size={14} className="mt-0.5 shrink-0" />
-            The top middle is where a boss&rsquo;s bar and the wave banners show: here,{' '}
-            {chosen.called} would cover them.
+            {txt('hud.layoutEditor.theTopMiddleIs', { called: chosen.called })}
           </p>
         )}
         <div className="mt-4 flex justify-between gap-2">
           <Button size="sm" onClick={reset} data-testid="layout-reset">
-            <Icon name="back" size={14} /> Reset {selected === 'frames' ? 'frames' : 'bar'}
+            <Icon name="back" size={14} />{' '}
+            {txt('hud.layoutEditor.reset', { value: selected === 'frames' ? 'frames' : 'bar' })}
           </Button>
           <Button
             variant="primary"
@@ -337,7 +359,7 @@ export function LayoutEditor({
             sound="confirm"
             data-testid="layout-done"
           >
-            Done
+            {txt('hud.layoutEditor.done')}
           </Button>
         </div>
       </div>
@@ -354,7 +376,10 @@ const SPOT_CLASS: Record<ToolbarSpot, string> = {
 /** Where a panel is, said for a screen reader. */
 function placeText(at: PanelPlace | null, home: string): string {
   if (!at) return home;
-  return `${Math.round(at.x * 100)}% across, ${Math.round(at.y * 100)}% down`;
+  return txt('hud.layoutEditor.acrossDown', {
+    round: Math.round(at.x * 100),
+    round2: Math.round(at.y * 100),
+  });
 }
 
 /**

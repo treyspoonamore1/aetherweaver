@@ -78,6 +78,7 @@ import type {
   TechniqueHud,
   WeaverHud,
 } from './store';
+import { t as txt } from './text';
 
 const TECHNIQUE_KEYS: readonly TechniqueKey[] = ['ward', 'chime', 'reel', 'glide'];
 const BLEED_OUT = 12;
@@ -1101,7 +1102,7 @@ function bossFinale(state: WorldState, heard?: SilenceHeard | null): BossFinale 
     const voice = state.entities.get(f.cue.soloist)?.enemy;
     const target = f.cue.target === undefined ? undefined : state.entities.get(f.cue.target)?.hero;
     out.cue = {
-      soloist: voice ? enemyDef(voice.defId).name : 'A voice',
+      soloist: voice ? enemyDef(voice.defId).name : txt('common.hudBridge.aVoice'),
       solo: soloName(f.cue.solo),
       ...(target ? { target: heroDef(target.defId).name } : {}),
     };

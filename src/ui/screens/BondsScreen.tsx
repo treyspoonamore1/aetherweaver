@@ -46,6 +46,7 @@ import {
   useCodexTechniques,
 } from './CodexScreen';
 import { useAllowance } from './PrepScreen';
+import { t as txt } from '../text';
 
 const BOND = BOND_LOOK.color;
 
@@ -88,7 +89,7 @@ export function BondsView({
   onTalent,
   onSolo,
   onBack,
-  backTo = 'The Loom',
+  backTo = txt('screens.bondsScreen.theLoom'),
   runUnderWay = false,
   onRules,
   initialHero,
@@ -172,15 +173,16 @@ export function BondsView({
         <header className="flex flex-wrap items-center gap-x-5 gap-y-2">
           <div className="min-w-0">
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-muted">
-              Between runs{unlockAll && ' · all unlocked'}
+              {txt('screens.bondsScreen.betweenRuns')}
+              {unlockAll && txt('screens.bondsScreen.allUnlocked')}
             </p>
             <h1 className="flex items-center gap-2 font-display text-3xl font-bold tracking-wide text-gold-300">
-              <BondGlyph size={28} /> Bonds
+              <BondGlyph size={28} /> {txt('screens.bondsScreen.bonds')}
             </h1>
           </div>
           <div
             role="tablist"
-            aria-label="Heroes"
+            aria-label={txt('screens.bondsScreen.heroes')}
             className={`order-last grid w-full gap-2 ${heroTabColumns(heroes.length)} xl:order-none xl:w-auto xl:flex-1`}
             onKeyDown={onTabKey}
           >
@@ -218,11 +220,12 @@ export function BondsView({
           <div className="ml-auto flex items-center gap-2">
             {onRules && (
               <Button variant="secondary" size="sm" onClick={onRules} sound="click">
-                <Icon name="book" size={15} /> Rules
+                <Icon name="book" size={15} /> {txt('screens.bondsScreen.rules')}
               </Button>
             )}
             <Button variant="ghost" onClick={onBack} sound="back" data-testid="bonds-back">
-              <Icon name="back" size={16} /> {backTo} <KeyCap label="Esc" />
+              <Icon name="back" size={16} /> {backTo}{' '}
+              <KeyCap label={txt('screens.bondsScreen.esc')} />
             </Button>
           </div>
         </header>
@@ -240,7 +243,7 @@ export function BondsView({
             {runUnderWay && (
               <p className="flex items-start gap-2 rounded-lg border border-ink-600 bg-ink-900/80 px-3 py-1.5 text-xs text-muted">
                 <Icon name="info" size={14} className="mt-px shrink-0 text-gold-300" />
-                {RUN_UNDER_WAY}
+                {RUN_UNDER_WAY()}
               </p>
             )}
           </div>
@@ -268,7 +271,8 @@ export function BondsView({
                   className="mt-1 flex items-center gap-1.5 font-display text-lg font-bold"
                   style={{ color: BOND }}
                 >
-                  <BondGlyph size={18} /> Bond rank {page.progress.rank}
+                  <BondGlyph size={18} />{' '}
+                  {txt('screens.bondsScreen.bondRank', { rank: page.progress.rank })}
                 </p>
               </div>
             </div>
@@ -277,7 +281,10 @@ export function BondsView({
                 before={page.progress.fraction}
                 after={page.progress.fraction}
                 color={page.color}
-                label={`${page.name}’s Bond: ${page.progress.text}`}
+                label={txt('screens.bondsScreen.sBond', {
+                  name: page.name,
+                  text: page.progress.text,
+                })}
               />
               <p className="mt-1 font-mono text-xs text-muted" data-testid="bond-progress">
                 {page.progress.text}
@@ -291,25 +298,28 @@ export function BondsView({
             <BondTrack steps={page.track} heroId={hero} />
             <div>
               <h3 className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted">
-                <Icon name="scene" size={13} style={{ color: BOND }} /> Scenes
+                <Icon name="scene" size={13} style={{ color: BOND }} />{' '}
+                {txt('screens.bondsScreen.scenes')}
               </h3>
               <SceneList rows={page.scenes} heroId={hero} onRead={setReading} />
             </div>
           </Panel>
 
           <div className="flex min-w-0 flex-col gap-4">
-            <Panel tone="solid" className="px-4 py-3" role="group" aria-label="Talents">
+            <Panel
+              tone="solid"
+              className="px-4 py-3"
+              role="group"
+              aria-label={txt('screens.bondsScreen.talents')}
+            >
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <h3 className="flex items-center gap-1.5 font-display text-lg font-bold text-gold-300">
-                  <Icon name="talent" size={17} /> Talents
+                  <Icon name="talent" size={17} /> {txt('screens.bondsScreen.talents')}
                 </h3>
                 {notice?.where === 'talents' ? (
                   <Notice text={notice.text} heroId={hero} />
                 ) : (
-                  <p className="text-xs text-muted">
-                    One a tier, or neither: choose again to clear it. They change freely between
-                    runs.
-                  </p>
+                  <p className="text-xs text-muted">{txt('screens.bondsScreen.oneATierOr')}</p>
                 )}
               </div>
               <div className="mt-2 flex flex-col gap-2">
@@ -319,10 +329,15 @@ export function BondsView({
               </div>
             </Panel>
             {page.solo && (
-              <Panel tone="solid" className="px-4 py-3" role="group" aria-label="Solo">
+              <Panel
+                tone="solid"
+                className="px-4 py-3"
+                role="group"
+                aria-label={txt('screens.bondsScreen.solo')}
+              >
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                   <h3 className="flex items-center gap-1.5 font-display text-lg font-bold text-gold-300">
-                    <Icon name="note" size={17} /> Solo
+                    <Icon name="note" size={17} /> {txt('screens.bondsScreen.solo')}
                   </h3>
                   {notice?.where === 'solo' ? (
                     <Notice text={notice.text} heroId={hero} />
@@ -336,9 +351,12 @@ export function BondsView({
                           <Icon name="lock" size={12} /> {soloLockLine(page.solo.rank)}
                         </>
                       ) : page.solo.note ? (
-                        `${page.solo.note}: the alternate opens at Bond rank ${page.solo.rank}.`
+                        txt('screens.bondsScreen.theAlternateOpensAt', {
+                          note: page.solo.note,
+                          rank: page.solo.rank,
+                        })
                       ) : (
-                        `Choose which one ${page.name} brings.`
+                        txt('screens.bondsScreen.chooseWhichOneBrings', { name: page.name })
                       )}
                     </p>
                   )}
@@ -424,7 +442,7 @@ export function BondsScreen() {
       onTalent={(h, tier, id) => useProfile.getState().setTalent(h, tier, id)}
       onSolo={(h, solo) => useProfile.getState().setSolo(h, solo)}
       onBack={back}
-      backTo={previous === 'run' ? 'Prep' : 'The Loom'}
+      backTo={previous === 'run' ? 'Prep' : txt('screens.bondsScreen.theLoom')}
       runUnderWay={runUnderWay}
       onRules={() => setCodex(true)}
     />

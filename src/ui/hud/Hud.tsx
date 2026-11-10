@@ -36,6 +36,7 @@ import { WeaverBar } from './WeaverBar';
 import { bondRanks as ranksOf, bondsOpen } from '../screens/bondsModel';
 import { rosterHeroes } from '../../meta/bonds';
 import { shownDecreeOf } from './legionLook';
+import { t as txt } from '../text';
 
 const NO_BOONS: readonly ActiveBoon[] = [];
 
@@ -199,7 +200,12 @@ export function HudView({
   const sandbox = hud.encounter.kind === 'sandbox';
   // Phase 4d, Blind Score: nothing on the HUD names the answer a telegraph wants.
   const blind = hud.dissonance?.blindScore ?? false;
-  const clockText = `${hud.seconds.toFixed(1)} s · tick ${hud.tick} · seed ${hud.seed}${hud.directive ? ` · ${hud.directive}` : ''}`;
+  const clockText = txt('hud.hud.sTickSeed', {
+    seconds: hud.seconds.toFixed(1),
+    tick: hud.tick,
+    seed: hud.seed,
+    value: hud.directive ? ` · ${hud.directive}` : '',
+  });
   const stasis = hud.weaver.stasis;
   // The Finale (docs/phase-5d.md): the Grand Silence holds (absent in every other fight).
   const silence = hud.boss?.silence;

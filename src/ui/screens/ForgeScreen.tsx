@@ -24,6 +24,7 @@ import { useAllowance, useFreshUnlocks } from './PrepScreen';
 import { RelicCard, RunStrip, Purse } from './RelicCard';
 import { RetuneView } from './RespiteScreen';
 import { Pips, SectionTitle } from './shared';
+import { t } from '../text';
 
 export type { ForgeResult };
 
@@ -87,11 +88,11 @@ export function ForgeView({
           onForge({ service: 'retune', chords });
         }}
         copy={{
-          eyebrow: 'The Forge · Retune',
-          title: 'Retune your songs',
-          blurb: `The forge's fire takes your old songs and gives them back reshaped. It costs ${p} Aether and is this forge's one service: nothing else here can be used after.`,
-          back: 'Back to the forge',
-          confirm: `Retune for ${p} Aether`,
+          eyebrow: t('screens.forgeScreen.theForgeRetune'),
+          title: t('screens.forgeScreen.retuneYourSongs'),
+          blurb: t('screens.forgeScreen.theForgeSFire', { p }),
+          back: t('screens.forgeScreen.backToTheForge'),
+          confirm: t('screens.forgeScreen.retuneForAether', { p }),
         }}
       />
     );
@@ -100,13 +101,12 @@ export function ForgeView({
   const header = (
     <>
       <ScreenHeader
-        eyebrow="A forge · one service per visit"
-        title="The Forge"
+        eyebrow={t('screens.forgeScreen.aForgeOneService')}
+        title={t('screens.forgeScreen.theForge')}
         right={<Purse aether={run.aether} size="lg" />}
       >
         <p className="mt-2 max-w-2xl text-sm text-muted">
-          An old bell-forge, still warm. The smith will do one thing for you before the fire goes
-          out.
+          {t('screens.forgeScreen.anOldBellForge')}
         </p>
       </ScreenHeader>
       <RunStrip
@@ -128,15 +128,15 @@ export function ForgeView({
   } else if (mode === 'temper') {
     const status = forgeServiceStatus(run, 'temper');
     body = (
-      <section className="mt-6" aria-label="Temper a motif">
+      <section className="mt-6" aria-label={t('screens.forgeScreen.temperAMotif')}>
         <SectionTitle right={<BackButton onClick={() => setMode(null)} />}>
-          Temper: choose a motif to gain a level
+          {t('screens.forgeScreen.temperChooseAMotif')}
         </SectionTitle>
         <MotifPicker
           steps={status.targets.map((id) => motifStep(run, id, 1))}
           verb={
             <span className="inline-flex items-center gap-1.5">
-              Temper · <Icon name="aether" size={13} /> {price('temper')}
+              {t('screens.forgeScreen.temper')} <Icon name="aether" size={13} /> {price('temper')}
             </span>
           }
           onPick={(motifId) => {
@@ -151,9 +151,9 @@ export function ForgeView({
   } else if (mode === 'cleanse') {
     const status = forgeServiceStatus(run, 'cleanse');
     body = (
-      <section className="mt-6" aria-label="Lift a curse">
+      <section className="mt-6" aria-label={t('screens.forgeScreen.liftACurse')}>
         <SectionTitle right={<BackButton onClick={() => setMode(null)} />}>
-          Lift a curse: the blessing stays
+          {t('screens.forgeScreen.liftACurseThe')}
         </SectionTitle>
         <ul className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {status.targets.map((id) => {
@@ -169,10 +169,15 @@ export function ForgeView({
                     setMode(null);
                     onForge({ service: 'cleanse', relicId: id });
                   }}
-                  label={`Lift the curse of ${info.name} for ${price('cleanse')} Aether: ${info.curse ?? ''}`}
+                  label={t('screens.forgeScreen.liftTheCurseOf', {
+                    name: info.name,
+                    price: price('cleanse'),
+                    value: info.curse ?? '',
+                  })}
                   footer={
                     <span className="flex items-center justify-center gap-1.5 rounded-lg bg-gold-400 py-2 text-sm font-semibold text-ink-950">
-                      Lift the curse · <Icon name="aether" size={14} /> {price('cleanse')}
+                      {t('screens.forgeScreen.liftTheCurse')} <Icon name="aether" size={14} />{' '}
+                      {price('cleanse')}
                     </span>
                   }
                 />
@@ -213,7 +218,9 @@ export function ForgeView({
           sound={used !== null ? 'confirm' : 'back'}
           autoFocus={used !== null}
         >
-          {used !== null ? 'Leave the forge' : 'Leave without using it'}
+          {used !== null
+            ? t('screens.forgeScreen.leaveTheForge')
+            : t('screens.forgeScreen.leaveWithoutUsingIt')}
           <Icon name="arrow" size={18} />
         </Button>
       </div>
@@ -224,7 +231,7 @@ export function ForgeView({
 function BackButton({ onClick }: { onClick(): void }) {
   return (
     <Button variant="ghost" size="sm" onClick={onClick} sound="back">
-      <Icon name="back" size={14} /> Another service
+      <Icon name="back" size={14} /> {t('screens.forgeScreen.anotherService')}
     </Button>
   );
 }
@@ -254,7 +261,12 @@ function ServiceCard({
         onOpen();
       }}
       aria-disabled={!status.available || undefined}
-      aria-label={`${c.title}, ${status.price} Aether. ${c.text}${status.problem ? ` Unavailable: ${status.problem}` : ''}`}
+      aria-label={t('screens.forgeScreen.aether2', {
+        title: c.title,
+        price: status.price,
+        text: c.text,
+        value: status.problem ? ` Unavailable: ${status.problem}` : '',
+      })}
       data-testid={`forge-${service}`}
       className={`anim-rise group flex flex-col items-start rounded-2xl border-2 bg-ink-800/90 p-6 text-left shadow-xl shadow-black/40 transition-all ${status.available ? 'hover:-translate-y-1 hover:bg-ink-700/90' : 'cursor-not-allowed opacity-60'}`}
       style={{ borderColor: status.available ? c.color : 'var(--color-ink-500)' }}
@@ -273,7 +285,9 @@ function ServiceCard({
       </h2>
       <p className="mt-1 flex items-center gap-1.5 font-mono text-base font-bold text-gold-200">
         <Icon name="aether" size={16} /> {status.price}{' '}
-        <span className="font-sans text-sm font-normal text-muted">Aether</span>
+        <span className="font-sans text-sm font-normal text-muted">
+          {t('screens.forgeScreen.aether')}
+        </span>
       </p>
       <p className="mt-3 text-base leading-relaxed text-text">{c.text}</p>
       <p
@@ -308,24 +322,27 @@ function ForgeDone({
         className="flex items-center gap-2 font-display text-sm font-bold uppercase tracking-[0.2em]"
         style={{ color: c.color }}
       >
-        <Icon name={c.icon} size={16} /> {c.title} · done
+        <Icon name={c.icon} size={16} /> {t('screens.forgeScreen.done', { title: c.title })}
       </p>
       <h2 className="mt-1 font-display text-2xl font-bold text-gold-200">
-        The fire settles. The forge has cooled.
+        {t('screens.forgeScreen.theFireSettlesThe')}
       </h2>
       {result?.service === 'temper' && (
         <div className="mt-4 max-w-xl rounded-xl border border-ink-600/70 bg-ink-900/60 p-4">
           <p className="flex items-center justify-between gap-3 font-semibold text-text">
             {result.step.name}
             <span className="flex items-center gap-2 font-mono text-xs text-gold-200">
-              Lv {result.step.from} → {result.step.to}
+              {t('screens.forgeScreen.lv', { from: result.step.from, to: result.step.to })}
               <Pips level={result.step.to} max={result.step.max} />
             </span>
           </p>
           <p className="mt-2 text-xs text-muted">
-            Was: <span className="line-through decoration-ink-500">{result.step.now}</span>
+            {t('screens.forgeScreen.was')}{' '}
+            <span className="line-through decoration-ink-500">{result.step.now}</span>
           </p>
-          <p className="mt-1 text-sm text-text">Now: {result.step.next}</p>
+          <p className="mt-1 text-sm text-text">
+            {t('screens.forgeScreen.now', { next: result.step.next })}
+          </p>
         </div>
       )}
       {result?.service === 'cleanse' && (
@@ -343,7 +360,7 @@ function ForgeDone({
       )}
       {!result && <p className="mt-3 text-base text-text">{c.text}</p>}
       <p className="mt-4 text-sm text-muted">
-        One service per visit. You have {run.aether} Aether left.
+        {t('screens.forgeScreen.oneServicePerVisit', { aether: run.aether })}
       </p>
     </Panel>
   );

@@ -1,0 +1,35 @@
+import type { Catalogue } from '../../catalogue';
+
+/** The `hud.conducting.*` messages: `src/ui/hud/conducting.ts`. */
+export const conducting = {
+  'hud.conducting.onTheBeat': 'On the beat · {cost}',
+  'hud.conducting.canTPlay': 'can’t play',
+  'hud.conducting.playedLost': 'played · lost',
+  'hud.conducting.playsTheNextTurn': '{name} plays the next turn of the Finale',
+  'hud.conducting.canTPlayTheir': '{name} can’t play — {value}: their turn will be lost',
+  'hud.conducting.playedATurnOf': '{name} played a turn of the Finale and lost {value}',
+  'hud.conducting.lostTheirTurn': '{name} lost their turn',
+  'hud.conducting.sFinaleSoloIs': "{name}'s Finale Solo is playing",
+  'hud.conducting.hasNoTurnLeft': '{name} has no turn left in the Finale',
+  'hud.conducting.playsTurnOfThe': "{name} plays turn {place} of the Finale's queue",
+  'hud.conducting.marcatoS': 'Marcato {ceil}s',
+  'hud.conducting.sToCueAnother': '{chainLabel}: {left} s to Cue another hero.',
+  'hud.conducting.marcatoReadyYourNext':
+    'Marcato ready: your next Directive gives {pctLabel} for {Number} s.',
+  'hud.conducting.marcatoBackInS': 'Marcato back in {readyIn} s.',
+  'hud.conducting.ensembleInARow': 'Ensemble {pctLabel}, {heroes} in a row.',
+  'hud.conducting.triadHoldsYourResonance': 'Triad holds your Resonance.',
+  'hud.conducting.outOfTime': 'out of time',
+  'hud.conducting.trio': 'TRIO · {who} {powerLabel}',
+  'hud.conducting.duet': 'DUET · {who} {powerLabel}',
+  'hud.conducting.freeCueOnThe': 'Free Cue · on the beat',
+  'hud.conducting.repriseEverySolo': 'Reprise · every Solo +{charge}%',
+  'hud.conducting.aHero': 'A hero',
+  'hud.conducting.canTPlay2': '{who} can’t play — {value}',
+  'hud.conducting.everySoloIsFull': 'Every Solo is full',
+  'hud.conducting.played': '{value} played {fired} {value2}{value3}',
+  'hud.conducting.theFinale': 'The Finale',
+  'hud.conducting.lost': ' · {lost} lost',
+  'hud.conducting.marcatoForS': 'Marcato · {pctLabel} for {Number} s',
+  'hud.conducting.waitsTheirTurnIs': "{name} waits: their turn is kept until they're free",
+} satisfies Catalogue;

@@ -16,6 +16,7 @@ import type { IconName } from '../kit/iconPaths';
 import { deedsInSight } from './routeText';
 import { atlasTotals, constellationStars, starsLine } from '../../meta/atlas';
 import type { ProfileAtlas, WeeklyWeek } from '../../meta/profile';
+import { t as txt } from '../text';
 
 /** Every Deed, in content order: the ladder (easiest first), then the badges. */
 export const DEEDS: readonly DeedDef[] = CONTENT.deeds;
@@ -32,7 +33,11 @@ export function isCounting(deed: DeedDef): boolean {
 /** "★ +1 Astrolabe point" (null for a badge). */
 export function pointLine(deed: Pick<DeedDef, 'points'>): string | null {
   if (deed.points <= 0) return null;
-  return `${STAR} +${deed.points} Astrolabe ${plural(deed.points, 'point')}`;
+  return txt('screens.deedsModel.astrolabe', {
+    STAR,
+    points: deed.points,
+    pointsWord: plural(deed.points, 'point'),
+  });
 }
 
 // ── Glyphs ────────────────────────────────────────────────────────────────────────────
@@ -171,13 +176,18 @@ export function deedBest(deed: DeedDef, held: DeedsHeld): DeedBest | null {
     const have =
       profileDeedProgress({ weekly: held.weekly ? [...held.weekly] : undefined }, deed) ?? 0;
     const need = deed.values.n ?? 1;
-    return { have, need, line: `${have} of ${need} ${plural(need, 'week')} won` };
+    return {
+      have,
+      need,
+      line: txt('screens.deedsModel.ofWon', { have, need, needWord: plural(need, 'week') }),
+    };
   }
   if (!isCounting(deed)) return null;
   const need = deed.values.n ?? 0;
   const have = held.best[deed.id] ?? 0;
-  if (!held.earned.includes(deed.id)) return { have, need, line: `best ${have} of ${need}` };
-  return have >= need ? { have, need, line: `best ${have}` } : null;
+  if (!held.earned.includes(deed.id))
+    return { have, need, line: txt('screens.deedsModel.bestOf', { have, need }) };
+  return have >= need ? { have, need, line: txt('screens.deedsModel.best', { have }) } : null;
 }
 
 /**
@@ -193,12 +203,17 @@ export function atlasProgress(deed: DeedDef, atlas: ProfileAtlas | undefined): D
       const s = constellationStars(atlas, id);
       if (!at || s.lit / Math.max(1, s.of) > at.lit / Math.max(1, at.of)) at = { id, ...s };
     }
-    if (!at) return { have: 0, need: 0, line: 'no constellation yet' };
+    if (!at) return { have: 0, need: 0, line: txt('screens.deedsModel.noConstellationYet') };
     const name = CONTENT.constellations.find((k) => k.id === at.id)?.name ?? at.id;
     return {
       have: at.lit,
       need: at.of,
-      line: `${at.lit} of ${at.of} ${plural(at.of, 'star')} in ${name}`,
+      line: txt('screens.deedsModel.ofIn', {
+        lit: at.lit,
+        of: at.of,
+        ofWord: plural(at.of, 'star'),
+        name,
+      }),
     };
   }
   const { lit, of } = atlasTotals(atlas);
@@ -212,9 +227,12 @@ export function atlasProgress(deed: DeedDef, atlas: ProfileAtlas | undefined): D
 export function deedLock(deed: DeedDef, open: DeedsOpen): string | null {
   const calling = deed.calling;
   if (calling && !open.allowance.all && !open.allowance.callings.has(calling))
-    return `The ${callingDef(calling).name} opens at Rank ${unlockRank('calling', calling)}.`;
+    return txt('screens.deedsModel.theOpensAtRank', {
+      name: callingDef(calling).name,
+      unlockRank: unlockRank('calling', calling),
+    });
   if (deed.test === 'keystone' && !open.astrolabe)
-    return `The Astrolabe opens at Rank ${ASTROLABE_RANK}.`;
+    return txt('screens.deedsModel.theAstrolabeOpensAt', { ASTROLABE_RANK });
   return null;
 }
 
@@ -275,7 +293,7 @@ export function deedRow(
 
 /** "3 of 20 earned · 2 of 10 Astrolabe points from Deeds". */
 export function deedsHeader(earned: number, total: number, points: number): string {
-  return `${earned} of ${total} earned · ${points} of ${DEED_POINTS_MAX} Astrolabe points from Deeds`;
+  return txt('screens.deedsModel.ofEarnedOfAstrolabe', { earned, total, points, DEED_POINTS_MAX });
 }
 
 /**
@@ -322,7 +340,15 @@ export function deedsView(
     header: deedsHeader(earned, total, points),
     waiting:
       points > 0 && !open.astrolabe
-        ? `Your ${points} ${plural(points, 'point waits', 'points wait')} for the Astrolabe: it opens at Rank ${ASTROLABE_RANK}.`
+        ? txt('screens.deedsModel.yourForTheAstrolabe', {
+            points,
+            pointsWord: plural(
+              points,
+              txt('screens.deedsModel.pointWaits'),
+              txt('screens.deedsModel.pointsWait'),
+            ),
+            ASTROLABE_RANK,
+          })
         : null,
   };
 }
@@ -358,7 +384,7 @@ export function deedToast(id: string): DeedToast | null {
   return {
     id,
     name: deed.name,
-    title: `Deed earned · ${deed.name}`,
+    title: txt('screens.deedsModel.deedEarned', { name: deed.name }),
     text: deedLine(deed),
     point: pointLine(deed),
     sound: deed.points > 0 ? 'deedStar' : 'deed',
@@ -472,5 +498,8 @@ export function pointSourceParts(s: Pick<PointSources, 'ranks' | 'deeds'>): {
   ranks: string;
   deeds: string;
 } {
-  return { ranks: `${s.ranks} from Ranks`, deeds: `${s.deeds} from Deeds` };
+  return {
+    ranks: txt('screens.deedsModel.fromRanks', { ranks: s.ranks }),
+    deeds: txt('screens.deedsModel.fromDeeds', { deeds: s.deeds }),
+  };
 }

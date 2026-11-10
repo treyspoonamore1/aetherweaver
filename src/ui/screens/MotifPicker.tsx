@@ -4,6 +4,7 @@ import { CATEGORY } from '../kit/Chip';
 import { Icon } from '../kit/Icon';
 import type { MotifStep } from './interlude';
 import { Pips } from './shared';
+import { t } from '../text';
 
 /**
  * Choose one of your motifs (forge Temper, the Shrine of Discord): each card shows the level
@@ -35,7 +36,14 @@ export function MotifPicker({
             <button
               type="button"
               onClick={() => onPick(s.motifId)}
-              aria-label={`${s.name}, level ${s.from} to ${s.to}${odds ? ` (${odds})` : ''}. ${s.next}${risk ? `. Otherwise: ${risk}` : ''}`}
+              aria-label={t('screens.motifPicker.levelTo', {
+                name: s.name,
+                from: s.from,
+                to: s.to,
+                value: odds ? ` (${odds})` : '',
+                next: s.next,
+                value2: risk ? t('screens.motifPicker.otherwise', { risk }) : '',
+              })}
               className="group flex h-full w-full flex-col rounded-2xl border-2 bg-ink-800/90 p-4 text-left shadow-xl shadow-black/40 transition-all hover:-translate-y-1 hover:bg-ink-700/90"
               style={{ borderColor: cat.color }}
             >
@@ -53,11 +61,12 @@ export function MotifPicker({
                 <Icon name="arrow" size={12} />
                 <Pips level={s.to} max={s.max} color="var(--color-gold-300)" />
                 <span className="text-gold-200">
-                  Lv {s.from} → {s.to}
+                  {t('screens.motifPicker.lv', { from: s.from, to: s.to })}
                 </span>
               </p>
               <p className="mt-2.5 text-xs leading-relaxed text-muted">
-                Now: <span className="line-through decoration-ink-500">{s.now}</span>
+                {t('screens.motifPicker.now')}{' '}
+                <span className="line-through decoration-ink-500">{s.now}</span>
               </p>
               <p className="mt-1 text-sm leading-relaxed text-text">
                 {odds && <b className="text-heal">{odds}: </b>}

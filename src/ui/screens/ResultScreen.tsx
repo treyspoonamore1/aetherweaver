@@ -36,15 +36,41 @@ import { StarlightGainPanel } from './StarlightParts';
 import { bloodLine, duelLine, groveLine, oathIn, recruitLine } from './rosterModel';
 import { CONTENT } from '../../content';
 import { recruitCause, rowThreat } from '../../meta/run';
+import { t } from '../text';
 
 export { HIGHLIGHT_COLOR, HIGHLIGHT_ICON, statLines };
 
 const GRADE: Record<Grade, { color: string; label: string }> = {
-  S: { color: '#fde9b8', label: 'Flawless' },
-  A: { color: '#5eead4', label: 'Excellent' },
-  B: { color: '#93c5fd', label: 'Solid' },
-  C: { color: '#fbbf24', label: 'Close' },
-  D: { color: '#fb7185', label: 'Rough' },
+  S: {
+    color: '#fde9b8',
+    get label() {
+      return t('screens.resultScreen.flawless');
+    },
+  },
+  A: {
+    color: '#5eead4',
+    get label() {
+      return t('screens.resultScreen.excellent');
+    },
+  },
+  B: {
+    color: '#93c5fd',
+    get label() {
+      return t('screens.resultScreen.solid');
+    },
+  },
+  C: {
+    color: '#fbbf24',
+    get label() {
+      return t('screens.resultScreen.close');
+    },
+  },
+  D: {
+    color: '#fb7185',
+    get label() {
+      return t('screens.resultScreen.rough');
+    },
+  },
 };
 
 export interface ResultViewProps {
@@ -143,7 +169,7 @@ export function ResultView({
             className="flex h-28 w-28 shrink-0 flex-col items-center justify-center rounded-full border-4 bg-ink-900/80 shadow-2xl"
             style={{ borderColor: g.color, boxShadow: `0 0 36px ${g.color}55` }}
             role="img"
-            aria-label={`Grade ${r.grade}, ${g.label}`}
+            aria-label={t('screens.resultScreen.grade', { grade: r.grade, label: g.label })}
           >
             <span
               className="font-display text-6xl font-bold leading-none"
@@ -157,21 +183,31 @@ export function ResultView({
           </div>
           <div>
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-muted">
-              Step {last} · {r.kind === 'miniboss' ? 'Mini-boss' : r.kind}
+              {t('screens.resultScreen.step', {
+                last,
+                value: r.kind === 'miniboss' ? 'Mini-boss' : r.kind,
+              })}
             </p>
             <h1
               className="mt-1 font-display text-4xl font-bold tracking-wide"
               style={{ color: victory ? 'var(--color-gold-300)' : '#fda4af' }}
             >
-              {victory ? 'Victory' : 'The song falls silent'}
+              {victory ? 'Victory' : t('screens.resultScreen.theSongFallsSilent')}
             </h1>
             <p className="mt-1 text-base text-text">{r.name}</p>
             <p className="mt-1 flex items-center gap-3 text-sm text-muted">
               <span className={`flex items-center gap-1 ${onPar ? 'text-heal' : 'text-threat'}`}>
                 <Icon name="clock" size={14} /> {clock(r.duration)}
-                {r.par > 0 && <span className="text-muted"> (par {clock(r.par)})</span>}
+                {r.par > 0 && (
+                  <span className="text-muted">
+                    {' '}
+                    {t('screens.resultScreen.par', { par: clock(r.par) })}
+                  </span>
+                )}
               </span>
-              <span>Weaver share {pct(r.stats.weaverShare)}</span>
+              <span>
+                {t('screens.resultScreen.weaverShare', { weaverShare: pct(r.stats.weaverShare) })}
+              </span>
             </p>
             {threat && <p className="mt-1 font-mono text-xs text-muted">{threat}</p>}
           </div>
@@ -215,7 +251,7 @@ export function ResultView({
                       <Icon name="aether" size={18} className="text-gold-300" /> {aether.headline}
                     </span>
                     <span className="whitespace-nowrap font-mono text-xs text-muted">
-                      {run.aether} in your purse
+                      {t('screens.resultScreen.inYourPurse', { aether: run.aether })}
                     </span>
                   </p>
                   <p className="mt-0.5 font-mono text-xs text-muted">{aether.detail}</p>
@@ -231,7 +267,8 @@ export function ResultView({
             role="status"
           >
             <p className="flex items-center gap-2 font-display text-xs font-bold uppercase tracking-[0.3em] text-gold-300">
-              <Icon name="star" size={14} solid /> Best moment · {clock(best.time)}
+              <Icon name="star" size={14} solid />{' '}
+              {t('screens.resultScreen.bestMoment', { time: clock(best.time) })}
             </p>
             <p
               className="mt-1 flex items-center gap-3 font-display text-xl font-bold text-gold-100 sm:text-2xl"
@@ -268,7 +305,7 @@ export function ResultView({
                   <HeroDisc heroId={id} size={44} />
                   <span>
                     <span className="mr-2 font-mono text-xs font-semibold uppercase tracking-[0.25em] text-gold-300">
-                      A new ally
+                      {t('screens.resultScreen.aNewAlly')}
                     </span>
                     {recruitLine(id, r.encounterId, recruitCause(run, id, r))}
                   </span>
@@ -282,7 +319,7 @@ export function ResultView({
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
           <Panel tone="solid" className="p-5">
-            <SectionTitle>What you did</SectionTitle>
+            <SectionTitle>{t('screens.resultScreen.whatYouDid')}</SectionTitle>
             <ContributionBar parts={contributionOf(r.stats)} className="mb-4" />
             <ul className="flex flex-col gap-3">
               {statLines(r, run.calling).map((l, i) => (
@@ -304,7 +341,7 @@ export function ResultView({
             {r.highlights.length > 1 && (
               <>
                 <h3 className="mb-2 mt-5 font-display text-sm font-bold uppercase tracking-wider text-muted">
-                  Also worth remembering
+                  {t('screens.resultScreen.alsoWorthRemembering')}
                 </h3>
                 <ul className="flex flex-col gap-2 text-sm">
                   {r.highlights.slice(1).map((h, i) => (
@@ -339,11 +376,15 @@ export function ResultView({
           </Panel>
 
           <Panel tone="solid" className="p-5">
-            <SectionTitle>The party</SectionTitle>
+            <SectionTitle>{t('screens.resultScreen.theParty')}</SectionTitle>
             <ul className="flex flex-col gap-3.5">
               {r.heroes.map((h, slot) => {
                 const def = heroDef(h.heroId);
-                const state = h.dead ? 'Fell' : h.downed ? 'Went down' : 'Standing';
+                const state = h.dead
+                  ? 'Fell'
+                  : h.downed
+                    ? t('screens.resultScreen.wentDown')
+                    : 'Standing';
                 return (
                   <li key={slot} className="flex items-center gap-3">
                     <HeroDisc heroId={h.heroId} size={40} />
@@ -364,14 +405,14 @@ export function ResultView({
                         </Chip>
                       </div>
                       <p className="text-xs leading-relaxed text-muted">
-                        Dealt {fmt(h.damage)} damage
+                        {t('screens.resultScreen.dealtDamage', { damage: fmt(h.damage) })}
                         {h.amplified > 0 && h.damage > 0 && (
                           <>
-                            , <span className="text-amp">{pct(h.amplified / h.damage)}</span> of it
-                            from you
+                            , <span className="text-amp">{pct(h.amplified / h.damage)}</span>{' '}
+                            {t('screens.resultScreen.ofItFromYou')}
                           </>
                         )}
-                        . Ends at {pct(h.hpPct)} life.
+                        {t('screens.resultScreen.endsAtLife', { hpPct: pct(h.hpPct) })}
                       </p>
                       {h.blood && (
                         // Phase 5b: Brann's fight, from his Blood Rage stats.
@@ -405,20 +446,24 @@ export function ResultView({
         </div>
 
         <Panel tone="solid" className="mt-6 p-5">
-          <SectionTitle>Party health over the fight</SectionTitle>
+          <SectionTitle>{t('screens.resultScreen.partyHealthOverThe')}</SectionTitle>
           <HpTimeline
             segments={[{ duration: r.duration, timeline: r.timeline, markers: r.markers }]}
             heroIds={heroIds}
           />
           <TimelineLegend heroIds={heroIds} kinds={kinds} />
           <p className="mt-2 text-xs text-muted">
-            Glyphs along the bottom mark what you did and when. Hover one for the detail.
+            {t('screens.resultScreen.glyphsAlongTheBottom')}
           </p>
         </Panel>
 
         {r.deaths.length > 0 && (
           <Panel tone="solid" className="mt-6 border-lethal/50 p-5">
-            <SectionTitle>{r.deaths.length === 1 ? 'A hero fell' : 'Heroes fell'}</SectionTitle>
+            <SectionTitle>
+              {r.deaths.length === 1
+                ? t('screens.resultScreen.aHeroFell')
+                : t('screens.resultScreen.heroesFell')}
+            </SectionTitle>
             <div className="grid gap-4 md:grid-cols-2">
               {r.deaths.map((d, i) => {
                 const def = heroDef(d.heroId);
@@ -437,10 +482,14 @@ export function ResultView({
                   >
                     <p className="flex items-center gap-2 font-semibold">
                       <Icon name="skull" size={18} className="text-lethal" />
-                      {def.name} fell at {clock(d.time)} to {d.killer}.
+                      {t('screens.resultScreen.fellAtTo', {
+                        name: def.name,
+                        time: clock(d.time),
+                        killer: d.killer,
+                      })}
                     </p>
                     <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-muted">
-                      The last blows
+                      {t('screens.resultScreen.theLastBlows')}
                     </p>
                     <ul className="mt-1 font-mono text-xs">
                       {d.recap.map((x, j) => (
@@ -464,14 +513,20 @@ export function ResultView({
                       <p className="mt-3 text-sm leading-relaxed">
                         {ready.kind === 'ready' ? (
                           <>
-                            <span className="font-semibold text-gold-300">Ready but unused:</span>{' '}
+                            <span className="font-semibold text-gold-300">
+                              {t('screens.resultScreen.readyButUnused')}
+                            </span>{' '}
                             {ready.names}.{' '}
                             {ready.couldAnswer
-                              ? `${possessive(def.name)} fall could have been answered.`
-                              : `None of it answers ${d.killer}.`}
+                              ? t('screens.resultScreen.fallCouldHaveBeen', {
+                                  name: possessive(def.name),
+                                })
+                              : t('screens.resultScreen.noneOfItAnswers', { killer: d.killer })}
                           </>
                         ) : (
-                          <span className="text-muted">Everything you had was on cooldown.</span>
+                          <span className="text-muted">
+                            {t('screens.resultScreen.everythingYouHadWas')}
+                          </span>
                         )}
                       </p>
                     )}

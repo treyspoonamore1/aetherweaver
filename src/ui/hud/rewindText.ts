@@ -6,10 +6,15 @@
  */
 import { fmt } from '../kit/format';
 import type { RewindHud } from '../store';
+import { t } from '../text';
 
 /** What going back does about the hit on its way: " · dodges it", " · undoes it". */
 function escapeWords(r: RewindHud): string {
-  return r.escape === 'undo' ? 'undoes it' : r.escape === 'dodge' ? 'dodges it' : '';
+  return r.escape === 'undo'
+    ? t('hud.rewindText.undoesIt')
+    : r.escape === 'dodge'
+      ? t('hud.rewindText.dodgesIt')
+      : '';
 }
 
 /**
@@ -20,13 +25,16 @@ function escapeWords(r: RewindHud): string {
 export function rewindMark(r: RewindHud): string | null {
   switch (r.kind) {
     case 'revive':
-      return 'Rewind: stands back up';
+      return t('hud.rewindText.rewindStandsBackUp');
     case 'spent':
-      return 'Rewind: revive spent';
+      return t('hud.rewindText.rewindReviveSpent');
     case 'reach':
-      return 'Rewind: out of reach';
+      return t('hud.rewindText.rewindOutOfReach');
     case 'restore':
-      return `Rewind +${fmt(r.amount)}${r.escape ? ` · ${escapeWords(r)}` : ''}`;
+      return t('hud.rewindText.rewind', {
+        amount: fmt(r.amount),
+        value: r.escape ? ` · ${escapeWords(r)}` : '',
+      });
     case 'none':
       return r.escape ? `Rewind: ${escapeWords(r)}` : null;
   }
@@ -40,20 +48,24 @@ export function rewindMark(r: RewindHud): string | null {
 export function rewindSentence(name: string, r: RewindHud): string {
   const away =
     r.escape === 'undo'
-      ? ', and the attacks on them are undone'
+      ? t('hud.rewindText.andTheAttacksOn')
       : r.escape === 'dodge'
-        ? ', out of the hit on its way'
+        ? t('hud.rewindText.outOfTheHit')
         : '';
   switch (r.kind) {
     case 'revive':
-      return `${name} stands back up with ${fmt(r.amount)} life, once a run (${r.left.toFixed(1)} s left to reach them)`;
+      return t('hud.rewindText.standsBackUpWith', {
+        name,
+        amount: fmt(r.amount),
+        left: r.left.toFixed(1),
+      });
     case 'spent':
-      return `Rewind has stood a hero back up this run already: it can’t stand ${name} up`;
+      return t('hud.rewindText.rewindHasStoodA', { name });
     case 'reach':
-      return `${name} has been down too long for Rewind to reach`;
+      return t('hud.rewindText.hasBeenDownToo', { name });
     case 'restore':
-      return `${name} gets ${fmt(r.amount)} life back${away}`;
+      return t('hud.rewindText.getsLifeBack', { name, amount: fmt(r.amount), away });
     case 'none':
-      return `${name} goes back to where they stood${away}`;
+      return t('hud.rewindText.goesBackToWhere', { name, away });
   }
 }

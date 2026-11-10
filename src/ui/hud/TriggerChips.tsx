@@ -11,6 +11,7 @@ import {
   type TriggerChip,
   type TriggerSource,
 } from './triggers';
+import { t } from '../text';
 
 /** The relic bar's boon and bane colours (`RelicBar`): no new colour. */
 const BOON = '#86efac';
@@ -71,7 +72,7 @@ export function TriggerChips({
       className="flex flex-col items-start gap-1"
       data-testid="trigger-chips"
       role="group"
-      aria-label="Triggers"
+      aria-label={t('hud.triggerChips.triggers')}
     >
       {ring && (
         <span
@@ -105,7 +106,7 @@ export function TriggerChips({
             data-trigger={c.source.id}
             data-count={c.count}
             role="img"
-            aria-label={`${text}: triggered`}
+            aria-label={t('hud.triggerChips.triggered', { text })}
           >
             <Icon name={triggerIcon(c.source)} size={12} />
             {text}

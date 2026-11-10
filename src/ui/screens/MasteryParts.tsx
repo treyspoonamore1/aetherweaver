@@ -3,6 +3,7 @@ import { PathPip, callingLook } from '../kit/CallingGlyph';
 import { Icon } from '../kit/Icon';
 import { pathSteps } from './callingText';
 import { masteryGain, masteryView, nextLine, tiersLine, type MasteryView } from './masteryModel';
+import { t } from '../text';
 
 /**
  * Calling mastery's pieces (Phase 4g, docs/phase-4g.md): the level in the Calling's own ring, a
@@ -125,15 +126,20 @@ export function MasteryStrip({
         <div className="min-w-0 flex-1">
           <p className="flex items-baseline justify-between gap-2">
             <span className="font-display text-base font-bold" style={{ color: look.text }}>
-              {v.name} mastery {v.level}
-              <span className="ml-1 font-sans text-xs font-normal text-muted">of {v.top}</span>
+              {t('screens.masteryParts.mastery', { name: v.name, level: v.level })}
+              <span className="ml-1 font-sans text-xs font-normal text-muted">
+                {t('screens.masteryParts.of', { top: v.top })}
+              </span>
             </span>
           </p>
           <MasteryBar
             callingId={callingId}
             before={v.fraction}
             after={v.fraction}
-            label={`${v.name} mastery: ${v.progressText}`}
+            label={t('screens.masteryParts.mastery2', {
+              name: v.name,
+              progressText: v.progressText,
+            })}
             className="mt-1"
           />
           <p className="mt-0.5 font-mono text-xs text-muted">{v.progressText}</p>
@@ -150,7 +156,7 @@ export function MasteryStrip({
           <span>
             {nextLine(v)}
             {v.next && !prep && v.next.level < v.top && (
-              <span className="text-muted"> From your next run.</span>
+              <span className="text-muted"> {t('screens.masteryParts.fromYourNextRun')}</span>
             )}
           </span>
         </p>
@@ -211,11 +217,17 @@ export function MasteryGainRow({
         callingId={callingId}
         before={g.before}
         after={g.after}
-        label={`${v.name} mastery: ${v.progressText}`}
+        label={t('screens.masteryParts.mastery2', { name: v.name, progressText: v.progressText })}
         className="mt-1.5"
       />
       <p className="mt-1 font-mono text-xs text-muted">
-        {v.next ? `Mastery ${v.level} of ${v.top} · ${v.progressText}` : v.progressText}
+        {v.next
+          ? t('screens.masteryParts.masteryOf', {
+              level: v.level,
+              top: v.top,
+              progressText: v.progressText,
+            })
+          : v.progressText}
       </p>
       {g.reachedLine && (
         <p

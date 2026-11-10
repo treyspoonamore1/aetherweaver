@@ -1,0 +1,36 @@
+import type { Catalogue } from '../../catalogue';
+
+/** The `screens.resultScreen.*` messages: `src/ui/screens/ResultScreen.tsx`. */
+export const resultScreen = {
+  'screens.resultScreen.step': 'Step {last} · {value}',
+  'screens.resultScreen.par': '(par {par})',
+  'screens.resultScreen.weaverShare': 'Weaver share {weaverShare}',
+  'screens.resultScreen.inYourPurse': '{aether} in your purse',
+  'screens.resultScreen.bestMoment': 'Best moment · {time}',
+  'screens.resultScreen.aNewAlly': 'A new ally',
+  'screens.resultScreen.whatYouDid': 'What you did',
+  'screens.resultScreen.alsoWorthRemembering': 'Also worth remembering',
+  'screens.resultScreen.theParty': 'The party',
+  'screens.resultScreen.dealtDamage': 'Dealt {damage} damage',
+  'screens.resultScreen.endsAtLife': '. Ends at {hpPct} life.',
+  'screens.resultScreen.ofItFromYou': 'of it from you',
+  'screens.resultScreen.partyHealthOverThe': 'Party health over the fight',
+  'screens.resultScreen.glyphsAlongTheBottom':
+    'Glyphs along the bottom mark what you did and when. Hover one for the detail.',
+  'screens.resultScreen.fellAtTo': '{name} fell at {time} to {killer}.',
+  'screens.resultScreen.theLastBlows': 'The last blows',
+  'screens.resultScreen.readyButUnused': 'Ready but unused:',
+  'screens.resultScreen.everythingYouHadWas': 'Everything you had was on cooldown.',
+  'screens.resultScreen.flawless': 'Flawless',
+  'screens.resultScreen.excellent': 'Excellent',
+  'screens.resultScreen.solid': 'Solid',
+  'screens.resultScreen.close': 'Close',
+  'screens.resultScreen.rough': 'Rough',
+  'screens.resultScreen.grade': 'Grade {grade}, {label}',
+  'screens.resultScreen.theSongFallsSilent': 'The song falls silent',
+  'screens.resultScreen.wentDown': 'Went down',
+  'screens.resultScreen.aHeroFell': 'A hero fell',
+  'screens.resultScreen.heroesFell': 'Heroes fell',
+  'screens.resultScreen.fallCouldHaveBeen': '{name} fall could have been answered.',
+  'screens.resultScreen.noneOfItAnswers': 'None of it answers {killer}.',
+} satisfies Catalogue;
