@@ -312,7 +312,7 @@
    "outcome": "victory",
    "lastEncounter": "the_silent_conductor",
    "fights": 15,
-   "minutes": 27.653652777782135,
+   "minutes": 27.546125000004103,
    "motifs": [
     "da_capo:1",
     "thread_the_needle:1",
@@ -347,20 +347,20 @@
    "aetherLeft": 459,
    "bondXp": {
     "kael": 522,
-    "lyra": 829,
-    "oro": 429
+    "lyra": 831,
+    "oro": 428
    },
    "movementReached": 4,
    "minutesByMovement": [
     6.035486111111936,
-    8.80890277777888,
-    9.010388888890105,
-    3.798875000001211
+    8.78287500000118,
+    9.08997222222323,
+    3.637791666667756
    ],
    "triggers": {
-    "echoing_shell": 58,
-    "sand_glass": 48,
-    "spindle_turn": 100
+    "echoing_shell": 67,
+    "sand_glass": 52,
+    "spindle_turn": 92
    },
    "triggerFights": {
     "echoing_shell": {

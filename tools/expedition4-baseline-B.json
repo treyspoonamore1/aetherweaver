@@ -377,7 +377,7 @@
    "outcome": "victory",
    "lastEncounter": "the_silent_conductor",
    "fights": 15,
-   "minutes": 21.72977777778,
+   "minutes": 21.474902777779793,
    "motifs": [
     "da_capo:1",
     "thread_the_needle:1",
@@ -408,19 +408,19 @@
     "knotted_cord"
    ],
    "path": [],
-   "aetherEarned": 888,
-   "aetherLeft": 468,
+   "aetherEarned": 901,
+   "aetherLeft": 481,
    "bondXp": {
-    "lyra": 808,
-    "vexis": 504,
-    "brann": 468
+    "lyra": 819,
+    "vexis": 491,
+    "brann": 472
    },
    "movementReached": 4,
    "minutesByMovement": [
     4.881930555555823,
-    7.169416666667316,
-    6.86933333333421,
-    2.809097222222651
+    6.973708333333843,
+    6.978680555556497,
+    2.640583333333633
    ],
    "harmony": {
     "silkOffered": 0,
@@ -428,19 +428,19 @@
     "prereqsOwned": false
    },
    "triggers": {
-    "echoing_shell": 36,
-    "sand_glass": 33,
-    "spindle_turn": 67,
-    "bloodsong": 3
+    "echoing_shell": 26,
+    "sand_glass": 30,
+    "spindle_turn": 66,
+    "bloodsong": 0
    },
    "triggerFights": {
     "echoing_shell": {
      "held": 12,
-     "fired": 10
+     "fired": 9
     },
     "sand_glass": {
      "held": 11,
-     "fired": 9
+     "fired": 7
     },
     "spindle_turn": {
      "held": 7,
@@ -448,7 +448,7 @@
     },
     "bloodsong": {
      "held": 1,
-     "fired": 1
+     "fired": 0
     }
    }
   },

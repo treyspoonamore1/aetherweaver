@@ -445,7 +445,7 @@
    "outcome": "victory",
    "lastEncounter": "vharun",
    "fights": 11,
-   "minutes": 17.100513888890777,
+   "minutes": 17.709222222224597,
    "motifs": [
     "last_bastion:1",
     "second_toll:1",
@@ -478,20 +478,20 @@
    "aetherLeft": 252,
    "bondXp": {
     "kael": 370,
-    "lyra": 499,
-    "vexis": 352
+    "lyra": 497,
+    "vexis": 354
    },
    "movementReached": 2,
    "minutesByMovement": [
     7.966166666667764,
-    9.134347222223017
+    9.743055555556834
    ],
    "triggers": {
     "second_toll": 0,
     "black_ribbon": 12,
-    "sand_glass": 21,
-    "spindle_turn": 48,
-    "safe_harbour": 17,
+    "sand_glass": 23,
+    "spindle_turn": 53,
+    "safe_harbour": 19,
     "clutch_peal": 0,
     "bell_clapper": 5
    },

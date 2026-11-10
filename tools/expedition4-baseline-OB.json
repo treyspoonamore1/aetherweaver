@@ -317,10 +317,10 @@
   {
    "seed": 316187,
    "bot": "skilled",
-   "outcome": "victory",
-   "lastEncounter": "the_silent_conductor",
-   "fights": 15,
-   "minutes": 25.66211111111499,
+   "outcome": "defeat",
+   "lastEncounter": "the_seamstress",
+   "fights": 13,
+   "minutes": 17.220972222224063,
    "motifs": [
     "da_capo:1",
     "thread_the_needle:1",
@@ -328,12 +328,11 @@
     "long_weave:1",
     "long_phrase:2",
     "tenuto:1",
-    "lifeline:2",
+    "lifeline:1",
     "spindle_turn:2",
     "starlit_study:1",
     "tuning_up:1",
-    "hammerfall:1",
-    "graft:1"
+    "hammerfall:1"
    ],
    "relics": [
     "star_chart",
@@ -344,44 +343,41 @@
     "cracked_metronome",
     "menders_needle",
     "spare_strings",
-    "heavy_score*",
+    "heavy_score",
     "sacrificial_lamb",
-    "water_clock",
-    "prompt_book",
-    "knotted_cord"
+    "water_clock"
    ],
    "path": [],
-   "aetherEarned": 835,
-   "aetherLeft": 415,
+   "aetherEarned": 682,
+   "aetherLeft": 302,
    "bondXp": {
-    "lyra": 810,
-    "vexis": 533,
-    "oro": 441
+    "lyra": 587,
+    "vexis": 399,
+    "oro": 335
    },
-   "movementReached": 4,
+   "movementReached": 3,
    "minutesByMovement": [
     6.18022222222343,
-    8.007013888889642,
-    8.519638888890247,
-    2.9552361111116605
+    7.610638888889629,
+    3.430111111110999
    ],
    "triggers": {
-    "echoing_shell": 57,
-    "sand_glass": 49,
-    "spindle_turn": 91
+    "echoing_shell": 29,
+    "sand_glass": 23,
+    "spindle_turn": 36
    },
    "triggerFights": {
     "echoing_shell": {
-     "held": 12,
-     "fired": 11
-    },
-    "sand_glass": {
-     "held": 11,
+     "held": 10,
      "fired": 9
     },
-    "spindle_turn": {
-     "held": 7,
+    "sand_glass": {
+     "held": 9,
      "fired": 7
+    },
+    "spindle_turn": {
+     "held": 5,
+     "fired": 5
     }
    }
   },

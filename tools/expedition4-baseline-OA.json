@@ -348,7 +348,7 @@
    "outcome": "victory",
    "lastEncounter": "the_silent_conductor",
    "fights": 15,
-   "minutes": 37.42794444444475,
+   "minutes": 36.930875000000164,
    "motifs": [
     "da_capo:1",
     "thread_the_needle:1",
@@ -379,24 +379,24 @@
     "knotted_cord"
    ],
    "path": [],
-   "aetherEarned": 784,
-   "aetherLeft": 364,
+   "aetherEarned": 836,
+   "aetherLeft": 416,
    "bondXp": {
-    "kael": 593,
-    "vexis": 737,
-    "oro": 456
+    "kael": 587,
+    "vexis": 748,
+    "oro": 449
    },
    "movementReached": 4,
    "minutesByMovement": [
     8.277555555556566,
-    11.941347222221964,
-    13.226902777775967,
-    3.982138888890249
+    11.801902777777658,
+    13.162041666664804,
+    3.6893750000011285
    ],
    "triggers": {
-    "echoing_shell": 100,
-    "sand_glass": 92,
-    "spindle_turn": 163
+    "echoing_shell": 88,
+    "sand_glass": 89,
+    "spindle_turn": 165
    },
    "triggerFights": {
     "echoing_shell": {

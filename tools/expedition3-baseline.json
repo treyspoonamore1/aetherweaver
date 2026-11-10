@@ -478,7 +478,7 @@
    "outcome": "victory",
    "lastEncounter": "the_unweaver",
    "fights": 16,
-   "minutes": 27.101791666668685,
+   "minutes": 27.499569444447296,
    "motifs": [
     "last_bastion:1",
     "second_toll:1",
@@ -514,27 +514,27 @@
     "knotted_cord"
    ],
    "path": [],
-   "aetherEarned": 868,
-   "aetherLeft": 578,
+   "aetherEarned": 854,
+   "aetherLeft": 564,
    "bondXp": {
-    "kael": 547,
-    "lyra": 714,
-    "vexis": 520
+    "kael": 552,
+    "lyra": 704,
+    "vexis": 527
    },
    "movementReached": 3,
    "minutesByMovement": [
     7.966166666667764,
-    9.134347222223017,
-    10.001277777777903
+    9.743055555556834,
+    9.790347222222701
    ],
    "triggers": {
     "second_toll": 0,
     "black_ribbon": 13,
-    "sand_glass": 48,
-    "spindle_turn": 112,
-    "safe_harbour": 44,
+    "sand_glass": 52,
+    "spindle_turn": 130,
+    "safe_harbour": 49,
     "clutch_peal": 0,
-    "bell_clapper": 11
+    "bell_clapper": 12
    },
    "triggerFights": {
     "second_toll": {
@@ -573,7 +573,7 @@
    "outcome": "victory",
    "lastEncounter": "the_unweaver",
    "fights": 17,
-   "minutes": 20.251555555556024,
+   "minutes": 20.405611111111696,
    "motifs": [
     "whiplash:1",
     "golden_filament:1",
@@ -610,23 +610,23 @@
    "aetherLeft": 695,
    "bondXp": {
     "kael": 511,
-    "lyra": 793,
-    "vexis": 507
+    "lyra": 796,
+    "vexis": 505
    },
    "movementReached": 3,
    "minutesByMovement": [
     6.198458333333227,
     7.505750000000038,
-    6.547347222222757
+    6.70140277777843
    ],
    "triggers": {
-    "whiplash": 9,
-    "sand_glass": 29,
+    "whiplash": 8,
+    "sand_glass": 28,
     "echoing_shell": 26,
-    "spindle_turn": 73,
+    "spindle_turn": 70,
     "penitent_shield": 12,
-    "sister_ward": 18,
-    "heartwood_lute": 0
+    "sister_ward": 22,
+    "heartwood_lute": 1
    },
    "triggerFights": {
     "whiplash": {
@@ -655,7 +655,7 @@
     },
     "heartwood_lute": {
      "held": 1,
-     "fired": 0
+     "fired": 1
     }
    }
   }

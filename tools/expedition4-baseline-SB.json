@@ -139,36 +139,34 @@
    "seed": 316187,
    "bot": "novice",
    "outcome": "defeat",
-   "lastEncounter": "gorehound_matriarch",
-   "fights": 8,
-   "minutes": 10.850388888889654,
+   "lastEncounter": "shield_wall",
+   "fights": 7,
+   "minutes": 9.930611111111906,
    "motifs": [
     "da_capo:1",
     "thread_the_needle:1",
     "twin_aegis:1",
     "long_weave:1",
     "long_phrase:1",
-    "tenuto:1",
-    "lifeline:1"
+    "tenuto:1"
    ],
    "relics": [
     "star_chart",
     "echoing_shell",
-    "sand_glass",
-    "pedlars_ledger"
+    "sand_glass"
    ],
    "path": [],
-   "aetherEarned": 280,
-   "aetherLeft": 280,
+   "aetherEarned": 226,
+   "aetherLeft": 226,
    "bondXp": {
-    "lyra": 274,
-    "vexis": 234,
-    "seren": 252
+    "lyra": 238,
+    "vexis": 199,
+    "seren": 209
    },
    "movementReached": 2,
    "minutesByMovement": [
     6.493666666667592,
-    4.356722222222061
+    3.4369444444443134
    ],
    "triggers": {
     "echoing_shell": 0,
@@ -176,11 +174,11 @@
    },
    "triggerFights": {
     "echoing_shell": {
-     "held": 5,
+     "held": 4,
      "fired": 0
     },
     "sand_glass": {
-     "held": 4,
+     "held": 3,
      "fired": 0
     }
    }
@@ -420,7 +418,7 @@
    "outcome": "victory",
    "lastEncounter": "the_silent_conductor",
    "fights": 15,
-   "minutes": 22.74658333333596,
+   "minutes": 23.07304166666953,
    "motifs": [
     "da_capo:1",
     "thread_the_needle:1",
@@ -451,33 +449,33 @@
     "knotted_cord"
    ],
    "path": [],
-   "aetherEarned": 872,
-   "aetherLeft": 452,
+   "aetherEarned": 866,
+   "aetherLeft": 446,
    "bondXp": {
-    "lyra": 779,
-    "vexis": 526,
+    "lyra": 777,
+    "vexis": 527,
     "seren": 477
    },
    "movementReached": 4,
    "minutesByMovement": [
     5.217777777778027,
-    7.471513888889742,
-    7.205875000001062,
-    2.8514166666671303
+    7.10611111111167,
+    7.201041666667703,
+    3.548111111112126
    ],
    "triggers": {
-    "echoing_shell": 38,
-    "sand_glass": 43,
-    "spindle_turn": 118
+    "echoing_shell": 39,
+    "sand_glass": 41,
+    "spindle_turn": 119
    },
    "triggerFights": {
     "echoing_shell": {
      "held": 12,
-     "fired": 10
+     "fired": 9
     },
     "sand_glass": {
      "held": 11,
-     "fired": 9
+     "fired": 8
     },
     "spindle_turn": {
      "held": 7,

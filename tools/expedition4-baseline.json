@@ -164,7 +164,7 @@
    "outcome": "defeat",
    "lastEncounter": "shield_wall",
    "fights": 7,
-   "minutes": 10.080111111111977,
+   "minutes": 9.494000000000899,
    "motifs": [
     "da_capo:1",
     "thread_the_needle:1",
@@ -182,14 +182,14 @@
    "aetherEarned": 207,
    "aetherLeft": 207,
    "bondXp": {
-    "kael": 278,
-    "lyra": 186,
-    "vexis": 181
+    "kael": 277,
+    "lyra": 187,
+    "vexis": 179
    },
    "movementReached": 2,
    "minutesByMovement": [
     6.874833333334315,
-    3.20527777777766
+    2.619166666666582
    ],
    "triggers": {
     "echoing_shell": 2,
@@ -434,7 +434,7 @@
    "outcome": "defeat",
    "lastEncounter": "frayed_threshold",
    "fights": 10,
-   "minutes": 13.920763888890216,
+   "minutes": 13.911375000001328,
    "motifs": [
     "da_capo:1",
     "thread_the_needle:1",
@@ -463,20 +463,20 @@
    "aetherEarned": 523,
    "aetherLeft": 143,
    "bondXp": {
-    "kael": 321,
-    "lyra": 439,
-    "vexis": 293
+    "kael": 320,
+    "lyra": 440,
+    "vexis": 295
    },
    "movementReached": 3,
    "minutesByMovement": [
     5.822388888889591,
-    7.395416666667312,
+    7.386027777778422,
     0.7029583333333138
    ],
    "triggers": {
-    "echoing_shell": 26,
-    "sand_glass": 14,
-    "spindle_turn": 18
+    "echoing_shell": 27,
+    "sand_glass": 15,
+    "spindle_turn": 17
    },
    "triggerFights": {
     "echoing_shell": {
