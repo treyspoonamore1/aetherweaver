@@ -6,7 +6,7 @@
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import { CONTENT, CONTENT_VERSION } from '../../src/content';
-import { allowanceFor, EVERYTHING } from '../../src/meta/profile';
+import { allowanceFor, EVERYTHING, type Allowance } from '../../src/meta/profile';
 import * as Run from '../../src/meta/run';
 import {
   RUN_REPLAY_FORMAT,
@@ -20,7 +20,9 @@ import {
   parseRunReplay,
   runDigest,
   shareCodeOf,
+  stepOfAction,
   verifyRunReplay,
+  type ChoiceStep,
   type FightStep,
   type RunReplay,
   type VerifyProgress,
@@ -44,6 +46,57 @@ beforeAll(() => {
     'skilled',
   );
 }, SLOW);
+
+/** The run store action that makes a step, with its arguments and allowance. */
+function actionOf(s: ChoiceStep): [string, unknown[], Allowance?] {
+  const allowance = 'allowance' in s ? allowanceOf(s.allowance) : undefined;
+  switch (s.k) {
+    case 'node':
+      return ['chooseNode', [s.id]];
+    case 'continue':
+      return ['continueFromResult', []];
+    case 'calling':
+      return ['pickCalling', s.chords ? [s.index, s.chords] : [s.index], allowance];
+    case 'relic':
+      return ['pickRelic', [s.index]];
+    case 'draft':
+      return ['pickDraft', [s.index]];
+    case 'reroll':
+      return ['rerollDraft', []];
+    case 'respite':
+      return ['respite', [s.choice]];
+    case 'retune':
+      return ['retune', [s.chords], allowance];
+    case 'scene':
+      return ['bondScene', [s.sceneId]];
+    case 'endScene':
+      return ['endScene', [0]];
+    case 'buy':
+      return ['buy', [s.index]];
+    case 'leaveShop':
+      return ['leaveShop', []];
+    case 'forge':
+      return ['forge', [s.choice], allowance];
+    case 'leaveForge':
+      return ['leaveForge', []];
+    case 'event':
+      return [
+        'chooseEvent',
+        [
+          s.choice,
+          {
+            ...(s.motifId ? { motifId: s.motifId } : {}),
+            ...(s.chords ? { chords: s.chords } : {}),
+          },
+        ],
+        allowance,
+      ];
+    case 'leaveEvent':
+      return ['leaveEvent', []];
+    case 'abandon':
+      return ['abandon', []];
+  }
+}
 
 /** A deep copy to tamper with. */
 function copy(r: RunReplay): RunReplay {
@@ -375,6 +428,37 @@ describe('the recorder', () => {
     expect(applyStep(pool, { ...retune, allowance: low })).toEqual(
       Run.chooseEvent(pool, 'retune', { chords }, allowanceFor(1)),
     );
+  });
+
+  it('names the step each run store action makes', () => {
+    const chords = [{ auras: ['ostinato', 'allegro'], ornaments: [] }];
+    expect(stepOfAction('chooseNode', ['n1'])).toEqual({ k: 'node', id: 'n1' });
+    expect(stepOfAction('pickDraft', [null])).toEqual({ k: 'draft', index: null });
+    expect(stepOfAction('pickCalling', [1, chords], allowanceFor(9))).toEqual({
+      k: 'calling',
+      index: 1,
+      chords,
+      allowance: allowanceRecord(allowanceFor(9)),
+    });
+    expect(stepOfAction('chooseEvent', ['offer', { motifId: 'm' }])).toEqual({
+      k: 'event',
+      choice: 'offer',
+      motifId: 'm',
+      allowance: 'all',
+    });
+    expect(stepOfAction('forge', [{ service: 'retune', chords }])).toEqual({
+      k: 'forge',
+      choice: { service: 'retune', chords },
+      allowance: 'all',
+    });
+    expect(stepOfAction('endScene', [2])).toEqual({ k: 'endScene' });
+    for (const prep of ['setChords', 'setCalling', 'embark', 'finishCombat', 'newRun'])
+      expect(stepOfAction(prep, [])).toBeNull();
+    expect(stepOfAction('pickDraft', ['first'])).toBeNull();
+    expect(stepOfAction('respite', ['sleep'])).toBeNull();
+    // Every step of a recorded run is one an action names.
+    for (const s of prelude.replay.steps)
+      if (s.k !== 'fight') expect(s).toEqual(stepOfAction(...actionOf(s)));
   });
 
   it('writes an allowance down and reads it back as it was', () => {

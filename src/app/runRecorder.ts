@@ -6,7 +6,7 @@
  * applies the run layer's functions as it always has, and tells this what it applied.
  *
  *   embark:            run.logId = newLogId(run.seed, now); beginRecording(run)
- *   each action:       recordStep(step, before, after)   (the step's allowance: the one passed)
+ *   each action:       recordStep(stepOfAction(name, args, allowance), before, after)
  *   a fight's end:     recordFight(replay, outcome.outcome === 'victory', before, after)
  *   resume:            await resumeRecording(run)
  *   the Summary:       finishRecording(run, name?)
@@ -23,6 +23,8 @@ import {
 import type { RunState } from '../meta/types';
 import type { Replay } from '../sim';
 import { openReplayStore, type ReplayStore } from './replayStore';
+
+export { stepOfAction } from '../meta/runReplay';
 
 let recorder: RunRecorder | null = null;
 let logId: string | null = null;
@@ -87,9 +89,12 @@ export async function resumeRecording(run: RunState): Promise<boolean> {
   return true;
 }
 
-/** A step the store applied (`before` to `after`); one that changed nothing is not kept. */
-export function recordStep(step: ChoiceStep, before: RunState, after: RunState): void {
-  if (!recorder || broken || after === before) return;
+/**
+ * A step the store applied (`before` to `after`); one that changed nothing is not kept, nor a
+ * null step (`stepOfAction`'s answer for an action that is no run step).
+ */
+export function recordStep(step: ChoiceStep | null, before: RunState, after: RunState): void {
+  if (!step || !recorder || broken || after === before) return;
   recorder.step(step, before, after);
   void persist();
 }
