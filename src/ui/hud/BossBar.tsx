@@ -54,7 +54,7 @@ function TyrantLine({ tyrant }: { tyrant: TyrantDecree }) {
  * Phase 6, True Dissonance: the Postlude's rise (untouchable, its seconds), its pressure once on,
  * and its decree while fresh.
  */
-function PostludeLine({ postlude }: { postlude: PostludeHud }) {
+function PostludeLine({ postlude, quiet = false }: { postlude: PostludeHud; quiet?: boolean }) {
   return (
     <div
       className="mt-1.5 rounded-lg border border-gold-500/50 bg-ink-950/60 px-3 py-1 text-xs text-text"
@@ -75,7 +75,7 @@ function PostludeLine({ postlude }: { postlude: PostludeHud }) {
           </span>
         )}
       </p>
-      {postlude.decree && <p className="mt-0.5 leading-snug">{postlude.decree.text}</p>}
+      {postlude.decree && !quiet && <p className="mt-0.5 leading-snug">{postlude.decree.text}</p>}
     </div>
   );
 }
@@ -239,7 +239,13 @@ export function BossBar({
             <span className="text-muted">· below {EXECUTE_PCT}% when it lands dies</span>
           </p>
         )}
-        {boss.postlude && <PostludeLine postlude={boss.postlude} />}
+        {boss.postlude && (
+          // Its decree once, here, unless the boss's own decree line already says it.
+          <PostludeLine
+            postlude={boss.postlude}
+            quiet={!!shown && shown.name === boss.postlude.decree?.name}
+          />
+        )}
         {boss.tyrant && <TyrantLine tyrant={boss.tyrant} />}
         {boss.cue && <CueLine cue={boss.cue} blind={blind} />}
         {bossConditions(boss).map((c) => (

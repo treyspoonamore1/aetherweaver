@@ -239,3 +239,37 @@ export function mimicrySighting(
   }
   return [...foes];
 }
+
+// ── The decree banners ─────────────────────────────────────────────────────────────────
+
+/** A decree banner as the HUD's callouts take it (the runtime's own `decree` look). */
+export interface DecreeCallout {
+  kind: 'decree';
+  text: string;
+  detail: string;
+  color: string;
+}
+
+/** The decree banner's colour (the runtime's for every boss decree). */
+export const DECREE_COLOR = '#e9d5ff';
+
+/**
+ * The decree banners a batch of events announces: Tyrant's edict at each phase's start. Nothing
+ * for any other event (no banner without Tyrant). The Postlude's banner is not here: its rise
+ * announces its decree as a boss's `decree` event, which the runtime already shows and the boss bar
+ * latches (`postludeRoseDecree` words it the same way, for views that hear only `postludeRose`).
+ */
+export function phase6Callouts(
+  events: readonly { type: string }[],
+  state: WorldState,
+  opts: { rewinds?: boolean } = {},
+): DecreeCallout[] {
+  const out: DecreeCallout[] = [];
+  for (const e of events) {
+    if (e.type === 'tyrantEdict') {
+      const d = tyrantEdictDecree(state, e as SimEventOf<'tyrantEdict'>, opts);
+      if (d) out.push({ kind: 'decree', text: d.name, detail: d.text, color: DECREE_COLOR });
+    }
+  }
+  return out;
+}
