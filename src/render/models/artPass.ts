@@ -1007,8 +1007,30 @@ function buildBellKeeper(def: EnemyDef): THREE.BufferGeometry {
     bellWindows(b, 6, 1.08, 0.62, 0.58, 0.26);
   });
   // A cloaked torso, a porcelain breastplate with a burning sigil, a belt of small bells.
-  b.cyl(0.78, 0.58, 1.02, cloak, { p: [0, 2.12, 0], cell: 0.3, lit: 0.12, glow: 0.05 }, 7);
-  b.cyl(0.5, 0.36, 0.84, body, { ...P, p: [0, 2.14, -0.52], s: [1, 1, 0.55] }, 7);
+  b.lathe(
+    [
+      [0.7, 1.55],
+      [0.62, 1.9],
+      [0.66, 2.3],
+      [0.8, 2.56],
+      [0.4, 2.72],
+      [0, 2.74],
+    ],
+    cloak,
+    { cell: 0.3, lit: 0.15, glow: 0.06 },
+    9,
+  );
+  b.lathe(
+    [
+      [0.34, 0],
+      [0.5, 0.3],
+      [0.52, 0.62],
+      [0.42, 0.86],
+    ],
+    body,
+    { ...P, p: [0, 1.76, -0.32], s: [1, 1, 0.62] },
+    9,
+  );
   b.octa(0.22, CHOIR, { p: [0, 2.24, -0.84], s: [0.8, 1.4, 0.4], glow: 1 });
   b.torus(0.64, 0.08, BRONZE, { p: [0, 1.64, 0], r: FLAT }, Math.PI * 2, 16);
   for (let i = 0; i < 4; i++) {
@@ -1029,7 +1051,14 @@ function buildBellKeeper(def: EnemyDef): THREE.BufferGeometry {
     bell(b, [side * 0.84, 2.42, 0], 0.46, 0.4, BRONZE, { r: [0, 0, side * -0.35] }, 9);
   // Hooded head: a porcelain mask with violet eyes, a crown of bronze spires.
   b.rigged({ k: HEAD, at: [0, 2.6, 0] }, () => {
-    b.sphere(0.44, cloakDark, { p: [0, 2.9, 0.1], s: [1, 1.1, 1.05] }, 8, 6);
+    b.sphere(
+      0.46,
+      cloakDark,
+      { p: [0, 2.92, 0.12], s: [1, 1.12, 1.08], cell: 0.24, lit: 0.1 },
+      9,
+      6,
+    );
+    b.cone(0.3, 0.6, cloakDark, { p: [0, 3.38, 0.34], r: [-0.7, 0, 0] }, 7);
     b.sphere(
       0.3,
       body,
@@ -1037,14 +1066,14 @@ function buildBellKeeper(def: EnemyDef): THREE.BufferGeometry {
       8,
       6,
     );
-    b.box(0.14, 0.065, 0.05, CHOIR, {
-      p: [0.11, 2.92, -0.38],
+    b.box(0.17, 0.08, 0.05, CHOIR, {
+      p: [0.12, 2.92, -0.39],
       r: [0, 0, -0.2],
       glow: 1,
       shell: false,
     });
-    b.box(0.14, 0.065, 0.05, CHOIR, {
-      p: [-0.11, 2.92, -0.38],
+    b.box(0.17, 0.08, 0.05, CHOIR, {
+      p: [-0.12, 2.92, -0.39],
       r: [0, 0, 0.2],
       glow: 1,
       shell: false,
@@ -1152,12 +1181,22 @@ function buildBellWalker(def: EnemyDef): THREE.BufferGeometry {
     for (let i = 0; i < crack.length - 1; i++)
       beam(b, crack[i]!, crack[i + 1]!, 0.07, 0.05, CHOIR, 1, { lead: 0, shell: false });
     // The visor: a bronze band with two burning eye slits, under the crown.
-    b.cyl(0.92, 0.98, 0.3, BRONZE_DARK, { p: [0, 2.62, 0] }, 14);
-    for (const side of [-1, 1])
-      b.box(0.3, 0.09, 0.12, CHOIR, {
-        p: [side * 0.26, 2.64, -0.94],
-        r: [0, side * 0.28, side * -0.12],
+    b.cyl(1.0, 1.06, 0.36, BRONZE_DARK, { p: [0, 2.6, 0] }, 14);
+    for (const side of [-1, 1]) {
+      const a = side * 0.3;
+      b.box(0.34, 0.12, 0.14, CHOIR, {
+        p: [Math.sin(a) * 1.04, 2.62, -Math.cos(a) * 1.04],
+        r: [0, -a, side * -0.14],
         glow: 1,
+        shell: false,
+      });
+    }
+    // A grille for a mouth, in the bronze band's shadow.
+    for (let i = -2; i <= 2; i++)
+      b.box(0.05, 0.3, 0.08, CHOIR_DEEP, {
+        p: [Math.sin(i * 0.09) * 1.13, 2.0, -Math.cos(i * 0.09) * 1.13],
+        r: [0.12, -i * 0.09, 0],
+        glow: 0.9,
         shell: false,
       });
     // The canon: a crown of bronze spires round a hanging loop.

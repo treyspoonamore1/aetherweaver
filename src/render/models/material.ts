@@ -340,7 +340,7 @@ if (awKind > 0.5 && vLead.y < 0.5) {
     vec2 awF = awPanes(vObjPos / vLead.z, awC1, awC2);
     float awUpp = max(length(fwidth(vObjPos)), 1e-6);
     awCellPx = vLead.z / awUpp;
-    float awFadeV = smoothstep(9.0, 24.0, awCellPx);
+    float awFadeV = smoothstep(6.0, 16.0, awCellPx);
     awBd = awF.x * vLead.z / awUpp;
     float awWv = clamp(awCellPx * 0.03, 0.8, 2.2);
     float awLine = 1.0 - smoothstep(awWv - 0.5, awWv + 0.6, awBd);
