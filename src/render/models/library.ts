@@ -3,6 +3,15 @@ import type { EnemyDef, HeroDef } from '../../content';
 import { OWN_PALETTE, type WeaverPalette } from '../keepsakeCues';
 import { ModelBuilder } from './builder';
 import { LIT_MODEL } from '../lightCues';
+import {
+  buildBellwarden,
+  buildBrute,
+  buildChorister,
+  buildKael,
+  buildLyra,
+  buildVexis,
+  buildWeaverArt,
+} from './artPass';
 import { ALTO, BASS, CONDUCTOR, SOPRANO, TENOR } from '../../content/crucibleIds';
 
 /**
@@ -17,6 +26,9 @@ function shade(hex: string, k: number): string {
   else c.multiplyScalar(1 + k);
   return `#${c.getHexString()}`;
 }
+
+/** The art pass prototype's redrawn figures (artPass.ts) in place of the ones below. */
+const ART_PASS = true;
 
 const GOLD = '#e8b54a';
 const GOLD_GLOW = '#ffd27a';
@@ -43,6 +55,8 @@ const BARK = '#5b4330';
  * in the same order, so a robe changed in the fight is recoloured in place (`recolorModel`).
  */
 export function buildWeaver(palette: Readonly<WeaverPalette> = OWN_PALETTE): THREE.BufferGeometry {
+  // Art pass prototype: her redrawn figure (artPass.ts); the old one below stays for reference.
+  if (ART_PASS) return buildWeaverArt(palette);
   const b = new ModelBuilder();
   const body = palette.body;
   b.lathe(
@@ -111,6 +125,11 @@ export function recolorModel(target: THREE.BufferGeometry, source: THREE.BufferG
 }
 
 export function buildHero(def: HeroDef): THREE.BufferGeometry {
+  if (ART_PASS) {
+    if (def.role === 'tank') return buildKael(def);
+    if (def.role === 'ranger') return buildLyra(def);
+    if (def.role === 'arcanist') return buildVexis(def);
+  }
   const b = new ModelBuilder();
   const col = def.color;
   const dark = shade(col, -0.55);
@@ -411,6 +430,11 @@ export function buildEnemy(def: EnemyDef): THREE.BufferGeometry {
   // The Finale: the Silent Conductor and its faceted glass choir, by id, before any role's.
   if (buildCrucible(def, b)) return b.build();
 
+  if (ART_PASS) {
+    if (def.id === 'the_bellwarden') return buildBellwarden(def);
+    if (def.role === 'swarm') return buildChorister(def);
+    if (def.role === 'brute') return buildBrute(def);
+  }
   if (def.id === 'the_bellwarden') {
     // A giant walking bell with a cracked, molten waist.
     b.lathe(

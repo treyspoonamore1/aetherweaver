@@ -180,6 +180,12 @@ export interface EntityRec {
   lunge: number;
   lungeX: number;
   lungeZ: number;
+  /**
+   * Art pass: the body's own clock for its secondary motion (stops while held, frozen or down)
+   * and a blow's progress (1 at the attack, down to 0 over `SWING_LIFE`).
+   */
+  animClock: number;
+  swing: number;
   stagger: number;
   lie: number;
   dissolve: number;
@@ -399,6 +405,9 @@ export const RIBBON_SAMPLES = HIST;
  * (share) at `breathRate` rad/s; `sway`: a side roll (rad) at `swayRate`. The Weaver's ribbons
  * lift and drift on a slow `ribbonLift` (m, at their tips) while she stands.
  */
+/** Art pass: how long a blow plays through the model (s). */
+const SWING_LIFE = 0.5;
+
 export const IDLE = {
   breath: 0.014,
   breathRate: 2.2,
@@ -926,6 +935,8 @@ export class EntityLayer {
       lunge: 0,
       lungeX: 0,
       lungeZ: 0,
+      animClock: 0,
+      swing: 0,
       stagger: 0,
       lie: 0,
       dissolve: 0,
@@ -1021,6 +1032,12 @@ export class EntityLayer {
     r.lungeX = dx / d;
     r.lungeZ = dz / d;
     r.lunge = 1;
+  }
+
+  /** Art pass: any attack plays its blow through the model's weapon, bell or bow. */
+  swingAt(id: EntityId): void {
+    const r = this.recs.get(id);
+    if (r) r.swing = 1;
   }
 
   staggerEntity(id: EntityId): void {
@@ -1966,6 +1983,24 @@ export class EntityLayer {
       rec.prism = approach(rec.prism, capped ? 1 : 0, capped ? 3 : 5, dt);
       if (rec.prism < 0.003) rec.prism = 0;
     }
+    // Art pass: secondary motion (material.ts): the body's clock runs while it stands free (not
+    // held, frozen, down, or under Reduced motion), a blow plays out unless held, and a wind-up
+    // follows the cast.
+    if (!held && !frozen && !downed && !this.still)
+      rec.animClock += dt * (isEnemy ? 1 - 0.3 * rec.slow : 1);
+    if (!held && !frozen) rec.swing = Math.max(0, rec.swing - dt / SWING_LIFE);
+    const heroCast = e.hero?.cast;
+    const winding = cast ?? heroCast;
+    const windup =
+      winding && !held
+        ? clamp01((time - winding.start) / Math.max(0.01, winding.end - winding.start))
+        : 0;
+    rec.batch.setPose(
+      rec.animClock + rec.id * 1.37,
+      windup,
+      rec.swing > 0 ? 1 - rec.swing : 0,
+      held || frozen || downed ? 0 : moving,
+    );
     rec.batch.push(
       m,
       rec.flash,

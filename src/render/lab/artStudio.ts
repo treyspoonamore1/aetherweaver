@@ -203,6 +203,8 @@ export class ArtStudio {
     this.kit.begin(time, camera.position);
     for (const f of this.figures) {
       f.batch.begin();
+      // At rest, each on its own clock (secondary motion, material.ts).
+      f.batch.setPose(time + this.figures.indexOf(f) * 1.37, 0, 0, 0);
       f.batch.push(this.compose(f.x, f.z, f.yaw), 0, 0, 0, 0, f.rim, f.rimStrength);
       this.kit.shadows.push(
         f.x,

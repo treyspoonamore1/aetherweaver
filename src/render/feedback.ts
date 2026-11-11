@@ -1247,6 +1247,7 @@ export class Feedback {
     const sr = this.rec(e.source);
     if (e.visual === 'melee' || e.visual === 'cleave')
       this.d.entities.lungeAt(e.source, e.toX, e.toZ);
+    this.d.entities.swingAt(e.source);
     const isHero = src?.kind === 'hero';
     let c: THREE.Color = C.threat;
     if (isHero && src.hero) {

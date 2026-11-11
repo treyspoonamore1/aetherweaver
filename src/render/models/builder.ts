@@ -11,6 +11,11 @@ export interface PartOptions {
   p?: [number, number, number];
   r?: [number, number, number];
   s?: [number, number, number] | number;
+  /**
+   * Secondary motion (material.ts, `RIG`): the part moves in the vertex shader about `at` (model
+   * space, feet at y = 0) by kind `k`, scaled by `a`. Rigid parts of one model share a pivot.
+   */
+  rig?: { k: number; at: [number, number, number]; a?: number };
 }
 
 interface Part {
@@ -18,6 +23,11 @@ interface Part {
   color: THREE.Color;
   glow: number;
   matrix: THREE.Matrix4;
+  rig: [number, number, number, number, number];
+}
+
+function rigOf(r: PartOptions['rig']): Part['rig'] {
+  return r ? [r.k, r.at[0], r.at[1], r.at[2], r.a ?? 1] : [0, 0, 0, 0, 0];
 }
 
 const tmpEuler = new THREE.Euler();
@@ -27,6 +37,16 @@ const tmpScale = new THREE.Vector3();
 
 export class ModelBuilder {
   private readonly parts: Part[] = [];
+  private group: PartOptions['rig'] = undefined;
+
+  /** Every part added inside `fn` moves with `rig` (unless it names its own). */
+  rigged(rig: NonNullable<PartOptions['rig']>, fn: () => void): this {
+    const before = this.group;
+    this.group = rig;
+    fn();
+    this.group = before;
+    return this;
+  }
 
   add(geometry: THREE.BufferGeometry, hex: string | THREE.Color, opts: PartOptions = {}): this {
     const matrix = new THREE.Matrix4();
@@ -43,6 +63,7 @@ export class ModelBuilder {
       color: typeof hex === 'string' ? new THREE.Color(hex) : hex.clone(),
       glow: opts.glow ?? 0,
       matrix,
+      rig: rigOf(opts.rig ?? this.group),
     });
     return this;
   }
@@ -101,6 +122,8 @@ export class ModelBuilder {
     const normals = new Float32Array(vertexCount * 3);
     const colors = new Float32Array(vertexCount * 3);
     const glows = new Float32Array(vertexCount);
+    const rigs = new Float32Array(vertexCount * 4);
+    const rigAmp = new Float32Array(vertexCount);
     let offset = 0;
     for (const { geo, part } of prepared) {
       const pos = geo.getAttribute('position') as THREE.BufferAttribute;
@@ -118,6 +141,12 @@ export class ModelBuilder {
         colors[o + 1] = part.color.g;
         colors[o + 2] = part.color.b;
         glows[offset + i] = part.glow;
+        const g = (offset + i) * 4;
+        rigs[g] = part.rig[0];
+        rigs[g + 1] = part.rig[1];
+        rigs[g + 2] = part.rig[2];
+        rigs[g + 3] = part.rig[3];
+        rigAmp[offset + i] = part.rig[4];
       }
       offset += pos.count;
       geo.dispose();
@@ -128,6 +157,8 @@ export class ModelBuilder {
     out.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
     out.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     out.setAttribute('aGlow', new THREE.BufferAttribute(glows, 1));
+    out.setAttribute('aRig', new THREE.BufferAttribute(rigs, 4));
+    out.setAttribute('aRigA', new THREE.BufferAttribute(rigAmp, 1));
     out.computeBoundingSphere();
     this.parts.length = 0;
     return out;

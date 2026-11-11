@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { createRigDepthMaterial } from './material';
+
+let rigDepth: THREE.MeshDepthMaterial | null = null;
 
 /**
  * All instances of one model in one draw call. Immediate mode: `begin()`, `push()` each
@@ -15,6 +18,12 @@ export class ModelBatch {
    */
   private readonly shine: THREE.InstancedBufferAttribute;
   private count = 0;
+  /**
+   * (clock, wind-up, blow, moving): the next pushed instance's secondary motion (material.ts,
+   * `RIG_VERTEX_PARS`), set by `pose` and spent by `push` (a figure with none stands still).
+   */
+  private readonly pose: THREE.InstancedBufferAttribute;
+  private readonly next = [0, 0, 0, 0];
 
   constructor(
     readonly geometry: THREE.BufferGeometry,
@@ -31,13 +40,26 @@ export class ModelBatch {
     geometry.setAttribute('aFx', this.fx);
     geometry.setAttribute('aTint', this.tint);
     geometry.setAttribute('aShine', this.shine);
+    this.pose = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4);
+    this.pose.setUsage(THREE.DynamicDrawUsage);
+    geometry.setAttribute('aPose', this.pose);
     this.mesh = new THREE.InstancedMesh(geometry, material, capacity);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.frustumCulled = false;
     this.mesh.castShadow = castShadow;
+    if (geometry.getAttribute('aRig'))
+      this.mesh.customDepthMaterial = rigDepth ??= createRigDepthMaterial();
     this.mesh.receiveShadow = false;
     this.mesh.count = 0;
     this.mesh.visible = false;
+  }
+
+  /** The next instance's secondary motion: its clock (s), wind-up, blow and moving (0..1). */
+  setPose(clock: number, windup: number, blow: number, moving: number): void {
+    this.next[0] = clock;
+    this.next[1] = windup;
+    this.next[2] = blow;
+    this.next[3] = moving;
   }
 
   begin(): void {
@@ -75,6 +97,15 @@ export class ModelBatch {
     s[i * 4 + 1] = sunrise;
     s[i * 4 + 2] = frost;
     s[i * 4 + 3] = prism;
+    const o = this.pose.array as Float32Array;
+    o[i * 4] = this.next[0]!;
+    o[i * 4 + 1] = this.next[1]!;
+    o[i * 4 + 2] = this.next[2]!;
+    o[i * 4 + 3] = this.next[3]!;
+    this.next[0] = 0;
+    this.next[1] = 0;
+    this.next[2] = 0;
+    this.next[3] = 0;
   }
 
   /** Instance `i`'s Prism Covenant edge as last pushed (tests, the lab). */
@@ -123,6 +154,9 @@ export class ModelBatch {
       this.shine.clearUpdateRanges();
       this.shine.addUpdateRange(0, this.count * 4);
       this.shine.needsUpdate = true;
+      this.pose.clearUpdateRanges();
+      this.pose.addUpdateRange(0, this.count * 4);
+      this.pose.needsUpdate = true;
     }
   }
 
