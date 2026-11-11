@@ -210,6 +210,7 @@ export function figure(
   opts: { outline?: Outline; body?: [number, number] } = {},
 ): ModelBuilder {
   const b = new ModelBuilder(true, opts.outline ?? OUTLINE_OF[size]);
+  b.sizeClass = size;
   if (opts.body) b.body(opts.body[0], opts.body[1]);
   return b;
 }

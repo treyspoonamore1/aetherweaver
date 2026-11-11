@@ -1,10 +1,11 @@
 import type * as THREE from 'three';
-import type { EnemyDef, HeroDef } from '../../../content';
+import { enemyDef, heroDef, type EnemyDef, type HeroDef } from '../../../content';
+import { OWN_PALETTE } from '../../keepsakeCues';
 import type { WeaverPalette } from '../../keepsakeCues';
 import { ART as CHOIR } from './choir';
 import { ART as FINALE } from './finale';
 import { ART as HEROES } from './heroes';
-import type { ArtFamily } from './kit';
+import { BUDGET, type ArtFamily, type SizeClass } from './kit';
 import { ART as LEGION } from './legion';
 import { ART as MISC } from './misc';
 import { ART as UNSTITCHED } from './unstitched';
@@ -79,4 +80,39 @@ export function artDone(): { heroes: string[]; enemies: string[]; other: string[
     enemies: [...enemies.keys()],
     other: Object.keys(single),
   };
+}
+
+/** One redrawn figure's cost against its size class's budget (docs/art-style.md, Budgets). */
+export interface ArtBudgetRow {
+  id: string;
+  size: string;
+  triangles: number;
+  outline: number;
+  budget: number;
+  ok: boolean;
+}
+
+/**
+ * Builds every redrawn figure and measures it: triangles (outline shell included), the outline's
+ * share, and its size class's budget (`__VFX__.artBudgets()` in the lab, the studio script).
+ */
+export function artBudgets(): ArtBudgetRow[] {
+  const rows: ArtBudgetRow[] = [];
+  const measure = (id: string, g: THREE.BufferGeometry) => {
+    const misc = g.getAttribute('aMisc');
+    let shell = 0;
+    if (misc) for (let i = 0; i < misc.count; i++) if (misc.getY(i) > 8.5) shell++;
+    const triangles = g.getAttribute('position').count / 3;
+    const size = (g.userData.sizeClass as SizeClass | undefined) ?? 'standard';
+    const budget = BUDGET[size];
+    rows.push({ id, size, triangles, outline: shell / 3, budget, ok: triangles <= budget });
+    g.dispose();
+  };
+  for (const [id, build] of heroes) measure(id, build(heroDef(id)));
+  for (const [id, build] of enemies) measure(id, build(enemyDef(id)));
+  if (single.weaver) measure('weaver', single.weaver(OWN_PALETTE));
+  if (single.sapling) measure('sapling', single.sapling('#487858'));
+  if (single.ancient) measure('ancient', single.ancient('#487858'));
+  if (single.crown) measure('crown', single.crown());
+  return rows;
 }

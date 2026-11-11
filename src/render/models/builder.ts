@@ -196,6 +196,8 @@ export class ModelBuilder {
 
   private hip = 0;
   private span = 0;
+  /** Set by art/kit.ts `figure`: the figure's size class, carried on the built geometry. */
+  sizeClass: string | null = null;
 
   /**
    * The whole body above `hip` (m) follows the figure's breath, weight and swing (material.ts),
@@ -518,6 +520,7 @@ export class ModelBuilder {
     out.setAttribute('aRig', new THREE.BufferAttribute(rigs, 4));
     out.setAttribute('aMisc', new THREE.BufferAttribute(misc, 4));
     out.setAttribute('aBary', new THREE.BufferAttribute(bary, 3));
+    if (this.sizeClass) out.userData.sizeClass = this.sizeClass;
     out.computeBoundingSphere();
     this.parts.length = 0;
     return out;

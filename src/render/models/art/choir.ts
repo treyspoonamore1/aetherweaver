@@ -76,11 +76,11 @@ export function buildChorister(def: EnemyDef): THREE.BufferGeometry {
     body,
     { p: [0, 0.76 * s, -0.02 * s], r: [Math.PI / 2 - 0.3, 0, 0], glow: 0.16 },
     Math.PI * 2,
-    9,
+    7,
   );
   // The hood and the great mask, tilted up to sing.
   b.rigged({ k: HEAD, at: [0, 0.78 * s, -0.02 * s] }, () => {
-    b.sphere(0.24 * s, under, { p: [0, 0.98 * s, 0.08 * s], s: [1, 1.0, 1] }, 8, 6);
+    b.sphere(0.24 * s, under, { p: [0, 0.98 * s, 0.08 * s], s: [1, 1.0, 1] }, 7, 5);
     b.cone(0.13 * s, 0.28 * s, under, { p: [0, 1.06 * s, 0.32 * s], r: [-1.3, 0, 0] }, 6);
     // The mask turned up to the sky as it sings (the fight's high camera sees its face).
     const T = 0.4;
@@ -107,8 +107,8 @@ export function buildChorister(def: EnemyDef): THREE.BufferGeometry {
       0.29 * s,
       body,
       { ...glaze(0.08 * s, 0.4, 0.22), p: C, s: [0.92, 1.2, 0.6], r: [T, 0, 0] },
-      9,
-      7,
+      8,
+      6,
     );
     for (const side of [-1, 1]) {
       b.box(0.11 * s, 0.05 * s, 0.03 * s, hollow, {

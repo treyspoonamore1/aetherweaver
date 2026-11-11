@@ -61,6 +61,7 @@ import type { WeaverLook } from '../keepsakeCues';
 import { Stage, type QualityTier } from '../stage';
 import type { FrameInfo } from '../types';
 import { KeepsakeLineup, type LineupPage } from './keepsakeLineup';
+import { artBudgets, type ArtBudgetRow } from '../models/art';
 import { ArtStudio, type StudioSpec } from './artStudio';
 import { VARIANT_SCENARIOS, VARIANT_SCENARIO_NAMES, scenarioConfig } from './variantScenarios';
 import { CONDUCT_SCENARIOS, CONDUCT_SCENARIO_NAMES } from './conductScenarios';
@@ -211,6 +212,8 @@ interface LabApi {
   lineup(page: LineupPage | null): void;
   /** The art studio: the characters' models alone on a floor under a fixed camera; null: the fight. */
   studio(spec: StudioSpec | null): void;
+  /** The art pass's redrawn figures, measured against their size class's triangle budget. */
+  artBudgets(): ArtBudgetRow[];
   /**
    * Pins the camera at `eye` looking at `at` (the follow camera stops); null: it follows again.
    */
@@ -5956,6 +5959,7 @@ export function VfxLab() {
       },
       lineup: (page) => rt.lineup(page),
       studio: (spec) => rt.studio(spec),
+      artBudgets: () => artBudgets(),
       pinCamera: (pin) => {
         rt.pin = pin;
       },
