@@ -15,6 +15,7 @@ import { dealDamage, healReceivedMult } from '../src/sim/combat/health';
 import { beginAttack } from '../src/sim/systems/enemies';
 import type { Entity } from '../src/sim';
 import { ArenaView } from '../src/render/arena';
+import { LIT_MOOD } from '../src/render/lightCues';
 import { CameraRig } from '../src/render/camera';
 import { CallView } from '../src/render/calls';
 import {
@@ -467,23 +468,30 @@ describe('Movement I is drawn as before', () => {
 });
 
 describe('The Crimson Spire', () => {
-  it('its own mood: a crimson sky, a torch key, nearer fog; crimson only above the disc', () => {
+  /**
+   * Phase 8a (docs/phase-8.md): the Spire lit to 04 §1. The red is where the camera sees it but
+   * off the disc: a red sky (the fog behind the rim), the shipped red rim from the far side, a
+   * torch key; the disc's fill is a neutral obsidian grey so lethal crimson keeps its edge.
+   */
+  it('its own mood: a red sky the camera sees, a torch key, the red rim; a neutral fill on the disc', () => {
+    const rgb = (hex: string) => new THREE.Color(hex);
     for (const id of SPIRE_ARENAS) {
       const def = arenaDef(id);
       expect(arenaLook(def)).toBe('crimson');
       const a = buildArena(id);
-      expect(a.mood).toEqual({
-        sky: SPIRE_HEX.sky,
-        ground: def.theme.floor,
-        hemi: 0.55,
-        key: SPIRE_HEX.torch,
-        keyIntensity: 1.6,
-        rim: SPIRE_HEX.rim,
-        rimIntensity: 0.6,
-        fog: def.theme.fog,
-        fogNear: 38,
-        fogFar: 84,
-      });
+      expect(a.mood).toEqual({ ...LIT_MOOD.crimson });
+      // The sky (fog) is red: red well over green and blue.
+      const fog = rgb(a.mood.fog as string);
+      expect(fog.r).toBeGreaterThan(2 * Math.max(fog.g, fog.b));
+      // The key is the torch, the rim the shipped Spire red.
+      expect(a.mood.key).toBe(SPIRE_HEX.torch);
+      expect(a.mood.rim).toBe(SPIRE_HEX.rim);
+      // The disc's fill light is near grey: no channel a third over another.
+      const sky = rgb(a.mood.sky as string);
+      const ch = [sky.r, sky.g, sky.b];
+      expect(Math.max(...ch) / Math.min(...ch)).toBeLessThan(1.35);
+      // The fog closes in nearer than the Reliquary's, so the far rim fades into the red sky.
+      expect(a.mood.fogFar as number).toBeLessThan(96);
       expect(a.view.look).toBe('crimson');
       // The same mesh budget as a Reliquary arena: torch cards for rays, embers for dust.
       expect(a.meshes).toBe(def.obstacles.length > 0 ? 7 : 6);

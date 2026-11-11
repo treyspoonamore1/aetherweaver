@@ -15,9 +15,10 @@ import type { Command, Entity, Sim, SimEvent, Status, WorldState } from '../src/
 import { createSim, suppressRadiusOf } from '../src/sim';
 import { addShield, dealDamage } from '../src/sim/combat/health';
 import { ArenaView } from '../src/render/arena';
+import { LIT_MOOD } from '../src/render/lightCues';
 import { CallView } from '../src/render/calls';
 import type { CameraRig } from '../src/render/camera';
-import { ABYSS_MOOD, arenaLook, arenaMood, materialOf } from '../src/render/crimsonCues';
+import { arenaLook, arenaMood, materialOf } from '../src/render/crimsonCues';
 import { EntityLayer } from '../src/render/entities';
 import { FermataView } from '../src/render/fermata';
 import { Feedback } from '../src/render/feedback';
@@ -265,7 +266,7 @@ const M1_ENCOUNTER = 'first_light';
 const M2_ENCOUNTER = 'crimson_gate';
 
 describe('Movements I and II draw as before, and none of Movement III', () => {
-  it('the look and mood tables keep every Reliquary and Spire row (renderSpireSnapshot pins them)', () => {
+  it('the look and mood tables keep every Reliquary row and the Spire its lit row (renderSpireSnapshot pins them)', () => {
     for (const a of CONTENT.arenas) {
       if (a.biome === 'abyssal_rift') continue;
       // The Finale's Crucible has its own look (tests/renderFinale.test.ts pins it).
@@ -281,11 +282,7 @@ describe('Movements I and II draw as before, and none of Movement III', () => {
     }
     // A sample row of each, by value (the W0a snapshot holds them all).
     expect(arenaMood(arenaDef('nave')).rim).toBe(arenaDef('nave').theme.accent);
-    expect(arenaMood(arenaDef('spire_gate'))).toMatchObject({
-      sky: '#3a1416',
-      key: '#ffb27a',
-      rimIntensity: 0.6,
-    });
+    expect(arenaMood(arenaDef('spire_gate'))).toEqual({ ...LIT_MOOD.crimson });
   });
 
   for (const encounter of [M1_ENCOUNTER, M2_ENCOUNTER]) {
@@ -307,25 +304,27 @@ describe('Movements I and II draw as before, and none of Movement III', () => {
 });
 
 describe('The Abyssal Rift', () => {
-  it('every Rift arena wears the abyss: its mood, its pieces swapped one for one (7 / 6 meshes)', () => {
+  /**
+   * Phase 8a (docs/phase-8.md): the Rift lit indigo. The moon key and the cold rim are the shipped
+   * ones (the rim ≤ 0.45, so a hero's edge never reads Mended); the sky and fog are indigo, so the
+   * camera sees the void, not black.
+   */
+  it('every Rift arena wears the abyss: its lit indigo mood, its pieces swapped one for one (7 / 6 meshes)', () => {
     expect(RIFT_ARENAS.length).toBe(5);
     for (const id of RIFT_ARENAS) {
       const def = arenaDef(id);
       expect(arenaLook(def)).toBe('abyss');
       const a = buildArena(id);
       expect(a.view.look).toBe('abyss');
-      expect(a.mood).toEqual({
-        sky: ABYSS_HEX.sky,
-        ground: def.theme.floor,
-        hemi: 0.5,
-        key: ABYSS_HEX.moon,
-        keyIntensity: 1.5,
-        rim: ABYSS_HEX.rim,
-        rimIntensity: ABYSS_MOOD.rimIntensity,
-        fog: def.theme.fog,
-        fogNear: 34,
-        fogFar: 80,
-      });
+      expect(a.mood).toEqual({ ...LIT_MOOD.abyss });
+      expect(a.mood.key).toBe(ABYSS_HEX.moon);
+      expect(a.mood.rim).toBe(ABYSS_HEX.rim);
+      for (const hex of [a.mood.sky, a.mood.fog] as string[]) {
+        const c = new THREE.Color(hex);
+        // Indigo: blue first, red over green.
+        expect(c.b, hex).toBeGreaterThan(c.r);
+        expect(c.r, hex).toBeGreaterThan(c.g);
+      }
       expect(a.mood.rimIntensity as number).toBeLessThanOrEqual(0.45);
       expect(a.meshes, id).toBe(def.obstacles.length > 0 ? 7 : 6);
     }

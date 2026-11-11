@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { LIT_ORRERY } from './lightCues';
 import type { ArenaDef } from '../content';
 import { CONTENT } from '../content';
 import { CRUCIBLE_ARENA, DISCORD_MAX, NOTES_NEEDED } from '../content/crucibleIds';
@@ -199,48 +198,49 @@ export function silenceDepth(finale: FinaleView | null): number {
 export const BEAT_SECONDS = 60 / 88;
 
 /**
- * The sky orrery's layout (docs/phase-5d.md): eight concentric rings in a plane beyond the far
- * (−z) rim, leaning toward the arena by (π/2 − tilt), because the 52° pitch and 40° FOV never
- * show the sky. Ring i belongs to stem ⌊i/2⌋ (pad, pulse, melody, choir), the order the Grand
- * Silence's notes reopen them in. The lowest arc sinks under the apron; the top of the largest
- * ring stops `clear` outside the disc.
+ * The sky orrery's layout (docs/phase-5d.md, re-laid in docs/phase-8.md 8a): eight concentric
+ * rings round the stage, centred on the arena, lying almost flat just outside the disc's edge and
+ * leaning up a little toward the far (−z) side. The 52° pitch and 40° FOV never show the sky, so
+ * the rings come down to where the camera sees them, at the frame's sides and far edge; they never
+ * reach the disc (white-gold is Resonance's). Ring i belongs to stem ⌊i/2⌋ (pad, pulse, melody,
+ * choir), the order the Grand Silence's notes reopen them in. A quiet set piece: `alpha` keeps them
+ * dimmer than any telegraph, aura ring or HUD text.
  */
 export const ORRERY = {
   rings: NOTES_NEEDED,
-  inner: 2.2,
-  step: 1.0,
-  /** The plane's angle from the floor (rad). */
-  tilt: 1.2,
-  lift: 1.5,
-  /** The top of the largest ring stays this far outside the disc's edge (m). */
-  clear: 0.6,
+  /** Ring 0 lies this far outside the disc's edge (m); each next ring `step` further. */
+  clear: 0.9,
+  step: 1.05,
+  /** Height over the floor at the centre's level (m). */
+  lift: 0.9,
+  /** The plane's lean up toward the far side (rad): nearly flat. */
+  tilt: 0.05,
+  /** The rings' overall strength. */
+  alpha: 0.3,
 } as const;
 
-/** Ring i's radius. */
-export function orreryRadius(i: number): number {
-  return ORRERY.inner + ORRERY.step * i;
+/** Ring i's radius in an arena of `radius`. */
+export function orreryRadius(radius: number, i: number): number {
+  return radius + ORRERY.clear + ORRERY.step * i;
 }
 
-/** The orrery's centre for an arena of `radius`, into `out`. */
-export function orreryCentre(radius: number, out: { x: number; y: number; z: number }): void {
-  const outer = orreryRadius(ORRERY.rings - 1);
+/** The orrery's centre for an arena of `radius` (the arena's centre, lifted), into `out`. */
+export function orreryCentre(_radius: number, out: { x: number; y: number; z: number }): void {
   out.x = 0;
   out.y = ORRERY.lift;
-  out.z = -(radius + ORRERY.clear + outer * Math.cos(ORRERY.tilt));
+  out.z = 0;
 }
 
-/** Where ring i's top stands (a note's mote flies there), into `out`. */
+/** Where ring i's far point stands (a note's mote flies there), into `out`. */
 export function orreryTop(
   radius: number,
   i: number,
   out: { x: number; y: number; z: number },
 ): void {
-  // PROTOTYPE (p8/light): the lit orrery (lightCues.ts LIT_ORRERY) rings the stage nearly flat;
-  // a note flies to ring i's far point.
-  const r = radius + LIT_ORRERY.clear + LIT_ORRERY.step * i;
+  const r = orreryRadius(radius, i);
   out.x = 0;
-  out.y = LIT_ORRERY.lift + r * Math.sin(LIT_ORRERY.tilt);
-  out.z = -r * Math.cos(LIT_ORRERY.tilt);
+  out.y = ORRERY.lift + r * Math.sin(ORRERY.tilt);
+  out.z = -r * Math.cos(ORRERY.tilt);
 }
 
 /** What the orrery shows this frame (ArenaView.update's `sky`). */

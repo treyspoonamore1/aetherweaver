@@ -1,5 +1,5 @@
 /**
- * PROTOTYPE (scratch branch p8/light, not for main): light and colour for the three dark worlds,
+ * Phase 8a (docs/phase-8.md): light and colour for the three dark worlds,
  * to 04 §1's words. Spire: obsidian, crimson, brass; torch flicker, a red sky the camera can see.
  * Rift: indigo void, teal frays; rim light from rift tears. Crucible: white-gold, prismatic; music
  * as rings in the sky. Render-only tables: nothing here reaches the sim or content, and no aura or
@@ -33,29 +33,33 @@ export interface LitFloor {
 export const LIT_FLOOR = {
   crimson: {
     floor: '#2e2a30',
-    seam: '#6a1a1e',
+    // Dark brass and ember: the only warm glows ≥ 20 ΔE from lethal, the Bear and every other
+    // semantic colour in every vision (tests/colorVision.test.ts, Phase 8a).
+    seam: '#3c2200',
     seamInner: 0.0,
     seamOuter: 0.18,
-    innerShade: 0.12,
-    edge: '#8c2a1e',
-    edgeGlow: 0.8,
+    innerShade: 0,
+    edge: '#541200',
+    edgeGlow: 1,
   },
   abyss: {
     floor: '#2a2656',
     seam: '#4c5cc0',
     seamInner: 0.12,
     seamOuter: 0.3,
-    innerShade: 0.3,
-    // The fray: ABYSS_HEX.fray's dark teal (≥ 20 ΔE from Mend in every vision), outer course only.
-    edge: '#176762',
+    innerShade: 0.2,
+    // The loose threads on the outer course: the seams' blue, not teal. No teal clears every
+    // semantic colour (Mend is teal), so as in Phase 5c no teal is drawn on the disc; the teal
+    // frays are on the hangings and the foes' stitches.
+    edge: '#4c5cc0',
     edgeGlow: 1.2,
   },
   crucible: {
     floor: '#28264c',
-    seam: '#5a70b8',
+    seam: '#5068b8',
     seamInner: 0.14,
     seamOuter: 0.4,
-    innerShade: 0.3,
+    innerShade: 0.16,
     edge: '#4a6ab0',
     edgeGlow: 0.6,
   },
@@ -128,21 +132,6 @@ export const LIT_RIM = {
 } as const;
 
 /**
- * The sky orrery brought into frame: the eight rings laid nearly flat round the stage, just
- * outside the disc's edge (white-gold never on the disc), hovering at `lift`.
- */
-export const LIT_ORRERY = {
-  /** Ring 0 sits this far outside the disc's edge; each next ring `step` further. */
-  clear: 0.9,
-  step: 1.05,
-  lift: 0.9,
-  /** A slight lean up toward the far side (rad), so the far rings rise into the frame's top. */
-  tilt: 0.05,
-  /** The rings' overall strength (was 0.8 when they stood out of frame). */
-  alpha: 0.3,
-} as const;
-
-/**
  * Model re-tints (colour and material only; shapes unchanged). The Rift's cloth: an indigo light
  * enough to stand off the lit floor, its stitches teal frays; the Conductor in white and black.
  */
@@ -154,4 +143,25 @@ export const LIT_MODEL = {
   conductorRobe: '#b4b098',
   conductorDark: '#18161f',
   conductorHaloGlow: 0.75,
+} as const;
+
+/**
+ * Readability rule 1 under the new light (docs/phase-8.md 8a): lethal crimson keeps at least
+ * 3.1:1 against the combat floor, and threat amber at least 7:1, in every colour vision.
+ */
+export const LETHAL_MIN_CONTRAST = 3.1;
+export const THREAT_MIN_CONTRAST = 7;
+
+/**
+ * Each dark world's floor as the game camera sees it, measured on the rendered picture (the VFX
+ * lab, the game camera at 27 m, a 1280×720 canvas at device scale 2, the default party standing
+ * at the centre with the song field on): the mean colour of a 100×100 px floor patch between the
+ * pillars and the rim (`outside`), and of an 80×60 px patch under the Weaver inside her field
+ * (`inside`). Re-measure them whenever the light or the floors change; the inner disc's shade
+ * (LIT_FLOOR.innerShade) is what holds them to LETHAL_MIN_CONTRAST.
+ */
+export const LIT_FLOOR_SEEN = {
+  crimson: { outside: '#140603', inside: '#23150d' },
+  abyss: { outside: '#0b0b1c', inside: '#151925' },
+  crucible: { outside: '#0a0916', inside: '#151922' },
 } as const;

@@ -28,9 +28,10 @@ import {
 import type { Command, Entity, FinaleField, Sim, SimEvent, Status } from '../src/sim';
 import { createSim } from '../src/sim';
 import { ArenaView } from '../src/render/arena';
+import { LIT_FLOOR, LIT_MOOD } from '../src/render/lightCues';
 import { CallView } from '../src/render/calls';
 import type { CameraRig } from '../src/render/camera';
-import { CRUCIBLE_MOOD, arenaLook, arenaMood, materialOf } from '../src/render/crimsonCues';
+import { arenaLook, arenaMood, materialOf } from '../src/render/crimsonCues';
 import {
   BEAT_SECONDS,
   CRUCIBLE_ARENA_STAND_IN,
@@ -354,24 +355,25 @@ describe('Movements I-III draw and play no Finale cue', () => {
 });
 
 describe('The Celestial Crucible', () => {
-  it('the biome has its BIOME_LOOK row and its mood: navy sky, starlight key, cobalt rim ≤ 0.45', () => {
+  /**
+   * Phase 8a (docs/phase-8.md): the Crucible lit blue-violet. The starlight key (≤ 1.85) and the
+   * cobalt rim (≤ 0.45) are the shipped ones, and never white-gold: the white-gold lives on the
+   * rim's stalls and pipes and in the orrery, off the disc.
+   */
+  it('the biome has its BIOME_LOOK row and its mood: blue-violet sky, starlight key, cobalt rim ≤ 0.45', () => {
     const def = crucibleArenaDef();
     expect(def.id).toBe(CRUCIBLE_ARENA);
     expect(arenaLook({ id: 'any', biome: 'celestial_crucible' })).toBe('crucible');
     expect(arenaLook(def)).toBe('crucible');
     const mood = arenaMood(def);
-    expect(mood).toEqual({
-      sky: CRUCIBLE_HEX.sky,
-      ground: def.theme.floor,
-      hemi: 0.5,
-      key: CRUCIBLE_HEX.key,
-      keyIntensity: CRUCIBLE_MOOD.keyIntensity,
-      rim: CRUCIBLE_HEX.rim,
-      rimIntensity: CRUCIBLE_MOOD.rimIntensity,
-      fog: def.theme.fog,
-      fogNear: 40,
-      fogFar: 90,
-    });
+    expect(mood).toEqual({ ...LIT_MOOD.crucible });
+    expect(mood.key).toBe(CRUCIBLE_HEX.key);
+    expect(mood.rim).toBe(CRUCIBLE_HEX.rim);
+    for (const hex of [mood.sky, mood.fog]) {
+      const c = new THREE.Color(hex);
+      // Blue-violet: blue first.
+      expect(c.b, hex).toBeGreaterThan(Math.max(c.r, c.g));
+    }
     expect(mood.keyIntensity).toBeLessThanOrEqual(1.85);
     expect(mood.rimIntensity).toBeLessThanOrEqual(0.45);
     // The white-gold never lights the disc: the key and rim are neither it nor the orrery's.
@@ -435,20 +437,35 @@ describe('The Celestial Crucible', () => {
     // The motes sway half a metre round where they start.
     expect(minRadius(motes!.geometry)).toBeGreaterThan(R + 1);
     expect(minRadius(rim!.geometry)).toBeGreaterThan(R + 0.5);
-    // The largest ring's top stops outside the disc, and leans toward it.
-    const top = { x: 0, y: 0, z: 0 };
-    orreryTop(R, ORRERY.rings - 1, top);
-    expect(-top.z).toBeGreaterThan(R);
-    expect(top.y).toBeGreaterThan(ORRERY.lift + orreryRadius(ORRERY.rings - 1) * 0.8);
+    // Phase 8a: the rings lie almost flat round the stage, centred on it, every ring outside the
+    // disc and low enough for the game camera to see it at the frame's sides and far edge.
     const c = { x: 0, y: 0, z: 0 };
     orreryCentre(R, c);
-    expect(c.z).toBeLessThan(top.z);
+    expect([c.x, c.z]).toEqual([0, 0]);
+    expect(orreryRadius(R, 0)).toBeGreaterThan(R);
+    const top = { x: 0, y: 0, z: 0 };
+    for (let i = 0; i < ORRERY.rings; i++) {
+      orreryTop(R, i, top);
+      expect(-top.z, `ring ${i}`).toBeGreaterThan(R);
+      expect(top.y, `ring ${i}`).toBeLessThan(3);
+      expect(Math.hypot(top.x, top.z), `ring ${i}`).toBeCloseTo(
+        orreryRadius(R, i) * Math.cos(ORRERY.tilt),
+        6,
+      );
+    }
+    expect(ORRERY.tilt).toBeLessThan(0.1);
+    // A quiet set piece: the rings are drawn faint.
+    expect(ORRERY.alpha).toBeLessThanOrEqual(0.3);
   });
 
   it('the floor sits far below the ailment, lethal and threat telegraphs in lightness, in every vision', () => {
-    const floor = new THREE.Color(crucibleArenaDef().theme.floor).multiplyScalar(0.78);
+    // Phase 8a: the lit glass the disc is painted from (the theme's swatch steering a fifth).
+    const floor = new THREE.Color(crucibleArenaDef().theme.floor)
+      .lerp(new THREE.Color(LIT_FLOOR.crucible.floor), 0.8)
+      .multiplyScalar(0.78);
     const L = lightness(`#${floor.getHexString()}`);
-    expect(L).toBeLessThan(12);
+    // Lit, but still a dark floor (it was under 12 before Phase 8a).
+    expect(L).toBeLessThan(16);
     const MIN = { ailment: 40, lethal: 25, threat: 25 } as const;
     for (const vision of COLOR_VISIONS) {
       const p = visionPalette(vision);

@@ -1054,7 +1054,7 @@ function seam(b: ModelBuilder, x: number, y: number, z: number, len: number, rz 
   const n = Math.max(2, Math.round(len / 0.18));
   for (let i = 0; i < n; i++) {
     const t = (i + 0.5) / n - 0.5;
-    // PROTOTYPE (p8/light): the stitches across a seam fray in glowing teal; the seam stays bone.
+    // The stitches across a seam fray in glowing teal; the seam stays bone.
     b.box(0.03, 0.12, 0.03, LIT_MODEL.riftFray, {
       p: [x + Math.cos(rz) * t * len, y + Math.sin(rz) * t * len, z],
       r: [0, 0, rz + 0.5],
@@ -1069,7 +1069,7 @@ function seam(b: ModelBuilder, x: number, y: number, z: number, len: number, rz 
  * every role's fallback and from every other (tests/renderMovement3.test.ts). Forward is −z.
  */
 function buildUnstitched(def: EnemyDef, b: ModelBuilder): boolean {
-  // PROTOTYPE (p8/light): a render-side re-tint of the void cloth (content's colour unchanged):
+  // Phase 8a: a render-side re-tint of the void cloth (content's colour unchanged):
   // an indigo light enough to stand off the lit Rift floor.
   const body = LIT_MODEL.riftCloth;
   const acc = def.accent;
@@ -1508,7 +1508,7 @@ function buildCrucible(def: EnemyDef, b: ModelBuilder): boolean {
   };
   switch (def.id) {
     case CONDUCTOR: {
-      // PROTOTYPE (p8/light): the "silent" contrast, a white robe and a black hood, collar and
+      // The "silent" contrast, a white robe and a black hood, collar and
       // arms (colour only; the shape is unchanged), its stave halo brighter.
       const body = LIT_MODEL.conductorRobe;
       const dark = LIT_MODEL.conductorDark;

@@ -147,13 +147,14 @@ type MoodRow = Omit<ArenaMood, 'ground' | 'fog' | 'rim'> & {
 
 /**
  * The per-look mood table (replaces `warm = def.id !== 'sandbox'`). The warm and cool rows are
- * Movement I's exact arguments and the crimson row Movement II's (tests/renderSpireSnapshot.test.ts
- * pins all three). The abyss: an indigo sky, a pale moon key, a cold blue-teal rim from the rift
- * tears on the far side only (≤ 0.45, so a hero's edge never reads as Mended), nearer fog.
+ * Movement I's exact arguments (tests/renderSpireSnapshot.test.ts pins them). The three dark worlds
+ * are lit to 04 §1 (Phase 8a, lightCues.ts LIT_MOOD), each row carrying its own ground and fog:
+ * the fog is the sky the camera sees behind the rim. The Spire: a neutral fill on the disc, a
+ * torch key, the shipped red rim, a red sky. The abyss: an indigo sky, the pale moon key, the
+ * cold blue-teal rim from the rift tears (≤ 0.45, so a hero's edge never reads as Mended). The
+ * Crucible: a blue-violet sky, the starlight key (≤ 1.85) and the cobalt rim (≤ 0.45).
  */
 const MOODS: Record<ArenaLook, MoodRow> = {
-  // PROTOTYPE (p8/light): the three dark worlds lit to 04 §1 (lightCues.ts LIT_MOOD); the
-  // fog, which the camera sees as the sky behind the rim, and the ground are the row's own.
   crimson: { ...LIT_MOOD.crimson },
   warm: {
     sky: '#ffe7c2',

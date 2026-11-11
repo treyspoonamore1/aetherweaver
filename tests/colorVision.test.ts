@@ -32,6 +32,16 @@ import { MARTYR_HEX } from '../src/render/martyrCues';
 import { BRASS_TRIM, ORO_SEED, SEREN_STEEL, buildHero } from '../src/render/models/library';
 import { SILENCE_INK } from '../src/ui/hud/finaleLook';
 import { PALETTE } from '../src/render/palette';
+import {
+  LETHAL_MIN_CONTRAST,
+  LIT_FLOOR,
+  LIT_FLOOR_SEEN,
+  LIT_MODEL,
+  LIT_MOOD,
+  LIT_RIM,
+  THREAT_MIN_CONTRAST,
+} from '../src/render/lightCues';
+import { luminance } from '../src/app/threadLook';
 import { CALLING_LOOK } from '../src/ui/kit/callingLook';
 import { AXIS_LOOK } from '../src/ui/screens/callingText';
 
@@ -859,4 +869,91 @@ describe('colour vision: the high-contrast telegraphs', () => {
       );
     });
   }
+});
+
+/**
+ * Phase 8a (docs/phase-8.md): the three dark worlds lit (src/render/lightCues.ts), covered as the
+ * Abyss and Crucible colours are. Every new ambient colour stays ≥ 20 ΔE from Mend, heal and
+ * Ward's shield in every vision (the light, the floors and the bodies must never read as healed or
+ * Warded). Every one that draws on the combat floor (the seams and the edge glow) also stays ≥ 20 ΔE from every semantic colour, Resonance and gold included. The lights that are
+ * spared are the shipped ones (the keys, and the Rift's and Crucible's rims), checked by identity.
+ * The floors as the camera sees them keep lethal crimson at ≥ 3.1:1 and threat amber at ≥ 7:1.
+ */
+describe('Phase 8a: the lit dark worlds (lightCues.ts)', () => {
+  const FIXED_8A: Record<string, string> = {
+    gold: PALETTE.gold,
+    goldHot: PALETTE.goldHot,
+    resonance: PALETTE.resonance,
+    weaver: PALETTE.weaver,
+    dome: PALETTE.dome,
+    discord: PALETTE.discord,
+    bear: MARTYR_HEX.blood,
+    fermata: '#e2d6f8',
+  };
+  const ambient: [string, string][] = [];
+  const marks: [string, string][] = [];
+  for (const [w, f] of Object.entries(LIT_FLOOR)) {
+    ambient.push([`floor ${w}`, f.floor]);
+    marks.push([`seam ${w}`, f.seam], [`edge ${w}`, f.edge]);
+  }
+  for (const [w, m] of Object.entries(LIT_MOOD))
+    ambient.push([`sky ${w}`, m.sky], [`ground ${w}`, m.ground], [`fog ${w}`, m.fog]);
+  for (const [k, v] of Object.entries(LIT_RIM)) if (typeof v === 'string') ambient.push([k, v]);
+  ambient.push(['riftCloth', LIT_MODEL.riftCloth], ['conductorDark', LIT_MODEL.conductorDark]);
+  // The teal fray is on the hangings and the foes' stitches, never on the disc.
+  ambient.push(['conductorRobe', LIT_MODEL.conductorRobe], ['riftFray', LIT_MODEL.riftFray]);
+
+  for (const vision of COLOR_VISIONS) {
+    const palette = VISION_PALETTES[vision];
+    const see = (hex: string) => simulateVision(hex, vision);
+
+    it(`keeps every lit ambient colour ≥ 20 ΔE from Mend, heal and shield with ${vision}`, () => {
+      for (const [name, hex] of [...ambient, ...marks])
+        for (const role of ['mend', 'heal', 'shield'] as const) {
+          const d = deltaE(see(hex), see(palette[role]));
+          expect(d, `${vision}: ${name} ${hex} vs ${role}`).toBeGreaterThanOrEqual(20);
+        }
+    });
+
+    it(`keeps every lit colour on or at the floor ≥ 20 ΔE from every semantic colour with ${vision}`, () => {
+      const against: [string, string][] = [
+        ...ROLES.map((r): [string, string] => [r, palette[r]]),
+        ...Object.entries(FIXED_8A),
+      ];
+      for (const [name, hex] of marks)
+        for (const [other, o] of against) {
+          const d = deltaE(see(hex), see(o));
+          expect(d, `${vision}: ${name} ${hex} vs ${other} ${o}`).toBeGreaterThanOrEqual(20);
+        }
+    });
+
+    it(`keeps lethal ≥ ${LETHAL_MIN_CONTRAST}:1 and threat ≥ ${THREAT_MIN_CONTRAST}:1 on every lit floor, in and out of the field, with ${vision}`, () => {
+      const ratio = (a: string, b: string) => {
+        const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p);
+        return (x! + 0.05) / (y! + 0.05);
+      };
+      // The mode's own telegraph colours (already chosen for that vision) against the floor.
+      for (const [w, seen] of Object.entries(LIT_FLOOR_SEEN))
+        for (const [where, floor] of Object.entries(seen)) {
+          const l = ratio(palette.lethal, floor);
+          const t = ratio(palette.threat, floor);
+          expect(l, `${vision}: lethal on ${w} ${where}`).toBeGreaterThanOrEqual(LETHAL_MIN_CONTRAST);
+          expect(t, `${vision}: threat on ${w} ${where}`).toBeGreaterThanOrEqual(THREAT_MIN_CONTRAST);
+        }
+    });
+  }
+
+  it('spares only the shipped lights: the torch, moon and starlight keys, and the three rims', () => {
+    expect(LIT_MOOD.crimson.key).toBe(SPIRE_HEX.torch);
+    expect(LIT_MOOD.crimson.rim).toBe(SPIRE_HEX.rim);
+    expect(LIT_MOOD.abyss.key).toBe(ABYSS_HEX.moon);
+    expect(LIT_MOOD.abyss.rim).toBe(ABYSS_HEX.rim);
+    expect(LIT_MOOD.abyss.rimIntensity).toBeLessThanOrEqual(0.45);
+    expect(LIT_MOOD.crucible.key).toBe(CRUCIBLE_HEX.key);
+    expect(LIT_MOOD.crucible.keyIntensity).toBeLessThanOrEqual(1.85);
+    expect(LIT_MOOD.crucible.rim).toBe(CRUCIBLE_HEX.rim);
+    expect(LIT_MOOD.crucible.rimIntensity).toBeLessThanOrEqual(0.45);
+    // The Rift's fray is the shipped dark teal, made to glow.
+    expect(LIT_MODEL.riftFray).toBe(ABYSS_HEX.fray);
+  });
 });

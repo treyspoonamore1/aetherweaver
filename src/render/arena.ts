@@ -16,9 +16,11 @@ import {
   CRUCIBLE_HEX,
   CRUCIBLE_SKY_HEX,
   ORRERY,
+  orreryCentre,
+  orreryRadius,
   type CrucibleSky,
 } from './crucibleCues';
-import { LIT_FLOOR, LIT_MOOD, LIT_ORRERY, LIT_RIM, type LitFloor } from './lightCues';
+import { LIT_FLOOR, LIT_MOOD, LIT_RIM, type LitFloor } from './lightCues';
 
 /**
  * Arena (docs/plan/04 §1): a low-contrast, low-detail combat floor in the theme's colours so
@@ -38,7 +40,7 @@ const RIVETS = [
 /** A torch's cards: [kind (0 flame, 1 halo), width, height, base below the coal]. */
 const TORCH_CARDS = [
   [0, 0.55, 1.0, -0.05],
-  // PROTOTYPE (p8/light): a wider halo, so the braziers light the rim the camera sees.
+  // Phase 8a: a wider halo, so the braziers light the rim the camera sees.
   [1, LIT_RIM.torchHalo, LIT_RIM.torchHalo, -1.8],
 ] as const;
 
@@ -222,7 +224,7 @@ export class ArenaView {
       metalness: 0.04,
     });
     if (glow) {
-      // PROTOTYPE (p8/light): the floor's emissive seams, painted on their own canvas.
+      // The floor's emissive seams, painted on their own canvas.
       const glowTex = new THREE.CanvasTexture(glow);
       glowTex.colorSpace = THREE.SRGBColorSpace;
       glowTex.anisotropy = 4;
@@ -239,7 +241,7 @@ export class ArenaView {
     // Outer apron, darker, receding into fog.
     const apronGeo = new THREE.RingGeometry(radius, radius + 40, 96);
     const apronMat = new THREE.MeshStandardMaterial({
-      // PROTOTYPE (p8/light): in the dark worlds the apron leans toward the sky's colour.
+      // Phase 8a: in the dark worlds the apron leans toward the sky's colour.
       color: fogHex
         ? floor.clone().multiplyScalar(0.55).lerp(new THREE.Color(fogHex), 0.35)
         : floor.clone().multiplyScalar(0.45),
@@ -506,10 +508,10 @@ void main() {
 
   /**
    * Obsidian iron plates: a plate grid with faint blood-channel grooves and brass inlay rings.
-   * As dark and as low in contrast as the Reliquary's flagstones (the same ×0.78), so lethal
-   * and threat telegraphs pop; no crimson on the combat disc.
-   * PROTOTYPE (p8/light): painted from LIT_FLOOR's lifted obsidian, with emissive seams (faint
-   * inside, the blood channels glowing crimson toward the rim).
+   * Phase 8a: painted from LIT_FLOOR's obsidian (the theme's swatch steering a fifth), low in
+   * contrast, the inner disc shaded so lethal crimson keeps 3.1:1 in every vision; emissive seams
+   * on their own canvas (the brass rings faint, the blood channels glowing ember-red from half-way
+   * out to the rim).
    */
   private createSpireFloor(): THREE.Group {
     const def = this.def;
@@ -555,7 +557,7 @@ void main() {
           const x0 = c + gx * px;
           const y0 = c + gz * px;
           ctx.fillRect(x0, y0, plate * px, plate * px);
-          // PROTOTYPE (p8/light): a quieter seam on the lit plate (was 0.3).
+          // A quieter seam on the lit plate (Phase 8a; was 0.3).
           ctx.strokeStyle = 'rgba(0,0,0,0.16)';
           ctx.lineWidth = 3;
           ctx.strokeRect(x0, y0, plate * px, plate * px);
@@ -609,6 +611,7 @@ void main() {
    * out by 0.9 R, so the combat floor keeps lethal crimson readable while the rim stays lit.
    */
   private shadeInner(ctx: CanvasRenderingContext2D, size: number, k: number): void {
+    if (k <= 0) return;
     const c = size / 2;
     const g = ctx.createRadialGradient(c, c, 0, c, c, c * 0.9);
     g.addColorStop(0, `rgba(0,0,0,${k})`);
@@ -619,7 +622,7 @@ void main() {
   }
 
   /**
-   * PROTOTYPE (p8/light): a floor's emissive seams on their own canvas. The seams glow faintly
+   * Phase 8a: a floor's emissive seams on their own canvas. The seams glow faintly
    * on the inner disc (`seamInner`) and more toward the rim (`seamOuter`); the outer course
    * carries the world's edge glow (the Spire's blood channels, the Rift's teal frays, the
    * Crucible's prismatic rim). Composited on black, so the colour's strength is its alpha.
@@ -742,7 +745,7 @@ void main() {
   private createRamparts(model: ModelMaterial): void {
     const theme = this.def.theme;
     const stone = new THREE.Color(theme.floor).lerp(new THREE.Color(SPIRE_HEX.obsidian), 0.5);
-    // PROTOTYPE (p8/light): the rampart stone lifted (LIT_RIM), so the rim reads against the sky.
+    // The rampart stone lifted (LIT_RIM), so the rim reads against the sky.
     const stoneHex = `#${stone.clone().lerp(new THREE.Color(LIT_RIM.spireStone), 0.65).getHexString()}`;
     const darkHex = `#${stone.clone().lerp(new THREE.Color(LIT_RIM.spireStone), 0.35).getHexString()}`;
     const brass = theme.line;
@@ -1007,7 +1010,7 @@ void main() {
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext('2d');
-    // PROTOTYPE (p8/light): a lit indigo (LIT_FLOOR), the seams faintly emissive.
+    // Phase 8a: a lit indigo (LIT_FLOOR), the seams faintly emissive.
     // The arena's own swatch still steers it (a fifth), so each arena keeps its shade.
     const floor = new THREE.Color(def.theme.floor)
       .lerp(new THREE.Color(LIT_FLOOR.abyss.floor), 0.8)
@@ -1105,7 +1108,7 @@ void main() {
   private createRiftRim(model: ModelMaterial): void {
     const theme = this.def.theme;
     const slab = new THREE.Color(theme.floor).lerp(new THREE.Color(ABYSS_HEX.slab), 0.5);
-    // PROTOTYPE (p8/light): lifted indigo slabs (LIT_RIM).
+    // Phase 8a: lifted indigo slabs (LIT_RIM).
     const slabHex = `#${slab.clone().lerp(new THREE.Color(LIT_RIM.riftStone), 0.7).getHexString()}`;
     const darkHex = `#${slab.clone().lerp(new THREE.Color(LIT_RIM.riftStone), 0.35).getHexString()}`;
     const cloth = ABYSS_HEX.cloth;
@@ -1146,7 +1149,7 @@ void main() {
             r: [0, -a + Math.PI / 2, 0.05],
           });
           for (let k = 0; k < 3; k++) {
-            // PROTOTYPE (p8/light): the ragged hem frays in glowing teal (ABYSS_HEX.fray).
+            // The ragged hem frays in glowing teal (ABYSS_HEX.fray).
             b.box(0.18, 0.4, 0.04, ABYSS_HEX.fray, {
               glow: LIT_RIM.riftFrayGlow,
               p: [
@@ -1160,7 +1163,7 @@ void main() {
         }
         // A rift tear behind every other far slab.
         if (i % 2 === 1) {
-          // PROTOTYPE (p8/light): the tears hang just past the rim, taller, where the camera sees.
+          // The tears hang just past the rim, taller, where the camera sees.
           const tx = Math.cos(a) * (R + LIT_RIM.tearOut);
           const tz = Math.sin(a) * (R + LIT_RIM.tearOut);
           this.tearSpots.push(tx, 0.2, tz, (4.5 + ((i * 3) % 3) * 1.2) * LIT_RIM.tearScale);
@@ -1365,7 +1368,7 @@ void main() {
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext('2d');
-    // PROTOTYPE (p8/light): deep blue-violet glass (LIT_FLOOR), not black; never white-gold.
+    // Phase 8a: deep blue-violet glass (LIT_FLOOR), not black; never white-gold.
     // The arena's own swatch still steers it (a fifth), so each arena keeps its shade.
     const floor = new THREE.Color(def.theme.floor)
       .lerp(new THREE.Color(LIT_FLOOR.crucible.floor), 0.8)
@@ -1526,25 +1529,25 @@ void main() {
   }
 
   /**
-   * The sky orrery (docs/phase-5d.md): eight concentric rings of white-gold standing beyond the
-   * far rim and leaning over it (the camera never sees the sky), one additive mesh, one quad per
-   * ring. Each ring is a stem's (two each: pad, pulse, melody, choir) and burns with its level;
+   * The sky orrery (docs/phase-5d.md; laid round the stage in Phase 8a): eight concentric rings
+   * of white-gold, almost flat, just outside the disc's edge, so the camera sees them at the
+   * frame's sides and far edge; faint, a set piece. One additive mesh, one quad per ring. Each ring is a stem's (two each: pad, pulse, melody, choir) and burns with its level;
    * ticks along it turn on the beat. In the Grand Silence every ring goes dark and each note
    * relights one, from the innermost. Uniforms `uStems[4]`, `uNotes` (−1: no silence), `uBeat`.
    */
   private createSkyOrrery(): THREE.Mesh {
-    // PROTOTYPE (p8/light): the orrery brought into frame. Its eight rings are laid nearly flat
-    // round the stage (LIT_ORRERY), from just outside the disc's edge, leaning up a little toward
-    // the far side: white-gold rings the camera sees round the fight, never on the disc.
-    const inner = this.def.radius + LIT_ORRERY.clear;
-    const sinT = Math.sin(LIT_ORRERY.tilt);
-    const cosT = Math.cos(LIT_ORRERY.tilt);
+    // The rings lie almost flat round the stage, just outside the disc (crucibleCues.ts ORRERY).
+    const R = this.def.radius;
+    const centre = { x: 0, y: 0, z: 0 };
+    orreryCentre(R, centre);
+    const sinT = Math.sin(ORRERY.tilt);
+    const cosT = Math.cos(ORRERY.tilt);
     const positions: number[] = [];
     const uvs: number[] = [];
     const rings: number[] = [];
     const index: number[] = [];
     for (let i = 0; i < ORRERY.rings; i++) {
-      const r = inner + LIT_ORRERY.step * i + 0.4;
+      const r = orreryRadius(R, i) + 0.4;
       const base = positions.length / 3;
       for (const [u, v] of [
         [-1, -1],
@@ -1552,7 +1555,7 @@ void main() {
         [1, 1],
         [-1, 1],
       ] as const) {
-        positions.push(u * r, LIT_ORRERY.lift - v * r * sinT, v * r * cosT);
+        positions.push(centre.x + u * r, centre.y - v * r * sinT, centre.z + v * r * cosT);
         uvs.push(u * r, v * r);
         rings.push(i);
       }
@@ -1569,8 +1572,8 @@ void main() {
         ...this.skyUniforms,
         uColor: { value: new THREE.Color(CRUCIBLE_SKY_HEX.orrery) },
         uDim: { value: new THREE.Color(CRUCIBLE_HEX.silence) },
-        uInner: { value: inner },
-        uStep: { value: LIT_ORRERY.step },
+        uInner: { value: orreryRadius(R, 0) },
+        uStep: { value: ORRERY.step },
       },
       vertexShader: /* glsl */ `
 attribute float aRing;
@@ -1611,7 +1614,7 @@ void main() {
   float a = (core * 0.85 + halo + ticks * 0.5) * mix(0.07, 1.0, lit) * beat;
   vec3 col = mix(uDim, uColor, lit);
   if (a < 0.003) discard;
-  gl_FragColor = vec4(col, a * ${LIT_ORRERY.alpha.toFixed(2)});
+  gl_FragColor = vec4(col, a * ${ORRERY.alpha.toFixed(2)});
   #include <colorspace_fragment>
 }`,
       transparent: true,
