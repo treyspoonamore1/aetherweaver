@@ -665,8 +665,13 @@ export class InputController {
     const st = this.wheelState;
     if (st) {
       // While the wheel is open, LMB picks the spoke under the pointer and RMB cancels; a
-      // toggled wheel's own button picks too.
-      if (event.button === 0 || (code !== null && code === st.code)) this.releaseWheel();
+      // toggled wheel's own button picks too (held, its press again, after a release that was
+      // lost, does nothing, as before Phase 7).
+      if (
+        event.button === 0 ||
+        (code !== null && code === st.code && this.input().wheel === 'toggle')
+      )
+        this.releaseWheel();
       else if (event.button === 2) this.closeWheel();
       return;
     }

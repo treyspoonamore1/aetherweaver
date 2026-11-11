@@ -397,3 +397,39 @@ describe('finding 7: a wind-up is captioned when its sound plays', () => {
     }
   });
 });
+
+describe('finding 9: a second press of the held wheel’s button, its release lost, does nothing', () => {
+  afterEach(() => {
+    useSettings.getState().reset();
+    useWheel.setState({ wheel: null, picked: null });
+    delete (globalThis as unknown as { window?: EventTarget }).window;
+  });
+
+  it('held (the default): the wheel stays open, as at 81a12ef, and its release still picks', () => {
+    const { canvas, win, input, frame, mouse } = inputRig();
+    mouse(canvas, 'pointerdown', 1, 4);
+    frame();
+    expect(input.wheelOpen).toBe(true);
+    // The release is lost (let go outside the window); the button is pressed again.
+    mouse(canvas, 'pointerdown', 1, 4);
+    expect(frame()).toEqual([]);
+    expect(input.wheelOpen).toBe(true);
+    mouse(win, 'pointerup', 1, 0);
+    frame();
+    expect(input.wheelOpen).toBe(false);
+    input.dispose();
+  });
+
+  it('toggled: the second press closes it, as Phase 7 built it', () => {
+    useSettings.getState().update((d) => writeInput(d, { wheel: 'toggle' }));
+    const { canvas, win, input, frame, mouse } = inputRig();
+    mouse(canvas, 'pointerdown', 1, 4);
+    mouse(win, 'pointerup', 1, 0);
+    frame();
+    expect(input.wheelOpen).toBe(true);
+    mouse(canvas, 'pointerdown', 1, 4);
+    frame();
+    expect(input.wheelOpen).toBe(false);
+    input.dispose();
+  });
+});
