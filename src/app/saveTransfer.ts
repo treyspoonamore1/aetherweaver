@@ -328,8 +328,12 @@ export function keptDownload(kept: KeptSave): string {
   });
 }
 
-/** Saves bytes as a file through a download link (nothing without a document). */
-export function downloadFile(name: string, bytes: Uint8Array | string, type: string): void {
+/**
+ * Saves bytes as a file through a download link. True when the link was clicked, false when it
+ * could not be (no document, or the browser refused to build or click it). True is not proof that
+ * a file appeared: a frame that does not allow downloads drops the click without telling the page.
+ */
+export function downloadFile(name: string, bytes: Uint8Array | string, type: string): boolean {
   try {
     const data = typeof bytes === 'string' ? new TextEncoder().encode(bytes) : bytes;
     const blob = new Blob([new Uint8Array(data)], { type });
@@ -339,7 +343,9 @@ export function downloadFile(name: string, bytes: Uint8Array | string, type: str
     a.download = name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return true;
   } catch {
     // No document: nothing to save to.
+    return false;
   }
 }

@@ -70,13 +70,103 @@ export function holdsLines(preview: SavePreview): string[] {
   return lines;
 }
 
-function copyText(text: string): boolean {
+/** What a copy came to: the clipboard took the text, or it was refused (or there is none). */
+export type CopyOutcome = 'copied' | 'refused';
+
+/**
+ * Writes text to the clipboard: true only when the write resolved. A refused write (a frame
+ * without clipboard permission) and no clipboard at all are both false.
+ */
+export async function copyText(text: string): Promise<boolean> {
   try {
-    void navigator.clipboard?.writeText(text).catch(() => {});
+    const clipboard = navigator.clipboard as Clipboard | undefined;
+    if (!clipboard || typeof clipboard.writeText !== 'function') return false;
+    await clipboard.writeText(text);
     return true;
   } catch {
     return false;
   }
+}
+
+/** The field a refused copy selects, for copying by hand. */
+export type SelectableBox = { focus(): void; select(): void };
+
+/** Copies the code and says what happened; when it was refused, selects the code's box. */
+export async function copyCode(text: string, box: SelectableBox | null): Promise<CopyOutcome> {
+  if (await copyText(text)) return 'copied';
+  try {
+    box?.focus();
+    box?.select();
+  } catch {
+    // The text stays on screen to be selected by hand.
+  }
+  return 'refused';
+}
+
+/** What asking for a download came to: the link was clicked (a file may or may not appear), or not. */
+export type DownloadOutcome = 'asked' | 'failed';
+
+/** Asks for a file download. A frame that blocks downloads gives no sign, so 'asked' is not 'saved'. */
+export function askDownload(
+  name: string,
+  bytes: Uint8Array | string,
+  type: string,
+): DownloadOutcome {
+  try {
+    return downloadFile(name, bytes, type) === false ? 'failed' : 'asked';
+  } catch {
+    return 'failed';
+  }
+}
+
+/** The line under "Copy code" after a copy: nothing before one, "Copied." or why not. */
+export function CopyNote({ outcome }: { outcome: CopyOutcome | null }) {
+  if (outcome === 'copied')
+    return (
+      <span className="text-xs text-muted" role="status">
+        {t('saves.export.copied')}
+      </span>
+    );
+  if (outcome === 'refused')
+    return (
+      <p className="text-xs text-rose-200" role="alert" data-testid="saves-copy-refused">
+        {t('saves.export.copyRefused')}
+      </p>
+    );
+  return null;
+}
+
+/** The quiet line after a download is asked for: nothing before one. */
+export function DownloadNote({
+  outcome,
+  kept,
+}: {
+  outcome: DownloadOutcome | null;
+  /** A kept unreadable save's file: "Show save code" does not give that save, so it isn't pointed at. */
+  kept?: boolean;
+}) {
+  if (outcome === null) return null;
+  const failed = outcome === 'failed';
+  const key = kept
+    ? failed
+      ? 'saves.kept.downloadFailed'
+      : 'saves.kept.downloadAsked'
+    : compressionAvailable()
+      ? failed
+        ? 'saves.export.fileFailed'
+        : 'saves.export.fileAsked'
+      : failed
+        ? 'saves.export.fileFailedNoCode'
+        : 'saves.export.fileAskedNoCode';
+  return (
+    <p
+      className={`text-xs ${failed ? 'text-rose-200' : 'text-muted'}${kept ? ' mt-2' : ''}`}
+      role={failed ? 'alert' : 'status'}
+      data-testid="saves-download-note"
+    >
+      {t(key)}
+    </p>
+  );
 }
 
 /** Export, import, the saves from before an import, and kept unreadable saves. */
@@ -110,7 +200,9 @@ export function SavesPanelView({ canImport }: { canImport: boolean }) {
 function ExportSaves() {
   const [code, setCode] = useState<string | null>(null);
   const [noCode, setNoCode] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<CopyOutcome | null>(null);
+  const [download, setDownload] = useState<DownloadOutcome | null>(null);
+  const boxRef = useRef<HTMLTextAreaElement>(null);
   const id = useId();
   return (
     <div className="flex flex-col gap-2">
@@ -122,7 +214,9 @@ function ExportSaves() {
           size="sm"
           data-testid="saves-export-file"
           onClick={() =>
-            downloadFile(SAVE_FILE_NAME, saveFileBytes(exportSave()), 'application/json')
+            setDownload(
+              askDownload(SAVE_FILE_NAME, saveFileBytes(exportSave()), 'application/json'),
+            )
           }
         >
           {t('saves.export.file')}
@@ -132,7 +226,7 @@ function ExportSaves() {
           data-testid="saves-export-code"
           disabled={!compressionAvailable()}
           onClick={() => {
-            setCopied(false);
+            setCopied(null);
             void saveCodeOf(exportSave()).then((c) => {
               setCode(c);
               setNoCode(c === null);
@@ -142,6 +236,7 @@ function ExportSaves() {
           {t('saves.export.code')}
         </Button>
       </div>
+      <DownloadNote outcome={download} />
       {(noCode || !compressionAvailable()) && (
         <p className="text-xs text-muted">{t('saves.export.noCode')}</p>
       )}
@@ -152,6 +247,7 @@ function ExportSaves() {
           </label>
           <textarea
             id={id}
+            ref={boxRef}
             readOnly
             value={code}
             rows={3}
@@ -160,15 +256,19 @@ function ExportSaves() {
             data-testid="saves-code-out"
           />
           <div className="flex items-center gap-3">
-            <Button size="sm" variant="ghost" onClick={() => setCopied(copyText(code))}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setCopied(null);
+                void copyCode(code, boxRef.current).then(setCopied);
+              }}
+            >
               {t('saves.export.copy')}
             </Button>
-            {copied && (
-              <span className="text-xs text-muted" role="status">
-                {t('saves.export.copied')}
-              </span>
-            )}
+            {copied === 'copied' && <CopyNote outcome={copied} />}
           </div>
+          {copied === 'refused' && <CopyNote outcome={copied} />}
         </div>
       )}
     </div>
@@ -432,15 +532,17 @@ function keptLine(kept: KeptSave): string {
   return parts.join(' ');
 }
 
-function downloadKept(kept: KeptSave): void {
-  downloadFile(keptFileName(kept), keptDownload(kept), 'application/json');
+function downloadKept(kept: KeptSave): DownloadOutcome {
+  const outcome = askDownload(keptFileName(kept), keptDownload(kept), 'application/json');
   markKeptNoticed();
+  return outcome;
 }
 
 /** Unreadable saves the game kept (raw), each to download or, after a confirm, forget. */
 function KeptSaves() {
   const [kept, setKept] = useState(() => keptSaves());
   const [forgetting, setForgetting] = useState<string | null>(null);
+  const [download, setDownload] = useState<DownloadOutcome | null>(null);
   if (kept.length === 0) return null;
   return (
     <div
@@ -472,7 +574,11 @@ function KeptSaves() {
               </div>
             ) : (
               <div className="flex gap-2">
-                <Button size="sm" onClick={() => downloadKept(k)} data-testid="saves-kept-download">
+                <Button
+                  size="sm"
+                  onClick={() => setDownload(downloadKept(k))}
+                  data-testid="saves-kept-download"
+                >
                   {t('saves.kept.download')}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setForgetting(k.key)}>
@@ -483,6 +589,7 @@ function KeptSaves() {
           </li>
         ))}
       </ul>
+      <DownloadNote outcome={download} kept />
     </div>
   );
 }
@@ -494,6 +601,7 @@ function KeptSaves() {
  */
 export function KeptSaveNotice() {
   const [kept, setKept] = useState<KeptSave[]>([]);
+  const [download, setDownload] = useState<DownloadOutcome | null>(null);
   // Read after the first render: the Title's own look for a saved run may be what kept one.
   useEffect(() => {
     if (keptNoticeDue()) setKept(keptSaves());
@@ -521,7 +629,7 @@ export function KeptSaveNotice() {
       <p className="mt-2 text-xs text-muted">{t('saves.notice.body')}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         {kept.map((k) => (
-          <Button key={k.key} size="sm" onClick={() => downloadKept(k)}>
+          <Button key={k.key} size="sm" onClick={() => setDownload(downloadKept(k))}>
             {t('saves.kept.download')}
             {k.backup ? ` ${t('saves.kept.backup')}` : ''}
             {k.latest ? ` ${t('saves.kept.latest')}` : ''}
@@ -531,6 +639,7 @@ export function KeptSaveNotice() {
           {t('saves.notice.ok')}
         </Button>
       </div>
+      <DownloadNote outcome={download} kept />
     </div>
   );
 }

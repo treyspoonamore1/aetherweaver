@@ -35,6 +35,16 @@ export const saves = {
   'saves.export.copy': 'Copy code',
   'saves.export.copied': 'Copied.',
   'saves.export.noCode': 'This browser can’t make save codes. The save file works.',
+  'saves.export.copyRefused':
+    'This page isn’t allowed to copy here. Select the code above and copy it by hand.',
+  // After a download is asked for: a blocked download gives the page no sign, so this says it first.
+  'saves.export.fileAsked':
+    'If no file appeared, your browser or the frame this page is in may have blocked the download. “Show save code” gives the same save as text.',
+  'saves.export.fileAskedNoCode':
+    'If no file appeared, your browser or the frame this page is in may have blocked the download.',
+  'saves.export.fileFailed':
+    'The download failed, so no file was made. “Show save code” gives the same save as text.',
+  'saves.export.fileFailedNoCode': 'The download failed, so no file was made.',
 
   // Import.
   'saves.import.heading': 'Import',
@@ -95,6 +105,10 @@ export const saves = {
   'saves.kept.backup': '(its backup copy)',
   'saves.kept.latest': '(a later one, kept beside the first)',
   'saves.kept.download': 'Download it',
+  'saves.kept.downloadAsked':
+    'If no file appeared, your browser or the frame this page is in may have blocked the download. The save stays kept until you forget it, so you can try again where downloads are allowed.',
+  'saves.kept.downloadFailed':
+    'The download failed, so no file was made. The save stays kept until you forget it.',
   'saves.kept.forget': 'Forget it…',
   'saves.kept.forgetQuestion': 'Forget this save for good? Download it first if you may want it.',
   'saves.kept.forgetConfirm': 'Forget it',

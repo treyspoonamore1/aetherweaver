@@ -55,11 +55,20 @@ const RAW_LATEST = '{"version":10,"xp":12,"runs":';
 // The panel is a .tsx module the node project does not compile (no `--jsx`): loaded by path.
 let SavesPanelView: FunctionComponent<{ canImport: boolean }>;
 let KeptSaveNotice: FunctionComponent;
+type Box = { focus(): void; select(): void };
+let copyCode: (text: string, box: Box | null) => Promise<'copied' | 'refused'>;
+let askDownload: (name: string, bytes: Uint8Array | string, type: string) => 'asked' | 'failed';
+let CopyNote: FunctionComponent<{ outcome: 'copied' | 'refused' | null }>;
+let DownloadNote: FunctionComponent<{ outcome: 'asked' | 'failed' | null; kept?: boolean }>;
 beforeAll(async () => {
   const path = '../src/ui/screens/SavesPanel';
   const mod = (await import(/* @vite-ignore */ path)) as Record<string, FunctionComponent<never>>;
   SavesPanelView = mod['SavesPanelView'] as unknown as typeof SavesPanelView;
   KeptSaveNotice = mod['KeptSaveNotice'] as FunctionComponent;
+  copyCode = mod['copyCode'] as unknown as typeof copyCode;
+  askDownload = mod['askDownload'] as unknown as typeof askDownload;
+  CopyNote = mod['CopyNote'] as unknown as typeof CopyNote;
+  DownloadNote = mod['DownloadNote'] as unknown as typeof DownloadNote;
 });
 
 const panel = () => renderToStaticMarkup(createElement(SavesPanelView, { canImport: true }));
@@ -74,6 +83,11 @@ const testIds = (html: string) => html.match(/data-testid="[^"]+"/g) ?? [];
 
 beforeEach(wipe);
 afterEach(wipe);
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
 
 describe('the Saves panel with no copy and nothing kept', () => {
   it('renders the default markup: export and import only', () => {
@@ -220,5 +234,173 @@ describe('a kept save’s download', () => {
     }
     expect(keptDownload(keptOf('profile', RAW_FIRST))).toBe(RAW_FIRST);
     expect(keptDownload(keptOf('run', 'null'))).toBe('null');
+  });
+});
+
+describe('Copy code says what happened', () => {
+  const fakeBox = () => {
+    const calls: string[] = [];
+    return { calls, box: { focus: () => calls.push('focus'), select: () => calls.push('select') } };
+  };
+  const render = (el: ReturnType<typeof createElement>) => renderToStaticMarkup(el);
+  const note = (outcome: 'copied' | 'refused' | null) =>
+    render(createElement(CopyNote, { outcome }));
+
+  it('shows nothing before a copy', () => {
+    expect(note(null)).toBe('');
+  });
+
+  it('a resolved write: "Copied.", and the box is left alone', async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+    const { calls, box } = fakeBox();
+    const outcome = await copyCode('CODE-1', box);
+    expect(writeText).toHaveBeenCalledWith('CODE-1');
+    expect(outcome).toBe('copied');
+    expect(calls).toEqual([]);
+    const html = note(outcome);
+    expect(has(html, t('saves.export.copied'))).toBe(true);
+    expect(has(html, t('saves.export.copyRefused'))).toBe(false);
+  });
+
+  it('a rejected write: not "Copied."; says it was not allowed and to copy by hand; selects the box', async () => {
+    const writeText = vi.fn(() => Promise.reject(new Error('NotAllowedError')));
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+    const { calls, box } = fakeBox();
+    const outcome = await copyCode('CODE-2', box);
+    expect(outcome).toBe('refused');
+    expect(calls).toEqual(['focus', 'select']);
+    const html = note(outcome);
+    expect(has(html, t('saves.export.copied'))).toBe(false);
+    expect(has(html, t('saves.export.copyRefused'))).toBe(true);
+    expect(html).toContain('role="alert"');
+  });
+
+  it('a write that throws at once is refused too', async () => {
+    vi.stubGlobal('navigator', {
+      clipboard: {
+        writeText: () => {
+          throw new Error('blocked');
+        },
+      },
+    });
+    expect(await copyCode('CODE-3', null)).toBe('refused');
+  });
+
+  it('no clipboard at all is the same case, and a missing box does not matter', async () => {
+    for (const nav of [{}, { clipboard: undefined }, { clipboard: {} }, undefined]) {
+      vi.stubGlobal('navigator', nav);
+      const { calls, box } = fakeBox();
+      expect(await copyCode('CODE-4', box)).toBe('refused');
+      expect(calls).toEqual(['focus', 'select']);
+      expect(await copyCode('CODE-4', null)).toBe('refused');
+    }
+  });
+
+  it('a box that cannot be selected does not turn a refusal into a crash', async () => {
+    vi.stubGlobal('navigator', {});
+    const box = {
+      focus: () => {
+        throw new Error('detached');
+      },
+      select: () => {},
+    };
+    expect(await copyCode('CODE-5', box)).toBe('refused');
+  });
+
+  it('its words are in the text layer, and say copy by hand', () => {
+    const text = t('saves.export.copyRefused');
+    expect(text).not.toBe('saves.export.copyRefused');
+    expect(text).toMatch(/by hand/);
+    expect(text).not.toBe(t('saves.export.copied'));
+  });
+});
+
+describe('Download save file says what it can', () => {
+  const fakeDocument = (click: () => void = () => {}) => {
+    const link: Record<string, unknown> = { click };
+    vi.stubGlobal('document', { createElement: () => link });
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:fake');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    return link;
+  };
+  const note = (outcome: 'asked' | 'failed' | null, kept?: boolean) =>
+    renderToStaticMarkup(
+      createElement(DownloadNote, kept === undefined ? { outcome } : { outcome, kept }),
+    );
+
+  it('shows nothing before a download is asked for', () => {
+    expect(note(null)).toBe('');
+    expect(note(null, true)).toBe('');
+  });
+
+  it('a download that was asked for: one quiet line that no file may have appeared, and the code as the other way', () => {
+    vi.useFakeTimers();
+    const click = vi.fn();
+    const link = fakeDocument(click);
+    expect(askDownload('save.json', '{}', 'application/json')).toBe('asked');
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(link['download']).toBe('save.json');
+    vi.runAllTimers();
+    const html = note('asked');
+    expect(has(html, t('saves.export.fileAsked'))).toBe(true);
+    expect(t('saves.export.fileAsked')).toContain(t('saves.export.code'));
+    expect(t('saves.export.fileAsked')).toMatch(/frame/);
+    expect(html).toContain('role="status"');
+    expect(html).not.toContain('role="alert"');
+    expect(has(html, t('saves.export.fileFailed'))).toBe(false);
+  });
+
+  it('without save codes, the line does not point at them', () => {
+    vi.stubGlobal('CompressionStream', undefined);
+    const asked = note('asked');
+    expect(has(asked, t('saves.export.fileAskedNoCode'))).toBe(true);
+    expect(t('saves.export.fileAskedNoCode')).not.toContain(t('saves.export.code'));
+    const failed = note('failed');
+    expect(has(failed, t('saves.export.fileFailedNoCode'))).toBe(true);
+    expect(t('saves.export.fileFailedNoCode')).not.toContain(t('saves.export.code'));
+  });
+
+  it('a download that throws: says it failed, not the "if no file appeared" line', () => {
+    // The link cannot be built.
+    vi.stubGlobal('document', {
+      createElement: () => {
+        throw new Error('no document');
+      },
+    });
+    expect(askDownload('save.json', '{}', 'application/json')).toBe('failed');
+    // The click throws.
+    fakeDocument(() => {
+      throw new Error('click refused');
+    });
+    expect(askDownload('save.json', new Uint8Array([1, 2]), 'application/json')).toBe('failed');
+    // No document at all (this node environment has none).
+    vi.unstubAllGlobals();
+    expect(askDownload('save.json', '{}', 'application/json')).toBe('failed');
+
+    const html = note('failed');
+    expect(has(html, t('saves.export.fileFailed'))).toBe(true);
+    expect(has(html, t('saves.export.fileAsked'))).toBe(false);
+    expect(html).toContain('role="alert"');
+  });
+
+  it('a kept save’s file gets its own lines, which do not offer the save code as the same save', () => {
+    const asked = note('asked', true);
+    expect(has(asked, t('saves.kept.downloadAsked'))).toBe(true);
+    expect(t('saves.kept.downloadAsked')).not.toContain(t('saves.export.code'));
+    expect(t('saves.kept.downloadAsked')).toMatch(/frame/);
+    const failed = note('failed', true);
+    expect(has(failed, t('saves.kept.downloadFailed'))).toBe(true);
+    expect(has(failed, t('saves.kept.downloadAsked'))).toBe(false);
+  });
+
+  it('with nothing clicked, neither the panel nor the notice carries a note or a copy line', () => {
+    store.setItem(PROFILE_KEY + '.corrupt', RAW_FIRST);
+    for (const html of [panel(), notice()]) {
+      expect(html).not.toContain('saves-download-note');
+      expect(html).not.toContain('saves-copy-refused');
+      expect(has(html, t('saves.kept.downloadAsked'))).toBe(false);
+      expect(has(html, t('saves.export.fileAsked'))).toBe(false);
+    }
   });
 });
