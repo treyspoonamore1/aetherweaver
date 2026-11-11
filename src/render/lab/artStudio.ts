@@ -6,7 +6,7 @@ import { RIBBON_SAMPLES, weaverRibbons } from '../entities';
 import { FxKit } from '../fx/kit';
 import { RING } from '../fx/rings';
 import { GROVE_HEX } from '../groveCues';
-import { OWN_LOOK, restRim, ribbonHex, weaverPalette } from '../keepsakeCues';
+import { OWN_LOOK, restRim, ribbonHex, weaverPalette, type WeaverLook } from '../keepsakeCues';
 import { HERO_DRAWN, HOSTILE_EDGE } from '../models/artFlag';
 import { applyArtWorld } from '../models/artWorld';
 import { ModelBatch } from '../models/batch';
@@ -75,6 +75,8 @@ export interface StudioSpec {
   rim?: Partial<Record<StudioSubject, { hex: string; strength: number }>>;
   /** false: no dark-world fit (artWorld.ts), for comparison. */
   world?: boolean;
+  /** The Weaver's look: a robe and a Thread look (keepsakeCues.ts), as she wears them in a fight. */
+  look?: Partial<WeaverLook>;
   /** Subjects staged as elites: the game's gold elite rim and the elite crown over them. */
   elite?: StudioSubject[];
   /**
@@ -272,8 +274,9 @@ export class ArtStudio {
     let rimStrength = 0;
     let hist: Float32Array | null = null;
     if (kind === 'weaver') {
-      geometry = buildWeaver(weaverPalette(OWN_LOOK, 'normal'));
-      const r = restRim(null);
+      const look = { ...OWN_LOOK, ...this.spec.look };
+      geometry = buildWeaver(weaverPalette(look, 'normal'));
+      const r = restRim(look.robe);
       rim = color(r.hex);
       rimStrength = r.strength;
       ring = C.gold;
@@ -390,7 +393,7 @@ export class ArtStudio {
         this.kit.rings.push(f.x, 0.03, f.z, f.radius * 1.45, 0.06, 0.1, RING.plain, f.ring, 0.38);
       if (f.kind === 'weaver' && f.ring) {
         this.kit.rings.push(f.x, 0.03, f.z, f.radius * 1.5, 0.07, 0.2, RING.plain, f.ring, 0.6);
-        const ribbons = ribbonHex(null, 'normal');
+        const ribbons = ribbonHex(this.spec.look?.thread ?? null, 'normal');
         weaverRibbons(
           this.kit,
           f.hist!,
