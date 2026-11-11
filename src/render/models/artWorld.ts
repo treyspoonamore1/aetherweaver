@@ -6,8 +6,12 @@ import type { ModelMaterial } from './material';
  * The art pass's stained-glass figures in each world (artPass.ts). In the Reliquary the dark lead
  * round a figure parts it from the warm stone. On the three dark worlds' floors (Phase 8a's lit
  * Spire, Rift and Crucible) dark lead vanishes, so there the lead "catches the light": the outline
- * is pewter, and the glass gives back a little of its own colour (`lift`) so a dark robe does not
- * sink into the floor.
+ * turns a quarter of the way to pewter (enough to part a figure from the floor, not so much that it
+ * greys the glass or outshines a rim), the dark cut glass gives back its own colour (`lift`: cut
+ * glass only, so a foe's plain dark cloth stays dark and its hostile rim reads), and the lit panes
+ * burn a little brighter. Tried and dropped: a full pewter edge (a chalk outline that greyed every
+ * signature colour and weakened the hostile and Mend rims); a lift on every dark part (it turned
+ * the Choir's hoods violet and drowned their hostile rim).
  *
  * The pewter (#9a9a7c) is ≥ 23 ΔE from every semantic colour in every colour vision (measured with
  * src/app/colorVision.ts against the palette, its vision palettes and the Weaver's): not gold, not
