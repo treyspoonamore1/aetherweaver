@@ -4,6 +4,7 @@
  *   npm run sim:bench -- --check exit non-zero if over budget (used in CI)
  */
 import { performance } from 'node:perf_hooks';
+import { BENCH_SCENES, benchEndTick } from '../src/app/bench';
 import { makeBot } from '../src/bots';
 import { CHOIR, CONDUCTOR } from '../src/content/crucibleIds';
 import { ARRIVAL3_KIT, ARRIVAL4_KIT, ARRIVAL_KIT, kitConfig } from './kits';
@@ -158,6 +159,25 @@ export const SCENARIO_GROVE_PEAK: Scenario = {
   },
 };
 
+/**
+ * docs/plan/05 §12's case, Movement I with 150 enemies (docs/phase-7.md, W4): the bench page's
+ * scene of it (src/app/bench.ts), headless: First Light with 150 Movement I enemies kept standing
+ * and the Skilled bot playing.
+ */
+export const SCENARIO_CROWD_150: Scenario = (() => {
+  const scene = BENCH_SCENES.find((s) => s.id === 'crowd')!;
+  return {
+    name: 'crowd-150',
+    seed: scene.seed,
+    ticks: benchEndTick(scene),
+    config: scene.config,
+    driver: () => {
+      const drive = scene.driver();
+      return (tick, state) => [...drive(tick, state, [])];
+    },
+  };
+})();
+
 /** The mirror-choir's voices (the conductor-peak's check). */
 export const CHOIR_VOICES: ReadonlySet<string> = new Set(CHOIR);
 
@@ -185,7 +205,8 @@ if (process.argv[1]?.endsWith('sim-bench.ts')) {
   // The hound pack (docs/phase-5a.md): the Matriarch, Pack Call and a loose pack, Movement II's
   // peak; the Unweaver's phase 3 with adds, Movement III's (docs/phase-5c.md); the Conductor's
   // Mirror Choir with Fortissimo Silence, and its Grand Silence, the Finale's (docs/phase-5d.md);
-  // Oro's grove with three Saplings and a Cued Ancient on the hound pack (docs/phase-5e.md).
+  // Oro's grove with three Saplings and a Cued Ancient on the hound pack (docs/phase-5e.md);
+  // Movement I with 150 enemies, the bench page's scene of 05 §12's case (docs/phase-7.md, W4).
   for (const scenario of [
     SCENARIO_CROWD,
     SCENARIO_FIRST_LIGHT,
@@ -195,6 +216,7 @@ if (process.argv[1]?.endsWith('sim-bench.ts')) {
     SCENARIO_CONDUCTOR_PEAK,
     SCENARIO_GRAND_SILENCE,
     SCENARIO_GROVE_PEAK,
+    SCENARIO_CROWD_150,
   ])
     bench(scenario);
   if (check && over) process.exit(1);

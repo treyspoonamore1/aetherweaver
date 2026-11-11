@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { getRuntime } from '../app/runtimeRegistry';
-import type { QualityTier } from '../render/stage';
+import type { QualitySetting } from '../app/settings';
 import { parseReplay, runReplay } from '../sim';
 import { Panel } from '../ui/kit/Panel';
 import { useUi } from '../ui/store';
@@ -33,7 +33,7 @@ export function DevPanel() {
   const [hash, setHash] = useState<string | null>(null);
   const [replayResult, setReplayResult] = useState<string | null>(null);
   const [timeScale, setTimeScale] = useState(1);
-  const [quality, setQuality] = useState<QualityTier>('high');
+  const [quality, setQuality] = useState<QualitySetting>(() => getRuntime()?.quality ?? 'high');
   const rt = getRuntime;
 
   const spawn = (count: number) => rt()?.queue({ t: 'debug', op: { op: 'spawnDummies', count } });
@@ -124,11 +124,14 @@ export function DevPanel() {
             aria-label="Render quality"
             className="rounded-md border border-ink-500 bg-ink-800 px-2 py-1 text-xs"
             onChange={(e) => {
-              const value = e.target.value as QualityTier;
+              const value = e.target.value as QualitySetting;
               setQuality(value);
-              rt()?.setQuality(value);
+              const runtime = rt();
+              if (value === 'auto') runtime?.setQualitySetting(value);
+              else runtime?.setQuality(value);
             }}
           >
+            <option value="auto">Auto</option>
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="high">High</option>
