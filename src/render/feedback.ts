@@ -755,28 +755,29 @@ export class Feedback {
         case 'save':
           this.save(ev, state, ev.cause === 'rewind');
           break;
-        // An aura's or ornament's own effects: no comfort option touches them (FxComfort).
+        // An aura's or ornament's own effects: no comfort option touches them (FxComfort),
+        // nor Reduced motion their camera moves (CameraRig.aura).
         case 'fieldPlanted':
-          this.fx.aura = true;
+          this.fx.aura = this.d.rig.aura = true;
           this.planted(ev, state);
-          this.fx.aura = false;
+          this.fx.aura = this.d.rig.aura = false;
           break;
         case 'chorusPulse':
-          this.fx.aura = true;
+          this.fx.aura = this.d.rig.aura = true;
           this.chorus(ev, state);
-          this.fx.aura = false;
+          this.fx.aura = this.d.rig.aura = false;
           break;
         case 'fermataHold':
-          this.fx.aura = true;
+          this.fx.aura = this.d.rig.aura = true;
           this.d.fermata.onHold(ev, state);
           this.fermataHold(ev);
-          this.fx.aura = false;
+          this.fx.aura = this.d.rig.aura = false;
           break;
         case 'fermataReleased':
-          this.fx.aura = true;
+          this.fx.aura = this.d.rig.aura = true;
           this.d.fermata.onReleased(ev);
           this.fermataReleased(ev);
-          this.fx.aura = false;
+          this.fx.aura = this.d.rig.aura = false;
           break;
         case 'callStarted':
           this.d.calls.onStarted(ev);
