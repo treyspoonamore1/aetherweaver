@@ -302,7 +302,7 @@ export function buildSoprano(def: EnemyDef): THREE.BufferGeometry {
   });
   // The hat: a six-faceted brim of pale glass, a black crown bent back, rigged with the head.
   b.rigged({ k: HEAD, at: [0, neck, 0] }, () => {
-    const hy = neck + 0.42 * s;
+    const hy = neck + 0.38 * s;
     b.cyl(
       0.64 * w,
       0.64 * w,
@@ -321,9 +321,9 @@ export function buildSoprano(def: EnemyDef): THREE.BufferGeometry {
     );
     b.cone(
       0.2 * w,
-      0.5 * s,
+      0.38 * s,
       SMOKE,
-      { ...BLACK, p: [0, hy + 0.24 * s, 0.12 * w], r: [-0.22, 0, 0] },
+      { ...BLACK, p: [0, hy + 0.17 * s, 0.12 * w], r: [-0.22, 0, 0] },
       6,
     );
   });
