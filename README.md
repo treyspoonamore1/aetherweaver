@@ -52,7 +52,21 @@ From the title screen, **Enter the Loom**, then **the Gate** starts the Prelude.
 | Z · X                              | Directive shortcuts: Rally · Hold                                          |
 | Mouse wheel · Esc · `` ` `` · F3   | Zoom · Pause · Dev panel · Perf HUD                                        |
 
-Keys are bound by physical position (`KeyboardEvent.code`), so they work on AZERTY and QWERTZ layouts too. **Settings → Controls** lists every binding and rebinds the keys. This table is the short list; Settings has the rest.
+Keys are bound by physical position (`KeyboardEvent.code`), so they work on AZERTY and QWERTZ layouts too. **Settings → Controls** lists every binding and rebinds them: every key action, and also the three mouse roles (Thread the hovered hero, Mend ⇄ Empower, and the Directive wheel, each onto any mouse button, side buttons included, or a key) and the **Cue modifier** (Shift by default; Ctrl, Alt or any key). It also sets Thread mode and the wheel to hold or toggle, turns mouseover casting off (techniques then go to the threaded hero only), and turns on Auto-Thread. This table is the short list; Settings has the rest.
+
+**Gamepad.** A standard-mapping pad works in the menus and in combat. Its buttons are named by position, not by brand, and each can be remapped in **Settings → Controls → Gamepad**. The digit shortcuts of some screens (the Draft, the Respite) stay on the keyboard.
+
+| Pad (defaults)                       | Action                                                                     |
+| ------------------------------------ | -------------------------------------------------------------------------- |
+| Left stick                           | Move the Weaver                                                            |
+| Right stick (flick)                  | Step the reticle from hero to hero (it stands in for the hovered hero)     |
+| Right trigger · left trigger         | Thread the reticle's hero · Mend ⇄ Empower                                 |
+| Bottom · left · top · right face     | **Glide** · **Ward** · **Chime** · **Reel**                                |
+| Right bumper · left bumper           | **Cue** the reticle's hero · **Crescendo**                                 |
+| D-pad up · right · down · left       | Directives: Focus · Rally · Hold · Scatter                                 |
+| Right stick press · left stick press | **Directive wheel** (the right stick aims it) · **Plant** Pedal Point      |
+| Start                                | Pause                                                                      |
+| In menus                             | D-pad or left stick moves; bottom face button presses; right one goes back |
 
 Your **beam song** (Chord I) pours into whoever you Thread at double strength; everyone else near you hears an echo. Your **field song** (Chord II, from Rank 2) reaches everyone near you at full strength.
 
@@ -71,7 +85,7 @@ When a hero **calls** for help (a gold glyph over them), answer it before their 
 | `e2e`                  | Playwright against the production build                                                                                              |
 | `e2e:fullrun`          | The full run: a whole Expedition played node by node through the real app (long; not in `e2e`, see Release)                          |
 | `licenses`             | Checks the licence record in `assets/licenses/` against the build in `dist/` (`-- --write` rebuilds it)                              |
-| `release-check`        | The release checklist, row by row: green, red, or not provable here, with the evidence (see Release)                                 |
+| `release-check`        | The release checklist, row by row: green, red, not provable here or accepted, with the evidence (see Release)                        |
 | `harness`              | Balance harness: Idle / Novice / Skilled bots per encounter; `-- --run` plays whole Prelude runs; `-- --loadout beam` picks a preset |
 | `loadouts`             | Loadout report: every Chord preset × every encounter × bot, flagging dead and dominant loadouts                                      |
 | `sim:bench`            | Headless sim benchmark; `-- --check` enforces the 1.5 ms/tick budget                                                                 |
@@ -117,10 +131,14 @@ When a hero **calls** for help (a gold glyph over them), answer it before their 
 
 `npm run build` writes a static site to `dist/`: serve it from any web server, with no server code, no account and no network request from the game. `npm run build:demo` writes the playtest demo to `dist-demo/` (relative paths, no source maps; [`docs/demo.md`](docs/demo.md)).
 
-**Checking a build.** `npm run release-check` prints each row of the release checklist (docs/plan/06 §6, and the exit criteria in [`docs/phase-7.md`](docs/phase-7.md)) as green, red, "not provable here" (it needs a person, a real GPU or a real laptop) or "not run" (nobody gave it the evidence). On its own it runs only quick checks. The long runs are read from their logs:
+**Checking a build.** `npm run release-check` prints each row of the release checklist (docs/plan/06 §6, and the exit criteria in [`docs/phase-7.md`](docs/phase-7.md)) as green, red, "not provable here" (it needs a person, a real GPU or a real laptop), "accepted" (a known miss an owner's decision ships, such as decision 13's bands) or "not run" (nobody gave it the evidence). On its own it runs only quick checks. The long runs are read from their logs, and each log must say which commit it was recorded on (an `[evidence] commit <sha>` line, or the JSON report's `evidence` key): a log from another commit, or a checked tree with uncommitted changes, is red. The e2e log must hold a result for every `e2e/*.spec.ts` file:
 
 ```bash
-npm run e2e:fullrun > fullrun.log          # a whole Finale-route Expedition, through the real app, with sound on
+stamp="[evidence] commit $(git rev-parse HEAD)"   # on a clean tree: every log is bound to this commit
+npx vitest run --reporter=json --outputFile=full.log.json
+node -e "const fs=require('fs'),d=JSON.parse(fs.readFileSync('full.log.json'));d.evidence=process.argv[1];fs.writeFileSync('full.log.json',JSON.stringify(d))" "$stamp"
+{ echo "$stamp"; npm run e2e; } > e2e.log                 # every e2e/*.spec.ts file
+{ echo "$stamp"; npm run e2e:fullrun; } > fullrun.log     # a whole Finale-route Expedition, through the real app, with sound on
 npm run release-check -- --suite full.log.json --e2e e2e.log --fullrun fullrun.log --run goldens,sim-bench
 ```
 
