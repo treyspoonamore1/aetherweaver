@@ -3,7 +3,13 @@
  * or tested with `VITE_ART_PASS=0`, every model, the model material and the Weaver's ribbons are
  * exactly as on main.
  */
-export const ART_PASS: boolean = import.meta.env.VITE_ART_PASS !== '0';
+// Under Node (the tests) the switch is read from the process's environment at run time: Vitest's
+// on-disk module cache stores a module with `import.meta.env` baked in and is not keyed by the
+// environment, so it would replay an earlier run's switch. In the browser build Vite fills
+// `import.meta.env` (read through a local type: tsconfig.node.json has no Vite client types).
+const proc = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+const meta = (import.meta as unknown as { env?: Record<string, string | undefined> }).env;
+export const ART_PASS: boolean = (proc?.env ? proc.env.VITE_ART_PASS : meta?.VITE_ART_PASS) !== '0';
 
 /**
  * How large the art pass draws the heroes and the Weaver (the owner's choice: 1.12×). The model
