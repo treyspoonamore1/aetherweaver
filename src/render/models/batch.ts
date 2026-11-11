@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ART_PASS } from './artFlag';
 import { createRigDepthMaterial } from './material';
 
 let rigDepth: THREE.MeshDepthMaterial | null = null;
@@ -22,7 +23,7 @@ export class ModelBatch {
    * (clock, wind-up, blow, moving): the next pushed instance's secondary motion (material.ts,
    * `RIG_VERTEX_PARS`), set by `pose` and spent by `push` (a figure with none stands still).
    */
-  private readonly pose: THREE.InstancedBufferAttribute;
+  private readonly pose: THREE.InstancedBufferAttribute | null = null;
   private readonly next = [0, 0, 0, 0];
 
   constructor(
@@ -40,14 +41,16 @@ export class ModelBatch {
     geometry.setAttribute('aFx', this.fx);
     geometry.setAttribute('aTint', this.tint);
     geometry.setAttribute('aShine', this.shine);
-    this.pose = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4);
-    this.pose.setUsage(THREE.DynamicDrawUsage);
-    geometry.setAttribute('aPose', this.pose);
+    if (ART_PASS) {
+      this.pose = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4);
+      this.pose.setUsage(THREE.DynamicDrawUsage);
+      geometry.setAttribute('aPose', this.pose);
+    }
     this.mesh = new THREE.InstancedMesh(geometry, material, capacity);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.frustumCulled = false;
     this.mesh.castShadow = castShadow;
-    if (geometry.getAttribute('aRig'))
+    if (ART_PASS && geometry.getAttribute('aRig'))
       this.mesh.customDepthMaterial = rigDepth ??= createRigDepthMaterial();
     this.mesh.receiveShadow = false;
     this.mesh.count = 0;
@@ -97,11 +100,13 @@ export class ModelBatch {
     s[i * 4 + 1] = sunrise;
     s[i * 4 + 2] = frost;
     s[i * 4 + 3] = prism;
-    const o = this.pose.array as Float32Array;
-    o[i * 4] = this.next[0]!;
-    o[i * 4 + 1] = this.next[1]!;
-    o[i * 4 + 2] = this.next[2]!;
-    o[i * 4 + 3] = this.next[3]!;
+    if (this.pose) {
+      const o = this.pose.array as Float32Array;
+      o[i * 4] = this.next[0]!;
+      o[i * 4 + 1] = this.next[1]!;
+      o[i * 4 + 2] = this.next[2]!;
+      o[i * 4 + 3] = this.next[3]!;
+    }
     this.next[0] = 0;
     this.next[1] = 0;
     this.next[2] = 0;
@@ -154,9 +159,11 @@ export class ModelBatch {
       this.shine.clearUpdateRanges();
       this.shine.addUpdateRange(0, this.count * 4);
       this.shine.needsUpdate = true;
-      this.pose.clearUpdateRanges();
-      this.pose.addUpdateRange(0, this.count * 4);
-      this.pose.needsUpdate = true;
+      if (this.pose) {
+        this.pose.clearUpdateRanges();
+        this.pose.addUpdateRange(0, this.count * 4);
+        this.pose.needsUpdate = true;
+      }
     }
   }
 

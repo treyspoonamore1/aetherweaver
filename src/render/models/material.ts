@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { CHRONO_HEX } from '../chronoCues';
+import { ART_PASS } from './artFlag';
+import { createMainModelMaterial } from './materialMain';
 
 /** A hex colour as a GLSL vec3 literal (linear, like THREE.Color). */
 function glslColor(hex: string): string {
@@ -160,7 +162,8 @@ export const RIG_VERTEX = `transformed = awRig(transformed);`;
 
 export interface ModelMaterial {
   material: THREE.MeshStandardMaterial;
-  uniforms: { uTime: { value: number }; uGlow: { value: number }; uOutline: { value: number } };
+  /** `uOutline` only while the art pass is on (its stained-glass outline). */
+  uniforms: { uTime: { value: number }; uGlow: { value: number }; uOutline?: { value: number } };
 }
 
 /** Dark lead between panes and round a stained-glass figure; the Weaver's gold came. */
@@ -170,6 +173,7 @@ const CAME_HEX = '#f0c46a';
 const CRACK_HEX = '#a78bfa';
 
 export function createModelMaterial(): ModelMaterial {
+  if (!ART_PASS) return createMainModelMaterial();
   // uOutline: the outline shell's width, as a share of the view depth (~1.6 px at 720 px, 40° fov).
   const uniforms = { uTime: { value: 0 }, uGlow: { value: 1.6 }, uOutline: { value: 0.0016 } };
   const material = new THREE.MeshStandardMaterial({

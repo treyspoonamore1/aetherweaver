@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ART_PASS } from './artFlag';
 
 /**
  * Procedural low-poly model builder. Primitives are transformed and merged into ONE
@@ -283,7 +284,54 @@ export class ModelBuilder {
     return this.add(new THREE.LatheGeometry(pts, seg), hex, opts);
   }
 
+  /** Main's build, verbatim: the plain model while the art pass is off (artFlag.ts). */
+  private buildPlain(): THREE.BufferGeometry {
+    let vertexCount = 0;
+    const prepared: { geo: THREE.BufferGeometry; part: Part }[] = [];
+    for (const part of this.parts) {
+      const geo = part.geometry.index ? part.geometry.toNonIndexed() : part.geometry.clone();
+      geo.applyMatrix4(part.matrix);
+      prepared.push({ geo, part });
+      vertexCount += geo.getAttribute('position').count;
+    }
+    const positions = new Float32Array(vertexCount * 3);
+    const normals = new Float32Array(vertexCount * 3);
+    const colors = new Float32Array(vertexCount * 3);
+    const glows = new Float32Array(vertexCount);
+    let offset = 0;
+    for (const { geo, part } of prepared) {
+      const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+      geo.computeVertexNormals();
+      const nor = geo.getAttribute('normal') as THREE.BufferAttribute;
+      for (let i = 0; i < pos.count; i++) {
+        const o = (offset + i) * 3;
+        positions[o] = pos.getX(i);
+        positions[o + 1] = pos.getY(i);
+        positions[o + 2] = pos.getZ(i);
+        normals[o] = nor.getX(i);
+        normals[o + 1] = nor.getY(i);
+        normals[o + 2] = nor.getZ(i);
+        colors[o] = part.color.r;
+        colors[o + 1] = part.color.g;
+        colors[o + 2] = part.color.b;
+        glows[offset + i] = part.glow;
+      }
+      offset += pos.count;
+      geo.dispose();
+      part.geometry.dispose();
+    }
+    const out = new THREE.BufferGeometry();
+    out.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    out.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+    out.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    out.setAttribute('aGlow', new THREE.BufferAttribute(glows, 1));
+    out.computeBoundingSphere();
+    this.parts.length = 0;
+    return out;
+  }
+
   build(): THREE.BufferGeometry {
+    if (!ART_PASS) return this.buildPlain();
     let vertexCount = 0;
     const prepared: {
       geo: THREE.BufferGeometry;

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { EnemyDef, HeroDef } from '../../content';
 import { OWN_PALETTE, type WeaverPalette } from '../keepsakeCues';
+import { ART_PASS } from './artFlag';
 import { ModelBuilder } from './builder';
 import { LIT_MODEL } from '../lightCues';
 import {
@@ -26,9 +27,6 @@ function shade(hex: string, k: number): string {
   else c.multiplyScalar(1 + k);
   return `#${c.getHexString()}`;
 }
-
-/** The art pass prototype's redrawn figures (artPass.ts) in place of the ones below. */
-const ART_PASS = true;
 
 const GOLD = '#e8b54a';
 const GOLD_GLOW = '#ffd27a';
