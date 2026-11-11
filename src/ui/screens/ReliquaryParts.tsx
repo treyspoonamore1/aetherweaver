@@ -32,6 +32,7 @@ import {
   type InstabilityView,
   type RelicView,
 } from './reliquaryModel';
+import { t } from '../text';
 
 /**
  * The Reliquary's effects (Phase 4c): an etch glow for an Inscription, a tuning shimmer, a rise,
@@ -141,10 +142,10 @@ export function TierBadge({ tier, size = 'md' }: { tier: number; size?: 'sm' | '
           : undefined,
       }}
       role="img"
-      aria-label={`T${tier}, tier ${tier} of 5 (T1 the best).`}
+      aria-label={t('screens.reliquaryParts.tTierOf5', { tier })}
       data-tier={tier}
     >
-      <span>T{tier}</span>
+      <span>{t('screens.reliquaryParts.t', { tier })}</span>
       {size !== 'sm' && (
         <span className="mt-0.5 flex gap-px" aria-hidden>
           {Array.from({ length: look.pips }, (_, i) => (
@@ -230,7 +231,9 @@ export function InscriptionLine({
           </span>
           {!compact && (
             <span className="flex items-center gap-1.5 font-mono text-[0.75rem] text-muted">
-              {row.fixed ? `only ${row.rangeText}` : `range ${row.rangeText}`}
+              {row.fixed
+                ? t('screens.reliquaryParts.only', { rangeText: row.rangeText })
+                : t('screens.reliquaryParts.range', { rangeText: row.rangeText })}
               {!row.fixed && <WithinBar row={row} />}
             </span>
           )}
@@ -284,13 +287,17 @@ export function FixedLine({
             style={{ color: look.color }}
           >
             <span className="sr-only">
-              {kind === 'dissonant' ? 'Dissonant Inscription: ' : 'Curse: '}
+              {kind === 'dissonant'
+                ? t('screens.reliquaryParts.dissonantInscription')
+                : t('screens.reliquaryParts.curse2')}
             </span>
             {row.name}
           </b>
           {!compact && (
             <span className="text-xs text-muted">
-              {kind === 'dissonant' ? 'Dissonant · a fifth slot' : 'Curse · from a Dissonate'}
+              {kind === 'dissonant'
+                ? t('screens.reliquaryParts.dissonantAFifthSlot')
+                : t('screens.reliquaryParts.curseFromADissonate')}
             </span>
           )}
         </span>
@@ -318,11 +325,11 @@ export function InscriptionList({
   className?: string;
 }) {
   if (view.inscriptions.length === 0 && !view.dissonant && !view.curse)
-    return <p className="text-xs text-muted">No Inscriptions yet.</p>;
+    return <p className="text-xs text-muted">{t('screens.reliquaryParts.noInscriptionsYet')}</p>;
   return (
     <ul
       className={`flex flex-col ${compact ? 'gap-0.5' : 'gap-1.5'} ${className}`}
-      aria-label="Inscriptions"
+      aria-label={t('screens.reliquaryParts.inscriptions')}
     >
       {view.inscriptions.map((row) => {
         // A Cursed Dissonate raised them all; any other craft touched one.
@@ -406,8 +413,8 @@ export function CarriedChip({
       data-carried={role}
     >
       <Icon name="carry" size={small ? 11 : 12} />
-      {index !== undefined ? `Slot ${index + 1} · ` : ''}
-      {role === 'attuned' ? ROLE_LABEL.attuned : 'Dormant'}
+      {index !== undefined ? t('screens.reliquaryParts.slot', { value: index + 1 }) : ''}
+      {role === 'attuned' ? ROLE_LABEL.attuned : t('screens.reliquaryParts.dormant')}
     </span>
   );
 }
@@ -584,7 +591,9 @@ export function InstabilityBar({
   return (
     <div data-testid="instability" data-value={view.value} data-after={view.after ?? ''}>
       <div className="flex items-baseline justify-between gap-2 text-xs">
-        <span className="font-semibold uppercase tracking-wider text-muted">Instability</span>
+        <span className="font-semibold uppercase tracking-wider text-muted">
+          {t('screens.reliquaryParts.instability')}
+        </span>
         <span className="font-mono text-text">
           {view.value}
           {after !== null && <span className="text-orange-200"> → {after}</span>}
@@ -594,7 +603,11 @@ export function InstabilityBar({
       <div
         className={`relative mt-1 overflow-hidden rounded-full border border-ink-500 bg-ink-800 ${compact ? 'h-2' : 'h-3'}`}
         role="meter"
-        aria-label={`${view.line}. Past ${view.above}, every craft risks a Fracture.${after !== null ? ` After this craft: ${after}.` : ''}`}
+        aria-label={t('screens.reliquaryParts.pastEveryCraftRisks', {
+          line: view.line,
+          above: view.above,
+          value: after !== null ? t('screens.reliquaryParts.afterThisCraft', { after }) : '',
+        })}
         aria-valuemin={0}
         aria-valuemax={view.max}
         aria-valuenow={view.value}
@@ -674,12 +687,22 @@ export function Materials({
       <span className="inline-flex items-center gap-1.5" aria-hidden>
         <Icon name="shard" size={sm ? 13 : 17} style={{ color: SHARD_LOOK.color }} />
         <b className="font-mono text-text">{shards}</b>
-        <span className="text-muted">Tuning {shards === 1 ? 'Shard' : 'Shards'}</span>
+        <span className="text-muted">
+          {t('screens.reliquaryParts.tuning', {
+            value:
+              shards === 1 ? t('screens.reliquaryParts.shard') : t('screens.reliquaryParts.shards'),
+          })}
+        </span>
       </span>
       <span className="inline-flex items-center gap-1.5" aria-hidden>
         <Icon name="tear" size={sm ? 13 : 17} style={{ color: TEAR_LOOK.color }} />
         <b className="font-mono text-text">{tears}</b>
-        <span className="text-muted">Discord {tears === 1 ? 'Tear' : 'Tears'}</span>
+        <span className="text-muted">
+          {t('screens.reliquaryParts.discord', {
+            value:
+              tears === 1 ? t('screens.reliquaryParts.tear') : t('screens.reliquaryParts.tears'),
+          })}
+        </span>
       </span>
     </span>
   );
@@ -723,14 +746,14 @@ export function CarriedRelicTip({
         <span
           className={`block text-xs leading-snug ${dormant ? 'text-muted line-through decoration-1' : 'text-rose-200'}`}
         >
-          Curse: {info.curse}
+          {t('screens.reliquaryParts.curse', { curse: info.curse })}
         </span>
       )}
       {dormant && <span className="block text-xs leading-snug text-muted">{dormantLine()}</span>}
       {view && (
         <span className="mt-0.5 block border-t border-ink-600/70 pt-1.5">
           <span className="mb-0.5 block text-[0.75rem] font-semibold uppercase tracking-wider text-muted">
-            From the Reliquary
+            {t('screens.reliquaryParts.fromTheReliquary')}
           </span>
           <InscriptionList view={view} compact />
         </span>
@@ -780,7 +803,13 @@ export function CarriedRelicChip({
           borderStyle: dormant ? 'dashed' : 'solid',
         }}
         role="img"
-        aria-label={`Slot ${index + 1}: ${relicSentence(info)} ${view.inscriptions.map((i) => `${i.name} ${i.tierLabel}: ${i.text}`).join('. ')}`}
+        aria-label={t('screens.reliquaryParts.slot2', {
+          value: index + 1,
+          relicSentence: relicSentence(info),
+          inscriptions: view.inscriptions
+            .map((i) => `${i.name} ${i.tierLabel}: ${i.text}`)
+            .join('. '),
+        })}
         data-testid="prep-carried"
         data-relic={relic.id}
         data-dormant={dormant}
@@ -788,7 +817,7 @@ export function CarriedRelicChip({
         <RelicGlyph icon={info.icon} rarity={info.rarity} cleansed={info.cleansed} size={22} />
         {info.name}
         <span className="font-normal text-muted">
-          {dormant ? '· lends' : '· attuned'}
+          {dormant ? t('screens.reliquaryParts.lends') : t('screens.reliquaryParts.attuned')}
           {view.inscriptions.length > 0 &&
             ` · ${view.inscriptions.map((i) => i.tierLabel).join(' ')}`}
         </span>
@@ -816,7 +845,7 @@ export function PrepReliquaryRow({
   return (
     <section
       className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-ink-600/70 bg-ink-900/70 px-3 py-2 ${className}`}
-      aria-label="The Reliquary: what this run carries"
+      aria-label={t('screens.reliquaryParts.theReliquaryWhatThis')}
       data-testid="prep-reliquary"
       data-carried={carried.map((r) => r.id).join(' ')}
     >
@@ -826,14 +855,17 @@ export function PrepReliquaryRow({
         onClick={onOpen}
         sound="click"
         data-testid="prep-reliquary-open"
-        title="Craft your relics and choose what to carry"
+        title={t('screens.reliquaryParts.craftYourRelicsAnd')}
       >
-        <Icon name="reliquary" size={16} /> Reliquary
+        <Icon name="reliquary" size={16} /> {t('screens.reliquaryParts.reliquary')}
         <span className="rounded-md bg-ink-700 px-1.5 py-px text-xs font-semibold text-muted">
           {carryLine(carried.length, slots)}
         </span>
       </Button>
-      <ol className="flex flex-wrap items-center gap-2" aria-label="Carry slots">
+      <ol
+        className="flex flex-wrap items-center gap-2"
+        aria-label={t('screens.reliquaryParts.carrySlots')}
+      >
         {views.map((s) => (
           <li key={s.index} data-testid={`prep-slot-${s.index + 1}`} data-open={s.open}>
             {!s.open ? (
@@ -845,7 +877,9 @@ export function PrepReliquaryRow({
             ) : (
               <span className="flex items-center gap-1 rounded-lg border border-dashed border-ink-500 px-2 py-1 text-xs text-muted">
                 <Icon name="carry" size={12} />{' '}
-                {s.index === 0 ? 'Attuned slot: empty' : 'Empty slot'}
+                {s.index === 0
+                  ? t('screens.reliquaryParts.attunedSlotEmpty')
+                  : t('screens.reliquaryParts.emptySlot')}
               </span>
             )}
           </li>

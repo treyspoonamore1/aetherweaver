@@ -32,6 +32,7 @@ import { SectionTitle } from './shared';
 import { dissonancePoints } from '../../meta/dissonance';
 import { DepthChip } from './DissonanceParts';
 import { wonLine } from './dissonanceModel';
+import { t } from '../text';
 
 /**
  * The relic a run enshrined, as the Reliquary holds it now: the very one by its uid, or (a run
@@ -101,7 +102,12 @@ export function EnshrinePanel({
     setArrived(result.relic);
     const v = relicView(result.relic);
     setSay(
-      `Enshrined ${v.name}. It arrives with ${v.inscriptions.map((i) => `${i.name} ${i.tierLabel}: ${i.text}`).join('; ') || 'no Inscription'}.`,
+      t('screens.reliquarySummary.enshrinedItArrivesWith', {
+        name: v.name,
+        value:
+          v.inscriptions.map((i) => `${i.name} ${i.tierLabel}: ${i.text}`).join('; ') ||
+          t('screens.reliquarySummary.noInscription'),
+      }),
     );
   };
 
@@ -137,26 +143,23 @@ export function EnshrinePanel({
         }
       >
         <span className="flex items-center gap-2">
-          <Icon name="reliquary" size={20} /> The Reliquary
+          <Icon name="reliquary" size={20} /> {t('screens.reliquarySummary.theReliquary')}
         </span>
       </SectionTitle>
       <p className="text-sm text-text">
-        This run paid <b className="text-gold-200">{paidLine(paid)}</b>.
+        {t('screens.reliquarySummary.thisRunPaid')}{' '}
+        <b className="text-gold-200">{paidLine(paid)}</b>.
       </p>
       {stage === 'lost' && <p className="mt-1 text-sm text-muted">{enshrineHow(run)}.</p>}
       {stage === 'none' && (
-        <p className="mt-1 text-sm text-muted">
-          It found no relic of its own to enshrine: only those it carried in.
-        </p>
+        <p className="mt-1 text-sm text-muted">{t('screens.reliquarySummary.itFoundNoRelic')}</p>
       )}
       {stage === 'full' && <FullReliquary rq={rq} onRelease={(r) => setReleasing(r)} />}
       {(stage === 'choose' || stage === 'full') && (
         <>
           <p className="mt-3 text-sm text-text">
-            <b className="text-gold-200">Enshrine one relic it found</b>{' '}
-            <span className="text-muted">
-              to craft between runs and carry into the next. Once, and only one; leave to keep none.
-            </span>
+            <b className="text-gold-200">{t('screens.reliquarySummary.enshrineOneRelicIt')}</b>{' '}
+            <span className="text-muted">{t('screens.reliquarySummary.toCraftBetweenRuns')}</span>
           </p>
           {depth > 0 && (
             <p
@@ -206,7 +209,7 @@ export function EnshrinePanel({
                     <p
                       className={`mt-1 text-xs ${info.cleansed ? 'text-muted line-through' : 'text-rose-200'}`}
                     >
-                      Curse: {info.curse}
+                      {t('screens.reliquarySummary.curse', { curse: info.curse })}
                     </p>
                   )}
                   <p className="mt-2 text-xs text-muted">{c.arrivesLine}</p>
@@ -219,12 +222,13 @@ export function EnshrinePanel({
                     onClick={() =>
                       stage === 'full'
                         ? (playUi('error'),
-                          setError('Release a relic first: the Reliquary is full.'))
+                          setError(t('screens.reliquarySummary.releaseARelicFirst')))
                         : enshrine(c.id)
                     }
                     data-testid="enshrine"
                   >
-                    <Icon name="reliquary" size={15} /> Enshrine {info.name}
+                    <Icon name="reliquary" size={15} />{' '}
+                    {t('screens.reliquarySummary.enshrine', { name: info.name })}
                   </Button>
                 </li>
               );
@@ -235,7 +239,7 @@ export function EnshrinePanel({
       {stage === 'done' && shown && <Arrival relic={shown} />}
       {stage === 'done' && !shown && paid.enshrined && (
         <p className="mt-2 text-sm text-text">
-          This run enshrined {relicDef(paid.enshrined).name}.
+          {t('screens.reliquarySummary.thisRunEnshrined', { name: relicDef(paid.enshrined).name })}
         </p>
       )}
       <div className="sr-only" role="status" aria-live="polite">
@@ -243,12 +247,12 @@ export function EnshrinePanel({
       </div>
       {releasing && (
         <Modal
-          title={`Release ${relicDef(releasing.id).name}?`}
+          title={t('screens.reliquarySummary.release2', { name: relicDef(releasing.id).name })}
           onClose={() => setReleasing(null)}
           closeOnEscape
         >
           <p className="mt-3 text-sm leading-relaxed text-text">
-            It leaves the Reliquary for good, to make room. You get{' '}
+            {t('screens.reliquarySummary.itLeavesTheReliquary')}
             <b className="text-gold-200">{releaseView(releasing).line}</b>
           </p>
           <div className="mt-5 flex justify-end gap-2">
@@ -258,11 +262,13 @@ export function EnshrinePanel({
               sound="back"
               data-autofocus
             >
-              Keep it
+              {t('screens.reliquarySummary.keepIt')}
             </Button>
             <Button variant="danger" onClick={release} sound={null} data-testid="release-confirm">
-              <Icon name="release" size={16} /> Release for{' '}
-              {shardsText(releaseView(releasing).total)}
+              <Icon name="release" size={16} />{' '}
+              {t('screens.reliquarySummary.releaseFor', {
+                shardsText: shardsText(releaseView(releasing).total),
+              })}
             </Button>
           </div>
         </Modal>
@@ -287,8 +293,10 @@ function FullReliquary({
       <p className="flex items-start gap-2 text-sm text-orange-100">
         <Icon name="info" size={16} className="mt-0.5 shrink-0 text-threat" />
         <span>
-          <b>Your Reliquary is full</b> ({capacityLine(rq.relics.length)}). Release one to make room
-          for a relic this run found. It gives Tuning Shards; you can do it here.
+          <b>{t('screens.reliquarySummary.yourReliquaryIsFull')}</b>{' '}
+          {t('screens.reliquarySummary.releaseOneToMake', {
+            capacityLine: capacityLine(rq.relics.length),
+          })}
         </span>
       </p>
       <ul className="mt-2 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
@@ -321,11 +329,16 @@ function FullReliquary({
                 className="shrink-0 !px-2"
                 sound="click"
                 onClick={() => onRelease(r)}
-                aria-label={`Release ${v.name} for ${shardsText(v.release)}`}
-                title={`Release it for ${shardsText(v.release)}`}
+                aria-label={t('screens.reliquarySummary.releaseFor2', {
+                  name: v.name,
+                  shardsText: shardsText(v.release),
+                })}
+                title={t('screens.reliquarySummary.releaseItFor', {
+                  shardsText: shardsText(v.release),
+                })}
                 data-testid="summary-release"
               >
-                <Icon name="release" size={14} /> Release
+                <Icon name="release" size={14} /> {t('screens.reliquarySummary.release')}
                 <span className="flex items-center gap-0.5 font-mono text-xs">
                   <Icon name="shard" size={12} style={{ color: SHARD_LOOK.color }} />
                   {v.release}
@@ -359,7 +372,7 @@ function Arrival({ relic }: { relic: ReliquaryRelic }) {
           className="text-xs font-semibold uppercase tracking-wider"
           style={{ color: CARRIED_LOOK.color }}
         >
-          Enshrined
+          {t('screens.reliquarySummary.enshrined')}
         </p>
         <p className="flex flex-wrap items-center gap-2 font-display text-xl font-bold text-gold-100">
           {v.name}
@@ -375,17 +388,17 @@ function Arrival({ relic }: { relic: ReliquaryRelic }) {
           <p
             className={`mt-0.5 text-xs ${v.ownCurse.lifted ? 'text-muted line-through' : 'text-rose-200'}`}
           >
-            {v.ownCurse.lifted ? 'Curse lifted: ' : 'Its curse: '}
+            {v.ownCurse.lifted
+              ? t('screens.reliquarySummary.curseLifted')
+              : t('screens.reliquarySummary.itsCurse')}
             {v.ownCurse.text}
           </p>
         )}
         <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-muted">
-          Its first Inscriptions
+          {t('screens.reliquarySummary.itsFirstInscriptions')}
         </p>
         <InscriptionList view={v} className="mt-1 max-w-xl" />
-        <p className="mt-2 text-xs text-muted">
-          It waits in the Reliquary: craft it and choose to carry it from the Loom or from Prep.
-        </p>
+        <p className="mt-2 text-xs text-muted">{t('screens.reliquarySummary.itWaitsInThe')}</p>
       </div>
     </div>
   );

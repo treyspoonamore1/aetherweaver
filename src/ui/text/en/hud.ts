@@ -16,6 +16,7 @@ import { keystoneChip as hudKeystoneChip } from './hud/keystoneChip';
 import { layoutEditor as hudLayoutEditor } from './hud/layoutEditor';
 import { legionLook as hudLegionLook } from './hud/legionLook';
 import { pauseMenu as hudPauseMenu } from './hud/pauseMenu';
+import { relicBar as hudRelicBar } from './hud/relicBar';
 import { relics as hudRelics } from './hud/relics';
 import { rewindText as hudRewindText } from './hud/rewindText';
 import { riftLook as hudRiftLook } from './hud/riftLook';
@@ -49,6 +50,7 @@ export const hud = {
   ...hudLayoutEditor,
   ...hudLegionLook,
   ...hudPauseMenu,
+  ...hudRelicBar,
   ...hudRelics,
   ...hudRewindText,
   ...hudRiftLook,

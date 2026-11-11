@@ -1,0 +1,38 @@
+import type { Catalogue } from '../../catalogue';
+
+/** The `screens.reliquaryParts.*` messages: `src/ui/screens/ReliquaryParts.tsx`. */
+export const reliquaryParts = {
+  'screens.reliquaryParts.t': 'T{tier}',
+  'screens.reliquaryParts.noInscriptionsYet': 'No Inscriptions yet.',
+  'screens.reliquaryParts.instability': 'Instability',
+  'screens.reliquaryParts.tuning': 'Tuning {value}',
+  'screens.reliquaryParts.discord': 'Discord {value}',
+  'screens.reliquaryParts.curse': 'Curse: {curse}',
+  'screens.reliquaryParts.fromTheReliquary': 'From the Reliquary',
+  'screens.reliquaryParts.reliquary': 'Reliquary',
+  'screens.reliquaryParts.tTierOf5': 'T{tier}, tier {tier} of 5 (T1 the best).',
+  'screens.reliquaryParts.dissonantInscription': 'Dissonant Inscription: ',
+  'screens.reliquaryParts.dissonantAFifthSlot': 'Dissonant · a fifth slot',
+  'screens.reliquaryParts.curseFromADissonate': 'Curse · from a Dissonate',
+  'screens.reliquaryParts.inscriptions': 'Inscriptions',
+  'screens.reliquaryParts.slot': 'Slot {value} · ',
+  'screens.reliquaryParts.pastEveryCraftRisks':
+    '{line}. Past {above}, every craft risks a Fracture.{value}',
+  'screens.reliquaryParts.slot2': 'Slot {value}: {relicSentence} {inscriptions}',
+  'screens.reliquaryParts.lends': '· lends',
+  'screens.reliquaryParts.attuned': '· attuned',
+  'screens.reliquaryParts.theReliquaryWhatThis': 'The Reliquary: what this run carries',
+  'screens.reliquaryParts.craftYourRelicsAnd': 'Craft your relics and choose what to carry',
+  'screens.reliquaryParts.carrySlots': 'Carry slots',
+  'screens.reliquaryParts.attunedSlotEmpty': 'Attuned slot: empty',
+  'screens.reliquaryParts.emptySlot': 'Empty slot',
+  'screens.reliquaryParts.afterThisCraft': ' After this craft: {after}.',
+  'screens.reliquaryParts.only': 'only {rangeText}',
+  'screens.reliquaryParts.range': 'range {rangeText}',
+  'screens.reliquaryParts.curse2': 'Curse: ',
+  'screens.reliquaryParts.dormant': 'Dormant',
+  'screens.reliquaryParts.shard': 'Shard',
+  'screens.reliquaryParts.shards': 'Shards',
+  'screens.reliquaryParts.tear': 'Tear',
+  'screens.reliquaryParts.tears': 'Tears',
+} satisfies Catalogue;

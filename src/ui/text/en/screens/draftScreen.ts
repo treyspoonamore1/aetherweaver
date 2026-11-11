@@ -1,0 +1,31 @@
+import type { Catalogue } from '../../catalogue';
+
+/** The `screens.draftScreen.*` messages: `src/ui/screens/DraftScreen.tsx`. */
+export const draftScreen = {
+  'screens.draftScreen.yourStarChartAdds': 'Your Star Chart adds a fourth choice.',
+  'screens.draftScreen.reroll': 'Reroll',
+  'screens.draftScreen.left': '{rerolls} left',
+  'screens.draftScreen.harmony': 'Harmony',
+  'screens.draftScreen.upgradeLevel': 'Upgrade · level {value} → {level}',
+  'screens.draftScreen.new': 'New',
+  'screens.draftScreen.now': 'Now:',
+  'screens.draftScreen.level': 'Level',
+  'screens.draftScreen.needs': 'Needs',
+  'screens.draftScreen.missing': 'missing',
+  'screens.draftScreen.harmony2': 'Harmony → {name}',
+  'screens.draftScreen.with': 'with {rest}',
+  'screens.draftScreen.youHaveTheRest': '· you have the rest',
+  'screens.draftScreen.yourMotifs': 'Your motifs',
+  'screens.draftScreen.aMotifToWeave': 'A motif to weave',
+  'screens.draftScreen.r': 'R',
+  'screens.draftScreen.skipHealTheParty': 'Skip: heal the party a little',
+  'screens.draftScreen.needs2': ' Needs: {needs}.',
+  'screens.draftScreen.motif': '{name}, {label} {label2} motif{value}. {motifLine}{needsSentence}',
+  'screens.draftScreen.aHarmonyOfferedOnce': 'A Harmony: offered once you own {harmonyNeeds}',
+  'screens.draftScreen.worksWithYourAura': 'Works with your {name} aura',
+  'screens.draftScreen.worksWithInYour': 'Works with {name} in your party',
+  'screens.draftScreen.weaveIn': 'Weave in',
+  'screens.draftScreen.motifsYouOwn': 'Motifs you own',
+  'screens.draftScreen.upgradeToLevel': ', upgrade to level {level}',
+  'screens.draftScreen.strengthen': 'Strengthen',
+} satisfies Catalogue;

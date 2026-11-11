@@ -91,6 +91,7 @@ import {
   type OutcomeView,
   type RelicView,
 } from './reliquaryModel';
+import { t as txt } from '../text';
 
 export interface ReliquaryViewProps {
   /** The profile's Reliquary. */
@@ -152,7 +153,7 @@ export function ReliquaryView({
   onRelease,
   onCarry,
   onBack,
-  backTo = 'The Loom',
+  backTo = txt('screens.reliquaryScreen.theLoom'),
   runUnderWay = false,
   onRules,
   initialSelected,
@@ -302,11 +303,15 @@ export function ReliquaryView({
     const index = change.uids.indexOf(uid);
     if (index < 0) {
       playUi('back');
-      announce(`${name} stays home: it’s out of the carry.`);
+      announce(txt('screens.reliquaryScreen.staysHomeItS', { name }));
     } else {
       playUi('carry');
       announce(
-        `${name} is carried in slot ${index + 1}. ${ROLE_LINE[index === 0 ? 'attuned' : 'lends']}.`,
+        txt('screens.reliquaryScreen.isCarriedInSlot', {
+          name,
+          value: index + 1,
+          value2: ROLE_LINE[index === 0 ? 'attuned' : 'lends'],
+        }),
       );
     }
   };
@@ -354,36 +359,36 @@ export function ReliquaryView({
         <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
           <div className="min-w-0">
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-muted">
-              Between runs · Weaver Rank {rank}
-              {unlockAll && ' · all unlocked'}
+              {txt('screens.reliquaryScreen.betweenRunsWeaverRank', { rank })}
+              {unlockAll && txt('screens.reliquaryScreen.allUnlocked')}
             </p>
             <h1 className="flex items-center gap-2 font-display text-3xl font-bold tracking-wide text-gold-300">
-              <Icon name="reliquary" size={28} /> The Reliquary
+              <Icon name="reliquary" size={28} /> {txt('screens.reliquaryScreen.theReliquary')}
             </h1>
           </div>
           <MaterialsHeader shards={rq.shards} tears={rq.tears} />
           <div className="flex items-center gap-2">
             {onRules && (
               <Button variant="secondary" size="sm" onClick={onRules} sound="click">
-                <Icon name="book" size={15} /> Rules
+                <Icon name="book" size={15} /> {txt('screens.reliquaryScreen.rules')}
               </Button>
             )}
             <Button variant="ghost" onClick={onBack} sound="back" data-testid="reliquary-back">
-              <Icon name="back" size={16} /> {backTo} <KeyCap label="Esc" />
+              <Icon name="back" size={16} /> {backTo}{' '}
+              <KeyCap label={txt('screens.reliquaryScreen.esc')} />
             </Button>
           </div>
         </header>
         {!open && (
           <p className="mt-2 flex items-center gap-2 rounded-lg border border-ink-600 bg-ink-900/80 px-3 py-2 text-sm text-muted">
-            <Icon name="lock" size={15} className="text-gold-300" /> The Reliquary opens at Rank{' '}
-            {rqOpenRank()}.
+            <Icon name="lock" size={15} className="text-gold-300" />{' '}
+            {txt('screens.reliquaryScreen.theReliquaryOpensAt', { rqOpenRank: rqOpenRank() })}
           </p>
         )}
         {runUnderWay && (
           <p className="mt-2 flex items-start gap-2 rounded-lg border border-ink-600 bg-ink-900/80 px-3 py-2 text-xs text-muted">
             <Icon name="info" size={14} className="mt-px shrink-0 text-gold-300" />
-            Your run under way keeps the relics it embarked with: what you change here is for the
-            next one.
+            {txt('screens.reliquaryScreen.yourRunUnderWay')}
           </p>
         )}
         <CarryBar
@@ -399,7 +404,7 @@ export function ReliquaryView({
             tone="solid"
             className="flex min-h-0 flex-col p-3 lg:col-span-2 xl:col-span-1"
             role="region"
-            aria-label="Enshrined relics"
+            aria-label={txt('screens.reliquaryScreen.enshrinedRelics')}
             data-testid="reliquary-shelf"
           >
             <PanelLabel
@@ -408,17 +413,17 @@ export function ReliquaryView({
                   className={`font-mono text-xs ${isFull(rq) ? 'text-orange-200' : 'text-muted'}`}
                 >
                   {capacityLine(relics.length)}
-                  {isFull(rq) ? ' · full' : ''}
+                  {isFull(rq) ? txt('screens.reliquaryScreen.full') : ''}
                 </span>
               }
             >
-              Enshrined
+              {txt('screens.reliquaryScreen.enshrined')}
             </PanelLabel>
             <div
               className="scroll-thin mt-2 grid min-h-0 flex-1 auto-rows-min grid-cols-2 gap-2 overflow-y-auto p-0.5 lg:grid-cols-4 xl:grid-cols-2"
               onKeyDown={onShelfKey}
               role="group"
-              aria-label="Choose a relic"
+              aria-label={txt('screens.reliquaryScreen.chooseARelic')}
             >
               {relics.map((r) => {
                 const shown = rolling && last?.uid === r.uid ? last.before : r;
@@ -445,7 +450,7 @@ export function ReliquaryView({
             </div>
             {relics.length === 0 && (
               <p className="mt-2 text-xs leading-relaxed text-muted" data-testid="reliquary-empty">
-                {enshrineHow()}: its Summary asks which. It arrives with its first Inscriptions.
+                {txt('screens.reliquaryScreen.itsSummaryAsksWhich', { enshrineHow: enshrineHow() })}
               </p>
             )}
           </Panel>
@@ -471,7 +476,7 @@ export function ReliquaryView({
             tone="solid"
             className="flex min-h-0 flex-col p-3"
             role="region"
-            aria-label="Crafting"
+            aria-label={txt('screens.reliquaryScreen.crafting')}
             data-testid="craft-panel"
           >
             {relic && view ? (
@@ -513,14 +518,18 @@ export function ReliquaryView({
         {say}
       </div>
       {releasing && relic && view && (
-        <Modal title={`Release ${view.name}?`} onClose={() => setReleasing(false)} closeOnEscape>
+        <Modal
+          title={txt('screens.reliquaryScreen.release2', { name: view.name })}
+          onClose={() => setReleasing(false)}
+          closeOnEscape
+        >
           <p className="mt-3 text-sm leading-relaxed text-text">
-            It leaves the Reliquary for good, Inscriptions and all. You get{' '}
+            {txt('screens.reliquaryScreen.itLeavesTheReliquary')}
             <b className="text-gold-200">{releaseView(relic).line}</b>
           </p>
           {place && (
             <p className="mt-2 text-sm text-orange-200">
-              It’s carried (slot {place.index + 1}): it leaves the carry too.
+              {txt('screens.reliquaryScreen.itSCarriedSlot', { value: place.index + 1 })}
             </p>
           )}
           <div className="mt-5 flex justify-end gap-2">
@@ -530,10 +539,13 @@ export function ReliquaryView({
               sound="back"
               data-autofocus
             >
-              Keep it
+              {txt('screens.reliquaryScreen.keepIt')}
             </Button>
             <Button variant="danger" sound={null} onClick={release} data-testid="release-confirm">
-              <Icon name="release" size={16} /> Release for {shardsText(releaseView(relic).total)}
+              <Icon name="release" size={16} />{' '}
+              {txt('screens.reliquaryScreen.releaseFor', {
+                shardsText: shardsText(releaseView(relic).total),
+              })}
             </Button>
           </div>
         </Modal>
@@ -569,7 +581,8 @@ function MaterialsHeader({ shards, tears }: { shards: number; tears: number }) {
               style={{ color: SHARD_LOOK.color }}
             />
             <span>
-              <b className="text-text">Tuning Shards</b> pay for Inscribe, Retune and Ascend.{' '}
+              <b className="text-text">{txt('screens.reliquaryScreen.tuningShards')}</b>{' '}
+              {txt('screens.reliquaryScreen.payForInscribeRetune')}
               <span className="text-muted">{how.shards}</span>
             </span>
           </span>
@@ -581,7 +594,8 @@ function MaterialsHeader({ shards, tears }: { shards: number; tears: number }) {
               style={{ color: TEAR_LOOK.color }}
             />
             <span>
-              <b className="text-text">Discord Tears</b> pay for a Dissonate.{' '}
+              <b className="text-text">{txt('screens.reliquaryScreen.discordTears')}</b>{' '}
+              {txt('screens.reliquaryScreen.payForADissonate')}
               <span className="text-muted">{how.tears}</span>
             </span>
           </span>
@@ -619,13 +633,13 @@ function CarryBar({
   return (
     <section
       className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-ink-600/70 bg-ink-900/70 px-3 py-2"
-      aria-label="The carry: the relics your next run takes"
+      aria-label={txt('screens.reliquaryScreen.theCarryTheRelics')}
       data-testid="carry-bar"
       data-carried={carried.map((r) => r.uid).join(' ')}
     >
       <div className="min-w-0">
         <p className="flex items-center gap-1.5 text-sm font-semibold text-gold-200">
-          <Icon name="carry" size={16} /> Carry into your next run
+          <Icon name="carry" size={16} /> {txt('screens.reliquaryScreen.carryIntoYourNext')}
         </p>
         <p className="font-mono text-xs text-muted">{carryLine(carried.length, slots)}</p>
       </div>
@@ -667,7 +681,9 @@ function CarryBar({
             ) : (
               <span className="text-xs leading-snug text-muted">
                 <b className="font-semibold text-text">
-                  {s.index === 0 ? 'Attuned slot' : 'Empty'}
+                  {s.index === 0
+                    ? txt('screens.reliquaryScreen.attunedSlot')
+                    : txt('screens.reliquaryScreen.empty')}
                 </b>
                 <span className="block">{ROLE_LINE[s.role]}</span>
               </span>
@@ -702,7 +718,11 @@ function CarrySlotRelic({
         type="button"
         onClick={() => onSelect(relic.uid)}
         className={`flex min-w-0 flex-1 items-center gap-2 rounded-md text-left ${selected ? 'text-gold-100' : 'text-text'}`}
-        aria-label={`Slot ${index + 1}: ${v.name}. ${ROLE_LINE[role]}. Show it.`}
+        aria-label={txt('screens.reliquaryScreen.slotShowIt', {
+          value: index + 1,
+          name: v.name,
+          value2: ROLE_LINE[role],
+        })}
       >
         <RelicPlate view={v} size={30} />
         <span className="min-w-0">
@@ -710,7 +730,9 @@ function CarrySlotRelic({
           <span
             className={`block truncate text-xs ${role === 'attuned' ? 'text-gold-200' : 'text-muted'}`}
           >
-            {role === 'attuned' ? 'Attuned: its effect and Inscriptions' : 'Lends its Inscriptions'}
+            {role === 'attuned'
+              ? txt('screens.reliquaryScreen.attunedItsEffectAnd')
+              : txt('screens.reliquaryScreen.lendsItsInscriptions')}
           </span>
           {v.wakes && (
             <span className="block truncate text-xs text-indigo-200" data-testid="slot-wakes">
@@ -726,11 +748,11 @@ function CarrySlotRelic({
           className="!gap-1 !px-1.5 !py-1 text-xs"
           onClick={() => onAttune(relic.uid)}
           sound={null}
-          aria-label={`Attune ${v.name}: move it to the first slot`}
-          title="Attune: move it to the first slot (its own effect wakes)"
+          aria-label={txt('screens.reliquaryScreen.attuneMoveItTo', { name: v.name })}
+          title={txt('screens.reliquaryScreen.attuneMoveItTo2')}
           data-testid="slot-attune"
         >
-          <Icon name="ascend" size={14} /> Attune
+          <Icon name="ascend" size={14} /> {txt('screens.reliquaryScreen.attune')}
         </Button>
       )}
       <Button
@@ -739,8 +761,8 @@ function CarrySlotRelic({
         className="!px-1.5 !py-1"
         onClick={() => onTakeOut(relic.uid)}
         sound={null}
-        aria-label={`Take ${v.name} out of the carry`}
-        title="Take it out of the carry"
+        aria-label={txt('screens.reliquaryScreen.takeOutOfThe', { name: v.name })}
+        title={txt('screens.reliquaryScreen.takeItOutOf')}
         data-testid="slot-remove"
       >
         <Icon name="close" size={15} />
@@ -757,7 +779,7 @@ function WakesChip({ text }: { text: string }) {
   return (
     <span
       className="inline-flex items-center gap-1 rounded-md border border-indigo-300/50 bg-indigo-950/40 px-1.5 py-0.5 text-xs font-semibold text-indigo-200"
-      title={`${text}: carried into any other fight, its own effect sleeps`}
+      title={txt('screens.reliquaryScreen.carriedIntoAnyOther', { text })}
       data-testid="relic-wakes"
     >
       <Icon name="moon" size={12} />
@@ -775,7 +797,7 @@ function WakesMark({ text }: { text: string }) {
   return (
     <span
       className="mr-0.5 flex shrink-0 items-center text-indigo-200"
-      title={`${text}: carried into any other fight, its own effect sleeps`}
+      title={txt('screens.reliquaryScreen.carriedIntoAnyOther', { text })}
       data-testid="tile-wakes"
     >
       <Icon name="moon" size={11} />
@@ -803,7 +825,7 @@ function RelicTile({
       onClick={onSelect}
       onPointerEnter={() => playUi('hover')}
       aria-pressed={selected}
-      aria-label={`${v.label}${place ? ` Carried in slot ${place.index + 1}: ${ROLE_LINE[place.role]}.` : ''}`}
+      aria-label={`${v.label}${place ? txt('screens.reliquaryScreen.carriedInSlot', { value: place.index + 1, value2: ROLE_LINE[place.role] }) : ''}`}
       className={`relative flex h-[3.75rem] min-w-0 items-center gap-2.5 rounded-xl border px-2 text-left transition-colors ${selected ? 'border-gold-400 bg-ink-700/90 shadow-[0_0_14px_rgb(245_184_61/0.25)]' : 'border-ink-600/80 bg-ink-900/70 hover:border-ink-500 hover:bg-ink-800'}`}
       data-relic={v.uid}
       data-testid="reliquary-tile"
@@ -825,7 +847,9 @@ function RelicTile({
           ) : v.inscriptions.length > 0 ? (
             v.inscriptions.map((i) => <TierBadge key={i.id} tier={i.tier} size="sm" />)
           ) : (
-            <span className="text-[0.75rem] text-muted">No Inscriptions</span>
+            <span className="text-[0.75rem] text-muted">
+              {txt('screens.reliquaryScreen.noInscriptions')}
+            </span>
           )}
         </span>
       </span>
@@ -867,7 +891,7 @@ function NothingToCraft() {
   const how = materialsHow();
   return (
     <div className="flex flex-col gap-3 text-sm" data-testid="craft-empty">
-      <p className="text-muted">Nothing to craft yet. What crafting costs comes from your runs:</p>
+      <p className="text-muted">{txt('screens.reliquaryScreen.nothingToCraftYet')}</p>
       <p className="flex items-start gap-2">
         <Icon
           name="shard"
@@ -876,7 +900,8 @@ function NothingToCraft() {
           style={{ color: SHARD_LOOK.color }}
         />
         <span>
-          <b className="text-text">Tuning Shards</b> pay for Inscribe, Retune and Ascend.{' '}
+          <b className="text-text">{txt('screens.reliquaryScreen.tuningShards')}</b>{' '}
+          {txt('screens.reliquaryScreen.payForInscribeRetune')}
           <span className="text-muted">{how.shards}</span>
         </span>
       </p>
@@ -888,7 +913,8 @@ function NothingToCraft() {
           style={{ color: TEAR_LOOK.color }}
         />
         <span>
-          <b className="text-text">Discord Tears</b> pay for a Dissonate.{' '}
+          <b className="text-text">{txt('screens.reliquaryScreen.discordTears')}</b>{' '}
+          {txt('screens.reliquaryScreen.payForADissonate')}
           <span className="text-muted">{how.tears}</span>
         </span>
       </p>
@@ -900,28 +926,28 @@ function EmptyDetail() {
   return (
     <Panel tone="solid" className="flex min-h-0 flex-col p-5" data-testid="reliquary-detail">
       <h2 className="font-display text-xl font-bold text-gold-200">
-        Relics that outlive their runs
+        {txt('screens.reliquaryScreen.relicsThatOutliveTheir')}
       </h2>
       <ul className="mt-3 flex flex-col gap-2.5 text-sm leading-relaxed text-text">
         <li className="flex gap-2">
           <Icon name="crown" size={16} className="mt-0.5 shrink-0 text-gold-300" />
           <span>
-            <b>Enshrine.</b> The Summary of a won Prelude, or of an Expedition that reached Movement
-            II, lets you keep one relic it found. It arrives with its first Inscriptions.
+            <b>{txt('screens.reliquaryScreen.enshrine')}</b>{' '}
+            {txt('screens.reliquaryScreen.theSummaryOfA')}
           </span>
         </li>
         <li className="flex gap-2">
           <Icon name="inscribe" size={16} className="mt-0.5 shrink-0 text-gold-300" />
           <span>
-            <b>Craft.</b> Inscribe, Retune and Ascend for Tuning Shards; each shows its cost, its
-            odds and its chance to Fracture first. Dissonate is the last gamble, for a Discord Tear.
+            <b>{txt('screens.reliquaryScreen.craft')}</b>{' '}
+            {txt('screens.reliquaryScreen.inscribeRetuneAndAscend')}
           </span>
         </li>
         <li className="flex gap-2">
           <Icon name="carry" size={16} className="mt-0.5 shrink-0 text-gold-300" />
           <span>
-            <b>Carry.</b> The relic in the first slot is attuned: its own effect and its
-            Inscriptions. The others lend their Inscriptions.
+            <b>{txt('screens.reliquaryScreen.carry')}</b>{' '}
+            {txt('screens.reliquaryScreen.theRelicInThe')}
           </span>
         </li>
       </ul>
@@ -982,7 +1008,7 @@ function RelicDetail({
       data-testid="reliquary-detail"
       data-relic={v.uid}
       role="region"
-      aria-label={`${v.name}: its effect, Inscriptions and Instability`}
+      aria-label={txt('screens.reliquaryScreen.itsEffectInscriptionsAnd', { name: v.name })}
     >
       <div ref={scroller} className="scroll-thin -mr-1 min-h-0 flex-1 overflow-y-auto pr-1">
         <div className="flex items-start gap-3">
@@ -1013,9 +1039,9 @@ function RelicDetail({
                 sound={null}
                 aria-disabled={carryProblem !== null || undefined}
                 data-testid="carry-toggle"
-                title={carryProblem ?? 'Carry it into your next run'}
+                title={carryProblem ?? txt('screens.reliquaryScreen.carryItIntoYour')}
               >
-                <Icon name="carry" size={15} /> Carry
+                <Icon name="carry" size={15} /> {txt('screens.reliquaryScreen.carry2')}
               </Button>
             )}
             {place && place.index > 0 && (
@@ -1026,7 +1052,7 @@ function RelicDetail({
                 sound={null}
                 data-testid="attune"
               >
-                <Icon name="ascend" size={15} /> Attune
+                <Icon name="ascend" size={15} /> {txt('screens.reliquaryScreen.attune')}
               </Button>
             )}
             {place && (
@@ -1037,7 +1063,7 @@ function RelicDetail({
                 sound={null}
                 data-testid="carry-toggle"
               >
-                <Icon name="close" size={14} /> Take out
+                <Icon name="close" size={14} /> {txt('screens.reliquaryScreen.takeOut')}
               </Button>
             )}
           </div>
@@ -1066,13 +1092,15 @@ function RelicDetail({
           <PanelLabel
             right={
               dormant ? (
-                <span className="text-muted">sleeps while it’s dormant</span>
+                <span className="text-muted">{txt('screens.reliquaryScreen.sleepsWhileItS')}</span>
               ) : v.empowered ? (
-                <span style={{ color: DISSONANCE_LOOK.empowered.color }}>Empowered</span>
+                <span style={{ color: DISSONANCE_LOOK.empowered.color }}>
+                  {txt('screens.reliquaryScreen.empowered')}
+                </span>
               ) : undefined
             }
           >
-            Its own effect
+            {txt('screens.reliquaryScreen.itsOwnEffect')}
           </PanelLabel>
           <p
             className={`mt-1 text-sm leading-relaxed ${dormant ? 'text-muted line-through decoration-1' : 'text-text'}`}
@@ -1082,7 +1110,8 @@ function RelicDetail({
           </p>
           {v.wasText && (
             <p className="mt-0.5 text-xs text-muted">
-              Before it was Empowered: <span className="line-through">{v.wasText}</span>
+              {txt('screens.reliquaryScreen.beforeItWasEmpowered')}{' '}
+              <span className="line-through">{v.wasText}</span>
             </p>
           )}
           {v.ownCurse && (
@@ -1095,7 +1124,11 @@ function RelicDetail({
                 className="mt-px shrink-0"
               />
               <span>
-                <b>{v.ownCurse.lifted ? 'Curse lifted: ' : 'Its curse: '}</b>
+                <b>
+                  {v.ownCurse.lifted
+                    ? txt('screens.reliquaryScreen.curseLifted')
+                    : txt('screens.reliquaryScreen.itsCurse')}
+                </b>
                 <span className={v.ownCurse.lifted || dormant ? 'line-through' : ''}>
                   {v.ownCurse.text}
                 </span>
@@ -1104,8 +1137,7 @@ function RelicDetail({
           )}
           {dormant && (
             <p className="mt-1.5 text-xs text-muted">
-              In slot {place!.index + 1} it’s dormant: its own effect sleeps, and it lends its
-              Inscriptions. Attune it to wake it.
+              {txt('screens.reliquaryScreen.inSlotItS', { value: place!.index + 1 })}
             </p>
           )}
         </div>
@@ -1123,12 +1155,15 @@ function RelicDetail({
           <PanelLabel
             right={
               <span className="font-mono text-xs text-muted">
-                {v.used} of {v.max}
-                {v.dissonant ? ' + 1 Dissonant' : ''}
+                {txt('screens.reliquaryScreen.of', {
+                  used: v.used,
+                  max: v.max,
+                  value: v.dissonant ? txt('screens.reliquaryScreen.n1Dissonant') : '',
+                })}
               </span>
             }
           >
-            Inscriptions
+            {txt('screens.reliquaryScreen.inscriptions')}
           </PanelLabel>
           <InscriptionList
             className="mt-1.5"
@@ -1138,7 +1173,13 @@ function RelicDetail({
           />
           {v.craftable && v.used < v.max && (
             <p className="mt-1.5 text-xs text-muted">
-              {v.max - v.used} {v.max - v.used === 1 ? 'slot' : 'slots'} free: Inscribe adds one.
+              {txt('screens.reliquaryScreen.freeInscribeAddsOne', {
+                value: v.max - v.used,
+                value2:
+                  v.max - v.used === 1
+                    ? txt('screens.reliquaryScreen.slot')
+                    : txt('screens.reliquaryScreen.slots'),
+              })}
             </p>
           )}
         </div>
@@ -1241,7 +1282,7 @@ function CraftPanel({
     <>
       <div
         role="tablist"
-        aria-label="Crafts"
+        aria-label={txt('screens.reliquaryScreen.crafts')}
         onKeyDown={onTabsKey}
         className="grid grid-cols-5 gap-1 rounded-lg bg-ink-900/80 p-1"
       >
@@ -1290,7 +1331,9 @@ function CraftPanel({
                   style={{ color: v.state.color }}
                 />
               )}
-              <span>{v.frozen} It still works, and can still be carried or released.</span>
+              <span>
+                {v.frozen} {txt('screens.reliquaryScreen.itStillWorksAnd')}
+              </span>
             </p>
           )
         ) : (
@@ -1346,7 +1389,7 @@ function CategoryChooser({
       <div
         className="grid grid-cols-5 gap-1"
         role="group"
-        aria-label="Choose a kind of Inscription"
+        aria-label={txt('screens.reliquaryScreen.chooseAKindOf')}
       >
         {options.map((o) => {
           const look = categoryLook(o.category);
@@ -1376,7 +1419,9 @@ function CategoryChooser({
                 <AstrolabeGlyph glyph={look.glyph} size={15} />
               )}
               {o.name}
-              <span className="font-mono font-normal text-muted">{o.left.length} left</span>
+              <span className="font-mono font-normal text-muted">
+                {txt('screens.reliquaryScreen.left', { length: o.left.length })}
+              </span>
             </button>
           );
         })}
@@ -1412,9 +1457,15 @@ function InscriptionChooser({
 }) {
   const options = inscriptionOptions(rq, relic, action);
   if (options.length === 0)
-    return <p className="mt-2 text-sm text-muted">It has no Inscription yet: Inscribe first.</p>;
+    return (
+      <p className="mt-2 text-sm text-muted">{txt('screens.reliquaryScreen.itHasNoInscription')}</p>
+    );
   return (
-    <ul className="mt-2 flex flex-col gap-1" role="group" aria-label="Choose an Inscription">
+    <ul
+      className="mt-2 flex flex-col gap-1"
+      role="group"
+      aria-label={txt('screens.reliquaryScreen.chooseAnInscription')}
+    >
       {options.map((o) => {
         const chosen = arg === o.index;
         return (
@@ -1423,7 +1474,7 @@ function InscriptionChooser({
               type="button"
               aria-pressed={chosen}
               aria-disabled={o.blocked !== null || undefined}
-              aria-label={`${o.row.label} ${o.blocked ?? (action === 'ascend' ? `Rises to T${o.to}: ${o.pText}.` : `A higher value: ${o.pText}.`)}`}
+              aria-label={`${o.row.label} ${o.blocked ?? (action === 'ascend' ? txt('screens.reliquaryScreen.risesToT', { to: o.to, pText: o.pText }) : txt('screens.reliquaryScreen.aHigherValue', { pText: o.pText }))}`}
               onClick={() => (o.blocked ? onRefuse(o.blocked) : onArg(o.index))}
               className={`flex w-full items-center gap-2 rounded-lg border px-2 py-1 text-left transition-colors ${o.blocked ? 'cursor-not-allowed border-dashed border-ink-600 bg-ink-950/40' : chosen ? 'border-gold-400 bg-ink-700' : 'border-ink-600 bg-ink-900/70 hover:bg-ink-800'}`}
               data-index={o.index}
@@ -1448,11 +1499,13 @@ function InscriptionChooser({
               </span>
               {o.blocked ? null : action === 'ascend' ? (
                 <span className="shrink-0 text-[0.75rem] text-muted">
-                  → T{o.to} <b className="font-mono text-gold-200">{o.pText}</b>
+                  {txt('screens.reliquaryScreen.t')}
+                  {o.to} <b className="font-mono text-gold-200">{o.pText}</b>
                 </span>
               ) : (
                 <span className="shrink-0 text-[0.75rem] text-muted">
-                  {o.row.rangeText} · <b className="font-mono text-gold-200">{o.pText}</b> higher
+                  {o.row.rangeText} · <b className="font-mono text-gold-200">{o.pText}</b>{' '}
+                  {txt('screens.reliquaryScreen.higher')}
                 </span>
               )}
             </button>
@@ -1515,10 +1568,15 @@ function PreviewBox({ preview: p, rq }: { preview: CraftPreview; rq: Reliquary }
     >
       <dl className="grid grid-cols-3 gap-2 text-xs">
         <div>
-          <dt className="text-[0.75rem] font-semibold uppercase tracking-wider text-muted">Cost</dt>
+          <dt className="text-[0.75rem] font-semibold uppercase tracking-wider text-muted">
+            {txt('screens.reliquaryScreen.cost')}
+          </dt>
           <dd
             className={`mt-0.5 flex items-center gap-1 font-mono text-sm font-bold ${p.canPay ? 'text-text' : 'text-orange-200'}`}
-            title={`${p.costText}; you have ${tearCost ? tearsText(rq.tears) : shardsText(rq.shards)}`}
+            title={txt('screens.reliquaryScreen.youHave', {
+              costText: p.costText,
+              value: tearCost ? tearsText(rq.tears) : shardsText(rq.shards),
+            })}
           >
             <Icon
               name={tearCost ? 'tear' : 'shard'}
@@ -1526,23 +1584,25 @@ function PreviewBox({ preview: p, rq }: { preview: CraftPreview; rq: Reliquary }
               style={{ color: tearCost ? TEAR_LOOK.color : SHARD_LOOK.color }}
             />
             {tearCost ? p.cost.tears : p.cost.shards}
-            <span className="text-xs font-normal text-muted">of {have}</span>
+            <span className="text-xs font-normal text-muted">
+              {txt('screens.reliquaryScreen.of2', { have })}
+            </span>
           </dd>
         </div>
         <div>
           <dt className="text-[0.75rem] font-semibold uppercase tracking-wider text-muted">
-            Fracture
+            {txt('screens.reliquaryScreen.fracture')}
           </dt>
           <dd
             className={`mt-0.5 font-mono text-sm font-bold ${p.odds.fracture > 0 ? 'text-orange-200' : 'text-text'}`}
             data-testid="preview-fracture"
           >
-            {p.action === 'dissonate' ? 'none' : p.fractureText}
+            {p.action === 'dissonate' ? txt('screens.reliquaryScreen.none') : p.fractureText}
           </dd>
         </div>
         <div>
           <dt className="text-[0.75rem] font-semibold uppercase tracking-wider text-muted">
-            Instability
+            {txt('screens.reliquaryScreen.instability')}
           </dt>
           <dd className="mt-0.5 font-mono text-sm font-bold text-text">
             {p.instability.from === p.instability.to
@@ -1551,7 +1611,7 @@ function PreviewBox({ preview: p, rq }: { preview: CraftPreview; rq: Reliquary }
           </dd>
           {p.action !== 'dissonate' && (
             <dd className="text-[0.75rem] leading-tight text-muted">
-              next craft{' '}
+              {txt('screens.reliquaryScreen.nextCraft')}
               <b className={p.nextFracture > 0 ? 'text-orange-200' : 'text-text'}>
                 {oddsText(p.nextFracture)}
               </b>
@@ -1560,17 +1620,24 @@ function PreviewBox({ preview: p, rq }: { preview: CraftPreview; rq: Reliquary }
         </div>
       </dl>
       <p className="sr-only">
-        Costs {p.costText}; you have {tearCost ? tearsText(rq.tears) : shardsText(rq.shards)}.
+        {txt('screens.reliquaryScreen.costsYouHave', {
+          costText: p.costText,
+          value: tearCost ? tearsText(rq.tears) : shardsText(rq.shards),
+        })}
       </p>
       {p.chances.length > 0 && p.overall && (
         <p className="mt-2 border-t border-ink-600/70 pt-1.5 text-[0.75rem] text-muted">
-          If it doesn’t Fracture:
+          {txt('screens.reliquaryScreen.ifItDoesnT')}
         </p>
       )}
       {p.chances.length > 0 && (
         <ul
           className={`flex flex-col gap-1 ${p.overall ? 'mt-1' : 'mt-2 border-t border-ink-600/70 pt-2'}`}
-          aria-label={p.overall ? 'Odds if it doesn’t Fracture' : 'Odds'}
+          aria-label={
+            p.overall
+              ? txt('screens.reliquaryScreen.oddsIfItDoesn')
+              : txt('screens.reliquaryScreen.odds')
+          }
         >
           {p.chances.map((c) => {
             const look = chanceLook(c);
@@ -1583,7 +1650,9 @@ function PreviewBox({ preview: p, rq }: { preview: CraftPreview; rq: Reliquary }
           className="mt-1.5 text-[0.75rem] font-semibold text-orange-100"
           data-testid="preview-overall"
         >
-          Overall: {p.overall.map((o) => `${o.label} ${o.text}`).join(', ')}.
+          {txt('screens.reliquaryScreen.overall', {
+            overall: p.overall.map((o) => `${o.label} ${o.text}`).join(', '),
+          })}
         </p>
       )}
       {p.stakes.length > 0 && (
@@ -1746,11 +1815,13 @@ function ReleaseBody({ relic, onRelease }: { relic: ReliquaryRelic; onRelease():
           style={{ color: SHARD_LOOK.color }}
         />
         <span>
-          Releasing it gives <b className="text-gold-200">{r.line}</b>
+          {txt('screens.reliquaryScreen.releasingItGives')}{' '}
+          <b className="text-gold-200">{r.line}</b>
         </span>
       </p>
       <Button variant="danger" onClick={onRelease} sound="click" data-testid="release-open">
-        <Icon name="release" size={16} /> Release · {shardsText(r.total)}
+        <Icon name="release" size={16} />{' '}
+        {txt('screens.reliquaryScreen.release', { shardsText: shardsText(r.total) })}
       </Button>
     </div>
   );
@@ -1810,7 +1881,11 @@ export function ReliquaryScreen() {
       onRelease={(uid) => useProfile.getState().releaseRelic(uid)}
       onCarry={(uids) => useProfile.getState().setCarry(uids)}
       onBack={back}
-      backTo={previous === 'run' ? 'Prep' : 'The Loom'}
+      backTo={
+        previous === 'run'
+          ? txt('screens.reliquaryScreen.prep')
+          : txt('screens.reliquaryScreen.theLoom')
+      }
       runUnderWay={runUnderWay}
       onRules={() => setCodex(true)}
     />

@@ -21,6 +21,7 @@ import {
   type HarmonyHave,
   type HarmonyNeed,
 } from './rosterModel';
+import { t as txt } from '../text';
 
 export interface DraftViewProps {
   run: RunState;
@@ -56,11 +57,13 @@ export function DraftView({ run, onPick, onReroll }: DraftViewProps) {
   return (
     <ScreenFrame tone="gold">
       <div className="mx-auto max-w-6xl px-6 py-8">
-        <ScreenHeader eyebrow="A motif to weave" title={reason.title}>
+        <ScreenHeader eyebrow={txt('screens.draftScreen.aMotifToWeave')} title={reason.title}>
           <p className="mt-2 text-sm text-muted">
             {reason.blurb}
             {options.length >= 4 && Run.relicActive(run, 'star_chart') && (
-              <span className="ml-1.5 text-gold-200">Your Star Chart adds a fourth choice.</span>
+              <span className="ml-1.5 text-gold-200">
+                {txt('screens.draftScreen.yourStarChartAdds')}
+              </span>
             )}
           </p>
         </ScreenHeader>
@@ -83,9 +86,11 @@ export function DraftView({ run, onPick, onReroll }: DraftViewProps) {
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Button onClick={onReroll} disabled={rerolls <= 0}>
-            <Icon name="reroll" size={16} /> Reroll
-            <span className="font-mono text-xs text-muted">{rerolls} left</span>
-            <KeyCap label="R" />
+            <Icon name="reroll" size={16} /> {txt('screens.draftScreen.reroll')}
+            <span className="font-mono text-xs text-muted">
+              {txt('screens.draftScreen.left', { rerolls })}
+            </span>
+            <KeyCap label={txt('screens.draftScreen.r')} />
           </Button>
           <Button
             variant="ghost"
@@ -94,7 +99,9 @@ export function DraftView({ run, onPick, onReroll }: DraftViewProps) {
             data-testid="draft-skip"
             data-heal={skipHeal(run)}
           >
-            {skipHeal(run) > 0 ? 'Skip: heal the party a little' : unforgivingLine('skip')}
+            {skipHeal(run) > 0
+              ? txt('screens.draftScreen.skipHealTheParty')
+              : unforgivingLine('skip')}
           </Button>
         </div>
         <OwnedStrip run={run} />
@@ -106,7 +113,9 @@ export function DraftView({ run, onPick, onReroll }: DraftViewProps) {
 /** " Needs: Blood Tithe (owned), Taut Release (missing)." for a Harmony card's label. */
 export function needsSentence(needs: readonly HarmonyNeed[]): string {
   if (needs.length === 0) return '';
-  return ` Needs: ${needs.map((n) => `${n.text} (${n.owned ? 'owned' : 'missing'})`).join(', ')}.`;
+  return txt('screens.draftScreen.needs2', {
+    needs: needs.map((n) => `${n.text} (${n.owned ? 'owned' : 'missing'})`).join(', '),
+  });
 }
 
 /** What a Harmony's prerequisites are checked against: the run's motifs, songs and party. */
@@ -167,7 +176,16 @@ export function MotifCard({
       aria-disabled={disabled || undefined}
       aria-label={
         label ??
-        `${def.name}, ${rarity.label} ${cat.label} motif${option.upgrade ? `, upgrade to level ${option.level}` : ''}. ${motifLine(def.id, option.level)}${needsSentence(needs)}`
+        txt('screens.draftScreen.motif', {
+          name: def.name,
+          label: rarity.label,
+          label2: cat.label,
+          value: option.upgrade
+            ? txt('screens.draftScreen.upgradeToLevel', { level: option.level })
+            : '',
+          motifLine: motifLine(def.id, option.level),
+          needsSentence: needsSentence(needs),
+        })
       }
       className={`group flex h-full w-full flex-col rounded-2xl border-2 bg-ink-800/90 p-5 text-left shadow-xl shadow-black/40 transition-all ${disabled ? 'cursor-not-allowed' : 'hover:-translate-y-1.5 hover:bg-ink-700/90'} ${dim ? 'opacity-55 saturate-50' : ''}`}
       style={{ borderColor: rarity.color }}
@@ -190,35 +208,43 @@ export function MotifCard({
             <Chip
               color="var(--color-gold-200)"
               icon="link"
-              title={`A Harmony: offered once you own ${harmonyNeeds(def.id).join(' and ')}`}
+              title={txt('screens.draftScreen.aHarmonyOfferedOnce', {
+                harmonyNeeds: harmonyNeeds(def.id).join(' and '),
+              })}
             >
-              Harmony
+              {txt('screens.draftScreen.harmony')}
             </Chip>
           </span>
         )}
         {option.upgrade ? (
           <Chip color="var(--color-gold-300)" icon="arrow">
-            Upgrade · level {option.level - 1} → {option.level}
+            {txt('screens.draftScreen.upgradeLevel', {
+              value: option.level - 1,
+              level: option.level,
+            })}
           </Chip>
         ) : (
           <Chip color="var(--color-heal)" icon="star">
-            New
+            {txt('screens.draftScreen.new')}
           </Chip>
         )}
       </div>
       <p className="mt-4 text-base leading-relaxed text-text">{motifLine(def.id, option.level)}</p>
       {prev && (
         <p className="mt-2 text-xs leading-relaxed text-muted">
-          Now: <span className="line-through decoration-ink-500">{prev}</span>
+          {txt('screens.draftScreen.now')}{' '}
+          <span className="line-through decoration-ink-500">{prev}</span>
         </p>
       )}
       <div className="mt-3 flex items-center gap-2 text-xs text-muted">
-        Level <Pips level={option.level} max={max} color={cat.color} />
+        {txt('screens.draftScreen.level')} <Pips level={option.level} max={max} color={cat.color} />
       </div>
       {needs.length > 0 && (
         // Phase 5g: what the Harmony needs, each owned (a check) or missing (a cross), in words.
         <div className="mt-3" data-testid="harmony-needs">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gold-200">Needs</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-gold-200">
+            {txt('screens.draftScreen.needs')}
+          </p>
           <ul className="mt-1 flex flex-col gap-0.5">
             {needs.map((n) => (
               <li
@@ -229,7 +255,11 @@ export function MotifCard({
               >
                 <Icon name={n.owned ? 'check' : 'close'} size={13} />
                 {n.text}
-                {!n.owned && <span className="text-[0.75rem] italic">missing</span>}
+                {!n.owned && (
+                  <span className="text-[0.75rem] italic">
+                    {txt('screens.draftScreen.missing')}
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -252,11 +282,18 @@ export function MotifCard({
             >
               <Icon name={ready ? 'check' : 'link'} size={13} className="mt-px shrink-0" />
               <span className="min-w-0">
-                <span className="block font-semibold">Harmony → {l.harmony.name}</span>
+                <span className="block font-semibold">
+                  {txt('screens.draftScreen.harmony2', { name: l.harmony.name })}
+                </span>
                 {rest && (
                   <span className="block text-gold-200/80">
-                    with {rest}
-                    {ready && <span className="text-heal"> · you have the rest</span>}
+                    {txt('screens.draftScreen.with', { rest })}
+                    {ready && (
+                      <span className="text-heal">
+                        {' '}
+                        {txt('screens.draftScreen.youHaveTheRest')}
+                      </span>
+                    )}
                   </span>
                 )}
               </span>
@@ -267,8 +304,8 @@ export function MotifCard({
           <p className="mb-2 flex items-center gap-1.5 text-xs text-heal">
             <Icon name="check" size={13} />
             {req.aura
-              ? `Works with your ${auraDef(req.aura).name} aura`
-              : `Works with ${heroDef(req.hero!).name} in your party`}
+              ? txt('screens.draftScreen.worksWithYourAura', { name: auraDef(req.aura).name })
+              : txt('screens.draftScreen.worksWithInYour', { name: heroDef(req.hero!).name })}
           </p>
         )}
         <div className="flex flex-wrap gap-1.5">
@@ -284,7 +321,9 @@ export function MotifCard({
       </div>
       {action ?? (
         <span className="mt-4 rounded-lg bg-gold-400 py-2 text-center text-sm font-semibold text-ink-950 opacity-90 group-hover:opacity-100">
-          {option.upgrade ? 'Strengthen' : 'Weave in'}
+          {option.upgrade
+            ? txt('screens.draftScreen.strengthen')
+            : txt('screens.draftScreen.weaveIn')}
         </span>
       )}
     </button>
@@ -294,9 +333,12 @@ export function MotifCard({
 function OwnedStrip({ run }: { run: RunState }) {
   if (run.motifs.length === 0) return null;
   return (
-    <section className="mx-auto mt-10 max-w-4xl" aria-label="Motifs you own">
+    <section
+      className="mx-auto mt-10 max-w-4xl"
+      aria-label={txt('screens.draftScreen.motifsYouOwn')}
+    >
       <h2 className="text-center font-display text-sm font-bold uppercase tracking-[0.25em] text-muted">
-        Your motifs
+        {txt('screens.draftScreen.yourMotifs')}
       </h2>
       <ul className="mt-3 flex flex-wrap justify-center gap-2">
         {run.motifs.map((m) => {

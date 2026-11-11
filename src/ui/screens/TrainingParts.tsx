@@ -13,6 +13,7 @@ import { VARIANT_SOUNDS } from '../kit/variantLook';
 import { useUi } from '../store';
 import type { TechniqueKey } from '../types';
 import { defaultName, slotKey, trainingOptions } from './variantsModel';
+import { t } from '../text';
 
 /**
  * The Training Grounds' tools (split from the screen, so the UI lab can show them without the 3D
@@ -56,11 +57,11 @@ function TrainingTechniques({
     <div className="mt-2" data-testid="training-techniques">
       <p
         className="flex items-baseline justify-between gap-2 text-xs font-semibold uppercase tracking-wider text-muted"
-        title="Prep keeps your own choice"
+        title={t('screens.trainingParts.prepKeepsYourOwn')}
       >
-        Techniques
+        {t('screens.trainingParts.techniques')}
         <span className="text-[0.75rem] font-normal normal-case tracking-normal">
-          every variant open
+          {t('screens.trainingParts.everyVariantOpen')}
         </span>
       </p>
       <div className="mt-1 flex flex-col gap-1">
@@ -86,7 +87,7 @@ function TrainingTechniques({
               >
                 {options.map((o) => (
                   <option key={o.id ?? 'default'} value={o.id ?? ''}>
-                    {o.id ? o.name : `${o.name} (default)`}
+                    {o.id ? o.name : t('screens.trainingParts.default', { name: o.name })}
                   </option>
                 ))}
               </select>
@@ -130,7 +131,7 @@ export function SpawnPalette({
     <Panel
       // Never over the Weaver bar: on a short screen the tools scroll instead.
       className="pointer-events-auto absolute right-4 top-4 max-h-[calc(100%-12rem)] w-60 overflow-y-auto p-3"
-      aria-label="Spawn palette"
+      aria-label={t('screens.trainingParts.spawnPalette')}
     >
       <button
         type="button"
@@ -138,13 +139,15 @@ export function SpawnPalette({
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
-        Training tools
-        <span className="text-xs font-normal text-muted">{open ? 'hide' : 'show'}</span>
+        {t('screens.trainingParts.trainingTools')}
+        <span className="text-xs font-normal text-muted">
+          {open ? t('screens.trainingParts.hide') : t('screens.trainingParts.show')}
+        </span>
       </button>
       {open && (
         <>
           <label className="mt-2 block text-xs font-semibold uppercase tracking-wider text-muted">
-            Chords
+            {t('screens.trainingParts.chords')}
             <select
               className="mt-1 block w-full rounded-md border border-ink-500 bg-ink-800 px-2 py-1 text-xs font-medium normal-case tracking-normal text-text"
               value={loadout}
@@ -163,7 +166,9 @@ export function SpawnPalette({
           </label>
           <PresetSongs id={loadout} />
           <TrainingTechniques techniques={techniques} onChange={onTechnique} />
-          <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-muted">Spawn</p>
+          <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-muted">
+            {t('screens.trainingParts.spawn')}
+          </p>
           <div className="mt-1 grid grid-cols-2 gap-1.5">
             {CONTENT.enemies.map((e) => (
               <button
@@ -179,17 +184,17 @@ export function SpawnPalette({
           </div>
           <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-text">
             <input type="checkbox" checked={elite} onChange={(e) => setElite(e.target.checked)} />
-            Spawn as elite
+            {t('screens.trainingParts.spawnAsElite')}
           </label>
           <div className="mt-2.5 flex flex-col gap-1.5 border-t border-ink-600/60 pt-2.5">
             <Button size="sm" onClick={() => debug({ op: 'killEnemies' })}>
-              <Icon name="skull" size={14} /> Kill all enemies
+              <Icon name="skull" size={14} /> {t('screens.trainingParts.killAllEnemies')}
             </Button>
             <Button size="sm" onClick={() => debug({ op: 'healParty' })}>
-              <Icon name="heart" size={14} /> Heal party
+              <Icon name="heart" size={14} /> {t('screens.trainingParts.healParty')}
             </Button>
             <Button size="sm" onClick={() => debug({ op: 'setResonance', value: 100 })}>
-              <Icon name="note" size={14} /> Resonance 100
+              <Icon name="note" size={14} /> {t('screens.trainingParts.resonance100')}
             </Button>
             <Button
               size="sm"
@@ -199,16 +204,16 @@ export function SpawnPalette({
                 setCaller(caller + 1);
               }}
             >
-              <Icon name="call" size={14} /> Stage a call
+              <Icon name="call" size={14} /> {t('screens.trainingParts.stageACall')}
             </Button>
             <Button size="sm" onClick={() => debug({ op: 'forceHold', slot: 1 })}>
-              <Icon name="fermata" size={14} /> Stage a Fermata hold
+              <Icon name="fermata" size={14} /> {t('screens.trainingParts.stageAFermataHold')}
             </Button>
             <Button size="sm" onClick={() => debug({ op: 'spawnDummies', count: 20 })}>
-              + 20 dummies
+              {t('screens.trainingParts.n20Dummies')}
             </Button>
             <Button size="sm" onClick={() => debug({ op: 'clearDummies' })}>
-              Clear dummies
+              {t('screens.trainingParts.clearDummies')}
             </Button>
           </div>
         </>

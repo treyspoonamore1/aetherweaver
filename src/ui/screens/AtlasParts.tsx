@@ -38,6 +38,7 @@ import {
   type WeeklyPanelInput,
   type WeeklyPanelView,
 } from './atlasModel';
+import { t as txt } from '../text';
 
 const LOOK = STATION_LOOK.atlas;
 
@@ -64,7 +65,7 @@ export function StarPips({ lit, of, size = 14 }: { lit: number; of: number; size
     <span
       className="inline-flex items-center gap-0.5"
       role="img"
-      aria-label={`${lit} of ${of} stars`}
+      aria-label={txt('screens.atlasParts.ofStars', { lit, of })}
       data-lit={lit}
     >
       {Array.from({ length: of }, (_, i) => (
@@ -106,7 +107,7 @@ export function StarChart({
         viewBox={`0 0 ${CHART_W} ${CHART_H}`}
         className="h-auto w-full"
         role="group"
-        aria-label="The star chart"
+        aria-label={txt('screens.atlasParts.theStarChart')}
       >
         <defs>
           <radialGradient id="atlas-sky" cx="50%" cy="40%" r="75%">
@@ -165,7 +166,11 @@ export function StarChart({
                 key={s.id}
                 role="button"
                 tabIndex={0}
-                aria-label={`${s.name}: ${s.lit} of ${s.of} stars`}
+                aria-label={txt('screens.atlasParts.ofStars2', {
+                  name: s.name,
+                  lit: s.lit,
+                  of: s.of,
+                })}
                 aria-pressed={sel}
                 data-echo={s.id}
                 data-lit={s.lit}
@@ -268,7 +273,9 @@ export function EchoCard({
       </div>
       <p className="text-sm leading-snug text-text">{card.text}</p>
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted">The route</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+          {txt('screens.atlasParts.theRoute')}
+        </p>
         <ol className="mt-1 flex flex-col gap-0.5 text-sm text-text" data-testid="echo-legs">
           {card.legs.map((l, i) => (
             <li key={i} className="flex gap-2">
@@ -280,7 +287,9 @@ export function EchoCard({
       </div>
       {card.twists.length > 0 && (
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted">Its twists</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+            {txt('screens.atlasParts.itsTwists')}
+          </p>
           <ul className="mt-1 flex flex-wrap gap-1.5" data-testid="echo-twists">
             {card.twists.map((t) => (
               <li
@@ -308,7 +317,9 @@ export function EchoCard({
               {s.rule}
               <span className="block text-xs text-muted">{s.reward}</span>
             </span>
-            <span className="sr-only">{s.lit ? '(lit)' : '(not lit)'}</span>
+            <span className="sr-only">
+              {s.lit ? txt('screens.atlasParts.lit') : txt('screens.atlasParts.notLit')}
+            </span>
           </li>
         ))}
       </ul>
@@ -318,7 +329,7 @@ export function EchoCard({
         </span>
         {onBegin && !canBegin && (
           <span className="text-xs text-muted" data-testid="echo-begin-note">
-            A run is saved: continue or end it at the Gate first.
+            {txt('screens.atlasParts.aRunIsSaved')}
           </span>
         )}
         {onBegin && (
@@ -329,7 +340,7 @@ export function EchoCard({
             sound="confirm"
             data-testid="echo-begin"
           >
-            <Icon name="play" size={14} /> Begin
+            <Icon name="play" size={14} /> {txt('screens.atlasParts.begin')}
           </Button>
         )}
       </div>
@@ -356,10 +367,11 @@ function KeepsakeChip({ k }: { k: KeepsakeView }) {
           <b className={`min-w-0 ${k.earned ? 'text-text' : 'text-muted'}`}>{k.name}</b>
           <span className="shrink-0 whitespace-nowrap text-xs text-muted">
             {k.earned ? (
-              '· Earned'
+              txt('screens.atlasParts.earned')
             ) : (
               <>
-                <Icon name="lock" size={11} className="-mt-0.5 inline" /> Locked
+                <Icon name="lock" size={11} className="-mt-0.5 inline" />{' '}
+                {txt('screens.atlasParts.locked')}
               </>
             )}
           </span>
@@ -431,7 +443,7 @@ export function WeeklyPanel({ input, initialAdding = false }: WeeklyPanelProps) 
           className="flex items-center gap-2 font-display text-xl font-bold"
           style={{ color: LOOK.light }}
         >
-          <Icon name="week" size={20} /> This Week’s Song
+          <Icon name="week" size={20} /> {txt('screens.atlasParts.thisWeekSSong')}
         </h2>
         <p className="font-mono text-sm text-muted">
           {v.title} · <span data-testid="weekly-left">{v.left}</span>
@@ -455,31 +467,31 @@ export function WeeklyPanel({ input, initialAdding = false }: WeeklyPanelProps) 
           sound="confirm"
           data-testid="weekly-begin"
         >
-          <Icon name="play" size={14} /> Begin
+          <Icon name="play" size={14} /> {txt('screens.atlasParts.begin')}
         </Button>
         <Button
           disabled={!v.canShare}
           onClick={() => input.shareCode && atlasActions().shareWeekly(input.shareCode)}
           data-testid="weekly-share"
         >
-          <Icon name="share" size={14} /> Share
+          <Icon name="share" size={14} /> {txt('screens.atlasParts.share')}
         </Button>
         <Button
           onClick={() => setAdding((a) => !a)}
           aria-expanded={adding}
           data-testid="weekly-add"
         >
-          <Icon name="mend" size={14} /> Add a code
+          <Icon name="mend" size={14} /> {txt('screens.atlasParts.addACode')}
         </Button>
         <Button onClick={() => file.current?.click()} data-testid="weekly-open">
-          <Icon name="upload" size={14} /> Open a replay
+          <Icon name="upload" size={14} /> {txt('screens.atlasParts.openAReplay')}
         </Button>
         <input
           ref={file}
           type="file"
           accept=".awrun"
           className="hidden"
-          aria-label="A replay file"
+          aria-label={txt('screens.atlasParts.aReplayFile')}
           onChange={(e) => {
             const f = e.currentTarget.files?.[0];
             if (f) atlasActions().openReplay(f, code.trim() || null);
@@ -494,28 +506,28 @@ export function WeeklyPanel({ input, initialAdding = false }: WeeklyPanelProps) 
           data-testid="weekly-add-form"
         >
           <label className="flex max-w-full flex-col text-xs text-muted">
-            Code
+            {txt('screens.atlasParts.code')}
             <input
               value={code}
               onChange={(e) => setCode(e.currentTarget.value)}
-              placeholder="AW1-…"
+              placeholder={txt('screens.atlasParts.aw1')}
               // Wide enough for a whole share code in the field's own mono text.
               style={{ width: `calc(${SHARE_LENGTH}ch + 1.5rem)`, maxWidth: '100%' }}
               className="mt-0.5 rounded-md border border-ink-500 bg-ink-900 px-2 py-1 font-mono text-sm text-text"
             />
           </label>
           <label className="flex flex-col text-xs text-muted">
-            Name
+            {txt('screens.atlasParts.name')}
             <input
               value={name}
               maxLength={24}
               onChange={(e) => setName(e.currentTarget.value)}
-              placeholder="Who sent it"
+              placeholder={txt('screens.atlasParts.whoSentIt')}
               className="mt-0.5 w-40 rounded-md border border-ink-500 bg-ink-900 px-2 py-1 text-sm text-text"
             />
           </label>
           <Button type="submit" size="sm" variant="primary">
-            Add
+            {txt('screens.atlasParts.add')}
           </Button>
         </form>
       )}
@@ -532,7 +544,7 @@ export function WeeklyPanel({ input, initialAdding = false }: WeeklyPanelProps) 
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.round(v.progress.fraction * 100)}
-            aria-label="Verifying the replay"
+            aria-label={txt('screens.atlasParts.verifyingTheReplay')}
             className="mt-1 h-2 overflow-hidden rounded-full border border-ink-500 bg-ink-900"
           >
             <div
@@ -563,15 +575,19 @@ export function WeeklyPanel({ input, initialAdding = false }: WeeklyPanelProps) 
       )}
       {v.rows.length > 0 && (
         <table className="mt-3 w-full text-sm" data-testid="weekly-board">
-          <caption className="sr-only">This week’s results, best first</caption>
+          <caption className="sr-only">{txt('screens.atlasParts.thisWeekSResults')}</caption>
           <thead>
             <tr className="text-left text-xs uppercase tracking-wider text-muted">
               <th className="py-1 pr-2 font-semibold">#</th>
-              <th className="py-1 pr-2 font-semibold">Who</th>
-              <th className="py-1 pr-2 text-right font-semibold">Score</th>
-              <th className="py-1 pr-2 font-semibold">Result</th>
-              <th className="py-1 pr-2 text-right font-semibold">Fighting</th>
-              <th className="py-1 font-semibold">Status</th>
+              <th className="py-1 pr-2 font-semibold">{txt('screens.atlasParts.who')}</th>
+              <th className="py-1 pr-2 text-right font-semibold">
+                {txt('screens.atlasParts.score')}
+              </th>
+              <th className="py-1 pr-2 font-semibold">{txt('screens.atlasParts.result')}</th>
+              <th className="py-1 pr-2 text-right font-semibold">
+                {txt('screens.atlasParts.fighting')}
+              </th>
+              <th className="py-1 font-semibold">{txt('screens.atlasParts.status')}</th>
             </tr>
           </thead>
           <tbody>
@@ -590,7 +606,9 @@ export function WeeklyPanel({ input, initialAdding = false }: WeeklyPanelProps) 
                   {r.who}
                 </td>
                 <td className="py-1.5 pr-2 text-right font-mono text-text">{r.score ?? '—'}</td>
-                <td className="py-1.5 pr-2 text-muted">{r.result ?? 'Can’t be read'}</td>
+                <td className="py-1.5 pr-2 text-muted">
+                  {r.result ?? txt('screens.atlasParts.canTBeRead')}
+                </td>
                 <td className="py-1.5 pr-2 text-right font-mono text-muted">{r.time ?? '—'}</td>
                 <td className="py-1.5">
                   <StatusChip look={r.status} />
@@ -650,8 +668,8 @@ export function AtlasScreenView({
     <ScreenFrame tone="navy">
       <div className="mx-auto max-w-7xl px-6 py-6" data-testid="atlas-screen">
         <ScreenHeader
-          eyebrow="The Loom"
-          title="The Atlas of Echoes"
+          eyebrow={txt('screens.atlasParts.theLoom')}
+          title={txt('screens.atlasParts.theAtlasOfEchoes2')}
           right={
             <div className="flex items-center gap-3">
               <span
@@ -662,7 +680,7 @@ export function AtlasScreenView({
                 <Icon name="atlas" size={16} /> {v.total}
               </span>
               <Button variant="secondary" onClick={onBack} sound="back" data-testid="atlas-back">
-                <Icon name="back" size={16} /> Back
+                <Icon name="back" size={16} /> {txt('screens.atlasParts.back')}
               </Button>
             </div>
           }
@@ -721,14 +739,16 @@ export function AtlasScreenView({
                   </ul>
                   <p className="mt-1.5 text-xs text-muted">
                     {k.rewardLine}
-                    {k.reward?.earned && <b className="text-text"> · Earned</b>}
+                    {k.reward?.earned && (
+                      <b className="text-text"> {txt('screens.atlasParts.earned')}</b>
+                    )}
                   </p>
                 </Panel>
               ))}
             </div>
             <div>
               <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">
-                Keepsakes
+                {txt('screens.atlasParts.keepsakes')}
               </h2>
               <ul
                 className="mt-1.5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4"
@@ -761,7 +781,7 @@ export function AtlasScreenView({
               data-week=""
             >
               <Icon name="week" size={16} className="-mt-0.5 mr-1.5 inline" />
-              This Week’s Song isn’t here yet.
+              {txt('screens.atlasParts.thisWeekSSong2')}
             </Panel>
           )}
         </div>
@@ -795,7 +815,7 @@ export function PrepEchoPanel({ view }: { view: PrepEchoView }) {
       <div className="mt-2 grid gap-3 sm:grid-cols-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-muted">
-            Fixed by the Echo
+            {txt('screens.atlasParts.fixedByTheEcho')}
           </p>
           <ul
             className="mt-1 flex flex-col gap-0.5 text-sm text-text"
@@ -810,11 +830,11 @@ export function PrepEchoPanel({ view }: { view: PrepEchoView }) {
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-muted">
-            Off in this Echo
+            {txt('screens.atlasParts.offInThisEcho')}
           </p>
           <ul className="mt-1 flex flex-col gap-0.5 text-sm text-text" data-testid="prep-echo-off">
             {view.off.length === 0 && view.forced.length === 0 && (
-              <li className="text-muted">Nothing</li>
+              <li className="text-muted">{txt('screens.atlasParts.nothing')}</li>
             )}
             {view.off.map((f) => (
               <li key={f} className="flex items-start gap-1.5">
@@ -823,14 +843,16 @@ export function PrepEchoPanel({ view }: { view: PrepEchoView }) {
             ))}
             {view.forced.map((l) => (
               <li key={l.id} className="flex items-start gap-1.5" data-forced={l.id}>
-                <Icon name="dissonance" size={12} className="mt-1 shrink-0 text-muted" /> {l.name}{' '}
-                always on (no points)
+                <Icon name="dissonance" size={12} className="mt-1 shrink-0 text-muted" />{' '}
+                {txt('screens.atlasParts.alwaysOnNoPoints', { name: l.name })}
               </li>
             ))}
           </ul>
         </div>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted">Yours</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+            {txt('screens.atlasParts.yours')}
+          </p>
           <p className="mt-1 text-sm text-text">{view.yours}</p>
           <ul className="mt-1 flex flex-col gap-0.5 text-xs text-muted">
             {view.stars.map((s) => (
@@ -970,7 +992,7 @@ export function SummaryWeeklyCard({ input }: { input: SummaryWeeklyInput }) {
         onClick={() => v.code && atlasActions().shareWeekly(v.code)}
         data-testid="summary-weekly-share"
       >
-        <Icon name="share" size={14} /> Share
+        <Icon name="share" size={14} /> {txt('screens.atlasParts.share')}
       </Button>
     </Panel>
   );
@@ -1000,7 +1022,7 @@ export function AtlasCodexPage({
         data-open="false"
       >
         <Icon name="lock" size={14} className="-mt-0.5 mr-1.5 inline" />
-        The Atlas of Echoes opens with Dissonance.
+        {txt('screens.atlasParts.theAtlasOfEchoes')}
       </Panel>
     );
   return (
@@ -1010,14 +1032,12 @@ export function AtlasCodexPage({
           className="flex items-center gap-2 font-display text-lg font-bold"
           style={{ color: LOOK.light }}
         >
-          <Icon name="atlas" size={18} /> The Atlas of Echoes
+          <Icon name="atlas" size={18} /> {txt('screens.atlasParts.theAtlasOfEchoes2')}
           <span className="ml-auto font-mono text-sm text-muted">{v.total}</span>
         </h3>
         <p className="mt-1 text-sm text-text">{v.about}</p>
         <table className="mt-3 text-sm">
-          <caption className="sr-only">
-            Each star, and what it pays the first time it lights
-          </caption>
+          <caption className="sr-only">{txt('screens.atlasParts.eachStarAndWhat')}</caption>
           <tbody>
             {v.legend.map((s) => (
               <tr key={s.n} className="border-t border-ink-600/70">
@@ -1030,10 +1050,7 @@ export function AtlasCodexPage({
             ))}
           </tbody>
         </table>
-        <p className="mt-2 text-xs text-muted">
-          An Echo’s own levels count for nothing toward its stars. An Echo run pays as any run does,
-          but sets no Dissonance best and earns no run-wide Deed.
-        </p>
+        <p className="mt-2 text-xs text-muted">{txt('screens.atlasParts.anEchoSOwn')}</p>
       </Panel>
       {v.constellations.map((k) => (
         <Panel key={k.id} tone="solid" className="p-5" data-constellation={k.id}>
@@ -1065,14 +1082,9 @@ export function AtlasCodexPage({
           className="flex items-center gap-2 font-display text-lg font-bold"
           style={{ color: LOOK.light }}
         >
-          <Icon name="week" size={18} /> This Week’s Song
+          <Icon name="week" size={18} /> {txt('screens.atlasParts.thisWeekSSong')}
         </h3>
-        <p className="mt-1 text-sm text-text">
-          One run, the same for everyone from Monday to Monday (UTC): its seed, route, Calling,
-          heroes and Dissonance are fixed, and your Chords and technique variants are your own. Its
-          score counts each fight won and its grade, and a won run. Share it as a code and a replay
-          file; a code you add is Claimed until its replay plays through on this device.
-        </p>
+        <p className="mt-1 text-sm text-text">{txt('screens.atlasParts.oneRunTheSame')}</p>
         <ul className="mt-2 flex flex-wrap gap-2">
           {(Object.keys(STATUS_LOOK) as (keyof typeof STATUS_LOOK)[]).map((s) => (
             <li key={s} className="flex items-center gap-2 text-xs text-muted">
@@ -1107,17 +1119,15 @@ export function SummaryReplayRow({
     >
       <Icon name="upload" size={14} />
       {kind === 'weekly' ? (
-        <span>
-          Your replay is kept on this device, so a friend’s code can be checked against yours.
-        </span>
+        <span>{txt('screens.atlasParts.yourReplayIsKept')}</span>
       ) : (
         <>
           <span>
             {kept === true
-              ? 'This Echo’s replay is kept on this device.'
+              ? txt('screens.atlasParts.thisEchoSReplay')
               : kept === false
-                ? 'It couldn’t be kept here: save it as a file instead.'
-                : 'This Echo’s replay is in memory until you leave.'}
+                ? txt('screens.atlasParts.itCouldnTBe')
+                : txt('screens.atlasParts.thisEchoSReplay2')}
           </span>
           {onKeep && kept !== true && (
             <Button
@@ -1125,14 +1135,14 @@ export function SummaryReplayRow({
               onClick={() => void onKeep().then(setKept)}
               data-testid="summary-replay-keep"
             >
-              Keep
+              {txt('screens.atlasParts.keep')}
             </Button>
           )}
         </>
       )}
       {onSave && (
         <Button size="sm" variant="ghost" onClick={onSave} data-testid="summary-replay-save">
-          Save the file
+          {txt('screens.atlasParts.saveTheFile')}
         </Button>
       )}
     </p>

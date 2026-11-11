@@ -36,6 +36,7 @@ import {
   type Shelf,
   type ShelfItem,
 } from './loomModel';
+import { t as txt } from '../text';
 
 /** What's being tried on: a keepsake (or the Weaver's own, `id` null) of a kind. */
 interface Trying {
@@ -87,7 +88,7 @@ export function AtelierView({
   onBuy,
   onWear,
   onBack,
-  backTo = 'The Loom',
+  backTo = txt('screens.atelierScreen.theLoom'),
   initialTrying = null,
   initialSaid = null,
   still: stillProp = false,
@@ -157,22 +158,23 @@ export function AtelierView({
         <header className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div className="min-w-0">
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-muted">
-              The Loom · The Starlight shop
+              {txt('screens.atelierScreen.theLoomTheStarlight')}
             </p>
             <h1 className="flex items-center gap-2 font-display text-3xl font-bold tracking-wide text-gold-300">
-              <Icon name="atelier" size={28} style={{ color: STARLIGHT_LOOK.color }} /> The Atelier
+              <Icon name="atelier" size={28} style={{ color: STARLIGHT_LOOK.color }} />{' '}
+              {txt('screens.atelierScreen.theAtelier')}
             </h1>
           </div>
           <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
             <StarlightChip amount={starlight} size="lg" testId="atelier-starlight" />
             <Button variant="ghost" onClick={onBack} sound="back" data-testid="atelier-back">
-              <Icon name="back" size={16} /> {backTo} <KeyCap label="Esc" />
+              <Icon name="back" size={16} /> {backTo}{' '}
+              <KeyCap label={txt('screens.atelierScreen.esc')} />
             </Button>
           </div>
         </header>
         <p className="mt-1 max-w-3xl text-sm text-muted">
-          Spend Starlight on new ways to play and new looks. Every won fight pays it, and every
-          Deed. A look changes how the Weaver looks, never how she plays.
+          {txt('screens.atelierScreen.spendStarlightOnNew')}
         </p>
         <p className="sr-only" aria-live="polite" data-testid="atelier-said">
           {said?.text ?? ''}
@@ -202,18 +204,21 @@ export function AtelierView({
               <p className="text-xs font-semibold uppercase tracking-wider text-muted">
                 {trying && !tryingWorn ? (
                   <>
-                    Trying on{' '}
+                    {txt('screens.atelierScreen.tryingOn')}
                     <span className="normal-case tracking-normal text-text">
                       {tryingItem?.name ?? ownName(trying.kind)}
                     </span>
                     {tryingItem &&
                       tryingItem.state !== 'owned' &&
                       tryingItem.state !== 'earned' && (
-                        <span className="normal-case tracking-normal"> · not yours yet</span>
+                        <span className="normal-case tracking-normal">
+                          {' '}
+                          {txt('screens.atelierScreen.notYoursYet')}
+                        </span>
                       )}
                   </>
                 ) : (
-                  'As you are'
+                  txt('screens.atelierScreen.asYouAre')
                 )}
               </p>
               {trying && !tryingWorn && (
@@ -225,7 +230,7 @@ export function AtelierView({
                   className="shrink-0"
                   data-testid="atelier-as-you-are"
                 >
-                  As you are
+                  {txt('screens.atelierScreen.asYouAre')}
                 </Button>
               )}
             </div>
@@ -234,29 +239,40 @@ export function AtelierView({
               ribbons={ribbonColors(threadId, vision)}
               still={still}
               className="h-44 w-auto"
-              label={`The Weaver in ${robeId ? (items.find((i) => i.id === robeId)?.name ?? 'her robe') : 'her own robe'}`}
+              label={txt('screens.atelierScreen.theWeaverIn', {
+                value: robeId
+                  ? (items.find((i) => i.id === robeId)?.name ??
+                    txt('screens.atelierScreen.herRobe'))
+                  : txt('screens.atelierScreen.herOwnRobe'),
+              })}
             />
             <p className="-mt-1 font-display text-lg font-bold leading-tight text-gold-200">
-              The Weaver
+              {txt('screens.atelierScreen.theWeaver')}
             </p>
             <p
               className="min-h-5 font-display text-sm italic leading-tight text-gold-300"
               data-testid="atelier-preview-title"
             >
-              {titleText(titleId) ?? <span className="not-italic text-muted">No title</span>}
+              {titleText(titleId) ?? (
+                <span className="not-italic text-muted">
+                  {txt('screens.atelierScreen.noTitle')}
+                </span>
+              )}
             </p>
             <div className="mt-1 self-stretch border-t border-ink-600/60 pt-2">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted">
-                The Thread
+                {txt('screens.atelierScreen.theThread')}
                 <span className="normal-case tracking-normal">
                   {' '}
-                  · {threadId ? (items.find((i) => i.id === threadId)?.name ?? '') : 'its own look'}
+                  ·{' '}
+                  {threadId
+                    ? (items.find((i) => i.id === threadId)?.name ?? '')
+                    : txt('screens.atelierScreen.itsOwnLook')}
                 </span>
               </p>
               <ThreadPreview look={threadColors(threadId)} still={still} />
               <p className="mt-1 text-xs leading-snug text-muted">
-                The filament and its glow are the look’s. Mend’s and Empower’s colours stay, on the
-                beads that run along it and on the hero, so the Thread still says which it is.
+                {txt('screens.atelierScreen.theFilamentAndIts')}
               </p>
             </div>
           </Panel>
@@ -269,10 +285,10 @@ export function AtelierView({
 /** The Weaver's own, by shelf. */
 function ownName(kind: ShopKind): string {
   return kind === 'robe'
-    ? 'the Weaver’s own robe'
+    ? txt('screens.atelierScreen.theWeaverSOwn')
     : kind === 'thread'
-      ? 'the Thread’s own look'
-      : 'no title';
+      ? txt('screens.atelierScreen.theThreadSOwn')
+      : txt('screens.atelierScreen.noTitle2');
 }
 
 /** A shelf: its heading and blurb, how many are yours, the Weaver's own first, then the items. */
@@ -312,7 +328,10 @@ function ShelfView({
           )}
         </div>
         <p className="font-mono text-xs text-muted">
-          {mine.length} of {shelf.items.length} yours
+          {txt('screens.atelierScreen.ofYours', {
+            length: mine.length,
+            length2: shelf.items.length,
+          })}
         </p>
       </div>
       <ul className={`grid gap-2 ${cols}`}>
@@ -386,8 +405,12 @@ function ActionButton({ s, onAct }: { s: ShelfItem; onAct(s: ShelfItem): void })
       sound={null}
       aria-label={
         buying
-          ? `Buy ${item.name} for ${fmt(item.price ?? 0)} Starlight${s.short > 0 ? ` (${fmt(s.short)} short)` : ''}`
-          : `Wear ${item.name}`
+          ? txt('screens.atelierScreen.buyForStarlight', {
+              name: item.name,
+              fmt: fmt(item.price ?? 0),
+              value: s.short > 0 ? txt('screens.atelierScreen.short', { short: fmt(s.short) }) : '',
+            })
+          : txt('screens.atelierScreen.wear2', { name: item.name })
       }
       className="shrink-0"
       data-nav
@@ -395,14 +418,14 @@ function ActionButton({ s, onAct }: { s: ShelfItem; onAct(s: ShelfItem): void })
     >
       {buying ? (
         <>
-          Buy{' '}
+          {txt('screens.atelierScreen.buy')}
           <StarlightPrice
             price={item.price ?? 0}
             tone={enough ? 'inherit' : s.short > 0 ? 'muted' : 'starlight'}
           />
         </>
       ) : (
-        'Wear'
+        txt('screens.atelierScreen.wear')
       )}
     </Button>
   );
@@ -625,21 +648,28 @@ function OwnCard({
         <Swatch kind={shelf.kind} id={null} />
         <div className="min-w-0">
           <p className="font-display text-base leading-tight text-text">{own.name}</p>
-          <p className="text-xs text-muted">Always yours</p>
+          <p className="text-xs text-muted">{txt('screens.atelierScreen.alwaysYours')}</p>
         </div>
       </div>
       <div className="mt-auto flex min-h-8 items-center justify-between gap-2 pt-2">
-        <StatusChip status={own.worn ? 'Wearing' : 'Yours'} worn={own.worn} />
+        <StatusChip
+          status={
+            own.worn ? txt('screens.atelierScreen.wearing') : txt('screens.atelierScreen.yours')
+          }
+          worn={own.worn}
+        />
         {!own.worn && (
           <Button
             size="sm"
             onClick={onOwn}
             sound={null}
-            aria-label={`Wear ${own.name.replace(/^The /, 'the ')}`}
+            aria-label={txt('screens.atelierScreen.wear3', {
+              replace: own.name.replace(/^The /, 'the '),
+            })}
             data-nav
             data-testid={`atelier-own-wear-${shelf.kind}`}
           >
-            Wear
+            {txt('screens.atelierScreen.wear')}
           </Button>
         )}
       </div>
@@ -667,7 +697,11 @@ export function AtelierScreen() {
       onBuy={(id) => useProfile.getState().buy(id)}
       onWear={(slot, id) => useProfile.getState().equip(slot, id)}
       onBack={back}
-      backTo={previous === 'loom' ? 'The Loom' : 'Back'}
+      backTo={
+        previous === 'loom'
+          ? txt('screens.atelierScreen.theLoom')
+          : txt('screens.atelierScreen.back')
+      }
     />
   );
 }

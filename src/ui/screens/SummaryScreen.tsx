@@ -81,6 +81,7 @@ import { MasteryGainRow } from './MasteryParts';
 import { RunStarlightPanel } from './StarlightParts';
 import { outcomeSub, summaryEyebrow } from './routeText';
 import { bloodLine, duelLine, groveLine, oathIn, runBlood, runDuel, runGrove } from './rosterModel';
+import { t as txt } from '../text';
 
 const GRADE_COLOR: Record<Grade, string> = {
   S: '#fde9b8',
@@ -92,18 +93,30 @@ const GRADE_COLOR: Record<Grade, string> = {
 
 const OUTCOME = {
   victory: {
-    title: 'The silence is broken',
-    sub: 'The Hollow Cantor falls and the Reliquary sings again.',
+    get title() {
+      return txt('screens.summaryScreen.theSilenceIsBroken');
+    },
+    get sub() {
+      return txt('screens.summaryScreen.theHollowCantorFalls');
+    },
     color: 'var(--color-gold-300)',
   },
   defeat: {
-    title: 'The song falls silent',
-    sub: 'The party is lost, but every note you wove is on record.',
+    get title() {
+      return txt('screens.summaryScreen.theSongFallsSilent');
+    },
+    get sub() {
+      return txt('screens.summaryScreen.thePartyIsLost');
+    },
     color: '#fda4af',
   },
   abandoned: {
-    title: 'You set down the thread',
-    sub: 'The road waits. Here is what you wove while you walked it.',
+    get title() {
+      return txt('screens.summaryScreen.youSetDownThe');
+    },
+    get sub() {
+      return txt('screens.summaryScreen.theRoadWaitsHere');
+    },
     color: '#c4b5fd',
   },
 } as const;
@@ -113,8 +126,12 @@ const OUTCOME = {
  * the VICTORY one (`outcomeSub`).
  */
 const FINALE_OUTCOME = {
-  title: 'The song goes on',
-  sub: 'The Silent Conductor lowers its baton, and the song goes on.',
+  get title() {
+    return txt('screens.summaryScreen.theSongGoesOn');
+  },
+  get sub() {
+    return txt('screens.summaryScreen.theSilentConductorLowers');
+  },
   color: '#fff1cf',
 } as const;
 
@@ -152,30 +169,36 @@ export function firstClearLines(open: boolean, rank?: number): { title: string; 
   const openRank = CONTENT.dissonanceRules.openRank;
   const closed =
     rank !== undefined && opensAt(rank)
-      ? `Dissonance opens with a Finale clear at Weaver Rank ${openRank} or above: you’re Rank ${rank}, so your next one does it`
-      : `Dissonance opens with a Finale clear at Weaver Rank ${openRank} or above`;
+      ? txt('screens.summaryScreen.dissonanceOpensWithA', { openRank, rank })
+      : txt('screens.summaryScreen.dissonanceOpensWithA2', { openRank });
   // Phase 6: what content now holds is named as open (or opening with Dissonance); only what it
   // doesn't hold yet is "coming later".
   const built = laterPieces();
   const later = [
-    built.atlas ? null : 'the Atlas of Echoes',
-    built.trueDissonance ? null : 'True Dissonance',
+    built.atlas ? null : txt('screens.summaryScreen.theAtlasOfEchoes'),
+    built.trueDissonance ? null : txt('screens.summaryScreen.trueDissonance'),
   ].filter((x): x is string => x !== null);
   const atlas = built.atlas
     ? open
-      ? 'The Atlas of Echoes is open: find it in the Loom'
-      : 'The Atlas of Echoes opens with Dissonance'
+      ? txt('screens.summaryScreen.theAtlasOfEchoes2')
+      : txt('screens.summaryScreen.theAtlasOfEchoes3')
     : null;
   const deepest = built.trueDissonance
-    ? `True Dissonance ${open ? 'waits in Prep' : 'is among its levels'}: the Finale gains a fourth phase, on Expeditions`
+    ? txt('screens.summaryScreen.trueDissonanceTheFinale', {
+        value: open
+          ? txt('screens.summaryScreen.waitsInPrep')
+          : txt('screens.summaryScreen.isAmongItsLevels'),
+      })
     : null;
   return {
-    title: 'The Song Goes On — your first Finale clear',
+    title: txt('screens.summaryScreen.theSongGoesOn2'),
     lines: [
-      open ? 'Dissonance is open' : closed,
+      open ? txt('screens.summaryScreen.dissonanceIsOpen') : closed,
       ...(atlas ? [atlas] : []),
       ...(deepest ? [deepest] : []),
-      ...(later.length > 0 ? [`Coming later: ${later.join(' and ')}`] : []),
+      ...(later.length > 0
+        ? [txt('screens.summaryScreen.comingLater', { later: later.join(' and ') })]
+        : []),
     ],
   };
 }
@@ -400,11 +423,17 @@ export function SummaryView({
               <span>
                 {totals.encounters} {plural(totals.encounters, 'fight')}
               </span>
-              <span>{clock(totals.duration)} in combat</span>
-              <span>seed {run.seed}</span>
+              <span>
+                {txt('screens.summaryScreen.inCombat', { duration: clock(totals.duration) })}
+              </span>
+              <span>{txt('screens.summaryScreen.seed', { seed: run.seed })}</span>
               {assisted && (
-                <Chip color="var(--color-rare)" icon="info" title="Assists were on for this run">
-                  Assists on
+                <Chip
+                  color="var(--color-rare)"
+                  icon="info"
+                  title={txt('screens.summaryScreen.assistsWereOnFor')}
+                >
+                  {txt('screens.summaryScreen.assistsOn')}
                 </Chip>
               )}
             </p>
@@ -416,8 +445,9 @@ export function SummaryView({
               </span>
             </Ring>
             <p className="max-w-[12rem] text-sm leading-snug text-text">
-              of everything that mattered in this run was <b className="text-gold-300">you</b>:
-              healing, shields, saves and added damage.
+              {txt('screens.summaryScreen.ofEverythingThatMattered')}{' '}
+              <b className="text-gold-300">{txt('screens.summaryScreen.you')}</b>
+              {txt('screens.summaryScreen.healingShieldsSavesAnd')}
             </p>
           </div>
         </header>
@@ -463,7 +493,7 @@ export function SummaryView({
 
         {totals.encounters > 0 && (
           <Panel tone="solid" className="mt-6 p-5" data-testid="summary-songs">
-            <SectionTitle>Your songs and your Thread</SectionTitle>
+            <SectionTitle>{txt('screens.summaryScreen.yourSongsAndYour')}</SectionTitle>
             <ContributionBar parts={contributionOf(totals)} className="mb-3" />
             <ul className="flex flex-col gap-2">
               {songLines(totals).map((l, i) => (
@@ -486,7 +516,7 @@ export function SummaryView({
         {triggerLines(totals).length > 0 && (
           // Phase 5g: the run's triggers, named from content ("Clean Strike triggered 14 times.").
           <Panel tone="solid" className="mt-6 p-5" data-testid="summary-triggers">
-            <SectionTitle>Your motifs and relics at work</SectionTitle>
+            <SectionTitle>{txt('screens.summaryScreen.yourMotifsAndRelics')}</SectionTitle>
             <ul className="flex flex-col gap-2">
               {triggerLines(totals).map((l, i) => (
                 <li
@@ -513,13 +543,13 @@ export function SummaryView({
 
         {tally.fights > 0 && (
           <Panel tone="solid" className="mt-6 p-5" data-testid="summary-without-you">
-            <SectionTitle>Without you</SectionTitle>
+            <SectionTitle>{txt('screens.summaryScreen.withoutYou')}</SectionTitle>
             <p className="font-display text-xl font-bold leading-snug text-gold-100 sm:text-2xl">
               {tallyLine(tally)}
             </p>
             <ol
               className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4"
-              aria-label="Each fight, with and without you"
+              aria-label={txt('screens.summaryScreen.eachFightWithAnd')}
             >
               {run.results.map((r, i) => {
                 const w = r.withoutYou;
@@ -528,7 +558,7 @@ export function SummaryView({
                   <li
                     key={i}
                     className="rounded-lg border border-ink-600/70 bg-ink-900/60 px-3 py-2"
-                    title={w ? withoutYouLine(w, r) : 'Not re-run'}
+                    title={w ? withoutYouLine(w, r) : txt('screens.summaryScreen.notReRun')}
                   >
                     <p className="truncate text-sm font-semibold text-text">{r.name}</p>
                     <p className="mt-1 flex items-center justify-between gap-2 text-xs">
@@ -542,7 +572,12 @@ export function SummaryView({
                         }}
                       >
                         <Icon name={r.outcome === 'victory' ? 'crown' : 'skull'} size={12} />
-                        You: {r.outcome === 'victory' ? 'won' : 'fell'}
+                        {txt('screens.summaryScreen.you2', {
+                          value:
+                            r.outcome === 'victory'
+                              ? txt('screens.summaryScreen.won')
+                              : txt('screens.summaryScreen.fell'),
+                        })}
                       </span>
                       <span
                         className="flex items-center gap-1"
@@ -565,14 +600,20 @@ export function SummaryView({
                           }
                           size={12}
                         />
-                        Alone:{' '}
-                        {alone === null
-                          ? 'not re-run'
-                          : alone === 'victory'
-                            ? `won ${clock(w!.duration)}`
-                            : alone === 'defeat'
-                              ? `fell ${clock(w!.duration)}`
-                              : 'stuck'}
+                        {txt('screens.summaryScreen.alone', {
+                          value:
+                            alone === null
+                              ? txt('screens.summaryScreen.notReRun2')
+                              : alone === 'victory'
+                                ? txt('screens.summaryScreen.won2', {
+                                    duration: clock(w!.duration),
+                                  })
+                                : alone === 'defeat'
+                                  ? txt('screens.summaryScreen.fell2', {
+                                      duration: clock(w!.duration),
+                                    })
+                                  : txt('screens.summaryScreen.stuck'),
+                        })}
                       </span>
                     </p>
                   </li>
@@ -586,10 +627,16 @@ export function SummaryView({
           <Panel tone="solid" className="mt-6 p-5">
             <SectionTitle
               right={
-                <ul className="flex flex-wrap gap-1.5" aria-label="Fights and grades">
+                <ul
+                  className="flex flex-wrap gap-1.5"
+                  aria-label={txt('screens.summaryScreen.fightsAndGrades')}
+                >
                   {run.results.map((r, i) => (
                     <li key={i}>
-                      <Chip color={GRADE_COLOR[r.grade]} title={`${r.name}: grade ${r.grade}`}>
+                      <Chip
+                        color={GRADE_COLOR[r.grade]}
+                        title={txt('screens.summaryScreen.grade', { name: r.name, grade: r.grade })}
+                      >
                         <b className="font-display">{r.grade}</b> {r.name}
                       </Chip>
                     </li>
@@ -597,7 +644,7 @@ export function SummaryView({
                 </ul>
               }
             >
-              Your run, fight by fight
+              {txt('screens.summaryScreen.yourRunFightBy')}
             </SectionTitle>
             <HpTimeline segments={segments} heroIds={heroIds} height={270} />
             <TimelineLegend heroIds={heroIds} kinds={kinds} />
@@ -606,40 +653,64 @@ export function SummaryView({
 
         <section className="mt-6" aria-labelledby="proof-title">
           <SectionTitle>
-            <span id="proof-title">Proof of support</span>
+            <span id="proof-title">{txt('screens.summaryScreen.proofOfSupport')}</span>
           </SectionTitle>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Tile
               icon="empower"
               color="var(--color-amp)"
-              label="Amplified"
+              label={txt('screens.summaryScreen.amplified')}
               value={fmt(totals.amplified)}
               sentence={
                 totals.amplified > 0
-                  ? `You added ${fmt(totals.amplified)} damage (auras ${fmt(totals.auraAmplified)}, Empower ${fmt(totals.threadAmplified)}): ${pct(totals.partyDamage > 0 ? totals.amplified / totals.partyDamage : 0)} of everything your party dealt.`
-                  : 'Your Thread stayed on Mend and no aura added damage. Empower adds damage when the party is healthy.'
+                  ? txt('screens.summaryScreen.youAddedDamageAuras', {
+                      amplified: fmt(totals.amplified),
+                      auraAmplified: fmt(totals.auraAmplified),
+                      threadAmplified: fmt(totals.threadAmplified),
+                      pct: pct(totals.partyDamage > 0 ? totals.amplified / totals.partyDamage : 0),
+                    })
+                  : txt('screens.summaryScreen.yourThreadStayedOn')
               }
             />
             <Tile
               icon="mend"
               color="var(--color-heal)"
-              label="Healed"
+              label={txt('screens.summaryScreen.healed')}
               value={fmt(totals.healing)}
-              sentence={`You healed ${fmt(totals.healing)} life across ${totals.encounters} ${plural(totals.encounters, 'fight')} (auras ${fmt(totals.auraHealing)}, your beam ${fmt(totals.threadHealing)})${totals.overheal > 0 ? `; ${fmt(totals.overheal)} was overheal` : ''}.`}
+              sentence={txt('screens.summaryScreen.youHealedLifeAcross', {
+                healing: fmt(totals.healing),
+                encounters: totals.encounters,
+                encountersWord: plural(totals.encounters, 'fight'),
+                auraHealing: fmt(totals.auraHealing),
+                threadHealing: fmt(totals.threadHealing),
+                value:
+                  totals.overheal > 0
+                    ? txt('screens.summaryScreen.wasOverheal', { overheal: fmt(totals.overheal) })
+                    : '',
+              })}
             />
             <Tile
               icon="ward"
               color="var(--color-shield)"
-              label="Mitigated"
+              label={txt('screens.summaryScreen.mitigated')}
               value={fmt(mitigated)}
-              sentence={`${fmt(mitigated)} damage never landed: ${fmt(totals.shielded)} stopped by your shields and auras, and ${fmt(totals.negated)} negated by ${totals.perfects} Perfect ${plural(totals.perfects, 'Ward')}.`}
+              sentence={txt('screens.summaryScreen.damageNeverLandedStopped', {
+                mitigated: fmt(mitigated),
+                shielded: fmt(totals.shielded),
+                negated: fmt(totals.negated),
+                perfects: totals.perfects,
+                perfectsWord: plural(totals.perfects, 'Ward'),
+              })}
             />
             <Tile
               icon="heart"
               color="#f9a8d4"
-              label="Saves"
+              label={txt('screens.summaryScreen.saves')}
               value={String(totals.saves)}
-              sentence={`${totals.saves} ${plural(totals.saves, 'time')} a hero would have died and didn’t.`}
+              sentence={txt('screens.summaryScreen.aHeroWouldHave', {
+                saves: totals.saves,
+                savesWord: plural(totals.saves, 'time'),
+              })}
             >
               {saveLines.length > 0 && (
                 <ul className="mt-2 flex flex-col gap-1 text-xs leading-snug text-muted">
@@ -652,37 +723,66 @@ export function SummaryView({
             <Tile
               icon="chime"
               color="#c4b5fd"
-              label="Cleanses"
+              label={txt('screens.summaryScreen.cleanses')}
               value={String(totals.cleanses)}
-              sentence={`${totals.cleanses} ${plural(totals.cleanses, 'mark')} cleansed, ${totals.clutchCleanses} at the last moment.${aimed > 0 ? ` You answered ${totals.telegraphsAnswered} of ${aimed} aimed attacks.` : ''}`}
+              sentence={txt('screens.summaryScreen.cleansedAtTheLast', {
+                cleanses: totals.cleanses,
+                cleansesWord: plural(totals.cleanses, 'mark'),
+                clutchCleanses: totals.clutchCleanses,
+                value:
+                  aimed > 0
+                    ? txt('screens.summaryScreen.youAnsweredOfAimed', {
+                        telegraphsAnswered: totals.telegraphsAnswered,
+                        aimed,
+                      })
+                    : '',
+              })}
             />
             <Tile
               icon="note"
               color="var(--color-gold-300)"
-              label="Cues"
+              label={txt('screens.summaryScreen.cues')}
               value={String(totals.cues)}
-              sentence={`${totals.cues} ${plural(totals.cues, 'Solo')} cued, ${totals.crescendos} ${plural(totals.crescendos, 'Crescendo')} sung, ${totals.reels} ${plural(totals.reels, techniqueName('reel', run.calling?.id))} to safety.`}
+              sentence={txt('screens.summaryScreen.cuedSungToSafety', {
+                cues: totals.cues,
+                cuesWord: plural(totals.cues, 'Solo'),
+                crescendos: totals.crescendos,
+                crescendosWord: plural(totals.crescendos, 'Crescendo'),
+                reels: totals.reels,
+                reelsWord: plural(totals.reels, techniqueName('reel', run.calling?.id)),
+              })}
             />
             <Tile
               icon="call"
               color="var(--color-call, #fde68a)"
-              label="Calls answered"
+              label={txt('screens.summaryScreen.callsAnswered')}
               value={totals.calls > 0 ? `${totals.responses}/${totals.calls}` : '0'}
               sentence={
                 totals.calls > 0
-                  ? `Your party called for help ${totals.calls} ${plural(totals.calls, 'time')}; you answered ${totals.responses}, and each became a Flourish.`
-                  : 'No hero called for help this run.'
+                  ? txt('screens.summaryScreen.yourPartyCalledFor', {
+                      calls: totals.calls,
+                      callsWord: plural(totals.calls, 'time'),
+                      responses: totals.responses,
+                    })
+                  : txt('screens.summaryScreen.noHeroCalledFor')
               }
             />
             <Tile
               icon="fermata"
               color="#e2d6f8"
-              label="Fermata holds"
+              label={txt('screens.summaryScreen.fermataHolds')}
               value={String(totals.holds)}
               sentence={
                 totals.holds > 0
-                  ? `${totals.holds} lethal ${plural(totals.holds, 'hit')} caught by Fermata and held at 1 life${fermataSaves > 0 ? `; ${fermataSaves} healed through it in time` : ''}.`
-                  : 'Fermata never had to hold anyone. Slot it to catch a lethal hit once per fight.'
+                  ? txt('screens.summaryScreen.lethalCaughtByFermata', {
+                      holds: totals.holds,
+                      holdsWord: plural(totals.holds, 'hit'),
+                      value:
+                        fermataSaves > 0
+                          ? txt('screens.summaryScreen.healedThroughItIn', { fermataSaves })
+                          : '',
+                    })
+                  : txt('screens.summaryScreen.fermataNeverHadTo')
               }
             />
           </div>
@@ -690,7 +790,7 @@ export function SummaryView({
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
           <Panel tone="solid" className="p-5">
-            <SectionTitle>Per hero</SectionTitle>
+            <SectionTitle>{txt('screens.summaryScreen.perHero')}</SectionTitle>
             <ul className="flex flex-col gap-3.5">
               {perHero.map((h) => {
                 const def = heroDef(h.id);
@@ -703,13 +803,18 @@ export function SummaryView({
                       <p className="font-semibold">
                         {def.name}
                         {state && state.hpPct <= 0 && (
-                          <span className="ml-2 text-xs font-normal text-lethal">fell</span>
+                          <span className="ml-2 text-xs font-normal text-lethal">
+                            {txt('screens.summaryScreen.fell')}
+                          </span>
                         )}
                       </p>
                       <p className="text-sm leading-relaxed text-muted">
                         {h.damage > 0
-                          ? `Dealt ${fmt(h.damage)} damage. Your auras and Empower accounted for ${pct(share)} of it.`
-                          : 'Dealt no recorded damage.'}
+                          ? txt('screens.summaryScreen.dealtDamageYourAuras', {
+                              damage: fmt(h.damage),
+                              share: pct(share),
+                            })
+                          : txt('screens.summaryScreen.dealtNoRecordedDamage')}
                       </p>
                       <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-ink-700">
                         <div className="h-full bg-amp" style={{ width: `${share * 100}%` }} />
@@ -764,11 +869,9 @@ export function SummaryView({
           </Panel>
 
           <Panel tone="solid" className="p-5">
-            <SectionTitle>Best moments</SectionTitle>
+            <SectionTitle>{txt('screens.summaryScreen.bestMoments')}</SectionTitle>
             {highlights.length === 0 ? (
-              <p className="text-sm text-muted">
-                No highlights yet. A Perfect Ward or a Save will show up here.
-              </p>
+              <p className="text-sm text-muted">{txt('screens.summaryScreen.noHighlightsYetA')}</p>
             ) : (
               <ol className="flex flex-col gap-3">
                 {highlights.map((h, i) => (
@@ -802,14 +905,17 @@ export function SummaryView({
             right={
               <span className="flex items-center gap-1.5 font-mono text-xs text-muted">
                 <Icon name="aether" size={13} className="text-gold-300" />
-                {aetherEarned(run)} earned in fights · {run.aether} left unspent
+                {txt('screens.summaryScreen.earnedInFightsLeft', {
+                  aetherEarned: aetherEarned(run),
+                  aether: run.aether,
+                })}
               </span>
             }
           >
-            Relics and Aether
+            {txt('screens.summaryScreen.relicsAndAether')}
           </SectionTitle>
           {run.relics.length === 0 ? (
-            <p className="text-sm text-muted">You carried no relics this time.</p>
+            <p className="text-sm text-muted">{txt('screens.summaryScreen.youCarriedNoRelics')}</p>
           ) : (
             <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {run.relics.map((r) => {
@@ -835,12 +941,12 @@ export function SummaryView({
                         {r.carried && <CarriedChip role={r.dormant ? 'lends' : 'attuned'} small />}
                         {run.reliquary?.enshrined === r.id && (
                           <Chip color="var(--color-gold-300)" icon="reliquary">
-                            Enshrined
+                            {txt('screens.summaryScreen.enshrined')}
                           </Chip>
                         )}
                         {r.pact && (
                           <Chip color={DISCORD_LOOK.color} icon="dissonance" title={pactLine()}>
-                            From {pactName()}
+                            {txt('screens.summaryScreen.from', { pactName: pactName() })}
                           </Chip>
                         )}
                       </p>
@@ -867,12 +973,16 @@ export function SummaryView({
 
         <Panel tone="solid" className="mt-6 p-5">
           <SectionTitle
-            right={<span className="font-mono text-xs text-muted">{run.motifs.length} woven</span>}
+            right={
+              <span className="font-mono text-xs text-muted">
+                {txt('screens.summaryScreen.woven', { length: run.motifs.length })}
+              </span>
+            }
           >
-            Motifs built
+            {txt('screens.summaryScreen.motifsBuilt')}
           </SectionTitle>
           {run.motifs.length === 0 ? (
-            <p className="text-sm text-muted">You didn’t weave any motifs this time.</p>
+            <p className="text-sm text-muted">{txt('screens.summaryScreen.youDidnTWeave')}</p>
           ) : (
             <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {run.motifs.map((m) => {
@@ -898,19 +1008,21 @@ export function SummaryView({
             </ul>
           )}
           <p className="mt-3 text-xs text-muted">
-            Songs:{' '}
-            {run.chords
-              .map(
-                (c, i) =>
-                  `${songName(i)}: ${c.auras.map((id) => auraDef(id).name).join(' + ') || '—'}${c.ornaments.length ? ` (${c.ornaments.map((id) => ornamentDef(id).name).join(', ')})` : ''}`,
-              )
-              .join(' · ') || 'none'}
+            {txt('screens.summaryScreen.songs', {
+              value:
+                run.chords
+                  .map(
+                    (c, i) =>
+                      `${songName(i)}: ${c.auras.map((id) => auraDef(id).name).join(' + ') || '—'}${c.ornaments.length ? ` (${c.ornaments.map((id) => ornamentDef(id).name).join(', ')})` : ''}`,
+                  )
+                  .join(' · ') || txt('screens.summaryScreen.none'),
+            })}
           </p>
         </Panel>
       </div>
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 flex justify-end gap-3 bg-gradient-to-t from-ink-950 via-ink-950/80 to-transparent px-6 pb-5 pt-10">
         <Button className="pointer-events-auto" size="lg" onClick={onLoom} sound="back">
-          <Icon name="loom" size={18} /> The Loom
+          <Icon name="loom" size={18} /> {txt('screens.summaryScreen.theLoom')}
         </Button>
         <Button
           variant="primary"
@@ -920,7 +1032,7 @@ export function SummaryView({
           sound="confirm"
           autoFocus
         >
-          New run <Icon name="arrow" size={18} />
+          {txt('screens.summaryScreen.newRun')} <Icon name="arrow" size={18} />
         </Button>
       </div>
       {card === 'rank' && onDismissRankUps && (
@@ -1007,7 +1119,10 @@ function CallingSummary({
           className="mt-4 max-w-xl"
         />
       )}
-      <ol className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4" aria-label="The path you took">
+      <ol
+        className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4"
+        aria-label={txt('screens.summaryScreen.thePathYouTook')}
+      >
         {steps.map((st) => (
           <li
             key={st.tier}
@@ -1029,17 +1144,23 @@ function CallingSummary({
                 {st.chosen
                   ? st.chosen.name
                   : st.state === 'locked'
-                    ? `Tier ${st.numeral}: locked by mastery`
-                    : `Tier ${st.numeral}: not reached`}
+                    ? txt('screens.summaryScreen.tierLockedByMastery', { numeral: st.numeral })
+                    : txt('screens.summaryScreen.tierNotReached', { numeral: st.numeral })}
               </p>
               <p className="text-xs leading-relaxed text-muted">
                 {st.chosen
                   ? optionText(st.chosen)
                   : st.state === 'locked'
                     ? mastery !== undefined && masteryLevel(mastery) >= st.mastery
-                      ? `Mastery ${st.mastery} is yours now: it opens from your next ${def.name} run.`
-                      : `${def.name} mastery ${st.mastery} opens it.`
-                    : `It would have come ${st.when}.`}
+                      ? txt('screens.summaryScreen.masteryIsYoursNow', {
+                          mastery: st.mastery,
+                          name: def.name,
+                        })
+                      : txt('screens.summaryScreen.masteryOpensIt', {
+                          name: def.name,
+                          mastery: st.mastery,
+                        })
+                    : txt('screens.summaryScreen.itWouldHaveCome', { when: st.when })}
               </p>
             </div>
           </li>
@@ -1059,21 +1180,26 @@ function AstrolabeSummary({ tree }: { tree: readonly string[] }) {
   return (
     <Panel tone="solid" className="mt-6 p-5" data-testid="summary-astrolabe">
       <div className="flex flex-wrap items-start gap-5">
-        <AstrolabeMap tree={tree} mini className="h-36 w-36 shrink-0" label="Your Astrolabe" />
+        <AstrolabeMap
+          tree={tree}
+          mini
+          className="h-36 w-36 shrink-0"
+          label={txt('screens.summaryScreen.yourAstrolabe')}
+        />
         <div className="min-w-0 flex-1">
           <SectionTitle
             right={
               <span className="font-mono text-xs text-muted">
-                {pointsWord(tree.length)} in the tree
+                {txt('screens.summaryScreen.inTheTree', { pointsWord: pointsWord(tree.length) })}
               </span>
             }
           >
-            Your Astrolabe
+            {txt('screens.summaryScreen.yourAstrolabe')}
           </SectionTitle>
           {t.keystones.length > 0 ? (
             <KeystoneChips tree={tree} align="start" />
           ) : (
-            <p className="text-sm text-muted">No keystone this run.</p>
+            <p className="text-sm text-muted">{txt('screens.summaryScreen.noKeystoneThisRun')}</p>
           )}
           {lines.length > 0 && (
             <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text">
@@ -1089,7 +1215,9 @@ function AstrolabeSummary({ tree }: { tree: readonly string[] }) {
           )}
           {t.rules.length > 0 && (
             <p className="mt-2 text-xs text-muted">
-              Notables: {t.rules.map((n) => n.name).join(', ')}
+              {txt('screens.summaryScreen.notables', {
+                rules: t.rules.map((n) => n.name).join(', '),
+              })}
             </p>
           )}
         </div>
@@ -1114,11 +1242,13 @@ function RunRankPanel({ run, profileXp }: { run: RunState; profileXp: number }) 
         </div>
         <div className="min-w-[16rem] flex-1">
           <div className="flex items-center gap-2">
-            <span className="shrink-0 text-sm font-semibold text-gold-300">Rank {p.rank}</span>
+            <span className="shrink-0 text-sm font-semibold text-gold-300">
+              {txt('screens.summaryScreen.rank', { rank: p.rank })}
+            </span>
             <XpBar
               before={gain.before}
               after={gain.after}
-              label={`Weaver XP: ${p.progressText}`}
+              label={txt('screens.summaryScreen.weaverXp', { progressText: p.progressText })}
               className="flex-1"
             />
           </div>
@@ -1126,11 +1256,14 @@ function RunRankPanel({ run, profileXp }: { run: RunState; profileXp: number }) 
         </div>
       </div>
       {rr.unlocks.length > 0 && (
-        <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Unlocked this run">
+        <ul
+          className="mt-3 flex flex-wrap gap-1.5"
+          aria-label={txt('screens.summaryScreen.unlockedThisRun')}
+        >
           {rr.unlocks.map((u) => (
             <li key={u.id}>
               <Chip icon="sparkle" color="var(--color-gold-300)" title={u.text}>
-                Rank {u.rank} · {u.name}
+                {txt('screens.summaryScreen.rank2', { rank: u.rank, name: u.name })}
               </Chip>
             </li>
           ))}

@@ -20,6 +20,7 @@ import {
   type TechniqueOption,
   type TechniqueSlotView,
 } from './variantsModel';
+import { t } from '../text';
 
 /** Prep's panel open or folded, remembered between visits (a convenience: no save needed). */
 const FOLD_KEY = 'aetherweaver.prep.techniques';
@@ -117,7 +118,7 @@ export function PrepTechniquesPanel({
           id="techniques-title"
           className="flex items-center gap-2 font-display text-lg font-bold tracking-wide text-gold-300"
         >
-          <Icon name="ward" size={19} /> Your techniques
+          <Icon name="ward" size={19} /> {t('screens.techniquesParts.yourTechniques')}
         </h2>
         <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
           <p
@@ -135,7 +136,7 @@ export function PrepTechniquesPanel({
               sound="click"
               data-testid="techniques-rules"
             >
-              <Icon name="book" size={13} /> Rules
+              <Icon name="book" size={13} /> {t('screens.techniquesParts.rules')}
             </Button>
           )}
           <Button
@@ -148,7 +149,7 @@ export function PrepTechniquesPanel({
             aria-controls="prep-technique-slots"
             data-testid="techniques-toggle"
           >
-            {open ? 'Fold' : 'Choose variants'}
+            {open ? t('screens.techniquesParts.fold') : t('screens.techniquesParts.chooseVariants')}
             <Icon name="arrow" size={13} className={open ? '-rotate-90' : 'rotate-90'} />
           </Button>
         </div>
@@ -179,7 +180,7 @@ export function PrepTechniquesPanel({
         <ul
           id="prep-technique-slots"
           className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-ink-600/70 bg-ink-900/70 px-3 py-2"
-          aria-label="What your four keys play"
+          aria-label={t('screens.techniquesParts.whatYourFourKeys')}
           data-testid="techniques-folded"
         >
           {slots.map((view) => (
@@ -244,7 +245,7 @@ function SlotColumn({
         <KeyCap label={view.key} accent />
         <span>{view.name}</span>
         <span className="text-xs font-normal text-muted">
-          · {view.chosen.id ? view.chosen.name : 'the default'}
+          · {view.chosen.id ? view.chosen.name : t('screens.techniquesParts.theDefault')}
         </span>
       </p>
       {view.note && (
@@ -275,7 +276,7 @@ function Stat({ label, changed, was }: { label: string; changed: boolean; was: s
   return (
     <span
       className={changed ? 'text-gold-200' : ''}
-      title={changed ? `The default: ${was}` : undefined}
+      title={changed ? t('screens.techniquesParts.theDefault2', { was }) : undefined}
       data-changed={changed || undefined}
     >
       {label}
@@ -319,7 +320,7 @@ export function TechniqueCard({
         </b>
         {lit ? (
           <span className="flex shrink-0 items-center gap-1 text-xs font-bold text-gold-200">
-            <Icon name="check" size={13} /> Chosen
+            <Icon name="check" size={13} /> {t('screens.techniquesParts.chosen')}
           </span>
         ) : state ? (
           <span
@@ -396,7 +397,7 @@ export function TechniqueCard({
       role="radio"
       aria-checked={o.chosen}
       aria-disabled={locked || undefined}
-      aria-label={`${o.name}${o.id ? `, a ${defaultName(o.slot)} variant` : ', the default'}${locked ? `, locked: ${o.lock}` : ''}`}
+      aria-label={`${o.name}${o.id ? t('screens.techniquesParts.aVariant', { defaultName: defaultName(o.slot) }) : t('screens.techniquesParts.theDefault3')}${locked ? t('screens.techniquesParts.locked', { lock: o.lock }) : ''}`}
       aria-describedby={textId}
       tabIndex={o.chosen ? 0 : -1}
       onClick={onPick}
