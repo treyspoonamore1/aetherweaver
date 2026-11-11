@@ -60,7 +60,7 @@ export function cueBadgeLabel(next: {
   const chained = next.link > 1 ? `${linkName(next.link)} ${powerLabel(next.power)}` : null;
   const beat = next.onBeat
     ? next.cost <= 0
-      ? 'Free'
+      ? txt('hud.conducting.free')
       : txt('hud.conducting.onTheBeat', { cost: next.cost })
     : null;
   return [chained, beat].filter(Boolean).join(' · ') || null;
@@ -375,7 +375,9 @@ export function chainLabel(chain: NonNullable<ConductingHud['chain']>): string {
 
 /** "Lyra next ×1.44"; "every hero left waits" when none can play yet. */
 export function finaleNextLabel(finale: FinaleHud): string {
-  return finale.next ? `${finale.next.name} next ${powerLabel(finale.next.power)}` : 'Waiting';
+  return finale.next
+    ? `${finale.next.name} next ${powerLabel(finale.next.power)}`
+    : txt('hud.conducting.waiting');
 }
 
 /**
@@ -426,7 +428,9 @@ export function finaleTurnSentence(name: string, t: FinaleTurnHud): string {
 
 /** The Calling chip's Marcato: "Marcato" when ready, "Marcato 5s" while it comes back. */
 export function marcatoChipLabel(m: NonNullable<ConductingHud['marcato']>): string {
-  return m.ready ? 'Marcato' : txt('hud.conducting.marcatoS', { ceil: Math.ceil(m.readyIn - EPS) });
+  return m.ready
+    ? txt('hud.conducting.marcato')
+    : txt('hud.conducting.marcatoS', { ceil: Math.ceil(m.readyIn - EPS) });
 }
 
 /** The chip's sentence for the Conductor's states (the chip's aria label adds it). */

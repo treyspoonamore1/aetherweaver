@@ -104,4 +104,10 @@ export const interlude = {
   'screens.interlude.sold': 'Sold',
   'screens.interlude.done': 'Done',
   'screens.interlude.silence': 'silence',
+  'screens.interlude.common': 'Common',
+  'screens.interlude.rare': 'Rare',
+  'screens.interlude.legendary': 'Legendary',
+  'screens.interlude.cursed': 'Cursed',
+  'screens.interlude.epic': 'Epic',
+  'screens.interlude.continue': 'Continue',
 } satisfies Catalogue;

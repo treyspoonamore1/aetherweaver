@@ -265,7 +265,9 @@ export function crescendoLine(def: CallingDef): { name: string; rest: string; le
 
 /** What the Calling always gives, for the tier screen's reminder ("Always yours · Radiance"). */
 export const PASSIVE_NAME: Readonly<Record<string, string>> = {
-  luminary: 'Radiance',
+  get luminary() {
+    return txt('screens.callingText.radiance');
+  },
   get martyr() {
     return txt('screens.callingText.bearAndSongsSung');
   },
@@ -706,7 +708,11 @@ export function conductsFor(callingId: string | null | undefined): boolean {
 
 /** "Duet", "Trio": what a Cue at this place in a chain plays as (1 starts one: a plain Cue). */
 export function linkName(link: 1 | 2 | 3): string {
-  return link === 3 ? 'Trio' : link === 2 ? 'Duet' : 'Cue';
+  return link === 3
+    ? txt('screens.callingText.trio')
+    : link === 2
+      ? txt('screens.callingText.duet')
+      : txt('screens.callingText.cue');
 }
 
 /** A Solo's power as the HUD says it: ×1.25, ×1.5, ×1.44, ×2.49 (two decimals at most). */
@@ -873,7 +879,7 @@ export function callingParts(
   if (stats.callingAmplified >= 1) {
     const label = path.includes('eclipse')
       ? txt('screens.callingText.radianceAndEclipse')
-      : 'Radiance';
+      : txt('screens.callingText.radiance');
     parts.push({
       label,
       amount: stats.callingAmplified,

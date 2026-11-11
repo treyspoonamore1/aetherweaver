@@ -8,4 +8,5 @@ export const reliquaryLook = {
   'common.reliquaryLook.shattered': 'Shattered',
   'common.reliquaryLook.fractured': 'Fractured',
   'common.reliquaryLook.carried': 'Carried',
+  'common.reliquaryLook.weaver': 'Weaver',
 } satisfies Catalogue;

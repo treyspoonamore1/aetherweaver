@@ -207,4 +207,6 @@ export const hints = {
   'hud.hints.carries': 'carries',
   'hud.hints.rewind': 'Rewind',
   'hud.hints.reel': 'Reel',
+  'hud.hints.ward': 'Ward {Q}',
+  'hud.hints.mute': 'Mute',
 } satisfies Catalogue;

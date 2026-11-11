@@ -93,7 +93,9 @@ const NAMES: Readonly<Record<StationId, string>> = {
   get training() {
     return txt('screens.loomModel.trainingGrounds');
   },
-  codex: 'Codex',
+  get codex() {
+    return txt('screens.loomModel.codex');
+  },
   get astrolabe() {
     return txt('screens.loomModel.theAstrolabe');
   },
@@ -103,11 +105,15 @@ const NAMES: Readonly<Record<StationId, string>> = {
   get reliquary() {
     return txt('screens.loomModel.theReliquary');
   },
-  bonds: 'Bonds',
+  get bonds() {
+    return txt('screens.loomModel.bonds');
+  },
   get deeds() {
     return txt('screens.loomModel.hallOfDeeds');
   },
-  dissonance: 'Dissonance',
+  get dissonance() {
+    return txt('screens.loomModel.dissonance');
+  },
   get atlas() {
     return txt('screens.loomModel.theAtlasOfEchoes');
   },
@@ -871,13 +877,13 @@ export function shelfItem(
   let action: ShelfItem['action'] = null;
   let note: string | null = item.reason === null ? null : typeset(item.reason);
   if (item.state === 'locked') {
-    status = 'Locked';
+    status = txt('screens.loomModel.locked');
   } else if (item.kind === 'variant') {
     if (item.state === 'owned') {
-      status = 'Owned';
+      status = txt('screens.loomModel.owned');
       if (variant) note = txt('screens.loomModel.yoursChooseItIn', { key: variant.key });
     } else if (item.state === 'open') {
-      status = 'Open';
+      status = txt('screens.loomModel.open');
       action = sold ? 'buy' : null;
       note = sold
         ? txt('screens.loomModel.settingsSkipTheUnlocks')
@@ -888,7 +894,11 @@ export function shelfItem(
       action = 'buy';
     }
   } else if (wearable) {
-    status = worn ? 'Wearing' : item.state === 'earned' ? 'Earned' : 'Owned';
+    status = worn
+      ? txt('screens.loomModel.wearingStatus')
+      : item.state === 'earned'
+        ? txt('screens.loomModel.earned')
+        : txt('screens.loomModel.owned');
     action = worn ? null : 'wear';
   } else {
     action = 'buy';

@@ -292,7 +292,7 @@ export function stepOption(view: TechniqueSlotView, dir: 1 | -1): TechniqueOptio
 
 /** "25 Spirit", "Free" (Glide). */
 export function costLabel(cost: number | null): string {
-  return cost === null ? 'Free' : `${cost} Spirit`;
+  return cost === null ? txt('screens.variantsModel.free') : `${cost} Spirit`;
 }
 
 /** "7 s cooldown". */
@@ -436,7 +436,9 @@ export function techniqueTip(
   rewindSeconds: number | null = null,
 ): TechniqueTipView {
   const stats = [
-    t.key === 'glide' ? 'Free' : `${num(t.cost)} ${t.pool === 'life' ? 'Life' : 'Spirit'}`,
+    t.key === 'glide'
+      ? txt('screens.variantsModel.free')
+      : `${num(t.cost)} ${t.pool === 'life' ? txt('screens.variantsModel.life') : txt('screens.variantsModel.spirit')}`,
     ...(t.maxCharges > 1 ? [`${t.maxCharges} charges`] : []),
   ];
   if (t.key === 'reel' && rewindSeconds !== null)

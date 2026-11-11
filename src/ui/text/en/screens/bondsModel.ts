@@ -65,4 +65,5 @@ export const bondsModel = {
   'screens.bondsModel.onTheBondsScreen': 'on the Bonds screen, from the Loom or from Prep',
   'screens.bondsModel.skipTheUnlocksEvery':
     'Skip the unlocks: every talent and Solo can be chosen already. Scenes wait for these ranks.',
+  'screens.bondsModel.seen': 'Seen.',
 } satisfies Catalogue;

@@ -51,4 +51,11 @@ export const astrolabeModel = {
   'screens.astrolabeModel.inAll': '+{replace} ({points} in all).',
   'screens.astrolabeModel.that': 'that',
   'screens.astrolabeModel.those': 'those',
+  'screens.astrolabeModel.notable': 'Notable',
+  'screens.astrolabeModel.keystone': 'Keystone',
+  'screens.astrolabeModel.taken': 'Taken. ',
+  'screens.astrolabeModel.silk': 'Silk',
+  'screens.astrolabeModel.choir': 'Choir',
+  'screens.astrolabeModel.aegis': 'Aegis',
+  'screens.astrolabeModel.bond': 'Bond',
 } satisfies Catalogue;

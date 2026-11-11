@@ -52,4 +52,7 @@ export const variantsModel = {
   'screens.variantsModel.theHeroYouAim':
     'The hero you aim at goes back {rewindSeconds} s: to where they stood, and the life they had then (never less than now).',
   'screens.variantsModel.aVariant': 'A {defaultName} variant',
+  'screens.variantsModel.free': 'Free',
+  'screens.variantsModel.life': 'Life',
+  'screens.variantsModel.spirit': 'Spirit',
 } satisfies Catalogue;

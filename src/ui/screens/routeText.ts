@@ -57,7 +57,10 @@ export function movementLabel(
   n: number,
   movements: readonly { readonly label?: string }[] = CONTENT.movements,
 ): string {
-  return movements[n - 1]?.label ?? `Movement ${movementNumeral(n)}`;
+  return (
+    movements[n - 1]?.label ??
+    t('screens.routeText.movement', { movementNumeral: movementNumeral(n) })
+  );
 }
 
 /** Movement `n`'s label mid-sentence: "for the Finale", "Met in Movement II" (docs/phase-5d.md). */

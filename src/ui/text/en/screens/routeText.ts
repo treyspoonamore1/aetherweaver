@@ -55,4 +55,5 @@ export const routeText = {
   'screens.routeText.stop': 'stop',
   'screens.routeText.stops': 'stops',
   'screens.routeText.straight': 'straight ',
+  'screens.routeText.movement': 'Movement {movementNumeral}',
 } satisfies Catalogue;

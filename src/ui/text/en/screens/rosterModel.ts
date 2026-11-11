@@ -84,4 +84,12 @@ export const rosterModel = {
   'screens.rosterModel.run': 'run',
   'screens.rosterModel.fight': 'fight',
   'screens.rosterModel.with': 'with {named} ',
+  'screens.rosterModel.parry': 'Parry',
+  'screens.rosterModel.rootbond': 'Rootbond',
+  'screens.rosterModel.showboat': 'Showboat',
+  'screens.rosterModel.sapling': 'Sapling',
+  'screens.rosterModel.ancient': 'Ancient',
+  'screens.rosterModel.rooted': 'Rooted',
+  'screens.rosterModel.tending': 'Tending',
+  'screens.rosterModel.heavy': 'Heavy',
 } satisfies Catalogue;

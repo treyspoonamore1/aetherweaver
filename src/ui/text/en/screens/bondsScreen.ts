@@ -18,4 +18,5 @@ export const bondsScreen = {
   'screens.bondsScreen.sBond': '{name}’s Bond: {text}',
   'screens.bondsScreen.theAlternateOpensAt': '{note}: the alternate opens at Bond rank {rank}.',
   'screens.bondsScreen.chooseWhichOneBrings': 'Choose which one {name} brings.',
+  'screens.bondsScreen.prep': 'Prep',
 } satisfies Catalogue;

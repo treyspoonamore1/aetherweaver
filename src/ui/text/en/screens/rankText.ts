@@ -14,4 +14,5 @@ export const rankText = {
   'screens.rankText.thisRunEarnedWeaver2': 'This run earned {xp} Weaver XP toward Rank {value}.',
   'screens.rankText.thisRunEarnedNo': 'This run earned no Weaver XP.',
   'screens.rankText.nothingNew': 'Nothing new to unlock at this Rank, but your XP keeps counting.',
+  'screens.rankText.rank': 'Rank {rank}',
 } satisfies Catalogue;

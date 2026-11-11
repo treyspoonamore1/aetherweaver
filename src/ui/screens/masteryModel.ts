@@ -106,7 +106,7 @@ export function masteryView(callingId: string, xp: number): MasteryView {
 
 /** "Mastery 3 opens tier III." / "Mastery 5 earns the title Lightbearer and Chorale in…". */
 export function nextLine(v: MasteryView): string {
-  if (!v.next) return v.mastered ?? 'Mastered.';
+  if (!v.next) return v.mastered ?? txt('screens.masteryModel.mastered2');
   return v.next.opens
     ? txt('screens.masteryModel.mastery', {
         level: v.next.level,

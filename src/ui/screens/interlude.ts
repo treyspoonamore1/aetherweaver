@@ -104,10 +104,18 @@ export interface RelicInfo {
 }
 
 const RARITY_LABEL: Record<RelicRarity, string> = {
-  common: 'Common',
-  rare: 'Rare',
-  legendary: 'Legendary',
-  cursed: 'Cursed',
+  get common() {
+    return t('screens.interlude.common');
+  },
+  get rare() {
+    return t('screens.interlude.rare');
+  },
+  get legendary() {
+    return t('screens.interlude.legendary');
+  },
+  get cursed() {
+    return t('screens.interlude.cursed');
+  },
 };
 
 export function relicInfo(
@@ -226,7 +234,12 @@ export function rewardChips(reward: RewardPreview): RewardChip[] {
       tone: 'relic',
     });
   if (reward.draft) {
-    const label = reward.draft === 'common' ? 'Common' : reward.draft === 'rare' ? 'Rare' : 'Epic';
+    const label =
+      reward.draft === 'common'
+        ? t('screens.interlude.common')
+        : reward.draft === 'rare'
+          ? t('screens.interlude.rare')
+          : t('screens.interlude.epic');
     chips.push({
       icon: 'diamond',
       text: t('screens.interlude.motif', { label }),
@@ -864,13 +877,14 @@ export function eventNameOf(run: Pick<RunState, 'event'>): string | null {
 /** What Continue leads to after a fight: a relic, a motif, the map or the summary. */
 export function nextStep(run: RunState): string {
   const r = run.lastResult;
-  if (!r || run.outcome === 'defeat' || r.outcome !== 'victory') return 'Continue';
+  if (!r || run.outcome === 'defeat' || r.outcome !== 'victory')
+    return t('screens.interlude.continue');
   const node = run.pending ? findNode(run, run.pending) : undefined;
   // The run's last boss ends it; an Expedition's Cantor leads on (docs/phase-5a.md).
-  if (!node || isFinalNode(node)) return 'Continue';
+  if (!node || isFinalNode(node)) return t('screens.interlude.continue');
   if (callingTierAt(run, node) !== null) return t('screens.interlude.continueYourCallingGrows');
   const relics = node.kind === 'event' ? (run.event?.relics ?? 0) : node.reward.relics;
   if (relics > 0) return t('screens.interlude.continueChooseARelic');
   if (node.reward.draft) return t('screens.interlude.continueChooseAMotif');
-  return 'Continue';
+  return t('screens.interlude.continue');
 }

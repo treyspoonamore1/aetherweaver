@@ -104,4 +104,5 @@ export const callingText = {
   'screens.callingText.stood2': '{REWIND_NAME} stood',
   'screens.callingText.hero': 'hero',
   'screens.callingText.heroes': 'heroes',
+  'screens.callingText.cue': 'Cue',
 } satisfies Catalogue;

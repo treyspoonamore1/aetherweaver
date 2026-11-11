@@ -21,7 +21,7 @@ export interface MerchantViewProps {
 function BuyLine({
   item,
   status,
-  verb = 'Buy',
+  verb = t('screens.merchantScreen.buy'),
 }: {
   item: ShopItem;
   status: ShopItemStatus;
@@ -155,7 +155,11 @@ export function MerchantView({ run, onBuy, onLeave }: MerchantViewProps) {
                         <BuyLine
                           item={item}
                           status={status}
-                          verb={item.upgrade ? 'Strengthen' : t('screens.merchantScreen.weaveIn')}
+                          verb={
+                            item.upgrade
+                              ? t('screens.merchantScreen.strengthen')
+                              : t('screens.merchantScreen.weaveIn')
+                          }
                         />
                       </span>
                     }
@@ -242,7 +246,7 @@ function HealCard({
         <p className="mt-2 text-xs text-muted">{t('screens.merchantScreen.everyoneIsAtFull')}</p>
       )}
       <span className="mt-auto block pt-4">
-        <BuyLine item={item} status={status} verb="Drink" />
+        <BuyLine item={item} status={status} verb={t('screens.merchantScreen.drink')} />
       </span>
     </button>
   );

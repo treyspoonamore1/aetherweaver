@@ -95,8 +95,8 @@ export function threadDialView(w: WeaverHud, target: HeroHud | null): ThreadDial
         ? 'live'
         : 'idle';
   const share = Math.round(w.bearShare * 100);
-  const other = mode === 'mend' ? 'Empower' : 'Mend';
-  const back = w.lastMode === 'mend' ? 'Mend' : 'Empower';
+  const other = mode === 'mend' ? t('hud.threadMode.empower') : t('hud.threadMode.mend');
+  const back = w.lastMode === 'mend' ? t('hud.threadMode.mend') : t('hud.threadMode.empower');
   const doing =
     mode === 'bear'
       ? t('hud.threadMode.bearYouTakeOf', {
@@ -138,7 +138,7 @@ export function threadDialView(w: WeaverHud, target: HeroHud | null): ThreadDial
   const plate = cut
     ? cutPlate(cut.cause, w.threadLock)
     : state === 'snapped'
-      ? 'Snapped'
+      ? t('hud.threadMode.snapped')
       : unravelled
         ? unravelPlate(w.unravelLeft ?? 0)
         : mode === 'bear'

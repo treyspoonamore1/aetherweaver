@@ -222,7 +222,7 @@ export function runRank(
 
 /** The rank-up card's heading: "Rank 3". */
 export function rankUpTitle(rank: number): string {
-  return `Rank ${rank}`;
+  return t('screens.rankText.rank', { rank });
 }
 
 /** One line under a rank-up with nothing scheduled (past the last unlock). */

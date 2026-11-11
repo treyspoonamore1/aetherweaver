@@ -376,9 +376,17 @@ function SaidLine({ said, id }: { said: Said; id: string }) {
 }
 
 /** A state as a small chip: owned, wearing, earned, locked, open (nothing for sale). */
-function StatusChip({ status, worn = false }: { status: string | null; worn?: boolean }) {
+function StatusChip({
+  status,
+  worn = false,
+  locked = false,
+}: {
+  status: string | null;
+  worn?: boolean;
+  /** Its item is still locked (the chip greys, with a padlock): from the item, not the word. */
+  locked?: boolean;
+}) {
   if (!status) return null;
-  const locked = status === 'Locked';
   return (
     <span
       className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-px text-xs font-semibold ${locked ? 'border-ink-500 text-muted' : 'border-gold-400/60 bg-gold-400/10 text-gold-200'}`}
@@ -476,7 +484,7 @@ function VariantCard({ s, said, onAct }: { s: ShelfItem; said: Said; onAct(s: Sh
       </div>
       <div className="mt-auto flex min-h-8 items-center justify-between gap-2 pt-2.5">
         <span className="flex items-center gap-2">
-          <StatusChip status={s.status} />
+          <StatusChip status={s.status} locked={s.item.state === 'locked'} />
           {locked && item.price !== null && <StarlightPrice price={item.price} tone="muted" />}
         </span>
         <ActionButton s={s} onAct={onAct} />
@@ -607,7 +615,7 @@ function KeepsakeCard({
       </div>
       <div className="mt-auto flex min-h-8 items-center justify-between gap-2 pt-2">
         <span className="flex items-center gap-2">
-          <StatusChip status={s.status} worn={s.worn} />
+          <StatusChip status={s.status} worn={s.worn} locked={s.item.state === 'locked'} />
           {locked && item.price !== null && <StarlightPrice price={item.price} tone="muted" />}
         </span>
         <ActionButton s={s} onAct={onAct} />

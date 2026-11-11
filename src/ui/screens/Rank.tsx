@@ -383,7 +383,7 @@ export function RankUpCard({
           className="mt-3 font-display text-3xl font-bold tracking-wide text-gold-300"
         >
           {/* Numerals in the sans, as everywhere: the display face's 1 reads as an I. */}
-          {rankUps.length > 1 ? 'Ranks ' : txt('screens.rank.weaverRank2')}
+          {rankUps.length > 1 ? txt('screens.rank.ranks') : txt('screens.rank.weaverRank2')}
           <span className="font-sans">
             {rankUps.length > 1 ? rankUps.map((r) => r.rank).join(', ') : top}
           </span>

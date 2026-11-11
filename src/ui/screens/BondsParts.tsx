@@ -713,14 +713,15 @@ export function BondRankUpCard({ notices, bonds, first, unlockAll, onDismiss }: 
         }}
       >
         <p className="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-[0.4em] text-muted">
-          <BondGlyph size={14} /> {first ? txt('screens.bondsParts.somethingNew') : 'Bonds'}
+          <BondGlyph size={14} />{' '}
+          {first ? txt('screens.bondsParts.somethingNew') : txt('screens.bondsParts.bonds')}
         </p>
         <h2
           id="bond-rank-up-title"
           className="mt-2 text-center font-display text-3xl font-bold tracking-wide"
           style={{ color: BOND }}
         >
-          {first ? 'Bonds' : bondRankUpTitle(notices)}
+          {first ? txt('screens.bondsParts.bonds') : bondRankUpTitle(notices)}
         </h2>
         {intro.length > 0 && (
           <div

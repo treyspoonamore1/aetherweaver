@@ -22,4 +22,6 @@ export const eventScreen = {
   'screens.eventScreen.whatHappened': 'What happened',
   'screens.eventScreen.itWorkedTheCame': 'It worked: the {round}% came up.',
   'screens.eventScreen.itWentWrongThe': 'It went wrong: the {value}% came up.',
+  'screens.eventScreen.retune': 'Retune',
+  'screens.eventScreen.choose': 'Choose',
 } satisfies Catalogue;

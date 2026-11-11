@@ -47,4 +47,5 @@ export const astrolabeScreen = {
   'screens.astrolabeScreen.del': 'Del',
   'screens.astrolabeScreen.tab': 'Tab',
   'screens.astrolabeScreen.keystones': 'Keystones',
+  'screens.astrolabeScreen.prep': 'Prep',
 } satisfies Catalogue;

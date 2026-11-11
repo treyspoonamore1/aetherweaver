@@ -144,7 +144,7 @@ export function EventView({
           title: txt('screens.eventScreen.retuneYourSongs'),
           blurb: txt('screens.eventScreen.theSameRulesAs', { text: pendingChoice.text }),
           back: txt('screens.eventScreen.backToTheChoices'),
-          confirm: 'Retune',
+          confirm: txt('screens.eventScreen.retune'),
         }}
       />
     );
@@ -301,7 +301,7 @@ function ChoiceCard({
               ? txt('screens.eventScreen.chooseAMotif')
               : c.retune
                 ? txt('screens.eventScreen.openTheSongBuilder')
-                : 'Choose'}
+                : txt('screens.eventScreen.choose')}
           </span>
         )}
       </p>

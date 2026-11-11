@@ -86,4 +86,10 @@ export const atlasModel = {
   'screens.atlasModel.is': 'is',
   'screens.atlasModel.are': 'are',
   'screens.atlasModel.the': 'the',
+  'screens.atlasModel.chords': 'Chords',
+  'screens.atlasModel.the2': 'The {name}',
+  'screens.atlasModel.none': 'None',
+  'screens.atlasModel.you': 'You',
+  'screens.atlasModel.won': 'Won',
+  'screens.atlasModel.lost': 'Lost',
 } satisfies Catalogue;

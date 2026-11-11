@@ -6,4 +6,8 @@ export const loomParts = {
   'screens.loomParts.later': 'Later',
   'screens.loomParts.back': 'Back',
   'screens.loomParts.next': 'Next',
+  'screens.loomParts.shard': 'Shard',
+  'screens.loomParts.shards': 'Shards',
+  'screens.loomParts.tear': 'Tear',
+  'screens.loomParts.tears': 'Tears',
 } satisfies Catalogue;

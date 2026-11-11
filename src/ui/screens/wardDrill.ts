@@ -42,7 +42,7 @@ export const DRILL_MODES: readonly DrillMode[] = ['slow', 'normal', 'quick', 'mi
 const SPEEDS: readonly DrillSpeed[] = ['slow', 'normal', 'quick'];
 
 export function modeLabel(mode: DrillMode): string {
-  return mode === 'mixed' ? 'Mixed' : DRILL_SPEEDS[mode].label;
+  return mode === 'mixed' ? txt('screens.wardDrill.mixed') : DRILL_SPEEDS[mode].label;
 }
 
 /** Seconds from Start to the first blow: time to Thread its hero. */
@@ -167,7 +167,7 @@ export function judgeBlow(f: BlowFacts): DrillTry | null {
 export function tryTitle(t: Pick<DrillTry, 'kind' | 'ms'>): string {
   switch (t.kind) {
     case 'perfect':
-      return 'Perfect';
+      return txt('screens.wardDrill.perfect');
     case 'early':
       return txt('screens.wardDrill.earlyMs', { value: t.ms ?? 0 });
     case 'late':
@@ -175,7 +175,7 @@ export function tryTitle(t: Pick<DrillTry, 'kind' | 'ms'>): string {
     case 'warded':
       return txt('screens.wardDrill.wardedNotPerfect');
     case 'missed':
-      return 'Missed';
+      return txt('screens.wardDrill.missed');
   }
 }
 

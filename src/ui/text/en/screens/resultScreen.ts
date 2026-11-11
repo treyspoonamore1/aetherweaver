@@ -34,4 +34,7 @@ export const resultScreen = {
   'screens.resultScreen.fallCouldHaveBeen': '{name} fall could have been answered.',
   'screens.resultScreen.noneOfItAnswers': 'None of it answers {killer}.',
   'screens.resultScreen.miniBoss': 'Mini-boss',
+  'screens.resultScreen.victory': 'Victory',
+  'screens.resultScreen.fell': 'Fell',
+  'screens.resultScreen.standing': 'Standing',
 } satisfies Catalogue;

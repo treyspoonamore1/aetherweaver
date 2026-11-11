@@ -453,7 +453,7 @@ export function sceneRows(heroId: string, bond: Bond): SceneRow[] {
         state === 'seen'
           ? replyText
             ? txt('screens.bondsModel.seenYouSaid', { replyText })
-            : 'Seen.'
+            : txt('screens.bondsModel.seen')
           : state === 'waiting'
             ? txt('screens.bondsModel.waitsForARespite', { name, xp: fmt(xp) })
             : state === 'queued'

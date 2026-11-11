@@ -21,4 +21,8 @@ export const riftLook = {
   'hud.riftLook.stitched2': 'Stitched',
   'hud.riftLook.rootedHeroesChimeEach': 'rooted heroes · Chime each one free',
   'hud.riftLook.healing50OutsideThe': 'healing −50% outside the pools',
+  'hud.riftLook.shears': 'Shears',
+  'hud.riftLook.severing': 'Severing',
+  'hud.riftLook.snip': 'Snip',
+  'hud.riftLook.unpick': 'Unpick',
 } satisfies Catalogue;

@@ -879,7 +879,11 @@ export function AstrolabeScreen() {
       onGiveBack={(id) => void giveBackStar(id)}
       onRespec={() => void respecStars()}
       onBack={back}
-      backTo={previous === 'run' ? 'Prep' : txt('screens.astrolabeScreen.theLoom')}
+      backTo={
+        previous === 'run'
+          ? txt('screens.astrolabeScreen.prep')
+          : txt('screens.astrolabeScreen.theLoom')
+      }
       runUnderWay={runUnderWay}
     />
   );

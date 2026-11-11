@@ -25,4 +25,7 @@ export const chordModel = {
   'screens.chordModel.surroundsYouEveryoneNear':
     'Surrounds you: everyone near you hears it at full strength.',
   'screens.chordModel.everyone': 'Everyone {where}',
+  'screens.chordModel.life': 'Life',
+  'screens.chordModel.spirit': 'Spirit',
+  'screens.chordModel.planted': 'Planted',
 } satisfies Catalogue;

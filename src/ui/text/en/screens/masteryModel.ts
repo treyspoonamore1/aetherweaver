@@ -28,4 +28,5 @@ export const masteryModel = {
   'screens.masteryModel.tier2': 'Tier',
   'screens.masteryModel.tiers2': 'Tiers',
   'screens.masteryModel.open': 'open',
+  'screens.masteryModel.mastered2': 'Mastered.',
 } satisfies Catalogue;

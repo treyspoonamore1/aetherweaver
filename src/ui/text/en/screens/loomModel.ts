@@ -157,4 +157,11 @@ export const loomModel = {
   'screens.loomModel.has': 'has',
   'screens.loomModel.have': 'have',
   'screens.loomModel.go': '{capital} go',
+  'screens.loomModel.codex': 'Codex',
+  'screens.loomModel.dissonance': 'Dissonance',
+  'screens.loomModel.open': 'Open',
+  'screens.loomModel.locked': 'Locked',
+  'screens.loomModel.owned': 'Owned',
+  'screens.loomModel.wearingStatus': 'Wearing',
+  'screens.loomModel.earned': 'Earned',
 } satisfies Catalogue;

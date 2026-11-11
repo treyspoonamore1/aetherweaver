@@ -185,7 +185,7 @@ function ColumnView({
 }) {
   const o = OUTCOME[col.outcome];
   const rows: [string, string][] = [
-    ['Time', clock(col.time)],
+    [t('screens.withoutYou.time'), clock(col.time)],
     [t('screens.withoutYou.waveReached'), col.wave],
     [t('screens.withoutYou.heroesWentDown'), String(col.downs)],
     [t('screens.withoutYou.stillStanding'), `${col.standing} of ${heroIds.length}`],

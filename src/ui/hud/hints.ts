@@ -222,7 +222,7 @@ function allHints(hud: HudSnapshot): Hint[] {
 
   // Phase 4f: the Ward's slot may play a variant: the hints name it.
   const ward = variantIn(hud, 'ward');
-  const wardIt = ward ? `cast ${variantName(ward)} ${Q}` : `Ward ${Q}`;
+  const wardIt = ward ? `cast ${variantName(ward)} ${Q}` : txt('hud.hints.ward', { Q });
   for (const h of party.filter(alive)) {
     if (h.lethal) {
       if (techReady(hud, 'ward')) {
@@ -468,7 +468,7 @@ function allHints(hud: HudSnapshot): Hint[] {
   }
   if (hud.boss?.cast && hud.boss.cast.answers.length > 0) {
     const names = hud.boss.cast.answers
-      .map((a) => (a === 'reel' && w.rewind ? 'Rewind' : ANSWER[a].label))
+      .map((a) => (a === 'reel' && w.rewind ? txt('hud.hints.rewind') : ANSWER[a].label))
       .join(' or ');
     out.push({
       id: 'boss-cast',
@@ -852,7 +852,7 @@ function mawRescue(hud: HudSnapshot, F: string, who: 'one' | 'him'): string {
 function silencerName(hud: HudSnapshot): string {
   return hud.rift?.silencer && !hud.foes?.includes('mute')
     ? txt('hud.hints.silencingElite')
-    : 'Mute';
+    : txt('hud.hints.mute');
 }
 
 /** Bloodlust's line, as a whole percent (content's `quirk.below`). */

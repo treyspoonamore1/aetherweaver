@@ -344,8 +344,8 @@ export function poolBlurb(run: RunState): string {
 }
 
 /** "Spirit" or "Life": the word for what the songs reserve. */
-export function poolWord(pool: ReservePool): 'Spirit' | 'Life' {
-  return pool === 'life' ? 'Life' : 'Spirit';
+export function poolWord(pool: ReservePool): string {
+  return pool === 'life' ? t('screens.chordModel.life') : t('screens.chordModel.spirit');
 }
 
 /**
@@ -387,7 +387,7 @@ export function isBonusSlot(ref: SlotRef): boolean {
 
 /** Short read-out of where a song's field sits. */
 export function anchorLabel(anchor: ChordAnchor): string {
-  return anchor === 'planted' ? 'Planted' : t('screens.chordModel.aroundYou');
+  return anchor === 'planted' ? t('screens.chordModel.planted') : t('screens.chordModel.aroundYou');
 }
 
 /** "×2", "×0.75", "×1.8". */

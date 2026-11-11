@@ -35,4 +35,7 @@ export const conducting = {
   'hud.conducting.one': 'one',
   'hud.conducting.solo': 'Solo',
   'hud.conducting.solos': 'Solos',
+  'hud.conducting.free': 'Free',
+  'hud.conducting.waiting': 'Waiting',
+  'hud.conducting.marcato': 'Marcato',
 } satisfies Catalogue;
