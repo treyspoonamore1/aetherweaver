@@ -3,6 +3,7 @@ import {
   BRACE,
   FLAT,
   HEAD,
+  LEAD,
   LIMB,
   WEAPON,
   figure,
@@ -26,6 +27,8 @@ const EXACT = { jit: 0 } as const;
 /** Dark bark (roots, a brow, knuckles) and the pale heartwood of a cut top. */
 const BARK_DARK = '#3e2c1f';
 const HEARTWOOD = '#8a6a4c';
+/** Oro's leaf glass (heroes.ts): a lighter moss, ≥ 23 ΔE from Mend and every meaning colour. */
+const LEAF = '#527a50';
 
 // ── Oro's Sapling ─────────────────────────────────────────────────────────────────────
 
@@ -36,7 +39,7 @@ const HEARTWOOD = '#8a6a4c';
  */
 export function buildSapling(moss: string): THREE.BufferGeometry {
   const b = figure('swarm');
-  const leaf = shade(moss, 0.12);
+  const leaf = LEAF;
   // The stump, wide at its roots, cut into bark panes; the roots splayed round its foot.
   b.cyl(0.2, 0.27, 0.4, BARK, { p: [0, 0.2, 0], cell: 0.1, lit: 0.1, glow: 0.05 }, 7);
   for (let i = 0; i < 4; i++) {
@@ -83,7 +86,7 @@ export function buildSapling(moss: string): THREE.BufferGeometry {
  */
 export function buildAncient(moss: string): THREE.BufferGeometry {
   const b = figure('elite', { body: [1.0, 1.0] });
-  const leaf = shade(moss, 0.12);
+  const leaf = LEAF;
   const deepMoss = shade(moss, -0.35);
   // Root legs, splayed, each foot a spread of roots.
   for (const side of [-1, 1]) {
@@ -196,16 +199,15 @@ export function buildAncient(moss: string): THREE.BufferGeometry {
  * Not the Weaver's look (white-gold glass in gold came, her halo): gold glass in dark lead, small.
  */
 const CROWN_GOLD = '#e8b54a';
-const CROWN_DEEP = '#8a6420';
 const CROWN_LIGHT = '#ffd27a';
 
 export function buildCrown(): THREE.BufferGeometry {
   const b = figure('swarm', { outline: 'full' });
   // The band: an open ring of gold glass (no cap: it is a crown, not a puck), seen from either
-  // side, between two dark-gold rims that carry its outline.
+  // side, between two rims of dark lead that carry its outline.
   b.arc(0.32, 0.3, 0.13, 0, Math.PI * 2, CROWN_GOLD, { p: [0, 0.03, 0], glow: 0.35 }, 10);
-  b.torus(0.3, 0.025, CROWN_DEEP, { p: [0, -0.035, 0], r: FLAT, glow: 0.3 }, Math.PI * 2, 10);
-  b.torus(0.32, 0.02, CROWN_DEEP, { p: [0, 0.095, 0], r: FLAT, glow: 0.3 }, Math.PI * 2, 10);
+  b.torus(0.3, 0.025, LEAD, { p: [0, -0.035, 0], r: FLAT, glow: 0 }, Math.PI * 2, 10);
+  b.torus(0.32, 0.02, LEAD, { p: [0, 0.095, 0], r: FLAT, glow: 0 }, Math.PI * 2, 10);
   for (let i = 0; i < 5; i++) {
     const a = (i / 5) * Math.PI * 2;
     const p: V3 = [Math.cos(a) * 0.32, 0.19, Math.sin(a) * 0.32];
