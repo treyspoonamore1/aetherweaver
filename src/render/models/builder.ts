@@ -170,6 +170,19 @@ export class ModelBuilder {
    */
   constructor(private readonly glass = false) {}
 
+  private hip = 0;
+  private span = 0;
+
+  /**
+   * The whole body above `hip` (m) follows the figure's breath, weight and swing (material.ts),
+   * fully from `span` above it; legs (rig kind 7) and a self-walking body (kind 10) do not.
+   */
+  body(hip: number, span: number): this {
+    this.hip = hip;
+    this.span = span;
+    return this;
+  }
+
   /** Every part added inside `fn` moves with `rig` (unless it names its own). */
   rigged(rig: NonNullable<PartOptions['rig']>, fn: () => void): this {
     const before = this.group;
@@ -301,6 +314,14 @@ export class ModelBuilder {
       const pos = geo.getAttribute('position') as THREE.BufferAttribute;
       geo.computeVertexNormals();
       const nor = geo.getAttribute('normal') as THREE.BufferAttribute;
+      const kind = part.rig[0];
+      const bodyOf = (y: number): number => {
+        if (this.span <= 0 || kind === 7 || kind === 10) return 0;
+        // A rigid rigged part follows as one piece, by its pivot; the rest bends with its height.
+        const at = kind !== 0 && kind !== 3 ? part.rig[2] : y;
+        const w = Math.min(0.999, Math.max(0, (at - this.hip) / this.span));
+        return w > 0.001 ? Math.round(this.hip * 100) + w : 0;
+      };
       const put = (o: number, i: number, shell: boolean, k: number) => {
         positions[o * 3] = pos.getX(i);
         positions[o * 3 + 1] = pos.getY(i);
@@ -311,8 +332,9 @@ export class ModelBuilder {
         rigs[g + 2] = part.rig[2];
         rigs[g + 3] = part.rig[3];
         misc[g] = part.rig[4];
-        misc[g + 1] = part.lead + (part.cell > 0 ? Math.min(0.95, part.lit) : 0);
-        misc[g + 2] = shell ? 1 : 0;
+        // The lead field: its kind plus the share of lit panes; 9 marks the outline shell.
+        misc[g + 1] = shell ? 9 : part.lead + (part.cell > 0 ? Math.min(0.95, part.lit) : 0);
+        misc[g + 2] = bodyOf(pos.getY(i));
         misc[g + 3] = part.cell;
         const t = (i / 3) | 0;
         if (shell) {

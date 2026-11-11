@@ -456,16 +456,21 @@ export function weaverRibbons(
       const px = hist[k * 3] + sideX * off * (1 + 0.5 * t) + fx * lead;
       const pz = hist[k * 3 + 2] + sideZ * off * (1 + 0.5 * t) + fz * lead;
       let flutter = Math.sin(now * 5 + k * 0.55 + r * 2) * 0.09 * t;
-      let droop = t * 0.75;
+      // Art pass: at rest the hands' ribbons fall toward the floor beside her in a slow S
+      // (the Loom's drawing), rather than streaming back.
+      const fall = hand ? still : 0;
+      let droop = t * (0.75 + 0.1 * fall);
       if (lift > 0) {
         // At rest: a slow swell runs down each ribbon, lifting its tail and easing it aside.
         droop -= lift * t * (0.6 + 0.4 * Math.sin(now * 1.4 + r * 1.9 - t * 2.6));
         flutter += lift * 0.6 * t * Math.sin(now * 0.9 + r * 2.4 - t * 1.8);
       }
+      const back = 0.55 * (1 - 0.65 * fall);
+      const out = fall * (r - 1) * 0.16 * t;
       kit.ribbons.point(
-        px - fx * t * 0.55 + sideX * flutter,
+        px - fx * t * back + sideX * (flutter + out),
         hist[k * 3 + 1] + baseY - droop + Math.sin(now * 3.3 + k * 0.4 + r) * 0.06 * t,
-        pz - fz * t * 0.55 + sideZ * flutter,
+        pz - fz * t * back + sideZ * (flutter + out),
         // Art pass: wider and brighter, so they read as the threads' origin at the fight's camera.
         0.12 * (1 - t * 0.55),
         c,

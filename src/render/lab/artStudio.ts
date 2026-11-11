@@ -51,8 +51,13 @@ export interface StudioSpec {
   yaw?: number;
   /** The heroes' and the Weaver's render scale (default 1; an option picture only). */
   heroScale?: number;
-  /** For `field`: the Bellwarden drawn as the walking bell (the art pass's second option). */
+  /** The Bellwarden as the art pass's keeper or walking bell (default: as the fight draws it). */
   bellOption?: 'keeper' | 'bell';
+  /**
+   * A held pose for motion strips: the figures' clock (s, default the studio's time), wind-up,
+   * blow (0..1 through a swing) and moving (0..1), as entities.ts passes them each frame.
+   */
+  pose?: { clock?: number; windup?: number; blow?: number; moving?: number };
 }
 
 /** Turned toward the camera (+z) and 0.6 rad toward the key light (+x). */
@@ -235,7 +240,13 @@ export class ArtStudio {
     for (const f of this.figures) {
       f.batch.begin();
       // At rest, each on its own clock (secondary motion, material.ts).
-      f.batch.setPose(time + this.figures.indexOf(f) * 1.37, 0, 0, 0);
+      const pose = this.spec.pose;
+      f.batch.setPose(
+        pose?.clock ?? time + this.figures.indexOf(f) * 1.37,
+        pose?.windup ?? 0,
+        pose?.blow ?? 0,
+        pose?.moving ?? 0,
+      );
       f.batch.push(this.compose(f.x, f.z, f.yaw, f.scale), 0, 0, 0, 0, f.rim, f.rimStrength);
       this.kit.shadows.push(
         f.x,

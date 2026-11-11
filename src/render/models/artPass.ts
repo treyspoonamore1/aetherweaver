@@ -24,6 +24,7 @@ const HEAD = 6;
 const LIMB = 7;
 const SPIN = 8;
 const BODY = 10;
+const WEAVE = 11;
 /**
  * A signature colour's own faint light: the heroes' colours stay saturated under the Reliquary's
  * warm key light and read at the fight's camera (luminous accents, docs/plan/04 §1).
@@ -120,7 +121,7 @@ function frame(o: V3, yaw: number) {
 // ── Kael, the Bulwark ─────────────────────────────────────────────────────────────────
 
 export function buildKael(def: HeroDef): THREE.BufferGeometry {
-  const b = new ModelBuilder(true);
+  const b = new ModelBuilder(true).body(0.86, 0.7);
   const col = def.color;
   const deep = shade(col, -0.45);
   const bright = shade(col, 0.18);
@@ -214,7 +215,7 @@ export function buildKael(def: HeroDef): THREE.BufferGeometry {
   });
   // Shield arm (his left): a tower shield of stained glass, the same window seen from either side
   // (the fight's camera mostly sees its back), a cross of light through it, a blue-steel frame.
-  b.rigged({ k: BRACE, at: [-0.54, 1.52, 0] }, () => {
+  b.rigged({ k: BRACE, at: [-0.54, 1.52, 0], a: 0.45 }, () => {
     limb(b, [-0.58, 1.52, 0], [-0.62, 1.12, -0.12], 0.11, 0.1, deep, 6);
     const yaw = 0.3;
     const at = frame([-0.66, 1.06, -0.42], yaw);
@@ -243,7 +244,7 @@ export function buildKael(def: HeroDef): THREE.BufferGeometry {
 // ── Lyra, the Windrunner ──────────────────────────────────────────────────────────────
 
 export function buildLyra(def: HeroDef): THREE.BufferGeometry {
-  const b = new ModelBuilder(true);
+  const b = new ModelBuilder(true).body(0.8, 0.65);
   const col = def.color;
   const deep = shade(col, -0.55);
   const mid = shade(col, -0.25);
@@ -317,13 +318,13 @@ export function buildLyra(def: HeroDef): THREE.BufferGeometry {
     b.octa(0.045, glass, { p: [0, 1.96, 0.6], glow: 1 });
   });
   // Right arm: draws the string.
-  b.rigged({ k: WEAPON, at: [0.22, 1.34, 0], a: 0.5 }, () => {
+  b.rigged({ k: WEAPON, at: [0.22, 1.34, 0], a: -0.7 }, () => {
     limb(b, [0.24, 1.36, 0], [0.32, 0.92, -0.08], 0.06, 0.05, mid, 5);
     b.sphere(0.05, skin, { p: [0.33, 0.88, -0.09], lead: 0 }, 5, 4);
   });
   // Bow arm (her left): a tall recurve canted outward, emerald glass let into its limbs, leaf-glass
   // tips and a string of light; raised to aim.
-  b.rigged({ k: WEAPON, at: [-0.22, 1.34, 0], a: 0.75 }, () => {
+  b.rigged({ k: WEAPON, at: [-0.22, 1.34, 0], a: 0.3 }, () => {
     limb(b, [-0.24, 1.36, 0], [-0.4, 1.04, -0.3], 0.06, 0.05, mid, 5);
     b.sphere(0.05, skin, { p: [-0.42, 1.02, -0.32], lead: 0 }, 5, 4);
     const cx = -0.46;
@@ -361,7 +362,7 @@ export function buildLyra(def: HeroDef): THREE.BufferGeometry {
 // ── Vexis, the Starcaller ─────────────────────────────────────────────────────────────
 
 export function buildVexis(def: HeroDef): THREE.BufferGeometry {
-  const b = new ModelBuilder(true);
+  const b = new ModelBuilder(true).body(0.9, 0.75);
   // Her violet, deepened and saturated: a warm key light greys a pale violet toward pink.
   const col = `#${new THREE.Color(def.color).offsetHSL(0, 0.12, -0.08).getHexString()}`;
   const deep = shade(col, -0.6);
@@ -490,7 +491,7 @@ export const WEAVER_HANDS = { side: 0.39, forward: 0.26, y: 0.9 } as const;
  * hands. Every palette builds the same parts in the same order (`recolorModel`).
  */
 export function buildWeaverArt(palette: Readonly<WeaverPalette>): THREE.BufferGeometry {
-  const b = new ModelBuilder(true);
+  const b = new ModelBuilder(true).body(0.85, 0.7);
   const body = palette.body;
   const trim = palette.trim;
   const fold = shade(body, -0.12);
@@ -532,7 +533,7 @@ export function buildWeaverArt(palette: Readonly<WeaverPalette>): THREE.BufferGe
   for (const side of [-1, 1]) {
     const shoulder: V3 = [side * 0.22, 1.38, 0.0];
     const cuff: V3 = [side * (H.side - 0.01), H.y + 0.08, -H.forward + 0.07];
-    b.rigged({ k: CLOTH, at: shoulder, a: 0.5 }, () => {
+    b.rigged({ k: WEAVE, at: shoulder, a: side }, () => {
       limb(b, shoulder, cuff, 0.19, 0.07, fold, 10, lit, { lead: 2, cell: 0.1, lit: 0.3 });
       b.torus(
         0.18,
@@ -548,7 +549,7 @@ export function buildWeaverArt(palette: Readonly<WeaverPalette>): THREE.BufferGe
       s: [1, 2, 1],
       glow: 1,
       lead: 0,
-      rig: { k: FLOAT, at: [side * H.side, H.y, -H.forward], a: side * 1.4 },
+      rig: { k: WEAVE, at: shoulder, a: side },
     });
   }
   // A train of glass falling from her shoulders to the floor behind her (from above: her robe
@@ -626,7 +627,7 @@ function glaze(cell: number, share: number, glow = 0.16): PartOptions {
  * light, violet cracks running through it.
  */
 export function buildChorister(def: EnemyDef): THREE.BufferGeometry {
-  const b = new ModelBuilder(true);
+  const b = new ModelBuilder(true).body(0.4 * (def.radius / 0.42), 0.4 * (def.radius / 0.42));
   const body = porcelain(def.color);
   const s = def.radius / 0.42;
   const under = '#544b74';
@@ -778,7 +779,7 @@ function bell(
  * bronze bells for fists, violet light inside every bell.
  */
 export function buildBrute(def: EnemyDef): THREE.BufferGeometry {
-  const b = new ModelBuilder(true);
+  const b = new ModelBuilder(true).body(0.75 * (def.radius / 0.9), 0.9 * (def.radius / 0.9));
   const body = porcelain(def.color);
   const s = def.radius / 0.9;
   const cassock = '#3b3150';
@@ -817,7 +818,7 @@ export function buildBrute(def: EnemyDef): THREE.BufferGeometry {
       });
     }
   });
-  b.rigged({ k: BODY, at: [0, 0.9 * s, 0], a: 1 }, () => {
+  b.rigged({ k: 0, at: [0, 0, 0] }, () => {
     // A massive trunk: faceted porcelain, broad at the shoulders, hunched forward, cracked.
     b.lathe(
       [
@@ -888,7 +889,7 @@ export function buildBrute(def: EnemyDef): THREE.BufferGeometry {
   });
   // Huge arms with bronze bells for fists, raised overhead through the Toll's wind-up.
   for (const side of [-1, 1]) {
-    b.rigged({ k: WEAPON, at: [side * 0.76 * s, 1.62 * s, 0], a: 0.95 }, () => {
+    b.rigged({ k: WEAPON, at: [side * 0.76 * s, 1.62 * s, 0], a: 1.4 }, () => {
       b.ico(0.34 * s, plate, {
         ...glaze(0.18 * s, 0.4, 0.12),
         p: [side * 0.84 * s, 1.66 * s, 0.04 * s],
@@ -981,7 +982,7 @@ function bellWindows(b: ModelBuilder, n: number, r: number, y: number, h: number
  * a lantern-staff in its left.
  */
 function buildBellKeeper(def: EnemyDef): THREE.BufferGeometry {
-  const b = new ModelBuilder(true);
+  const b = new ModelBuilder(true).body(1.6, 1.0);
   const body = porcelain(def.color);
   const cloak = '#5d5180';
   const cloakDark = '#3a3156';
