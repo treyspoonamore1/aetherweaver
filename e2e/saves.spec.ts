@@ -4,9 +4,11 @@
  * replaced saves kept under `.before-import`), garbage refused in words, and a profile that won't
  * load kept raw and offered for download.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import { DEFAULT_SETTINGS } from '../src/app/settings';
 import { newProfile } from '../src/meta/profile';
+import { chooseNode, embark, newRun, reachable } from '../src/meta/run';
 
 const START_URL = '/?e2e=1&seed=4242';
 const KEYS = ['aetherweaver.profile', 'aetherweaver.run', 'aetherweaver.settings'] as const;
@@ -155,6 +157,56 @@ test('export a file and a code, import each through the panel, refuse garbage', 
   await Promise.all([page.waitForEvent('load'), page.getByTestId('saves-restore-confirm').click()]);
   await ready(page);
   expect((await stored(page))['aetherweaver.profile']).toBe(replaced['aetherweaver.profile']);
+  expect(errors).toEqual([]);
+});
+
+// Review B, finding 1: setting the imported settings in force before the reload woke the run
+// store's subscriber, which saved the run held in memory (a run in Prep) over the imported one.
+test('an import with its settings, made while a run in Prep is held, keeps the imported run', async ({
+  page,
+}, testInfo) => {
+  const errors = trackErrors(page);
+  await page.goto(START_URL);
+  await ready(page);
+  // The file: a Weaver at Rank 10, a run (seed 777) on its map, settings with Skip the unlocks on.
+  let other = embark(newRun(777));
+  other = chooseNode(other, reachable(other)[0]!.id);
+  const file = {
+    format: 'aetherweaver-save',
+    version: 1,
+    profile: { ...newProfile(3), xp: 4400, runs: 7, wins: 3 },
+    run: other,
+    settings: { ...DEFAULT_SETTINGS, unlockAll: true },
+  };
+  const path = testInfo.outputPath('import-prep.json');
+  writeFileSync(path, JSON.stringify(file));
+  // A run begun (seed 5), in Prep; then Prep's way back to the Loom, and the Loom's Settings.
+  await page.evaluate(() => window.__AWRUN__!.newRun(5));
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('prep');
+  await page
+    .getByRole('button', { name: /The Loom/ })
+    .first()
+    .click();
+  // The Loom's first-contact welcome, if it shows.
+  await page
+    .getByRole('button', { name: 'Later' })
+    .click({ timeout: 15_000 })
+    .catch(() => {});
+  await expect(page.getByRole('button', { name: /The Gate/ }).first()).toContainText(/in Prep/);
+  await page.getByRole('button', { name: 'Settings' }).first().click();
+  await page.getByTestId('saves-panel').scrollIntoViewIfNeeded();
+  await page.getByTestId('saves-import-file').setInputFiles(path);
+  await expect(page.getByTestId('saves-preview')).toBeVisible();
+  await page.getByTestId('saves-with-settings').check();
+  await Promise.all([page.waitForEvent('load'), page.getByTestId('saves-import-confirm').click()]);
+  await ready(page);
+  const run = await page.evaluate(() => {
+    const t = localStorage.getItem('aetherweaver.run');
+    return t ? (JSON.parse(t) as { seed: number }) : null;
+  });
+  expect(run?.seed, 'the imported run (seed 777) is the saved run').toBe(777);
+  const settings = await page.evaluate(() => localStorage.getItem('aetherweaver.settings'));
+  expect((JSON.parse(settings!) as { unlockAll: boolean }).unlockAll).toBe(true);
   expect(errors).toEqual([]);
 });
 

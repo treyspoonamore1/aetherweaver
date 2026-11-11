@@ -36,7 +36,7 @@ import {
 } from '../meta/saveFile';
 import type { RunState } from '../meta/types';
 import { useRun } from './runStore';
-import { migrateSettings, useSettings } from './settings';
+import { migrateSettings } from './settings';
 import { storage } from './storage';
 
 /** Settings a save may carry: any version `migrateSettings` reads. */
@@ -174,24 +174,20 @@ export function previewImport(file: SaveFile): SavePreviewRead {
 
 /**
  * Writes an import over this device's saves, the current ones backed up first
- * (`BEFORE_IMPORT_SUFFIX`), and sets the settings in force when they are imported. The app's other
- * stores still hold the old saves: `reloadAfterImport` starts the game again on the new ones.
+ * (`BEFORE_IMPORT_SUFFIX`). Only storage changes: the app's stores still hold the old saves, and
+ * `reloadAfterImport` starts the game again on the new ones (the imported settings included).
+ *
+ * No store is set here, the settings included: a store change wakes its subscribers, and some
+ * of them save. Settings with another "Skip the unlocks" made the run store's subscriber follow
+ * the profile with the run held in memory (a run in Prep, left for the Loom's Settings) and save
+ * it over the run just imported.
  */
 export function applyImport(
   preview: SavePreview,
   withSettings: boolean,
   store: KeyValueStore = storage(),
 ): { ok: true } | { ok: false; error: SaveError } {
-  const written = writeImport(store, preview, withSettings);
-  if (written.ok && withSettings && preview.settingsText !== null) {
-    try {
-      const settings = migrateSettings(JSON.parse(preview.settingsText));
-      if (settings) useSettings.setState({ settings });
-    } catch {
-      // Written, and read again on the reload.
-    }
-  }
-  return written;
+  return writeImport(store, preview, withSettings);
 }
 
 /**
