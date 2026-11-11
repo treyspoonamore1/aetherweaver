@@ -17,7 +17,7 @@ import {
 } from '../kit/reliquaryLook';
 import { relicInfo, relicSentence, type RelicInfo } from './interlude';
 import {
-  DORMANT_LINE,
+  dormantLine,
   ROLE_LABEL,
   ROLE_LINE,
   carryLine,
@@ -726,7 +726,7 @@ export function CarriedRelicTip({
           Curse: {info.curse}
         </span>
       )}
-      {dormant && <span className="block text-xs leading-snug text-muted">{DORMANT_LINE}</span>}
+      {dormant && <span className="block text-xs leading-snug text-muted">{dormantLine()}</span>}
       {view && (
         <span className="mt-0.5 block border-t border-ink-600/70 pt-1.5">
           <span className="mb-0.5 block text-[0.75rem] font-semibold uppercase tracking-wider text-muted">

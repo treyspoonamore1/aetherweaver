@@ -19,7 +19,7 @@ import {
   dissonanceBlurb,
   foundLine,
   levelRows,
-  EXPEDITIONS_ONLY,
+  expeditionsOnlyText,
   openedLines,
   rememberLine,
   rewardView,
@@ -201,7 +201,7 @@ function LevelCard({
               className="mt-1 block text-xs font-semibold text-text"
               data-testid="level-expeditions"
             >
-              {EXPEDITIONS_ONLY}
+              {expeditionsOnlyText()}
             </span>
           )}
           {row.idle && (

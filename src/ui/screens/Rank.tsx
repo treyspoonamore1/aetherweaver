@@ -24,7 +24,7 @@ import { STARLIGHT_LOOK } from '../kit/loomLook';
 import { atelierUnlock } from './loomModel';
 import type { DissonanceChoice } from '../../meta/dissonance';
 import {
-  NOTHING_NEW,
+  nothingNew,
   fightXp,
   rankAstrolabeLine,
   rankPanel,
@@ -397,7 +397,7 @@ export function RankUpCard({
                 </p>
               )}
               {r.unlocks.length === 0 && !r.point && !r.atelier ? (
-                <p className="text-sm text-muted">{NOTHING_NEW}</p>
+                <p className="text-sm text-muted">{nothingNew()}</p>
               ) : (
                 <ul className="flex flex-col gap-2">
                   {r.unlocks.map((u) => {

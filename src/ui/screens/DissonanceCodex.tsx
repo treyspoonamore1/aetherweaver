@@ -10,7 +10,7 @@ import { DiscordDisc } from './DissonanceParts';
 import { TierBadge } from './ReliquaryParts';
 import {
   laterLevels,
-  EXPEDITIONS_ONLY,
+  expeditionsOnlyText,
   bandsSentence,
   bestRecords,
   closedLines,
@@ -182,7 +182,7 @@ export function DissonanceCodexPage({
                         className="ml-1 text-xs font-semibold text-text"
                         data-testid="level-expeditions"
                       >
-                        {EXPEDITIONS_ONLY}
+                        {expeditionsOnlyText()}
                       </span>
                     )}
                   </td>

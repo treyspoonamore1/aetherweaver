@@ -130,4 +130,6 @@ export const reliquaryModel = {
   'screens.reliquaryModel.reachMovementIiTo':
     'Reach Movement II to enshrine one of the relics it found',
   'screens.reliquaryModel.winARunTo': 'Win a run to enshrine one of the relics it found',
+  'screens.reliquaryModel.dormantLine':
+    'Dormant: its own effect sleeps. It lends the run its Inscriptions.',
 } satisfies Catalogue;

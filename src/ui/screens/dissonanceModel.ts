@@ -84,7 +84,9 @@ export function expeditionsOnly(def: DissonanceLevel): boolean {
 }
 
 /** "Expeditions only", as Prep marks such a level. */
-export const EXPEDITIONS_ONLY = 'Expeditions only';
+export function expeditionsOnlyText(): string {
+  return t('screens.dissonanceModel.expeditionsOnly');
+}
 
 // ── Words and numbers ─────────────────────────────────────────────────────────────────
 
@@ -160,7 +162,7 @@ export interface LevelRow {
 /** Why a chosen level has nothing to do in this run (its effect's own reason). */
 export function idleReason(effect: DissonanceEffect): string {
   if (effect === 'true_dissonance')
-    return t('screens.dissonanceModel.aPreludeHasNo', { EXPEDITIONS_ONLY });
+    return t('screens.dissonanceModel.aPreludeHasNo', { EXPEDITIONS_ONLY: expeditionsOnlyText() });
   return effect === 'cursed_start'
     ? t('screens.dissonanceModel.nothingToGiveYou')
     : t('screens.dissonanceModel.nothingToChangeIn');

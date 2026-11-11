@@ -1126,7 +1126,9 @@ export const ROLE_LINE: Readonly<Record<CarryRole, string>> = {
 };
 
 /** A dormant relic, wherever a run shows it. */
-export const DORMANT_LINE = 'Dormant: its own effect sleeps. It lends the run its Inscriptions.';
+export function dormantLine(): string {
+  return t('screens.reliquaryModel.dormantLine');
+}
 
 /** The role of the relic in this carry slot (0: the first, attuned). */
 export function carryRole(index: number): CarryRole {

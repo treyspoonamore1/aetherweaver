@@ -226,4 +226,6 @@ export function rankUpTitle(rank: number): string {
 }
 
 /** One line under a rank-up with nothing scheduled (past the last unlock). */
-export const NOTHING_NEW = 'Nothing new to unlock at this Rank, but your XP keeps counting.';
+export function nothingNew(): string {
+  return t('screens.rankText.nothingNew');
+}

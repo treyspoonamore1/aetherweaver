@@ -69,7 +69,7 @@ import { RunDissonancePanel } from './DissonanceParts';
 import { pactLine, pactName } from './dissonanceModel';
 import { DISCORD_LOOK } from '../kit/dissonanceLook';
 import { CarriedChip, InscriptionList } from './ReliquaryParts';
-import { DORMANT_LINE, carriedSnapshot, relicView } from './reliquaryModel';
+import { dormantLine, carriedSnapshot, relicView } from './reliquaryModel';
 import type { ReliquaryRelic } from '../../meta/reliquary';
 import type { Bond } from '../../meta/bonds';
 import { BondRankUpCard, RunBondsPanel, useBondCard, type BondCardProps } from './BondsParts';
@@ -849,7 +849,7 @@ export function SummaryView({
                           <p className="text-sm leading-relaxed text-muted line-through">
                             {info.rule}
                           </p>
-                          <p className="text-xs text-muted">{DORMANT_LINE}</p>
+                          <p className="text-xs text-muted">{dormantLine()}</p>
                         </>
                       ) : (
                         <RelicBody info={info} compact flavor={false} />

@@ -16,7 +16,7 @@ import {
 import { InstabilityBar, PanelLabel, TierBadge } from './ReliquaryParts';
 import {
   DISSONANCE_KINDS,
-  DORMANT_LINE,
+  dormantLine,
   ROLE_LINE,
   andList,
   blankRelic,
@@ -175,7 +175,7 @@ export function ReliquaryCodexPage({ open, rank }: { open: boolean; rank: number
               </li>
             ))}
           </ol>
-          <p className="mt-2 text-xs leading-snug text-muted">{DORMANT_LINE}</p>
+          <p className="mt-2 text-xs leading-snug text-muted">{dormantLine()}</p>
         </Panel>
       </div>
 

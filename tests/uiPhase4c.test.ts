@@ -69,7 +69,7 @@ import { rankPanel, unlockIcon } from '../src/ui/screens/rankText';
 import {
   ACTIONS,
   DISSONANCE_KINDS,
-  DORMANT_LINE,
+  dormantLine,
   ROLE_LINE,
   attuneChange,
   carriedSnapshot,
@@ -652,7 +652,7 @@ describe('the carry and attunement', () => {
     const withChart = Run.embark(Run.newRun(7, undefined, [], [carried[0]!, chart]));
     expect(Run.hasRelic(withChart, 'star_chart')).toBe(true);
     expect(Run.relicActive(withChart, 'star_chart')).toBe(false);
-    expect(DORMANT_LINE).toContain('Inscriptions');
+    expect(dormantLine()).toContain('Inscriptions');
   });
 
   it('the HUD reads an Empowered relic’s own numbers (a Thimble recovers sooner)', () => {
