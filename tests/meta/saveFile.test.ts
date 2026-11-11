@@ -187,7 +187,7 @@ describe('a save that won’t load is kept raw', () => {
     store.setItem(SAVE_KEYS.profileBackup, JSON.stringify(profile));
     expect(readProfile(store, 2)).toMatchObject({ from: 'backup', kept: false });
     expect(loadProfile(store, 2).xp).toBe(777);
-    expect(CORRUPT_KEYS.map((k) => store.getItem(k))).toEqual([null, null, null, null]);
+    expect(CORRUPT_KEYS.map((k) => store.getItem(k)).every((v) => v === null)).toBe(true);
   });
 
   it('nothing saved, or a demo start: nothing kept, and no notice', () => {

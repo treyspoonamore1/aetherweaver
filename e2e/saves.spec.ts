@@ -292,18 +292,22 @@ test('the kept-save notice shows once at start-up, downloads the raw text, and n
   await expect(notice).toHaveCount(0);
   expect(await page.evaluate(() => localStorage.getItem('aetherweaver.profile.corrupt'))).toBe(raw);
 
-  // Another one that won't load: told again, and its download is the raw text.
+  // Another one that won't load: told again, kept beside the first (which nothing overwrites,
+  // review B finding 7), and its download is the raw text.
   const raw2 = '{"version":10,"xp":12,"runs":';
   await page.evaluate((r) => localStorage.setItem('aetherweaver.profile', r), raw2);
   await page.reload();
   await ready(page);
   await settled(page);
   await expect(notice).toHaveCount(1);
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    notice.getByRole('button', { name: /^Download it/ }).click(),
-  ]);
-  expect(download.suggestedFilename()).toBe('aetherweaver-unreadable-profile.json');
+  expect(await page.evaluate(() => localStorage.getItem('aetherweaver.profile.corrupt'))).toBe(raw);
+  expect(
+    await page.evaluate(() => localStorage.getItem('aetherweaver.profile.corrupt.latest')),
+  ).toBe(raw2);
+  const downloads = notice.getByRole('button', { name: /^Download it/ });
+  await expect(downloads).toHaveCount(2);
+  const [download] = await Promise.all([page.waitForEvent('download'), downloads.nth(1).click()]);
+  expect(download.suggestedFilename()).toBe('aetherweaver-unreadable-profile-latest.json');
   expect(readFileSync(await download.path()).toString('utf8')).toBe(raw2);
   await notice.getByRole('button', { name: 'OK' }).click();
   await expect(notice).toHaveCount(0);

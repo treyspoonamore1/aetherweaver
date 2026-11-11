@@ -59,10 +59,22 @@ export const SAVE_KEYS = {
  */
 export const CORRUPT_SUFFIX = '.corrupt';
 
-/** Every key a kept unreadable save may sit under, profile first. */
-export const CORRUPT_KEYS: readonly string[] = [PROFILE_KEY, PROFILE_BACKUP, KEY, BACKUP].map(
-  (k) => k + CORRUPT_SUFFIX,
-);
+/**
+ * A later unreadable save, when one is kept already under `CORRUPT_SUFFIX` (review B, finding 7):
+ * the first one kept is never overwritten, and the latest is kept beside it under its key plus
+ * this (`aetherweaver.profile.corrupt.latest`), replacing an earlier latest one. So at most two are
+ * kept a key: the first and the latest.
+ */
+export const CORRUPT_LATEST_SUFFIX = `${CORRUPT_SUFFIX}.latest`;
+
+/** The keys whose unreadable saves are kept, profile first. */
+const KEPT_OF: readonly string[] = [PROFILE_KEY, PROFILE_BACKUP, KEY, BACKUP];
+
+/** Every key a kept unreadable save may sit under, profile first, each first one before its latest. */
+export const CORRUPT_KEYS: readonly string[] = KEPT_OF.flatMap((k) => [
+  k + CORRUPT_SUFFIX,
+  k + CORRUPT_LATEST_SUFFIX,
+]);
 
 /** Where a load found what it returned: a copy, or neither (`kept`: their raw text was moved). */
 export interface LoadReport {
@@ -71,36 +83,119 @@ export interface LoadReport {
   kept: boolean;
 }
 
+/** Storage refused a write for want of room (not because it refuses every write). */
+function isQuota(e: unknown): boolean {
+  if (typeof e !== 'object' || e === null) return false;
+  const { name, message, code } = e as { name?: unknown; message?: unknown; code?: unknown };
+  return code === 22 || code === 1014 || /quota/i.test(`${String(name)} ${String(message)}`);
+}
+
 /**
- * Neither copy of a save loaded: moves the raw text of each copy that held any to its
- * `CORRUPT_SUFFIX` key, then clears the copies, so no save that follows overwrites it. A newer
- * unreadable save replaces an older one kept under the same key. If storage refuses a write, the
- * copies are left where they are (nothing is lost; they are not kept either). True: kept.
+ * Where an unreadable save's raw text goes: under `CORRUPT_SUFFIX` if nothing is kept there, else
+ * (another text) under `CORRUPT_LATEST_SUFFIX`; null when that text is kept already.
+ */
+function keptTarget(store: KeyValueStore, key: string, raw: string): string | null {
+  const first = store.getItem(key + CORRUPT_SUFFIX);
+  if (first === null) return key + CORRUPT_SUFFIX;
+  if (first === raw || store.getItem(key + CORRUPT_LATEST_SUFFIX) === raw) return null;
+  return key + CORRUPT_LATEST_SUFFIX;
+}
+
+/**
+ * Copies each raw text to where it is kept (`keptTarget`), then checks every one: true when all
+ * are kept. A copy that fails takes back the copies this call wrote (a kept copy is never
+ * overwritten, so nothing kept before is touched). Throws what storage threw.
+ */
+function copyKept(store: KeyValueStore, raws: readonly (readonly [string, string])[]): boolean {
+  const written: string[] = [];
+  try {
+    for (const [key, raw] of raws) {
+      const target = keptTarget(store, key, raw);
+      if (target === null) continue;
+      const before = store.getItem(target);
+      store.setItem(target, raw);
+      if (before === null) written.push(target);
+    }
+    return raws.every(([key, raw]) =>
+      [CORRUPT_SUFFIX, CORRUPT_LATEST_SUFFIX].some((s) => store.getItem(key + s) === raw),
+    );
+  } catch (e) {
+    for (const target of written) store.removeItem(target);
+    throw e;
+  }
+}
+
+/**
+ * Neither copy of a save loaded: moves the raw text of each copy that held any to where it is
+ * kept (`CORRUPT_SUFFIX`, or `CORRUPT_LATEST_SUFFIX` beside a kept one), then clears the copies,
+ * so no save that follows overwrites it. An unreadable save kept already is never overwritten;
+ * a later one replaces only an earlier latest one.
+ *
+ * Storage too full to copy both: the main copy's text (the newer) is kept on its own, and if even
+ * that doesn't fit, the backup copy's text is let go to make room for it (the next save would
+ * overwrite it anyway: a save moves the main copy into the backup). Storage that refuses every
+ * write, or a main copy that won't fit even then, leaves the copies where they are (nothing kept,
+ * and the notice says nothing). True: the copies are kept (with too little room, the main one).
  */
 function keepUnreadable(
   store: KeyValueStore,
   raws: readonly (readonly [string, string])[],
 ): boolean {
   if (raws.length === 0) return false;
+  const clear = (kept: readonly (readonly [string, string])[]) => {
+    for (const [key] of kept) store.removeItem(key);
+  };
   try {
-    for (const [key, raw] of raws) store.setItem(key + CORRUPT_SUFFIX, raw);
-    for (const [key, raw] of raws) if (store.getItem(key + CORRUPT_SUFFIX) !== raw) return false;
-    for (const [key] of raws) store.removeItem(key);
-    return true;
-  } catch {
+    if (copyKept(store, raws)) {
+      clear(raws);
+      return true;
+    }
     return false;
+  } catch (e) {
+    if (!isQuota(e) || raws.length < 2) return false;
   }
+  // Too full for both: the main copy's text alone.
+  const main = raws.slice(0, 1);
+  try {
+    if (!copyKept(store, main)) return false;
+    clear(main);
+    return true;
+  } catch (e) {
+    if (!isQuota(e)) return false;
+  }
+  // Still too full: the backup copy's room, for the main copy's text.
+  const [backupKey, backupRaw] = raws[1]!;
+  try {
+    store.removeItem(backupKey);
+    if (copyKept(store, main)) {
+      clear(main);
+      return true;
+    }
+  } catch {
+    // Put back below.
+  }
+  try {
+    store.setItem(backupKey, backupRaw);
+  } catch {
+    // The room it had was freed just now; storage refusing it now refuses every write.
+  }
+  return false;
 }
 
-/** The unreadable saves kept on this device (`CORRUPT_SUFFIX`), each key with its raw text. */
-export function keptUnreadable(store: KeyValueStore): { key: string; raw: string }[] {
-  const out: { key: string; raw: string }[] = [];
-  for (const key of CORRUPT_KEYS) {
-    try {
-      const raw = store.getItem(key);
-      if (raw) out.push({ key, raw });
-    } catch {
-      // Storage that throws keeps nothing we can read.
+/** The unreadable saves kept on this device, each key with its raw text, profile first. */
+export function keptUnreadable(
+  store: KeyValueStore,
+): { key: string; raw: string; of: string; latest: boolean }[] {
+  const out: { key: string; raw: string; of: string; latest: boolean }[] = [];
+  for (const of of KEPT_OF) {
+    for (const latest of [false, true]) {
+      const key = of + (latest ? CORRUPT_LATEST_SUFFIX : CORRUPT_SUFFIX);
+      try {
+        const raw = store.getItem(key);
+        if (raw) out.push({ key, raw, of, latest });
+      } catch {
+        // Storage that throws keeps nothing we can read.
+      }
     }
   }
   return out;

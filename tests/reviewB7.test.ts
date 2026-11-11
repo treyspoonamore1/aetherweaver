@@ -14,8 +14,11 @@ import { DEFAULT_SETTINGS, migrateSettings, SettingsSchema } from '../src/app/se
 import { newProfile } from '../src/meta/profile';
 import { chooseNode, embark, newRun, reachable } from '../src/meta/run';
 import {
+  CORRUPT_LATEST_SUFFIX,
+  CORRUPT_SUFFIX,
   profileFromText,
   readProfile,
+  readRun,
   saveProfile,
   SAVE_KEYS,
   type KeyValueStore,
@@ -32,7 +35,16 @@ import {
   writeImport,
   type SaveFile,
 } from '../src/meta/saveFile';
-import { forgetRestoreImport, settingsLoad } from '../src/app/saveTransfer';
+import {
+  forgetKept,
+  forgetRestoreImport,
+  keptDownload,
+  keptFileName,
+  keptSaves,
+  previewImport,
+  readSaveBytes,
+  settingsLoad,
+} from '../src/app/saveTransfer';
 import { saves } from '../src/ui/text/en/saves';
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/saves', import.meta.url));
@@ -435,5 +447,146 @@ describe('finding 6: the saves from before an import are never lost to a later i
     expect(saves['saves.restore.forget']).toBe('Forget them…');
     expect(saves['saves.restore.forgetQuestion']).toMatch(/The next import keeps/);
     expect(saves['saves.restore.forgetConfirm']).toBe('Forget them');
+  });
+});
+
+// ── Finding 7: a kept unreadable save ───────────────────────────────────────────────────
+
+describe('finding 7: a kept unreadable save is as safe as its notice says', () => {
+  const later = (xp: number) => JSON.stringify({ ...newProfile(1), xp, version: 99 });
+
+  it('an existing kept copy is never overwritten: the first stays, the latest is kept beside it', () => {
+    const store = memoryStore();
+    store.setItem(SAVE_KEYS.profile, later(1000));
+    expect(readProfile(store)).toMatchObject({ from: 'none', kept: true });
+    // The game goes on, and later another profile won't load (a later build wrote it too).
+    saveProfile(store, newProfile(1));
+    store.setItem(SAVE_KEYS.profile, later(2000));
+    store.removeItem(SAVE_KEYS.profileBackup);
+    expect(readProfile(store)).toMatchObject({ from: 'none', kept: true });
+    expect(store.getItem(SAVE_KEYS.profile + CORRUPT_SUFFIX)).toBe(later(1000));
+    expect(store.getItem(SAVE_KEYS.profile + CORRUPT_LATEST_SUFFIX)).toBe(later(2000));
+    // A third: the first still stays; the latest is the newest (at most two kept a key).
+    store.setItem(SAVE_KEYS.profile, later(3000));
+    expect(readProfile(store)).toMatchObject({ from: 'none', kept: true });
+    expect(store.getItem(SAVE_KEYS.profile + CORRUPT_SUFFIX)).toBe(later(1000));
+    expect(store.getItem(SAVE_KEYS.profile + CORRUPT_LATEST_SUFFIX)).toBe(later(3000));
+    // The same text again keeps nothing new.
+    store.setItem(SAVE_KEYS.profile, later(1000));
+    expect(readProfile(store)).toMatchObject({ from: 'none', kept: true });
+    expect(store.getItem(SAVE_KEYS.profile + CORRUPT_LATEST_SUFFIX)).toBe(later(3000));
+    expect(keptSaves(store).map((k) => [k.kind, k.backup, k.latest])).toEqual([
+      ['profile', false, false],
+      ['profile', false, true],
+    ]);
+    expect(keptFileName(keptSaves(store)[1]!)).toBe('aetherweaver-unreadable-profile-latest.json');
+    forgetKept(SAVE_KEYS.profile + CORRUPT_LATEST_SUFFIX, store);
+    expect(keptSaves(store).map((k) => k.latest)).toEqual([false]);
+  });
+
+  it('a kept run is never overwritten either', () => {
+    const store = memoryStore();
+    store.setItem(SAVE_KEYS.run, 'not json at all');
+    readRun(store);
+    store.setItem(SAVE_KEYS.run, '[1,2');
+    readRun(store);
+    expect(store.getItem(SAVE_KEYS.run + CORRUPT_SUFFIX)).toBe('not json at all');
+    expect(store.getItem(SAVE_KEYS.run + CORRUPT_LATEST_SUFFIX)).toBe('[1,2');
+  });
+
+  it('when the raw text is JSON, its download is a v1 save file the import reads', async () => {
+    const store = memoryStore();
+    store.setItem(SAVE_KEYS.profile, later(1000));
+    readProfile(store);
+    const [kept] = keptSaves(store);
+    const text = keptDownload(kept!);
+    const read = await readSaveBytes(new TextEncoder().encode(text));
+    expect(read.ok).toBe(true);
+    if (!read.ok) return;
+    expect(read.file.profile).toEqual(JSON.parse(later(1000)));
+    // This build can't load a profile a later build wrote, and says so in words.
+    expect(previewImport(read.file)).toEqual({ ok: false, error: 'profile' });
+    // A build that reads it imports it: here, the same profile at this version.
+    const readable = JSON.parse(later(1000)) as Record<string, unknown>;
+    readable.version = (JSON.parse(JSON.stringify(newProfile(1))) as { version: number }).version;
+    const back = previewImport({ ...read.file, profile: readable });
+    expect(back.ok && back.preview.xp).toBe(1000);
+    // A run kept raw: a save file holding the run.
+    store.setItem(SAVE_KEYS.run, '{"version":99}');
+    readRun(store);
+    const run = keptSaves(store).find((k) => k.kind === 'run')!;
+    expect(JSON.parse(keptDownload(run))).toEqual({
+      format: SAVE_FILE_FORMAT,
+      version: 1,
+      profile: null,
+      run: { version: 99 },
+      settings: null,
+    });
+    // Text that isn't JSON is given as it was kept.
+    store.setItem(SAVE_KEYS.run, '{"version":5,');
+    readRun(store);
+    const broken = keptSaves(store).find((k) => k.raw === '{"version":5,')!;
+    expect(keptDownload(broken)).toBe('{"version":5,');
+  });
+
+  it('near-full storage: the main copy is kept, making room from the backup copy if it must', () => {
+    const quotaError = () =>
+      Object.assign(new Error('The quota has been exceeded.'), {
+        name: 'QuotaExceededError',
+      });
+    const near = (limit: number) => {
+      const s = quotaStore(limit);
+      const setItem = s.setItem;
+      s.setItem = (k, v) => {
+        try {
+          setItem(k, v);
+        } catch {
+          throw quotaError();
+        }
+      };
+      return s;
+    };
+    const mainRaw = later(1000) + ' '.repeat(40_000);
+    const backupRaw = later(900) + ' '.repeat(40_000);
+    // Room for one more copy: the main one's text is kept, the backup's is left where it is.
+    const one = near(150_000);
+    one.setItem(SAVE_KEYS.profile, mainRaw);
+    one.setItem(SAVE_KEYS.profileBackup, backupRaw);
+    one.setItem('filler', 'f'.repeat(150_000 - one.used() - 60_000));
+    expect(readProfile(one)).toMatchObject({ from: 'none', kept: true });
+    expect(one.getItem(SAVE_KEYS.profile + CORRUPT_SUFFIX)).toBe(mainRaw);
+    expect(one.getItem(SAVE_KEYS.profile)).toBeNull();
+    expect(one.getItem(SAVE_KEYS.profileBackup)).toBe(backupRaw);
+    // Too little room for the main copy's text: the backup copy's room is used for it.
+    const none = near(150_000);
+    none.setItem(SAVE_KEYS.profile, mainRaw);
+    none.setItem(SAVE_KEYS.profileBackup, backupRaw);
+    none.setItem('filler', 'f'.repeat(150_000 - none.used() - 10_000));
+    expect(readProfile(none)).toMatchObject({ from: 'none', kept: true });
+    expect(none.getItem(SAVE_KEYS.profile + CORRUPT_SUFFIX)).toBe(mainRaw);
+    // Before: two saves after that, the main copy's text was gone from the device.
+    saveProfile(none, newProfile(1));
+    saveProfile(none, { ...newProfile(1), xp: 5 });
+    expect(none.getItem(SAVE_KEYS.profile + CORRUPT_SUFFIX)).toBe(mainRaw);
+    // Storage that refuses every write (not for want of room) keeps the copies where they are.
+    const refusing = memoryStore();
+    refusing.setItem(SAVE_KEYS.profile, mainRaw);
+    refusing.setItem(SAVE_KEYS.profileBackup, backupRaw);
+    const locked: KeyValueStore = {
+      getItem: (k) => refusing.getItem(k),
+      setItem: () => {
+        throw Object.assign(new Error('denied'), { name: 'SecurityError' });
+      },
+      removeItem: (k) => refusing.removeItem(k),
+    };
+    expect(readProfile(locked)).toMatchObject({ from: 'none', kept: false });
+    expect(refusing.getItem(SAVE_KEYS.profile)).toBe(mainRaw);
+    expect(refusing.getItem(SAVE_KEYS.profileBackup)).toBe(backupRaw);
+  });
+
+  it('the notice says only what is true', () => {
+    expect(saves['saves.notice.body']).not.toMatch(/nothing will overwrite/);
+    expect(saves['saves.notice.body']).toMatch(/first save that couldn’t be loaded stays/);
+    expect(saves['saves.kept.latest']).toMatch(/kept beside the first/);
   });
 });

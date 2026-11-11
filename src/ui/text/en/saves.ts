@@ -93,6 +93,7 @@ export const saves = {
   'saves.kept.run':
     'Your run in progress couldn’t be loaded, so it was set aside. It’s kept here, as it was.',
   'saves.kept.backup': '(its backup copy)',
+  'saves.kept.latest': '(a later one, kept beside the first)',
   'saves.kept.download': 'Download it',
   'saves.kept.forget': 'Forget it…',
   'saves.kept.forgetQuestion': 'Forget this save for good? Download it first if you may want it.',
@@ -100,6 +101,6 @@ export const saves = {
   'saves.kept.keep': 'Keep it',
   'saves.notice.title': 'A save couldn’t be loaded',
   'saves.notice.body':
-    'It’s kept as it was, and nothing will overwrite it. You can download it here, or later from Settings → Progress.',
+    'It’s kept as it was. The first save that couldn’t be loaded stays until you forget it; if another can’t be loaded later, the latest is kept beside it. You can download it here, or later from Settings → Progress.',
   'saves.notice.ok': 'OK',
 } satisfies Catalogue;

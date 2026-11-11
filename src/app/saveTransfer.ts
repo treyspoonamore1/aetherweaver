@@ -8,13 +8,7 @@
  * stops at a cap, nothing here throws, and a save is parsed and loaded in memory before anything
  * is written (`previewSave`), with the current saves backed up first (`writeImport`).
  */
-import {
-  CORRUPT_SUFFIX,
-  keptUnreadable,
-  loadRun,
-  SAVE_KEYS,
-  type KeyValueStore,
-} from '../meta/save';
+import { CORRUPT_KEYS, keptUnreadable, loadRun, SAVE_KEYS, type KeyValueStore } from '../meta/save';
 import {
   collectSave,
   crc32,
@@ -25,7 +19,9 @@ import {
   parseSaveText,
   previewSave,
   restoreBeforeImport,
+  SAVE_FILE_FORMAT,
   SAVE_FILE_MAX_BYTES,
+  SAVE_FILE_VERSION,
   SAVE_JSON_MAX_BYTES,
   saveFileText,
   writeImport,
@@ -244,20 +240,23 @@ export interface KeptSave {
   kind: 'profile' | 'run';
   /** The save's backup copy (the main copy's is `false`). */
   backup: boolean;
+  /**
+   * Kept beside an earlier one of the same copy, which is never overwritten: the latest of the
+   * later ones (`CORRUPT_LATEST_SUFFIX`).
+   */
+  latest: boolean;
   raw: string;
 }
 
-/** The unreadable saves this device keeps, profile first. */
+/** The unreadable saves this device keeps, profile first, each first one before its latest. */
 export function keptSaves(store: KeyValueStore = storage()): KeptSave[] {
-  return keptUnreadable(store).map(({ key, raw }) => {
-    const of = key.slice(0, -CORRUPT_SUFFIX.length);
-    return {
-      key,
-      kind: of === SAVE_KEYS.profile || of === SAVE_KEYS.profileBackup ? 'profile' : 'run',
-      backup: of === SAVE_KEYS.profileBackup || of === SAVE_KEYS.runBackup,
-      raw,
-    };
-  });
+  return keptUnreadable(store).map(({ key, raw, of, latest }) => ({
+    key,
+    kind: of === SAVE_KEYS.profile || of === SAVE_KEYS.profileBackup ? 'profile' : 'run',
+    backup: of === SAVE_KEYS.profileBackup || of === SAVE_KEYS.runBackup,
+    latest,
+    raw,
+  }));
 }
 
 /** A short mark of which kept saves there are (their keys and the CRC-32 of each). */
@@ -289,7 +288,7 @@ export function markKeptNoticed(store: KeyValueStore = storage()): void {
 
 /** Forgets a kept unreadable save (the player chose to, after the offer to download it). */
 export function forgetKept(key: string, store: KeyValueStore = storage()): void {
-  if (!key.endsWith(CORRUPT_SUFFIX)) return;
+  if (!CORRUPT_KEYS.includes(key)) return;
   try {
     store.removeItem(key);
     if (keptSaves(store).length === 0) store.removeItem(NOTICED_KEY);
@@ -298,9 +297,35 @@ export function forgetKept(key: string, store: KeyValueStore = storage()): void 
   }
 }
 
-/** A kept save's download name: `aetherweaver-unreadable-profile.json`, `…-run-backup.json`. */
+/**
+ * A kept save's download name: `aetherweaver-unreadable-profile.json`, `…-run-backup.json`,
+ * `…-profile-latest.json`.
+ */
 export function keptFileName(kept: KeptSave): string {
-  return `aetherweaver-unreadable-${kept.kind}${kept.backup ? '-backup' : ''}.json`;
+  return `aetherweaver-unreadable-${kept.kind}${kept.backup ? '-backup' : ''}${kept.latest ? '-latest' : ''}.json`;
+}
+
+/**
+ * A kept save's download (review B, finding 7): when its raw text is JSON, a save file (v1) that
+ * holds it as the profile or the run it was, so a build that can read it (a later one, for a save a
+ * later build wrote) imports it from Settings; this build's import reads the file and says why
+ * the save in it can't be loaded here. Text that isn't JSON is given as it was kept.
+ */
+export function keptDownload(kept: KeptSave): string {
+  let json: unknown;
+  try {
+    json = JSON.parse(kept.raw) as unknown;
+  } catch {
+    return kept.raw;
+  }
+  if (json === null) return kept.raw;
+  return saveFileText({
+    format: SAVE_FILE_FORMAT,
+    version: SAVE_FILE_VERSION,
+    profile: kept.kind === 'profile' ? json : null,
+    run: kept.kind === 'run' ? json : null,
+    settings: null,
+  });
 }
 
 /** Saves bytes as a file through a download link (nothing without a document). */
