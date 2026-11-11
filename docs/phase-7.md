@@ -854,6 +854,19 @@ Both reviews found ground rules 1-3 holding: every pin passed, the goldens were 
 7. **The commit trailers** (review B finding 11). Default: kept, as required; removing them would rewrite history.
 8. **The Seamstress's held Tyrant entry, Phase 5g's held W7 content and Phase 6's decision 5** (*Auras and ornaments*, item 8).
 
+**Confirmed by the owner (11 November 2026).** The defaults stand as recommended, so nothing changes in the build:
+
+1. Fermata's zoom-punch, the plant's camera thump, and the song chips', Chord builder cards' and budget bars' motion stay exactly as they were under every comfort option.
+2. The two 11 px labels in the Chord builder stay at their size.
+3. The Atlas station's mint stays as it is.
+4. The colour-vision palettes' lethal and ailment colours stay as they are, under 4.5:1 where listed.
+5. Telegraph wind-up sounds may still be refused in a saturated mix; the pinned fights do not move.
+6. Hero voices stay off by default.
+7. Quality stays `high` by default; `auto` is offered.
+8. The pad's bumpers and triggers stay labelled LB, RB, LT and RT.
+9. Movement I recaps still name no answer, so "every down explains itself" stays missed as measured.
+10. The balance items carried from Phases 5f-6 ship as the known notes.
+
 **Known notes that ship as they are:**
 
 - **The 18 decisions' outcomes.** 1: the procedural look kept, with the ring mark, the header and the motion; no kit or commissioned art. 2: the synthesised score, measured, no trim. 3: hero voices built, off. 4: the gamepad in combat and on every menu screen through one hook, remappable, no rumble, no brand art. 5: mouse roles, the Cue modifier, hold or toggle and mouseover casting remappable; Escape and the menu keys fixed and listed in Controls. 6: 80-150% kept with the width fit; 48 of 50 small sizes at 12 px, two held. 7: readiness and the pseudo-locale; no translation. 8: the bench page; `high` by default, `auto` offered. 9: no service worker or manifest. 10: no desktop wrapper; its needs in the README. 11: export and import built. 12: no demo choice in the release build. 13: the balance items ship as they are (below). 14: no telemetry; the game makes no network request. 15: the presentation- and input-side assists built; the sim-side ones not. 16: the badge reads the run's own mark. 17: the dev panel, test hook and labs stay in the release build, recorded in the README. 18: the Martyr's text unchanged, with the live Bear key beside it once it leaves B.
