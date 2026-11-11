@@ -20,16 +20,19 @@ import {
 
 /**
  * The Crimson Legion (Movement II): obsidian plate, crimson glass lit from inside, brass
- * (docs/art-style.md, How the families differ). Every figure is near-black obsidian cut into panes,
- * set with windows of crimson glass and trimmed in brass, so on the Spire's dark floor it is the
- * lit crimson panes and the brass that draw it, and the obsidian's cool tone (a warm torch key turns
- * a neutral dark brown) keeps it from reading as a brown shape.
+ * (docs/art-style.md, How the families differ). Every figure is near-black obsidian, a pane per
+ * facet in dark lead, set with windows of crimson glass and trimmed in brass, so on the Spire's dark
+ * floor it is the lit crimson panes and the brass that draw it. A boss's obsidian reads black; a
+ * rank-and-file foe's carries the hostile rim (rule 5), which on glass this dark is most of what
+ * shows, so it reads black-crimson: the crimson panes are kept small and few so they stay apart
+ * from the rim.
  *
  * Colour (measured with `simulateVision`/`deltaE` against PALETTE in every colour vision):
  * obsidian, crimson glass, the eyes' crimson light, brass and old steel are each ≥ 20 ΔE from every
  * semantic colour. Crimson is glass panes, never a large glow: lethal crimson (#f43f5e) must stay
- * the floor's loudest red. The content's accent colours are not drawn (several sit within 20 ΔE of
- * gold or the ailment violet in some vision).
+ * the floor's loudest red (the panes' own light is low, the Hemomancer's orb is deep crimson). The
+ * content's accent colours are not drawn (several sit within 20 ΔE of gold or the ailment violet in
+ * some vision).
  */
 
 /**
@@ -491,7 +494,7 @@ export function buildHemomancer(def: EnemyDef): THREE.BufferGeometry {
       );
       b.box(0.1, 0.12, 0.12, BRASS_DARK, { p: [side * r * 0.3, h * 0.5, -r * 1.12] });
     }
-    b.sphere(r * 0.3, EMBER, { ...LIGHT, p: orb }, 8, 6);
+    b.sphere(r * 0.3, CRIMSON, { ...LIGHT, p: orb }, 8, 6);
     b.torus(r * 0.4, 0.022, BRASS, { p: orb }, Math.PI * 2, 12);
     b.torus(r * 0.4, 0.022, BRASS, { p: orb, r: [0, Math.PI / 2, 0] }, Math.PI * 2, 12);
     b.rigged({ k: FLOAT, at: orb, a: 1.6 }, () => {
