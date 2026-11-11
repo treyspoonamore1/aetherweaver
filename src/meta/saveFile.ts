@@ -36,6 +36,18 @@ export const SAVE_FILE_MAX_BYTES = 8 * 1024 * 1024;
 export const SAVE_JSON_MAX_BYTES = 16 * 1024 * 1024;
 /** The longest code read, in characters, before its spaces are taken out. */
 export const SAVE_CODE_MAX_CHARS = 16 * 1024 * 1024;
+/**
+ * The longest text any one save in a file (its profile, its run, its settings) may have once
+ * written, in characters: 512 Ki. The largest real save in the fixtures, written by the game's own
+ * builds (`tests/fixtures/saves`), is a run of 35,581 characters (b14, b15), and its largest
+ * profile 1,894 (demo13-veteran): the cap is more than 14 times the largest. An import writes
+ * each save as it arrived, unknown keys and all, and storage then holds at most eight copies of
+ * them (the profile and the run three times each: the save, its backup and the copy kept before
+ * an import; the settings twice): 4.2 M characters at the cap, inside a device's storage of about
+ * 5 M, so a crafted file can't fill it and leave every later save failing (review B, finding 5).
+ * Refused, in words, as `saveTooLarge`.
+ */
+export const SAVE_TEXT_MAX_CHARS = 512 * 1024;
 /** JSON nested deeper than this is no save of this game. */
 export const SAVE_MAX_DEPTH = 64;
 
@@ -80,6 +92,8 @@ export type SaveError =
   | 'newer'
   /** Larger than any save can be, as opened or once inflated. */
   | 'tooLarge'
+  /** One save in it (the profile, the run or the settings) is longer than any save can be. */
+  | 'saveTooLarge'
   /** A code whose check value doesn't match: a typo, or a code cut short. */
   | 'typo'
   /** Compressed data that doesn't inflate. */
@@ -267,21 +281,29 @@ export function memoryStore(): KeyValueStore & { data: Map<string, string> } {
   };
 }
 
+/** Is a save's text longer than any save can be (`SAVE_TEXT_MAX_CHARS`)? */
+const tooLong = (text: string | null) => text !== null && text.length > SAVE_TEXT_MAX_CHARS;
+
 /**
  * What a save file holds, judged by the game's own loaders on a map store: a profile that
  * doesn't load refuses the whole file; a run that doesn't load (or has ended) is left out, and a
- * run that doesn't load says so; settings that `settingsLoad` refuses are left out and say so.
- * Never throws.
+ * run that doesn't load says so; settings that `settingsLoad` refuses are left out and say so. A
+ * save longer than any can be (`SAVE_TEXT_MAX_CHARS`) refuses the whole file before it is
+ * loaded. Never throws.
  */
 export function previewSave(
   file: SaveFile,
   settingsLoad: (json: unknown) => boolean,
 ): SavePreviewRead {
   try {
-    const profileText = file.profile === null ? null : JSON.stringify(file.profile);
+    const texts = [file.profile, file.run, file.settings].map((v) =>
+      v === null ? null : JSON.stringify(v),
+    );
+    if (texts.some(tooLong)) return { ok: false, error: 'saveTooLarge' };
+    const profileText = texts[0] ?? null;
     const profile = profileText === null ? null : profileFromText(profileText);
     if (profileText !== null && profile === null) return { ok: false, error: 'profile' };
-    let runText = file.run === null ? null : JSON.stringify(file.run);
+    let runText = texts[1] ?? null;
     let runDropped = false;
     let run = null;
     if (runText !== null) {
@@ -294,7 +316,7 @@ export function previewSave(
       }
     }
     const settingsOk = file.settings !== null && settingsLoad(file.settings);
-    const settingsText = settingsOk ? JSON.stringify(file.settings) : null;
+    const settingsText = settingsOk ? (texts[2] ?? null) : null;
     const preview: SavePreview = {
       profileText,
       runText,

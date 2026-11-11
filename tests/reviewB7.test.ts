@@ -2,6 +2,9 @@
  * Phase 7 review B's findings on saves and settings, each as a regression test (the reviewer's
  * probes, made part of the suite). Each failed before its fix.
  */
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type * as Transfer from '../src/app/saveTransfer';
 import type { useRun as UseRun } from '../src/app/runStore';
@@ -10,7 +13,24 @@ import type { storage as StorageFn } from '../src/app/storage';
 import { DEFAULT_SETTINGS, migrateSettings, SettingsSchema } from '../src/app/settings';
 import { newProfile } from '../src/meta/profile';
 import { chooseNode, embark, newRun, reachable } from '../src/meta/run';
-import { SAVE_FILE_FORMAT, type SaveFile } from '../src/meta/saveFile';
+import {
+  profileFromText,
+  readProfile,
+  saveProfile,
+  SAVE_KEYS,
+  type KeyValueStore,
+} from '../src/meta/save';
+import {
+  previewSave,
+  SAVE_FILE_FORMAT,
+  SAVE_TEXT_MAX_CHARS,
+  writeImport,
+  type SaveFile,
+} from '../src/meta/saveFile';
+import { settingsLoad } from '../src/app/saveTransfer';
+import { saves } from '../src/ui/text/en/saves';
+
+const FIXTURES = fileURLToPath(new URL('./fixtures/saves', import.meta.url));
 
 // ── Finding 1: an import with its settings, made while a run in Prep is held ──────────────
 
@@ -223,5 +243,103 @@ describe('finding 4: a Phase 7 settings value this build can’t read reads as a
     expect(migrateSettings({ ...mine, uiScale: 9, locale: 'fr' })).toBeNull();
     expect(migrateSettings('settings')).toBeNull();
     expect(migrateSettings(null)).toBeNull();
+  });
+});
+
+// ── Finding 5: an imported save's text is capped ─────────────────────────────────────────
+
+/** Storage that refuses a write once it would hold more than `limit` characters (as Chrome counts). */
+function quotaStore(limit: number): KeyValueStore & { used(): number } {
+  const data = new Map<string, string>();
+  const used = () => [...data].reduce((n, [k, v]) => n + k.length + v.length, 0);
+  return {
+    used,
+    getItem: (k) => data.get(k) ?? null,
+    setItem: (k, v) => {
+      const before = data.get(k);
+      if (used() - (before ? k.length + before.length : 0) + k.length + v.length > limit)
+        throw new Error('QuotaExceededError');
+      data.set(k, v);
+    },
+    removeItem: (k) => void data.delete(k),
+  };
+}
+
+const fileOf = (body: Partial<SaveFile>): SaveFile => ({
+  format: SAVE_FILE_FORMAT,
+  version: 1,
+  profile: null,
+  run: null,
+  settings: null,
+  ...body,
+});
+
+describe('finding 5: a save longer than any can be is refused before anything is written', () => {
+  const profileJson = () => JSON.parse(JSON.stringify(newProfile(1))) as Record<string, unknown>;
+
+  it('a valid profile carrying 2.6 MB in an unknown key is refused, in words', () => {
+    const store = quotaStore(5_000_000);
+    saveProfile(store, newProfile(1));
+    const before = store.getItem(SAVE_KEYS.profile);
+    const read = previewSave(
+      fileOf({ profile: { ...profileJson(), xp: 5000, junk: 'x'.repeat(2_600_000) } }),
+      settingsLoad,
+    );
+    expect(read).toEqual({ ok: false, error: 'saveTooLarge' });
+    expect(store.getItem(SAVE_KEYS.profile)).toBe(before);
+    expect(saves['saves.error.saveTooLarge']).toMatch(/nothing was imported/);
+  });
+
+  it('so is a run or settings that long; just under the cap is still read', () => {
+    const pad = (n: number) => 'x'.repeat(n);
+    const run = JSON.parse(JSON.stringify(embark(newRun(3)))) as Record<string, unknown>;
+    const runText = JSON.stringify({ ...run, junk: '' });
+    const longRun = { ...run, junk: pad(SAVE_TEXT_MAX_CHARS - runText.length + 1) };
+    expect(JSON.stringify(longRun).length).toBe(SAVE_TEXT_MAX_CHARS + 1);
+    expect(previewSave(fileOf({ run: longRun }), settingsLoad)).toEqual({
+      ok: false,
+      error: 'saveTooLarge',
+    });
+    const atCap = { ...run, junk: pad(SAVE_TEXT_MAX_CHARS - runText.length) };
+    expect(JSON.stringify(atCap).length).toBe(SAVE_TEXT_MAX_CHARS);
+    expect(previewSave(fileOf({ run: atCap }), settingsLoad).ok).toBe(true);
+    const settings = { ...DEFAULT_SETTINGS, junk: pad(SAVE_TEXT_MAX_CHARS) };
+    expect(previewSave(fileOf({ settings, profile: profileJson() }), settingsLoad)).toEqual({
+      ok: false,
+      error: 'saveTooLarge',
+    });
+  });
+
+  it('the cap is more than 14 times the largest real save in the fixtures', () => {
+    let largest = 0;
+    for (const name of readdirSync(FIXTURES).filter((f) => /^(b|demo)\d.*\.json$/.test(f))) {
+      const fixture = JSON.parse(readFileSync(join(FIXTURES, name), 'utf8')) as {
+        versions?: unknown;
+      };
+      const walk = (o: unknown): void => {
+        if (!o || typeof o !== 'object') return;
+        for (const [k, v] of Object.entries(o))
+          if (typeof v === 'string' && k.startsWith('aetherweaver.'))
+            largest = Math.max(largest, v.length);
+          else walk(v);
+      };
+      walk(fixture);
+    }
+    expect(largest).toBe(35_581);
+    expect(SAVE_TEXT_MAX_CHARS / largest).toBeGreaterThan(14);
+  });
+
+  it('after an import at the cap, later profile saves still take', () => {
+    const store = quotaStore(5_000_000);
+    saveProfile(store, newProfile(1));
+    const base = profileJson();
+    const text = JSON.stringify({ ...base, xp: 5000, junk: '' });
+    const big = { ...base, xp: 5000, junk: 'x'.repeat(SAVE_TEXT_MAX_CHARS - text.length) };
+    const read = previewSave(fileOf({ profile: big }), settingsLoad);
+    if (!read.ok) throw new Error(read.error);
+    expect(writeImport(store, read.preview, false)).toEqual({ ok: true });
+    const loaded = readProfile(store).profile;
+    saveProfile(store, { ...loaded, xp: loaded.xp + 100 });
+    expect(profileFromText(store.getItem(SAVE_KEYS.profile)!)!.xp).toBe(5100);
   });
 });

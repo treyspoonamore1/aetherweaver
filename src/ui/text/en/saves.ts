@@ -65,6 +65,8 @@ export const saves = {
   'saves.error.newer':
     'This save was made by a newer version of the game, which this one can’t read. Nothing was imported.',
   'saves.error.tooLarge': 'This is far larger than any save can be, so it wasn’t read.',
+  'saves.error.saveTooLarge':
+    'A save in this file is far longer than any save can be, so nothing was imported.',
   'saves.error.typo':
     'This code has a typo, or it was cut short: its check value doesn’t match. Nothing was imported.',
   'saves.error.damaged': 'This save is damaged: its compressed data doesn’t open.',

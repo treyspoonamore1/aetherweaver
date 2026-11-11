@@ -477,6 +477,7 @@ describe('hostile files and codes are refused in words, with no throw and no wri
       'notSave',
       'newer',
       'tooLarge',
+      'saveTooLarge',
       'typo',
       'damaged',
       'empty',
