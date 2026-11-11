@@ -690,7 +690,7 @@ export const useRun = create<RunStore>()((set, get) => {
       const run = get().run;
       if (!run) return null;
       const config = Run.combatConfig(run, { ...useSettings.getState().settings.assists });
-      runFights.add(config);
+      if (config) runFights.add(config);
       return config;
     },
     finishCombat: (outcome: CombatOutcome) => get().finishFight(outcome, null),

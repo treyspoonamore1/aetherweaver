@@ -517,9 +517,11 @@ describe('finding 11: the assist record is written as a run’s fight starts, ne
     const Run = await import('../src/meta/run');
     const { createElement } = await import('react');
     const { renderToStaticMarkup } = await import('react-dom/server');
-    const { CombatScreen } = (await import(
-      /* @vite-ignore */ '../src/ui/screens/CombatScreen'
-    )) as { CombatScreen: () => null };
+    // A .tsx module, at run time (the node test build has no JSX to import statically).
+    const screen = '../src/ui/screens/CombatScreen';
+    const { CombatScreen } = (await import(/* @vite-ignore */ screen)) as {
+      CombatScreen: () => null;
+    };
     useRun.getState().closeRun();
     useRun.getState().newRun(71);
     useRun.getState().embark();
