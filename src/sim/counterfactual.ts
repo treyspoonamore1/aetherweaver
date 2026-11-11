@@ -23,6 +23,11 @@ export interface WithoutYou {
   bossHp: number | null;
   ticks: number;
   hash: string;
+  /**
+   * The boss rose again alone (True Dissonance's Postlude, docs/phase-6.md), so `bossHp` is its
+   * second life's. Absent otherwise: a reading of the re-run only, never part of its hash.
+   */
+  rose?: true;
 }
 
 /** Well past every enrage timer. */
@@ -36,10 +41,13 @@ export function runWithoutYou(
   const sim = createSim({ ...config, absent: true, debug: false });
   const maxTicks = Math.ceil(maxSeconds * 60);
   const state = sim.state;
+  let rose = false;
   while (sim.tick < maxTicks) {
     const status = state.encounter.status;
     if (status === 'victory' || status === 'defeat') break;
     sim.step();
+    // The Postlude's state lives from the rise until the Conductor's second death or the end.
+    if (state.field.finale?.postlude) rose = true;
     // Nobody listens to the re-run's events; don't let them pile up.
     if (sim.tick % 120 === 0) sim.drainEvents();
   }
@@ -65,5 +73,6 @@ export function runWithoutYou(
     bossHp,
     ticks: sim.tick,
     hash: sim.hash(),
+    ...(rose ? { rose: true as const } : {}),
   };
 }

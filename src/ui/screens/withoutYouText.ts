@@ -12,7 +12,12 @@ export function withoutYouLine(
     w.waves > 1 ? txt('screens.withoutYouText.inWaveOf', { wave: w.wave, waves: w.waves }) : '';
   const boss =
     w.bossHp !== null && w.bossHp > 0
-      ? txt('screens.withoutYouText.withTheBossAt', { bossHp: pct(w.bossHp) })
+      ? txt(
+          w.rose
+            ? 'screens.withoutYouText.withTheBossRisen'
+            : 'screens.withoutYouText.withTheBossAt',
+          { bossHp: pct(w.bossHp) },
+        )
       : '';
   if (w.outcome === 'defeat')
     return txt('screens.withoutYouText.withoutYouTheParty', {

@@ -288,6 +288,8 @@ const WithoutYouSchema = z.object({
   bossHp: Num.nullable(),
   ticks: Num,
   hash: Str,
+  // Phase 7: the boss rose again in the re-run (absent otherwise, so old saves read the same).
+  rose: z.literal(true).optional(),
 });
 
 const MarkerSchema = z.object({
