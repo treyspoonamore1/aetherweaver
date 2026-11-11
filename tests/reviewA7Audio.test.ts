@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SynthDirector } from '../src/audio/director';
-import { DEFAULT_SETTINGS, useSettings } from '../src/app/settings';
+import { DEFAULT_SETTINGS, useSettings, type Settings } from '../src/app/settings';
 import { computePin, type PresentationPin } from './aura/presentationPinFixture';
 import { BAR_SECONDS, type Command, type SimConfig } from '../src/sim';
 import { sandbox } from './sim/helpers';
@@ -280,7 +280,7 @@ describe('finding 5: no aura sound follows game speed', () => {
     const pin = JSON.parse(
       readFileSync(new URL('./aura/presentationPin.json', import.meta.url), 'utf8'),
     ) as PresentationPin;
-    const settings = { ...DEFAULT_SETTINGS, aids: { gameSpeed: 0.7 } };
+    const settings: Settings = { ...DEFAULT_SETTINGS, aids: { gameSpeed: 0.7 } };
     const now = await computePin(settings);
     expect(spy).toHaveBeenCalled();
     for (const key of Object.keys(pin.cases))

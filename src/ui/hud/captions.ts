@@ -173,7 +173,7 @@ function windup(e: SimEventOf<'telegraphStarted'>, state: WorldState): FinaleCal
 
 /** A wind-up's caption, at most one every WINDUP_GAP. */
 function windupLine(
-  e: Pick<SimEventOf<'telegraphStarted'>, 'kind' | 'answers' | 'shape'>,
+  e: { kind: string; answers: readonly string[]; shape: TelegraphShape },
   state: WorldState,
 ): FinaleCallout | null {
   const m = memoryOf(state);
