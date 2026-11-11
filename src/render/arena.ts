@@ -520,7 +520,10 @@ void main() {
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext('2d');
-    const floor = new THREE.Color(LIT_FLOOR.crimson.floor).multiplyScalar(0.78);
+    // The arena's own swatch still steers it (a fifth), so each arena keeps its shade.
+    const floor = new THREE.Color(def.theme.floor)
+      .lerp(new THREE.Color(LIT_FLOOR.crimson.floor), 0.8)
+      .multiplyScalar(0.78);
     const floorHex = `#${floor.getHexString()}`;
     const line = def.theme.line;
     if (ctx) {
@@ -990,7 +993,10 @@ void main() {
     canvas.height = size;
     const ctx = canvas.getContext('2d');
     // PROTOTYPE (p8/light): a lit indigo (LIT_FLOOR), the seams faintly emissive.
-    const floor = new THREE.Color(LIT_FLOOR.abyss.floor).multiplyScalar(0.78);
+    // The arena's own swatch still steers it (a fifth), so each arena keeps its shade.
+    const floor = new THREE.Color(def.theme.floor)
+      .lerp(new THREE.Color(LIT_FLOOR.abyss.floor), 0.8)
+      .multiplyScalar(0.78);
     const floorHex = `#${floor.getHexString()}`;
     const line = def.theme.line;
     if (ctx) {
@@ -1344,7 +1350,10 @@ void main() {
     canvas.height = size;
     const ctx = canvas.getContext('2d');
     // PROTOTYPE (p8/light): deep blue-violet glass (LIT_FLOOR), not black; never white-gold.
-    const floor = new THREE.Color(LIT_FLOOR.crucible.floor).multiplyScalar(0.78);
+    // The arena's own swatch still steers it (a fifth), so each arena keeps its shade.
+    const floor = new THREE.Color(def.theme.floor)
+      .lerp(new THREE.Color(LIT_FLOOR.crucible.floor), 0.8)
+      .multiplyScalar(0.78);
     const floorHex = `#${floor.getHexString()}`;
     const line = def.theme.line;
     if (ctx) {

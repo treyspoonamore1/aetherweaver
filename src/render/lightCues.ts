@@ -30,12 +30,12 @@ export const LIT_FLOOR = {
     seam: '#6a1a1e',
     seamInner: 0.0,
     seamOuter: 0.18,
-    edge: '#b3262b',
-    edgeGlow: 0.7,
+    edge: '#8c2a1e',
+    edgeGlow: 0.8,
   },
   abyss: {
     floor: '#2a2656',
-    seam: '#6a62b0',
+    seam: '#4c5cc0',
     seamInner: 0.12,
     seamOuter: 0.3,
     // The fray: ABYSS_HEX.fray's dark teal (≥ 20 ΔE from Mend in every vision), outer course only.
@@ -44,10 +44,10 @@ export const LIT_FLOOR = {
   },
   crucible: {
     floor: '#28264c',
-    seam: '#7a70b0',
+    seam: '#5a70b8',
     seamInner: 0.14,
     seamOuter: 0.4,
-    edge: '#6c78c8',
+    edge: '#4a6ab0',
     edgeGlow: 0.6,
   },
 } as const satisfies Record<string, LitFloor>;
@@ -57,13 +57,15 @@ export const LIT_MOOD = {
   crimson: {
     // Round 4: a neutral obsidian fill on the disc, so crimson telegraphs keep their edge; the
     // red lives in the sky (fog), the rim light, the braziers and the blood channels.
-    sky: '#6c6470',
+    sky: '#64646c',
     ground: '#262226',
     hemi: 0.95,
-    key: '#ffc290',
+    key: '#ffb27a',
     keyIntensity: 1.9,
-    rim: '#e0473f',
-    rimIntensity: 1.1,
+    // The shipped SPIRE_HEX.rim (28.8 dE from lethal): a brighter red would edge every hero in
+    // the hostile rim's red (rule 5).
+    rim: '#9e2a33',
+    rimIntensity: 0.8,
     fog: '#7a2022',
     fogNear: 28,
     fogFar: 64,
@@ -82,7 +84,7 @@ export const LIT_MOOD = {
     fogFar: 70,
   },
   crucible: {
-    sky: '#5a5aa8',
+    sky: '#50589a',
     ground: '#262448',
     hemi: 1.0,
     key: '#e2dccc',
@@ -112,8 +114,8 @@ export const LIT_RIM = {
   pipeGlow: 0.5,
   /** Pillars: lifted toward these. */
   spirePillar: '#6e5456',
-  riftPillar: '#5a54a0',
-  cruciblePillar: '#5e5aa0',
+  riftPillar: '#50589a',
+  cruciblePillar: '#4a58b8',
 } as const;
 
 /**
@@ -134,11 +136,11 @@ export const LIT_ORRERY = {
  * enough to stand off the lit floor, its stitches teal frays; the Conductor in white and black.
  */
 export const LIT_MODEL = {
-  riftCloth: '#6a62cc',
+  riftCloth: '#5560c0',
   // ABYSS_HEX.fray's dark teal (measured ≥ 20 ΔE from Mend in every vision), made to glow.
   riftFray: '#176762',
   riftFrayGlow: 1.8,
-  conductorRobe: '#d4d0de',
+  conductorRobe: '#c8c4cc',
   conductorDark: '#18161f',
   conductorHaloGlow: 0.75,
 } as const;
