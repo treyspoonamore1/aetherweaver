@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, useSettings, type Settings } from '../src/app/settings';
 import { arenaDef, encounterDef } from '../src/content';
 import { PAD_BUTTONS, type Action, type PadButton } from '../src/input/actions';
-import type { PadLike } from '../src/input/gamepad';
+import { holdPadForCapture, type PadLike } from '../src/input/gamepad';
 import { InputController } from '../src/input/InputController';
 import { writeInput } from '../src/input/inputMap';
 import { useWheel } from '../src/input/wheel';
@@ -255,5 +255,31 @@ describe('finding 3: hold-mode Thread mode never sticks in Empower', () => {
     mouse(win, 'pointerup', 2, 0);
     frame();
     expect(mode()).toBe('mend');
+  });
+});
+
+describe('finding 4: a pad capture in the pause menu keeps the button it binds', () => {
+  afterEach(() => {
+    useSettings.getState().reset();
+    delete (globalThis as unknown as { window?: EventTarget }).window;
+  });
+
+  it('pressing Start to bind it while paused does not also unpause the fight', () => {
+    const pad = new FakePad();
+    const { input, sim, ui } = inputRig([pad]);
+    input.setEnabled(false); // paused: the pause menu is up
+    input.updatePointer(sim.state);
+    const release = holdPadForCapture(); // Settings → Controls waits for a pad button
+    pad.press('start');
+    input.updatePointer(sim.state); // the runtime calls this every frame, paused too
+    pad.press('start', false);
+    input.updatePointer(sim.state);
+    release();
+    expect(ui).toEqual([]);
+    // With no capture open, Start still unpauses, as before.
+    pad.press('start');
+    input.updatePointer(sim.state);
+    expect(ui).toEqual(['pause']);
+    input.dispose();
   });
 });

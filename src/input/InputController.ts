@@ -18,6 +18,7 @@ import {
   StickMove,
   anyPad,
   browserPads,
+  padCaptureOpen,
   setFightPad,
   shapeStickOf,
   type PadSource,
@@ -968,7 +969,8 @@ export class InputController {
   private padPress(button: number, action: PadBindable | null): void {
     if (action === null) return;
     if (isUiAction(action)) {
-      this.onUiAction(action);
+      // Controls is waiting for a pad button to bind (the pause menu's too): the press is its.
+      if (!padCaptureOpen()) this.onUiAction(action);
       return;
     }
     if (!this.enabled) return;
