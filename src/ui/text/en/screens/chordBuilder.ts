@@ -69,4 +69,6 @@ export const chordBuilder = {
   'screens.chordBuilder.heavier': 'heavier',
   'screens.chordBuilder.third': 'third',
   'screens.chordBuilder.new2': 'new',
+  'screens.chordBuilder.ornaments': 'Ornaments ',
+  'screens.chordBuilder.changeBothAuras': '· change both auras',
 } satisfies Catalogue;

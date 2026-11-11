@@ -569,8 +569,10 @@ function SongCard({
             ))}
           </div>
           <p className="mb-1.5 mt-3 text-xs font-semibold uppercase tracking-wider text-muted">
-            Ornaments{' '}
-            <span className="font-normal normal-case tracking-normal">· change both auras</span>
+            {txt('screens.chordBuilder.ornaments')}
+            <span className="font-normal normal-case tracking-normal">
+              {txt('screens.chordBuilder.changeBothAuras')}
+            </span>
           </p>
           <div className="grid grid-cols-2 gap-2">
             {Array.from({ length: w.ornamentSlots }, (_, i) => {
