@@ -185,7 +185,7 @@ export function ResultView({
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-muted">
               {t('screens.resultScreen.step', {
                 last,
-                value: r.kind === 'miniboss' ? 'Mini-boss' : r.kind,
+                value: r.kind === 'miniboss' ? t('screens.resultScreen.miniBoss') : r.kind,
               })}
             </p>
             <h1

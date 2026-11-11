@@ -66,4 +66,5 @@ export const resultText = {
   'screens.resultText.everyOne': 'every one',
   'screens.resultText.answeredOfEnemyAttacks':
     'Answered {telegraphsAnswered} of {telegraphsAimed} enemy attacks aimed at your party.',
+  'screens.resultText.them': 'them',
 } satisfies Catalogue;

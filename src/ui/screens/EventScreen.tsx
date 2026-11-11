@@ -105,7 +105,7 @@ export function EventView({
       : [];
   const pick = (c: ChoiceInfo) => {
     if (c.problem) {
-      playUi(c.problem.startsWith('Needs') && c.cost > 0 ? 'cantAfford' : 'error');
+      playUi(c.short && c.cost > 0 ? 'cantAfford' : 'error');
       return;
     }
     if (c.motif !== 'none' || c.retune) {

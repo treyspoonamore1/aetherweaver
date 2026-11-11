@@ -293,6 +293,7 @@ export function HudView({
         barkSpeakers={hud.party.map((p) => p.name)}
         blind={blind}
         party={hud.party}
+        waves={hud.encounter.waves}
       />
       <PartyFrames
         party={hud.party}

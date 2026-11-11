@@ -321,7 +321,7 @@ function allHints(hud: HudSnapshot): Hint[] {
       out.push({
         id: 'bear-back',
         text: txt('hud.hints.bearingStopsYourOn', {
-          value: w.lastMode === 'mend' ? 'Mend' : 'Empower',
+          value: w.lastMode === 'mend' ? txt('hud.hints.mend') : txt('hud.hints.empower'),
           name: threaded.name,
           B,
         }),
@@ -437,7 +437,7 @@ function allHints(hud: HudSnapshot): Hint[] {
             value2:
               w.cueCost === w.segment
                 ? txt('hud.hints.oneResonanceSegment')
-                : `${w.cueCost} Resonance`,
+                : txt('hud.hints.resonance', { cueCost: w.cueCost }),
           }),
     });
   }
@@ -459,7 +459,10 @@ function allHints(hud: HudSnapshot): Hint[] {
       text: txt('hud.hints.foresightIsComingFor', {
         name: f.name,
         name2: seen.name,
-        value: f.in < 0.05 ? txt('hud.hints.anyMoment') : `in ${secondsLabel(f.in)}`,
+        value:
+          f.in < 0.05
+            ? txt('hud.hints.anyMoment')
+            : txt('hud.hints.in', { secondsLabel: secondsLabel(f.in) }),
       }),
     });
   }
@@ -670,7 +673,7 @@ function movementTwoHints(hud: HudSnapshot, keys: { Q: string; E: string; F: str
       id: 'pact',
       text: txt('hud.hints.aBloodPactScatter', {
         pact: pact.map((h) => h.name).join(' and '),
-        value: pact.length > 1 ? 'share' : 'carries',
+        value: pact.length > 1 ? txt('hud.hints.share') : txt('hud.hints.carries'),
         bindingLabel: bindingLabel('directiveScatter'),
       }),
     });
@@ -879,7 +882,7 @@ function movementThreeHints(hud: HudSnapshot, keys: { Q: string; E: string; F: s
     out.push({
       id: 'rune',
       text: txt('hud.hints.youStandInA', {
-        value: w.rewind ? 'Rewind' : 'Reel',
+        value: w.rewind ? txt('hud.hints.rewind') : txt('hud.hints.reel'),
         bindingLabel: bindingLabel('glide'),
       }),
     });

@@ -79,4 +79,7 @@ export const sighting = {
   'hud.sighting.fermataStillSavesHim':
     'Fermata still saves him: one touch of the Thread during the hold.',
   'hud.sighting.for': 'for {round}%',
+  'hud.sighting.rewind': 'Rewind',
+  'hud.sighting.reel': 'Reel',
+  'hud.sighting.halved': 'halved',
 } satisfies Catalogue;

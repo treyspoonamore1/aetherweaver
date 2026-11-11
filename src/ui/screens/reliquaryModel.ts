@@ -197,7 +197,7 @@ export function inscriptionRow(
       tierLabel: tierLabel(ins.tier),
       tier: ins.tier,
       text,
-      value: fixed ? t('screens.reliquaryModel.isAlways') : 'ranges',
+      value: fixed ? t('screens.reliquaryModel.isAlways') : t('screens.reliquaryModel.ranges2'),
       rangeText: rangeText(def, ins.tier),
       categoryName: categoryName(def.category),
     }),
@@ -1228,7 +1228,10 @@ export function carryChange(
             : t('screens.reliquaryModel.allCarrySlotsAre', { slots }),
         value2:
           next !== undefined
-            ? t('screens.reliquaryModel.rankOpensASlot', { next, value: ORDINAL[slots] ?? 'new' })
+            ? t('screens.reliquaryModel.rankOpensASlot', {
+                next,
+                value: ORDINAL[slots] ?? t('screens.reliquaryModel.new'),
+              })
             : '',
       }),
     };
@@ -1245,7 +1248,12 @@ export function reliquaryUnlockLine(u: { kind: string; target: string }): string
   if (u.kind === 'reliquary') {
     const later = ranks
       .slice(1)
-      .map((r, i) => t('screens.reliquaryModel.rankGivesA', { r, value: ORDINAL[i + 1] ?? 'new' }));
+      .map((r, i) =>
+        t('screens.reliquaryModel.rankGivesA', {
+          r,
+          value: ORDINAL[i + 1] ?? t('screens.reliquaryModel.new'),
+        }),
+      );
     return t('screens.reliquaryModel.oneRelicToCarry', {
       value: later.length ? `; ${andList(later)}` : '',
     });
@@ -1320,7 +1328,9 @@ export function materialsHow(): { shards: string; tears: string } {
     }),
     tears: t('screens.reliquaryModel.aDiscordTearFor', {
       finalBossName: finalBossName(),
-      value: /^[AEFHILMNORSX]/.test(grade) ? 'an' : 'a',
+      value: /^[AEFHILMNORSX]/.test(grade)
+        ? t('screens.reliquaryModel.an')
+        : t('screens.reliquaryModel.a'),
       grade,
       tearOnA: d.tearOnA,
       TEAR_TOO_GRADE,

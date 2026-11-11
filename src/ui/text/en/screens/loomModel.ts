@@ -154,4 +154,7 @@ export const loomModel = {
   'screens.loomModel.theStarlightShopTechnique':
     'The Starlight shop: technique variants, new ways to play your four techniques ({variantPrice} each), robes and Thread looks ({looks}) and titles ({titles}). Every won fight pays Starlight.',
   'screens.loomModel.visitItInThe': 'Visit it in the Loom.',
+  'screens.loomModel.has': 'has',
+  'screens.loomModel.have': 'have',
+  'screens.loomModel.go': '{capital} go',
 } satisfies Catalogue;

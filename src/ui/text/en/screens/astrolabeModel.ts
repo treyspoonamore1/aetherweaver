@@ -49,4 +49,6 @@ export const astrolabeModel = {
   'screens.astrolabeModel.cuedSolosLastLonger': 'Cued Solos last {v}% longer',
   'screens.astrolabeModel.itOpensWithTo': 'It opens with {pointsWord} to spend.',
   'screens.astrolabeModel.inAll': '+{replace} ({points} in all).',
+  'screens.astrolabeModel.that': 'that',
+  'screens.astrolabeModel.those': 'those',
 } satisfies Catalogue;

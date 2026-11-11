@@ -264,7 +264,8 @@ export function twistLines(t: EchoTwists): TwistLine[] {
       kind: 'dissonance',
       text: txt('screens.atlasModel.alwaysOnAndAdd', {
         forcedNames: forcedNames(t.dissonance),
-        value: t.dissonance.length === 1 ? 'is' : 'are',
+        value:
+          t.dissonance.length === 1 ? txt('screens.atlasModel.is') : txt('screens.atlasModel.are'),
       }),
       icon: 'dissonance',
     });
@@ -524,12 +525,12 @@ export function atlasAbout(): string {
     const which = ord[i] ?? `star ${i + 1}`;
     if (s.points <= 0)
       return txt('screens.atlasModel.byClearingIt', {
-        value: i === 0 ? txt('screens.atlasModel.lightThe') : 'the',
+        value: i === 0 ? txt('screens.atlasModel.lightThe') : txt('screens.atlasModel.the'),
         which,
       });
     return i <= 1 || ECHO_STARS[i - 1]!.points <= 0
       ? txt('screens.atlasModel.byClearingItAt', {
-          value: i === 0 ? txt('screens.atlasModel.lightThe') : 'the',
+          value: i === 0 ? txt('screens.atlasModel.lightThe') : txt('screens.atlasModel.the'),
           which,
           points: s.points,
         })

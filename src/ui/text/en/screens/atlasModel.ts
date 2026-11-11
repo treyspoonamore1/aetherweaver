@@ -83,4 +83,7 @@ export const atlasModel = {
   'screens.atlasModel.aNewBestFor': 'A new best for this Echo.',
   'screens.atlasModel.thisWeekSSong': 'This Week’s Song · Week {week}',
   'screens.atlasModel.nothingWasRecordedNo': 'Nothing was recorded: no fight was played.',
+  'screens.atlasModel.is': 'is',
+  'screens.atlasModel.are': 'are',
+  'screens.atlasModel.the': 'the',
 } satisfies Catalogue;

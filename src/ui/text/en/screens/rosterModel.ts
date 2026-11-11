@@ -79,4 +79,9 @@ export const rosterModel = {
   'screens.rosterModel.inYourParty': '{name} in your party',
   'screens.rosterModel.inYourSongs': '{name} in your songs',
   'screens.rosterModel.harmony': 'Harmony: {value}→ {name}',
+  'screens.rosterModel.hero': 'hero',
+  'screens.rosterModel.heroes': 'heroes',
+  'screens.rosterModel.run': 'run',
+  'screens.rosterModel.fight': 'fight',
+  'screens.rosterModel.with': 'with {named} ',
 } satisfies Catalogue;

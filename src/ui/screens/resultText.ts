@@ -481,7 +481,7 @@ export function statLines(
                 value:
                   healed === s.holds
                     ? s.holds === 1
-                      ? 'them'
+                      ? txt('screens.resultText.them')
                       : txt('screens.resultText.everyOne')
                     : healed,
               })

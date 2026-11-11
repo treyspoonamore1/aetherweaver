@@ -476,7 +476,7 @@ export interface ShopItemStatus {
 }
 
 export function shopItemStatus(run: Pick<RunState, 'aether'>, item: ShopItem): ShopItemStatus {
-  if (item.sold) return { available: false, problem: 'Sold' };
+  if (item.sold) return { available: false, problem: t('screens.interlude.sold') };
   if (run.aether < item.price)
     return {
       available: false,
@@ -539,6 +539,8 @@ export interface ForgeServiceStatus {
   available: boolean;
   /** Why not: the forge has cooled, nothing to use it on, or not enough Aether. */
   problem: string | null;
+  /** The problem is not enough Aether (its sound is "can't afford"), decided on the run, not the words. */
+  short: boolean;
   /** A short line under the title when it is available ("3 motifs can grow"). */
   note: string;
 }
@@ -560,7 +562,9 @@ export function forgeServiceStatus(run: RunState, service: ForgeService): ForgeS
         : t('screens.interlude.sameRulesAsPrep');
   const used = run.forge?.used ?? null;
   let problem: string | null = null;
-  if (used !== null) problem = used === service ? 'Done' : t('screens.interlude.theForgeHasCooled');
+  if (used !== null)
+    problem =
+      used === service ? t('screens.interlude.done') : t('screens.interlude.theForgeHasCooled');
   else if (targets.length === 0)
     problem =
       service === 'temper'
@@ -570,7 +574,8 @@ export function forgeServiceStatus(run: RunState, service: ForgeService): ForgeS
         : t('screens.interlude.youCarryNoCurse');
   else if (run.aether < price)
     problem = t('screens.interlude.needsMoreAether', { value: price - run.aether });
-  return { price, targets, available: problem === null, problem, note };
+  const short = used === null && targets.length > 0 && run.aether < price;
+  return { price, targets, available: problem === null, problem, short, note };
 }
 
 /** What the forge did this visit, for the "after" view (the run only records the service). */
@@ -635,6 +640,8 @@ export interface ChoiceInfo {
   odds: { win: number; lose: number } | null;
   /** Why it is greyed out (null: it can be chosen). */
   problem: string | null;
+  /** That problem is not enough Aether (the run's numbers decide, not the words). */
+  short: boolean;
   /** It asks for one of your motifs first. */
   motif: EventChoice['motif'];
   /** It opens the song builder first. */
@@ -702,6 +709,7 @@ export function choiceInfo(
   if (retune)
     tags.push({ icon: 'tune', text: t('screens.interlude.opensTheSongBuilder'), tone: 'plain' });
   const live = run.event?.eventId === eventId;
+  const problem = live ? eventChoiceProblem(run, choice.id) : null;
   return {
     id: choice.id,
     label: choice.label,
@@ -712,7 +720,9 @@ export function choiceInfo(
     ),
     cost: choice.cost,
     odds,
-    problem: live ? eventChoiceProblem(run, choice.id) : null,
+    problem,
+    // A Rank-gated choice is refused first (no allowance here), so only an open one can be short.
+    short: problem !== null && choice.rank === undefined && run.aether < choice.cost,
     motif: choice.motif,
     retune,
     fight,
@@ -840,7 +850,7 @@ export function songsLine(chords: RunState['chords']): string {
     )
     .filter(Boolean);
   return t('screens.interlude.yourSongsNow', {
-    value: parts.length ? parts.join(' · ') : 'silence',
+    value: parts.length ? parts.join(' · ') : t('screens.interlude.silence'),
   });
 }
 

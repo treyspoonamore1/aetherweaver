@@ -276,6 +276,7 @@ export function Callouts({
   barkSpeakers,
   blind = false,
   party,
+  waves,
 }: {
   callouts: Callout[];
   barkSpeakers: string[];
@@ -283,13 +284,15 @@ export function Callouts({
   blind?: boolean;
   /** Phase 5b: the party, so a decree reads true for it (no dome without Kael; Brann condemned). */
   party?: CalloutParty;
+  /** The fight's wave count: a one-wave fight shows no wave toast (decided on it, not the words). */
+  waves?: number;
 }) {
   const big = callouts.filter((c) => BIG.has(c.kind));
   const holds = callouts.filter((c) => c.kind === 'hold');
   // The Finale: the Grand Silence's notes (no other fight pushes one).
   const notes = callouts.filter((c) => c.kind === 'note');
   const decrees = callouts.filter((c) => c.kind === 'decree');
-  const waves = callouts.filter((c) => c.kind === 'wave' && !/of 1$/.test(c.text));
+  const waveToasts = waves === 1 ? [] : callouts.filter((c) => c.kind === 'wave');
   const foes = callouts.filter((c) => c.kind === 'sighting');
   const mid = callouts.filter(
     (c) =>
@@ -318,7 +321,7 @@ export function Callouts({
         ))}
       </div>
       <div className="absolute left-1/2 top-[7.5rem] flex -translate-x-1/2 flex-col items-center gap-2">
-        {waves.slice(-1).map((c) => (
+        {waveToasts.slice(-1).map((c) => (
           <p
             key={c.id}
             className="font-display text-lg font-semibold uppercase tracking-[0.3em] text-gold-200"

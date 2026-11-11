@@ -116,7 +116,9 @@ export function MerchantView({ run, onBuy, onLeave }: MerchantViewProps) {
                       price: item.price,
                       value: status.problem ? `: ${status.problem}` : '',
                       rule: info.rule,
-                      value2: info.curse ? ` Curse: ${info.curse}` : '',
+                      value2: info.curse
+                        ? t('screens.merchantScreen.curse', { curse: info.curse })
+                        : '',
                     })}
                     footer={<BuyLine item={item} status={status} />}
                   />

@@ -18,7 +18,9 @@
  * - a string or template in a player-facing JSX attribute (`title`, `aria-label`, `label`, ...);
  * - a string or template elsewhere whose words read as prose: whitespace between words of two or
  *   more letters, not a class list, a CSS value or a dotted key;
- * - a capitalised single word as the value of a label-like property (`label: 'Leave'`).
+ * - a capitalised single word as the value of a label-like property (`label: 'Leave'`);
+ * - any string or template with a letter handed into a message's parameters (`t(key, { value:
+ *   'stops' })`): words reach a message by key, never as a parameter.
  * What doesn't: imports, types, property names, comparisons and `case`s, errors and console
  * output, class names, styles, test ids and keys, and the arguments of `t`, `tc` and friends.
  * The labs (`src/ui/lab/`) are developer tools and the text layer is the catalogue: neither is
@@ -383,6 +385,29 @@ function context(n: ts.Node): Ctx {
   return { skip: false, textual: false };
 }
 
+/** Calls that fill a message's `{placeholders}` (`t(key, params)` under its local names). */
+const MESSAGE_CALL = /^(t|txt|tt)$/;
+
+/**
+ * Is this string a value handed into a message's parameters (`t(key, { value: n === 1 ? 'stop' :
+ * 'stops' })`)? Every word of it reaches the player inside the translated message, so even a
+ * single word counts: words belong in the catalogue, chosen by key or `plural`.
+ */
+function inMessageParams(n: ts.Node): boolean {
+  const site = useSite(n);
+  const p = site.parent;
+  if (!p || !ts.isPropertyAssignment(p) || p.initializer !== site) return false;
+  const obj = p.parent;
+  const call = obj.parent;
+  return (
+    !!call &&
+    ts.isCallExpression(call) &&
+    call.arguments[1] === obj &&
+    ts.isIdentifier(call.expression) &&
+    MESSAGE_CALL.test(call.expression.text)
+  );
+}
+
 /** A template's text with `${…}` in its holes. */
 export function templateText(n: ts.TemplateExpression): string {
   return n.head.text + n.templateSpans.map((s) => '${…}' + s.literal.text).join('');
@@ -419,7 +444,8 @@ export function scanSource(fileName: string, source: string): Found[] {
         const text = n.text;
         const textual =
           ctx.textual && /[A-Za-z]/.test(text) && (attr || /^[A-Z]/.test(text)) && !svgPath(text);
-        if (textual || human(text)) add(attr ? 'attr' : 'literal', n, text);
+        if (textual || human(text) || (inMessageParams(n) && /[A-Za-z]/.test(text)))
+          add(attr ? 'attr' : 'literal', n, text);
       }
       return;
     }
@@ -428,7 +454,12 @@ export function scanSource(fileName: string, source: string): Found[] {
       if (!ctx.skip) {
         const text = templateText(n);
         const words = text.replace(/\$\{…\}/g, ' ');
-        if ((ctx.textual && /[A-Za-z]{2,}/.test(words)) || human(words)) add('template', n, text);
+        if (
+          (ctx.textual && /[A-Za-z]{2,}/.test(words)) ||
+          human(words) ||
+          (inMessageParams(n) && /[A-Za-z]/.test(words))
+        )
+          add('template', n, text);
       }
       // Holes may hold strings of their own.
       for (const s of n.templateSpans) visit(s.expression);

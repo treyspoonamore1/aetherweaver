@@ -410,7 +410,10 @@ export function finaleTurnSentence(name: string, t: FinaleTurnHud): string {
       return txt('hud.conducting.canTPlayTheir', { name, value: LOST_REASON[t.block ?? 'down'] });
     case 'lost':
       return (t.played ?? 0) > 0
-        ? txt('hud.conducting.playedATurnOf', { name, value: t.lost === 1 ? 'one' : t.lost })
+        ? txt('hud.conducting.playedATurnOf', {
+            name,
+            value: t.lost === 1 ? txt('hud.conducting.one') : t.lost,
+          })
         : txt('hud.conducting.lostTheirTurn', { name });
     case 'plays':
       return txt('hud.conducting.sFinaleSoloIs', { name });
@@ -577,7 +580,7 @@ export function conductingCallouts(
             detail: txt('hud.conducting.played', {
               value: ctx.crescendoName ?? txt('hud.conducting.theFinale'),
               fired: event.fired,
-              value2: event.fired === 1 ? 'Solo' : 'Solos',
+              value2: event.fired === 1 ? txt('hud.conducting.solo') : txt('hud.conducting.solos'),
               value3: event.lost > 0 ? txt('hud.conducting.lost', { lost: event.lost }) : '',
             }),
             color: gold,

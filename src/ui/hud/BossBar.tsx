@@ -285,7 +285,9 @@ export function BossBar({
                 boss.foreseen.in < 0.05
                   ? txt('hud.bossBar.isAboutToBegin')
                   : txt('hud.bossBar.beginsInSeconds', { in: boss.foreseen.in.toFixed(1) }),
-              value2: boss.foreseen.target ? `, at ${boss.foreseen.target}` : '',
+              value2: boss.foreseen.target
+                ? txt('hud.bossBar.at', { target: boss.foreseen.target })
+                : '',
             })}
             data-testid="boss-foreseen"
           >

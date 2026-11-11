@@ -391,7 +391,10 @@ export function previewLine(p: StarPreview): string {
     case 'held':
       return t('screens.astrolabeModel.yoursSomethingYouVe', {
         namesLine: namesLine(p.hangs),
-        value: p.hangs.length === 1 ? 'that' : 'those',
+        value:
+          p.hangs.length === 1
+            ? t('screens.astrolabeModel.that')
+            : t('screens.astrolabeModel.those'),
       });
   }
 }

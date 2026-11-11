@@ -571,9 +571,9 @@ export function pathLabel(calling: RunCalling, map?: TierPlace): string {
     locked.length === 0
       ? ''
       : txt('screens.callingText.lockedWithMastery', {
-          value: one ? 'Tier' : 'Tiers',
+          value: one ? txt('screens.callingText.tier2') : txt('screens.callingText.tiers'),
           spanOf: spanOf(locked.map((s) => s.numeral)),
-          value2: one ? 'is' : 'are',
+          value2: one ? txt('screens.callingText.is') : txt('screens.callingText.are'),
           value3: one ? txt('screens.callingText.itOpens') : txt('screens.callingText.theyOpen'),
           spanOf2: spanOf(locked.map((s) => String(s.mastery))),
         });
@@ -832,12 +832,16 @@ export function callingParts(
         label: txt('screens.callingText.stoodBackUp'),
         amount: revived,
         text: txt('screens.callingText.backUp', {
-          value: parts.length > 0 ? 'stood' : `${REWIND_NAME} stood`,
+          value:
+            parts.length > 0
+              ? txt('screens.callingText.stood')
+              : txt('screens.callingText.stood2', { REWIND_NAME }),
           heroes,
         }),
         figure: fmt(revived),
         caption: txt('screens.callingText.stoodBackUp2', {
-          value: revived === 1 ? 'hero' : 'heroes',
+          value:
+            revived === 1 ? txt('screens.callingText.hero') : txt('screens.callingText.heroes'),
           REWIND_NAME,
         }),
       });

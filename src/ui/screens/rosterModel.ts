@@ -121,7 +121,10 @@ export function pickProblem(chosen: readonly string[]): string | null {
   if (n === PARTY_SIZE) return null;
   const more = PARTY_SIZE - n;
   return more > 0
-    ? txt('screens.rosterModel.pickMore', { more, value: more === 1 ? 'hero' : 'heroes' })
+    ? txt('screens.rosterModel.pickMore', {
+        more,
+        value: more === 1 ? txt('screens.rosterModel.hero') : txt('screens.rosterModel.heroes'),
+      })
     : null;
 }
 
@@ -619,7 +622,7 @@ export function bloodLine(heroId: string, b: HeroBloodStats, oath = false, run =
   return txt('screens.rosterModel.underOfTheLifesteal', {
     below,
     share: pct(share),
-    value: run ? 'run' : 'fight',
+    value: run ? txt('screens.rosterModel.run') : txt('screens.rosterModel.fight'),
     lifesteal: fmt(b.lifesteal),
     obj: heroPronouns(heroId).obj,
     cut,
@@ -805,7 +808,8 @@ export function harmonyLeads(
     out.push({
       harmony: h,
       text: txt('screens.rosterModel.harmony', {
-        value: named.length > 0 ? `with ${named.join(' and ')} ` : '',
+        value:
+          named.length > 0 ? txt('screens.rosterModel.with', { named: named.join(' and ') }) : '',
         name: h.name,
       }),
       others,

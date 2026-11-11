@@ -96,4 +96,12 @@ export const callingText = {
     'Your songs hold {heldPct}% of your Life, so you fight below {below}% from the start: {name} is on all the time.',
   'screens.callingText.yourSongsHoldOf2':
     'Your songs hold {heldPct}% of your Life: {name} wakes after you lose {round}% of it.',
+  'screens.callingText.tier2': 'Tier',
+  'screens.callingText.tiers': 'Tiers',
+  'screens.callingText.is': 'is',
+  'screens.callingText.are': 'are',
+  'screens.callingText.stood': 'stood',
+  'screens.callingText.stood2': '{REWIND_NAME} stood',
+  'screens.callingText.hero': 'hero',
+  'screens.callingText.heroes': 'heroes',
 } satisfies Catalogue;

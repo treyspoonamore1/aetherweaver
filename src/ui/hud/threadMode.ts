@@ -112,7 +112,7 @@ export function threadDialView(w: WeaverHud, target: HeroHud | null): ThreadDial
           });
   const how =
     mode === 'bear'
-      ? t('hud.threadMode.againGoesBackTo', { value: bearKey ?? 'Bear', back })
+      ? t('hud.threadMode.againGoesBackTo', { value: bearKey ?? t('hud.threadMode.bear'), back })
       : t('hud.threadMode.switchesTo', { switchKey, other });
   // Movement III (docs/phase-5c.md): an enemy's cut names what cut it; Unravel turns Mend.
   const cut = state === 'snapped' ? w.threadCut : undefined;

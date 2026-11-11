@@ -26,4 +26,5 @@ export const merchantScreen = {
   'screens.merchantScreen.weaveIn': 'Weave in',
   'screens.merchantScreen.healingEveryHeroHeals':
     'Healing: every hero heals {pctText} of their life, {price} Aether{value}',
+  'screens.merchantScreen.curse': ' Curse: {curse}',
 } satisfies Catalogue;

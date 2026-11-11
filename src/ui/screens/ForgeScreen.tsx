@@ -61,7 +61,7 @@ export function ForgeView({
       if (!s) return;
       e.preventDefault();
       const status = forgeServiceStatus(run, s);
-      if (!status.available) playUi(status.problem?.startsWith('Needs') ? 'cantAfford' : 'error');
+      if (!status.available) playUi(status.short ? 'cantAfford' : 'error');
       else setMode(s);
     };
     window.addEventListener('keydown', onKey);
@@ -248,7 +248,7 @@ function ServiceCard({
   onOpen(): void;
 }) {
   const c = FORGE_COPY[service];
-  const short = status.problem?.startsWith('Needs') ?? false;
+  const short = status.short;
   return (
     <button
       type="button"
@@ -265,7 +265,9 @@ function ServiceCard({
         title: c.title,
         price: status.price,
         text: c.text,
-        value: status.problem ? ` Unavailable: ${status.problem}` : '',
+        value: status.problem
+          ? t('screens.forgeScreen.unavailable', { problem: status.problem })
+          : '',
       })}
       data-testid={`forge-${service}`}
       className={`anim-rise group flex flex-col items-start rounded-2xl border-2 bg-ink-800/90 p-6 text-left shadow-xl shadow-black/40 transition-all ${status.available ? 'hover:-translate-y-1 hover:bg-ink-700/90' : 'cursor-not-allowed opacity-60'}`}

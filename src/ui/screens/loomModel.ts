@@ -410,7 +410,7 @@ export function freshLine(stations: readonly StationView[]): string | null {
       : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
   return txt('screens.loomModel.litUpVisitTo', {
     capital: capital(list),
-    value: names.length === 1 ? 'has' : 'have',
+    value: names.length === 1 ? txt('screens.loomModel.has') : txt('screens.loomModel.have'),
   });
 }
 
@@ -782,7 +782,10 @@ const SHELVES: readonly { kind: ShopKind; title: string; blurb: string; icon: Ic
 function masteryLine(): string {
   const n = CONTENT.mastery.callings.length;
   return txt('screens.loomModel.onSaleWithA', {
-    value: n === 1 ? txt('screens.loomModel.oneGoes') : `${capital(countWord(n))} go`,
+    value:
+      n === 1
+        ? txt('screens.loomModel.oneGoes')
+        : txt('screens.loomModel.go', { capital: capital(countWord(n)) }),
     firstCallingRank: firstCallingRank(),
   });
 }

@@ -112,6 +112,8 @@ export interface StatusLook {
    * out, as it hides every answer a telegraph wants.
    */
   answer?: string;
+  /** That answer is a Chime (the badge's bell): said by the data, not read from the words. */
+  chime?: true;
 }
 
 /** A status's tooltip: its name, what it does and (unless `blind`) how to answer it. */
@@ -124,6 +126,7 @@ const DOOM_MAX = doomMax();
 
 export const STATUS: Record<StatusId, StatusLook> = {
   dirge: {
+    chime: true,
     icon: 'skull',
     get label() {
       return t('input.labels.dirge');
@@ -236,6 +239,7 @@ export const STATUS: Record<StatusId, StatusLook> = {
   },
   // Movement II (docs/phase-5a.md): each threat with the answer it wants.
   bleed: {
+    chime: true,
     icon: 'drop',
     get label() {
       return t('input.labels.bleeding');
@@ -275,6 +279,7 @@ export const STATUS: Record<StatusId, StatusLook> = {
     },
   },
   wound: {
+    chime: true,
     icon: 'crack',
     get label() {
       return t('input.labels.wounded');
@@ -325,6 +330,7 @@ export const STATUS: Record<StatusId, StatusLook> = {
   },
   // Movement III (docs/phase-5c.md): each with its glyph and the answer it wants.
   doubt: {
+    chime: true,
     icon: 'mask',
     get label() {
       return t('input.labels.doubted');
@@ -338,6 +344,7 @@ export const STATUS: Record<StatusId, StatusLook> = {
     },
   },
   possessed: {
+    chime: true,
     icon: 'mask',
     get label() {
       return t('input.labels.possessed');
@@ -351,6 +358,7 @@ export const STATUS: Record<StatusId, StatusLook> = {
     },
   },
   doom: {
+    chime: true,
     icon: 'skull',
     get label() {
       return t('input.labels.doom');
@@ -364,6 +372,7 @@ export const STATUS: Record<StatusId, StatusLook> = {
     },
   },
   doomed: {
+    chime: true,
     icon: 'skull',
     get label() {
       return t('input.labels.ignited');
@@ -390,6 +399,7 @@ export const STATUS: Record<StatusId, StatusLook> = {
     },
   },
   stitch: {
+    chime: true,
     icon: 'needle',
     get label() {
       return t('input.labels.stitch');

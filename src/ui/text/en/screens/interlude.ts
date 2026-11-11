@@ -101,4 +101,7 @@ export const interlude = {
   'screens.interlude.continueYourCallingGrows': 'Continue: your Calling grows',
   'screens.interlude.continueChooseARelic': 'Continue: choose a relic',
   'screens.interlude.continueChooseAMotif': 'Continue: choose a motif',
+  'screens.interlude.sold': 'Sold',
+  'screens.interlude.done': 'Done',
+  'screens.interlude.silence': 'silence',
 } satisfies Catalogue;

@@ -143,7 +143,9 @@ function riftLesson(
       };
     case 'null_priest':
       return {
-        lesson: txt('hud.sighting.itClosesARune', { value: rewinds ? 'Rewind' : 'Reel' }),
+        lesson: txt('hud.sighting.itClosesARune', {
+          value: rewinds ? txt('hud.sighting.rewind') : txt('hud.sighting.reel'),
+        }),
         answers: ['move'],
       };
     case 'mimic':
@@ -452,7 +454,7 @@ export function allyOf(heroId: string): Ally | null {
       txt('hud.sighting.yourHealingOnHim', {
         value:
           passive.weaverHealMult === 0.5
-            ? 'halved'
+            ? txt('hud.sighting.halved')
             : txt('hud.sighting.cutTo', { round: Math.round(passive.weaverHealMult * 100) }),
       }),
       txt('hud.sighting.wardHimAndGive'),

@@ -199,4 +199,12 @@ export const hints = {
     'A Mimic is copying your Empower — switch the Thread to Mend {RMB} to crack the mirror',
   'hud.hints.everySoloYouLet':
     'Every Solo you let through feeds the Conductor’s Discord: answer it, or interrupt the soloist (Focus {{bindingLabel}})',
+  'hud.hints.mend': 'Mend',
+  'hud.hints.empower': 'Empower',
+  'hud.hints.resonance': '{cueCost} Resonance',
+  'hud.hints.in': 'in {secondsLabel}',
+  'hud.hints.share': 'share',
+  'hud.hints.carries': 'carries',
+  'hud.hints.rewind': 'Rewind',
+  'hud.hints.reel': 'Reel',
 } satisfies Catalogue;
