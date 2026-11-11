@@ -4,7 +4,7 @@ A support-focused action roguelite: **you are the Weaver, and your party is the 
 
 This repo is the remake of the original prototype, which is kept read-only in [`reference/original/`](reference/original/) and never imported. The design, the analysis of the original and the roadmap are in [`docs/plan/`](docs/plan/README.md).
 
-**Status:** every phase up to the Expedition's Finale is built (the Prelude, the Loom, three Movements and the Finale, Echoes, This Week's Song, Dissonance), and Phase 7, polish and ship, is under way ([`docs/phase-7.md`](docs/phase-7.md)). There is also a **playtest demo** ([`docs/demo.md`](docs/demo.md)). What the game holds:
+**Status:** every phase up to the Expedition's Finale is built (the Prelude, the Loom, three Movements and the Finale, Echoes, This Week's Song, Dissonance), and Phase 7, polish and ship, is built ([`docs/phase-7.md`](docs/phase-7.md)); what remains is the owner's list in that doc's _Open, for the owner_. There is also a **playtest demo** ([`docs/demo.md`](docs/demo.md)). What the game holds:
 
 - **the Loom**, a hub of stations that light up as you play, each with a short first-contact intro: the **Astrolabe** (a passive tree), **Deeds**, the **Reliquary** (relics kept, crafted and carried), **Dissonance** (endgame difficulty), hero **Bonds**, **technique variants**, and the **Atelier**, where Starlight buys variants and keepsakes. Callings open their paths by **mastery**, and the Training Grounds hold a **Perfect-Ward trainer**;
 - the **Prelude run**, then **Expeditions**: every Movement in turn, from the Spire to the Abyssal Rift and the Finale, where the Silent Conductor waits;
