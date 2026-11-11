@@ -214,6 +214,8 @@ export class InputController {
     window.addEventListener('keyup', this.onKeyUp);
     window.addEventListener('blur', this.onBlur);
     window.addEventListener('pointerup', this.onAnyPointerUp);
+    // Chorded buttons: a pointerup comes only for the last button let go; a mouseup for each.
+    window.addEventListener('mouseup', this.onAnyPointerUp);
     window.addEventListener('gamepadconnected', this.onPadConnected);
     target.addEventListener('pointermove', this.onPointerMove);
     target.addEventListener('pointerleave', this.onPointerLeave);
@@ -605,22 +607,35 @@ export class InputController {
 
   private modeRelease(code: string): void {
     if (this.modeHeldBy === null || this.modeHeldBy !== code) return;
+    this.endModeHold(this.enabled);
+  }
+
+  /**
+   * The held Thread mode ends: a press the sim has not seen yet never happened; one it has seen
+   * sends the Thread back to Mend (`back`: let go in the fight, or the hold was lost).
+   */
+  private endModeHold(back: boolean): void {
     this.modeHeldBy = null;
     const command = this.modeHoldCommand;
     this.modeHoldCommand = null;
     const at = command ? this.pending.indexOf(command) : -1;
     // Pressed and let go before the sim saw it: the press never happened.
     if (at >= 0) this.pending.splice(at, 1);
-    else if (this.enabled && this.threadMode === 'empower') this.pending.push({ t: 'mode' });
+    else if (back && this.threadMode === 'empower') this.pending.push({ t: 'mode' });
   }
 
+  /**
+   * Lets go of everything held. A held Thread mode lost this way (a pause, alt-tab, a rebinding)
+   * goes back to Mend as its release would have (review A, finding 3): otherwise its release
+   * never comes and a press from Empower does nothing, so the Thread would stay in Empower. Paused,
+   * the command waits in `pending` and reaches the sim on the first frame after Resume.
+   */
   private releaseAll(): void {
     this.heldCodes.clear();
     this.held.clear();
     this.padHeld.clear();
     this.modifierHeld = false;
-    this.modeHeldBy = null;
-    this.modeHoldCommand = null;
+    if (this.modeHeldBy !== null) this.endModeHold(true);
   }
 
   /** Alt-tab and similar: release everything so keys never "stick" (a bug in the original). */
@@ -660,8 +675,12 @@ export class InputController {
     this.rolePress(role, code);
   };
 
-  /** A mouse button let go anywhere: ends a held wheel or a held Thread mode. */
-  private onAnyPointerUp = (event: PointerEvent): void => {
+  /**
+   * A mouse button let go anywhere (pointerup, or mouseup for one of several chorded buttons):
+   * ends a held wheel or a held Thread mode. Each runs once: a second call for the same release
+   * finds nothing held.
+   */
+  private onAnyPointerUp = (event: MouseEvent): void => {
     const code = mouseCode(event.button);
     if (code === null) return;
     this.wheelRelease(code);
@@ -888,7 +907,8 @@ export class InputController {
     if (!this.padLive) return;
     const r = this.reader;
     if (!r.read(this.pads)) {
-      // Unplugged: let go of everything it held.
+      // Unplugged: let go of everything it held (a held Thread mode as its release would).
+      if (this.modeHeldBy?.startsWith('Pad:')) this.endModeHold(this.enabled);
       this.padLive = false;
       this.padPrimed = false;
       this.padPrev = 0;
@@ -1021,6 +1041,7 @@ export class InputController {
     window.removeEventListener('keyup', this.onKeyUp);
     window.removeEventListener('blur', this.onBlur);
     window.removeEventListener('pointerup', this.onAnyPointerUp);
+    window.removeEventListener('mouseup', this.onAnyPointerUp);
     window.removeEventListener('gamepadconnected', this.onPadConnected);
     this.target.removeEventListener('pointermove', this.onPointerMove);
     this.target.removeEventListener('pointerleave', this.onPointerLeave);

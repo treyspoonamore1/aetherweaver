@@ -3,9 +3,15 @@
  * touched an aura's or ornament's presentation, the test proves it equal to the tree before Phase 7
  * (main at 81a12ef), from values recorded on that tree (`reviewA7RecordOld.ts`).
  */
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, useSettings, type Settings } from '../src/app/settings';
 import { arenaDef, encounterDef } from '../src/content';
+import { PAD_BUTTONS, type Action, type PadButton } from '../src/input/actions';
+import type { PadLike } from '../src/input/gamepad';
+import { InputController } from '../src/input/InputController';
+import { writeInput } from '../src/input/inputMap';
+import { useWheel } from '../src/input/wheel';
+import type { Command, Sim } from '../src/sim';
 import { CameraRig } from '../src/render/camera';
 import { CombatView } from '../src/render/combatView';
 import { createSim } from '../src/sim/api';
@@ -111,5 +117,143 @@ describe('finding 1: Fermata’s hold and the plant on the camera and the vignet
     });
     expect(strip(f.frames)).toEqual(want);
     expect(f.frames.slice(CRESCENDO_TICK).every((x) => x.slow === '0.00')).toBe(true);
+  });
+});
+
+// ── Input (src/input/InputController.ts) ─────────────────────────────────────────────────
+
+/** A pad the tests press by name (its `buttons` in the standard mapping's order). */
+class FakePad implements PadLike {
+  connected = true;
+  mapping = 'standard';
+  readonly buttons = PAD_BUTTONS.map(() => ({ pressed: false, value: 0 }));
+  readonly axes = [0, 0, 0, 0];
+  press(b: PadButton, down = true): void {
+    const button = this.buttons[PAD_BUTTONS.indexOf(b)]!;
+    button.pressed = down;
+    button.value = down ? 1 : 0;
+  }
+}
+
+/** A fight's input: a sim with the Thread on Kael, a controller on a fake window and canvas. */
+function inputRig(pads: PadLike[] = []) {
+  const win = new EventTarget();
+  const canvas = new EventTarget();
+  (globalThis as unknown as { window: EventTarget }).window = win;
+  const sim: Sim = createSim({ seed: 1, debug: true }) as Sim;
+  sim.step([{ t: 'thread', slot: 0 }]);
+  const ui: Action[] = [];
+  const input = new InputController(
+    canvas as unknown as HTMLElement,
+    () => false,
+    (a) => ui.push(a),
+    undefined,
+    { sound: () => {}, pads: () => pads },
+  );
+  input.updatePointer(sim.state);
+  input.collect();
+  /** One runtime frame: the commands, the step, the pointer and pad. */
+  const frame = (): Command[] => {
+    const c = input.collect();
+    sim.step(c);
+    input.updatePointer(sim.state);
+    return c;
+  };
+  const mode = () => sim.state.entities.get(sim.state.weaverId)!.weaver!.threadMode;
+  const mouse = (target: EventTarget, type: string, button: number, buttons: number) =>
+    target.dispatchEvent(
+      Object.assign(new Event(type), { clientX: 1, clientY: 1, button, buttons }),
+    );
+  return { win, canvas, sim, input, ui, frame, mode, mouse };
+}
+
+describe('finding 3: hold-mode Thread mode never sticks in Empower', () => {
+  let rig: ReturnType<typeof inputRig> | null = null;
+  beforeEach(() => {
+    useSettings.getState().update((d) => writeInput(d, { threadMode: 'hold' }));
+  });
+  afterEach(() => {
+    rig?.input.dispose();
+    rig = null;
+    useSettings.getState().reset();
+    useWheel.setState({ wheel: null, picked: null });
+    delete (globalThis as unknown as { window?: EventTarget }).window;
+  });
+
+  it('paused while held: Resume brings Mend back, and the hold works again', () => {
+    rig = inputRig();
+    const { canvas, win, input, frame, mode, mouse } = rig;
+    mouse(canvas, 'pointerdown', 2, 2);
+    frame();
+    expect(mode()).toBe('empower');
+    input.setEnabled(false); // Escape: the runtime pauses
+    mouse(win, 'pointerup', 2, 0); // let go in the pause menu
+    input.setEnabled(true); // Resume
+    frame();
+    expect(mode()).toBe('mend');
+    mouse(canvas, 'pointerdown', 2, 2);
+    frame();
+    expect(mode()).toBe('empower');
+    mouse(win, 'pointerup', 2, 0);
+    frame();
+    expect(mode()).toBe('mend');
+  });
+
+  it('alt-tab while held: back to Mend at once; a press not yet seen by the sim never happened', () => {
+    rig = inputRig();
+    const { canvas, win, frame, mode, mouse } = rig;
+    mouse(canvas, 'pointerdown', 2, 2);
+    frame();
+    expect(mode()).toBe('empower');
+    win.dispatchEvent(new Event('blur'));
+    expect(frame()).toEqual([{ t: 'mode' }]);
+    expect(mode()).toBe('mend');
+    // Pressed and lost before any frame: nothing reaches the sim.
+    mouse(canvas, 'pointerdown', 2, 2);
+    win.dispatchEvent(new Event('blur'));
+    expect(frame()).toEqual([]);
+    expect(mode()).toBe('mend');
+  });
+
+  it('chorded buttons (Chromium’s events, review A’s browser log): letting go of right ends the hold', () => {
+    rig = inputRig();
+    const { canvas, win, frame, mode, mouse } = rig;
+    mouse(canvas, 'pointerdown', 2, 2);
+    mouse(canvas, 'mousedown', 2, 2);
+    frame();
+    expect(mode()).toBe('empower');
+    // Left pressed while right is held, then right let go first, then left.
+    mouse(canvas, 'pointermove', 0, 3);
+    mouse(canvas, 'mousedown', 0, 3);
+    mouse(canvas, 'pointermove', 2, 1);
+    mouse(win, 'mouseup', 2, 1);
+    frame();
+    expect(mode()).toBe('mend');
+    mouse(win, 'pointerup', 0, 0);
+    mouse(win, 'mouseup', 0, 0);
+    expect(frame()).toEqual([]);
+    expect(mode()).toBe('mend');
+  });
+
+  it('the pad unplugged mid-hold: back to Mend, and the mouse can hold again', () => {
+    const pad = new FakePad();
+    const pads: PadLike[] = [pad];
+    rig = inputRig(pads);
+    const { canvas, win, frame, mode, mouse } = rig;
+    frame(); // the first read presses nothing
+    pad.press('triggerLeft');
+    frame();
+    frame();
+    expect(mode()).toBe('empower');
+    pads.length = 0; // unplugged
+    frame();
+    frame();
+    expect(mode()).toBe('mend');
+    mouse(canvas, 'pointerdown', 2, 2);
+    frame();
+    expect(mode()).toBe('empower');
+    mouse(win, 'pointerup', 2, 0);
+    frame();
+    expect(mode()).toBe('mend');
   });
 });
