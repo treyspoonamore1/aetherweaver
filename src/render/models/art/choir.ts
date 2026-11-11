@@ -757,14 +757,14 @@ export function buildLancer(def: EnemyDef): THREE.BufferGeometry {
       lead: 0,
       shell: false,
     });
-    beam(b, P(0, 2.12, 0.0), P(0, 1.86, 0.38), 0.03 * s, 0.12 * s, LANCE, 0.3, {
+    beam(b, P(0, 2.08, 0.04), P(0, 1.88, 0.3), 0.025 * s, 0.07 * s, LANCE, 0.3, {
       cell: 0.1 * s,
       lit: 0.5,
     });
   });
   // The lance, couched under the right arm and steadied by the left: a bronze shaft, a guard,
   // a long faceted blade of glass with a core of light. It lifts to aim and drives on the blow.
-  b.rigged({ k: WEAPON, at: P(0, 1.48, 0), a: 0.32 }, () => {
+  b.rigged({ k: WEAPON, at: P(0, 1.48, 0), a: 0.26 }, () => {
     limb(b, P(0.27, 1.6, 0), P(0.3, 1.32, 0.04), 0.05 * s, 0.06 * s, CASSOCK, 5);
     limb(b, P(0.3, 1.32, 0.04), P(0.17, 1.28, -0.22), 0.045 * s, 0.05 * s, body, 5);
     b.octa(0.06 * s, body, { p: P(0.15, 1.28, -0.25) });
@@ -973,18 +973,18 @@ export function buildAcolyte(def: EnemyDef): THREE.BufferGeometry {
   });
   // The head under its cowl, and the nimbus behind it.
   b.rigged({ k: HEAD, at: P(0, 1.44, 0) }, () => {
-    b.sphere(0.2 * s, HOOD, { p: P(0, 1.63, 0.04), s: [1, 1.08, 1.05] }, 8, 6);
+    b.sphere(0.19 * s, HOOD, { p: P(0, 1.63, 0.06), s: [1, 1.08, 1.05] }, 8, 6);
     b.cone(0.12 * s, 0.22 * s, HOOD, { p: P(0, 1.8, 0.14), r: [-0.7, 0, 0] }, 6);
     b.sphere(
-      0.13 * s,
+      0.155 * s,
       body,
-      { p: P(0, 1.61, -0.09), s: [0.88, 1.18, 0.6], glow: 0.2, lead: 0 },
+      { p: P(0, 1.61, -0.1), s: [0.9, 1.2, 0.6], glow: 0.2, lead: 0 },
       7,
       5,
     );
     for (const side of [-1, 1])
       b.box(0.06 * s, 0.014 * s, 0.02 * s, CHOIR, {
-        p: P(side * 0.045, 1.645, -0.165),
+        p: P(side * 0.052, 1.65, -0.19),
         r: [0, 0, side * -0.25],
         glow: 1,
         lead: 0,
@@ -993,7 +993,7 @@ export function buildAcolyte(def: EnemyDef): THREE.BufferGeometry {
     b.sphere(
       0.025 * s,
       CHOIR_DEEP,
-      { p: P(0, 1.55, -0.165), s: [1, 1.3, 0.6], glow: 1, lead: 0, shell: false },
+      { p: P(0, 1.545, -0.19), s: [1, 1.3, 0.6], glow: 1, lead: 0, shell: false },
       5,
       4,
     );
@@ -1024,28 +1024,29 @@ export function buildAcolyte(def: EnemyDef): THREE.BufferGeometry {
   return b.build();
 }
 
-/** The Hollow Cantor's chasuble profile ([radius, y]): its cracks run on its surface. */
-const CHASUBLE: [number, number][] = [
-  [1.04, 1.25],
-  [0.98, 1.4],
-  [0.84, 2.0],
-  [0.7, 2.6],
-  [0.62, 2.95],
-  [0, 3.0],
+/** The Hollow Cantor's cassock profile ([radius, y]): the hollow and its cracks sit on its front. */
+const CANTOR_CASSOCK: [number, number][] = [
+  [1.3, 0],
+  [1.26, 0.1],
+  [1.08, 0.7],
+  [0.9, 1.6],
+  [0.74, 2.4],
+  [0.6, 2.9],
+  [0, 2.95],
 ];
 
-function chasubleRadius(y: number): number {
-  for (let i = 0; i < CHASUBLE.length - 1; i++) {
-    const [r0, y0] = CHASUBLE[i]!;
-    const [r1, y1] = CHASUBLE[i + 1]!;
+function cassockRadius(y: number): number {
+  for (let i = 0; i < CANTOR_CASSOCK.length - 1; i++) {
+    const [r0, y0] = CANTOR_CASSOCK[i]!;
+    const [r1, y1] = CANTOR_CASSOCK[i + 1]!;
     if (y >= y0 && y <= y1) return r0 + ((y - y0) / (y1 - y0)) * (r1 - r0);
   }
-  return CHASUBLE[0]![0];
+  return CANTOR_CASSOCK[0]![0];
 }
 
-/** A point on the chasuble's front at (x, y), standing `out` m proud of it. */
-function onChasuble(x: number, y: number, out = 0.02): V3 {
-  const r = chasubleRadius(y);
+/** A point on the cassock's front at (x, y), standing `out` m proud of it. */
+function onFront(x: number, y: number, out = 0.02): V3 {
+  const r = cassockRadius(y);
   return [x, y, -Math.sqrt(Math.max(0, r * r - x * x)) - out];
 }
 
@@ -1096,15 +1097,7 @@ export function buildCantor(def: EnemyDef): THREE.BufferGeometry {
   // The cassock: dark, broad at the floor, a ring of lit windows round its skirt.
   b.rigged({ k: CLOTH, at: P(0, 1.6, 0), a: 1.6 * s }, () => {
     b.lathe(
-      [
-        [1.3 * s, 0],
-        [1.26 * s, 0.1 * s],
-        [1.08 * s, 0.7 * s],
-        [0.9 * s, 1.6 * s],
-        [0.74 * s, 2.4 * s],
-        [0.6 * s, 2.9 * s],
-        [0, 2.95 * s],
-      ],
+      CANTOR_CASSOCK.map(([r, y]) => [r * s, y * s] as [number, number]),
       CASSOCK,
       {},
       14,
@@ -1112,19 +1105,46 @@ export function buildCantor(def: EnemyDef): THREE.BufferGeometry {
     b.torus(1.25 * s, 0.06 * s, BRONZE, { p: P(0, 0.1, 0), r: FLAT }, Math.PI * 2, 24);
   });
   skirtWindows(b, 10, 1.07 * s, 0.82 * s, 0.62 * s, 0.26 * s, 0.2, '#b9a4ff');
-  // The chasuble: porcelain, cracked, from the shoulders to the knee.
-  b.lathe(
-    CHASUBLE.map(([r, y]) => [r * s, y * s] as [number, number]),
-    body,
-    glaze(0.3 * s, 0.32, 0.12),
-    14,
-  );
-  b.torus(1.02 * s, 0.05 * s, BRONZE, { p: P(0, 1.28, 0), r: FLAT }, Math.PI * 2, 22);
+  // The cope: porcelain, cracked, from the shoulders to the knee, open down the front on the
+  // dark cassock, its edges banded in bronze; it trails as it walks.
+  const open = 0.55;
+  b.rigged({ k: CLOTH, at: P(0, 2.9, 0), a: 2.2 * s }, () => {
+    b.arc(
+      0.66 * s,
+      1.12 * s,
+      1.75 * s,
+      -(Math.PI - open),
+      2 * (Math.PI - open),
+      body,
+      {
+        ...glaze(0.28 * s, 0.32, 0.12),
+        p: P(0, 2.125, 0),
+      },
+      14,
+    );
+    // An orphrey down its back: a band of dusk glass, a share of its panes lit (the cope reads
+    // light and dark from behind too).
+    beam(b, P(0, 2.55, 0.8), P(0, 1.28, 1.14), 0.34 * s, 0.04 * s, HOOD, 0.25, {
+      cell: 0.13 * s,
+      lit: 0.35,
+    });
+    for (const side of [-1, 1]) {
+      const a = side * (Math.PI - open);
+      beam(
+        b,
+        P(Math.sin(a) * 0.79, 2.55, Math.cos(a) * 0.79),
+        P(Math.sin(a) * 1.13, 1.25, Math.cos(a) * 1.13),
+        0.07 * s,
+        0.07 * s,
+        BRONZE,
+      );
+    }
+  });
   // The hollow in its chest, and the bell that hangs in it.
   b.sphere(
     0.34 * s,
     HOLLOW,
-    { p: onChasuble(0, 2.25 * s, -0.12 * s), s: [0.82, 1.15, 0.4], lead: 0 },
+    { p: onFront(0, 2.25 * s, -0.12 * s), s: [0.82, 1.15, 0.4], lead: 0 },
     9,
     6,
   );
@@ -1132,7 +1152,7 @@ export function buildCantor(def: EnemyDef): THREE.BufferGeometry {
     0.31 * s,
     0.045 * s,
     BRONZE,
-    { p: onChasuble(0, 2.25 * s, 0), s: [0.85, 1.2, 1], r: [0.2, 0, 0] },
+    { p: onFront(0, 2.25 * s, 0), s: [0.85, 1.2, 1], r: [0.2, 0, 0] },
     Math.PI * 2,
     14,
   );
@@ -1173,8 +1193,8 @@ export function buildCantor(def: EnemyDef): THREE.BufferGeometry {
     for (let i = 0; i < c.length - 1; i++)
       beam(
         b,
-        onChasuble(c[i]![0] * s, c[i]![1] * s),
-        onChasuble(c[i + 1]![0] * s, c[i + 1]![1] * s),
+        onFront(c[i]![0] * s, c[i]![1] * s),
+        onFront(c[i + 1]![0] * s, c[i + 1]![1] * s),
         0.05 * s,
         0.03 * s,
         CHOIR,
@@ -1182,8 +1202,19 @@ export function buildCantor(def: EnemyDef): THREE.BufferGeometry {
         { lead: 0, shell: false },
       );
   // The mantle over its shoulders, banded in bronze.
-  b.cone(1.02 * s, 0.9 * s, body, { ...glaze(0.24 * s, 0.35, 0.14), p: P(0, 2.93, 0.02) }, 12);
-  b.torus(1.0 * s, 0.05 * s, BRONZE, { p: P(0, 2.5, 0.02), r: FLAT }, Math.PI * 2, 20);
+  b.lathe(
+    [
+      [0.98 * s, 2.5 * s],
+      [0.92 * s, 2.68 * s],
+      [0.74 * s, 2.92 * s],
+      [0.42 * s, 3.08 * s],
+      [0, 3.12 * s],
+    ],
+    body,
+    { ...glaze(0.22 * s, 0.35, 0.14), p: P(0, 0, 0.02) },
+    12,
+  );
+  b.torus(0.97 * s, 0.05 * s, BRONZE, { p: P(0, 2.52, 0.02), r: FLAT }, Math.PI * 2, 20);
   // The head: a porcelain cowl, a tall cracked mitre, a long mask singing to the sky; a rose
   // window of porcelain glass leaning back behind it.
   b.rigged({ k: HEAD, at: P(0, 3.0, 0) }, () => {
@@ -1279,13 +1310,16 @@ export function buildCantor(def: EnemyDef): THREE.BufferGeometry {
   // The arms, long and spread in song, in wide porcelain sleeves.
   for (const side of [-1, 1]) {
     const crozier = side > 0;
+    // The right arm low on its crozier; the left raised high over the book, conducting.
+    const elbow: V3 = crozier ? P(1.22, 2.35, -0.28) : P(-1.3, 2.68, -0.3);
+    const hand: V3 = crozier ? P(1.52, 2.0, -0.56) : P(-1.72, 3.02, -0.52);
     b.rigged(
       { k: crozier ? WEAPON : BRACE, at: P(side * 0.7, 2.85, 0), a: crozier ? 0.6 : 0.7 },
       () => {
         limb(
           b,
           P(side * 0.66, 2.86, 0),
-          P(side * 1.22, 2.35, -0.28),
+          elbow,
           0.27 * s,
           0.17 * s,
           body,
@@ -1297,20 +1331,20 @@ export function buildCantor(def: EnemyDef): THREE.BufferGeometry {
           0.25 * s,
           0.03 * s,
           BRONZE,
-          { p: P(side * 1.22, 2.35, -0.28), r: [Math.PI / 2 - 0.6, side * 0.8, 0] },
+          { p: elbow, r: [Math.PI / 2 - (crozier ? 0.6 : 0.1), side * 0.8, 0] },
           Math.PI * 2,
           10,
         );
-        limb(
-          b,
-          P(side * 1.22, 2.35, -0.28),
-          P(side * 1.52, 2.0, -0.56),
-          0.08 * s,
-          0.1 * s,
-          HOOD,
-          6,
-        );
-        b.octa(0.1 * s, body, { p: P(side * 1.56, 1.94, -0.6), s: [1, 1.4, 1], glow: 0.16 });
+        limb(b, elbow, hand, 0.08 * s, 0.1 * s, HOOD, 6);
+        b.octa(0.1 * s, body, {
+          p: [
+            hand[0] + side * 0.04 * s,
+            hand[1] + (crozier ? -0.06 : 0.06) * s,
+            hand[2] - 0.04 * s,
+          ],
+          s: [1, 1.4, 1],
+          glow: 0.16,
+        });
         if (crozier) {
           // The crozier: a bronze staff, its crook hung with a bell lit from inside.
           limb(b, P(1.58, 0.4, -0.62), P(1.58, 3.35, -0.62), 0.045 * s, 0.045 * s, BRONZE_DARK, 6);
@@ -1319,7 +1353,7 @@ export function buildCantor(def: EnemyDef): THREE.BufferGeometry {
           b.sphere(0.09 * s, CHOIR, { p: P(2.06, 2.88, -0.62), glow: 1, lead: 0 }, 6, 4);
         } else {
           b.octa(0.09 * s, CHOIR, {
-            p: P(-1.58, 2.2, -0.66),
+            p: P(-1.8, 3.32, -0.6),
             s: [0.8, 1.6, 0.8],
             glow: 1,
             lead: 0,
