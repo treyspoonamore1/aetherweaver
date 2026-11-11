@@ -60,6 +60,8 @@ function cloth(cell: number, lit = 0.18): PartOptions {
 }
 
 const NO_LEAD: PartOptions = { lead: 0, shell: false };
+/** A hollow's faint indigo light: a near-black hollow under the hostile rim would read red. */
+const HOLLOW: PartOptions = { lead: 0, shell: false, glow: 0.35 };
 
 /** Euler angles (the builder's XYZ order) for a part turned `yaw` about y after tilting `tilt` about its own x. */
 function yawTilt(yaw: number, tilt: number): V3 {
@@ -355,7 +357,7 @@ export function buildVoidMaw(def: EnemyDef): THREE.BufferGeometry {
     { cell: 0.18, lit: 0.4, litGlow: 1, glow: 0.25 },
     14,
   );
-  b.cyl(r * 0.18, r * 0.18, 0.02, VOID, { p: [0, 0.05, 0], ...NO_LEAD }, 8);
+  b.cyl(r * 0.18, r * 0.18, 0.02, acc, { p: [0, 0.05, 0], glow: 1, lead: 0, shell: false }, 8);
   // Rough bone seams across the lip, stitched teal: the tear sewn and torn open again.
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2 + 0.6;
@@ -463,20 +465,21 @@ export function buildDoubtWraith(def: EnemyDef): THREE.BufferGeometry {
   b.rigged({ k: HEAD, at: [0, h * 0.78, 0] }, () => {
     b.sphere(
       r * 0.44,
-      DEEP,
-      { ...cloth(0.12, 0.15), p: [0, h * 0.86, 0.03], s: [1, 1.08, 1.1] },
+      CLOTH_HEX,
+      { ...cloth(0.12, 0.18), p: [0, h * 0.86, 0.03], s: [1, 1.08, 1.1] },
       8,
       6,
     );
     b.cone(
-      r * 0.26,
-      h * 0.3,
-      DEEP,
-      { p: [0, h * 0.94, r * 0.48], r: [-1.15, 0, 0], glow: SOFT },
+      r * 0.34,
+      h * 0.24,
+      CLOTH_HEX,
+      { ...cloth(0.1, 0.2), p: [0, h * 0.93, r * 0.44], r: [-1.2, 0, 0] },
       6,
     );
-    b.torus(r * 0.3, 0.05, CLOTH_HEX, { p: [0, h * 0.85, -r * 0.34], glow: SOFT }, Math.PI * 2, 10);
-    b.sphere(r * 0.3, VOID, { p: [0, h * 0.85, -r * 0.26], s: [1, 1.1, 0.7], ...NO_LEAD }, 7, 5);
+    // A bone hem round the hood's mouth.
+    b.torus(r * 0.3, 0.035, BONE, { p: [0, h * 0.85, -r * 0.36], glow: 0.14 }, Math.PI * 2, 10);
+    b.sphere(r * 0.3, VOID, { p: [0, h * 0.85, -r * 0.26], s: [1, 1.1, 0.7], ...HOLLOW }, 7, 5);
     b.octa(r * 0.1, acc, {
       p: [r * 0.08, h * 0.875, -r * 0.43],
       s: [1.3, 0.8, 0.6],
@@ -570,7 +573,7 @@ export function buildNullPriest(def: EnemyDef): THREE.BufferGeometry {
       cloth(0.12, 0.15),
       8,
     );
-    b.sphere(r * 0.26, VOID, { p: [0, h * 0.79, -r * 0.24], s: [1, 1.2, 0.8], ...NO_LEAD }, 7, 5);
+    b.sphere(r * 0.26, VOID, { p: [0, h * 0.79, -r * 0.24], s: [1, 1.2, 0.8], ...HOLLOW }, 7, 5);
     b.torus(
       r * 0.13,
       0.025,
@@ -656,23 +659,26 @@ export function buildMimic(def: EnemyDef): THREE.BufferGeometry {
   const cy = h * 0.6;
   const rx = r * 0.92;
   const ryy = r * 1.3;
-  b.octa(r, acc, {
-    cell: 0.13,
-    lit: 0.34,
-    litGlow: 0.9,
-    glow: 0.22,
-    p: [0, cy, 0],
-    s: [0.92, 1.3, 0.7],
-  });
-  // The bone frame round the mirror's face.
   const top: V3 = [0, cy + ryy, 0];
   const bot: V3 = [0, cy - ryy, 0];
-  for (const side of [-1, 1]) {
-    const mid: V3 = [side * rx, cy, 0];
-    beam(b, top, mid, 0.05, 0.05, BONE, 0.2);
-    beam(b, mid, bot, 0.05, 0.05, BONE, 0.2);
-  }
-  b.octa(0.07, BONE, { p: top, glow: 0.3 });
+  // The mirror and its frame lean back through the cast and drive toward its beneficiary.
+  b.rigged({ k: HEAD, at: bot, a: 1 }, () => {
+    b.octa(r, acc, {
+      cell: 0.13,
+      lit: 0.34,
+      litGlow: 0.9,
+      glow: 0.22,
+      p: [0, cy, 0],
+      s: [0.92, 1.3, 0.7],
+    });
+    // The bone frame round the mirror's face.
+    for (const side of [-1, 1]) {
+      const mid: V3 = [side * rx, cy, 0];
+      beam(b, top, mid, 0.05, 0.05, BONE, 0.2);
+      beam(b, mid, bot, 0.05, 0.05, BONE, 0.2);
+    }
+    b.octa(0.07, BONE, { p: top, glow: 0.3 });
+  });
   // The shroud: void cloth from its crown over its back, sewn on with teal.
   b.rigged({ k: CLOTH, at: top, a: h * 0.6 }, () => {
     b.arc(
@@ -802,12 +808,13 @@ export function buildStolenVerse(def: EnemyDef): THREE.BufferGeometry {
   const h = def.height;
   const b = figure('standard');
   const C: V3 = [0, h * 0.62, 0];
-  b.ico(r * 0.6, '#f2eee4', { cell: 0.12, lit: 0.4, litGlow: 0.9, glow: 0.5, p: C }, 1);
+  // Mid-pale glass, dimly lit, so the stolen aura's rim colours the whole orb.
+  b.ico(r * 0.6, '#c9c4b8', { cell: 0.12, lit: 0.25, litGlow: 0.6, glow: 0.1, p: C }, 1);
   b.rigged({ k: SPIN, at: C, a: 1.1 }, () => {
-    b.torus(r * 0.84, 0.03, BONE, { p: C, r: [1.1, 0, 0.3], glow: 0.5 }, Math.PI * 2, 16);
+    b.torus(r * 0.84, 0.03, BONE, { p: C, r: [1.1, 0, 0.3], glow: 0.25 }, Math.PI * 2, 16);
   });
   b.rigged({ k: SPIN, at: C, a: -0.8 }, () => {
-    b.torus(r * 0.8, 0.03, BONE, { p: C, r: [-0.6, 0.8, 0], glow: 0.5 }, Math.PI * 2, 16);
+    b.torus(r * 0.8, 0.03, BONE, { p: C, r: [-0.6, 0.8, 0], glow: 0.25 }, Math.PI * 2, 16);
   });
   // The torn ribbon of its song's cloth.
   b.rigged({ k: CLOTH, at: [0, C[1] - r * 0.5, 0], a: h * 0.45 }, () => {
@@ -948,7 +955,7 @@ export function buildMirrorChampion(def: EnemyDef): THREE.BufferGeometry {
     b.cyl(r * 0.26, r * 0.29, h * 0.15, DEEP, { ...cloth(0.1, 0.15), p: [0, h * 0.85, 0] }, 8);
     b.cone(r * 0.27, h * 0.06, DEEP, { p: [0, h * 0.955, 0], glow: SOFT }, 8);
     b.box(r * 0.4, 0.06, 0.05, acc, { p: [0, h * 0.86, -r * 0.27], glow: 1, ...NO_LEAD });
-    b.box(r * 0.08, h * 0.08, 0.05, VOID, { p: [0, h * 0.82, -r * 0.27], ...NO_LEAD });
+    b.box(r * 0.08, h * 0.08, 0.05, VOID, { p: [0, h * 0.82, -r * 0.27], ...HOLLOW });
     seamRing(b, r * 0.28, h * 0.78, 5, 0.04);
   });
   // The long mirror blade, raised overhead through the cleave's wind-up.
@@ -1111,7 +1118,7 @@ export function buildSeamstress(def: EnemyDef): THREE.BufferGeometry {
     }
   });
   // The spool on her back, its thread over her shoulder.
-  const SP: V3 = [0, h * 0.62, r * 0.55];
+  const SP: V3 = [0, h * 0.72, r * 0.5];
   b.cyl(
     r * 0.3,
     r * 0.3,
