@@ -37,9 +37,9 @@ import {
  * into `cell` panes: each facet is a pane in dark lead, its tone varied (`PLATE`), so the dark
  * worlds' lift (artWorld.ts, cut glass only) leaves it black instead of greying it to slate.
  */
-const OBS = '#2e3046';
+const OBS = '#383a56';
 /** The darker obsidian of joints, legs and under-plate. */
-const OBS_DEEP = '#1a1a28';
+const OBS_DEEP = '#202032';
 /** The Legion's crimson glass, and its deeper tone (a cape, a back panel). */
 const CRIMSON = '#8a0c22';
 const CRIMSON_DEEP = '#5e0a1c';
@@ -52,10 +52,10 @@ const BRASS_DARK = '#6b5232';
 const STEEL = '#aaa082';
 
 /** Obsidian plate: a pane per facet, each a little different in tone; none lit. */
-const PLATE: PartOptions = { jit: 0.16 };
+const PLATE: PartOptions = { jit: 0.22 };
 /** Crimson glass: panes about `cell` m, a share of them lit from inside, a faint own light. */
-function glass(cell: number, lit = 0.38, extra: PartOptions = {}): PartOptions {
-  return { cell, lit, glow: 0.14, ...extra };
+function glass(cell: number, lit = 0.34, extra: PartOptions = {}): PartOptions {
+  return { cell, lit, glow: 0.06, ...extra };
 }
 /** A light: no lead, no outline. */
 const LIGHT: PartOptions = { glow: 1, lead: 0, shell: false };
@@ -110,9 +110,9 @@ function hound(def: EnemyDef, big: boolean): THREE.BufferGeometry {
     const top: V3 = [x, legTop + r * 0.15, z];
     b.rigged({ k: LIMB, at: top, a }, () => {
       const knee: V3 = [x * 1.04, legTop * 0.5, z + (front ? -0.06 : 0.12) * r];
-      limb(b, top, knee, r * 0.13, r * 0.19, OBS, segs, 0, PLATE);
-      limb(b, knee, [x * 1.02, r * 0.1, z - 0.04 * r], r * 0.09, r * 0.12, OBS_DEEP, segs);
-      b.box(r * 0.24, r * 0.12, r * 0.34, big ? BRASS_DARK : OBS_DEEP, {
+      limb(b, top, knee, r * 0.11, r * 0.17, OBS, segs, 0, PLATE);
+      limb(b, knee, [x * 1.02, r * 0.1, z - 0.04 * r], r * 0.07, r * 0.09, OBS_DEEP, segs);
+      b.box(r * 0.19, r * 0.1, r * 0.3, big ? BRASS_DARK : OBS_DEEP, {
         p: [x * 1.02, r * 0.06, z - 0.12 * r],
       });
       if (big)
@@ -172,12 +172,24 @@ function hound(def: EnemyDef, big: boolean): THREE.BufferGeometry {
           0.5,
         );
       }
+  // The Matriarch's harness: two brass bands round her barrel between the rib slits, so her black
+  // back keeps an edge on the Spire's dark floor from above.
+  if (big)
+    for (const z of [0.34, -0.08])
+      b.torus(
+        r * 0.72,
+        r * 0.05,
+        BRASS,
+        { p: [0, back, z * r + 0.05 * r], s: [1, 0.92, 1] },
+        Math.PI * 2,
+        16,
+      );
   // The brass collar.
   b.torus(
-    r * 0.42,
-    r * (big ? 0.07 : 0.06),
+    r * 0.4,
+    r * (big ? 0.08 : 0.075),
     BRASS,
-    { p: [0, back + r * 0.12, -r * 1.05], r: [Math.PI / 2 - 0.5, 0, 0] },
+    { p: [0, back + r * 0.14, -r * 1.12], r: [Math.PI / 2 - 0.35, 0, 0] },
     Math.PI * 2,
     big ? 14 : 8,
   );
@@ -207,17 +219,20 @@ function hound(def: EnemyDef, big: boolean): THREE.BufferGeometry {
       big ? 6 : 4,
     );
     b.cone(
-      r * 0.27,
-      r * 0.72,
+      r * 0.25,
+      r * 0.86,
       OBS,
-      { p: [0, hy - r * 0.06, -r * 1.9], r: [-Math.PI / 2, 0, 0], s: [1, 1, 0.8] },
+      { ...PLATE, p: [0, hy - r * 0.04, -r * 1.98], r: [-Math.PI / 2, 0, 0], s: [1, 1, 0.8] },
       big ? 6 : 5,
     );
     // The iron jaw: brass, under the snout (the Matriarch's with rows of fangs).
-    b.box(r * 0.34, r * 0.1, r * 0.62, BRASS, {
-      p: [0, hy - r * 0.26, -r * 1.82],
-      r: [-0.18, 0, 0],
-    });
+    b.cone(
+      r * 0.24,
+      r * 0.66,
+      BRASS,
+      { p: [0, hy - r * 0.24, -r * 1.84], r: [-Math.PI / 2 + 0.12, 0, 0], s: [1, 1, 0.42] },
+      big ? 6 : 5,
+    );
     if (big)
       for (const side of [-1, 1])
         for (let i = 0; i < 3; i++)
@@ -321,10 +336,10 @@ export function buildLeech(def: EnemyDef): THREE.BufferGeometry {
   // beneath it; obsidian ribs and a brass band round it.
   b.lathe(
     [
-      [r * 0.86, cy + r * 0.12],
-      [r * 0.72, cy + r * 0.52],
-      [r * 0.4, cy + r * 0.78],
-      [0, cy + r * 0.86],
+      [r * 1.0, cy + r * 0.1],
+      [r * 0.86, cy + r * 0.52],
+      [r * 0.5, cy + r * 0.84],
+      [0, cy + r * 0.94],
     ],
     OBS,
     { ...PLATE, p: [0, 0, 0.14 * r], s: [1, 1, 1.25] },
@@ -426,18 +441,20 @@ export function buildHemomancer(def: EnemyDef): THREE.BufferGeometry {
       r: [0.18, 0, 0],
     });
   });
-  // The mantle: a short cape of crimson panes over the shoulders, a brass clasp.
+  // The mantle: a short obsidian cape over the shoulders, brass-edged (a ring of brass round the
+  // hood from above), a brass clasp.
   b.lathe(
     [
-      [r * 0.82, h * 0.6],
-      [r * 0.7, h * 0.66],
+      [r * 0.84, h * 0.6],
+      [r * 0.72, h * 0.66],
       [r * 0.42, h * 0.74],
       [r * 0.2, h * 0.77],
     ],
-    CRIMSON,
-    glass(0.12, 0.36),
+    OBS,
+    PLATE,
     8,
   );
+  b.torus(r * 0.8, 0.03, BRASS, { p: [0, h * 0.605, 0], r: FLAT }, Math.PI * 2, 12);
   b.octa(0.06, BRASS, { p: [0, h * 0.73, -r * 0.42] });
   // The hood: obsidian, a high peak swept back, a dark face with two crimson eyes.
   b.rigged({ k: HEAD, at: [0, h * 0.74, 0] }, () => {
@@ -552,8 +569,7 @@ export function buildImpaler(def: EnemyDef): THREE.BufferGeometry {
     { ...PLATE, p: [0, 0, 0.06], r: [-0.12, 0, 0] },
     8,
   );
-  pane(b, r * 0.64, h * 0.17, [0, h * 0.64, -r * 0.83], [-0.3, 0, 0], 0.11, [0, 0.3, -1], 0.42);
-  b.box(r * 0.08, h * 0.2, 0.06, BRASS, { p: [0, h * 0.64, -r * 0.87], r: [-0.3, 0, 0] });
+  pane(b, r * 0.56, h * 0.15, [0, h * 0.63, -r * 0.97], [-0.3, 0, 0], 0.11, [0, 0.3, -1], 0.42);
   // Pauldrons: broad plates, brass rims, a crimson pane on each.
   for (const side of [-1, 1]) {
     b.sphere(
@@ -580,7 +596,7 @@ export function buildImpaler(def: EnemyDef): THREE.BufferGeometry {
     b.cyl(r * 0.33, r * 0.37, h * 0.16, OBS, { ...PLATE, p: [0, h * 0.86, -0.08] }, 8);
     b.cone(r * 0.33, h * 0.08, OBS_DEEP, { p: [0, h * 0.98, -0.08] }, 8);
     b.box(r * 0.48, 0.045, 0.04, EMBER, { ...LIGHT, p: [0, h * 0.875, -0.08 - r * 0.36] });
-    b.box(0.06, h * 0.13, r * 0.9, BRASS, { p: [0, h * 1.0, -0.06], r: [0.2, 0, 0] });
+    b.box(0.04, h * 0.1, r * 0.8, BRASS, { p: [0, h * 1.0, -0.02], r: [0.25, 0, 0] });
   });
   // The pike: held low and level, a brass-bound shaft, an old steel point with crimson glass
   // barbs; driven forward on the strike.
@@ -591,7 +607,7 @@ export function buildImpaler(def: EnemyDef): THREE.BufferGeometry {
   b.rigged({ k: WEAPON, at: [r * 0.7, h * 0.66, 0], a: 0.35 }, () => {
     limb(b, [r * 0.82, h * 0.68, 0], [px + 0.04, py + 0.05, -r * 0.5], 0.08, 0.1, OBS_DEEP, 5);
     b.box(0.12, 0.13, 0.15, BRASS_DARK, { p: [px + 0.02, py, -r * 0.52] });
-    b.cyl(0.05, 0.05, len, OBS_DEEP, { p: [px, py, -len * 0.38], r: [Math.PI / 2, 0, 0] }, 5);
+    b.cyl(0.06, 0.06, len, BRASS_DARK, { p: [px, py, -len * 0.38], r: [Math.PI / 2, 0, 0] }, 5);
     for (let i = 0; i < 3; i++)
       b.cyl(
         0.07,
@@ -1020,7 +1036,7 @@ export function buildVharun(def: EnemyDef): THREE.BufferGeometry {
   });
   // The glaive arm (his right): the twin-bladed glaive, raised high in the wind-up and brought
   // down through the cleave.
-  b.rigged({ k: WEAPON, at: [1.12 * s, 3.1 * s, 0], a: 0.9 }, () => {
+  b.rigged({ k: WEAPON, at: [1.12 * s, 3.1 * s, 0], a: 1.0 }, () => {
     limb(
       b,
       [1.2 * s, 3.05 * s, 0],
@@ -1050,7 +1066,7 @@ export function buildVharun(def: EnemyDef): THREE.BufferGeometry {
       g[1] + (top[1] - g[1]) * t,
       g[2] + (top[2] - g[2]) * t,
     ];
-    beam(b, at(-0.82), at(1), 0.09 * s, 0.09 * s, OBS_DEEP);
+    beam(b, at(-0.82), at(1), 0.12 * s, 0.12 * s, BRASS_DARK);
     for (const t of [-0.78, -0.12, 0.12, 0.96])
       b.cyl(0.08 * s, 0.08 * s, 0.1 * s, BRASS, { p: at(t), r: [0.38, 0, 0.1] }, 6);
     // A blade at either end: a long leaf of crimson glass, an old steel edge on its forward side,
@@ -1092,7 +1108,7 @@ export function buildVharun(def: EnemyDef): THREE.BufferGeometry {
     }
   });
   // The off hand (his left): a heavy gauntlet, braced for the second blow.
-  b.rigged({ k: BRACE, at: [-1.12 * s, 3.1 * s, 0], a: 0.4 }, () => {
+  b.rigged({ k: BRACE, at: [-1.12 * s, 3.1 * s, 0], a: 0.8 }, () => {
     limb(
       b,
       [-1.2 * s, 3.05 * s, 0],
