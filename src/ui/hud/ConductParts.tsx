@@ -22,6 +22,7 @@ import {
   liveCueBadge,
   pctLabel,
 } from './conducting';
+import { t } from '../text';
 
 /**
  * The Conductor on the HUD (docs/phase-5f.md): the row under the Resonance arc (the chain ring and
@@ -61,7 +62,11 @@ export function ChainRing({ chain }: { chain: NonNullable<ConductingHud['chain']
       className="flex items-center gap-1 whitespace-nowrap text-[0.75rem] font-bold leading-none"
       style={{ color: CONDUCT_GOLD }}
       role="timer"
-      aria-label={`${label}: Cue another hero within ${Math.ceil(chain.left)} s for ${powerLabel(chain.power)}`}
+      aria-label={t('hud.conductParts.cueAnotherHeroWithin', {
+        label,
+        left: Math.ceil(chain.left),
+        powerLabel: powerLabel(chain.power),
+      })}
       data-testid="chain-ring"
       data-link={chain.link}
     >
@@ -111,11 +116,11 @@ export function BeatStrip({
       aria-label={
         beat.downbeatCost > 0
           ? v.inside
-            ? `On the downbeat: a Cue now costs ${beat.downbeatCost}`
-            : `The beat: Cue on the downbeat for ${beat.downbeatCost}`
+            ? t('hud.conductParts.onTheDownbeatA', { downbeatCost: beat.downbeatCost })
+            : t('hud.conductParts.theBeatCueOn', { downbeatCost: beat.downbeatCost })
           : v.inside
-            ? 'On the downbeat: a Cue now is free'
-            : 'The beat: Cue on the downbeat for free'
+            ? t('hud.conductParts.onTheDownbeatA2')
+            : t('hud.conductParts.theBeatCueOn2')
       }
       data-testid="beat-strip"
       data-inside={v.inside || undefined}
@@ -171,7 +176,7 @@ export function BeatStrip({
         data-testid="beat-free"
       >
         {/* Free, or (Silent Cues) the surcharge a Cue on the beat still pays. */}
-        {beat.on && beat.cost > 0 ? beat.cost : 'Free'}
+        {beat.on && beat.cost > 0 ? beat.cost : t('hud.conductParts.free')}
       </span>
     </span>
   );
@@ -191,7 +196,13 @@ export function FinaleReadout({ finale, name }: { finale: FinaleHud; name: strin
       data-testid="crescendo-active"
       data-crescendo="finale"
       role="img"
-      aria-label={`${name}: ${played} of ${finale.pips.length} Solos played${lost > 0 ? `, ${lost} lost` : ''}. ${finaleNextLabel(finale)}.`}
+      aria-label={t('hud.conductParts.ofSolosPlayed', {
+        name,
+        played,
+        length: finale.pips.length,
+        value: lost > 0 ? t('hud.conductParts.lost', { lost }) : '',
+        finaleNextLabel: finaleNextLabel(finale),
+      })}
     >
       <span
         className="flex items-center gap-1 whitespace-nowrap text-xs font-bold leading-none"
@@ -251,7 +262,14 @@ export function CueBadge({ hero: h }: { hero: HeroHud }) {
         background: c.free ? BEAT_LIGHT : 'rgb(5 8 20 / 0.75)',
         boxShadow: `inset 0 0 0 1px ${CONDUCT_GOLD}`,
       }}
-      title={`Cue ${h.soloName} now: ${c.label}${c.cost > 0 ? ` (${c.cost} Resonance)` : ', no Resonance'}`}
+      title={t('hud.conductParts.cueNow', {
+        soloName: h.soloName,
+        label: c.label,
+        value:
+          c.cost > 0
+            ? t('hud.conductParts.resonance', { cost: c.cost })
+            : t('hud.conductParts.noResonance'),
+      })}
       data-testid="cue-badge"
       data-link={c.link}
       data-free={c.free || undefined}
@@ -272,8 +290,11 @@ export function ConductMarks({ hero: h }: { hero: HeroHud }) {
           className="flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-xs font-bold leading-5"
           style={{ color: LOOK.light, borderColor: LOOK.light, background: LOOK.color }}
           role="img"
-          aria-label={`Spotlight: ${h.name} is Empowered at ×${h.spotlight} while their Solo lasts`}
-          title={`Spotlight: Empowered at ×${h.spotlight} while their Solo lasts`}
+          aria-label={t('hud.conductParts.spotlightIsEmpoweredAt', {
+            name: h.name,
+            spotlight: h.spotlight,
+          })}
+          title={t('hud.conductParts.spotlightEmpoweredAtWhile', { spotlight: h.spotlight })}
           data-testid="spotlight-mark"
         >
           <CallingGlyph icon="spotlight" size={12} /> ×{h.spotlight}
@@ -284,8 +305,15 @@ export function ConductMarks({ hero: h }: { hero: HeroHud }) {
           className="flex items-center gap-1 whitespace-nowrap rounded-md border px-1 text-xs font-bold leading-5"
           style={{ color: LOOK.light, borderColor: LOOK.light, background: LOOK.color }}
           role="img"
-          aria-label={`Marcato: ${h.name} deals ${pctLabel(h.marcato.pct)} damage for ${Math.ceil(h.marcato.left)} s`}
-          title={`Marcato: ${pctLabel(h.marcato.pct)} damage, ${Math.ceil(h.marcato.left)} s left`}
+          aria-label={t('hud.conductParts.marcatoDealsDamageFor', {
+            name: h.name,
+            pctLabel: pctLabel(h.marcato.pct),
+            left: Math.ceil(h.marcato.left),
+          })}
+          title={t('hud.conductParts.marcatoDamageSLeft', {
+            pctLabel: pctLabel(h.marcato.pct),
+            left: Math.ceil(h.marcato.left),
+          })}
           data-testid="marcato-mark"
         >
           <Ring
@@ -324,7 +352,7 @@ function FinaleTurnChip({ name, turn }: { name: string; turn: FinaleTurnHud }) {
       data-state={turn.state}
     >
       <Icon name="finale" size={12} />
-      {turn.state === 'next' ? `${turn.place} · next` : label}
+      {turn.state === 'next' ? t('hud.conductParts.next', { place: turn.place }) : label}
     </span>
   );
 }

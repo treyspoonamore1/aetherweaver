@@ -19,7 +19,7 @@ import {
   SOPRANO,
   TENOR,
 } from '../../content/crucibleIds';
-import { FORTISSIMO_NAME, noteSources } from './finaleLook';
+import { fortissimoName, noteSources } from './finaleLook';
 import { t as txt } from '../text';
 
 /** How long a "New foe" card stays, in ms. */
@@ -237,7 +237,7 @@ function crucibleLesson(
       return {
         lesson: txt('hud.sighting.itCuesItsMirror', {
           DISCORD_MAX,
-          FORTISSIMO_NAME,
+          FORTISSIMO_NAME: fortissimoName(),
           noteSources: noteSources({ rewinds, reel }),
         }),
         answers: [

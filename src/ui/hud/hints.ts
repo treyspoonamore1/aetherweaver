@@ -10,7 +10,7 @@ import { stasisCostMult } from './calling';
 import { secondsLabel } from './chrono';
 import { healBarelyTakes } from './legionLook';
 import { DOOM_EMPHASIS, doomCount, spindleCutPct } from './riftLook';
-import { FORTISSIMO_NAME, noteSources } from './finaleLook';
+import { fortissimoName, noteSources } from './finaleLook';
 import { outOfReach } from './duelLook';
 import { saplingsOutside } from './groveLook';
 import { heroPronouns } from '../screens/rosterModel';
@@ -1022,9 +1022,12 @@ function finaleHints(hud: HudSnapshot): Hint[] {
       id: 'fortissimo',
       text:
         boss.fortissimo && w.resonance >= w.crescendoCost
-          ? txt('hud.hints.yourCrescendoCancelsIt', { FORTISSIMO_NAME, crescendo })
+          ? txt('hud.hints.yourCrescendoCancelsIt', {
+              FORTISSIMO_NAME: fortissimoName(),
+              crescendo,
+            })
           : txt('hud.hints.holdResonanceYourCrescendo', {
-              FORTISSIMO_NAME,
+              FORTISSIMO_NAME: fortissimoName(),
               crescendoCost: w.crescendoCost,
               crescendo,
             }),

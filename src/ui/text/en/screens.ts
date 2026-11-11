@@ -17,6 +17,7 @@ import { callingScreen as screensCallingScreen } from './screens/callingScreen';
 import { callingText as screensCallingText } from './screens/callingText';
 import { chordModel as screensChordModel } from './screens/chordModel';
 import { codexAttack as screensCodexAttack } from './screens/codexAttack';
+import { codexScreen as screensCodexScreen } from './screens/codexScreen';
 import { combatScreen as screensCombatScreen } from './screens/combatScreen';
 import { contributionBar as screensContributionBar } from './screens/contributionBar';
 import { deedsModel as screensDeedsModel } from './screens/deedsModel';
@@ -96,6 +97,7 @@ export const screens = {
   ...screensCallingText,
   ...screensChordModel,
   ...screensCodexAttack,
+  ...screensCodexScreen,
   ...screensCombatScreen,
   ...screensContributionBar,
   ...screensDeedsModel,

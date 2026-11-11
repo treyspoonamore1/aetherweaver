@@ -35,8 +35,8 @@ import { finaleCleared } from '../src/meta/runEnd';
 import { createSim, type SimEvent } from '../src/sim';
 import { evaluateHints, ANSWER_HINTS } from '../src/ui/hud/hints';
 import {
-  DEFEAT_LINE,
-  FINALE_DEFEAT_LINE,
+  finaleDefeatLine,
+  plainDefeatLine,
   captionCallout,
   cueText,
   defeatLine,
@@ -537,9 +537,9 @@ describe('hints, recaps and callouts', () => {
   });
 
   it('the defeat callout: the Conductor’s silence holds; elsewhere the song falls silent', () => {
-    expect(defeatLine(CONDUCTOR)).toBe(FINALE_DEFEAT_LINE);
-    expect(defeatLine('the_unweaver')).toBe(DEFEAT_LINE);
-    expect(DEFEAT_LINE).toBe('The song falls silent…');
+    expect(defeatLine(CONDUCTOR)).toBe(finaleDefeatLine());
+    expect(defeatLine('the_unweaver')).toBe(plainDefeatLine());
+    expect(plainDefeatLine()).toBe('The song falls silent…');
   });
 
   it('the Calling- and variant-aware note sources', () => {

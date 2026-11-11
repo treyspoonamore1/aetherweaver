@@ -11,7 +11,7 @@ import { secondsLabel } from './chrono';
 import { BLIND_LOOK } from '../kit/dissonanceLook';
 import { blindDecree, blindLine, levelName } from '../screens/dissonanceModel';
 import {
-  CUE_ANSWER,
+  cueAnswer,
   DISCORD_HEX,
   DISCORD_INK,
   NOTE_LOOK,
@@ -553,7 +553,7 @@ function CueLine({ cue, blind }: { cue: NonNullable<BossHud['cue']>; blind: bool
     >
       <Icon name="baton" size={14} />
       <span className="font-display text-sm font-bold">{cueText(cue)}</span>
-      {!blind && <span className="font-normal text-rose-100">· {CUE_ANSWER}</span>}
+      {!blind && <span className="font-normal text-rose-100">· {cueAnswer()}</span>}
     </p>
   );
 }

@@ -4,6 +4,7 @@ import { numeral } from '../screens/callingText';
 import { bearLabel, callingHudLabel, type CallingHud } from './calling';
 import { conductingChipSentence, marcatoChipLabel, pctLabel } from './conducting';
 import type { ConductingHud } from '../store';
+import { t as txt } from '../text';
 
 /**
  * The Calling in the fight (Phase 3c, 3d, 3e, 5f): its emblem and the path's pips, small, next to
@@ -49,7 +50,7 @@ export function CallingChip({
         boxShadow: blaze ? `0 0 18px color-mix(in srgb, ${look.color} 55%, transparent)` : '',
       }}
       role="img"
-      aria-label={`${callingHudLabel(c)}${conducting ? ` ${conductingChipSentence(conducting, c.crescendoName)}` : ''}${shut > 0 ? ` ${shut} of its tiers locked by mastery this run.` : ''}`}
+      aria-label={`${callingHudLabel(c)}${conducting ? ` ${conductingChipSentence(conducting, c.crescendoName)}` : ''}${shut > 0 ? txt('hud.callingChip.ofItsTiersLocked', { shut }) : ''}`}
       data-testid="calling-chip"
       data-sunrise={c.sunrise || undefined}
       data-vow={c.vow || undefined}
@@ -77,7 +78,7 @@ export function CallingChip({
       </span>
       {c.sunrise && (
         <span className="font-display text-xs font-bold" style={{ color: look.light }}>
-          Sunrise ×{c.sunriseMult}
+          {txt('hud.callingChip.sunrise', { sunriseMult: c.sunriseMult })}
         </span>
       )}
       {(c.vow || c.stasis || finale) && (
@@ -126,7 +127,11 @@ export function CallingChip({
           {conducting.triad && (
             <State
               icon="triad"
-              label={conducting.triad.holding ? 'Triad holding' : 'Triad'}
+              label={
+                conducting.triad.holding
+                  ? txt('hud.callingChip.triadHolding')
+                  : txt('hud.callingChip.triad')
+              }
               color={conducting.triad.holding ? look.light : 'var(--color-muted)'}
             />
           )}
@@ -134,15 +139,31 @@ export function CallingChip({
       )}
       {states && (
         <span className="flex items-center gap-1">
-          {c.haloed && <State icon="halo_ring" label="Haloed" color="var(--color-shield)" />}
-          {c.sovereign && <State icon="crown" label="Sovereign" color={look.light} />}
+          {c.haloed && (
+            <State
+              icon="halo_ring"
+              label={txt('hud.callingChip.haloed')}
+              color="var(--color-shield)"
+            />
+          )}
+          {c.sovereign && (
+            <State icon="crown" label={txt('hud.callingChip.sovereign')} color={look.light} />
+          )}
           {c.bearing && (
-            <State icon="martyr" label={`Bear ${bearLabel(c.bearShare)}`} color={look.light} />
+            <State
+              icon="martyr"
+              label={txt('hud.callingChip.bear', { bearLabel: bearLabel(c.bearShare) })}
+              color={look.light}
+            />
           )}
           {c.undying !== null && (
             <State
               icon="undying"
-              label={c.undying === 'ready' ? 'Undying' : 'Undying spent'}
+              label={
+                c.undying === 'ready'
+                  ? txt('hud.callingChip.undying')
+                  : txt('hud.callingChip.undyingSpent')
+              }
               color={c.undying === 'ready' ? look.light : 'var(--color-muted)'}
               dim={c.undying === 'spent'}
             />
@@ -156,7 +177,11 @@ export function CallingChip({
             // Rewind's revive is once a run: still to come, or spent (struck through).
             <State
               icon="chronomancer"
-              label={c.revive === 'ready' ? 'Revive' : 'Revive spent'}
+              label={
+                c.revive === 'ready'
+                  ? txt('hud.callingChip.revive')
+                  : txt('hud.callingChip.reviveSpent')
+              }
               color={c.revive === 'ready' ? look.light : 'var(--color-muted)'}
               dim={c.revive === 'spent'}
             />
@@ -165,7 +190,11 @@ export function CallingChip({
             // Temporal Mastery: lit when a Glide would bring a technique back; else when.
             <State
               icon="mastery"
-              label={c.mastery.ready ? 'Mastery' : `Mastery ${Math.ceil(c.mastery.remaining)}s`}
+              label={
+                c.mastery.ready
+                  ? txt('hud.callingChip.mastery')
+                  : txt('hud.callingChip.masteryS', { remaining: Math.ceil(c.mastery.remaining) })
+              }
               color={c.mastery.ready ? look.light : 'var(--color-muted)'}
             />
           )}
