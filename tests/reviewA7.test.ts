@@ -3,6 +3,7 @@
  * touched an aura's or ornament's presentation, the test proves it equal to the tree before Phase 7
  * (main at 81a12ef), from values recorded on that tree (`reviewA7RecordOld.ts`).
  */
+import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, useSettings, type Settings } from '../src/app/settings';
 import { arenaDef, encounterDef } from '../src/content';
@@ -468,5 +469,97 @@ describe('finding 10: the beam song’s swell on the poured hero, as at 81a12ef'
     // The frame before it and the frame after, too: the idle only begins once the swell is gone.
     const first = swell(old)[0]!.tick;
     expect(now[first - 1]!.pushes).not.toEqual(old[first - 1]!.pushes); // W6's idle, at rest
+  });
+});
+
+// ── Notes (finding 11) ───────────────────────────────────────────────────────────────────
+
+describe('finding 11: Auto-Thread counts a held mode button, an open wheel and the mouse as input', () => {
+  afterEach(() => {
+    useSettings.getState().reset();
+    useWheel.setState({ wheel: null, picked: null });
+    delete (globalThis as unknown as { window?: EventTarget }).window;
+  });
+
+  /** Seconds of play with `act` on given frames; the `thread` commands sent, by frame. */
+  function idle(kind: 'none' | 'mode' | 'wheel' | 'mouse') {
+    useSettings.getState().update((d) => ({
+      ...writeInput(d, { threadMode: 'hold' }),
+      aids: { autoThread: true },
+    }));
+    const { canvas, sim, input, frame, mouse } = inputRig();
+    // Lyra (slot 1) is hurt: Auto-Thread's target.
+    const lyra = worldOf(sim).entities.get(sim.state.party[1]!)!.health!;
+    lyra.hp = lyra.maxHp * 0.3;
+    const threads: number[] = [];
+    if (kind === 'mode') mouse(canvas, 'pointerdown', 2, 2); // held: Empower
+    if (kind === 'wheel') mouse(canvas, 'pointerdown', 1, 4); // held open
+    for (let f = 0; f < 60 * 5; f++) {
+      if (kind === 'mouse' && f % 30 === 0) mouse(canvas, 'pointermove', -1, 0);
+      if (frame().some((c) => c.t === 'thread')) threads.push(f);
+    }
+    input.dispose();
+    return threads;
+  }
+
+  it('idle, it threads the hurt hero after 2 s; held, open or moving, never', () => {
+    expect(idle('none').length).toBe(1);
+    expect(idle('mode')).toEqual([]);
+    expect(idle('wheel')).toEqual([]);
+    expect(idle('mouse')).toEqual([]);
+  });
+});
+
+describe('finding 11: the assist record is written as a run’s fight starts, never in render', () => {
+  it('CombatScreen renders its config with no store write; the fight’s start marks the run', async () => {
+    const { useRun, runFightStarted } = await import('../src/app/runStore');
+    const { storage } = await import('../src/app/storage');
+    const Run = await import('../src/meta/run');
+    const { createElement } = await import('react');
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const { CombatScreen } = (await import(
+      /* @vite-ignore */ '../src/ui/screens/CombatScreen'
+    )) as { CombatScreen: () => null };
+    useRun.getState().closeRun();
+    useRun.getState().newRun(71);
+    useRun.getState().embark();
+    useRun.getState().chooseNode(Run.reachable(useRun.getState().run!)[0]!.id);
+    useSettings.getState().update((d) => ({ ...d, aids: { autoThread: true } }));
+    const configs: object[] = [];
+    const real = useRun.getState().combatConfig;
+    useRun.setState({
+      combatConfig: () => {
+        const c = real();
+        if (c) configs.push(c);
+        return c;
+      },
+    });
+    const saved = storage().getItem('aetherweaver.run');
+    let writes = 0;
+    const unsubscribe = useRun.subscribe(() => writes++);
+    try {
+      renderToStaticMarkup(createElement(CombatScreen));
+    } finally {
+      unsubscribe();
+    }
+    expect(configs).toHaveLength(1);
+    expect(writes).toBe(0);
+    expect(storage().getItem('aetherweaver.run')).toBe(saved);
+    expect(useRun.getState().run!.assisted).toBeUndefined();
+    // GameHost's effect, once the runtime runs: the run is marked and saved.
+    runFightStarted(configs[0] as never);
+    expect(useRun.getState().run!.assisted).toBe(true);
+    expect(JSON.parse(storage().getItem('aetherweaver.run')!).assisted).toBe(true);
+    // Training's config (not one combatConfig gave) marks nothing.
+    useRun.getState().closeRun();
+    useRun.getState().newRun(72);
+    runFightStarted({ seed: 1, encounter: 'sandbox' } as never);
+    expect(useRun.getState().run!.assisted).toBeUndefined();
+    const host = readFileSync(new URL('../src/app/GameHost.tsx', import.meta.url), 'utf8');
+    expect(host).toMatch(
+      /runtime\.start\(\);\n(\s*\/\/.*\n)*\s*runFightStarted\(session\.config\);/,
+    );
+    useRun.getState().closeRun();
+    useSettings.getState().reset();
   });
 });

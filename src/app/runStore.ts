@@ -321,6 +321,25 @@ export function reverifyClaimedWeeklies(): { done: Promise<void>; cancel(): void
   };
 }
 
+/** The configs `combatConfig` handed out: the fights of the run (never Training's, a tool's). */
+const runFights = new WeakSet<SimConfig>();
+
+/**
+ * Decision 16 (docs/phase-7.md, W2): a run's fight starts (GameHost's effect, once its runtime
+ * runs; never while a screen renders): one played with an assist on marks the run for the
+ * Summary's badge, as `finishFight` does as it ends. Any other fight (Training, the bench) and an
+ * unmarked one change nothing; called twice (StrictMode), the same.
+ */
+export function runFightStarted(config: SimConfig): void {
+  if (!runFights.has(config)) return;
+  const run = useRun.getState().run;
+  if (!run) return;
+  const marked = withAssisted(run, useSettings.getState().settings);
+  if (marked === run) return;
+  saveRun(storage(), marked);
+  useRun.setState({ run: marked });
+}
+
 export const useRun = create<RunStore>()((set, get) => {
   const apply = (fn: (run: RunState) => RunState, step?: RunStepNote) => {
     const run = get().run;
@@ -666,15 +685,13 @@ export const useRun = create<RunStore>()((set, get) => {
     chooseNode: (id) =>
       apply((run) => Run.chooseNode(run, id), { action: 'chooseNode', args: [id] }),
     combatConfig: (): SimConfig | null => {
-      let run = get().run;
+      // Pure: CombatScreen calls it while it renders. The run is marked for an assist as the
+      // fight starts (`runFightStarted`, from GameHost's effect) and as it ends (`finishFight`).
+      const run = get().run;
       if (!run) return null;
-      // Decision 16 (docs/phase-7.md, W2): a fight with an assist marks the run for the badge.
-      const marked = withAssisted(run, useSettings.getState().settings);
-      if (marked !== run) {
-        saveRun(storage(), marked);
-        set({ run: (run = marked) });
-      }
-      return Run.combatConfig(run, { ...useSettings.getState().settings.assists });
+      const config = Run.combatConfig(run, { ...useSettings.getState().settings.assists });
+      runFights.add(config);
+      return config;
     },
     finishCombat: (outcome: CombatOutcome) => get().finishFight(outcome, null),
     finishFight: (outcome, replay) => {

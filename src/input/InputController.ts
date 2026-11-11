@@ -649,6 +649,8 @@ export class InputController {
     this.pointer = { clientX: event.clientX, clientY: event.clientY, inside: true };
     this.pointerSeen = true;
     this.lastDevice = 'mouse';
+    // Moving the mouse is playing (Auto-Thread waits for it as for a press).
+    this.touched = true;
   };
 
   private onPointerLeave = (): void => {
@@ -1022,7 +1024,15 @@ export class InputController {
    * slows with the game speed.
    */
   private autoThread(state: WorldState): void {
-    if (this.touched || this.held.size > 0 || this.padHeld.size > 0 || this.stickOn) {
+    // Input: a press or a move, anything held (a hold-mode Thread mode too), an open wheel.
+    if (
+      this.touched ||
+      this.held.size > 0 ||
+      this.padHeld.size > 0 ||
+      this.stickOn ||
+      this.modeHeldBy !== null ||
+      this.wheelState !== null
+    ) {
       this.touched = false;
       this.lastInputAt = state.time;
       return;
