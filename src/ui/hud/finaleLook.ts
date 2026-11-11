@@ -194,6 +194,7 @@ export function noteCallout(n: number, of: number, source: NoteSource): FinaleCa
       color: last ? NOTE_GOLD : look.color,
       icon: last ? 'note' : look.icon,
       key: 'note',
+      note: { n, of },
     },
     ttl: last ? 2600 : 1600,
   };

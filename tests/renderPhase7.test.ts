@@ -22,6 +22,7 @@ import {
   simulateVision,
   type ColorVision,
 } from '../src/app/colorVision';
+import { DEFAULT_SETTINGS, useSettings, type ReducedMotion } from '../src/app/settings';
 import { CONTENT, enemyDef } from '../src/content';
 import {
   EntityLayer,
@@ -452,5 +453,209 @@ describe('the Atlas: a constellation panel’s header (Phase 6 Open 5)', () => {
       expect(header.indexOf(k.name)).toBeLessThan(header.indexOf(' star'));
       expect(header.slice(0, header.indexOf(k.name))).not.toContain('justify-between');
     }
+  });
+});
+
+// ── Reduced motion (W2's comfort option) over the motion above ─────────────────────────────
+
+describe('Reduced motion On holds the new motion still; System and Off draw it as built', () => {
+  afterEach(() => {
+    useSettings.setState({ settings: DEFAULT_SETTINGS });
+  });
+  const motion = (m: ReducedMotion | undefined) =>
+    useSettings.setState({
+      settings: m === undefined ? DEFAULT_SETTINGS : { ...DEFAULT_SETTINGS, reducedMotion: m },
+    });
+
+  /**
+   * One scripted scene: two heroes and the Weaver standing, an enemy hit then killed. Every
+   * instance pushed for those bodies (matrix and arguments), the counters, the ribbons' rest.
+   */
+  function scene() {
+    const sim = sandbox();
+    const h = harness(sim);
+    sim.step([spawn('bell_brute', 0, -9)]);
+    h.tick();
+    const foe = newest(sim, 'bell_brute');
+    h.tick();
+    const ids = [...sim.state.party.slice(0, 2), sim.state.weaverId, foe.id];
+    const seen = ids.map((id) => watch(h.entities.recs.get(id)!));
+    const hold = () => {
+      for (const id of ids) {
+        const e = worldOf(sim).entities.get(id)!;
+        e.vx = e.vz = 0;
+        e.px = e.x;
+        e.pz = e.z;
+      }
+    };
+    const counts = { recoils: 0, idle: 0 };
+    const ribbon: number[] = [];
+    const frame = () => {
+      hold();
+      h.tick(false);
+      counts.recoils += h.entities.drawn7.recoils;
+      counts.idle += h.entities.drawn7.idle;
+      ribbon.push((h.entities as unknown as { ribbonStill: number }).ribbonStill);
+    };
+    for (let i = 0; i < 120; i++) frame();
+    const rec = h.entities.recs.get(foe.id)!;
+    const before = seen[3]!.length;
+    h.entities.hit(foe.id, 1);
+    for (let i = 0; i < 20; i++) frame();
+    const hitFrames = seen[3]!.slice(before);
+    const dyingFrom = seen[3]!.length;
+    h.entities.markDying(foe.id);
+    for (let i = 0; i < 50; i++) frame();
+    const dying = seen[3]!.slice(dyingFrom);
+    // (+ 0: a zero's sign is not a different frame.)
+    const out = seen.map((p) =>
+      p.map((x) => [...x.m.elements.map((v) => v + 0), ...x.args.map(String)]),
+    );
+    return { h, rec, seen, out, counts, ribbon, hitFrames, dying };
+  }
+
+  it('System (absent) and Off draw every frame exactly as the default does', () => {
+    motion(undefined);
+    const base = scene();
+    expect(base.counts.recoils).toBeGreaterThan(0);
+    expect(base.counts.idle).toBeGreaterThan(0);
+    expect(Math.max(...base.ribbon)).toBeGreaterThan(0.5);
+    for (const m of ['system', 'off'] as const) {
+      motion(m);
+      const run = scene();
+      expect(run.h.entities.still).toBe(false);
+      expect(run.out).toStrictEqual(base.out);
+      expect(run.counts).toStrictEqual(base.counts);
+      expect(run.ribbon).toStrictEqual(base.ribbon);
+    }
+  });
+
+  it('On: no flinch, no idle breath or sway, no ribbon lift', () => {
+    motion('on');
+    const run = scene();
+    expect(run.h.entities.still).toBe(true);
+    expect(run.counts).toStrictEqual({ recoils: 0, idle: 0 });
+    expect(Math.max(...run.ribbon)).toBe(0);
+    // A standing body neither rises and falls nor sways (W6's breath spans ~2.8% of its height).
+    for (const pushes of run.seen.slice(0, 3)) {
+      const ys = pushes.slice(0, 140).map((p) => scaleY(p.m));
+      const rolls = pushes.slice(0, 140).map((p) => p.m.elements[1]!);
+      expect(Math.max(...ys) - Math.min(...ys)).toBeLessThan(IDLE.breath * 0.01);
+      expect(Math.max(...rolls) - Math.min(...rolls)).toBeLessThan(IDLE.sway * 0.01);
+    }
+    // The struck enemy does not move from the blow.
+    const rest = run.hitFrames[0]!.m.elements;
+    for (const p of run.hitFrames) {
+      expect(scaleY(p.m)).toBeCloseTo(Math.hypot(rest[4]!, rest[5]!, rest[6]!), 9);
+      expect(posOf(p.m)[0]).toBeCloseTo(rest[12]!, 9);
+      expect(posOf(p.m)[2]).toBeCloseTo(rest[14]!, 9);
+    }
+  });
+
+  it('On: a death fades without the topple, over the same length to the same ends', () => {
+    motion(undefined);
+    const built = scene();
+    motion('on');
+    const run = scene();
+    // The same number of frames drawn, the dissolve from 0.05 to 1 as W6's.
+    expect(run.dying.length).toBe(built.dying.length);
+    const dis = (p: (typeof run.dying)[number]) => p.args[1] as number;
+    expect(dis(run.dying[0]!)).toBeLessThan(0.08);
+    expect(dis(built.dying[0]!)).toBeLessThan(0.08);
+    expect(dis(run.dying.at(-1)!)).toBeCloseTo(1, 5);
+    expect(dis(built.dying.at(-1)!)).toBeCloseTo(1, 5);
+    // No snap back, no fall, no roll: the fade's slight lean (0.15 rad at its end), as before
+    // Phase 7, where W6's walker pitches far further.
+    const rec = run.rec;
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    for (let i = 0; i < run.dying.length; i++) {
+      const t = Math.min(1, (i + 1) / 60 / 0.75);
+      const s = 1 + t * 0.06;
+      q.setFromEuler(new THREE.Euler(0.15 * t, rec.yaw, 0, 'YXZ'));
+      m.compose(new THREE.Vector3(rec.x, -t * t * 0.25, rec.z), q, new THREE.Vector3(s, s, s));
+      const got = run.dying[i]!.m.elements;
+      for (let k = 0; k < 16; k++) expect(got[k]).toBeCloseTo(m.elements[k]!, 6);
+      expect(dis(run.dying[i]!)).toBeCloseTo(0.05 + t * 0.95, 9);
+    }
+    expect(deathPose({ quad: true, hover: true, role: 'fodder' }, 1, true)).toStrictEqual({
+      kick: 0,
+      pitch: 0.15,
+      roll: 0,
+      sag: 1,
+    });
+  });
+});
+
+// ── The VFX lab's comfort controls ────────────────────────────────────────────────────────
+
+describe('the VFX lab: the Phase 7 comfort options next to Flashes', () => {
+  interface LabModule {
+    ComfortControls: FunctionComponent;
+    labComfort: {
+      reducedMotion(v: ReducedMotion): void;
+      telegraphs(patch: Record<string, number | boolean>): void;
+      answerGlyphs(v: boolean): void;
+      importantNumbersOnly(v: boolean): void;
+      slowmoVignette(v: boolean): void;
+    };
+  }
+  // A .tsx module, loaded at run time (the Node tsconfig compiles no JSX).
+  const path = '../src/render/lab/VfxLab';
+  const lab = async () => (await import(/* @vite-ignore */ path)) as unknown as LabModule;
+  afterEach(() => {
+    useSettings.setState({ settings: DEFAULT_SETTINGS });
+  });
+  const KEYS = [
+    'reducedMotion',
+    'telegraphs',
+    'answerGlyphs',
+    'importantNumbersOnly',
+    'slowmoVignette',
+  ] as const;
+
+  it('shows every option at its default and writes nothing by being shown', async () => {
+    const { ComfortControls } = await lab();
+    const html = renderToStaticMarkup(createElement(ComfortControls));
+    for (const label of [
+      'Reduced motion',
+      'Telegraph opacity 1.00',
+      'Telegraph outline × 1.00',
+      'Perfect band × 1.00',
+      'Telegraph high contrast',
+      'Answer glyphs',
+      'Important numbers only',
+      'Slow-mo vignette',
+    ])
+      expect(html).toContain(label);
+    expect(html).toMatch(/<option selected="">system<\/option><option>on<\/option><option>off/);
+    expect(useSettings.getState().settings).toBe(DEFAULT_SETTINGS);
+    for (const k of KEYS) expect(k in useSettings.getState().settings).toBe(false);
+  });
+
+  it('writes each key as Settings does: only the one changed, the rest left absent', async () => {
+    const { labComfort } = await lab();
+    const cases: [() => void, (typeof KEYS)[number], unknown][] = [
+      [() => labComfort.reducedMotion('on'), 'reducedMotion', 'on'],
+      [() => labComfort.telegraphs({ outline: 1.5 }), 'telegraphs', { outline: 1.5 }],
+      [() => labComfort.telegraphs({ highContrast: true }), 'telegraphs', { highContrast: true }],
+      [() => labComfort.answerGlyphs(false), 'answerGlyphs', false],
+      [() => labComfort.importantNumbersOnly(true), 'importantNumbersOnly', true],
+      [() => labComfort.slowmoVignette(false), 'slowmoVignette', false],
+    ];
+    for (const [write, key, value] of cases) {
+      useSettings.setState({ settings: DEFAULT_SETTINGS });
+      write();
+      const s = useSettings.getState().settings;
+      expect(s[key]).toStrictEqual(value);
+      for (const k of KEYS) if (k !== key) expect(k in s).toBe(false);
+      expect({ ...s, [key]: undefined }).toStrictEqual({ ...DEFAULT_SETTINGS, [key]: undefined });
+    }
+    // Reduced motion On from the lab reaches the fight's bodies.
+    labComfort.reducedMotion('on');
+    const sim = sandbox();
+    const h = harness(sim);
+    h.tick();
+    expect(h.entities.still).toBe(true);
   });
 });

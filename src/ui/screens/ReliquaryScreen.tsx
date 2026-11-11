@@ -31,6 +31,7 @@ import {
   categoryLook,
   tierLook,
 } from '../kit/reliquaryLook';
+import { prefersReducedMotion } from '../kit/motion';
 import { playUi, useMood } from '../kit/sound';
 import { useUi } from '../store';
 import {
@@ -969,7 +970,7 @@ function RelicDetail({
     const r = el.getBoundingClientRect();
     const by =
       r.bottom > b.bottom ? r.bottom - b.bottom + 8 : r.top < b.top ? r.top - b.top - 8 : 0;
-    const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const calm = prefersReducedMotion();
     if (by !== 0) box.scrollBy({ top: by, behavior: calm ? 'auto' : 'smooth' });
   }, [fx]);
   const plateFx = fx && fx.target === null ? fx.effect : null;
@@ -1225,7 +1226,7 @@ function CraftPanel({
     const b = box.getBoundingClientRect();
     const r = el.getBoundingClientRect();
     if (r.bottom <= b.bottom) return;
-    const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const calm = prefersReducedMotion();
     box.scrollBy({ top: r.bottom - b.bottom + 8, behavior: calm ? 'auto' : 'smooth' });
   }, [outcomeKey, rollingNow]);
   const onTabsKey = (e: KeyboardEvent<HTMLDivElement>) => {

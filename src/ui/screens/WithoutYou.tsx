@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { EncounterResult, WithoutYou } from '../../meta/types';
 import { clock, pct } from '../kit/format';
 import { Icon, type IconName } from '../kit/Icon';
+import { prefersReducedMotion } from '../kit/motion';
 import { playUi } from '../kit/sound';
 import { HeroDisc } from './shared';
 import { madeTheDifference, withoutYouLine } from './withoutYouText';
@@ -66,9 +67,7 @@ export function WithoutYouPanel({
   const [revealed, setRevealed] = useState(instant);
   useEffect(() => {
     if (revealed || !w) return;
-    const reduced =
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const reduced = prefersReducedMotion();
     const timer = setTimeout(
       () => {
         playUi('reveal');

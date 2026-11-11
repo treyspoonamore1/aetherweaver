@@ -774,6 +774,8 @@ export interface Callout {
   key?: string;
   /** The banner's glyph, when the kind's own won't do (Phase 3e: Rewind, Paradox). */
   icon?: IconName;
+  /** A note of the Grand Silence (Phase 5d): which one, of how many (its banner's pips). */
+  note?: { n: number; of: number };
   expiresAt: number;
 }
 

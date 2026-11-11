@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import type { ColorVision } from '../app/colorVision';
+import { useSettings } from '../app/settings';
+import { fightStill } from '../ui/presentation';
 import { CONTENT, bloodRageOf, enemyDef, heroDef } from '../content';
 import { CONDUCTOR } from '../content/crucibleIds';
 import {
@@ -464,13 +466,23 @@ export function weaverRibbons(
  * the snap back from the killing blow (0..1, over the first eighth). `pitch` (back) and `roll`
  * (sideways): the topple, eased out (a walker falls back, a hound rolls onto its side, a boss
  * only sways back, a cloth body barely tips). `sag`: its height share as it goes (a cloth body
- * slumps, the rest stay whole). Pure, no allocation (one shared result).
+ * slumps, the rest stay whole). Pure, no allocation (one shared result). `still` (Reduced motion
+ * On): no snap and no topple, only the fade's slight lean, as before Phase 7.
  */
 const DEATH_POSE = { kick: 0, pitch: 0, roll: 0, sag: 1 };
 export function deathPose(
   rec: Readonly<Pick<EntityRec, 'quad' | 'hover' | 'role'>>,
   t: number,
+  still = false,
 ): Readonly<typeof DEATH_POSE> {
+  if (still) {
+    // Reduced motion On: no snap and no topple, only the slight lean it always had.
+    DEATH_POSE.kick = 0;
+    DEATH_POSE.pitch = 0.15 * t;
+    DEATH_POSE.roll = 0;
+    DEATH_POSE.sag = 1;
+    return DEATH_POSE;
+  }
   const k = clamp01(t / 0.12);
   DEATH_POSE.kick = Math.sin(Math.PI * k) * (1 - 0.5 * k);
   const fall = 1 - (1 - clamp01((t - 0.06) / 0.6)) ** 3;
@@ -656,6 +668,11 @@ export class EntityLayer {
   readonly drawn6 = { postludeRise: 0 };
   /** Phase 7 (W6): enemies flinching from a hit, and bodies breathing at rest, last frame. */
   readonly drawn7 = { recoils: 0, idle: 0 };
+  /**
+   * Phase 7: Reduced motion On (`fightStill`, from Settings each frame) holds W6's motion still:
+   * no hit flinch, no idle, no ribbon lift, and a death fades without its fall.
+   */
+  still = false;
   postludeOverride: { postlude: PostludeView; boss: EntityId } | null = null;
   private postlude: PostludeView | null = null;
   private postludeBoss: EntityId | null = null;
@@ -1276,6 +1293,7 @@ export class EntityLayer {
     this.drawn6.postludeRise = 0;
     this.drawn7.recoils = 0;
     this.drawn7.idle = 0;
+    this.still = fightStill(useSettings.getState().settings);
     this.postlude = null;
     this.postludeBoss = null;
     const postlude = this.postludeOverride?.postlude ?? state.field.finale?.postlude;
@@ -1442,7 +1460,7 @@ export class EntityLayer {
     // Phase 7 (docs/phase-7.md, W6): the fall reads before the fade. A snap back from the killing
     // blow, then it topples (`deathPose`: back for a walker, onto its side for a hound, a cloth
     // body sags), and the dissolve holds off for the first fifth and finishes as before.
-    const pose = deathPose(rec, t);
+    const pose = deathPose(rec, t, this.still);
     const back = pose.kick * Math.min(0.3, rec.radius * 0.3);
     const m = this.compose(
       rec.x + Math.sin(rec.yaw) * back,
@@ -1460,7 +1478,7 @@ export class EntityLayer {
     rec.batch.push(
       m,
       rec.flash,
-      deathDissolve(t),
+      this.still ? 0.05 + t * 0.95 : deathDissolve(t),
       Math.max(ash ? RISEN_DESAT : 0, 0.3 * t),
       0,
       ash ? ASH : rec.accent,
@@ -1603,7 +1621,7 @@ export class EntityLayer {
     // squashed, easing out over ~0.18 s; a boss or mini-boss gives half as much. Stasis holds it
     // still: a blow then leaves no flinch to play late.
     if (rec.recoil > 0) {
-      if (frozen) rec.recoil = 0;
+      if (frozen || this.still) rec.recoil = 0;
       else {
         const k =
           rec.recoil * rec.recoil * (rec.role === 'boss' || rec.role === 'miniboss' ? 0.5 : 1);
@@ -1765,7 +1783,7 @@ export class EntityLayer {
     // step with each other), fading out as they walk. Never while held, stilled, down or poured
     // into by the beam song (whose swell is left exactly as it was).
     if ((e.kind === 'hero' || rec.kind === 'weaver') && !held && !downed && rec.dissolve === 0) {
-      const rest = (1 - moving) * (1 - rec.beam);
+      const rest = this.still ? 0 : (1 - moving) * (1 - rec.beam);
       if (rest > 0.001) {
         scaleY *= 1 + IDLE.breath * rest * Math.sin(this.now * IDLE.breathRate + rec.id * 1.7);
         roll += IDLE.sway * rest * Math.sin(this.now * IDLE.swayRate + rec.id * 2.3);
@@ -3163,7 +3181,7 @@ export class EntityLayer {
     // Phase 7: standing still (not gliding, not re-forming), they lift into their idle.
     const resting = Math.hypot(e.vx, e.vz) < 0.2 && w.glide <= 0 && w.reform <= 0;
     this.ribbonStill = approach(this.ribbonStill, resting ? 1 : 0, resting ? 1.5 : 5, dt);
-    if (this.ribbonStill < 0.002) this.ribbonStill = 0;
+    if (this.ribbonStill < 0.002 || this.still) this.ribbonStill = 0;
     const fx = -Math.sin(rec.yaw);
     const fz = -Math.cos(rec.yaw);
     const ax = x - fx * 0.18;

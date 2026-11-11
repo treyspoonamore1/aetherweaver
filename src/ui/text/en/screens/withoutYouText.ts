@@ -4,6 +4,7 @@ import type { Catalogue } from '../../catalogue';
 export const withoutYouText = {
   'screens.withoutYouText.inWaveOf': ' in wave {wave} of {waves}',
   'screens.withoutYouText.withTheBossAt': ', with the boss at {bossHp}',
+  'screens.withoutYouText.withTheBossRisen': ', with the boss risen again, at {bossHp}',
   'screens.withoutYouText.withoutYouTheParty':
     'Without you, the party falls at {duration}{wave}{boss}.',
   'screens.withoutYouText.withoutYouTheFight':
