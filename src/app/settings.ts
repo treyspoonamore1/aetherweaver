@@ -367,8 +367,97 @@ const SettingsV1Schema = z.object({
   assists: AssistsSchema,
 });
 
-/** Parses saved settings of any known version into the current shape (null if unusable). */
+/** Phase 7's keys (see `Options`), each as `SettingsSchema` reads it. */
+const OPTION_KEYS: readonly (keyof Settings & keyof Options)[] = [
+  'reducedMotion',
+  'telegraphs',
+  'answerGlyphs',
+  'importantNumbersOnly',
+  'slowmoVignette',
+  'heroVoices',
+  'input',
+  'aids',
+  'quality',
+  'locale',
+];
+/** Phase 7's volume sliders, inside the older `volumes`. */
+const OPTION_VOLUMES = ['ambience', 'barks'] as const;
+
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/**
+ * A Phase 7 value as `schema` reads it, with what it can't read left out (`undefined`: none of it
+ * reads). An object keeps each field that reads, and each nested object the fields of its own
+ * that do; pad overrides keep each action's that reads.
+ */
+function fitOption(schema: z.ZodType, value: unknown): unknown {
+  if (schema.safeParse(value).success) return value;
+  const inner = schema instanceof z.ZodOptional ? (schema.unwrap() as z.ZodType) : schema;
+  if (!isRecord(value)) return undefined;
+  if (inner instanceof z.ZodRecord) {
+    const entry = inner.valueType as z.ZodType;
+    return Object.fromEntries(Object.entries(value).filter(([, v]) => entry.safeParse(v).success));
+  }
+  if (!(inner instanceof z.ZodObject)) return undefined;
+  const shape = inner.shape as Record<string, z.ZodType>;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value)) {
+    const field = shape[k];
+    const fitted = field ? fitOption(field, v) : v;
+    if (fitted !== undefined) out[k] = fitted;
+  }
+  return inner.safeParse(out).success ? out : undefined;
+}
+
+/**
+ * Saved settings with each Phase 7 value this build can't read left out (absent, so it reads as
+ * its default), and the rest as saved: one bad or unknown value (a locale or quality a later build
+ * added, a slider out of range) never costs the player the whole file. The same object when
+ * there is nothing to leave out.
+ */
+function fitOptions(raw: unknown): unknown {
+  if (!isRecord(raw)) return raw;
+  const shape = SettingsSchema.shape as Record<string, z.ZodType>;
+  const out: Record<string, unknown> = { ...raw };
+  let changed = false;
+  for (const key of OPTION_KEYS) {
+    if (!(key in out)) continue;
+    const fitted = fitOption(shape[key]!, out[key]);
+    if (fitted === out[key]) continue;
+    changed = true;
+    if (fitted === undefined) delete out[key];
+    else out[key] = fitted;
+  }
+  const volumes = out.volumes;
+  if (isRecord(volumes)) {
+    const fields = VolumesSchema.shape;
+    const kept = { ...volumes };
+    for (const k of OPTION_VOLUMES)
+      if (k in kept && !fields[k].safeParse(kept[k]).success) delete kept[k];
+    if (Object.keys(kept).length !== Object.keys(volumes).length) {
+      changed = true;
+      out.volumes = kept;
+    }
+  }
+  return changed ? out : raw;
+}
+
+/**
+ * Parses saved settings of any known version into the current shape (null if unusable). Settings
+ * that read as they are come back exactly as they did before Phase 7's values were fitted; only
+ * settings that would not read are tried again with the Phase 7 values they can't read left out
+ * (`fitOptions`).
+ */
 export function migrateSettings(raw: unknown): Settings | null {
+  const known = migrateKnown(raw);
+  if (known) return known;
+  const fitted = fitOptions(raw);
+  return fitted === raw ? null : migrateKnown(fitted);
+}
+
+/** Saved settings of a known version, read as they are (null: they don't read). */
+function migrateKnown(raw: unknown): Settings | null {
   const current = SettingsSchema.safeParse(raw);
   if (current.success) return current.data;
   const v3 = SettingsV3Schema.safeParse(raw);
