@@ -10,7 +10,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SynthDirector } from '../src/audio/director';
 import { DEFAULT_SETTINGS, useSettings, type Settings } from '../src/app/settings';
 import { computePin, type PresentationPin } from './aura/presentationPinFixture';
-import { BAR_SECONDS, type Command, type SimConfig } from '../src/sim';
+import { Engine, Voice } from '../src/audio/engine';
+import { crowdCommands } from '../src/audio/lab/fight';
+import { BAR_SECONDS, createSim, type Command, type PartySlot, type SimConfig } from '../src/sim';
 import { sandbox } from './sim/helpers';
 
 const GUARDIAN = [
@@ -286,4 +288,295 @@ describe('finding 5: no aura sound follows game speed', () => {
     for (const key of Object.keys(pin.cases))
       expect(now.cases[key]!.audio, key).toEqual(pin.cases[key]!.audio);
   }, 300_000);
+});
+
+// ── Finding 8: a recording AudioContext that ends its sources (review A's auraAdmit probe) ──
+
+interface AdmitOp {
+  op: string;
+  v: number;
+  t: number;
+}
+
+interface AdmitParam {
+  value: number;
+  ops: AdmitOp[];
+  [k: string]: unknown;
+}
+
+interface AdmitNode {
+  id: number;
+  kind: string;
+  to: AdmitNode[];
+  params: Map<string, AdmitParam>;
+  freqs: number[];
+  stops: number[];
+  onended?: (() => void) | null;
+  [k: string]: unknown;
+}
+
+function admitParam(value = 0): AdmitParam {
+  const p: AdmitParam = { value, ops: [] };
+  const rec = (op: string) => (v: number, t: number) => {
+    p.ops.push({ op, v, t });
+  };
+  p['setValueAtTime'] = rec('set');
+  p['linearRampToValueAtTime'] = rec('lin');
+  p['exponentialRampToValueAtTime'] = rec('exp');
+  p['setTargetAtTime'] = rec('tgt');
+  p['cancelScheduledValues'] = (t: number) => p.ops.push({ op: 'cancel', v: 0, t });
+  p['setValueCurveAtTime'] = () => undefined;
+  p['cancelAndHoldAtTime'] = () => undefined;
+  return p;
+}
+
+class AdmitCtx {
+  currentTime = 1;
+  sampleRate = 8000;
+  state = 'running';
+  readonly nodes: AdmitNode[] = [];
+  readonly sources: AdmitNode[] = [];
+  /** Sources whose `onended` has run. */
+  readonly ended = new Set<AdmitNode>();
+  destination: AdmitNode;
+  [k: string]: unknown;
+  constructor() {
+    this.destination = this.node('dest');
+    for (const [name, kind] of [
+      ['createGain', 'gain'],
+      ['createDynamicsCompressor', 'comp'],
+      ['createWaveShaper', 'shaper'],
+      ['createConvolver', 'conv'],
+      ['createBiquadFilter', 'filter'],
+      ['createStereoPanner', 'pan'],
+    ] as const)
+      this[name] = () => this.node(kind);
+    this['createOscillator'] = () => this.source('osc');
+    this['createBufferSource'] = () => this.source('noise');
+    this['createBuffer'] = (_ch: number, length: number, sr: number) => ({
+      length,
+      sampleRate: sr,
+      duration: length / sr,
+      getChannelData: () => new Float32Array(length),
+    });
+  }
+  private node(kind: string): AdmitNode {
+    const n = {
+      id: this.nodes.length,
+      kind,
+      to: [],
+      params: new Map<string, AdmitParam>(),
+      freqs: [],
+      stops: [],
+    } as unknown as AdmitNode;
+    n['connect'] = (to: AdmitNode) => {
+      n.to.push(to);
+      return to;
+    };
+    n['disconnect'] = () => undefined;
+    n['start'] = () => undefined;
+    n['stop'] = (t = 0) => {
+      n.stops.push(t);
+    };
+    const proxy = new Proxy(n, {
+      get(target, key: string) {
+        if (key in target) return target[key];
+        // A gain starts at 1, as WebAudio's does (the duckers read their value).
+        const p = admitParam(key === 'gain' ? 1 : 0);
+        if (key === 'frequency') {
+          const set = p['setValueAtTime'] as (v: number, t: number) => void;
+          p['setValueAtTime'] = (v: number, t: number) => {
+            target.freqs.push(v);
+            set(v, t);
+          };
+        }
+        target.params.set(key, p);
+        target[key] = p;
+        return p;
+      },
+    });
+    this.nodes.push(proxy);
+    return proxy;
+  }
+  private source(kind: string): AdmitNode {
+    const n = this.node(kind);
+    this.sources.push(n);
+    return n;
+  }
+  /** Ends every source whose stop time has passed (the engine's node accounting). */
+  endDue(): void {
+    for (const s of this.sources) {
+      const stop = s.stops[s.stops.length - 1];
+      if (stop === undefined || stop > this.currentTime || this.ended.has(s)) continue;
+      this.ended.add(s);
+      const cb = s.onended;
+      if (typeof cb === 'function') cb();
+    }
+  }
+}
+
+function seededRandom(seed = 7): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** The aura voices' keys (docs/phase-7.md, addendum A). */
+const AURA_KEYS = new Set(['pour', 'pedal', 'chorus', 'bigFermata', 'fermataEnd']);
+
+/**
+ * A busy fight that asks for every aura voice while the mix is saturated: a crowd of `crowd`
+ * enemies around a party singing Allegro and Fermata on the beam song and Sostenuto with Pedal
+ * Point on the field; the Thread moved every half second (the pour), the field planted every
+ * third of a second (Pedal Point), a Cue every second (Chorus Pulse), a Fermata hold every 2.5 s.
+ * `rule`: 'old' plays it through 81a12ef's admission (only `big*` through a saturated mix, every
+ * source counted); 'new' through the engine as it is. Returns every aura voice asked for, in
+ * order, as `time key admitted`, and how many were asked while saturated.
+ */
+function busyFight(rule: 'old' | 'new', voices: boolean, seed: number, crowd: number) {
+  vi.spyOn(Math, 'random').mockImplementation(seededRandom(seed));
+  const ctx = new AdmitCtx();
+  const d = new SynthDirector({
+    context: ctx as unknown as BaseAudioContext,
+    autoPump: false,
+    installUnlock: false,
+    followSettings: false,
+  });
+  d.setMood('combat');
+  d.setHeroVoices(voices);
+  d.pump();
+  const e = d.mixer() as Engine;
+  const asks: string[] = [];
+  let saturatedAsks = 0;
+  const admit = e.admit.bind(e);
+  e.admit = (key: string, max = 4) => {
+    const st = e.stats;
+    const full = st.active.sfx > 70 || st.total > 150;
+    let ok: boolean;
+    if (rule === 'old') {
+      // 81a12ef's admit, word for word.
+      if (full && !key.startsWith('big')) {
+        st.skipped++;
+        ok = false;
+      } else ok = admit(key, max);
+    } else ok = admit(key, max);
+    if (AURA_KEYS.has(key)) {
+      asks.push(`${ctx.currentTime.toFixed(2)} ${key} ${ok}`);
+      if (full) saturatedAsks++;
+    }
+    return ok;
+  };
+  const sim = createSim({
+    seed,
+    encounter: 'first_light',
+    chords: [
+      { auras: ['allegro', 'fermata'], ornaments: [] },
+      { auras: ['sostenuto'], ornaments: ['pedal_point'] },
+    ],
+    debug: true,
+  });
+  const debug = (op: object) => ({ t: 'debug', op }) as Command;
+  for (let frame = 0; frame < 30 * 20; frame++) {
+    ctx.currentTime += 0.05;
+    ctx.endDue();
+    const evs = [];
+    for (let k = 0; k < 3; k++) {
+      const tick = sim.tick;
+      const cmds: Command[] = tick === 1 ? crowdCommands(crowd) : [];
+      if (tick % 120 === 60) cmds.push(debug({ op: 'healParty' }));
+      if (tick % 30 === 0) cmds.push({ t: 'thread', slot: ((tick / 30) % 4) as PartySlot });
+      if (tick % 20 === 10)
+        cmds.push({ t: 'plant', point: { x: ((tick / 20) % 5) - 2, z: ((tick / 7) % 5) - 2 } });
+      if (tick % 60 === 40)
+        cmds.push(debug({ op: 'chargeSolos' }), debug({ op: 'setResonance', value: 100 }));
+      if (tick % 60 === 41) cmds.push({ t: 'cue', slot: (((tick / 60) % 4) | 0) as PartySlot });
+      if (tick % 150 === 75)
+        cmds.push(debug({ op: 'forceHold', slot: (((tick / 150) % 4) | 0) as PartySlot }));
+      sim.step(cmds);
+      evs.push(...sim.drainEvents());
+    }
+    if (evs.length) d.onEvents(evs, sim.state);
+    d.update(sim.state, 0.05);
+  }
+  const barks = d.sfxEngine()!.barks.played;
+  d.dispose();
+  vi.restoreAllMocks();
+  return { asks, saturatedAsks, barks };
+}
+
+describe('finding 8: aura voices are admitted exactly as at 81a12ef', () => {
+  // Busy fights where 81a12ef's rule and the one before this fix disagreed on an aura voice.
+  for (const [seed, crowd] of [
+    [6, 12],
+    [9, 12],
+    [1, 16],
+    [5, 40],
+    [7, 40],
+  ] as const) {
+    it(`a busy fight (seed ${seed}, ${crowd} enemies): every aura key’s admissions, voices off and on`, () => {
+      const old = busyFight('old', false, seed, crowd);
+      // The fight asks for every aura voice, and asks while the mix is saturated.
+      for (const key of AURA_KEYS)
+        expect(
+          old.asks.some((a) => a.includes(` ${key} `)),
+          key,
+        ).toBe(true);
+      expect(old.saturatedAsks).toBeGreaterThan(0);
+      expect(old.asks.some((a) => a.endsWith('false'))).toBe(true);
+      const off = busyFight('new', false, seed, crowd);
+      expect(off.asks).toEqual(old.asks);
+      const on = busyFight('new', true, seed, crowd);
+      expect(on.barks).toBeGreaterThan(0);
+      expect(on.asks).toEqual(old.asks);
+    });
+  }
+
+  /** `n` live sources tracked on `bus`, one a voice (`end(k)` ends the first `k`). */
+  function sources(e: Engine, ctx: AdmitCtx, bus: 'music' | 'sfx' | 'barks', n: number) {
+    const list = Array.from(
+      { length: n },
+      () => (ctx['createOscillator'] as () => unknown)() as AudioScheduledSourceNode,
+    );
+    for (const src of list) e.track(bus, [src], []);
+    return { end: (k: number) => list.slice(0, k).forEach((src) => (src.onended as () => void)()) };
+  }
+
+  it('hero voices on the barks bus never tip the mix into saturation for anyone else', () => {
+    const ctx = new AdmitCtx();
+    const e = new Engine(ctx as unknown as BaseAudioContext);
+    sources(e, ctx, 'music', 150);
+    sources(e, ctx, 'barks', 6);
+    expect(e.stats.total).toBe(156);
+    expect(e.admit('pour', 1)).toBe(true);
+    expect(e.admit('pedal', 2)).toBe(true);
+  });
+
+  it('a voice let through only as kept neither counts nor displaces a counted one', () => {
+    const ctx = new AdmitCtx();
+    const e = new Engine(ctx as unknown as BaseAudioContext);
+    // A low-life alert while the mix is calm: counted, as before Phase 7.
+    expect(e.admit('lowLife', 1)).toBe(true);
+    const calm = new Voice(e, 'sfx');
+    calm.osc({ freq: 440, start: 1, dur: 5, gain: 0.1 });
+    const kill = vi.fn();
+    const handle = calm.commit();
+    e.register('lowLife', { ...handle, kill });
+    const busy = sources(e, ctx, 'sfx', 70);
+    // Saturated (71 effects sources): kept, but uncounted, and the first alert plays on.
+    expect(e.admit('lowLife', 1)).toBe(true);
+    const kept = new Voice(e, 'sfx');
+    for (let i = 0; i < 4; i++) kept.osc({ freq: 440, start: 1, dur: 5, gain: 0.1 });
+    e.register('lowLife', kept.commit());
+    expect(kill).not.toHaveBeenCalled();
+    expect(e.stats.active.sfx).toBe(75);
+    expect(e.stats.uncountedSfx).toBe(4);
+    // Two of the crowd end: 69 counted, so an aura voice is let in, as 81a12ef would.
+    busy.end(2);
+    expect(e.admit('pour', 1)).toBe(true);
+  });
 });

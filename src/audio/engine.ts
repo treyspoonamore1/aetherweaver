@@ -41,7 +41,9 @@ export type MixBus = BusName | 'barks';
  * - Concert Pitch's Ringing and its re-strike (a Perfect while it rings extended it;
  *   docs/phase-5g.md, *Open* 15);
  * - the low-life alert; Tyrant's edict and a Postlude pair Cue.
- * No aura's voice is among them (their admission is exactly as before). The telegraph wind-ups
+ * No aura's voice is among them, and none of them, nor a hero voice, counts toward the saturation
+ * check or displaces a voice it counts (`Engine.admit`, review A finding 8), so every other voice's
+ * admission, an aura's included, is exactly what it was before Phase 7. The telegraph wind-ups
  * (`wind:*`) would belong here too, but keeping them moves two pinned fights of the audio
  * snapshots (the Spire's Vharun and the Rift's Unweaver), so they are held (W7's hand-off).
  */
@@ -82,6 +84,12 @@ export interface BusNodes {
 export interface VoiceHandle {
   /** AudioContext time the voice is silent by. */
   endsAt: number;
+  /**
+   * Phase 7: a voice the mix before Phase 7 never had (a hero voice, or one let through a
+   * saturated mix only by `KEPT_WHEN_SATURATED`): left out of the saturation check, and never
+   * displacing a voice that check counts (`Engine.admit`). Absent: false.
+   */
+  uncounted?: boolean;
   /** Fades the voice out (30 ms by default; pass `fade` for a longer, softer exit) and releases it. */
   kill(at: number, fade?: number): void;
 }
@@ -108,6 +116,13 @@ export interface EngineStats {
   saturated: number;
   /** Phase 7: live sources on the barks bus (counted in `total` as well). */
   barks: number;
+  /**
+   * Phase 7: of `total` (and of `active.sfx`), the live sources the mix before Phase 7 never had:
+   * the barks bus's, and those of voices let through a saturated mix only by
+   * `KEPT_WHEN_SATURATED`. The saturation check leaves them out.
+   */
+  uncounted: number;
+  uncountedSfx: number;
 }
 
 function createNoise(ctx: BaseAudioContext, seconds: number, pink: boolean): AudioBuffer {
@@ -184,7 +199,11 @@ export class Engine {
     skipped: 0,
     saturated: 0,
     barks: 0,
+    uncounted: 0,
+    uncountedSfx: 0,
   };
+  /** Phase 7: the voice `admit` has just let in is uncounted (the next `Voice` takes it). */
+  private nextUncounted = false;
 
   constructor(readonly ctx: BaseAudioContext) {
     this.master = ctx.createGain();
@@ -438,9 +457,15 @@ export class Engine {
    */
   admit(key: string, max = 4): boolean {
     const now = this.now;
-    if ((this.stats.active.sfx > 70 || this.stats.total > 150) && !keptWhenSaturated(key)) {
-      this.stats.skipped++;
-      this.stats.saturated++;
+    // Saturated as the mix before Phase 7 counted it (no hero voice, no voice kept through it).
+    const st = this.stats;
+    const full = st.active.sfx - st.uncountedSfx > 70 || st.total - st.uncounted > 150;
+    // Let in only because it is kept through a saturated mix (Phase 7): the mix before never had it.
+    const extra = full && !key.startsWith('big');
+    this.nextUncounted = false;
+    if (extra && !KEPT_WHEN_SATURATED.has(key)) {
+      st.skipped++;
+      st.saturated++;
       return false;
     }
     let group = this.groups.get(key);
@@ -450,12 +475,40 @@ export class Engine {
     }
     for (let i = group.length - 1; i >= 0; i--)
       if ((group[i] as VoiceHandle).endsAt <= now) group.splice(i, 1);
-    while (group.length >= max) {
-      const oldest = group.shift() as VoiceHandle;
-      oldest.kill(now);
-      this.stats.dropped++;
+    // The group's cap among the voices the saturation check counts, exactly as before Phase 7
+    // (an uncounted voice never displaces one of them, so their lives are what they were); the
+    // uncounted make room first, and an uncounted voice takes only an uncounted one's place.
+    if (!extra) {
+      let counted = 0;
+      for (const h of group) if (!h.uncounted) counted++;
+      while (counted >= max) {
+        this.dropOldest(group, false, now);
+        counted--;
+      }
     }
+    while (group.length >= max && this.dropOldest(group, true, now));
+    this.nextUncounted = extra;
     return true;
+  }
+
+  /** Fades out the oldest voice of `group` that is (or is not) `uncounted`; false if none is. */
+  private dropOldest(group: VoiceHandle[], uncounted: boolean, now: number): boolean {
+    for (let i = 0; i < group.length; i++) {
+      const h = group[i]!;
+      if ((h.uncounted === true) !== uncounted) continue;
+      group.splice(i, 1);
+      h.kill(now);
+      this.stats.dropped++;
+      return true;
+    }
+    return false;
+  }
+
+  /** Phase 7: whether the voice just let in is uncounted (`Voice` reads it once, as it is made). */
+  takeUncounted(): boolean {
+    const u = this.nextUncounted;
+    this.nextUncounted = false;
+    return u;
   }
 
   register(key: string, handle: VoiceHandle): void {
@@ -481,12 +534,22 @@ export class Engine {
   }
 
   // ── Node accounting ──────────────────────────────────────────────────────────────
-  track(bus: MixBus, sources: AudioScheduledSourceNode[], nodes: AudioNode[]): void {
+  track(
+    bus: MixBus,
+    sources: AudioScheduledSourceNode[],
+    nodes: AudioNode[],
+    uncounted = false,
+  ): void {
     const count = sources.length;
     if (count === 0) return;
     if (bus === 'barks') this.stats.barks += count;
     else this.stats.active[bus] += count;
     this.stats.total += count;
+    // Phase 7: sources the mix before Phase 7 never had (hero voices, kept voices).
+    const extra = uncounted || bus === 'barks';
+    const extraSfx = uncounted && bus === 'sfx';
+    if (extra) this.stats.uncounted += count;
+    if (extraSfx) this.stats.uncountedSfx += count;
     if (this.stats.total > this.stats.peakTotal) this.stats.peakTotal = this.stats.total;
     let remaining = count;
     for (const s of sources) {
@@ -502,6 +565,8 @@ export class Engine {
         if (bus === 'barks') this.stats.barks -= count;
         else this.stats.active[bus] -= count;
         this.stats.total -= count;
+        if (extra) this.stats.uncounted -= count;
+        if (extraSfx) this.stats.uncountedSfx -= count;
       };
     }
   }
@@ -621,6 +686,8 @@ export class Voice {
   readonly nodes: AudioNode[] = [];
   endsAt = 0;
   private killed = false;
+  /** Phase 7: a voice the mix before Phase 7 never had (`VoiceHandle.uncounted`). */
+  private readonly uncounted: boolean;
 
   constructor(
     readonly e: Engine,
@@ -628,6 +695,7 @@ export class Voice {
     opts: { dest?: AudioNode; pan?: number; big?: boolean; gain?: number } = {},
   ) {
     const ctx = e.ctx;
+    this.uncounted = e.takeUncounted() || bus === 'barks';
     this.out = ctx.createGain();
     this.out.gain.value = opts.gain ?? 1;
     this.nodes.push(this.out);
@@ -736,9 +804,10 @@ export class Voice {
 
   /** Registers the voice for node accounting; returns a handle for the voice limiter. */
   commit(): VoiceHandle {
-    this.e.track(this.bus, this.sources, this.nodes);
+    this.e.track(this.bus, this.sources, this.nodes, this.uncounted);
     return {
       endsAt: this.endsAt,
+      ...(this.uncounted ? { uncounted: true } : {}),
       kill: (at: number, fade = 0.03) => {
         if (this.killed) return;
         this.killed = true;
