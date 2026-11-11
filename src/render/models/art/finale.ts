@@ -53,6 +53,9 @@ const ASH = '#8c8a74';
 /** The hollow of a hood: no light gets in. */
 const HOLLOW = '#07060d';
 
+/** How brightly a voice's tint burns: low, so the deep glass keeps its own (measured) colour. */
+const TINT_GLOW = 0.5;
+
 const TINT = {
   mirror_alto: '#1c6a48',
   mirror_bass: '#8a2a14',
@@ -135,7 +138,7 @@ function voiceBase(
     p: [0, neck * 0.7, -o.shoulder * 0.62 * w],
     s: [0.6, 3.4 * (s / w), 0.35],
     r: [0.22, 0, 0],
-    glow: 0.75,
+    glow: TINT_GLOW,
   });
   // The capelet over the shoulders: a shade of the same glass, its six facets cut sharp.
   b.cone(
@@ -187,7 +190,7 @@ function voiceBase(
       o.mouth * w,
       0.022 * w,
       tint,
-      { p: up(0, hy - 0.08 * s, -0.215 * w), r: [T, 0, 0], glow: 1, lead: 0, shell: false },
+      { p: up(0, hy - 0.08 * s, -0.215 * w), r: [T, 0, 0], glow: TINT_GLOW, lead: 0, shell: false },
       Math.PI * 2,
       8,
     );
@@ -229,7 +232,7 @@ export function buildAlto(def: EnemyDef): THREE.BufferGeometry {
       { ...BLACK, p: [0, neck + 0.42 * s, 0.42 * w], r: [-1.1, 0, 0] },
       5,
     );
-    b.octa(0.045 * w, tint, { p: [0, neck + 0.55 * s, 0.7 * w], glow: 1, lead: 0 });
+    b.octa(0.045 * w, tint, { p: [0, neck + 0.55 * s, 0.7 * w], glow: TINT_GLOW, lead: 0 });
   });
   // The drawing arm (its right).
   b.rigged({ k: WEAPON, at: [0.22 * w, neck - 0.05 * s, 0], a: -0.7 }, () => {
@@ -266,7 +269,7 @@ export function buildAlto(def: EnemyDef): THREE.BufferGeometry {
           0.03,
           0.03,
           tint,
-          1,
+          TINT_GLOW,
           { shell: false, lead: 0 },
         );
     }
@@ -275,7 +278,7 @@ export function buildAlto(def: EnemyDef): THREE.BufferGeometry {
         p: at(t, -0.03 * w),
         s: [0.6, 1.8, 0.6],
         r: [0, 0, cant],
-        glow: 0.9,
+        glow: TINT_GLOW,
       });
     beam(b, at(1, 0.02 * w), at(-1, 0.02 * w), 0.016, 0.016, PALE, 1, { shell: false, lead: 0 });
   });
@@ -336,7 +339,12 @@ export function buildSoprano(def: EnemyDef): THREE.BufferGeometry {
       w,
     );
   });
-  b.octa(0.15 * w, tint, { p: top, s: [1, 1.6, 1], glow: 1, rig: { k: FLOAT, at: top, a: 0.9 } });
+  b.octa(0.15 * w, tint, {
+    p: top,
+    s: [1, 1.6, 1],
+    glow: TINT_GLOW,
+    rig: { k: FLOAT, at: top, a: 0.9 },
+  });
   for (let i = 0; i < 2; i++) {
     const a = i * Math.PI;
     b.octa(0.07 * w, PALE, {
@@ -396,7 +404,7 @@ export function buildTenor(def: EnemyDef): THREE.BufferGeometry {
       0.035 * w,
       0.05 * w,
       tint,
-      1,
+      TINT_GLOW,
       { shell: false, lead: 0 },
     );
     beam(
@@ -429,11 +437,17 @@ export function buildTenor(def: EnemyDef): THREE.BufferGeometry {
     ];
     b.box(0.6 * w, 1.0 * s, 0.06 * w, PALE, { ...FACET, cell: 0.15 * w, lit: 0.4, p: c, r });
     for (const z of [-0.045 * w, 0.045 * w]) {
-      b.box(0.07 * w, 0.86 * s, 0.02, tint, { p: at(0, 0, z), r, glow: 1, shell: false, lead: 0 });
+      b.box(0.07 * w, 0.86 * s, 0.02, tint, {
+        p: at(0, 0, z),
+        r,
+        glow: TINT_GLOW,
+        shell: false,
+        lead: 0,
+      });
       b.box(0.48 * w, 0.07 * s, 0.02, tint, {
         p: at(0, 0.14 * s, z),
         r,
-        glow: 1,
+        glow: TINT_GLOW,
         shell: false,
         lead: 0,
       });
@@ -479,7 +493,7 @@ export function buildBass(def: EnemyDef): THREE.BufferGeometry {
     0.14 * w,
     0.04 * w,
     tint,
-    0.55,
+    TINT_GLOW,
     { lit: 0.4 },
   );
   // The axe arm (its right): the axe carried low, swung up and over.
@@ -503,7 +517,10 @@ export function buildBass(def: EnemyDef): THREE.BufferGeometry {
       [0.84 * w, ay - 0.46 * s, -0.86 * w],
     ];
     for (let i = 0; i < 2; i++)
-      beam(b, edge[i]!, edge[i + 1]!, 0.05 * w, 0.06 * w, tint, 1, { shell: false, lead: 0 });
+      beam(b, edge[i]!, edge[i + 1]!, 0.05 * w, 0.06 * w, tint, TINT_GLOW, {
+        shell: false,
+        lead: 0,
+      });
   });
   // The other hand, on the haft's foot.
   b.rigged({ k: BRACE, at: [-0.56 * w, neck - 0.08 * s, 0], a: 0.6 }, () => {
@@ -710,7 +727,7 @@ export function buildConductor(def: EnemyDef): THREE.BufferGeometry {
       p: [C[0] + Math.cos(a) * 1.33 * w, C[1] + Math.sin(a) * 1.33 * w, C[2] - 0.05 * w],
       s: [1, 1, 0.6],
       r: [0, 0, a],
-      glow: 0.9,
+      glow: TINT_GLOW,
     });
   }
   // The hood: black, peaked, its hollow face rimmed in pale glass (the first Weaver's hood, its

@@ -165,6 +165,16 @@ export function buildUnweaver(def: EnemyDef): THREE.BufferGeometry {
   });
   // The mantle: a deeper fold of cloth over the shoulders, cut in panes.
   b.cone(1.06 * w, 1.36 * k, DEEP, { ...voidCloth(0.34 * w), p: P(0, 3.16, 0.04) }, 10);
+  // Its hem stitched in bone and teal all round (from above, the mantle's outline).
+  seam(
+    b,
+    Array.from({ length: 11 }, (_, i) => {
+      const t = (i / 10) * Math.PI * 2 + Math.PI / 10;
+      return P(Math.sin(t) * 1.09, 2.5, 0.04 + Math.cos(t) * 1.09);
+    }),
+    0.32,
+    0.06,
+  );
   // The hood: deep and peaked, its face a hollow with two points of bone light.
   b.rigged({ k: HEAD, at: P(0, 3.6, 0) }, () => {
     b.sphere(
