@@ -168,8 +168,16 @@ export class ArtStudio {
       const subject = spec.subject ?? 'kael';
       this.figure(subject, 0, 0, yaw);
       const h = drawnHeight(subject);
+      // A figure longer than it is tall (a hound, a quadruped boss) is framed by its model's
+      // footprint so it is not cropped; an upright one by its content height, as before.
+      const g = this.figures[0]!.batch.geometry;
+      g.computeBoundingBox();
+      const box = g.boundingBox!;
+      const span =
+        Math.max(box.max.x - box.min.x, box.max.z - box.min.z) * this.figures[0]!.batch.drawn;
+      const size = Math.max(h, 0.85 * span);
       const el = (15 * Math.PI) / 180;
-      const d = 2.15 * h;
+      const d = 2.15 * size;
       this.target.set(0, 0.5 * h, 0);
       this.eye.set(0, 0.5 * h + d * Math.sin(el), d * Math.cos(el));
     } else if (spec.layout === 'field') {
