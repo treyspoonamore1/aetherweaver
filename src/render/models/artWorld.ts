@@ -1,5 +1,4 @@
 import type { ArenaLook } from '../crimsonCues';
-import { ART_PASS } from './artFlag';
 import type { ModelMaterial } from './material';
 
 /**
@@ -32,7 +31,7 @@ export const ART_WORLD: Record<ArenaLook, ArtWorld> = {
 /** Fits the model material's lift to the world an arena belongs to (art pass only). */
 export function applyArtWorld(model: ModelMaterial, look: ArenaLook): void {
   const u = model.uniforms;
-  if (!ART_PASS || !u.uLift || !u.uPaneBoost) return;
+  if (!u.uLift || !u.uPaneBoost) return;
   const w = ART_WORLD[look];
   u.uLift.value = w.lift;
   u.uPaneBoost.value = w.panes;

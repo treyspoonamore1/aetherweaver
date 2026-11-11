@@ -126,7 +126,7 @@ export class PartyBarsView {
         }
       }
       this.drawn.push({ ...bar, id });
-      // Over the drawn head: the art pass draws heroes 1.12× (ModelBatch.drawn; 1 while it is off).
+      // Over the drawn head: the art pass draws heroes 1.12× (ModelBatch.drawn).
       overlay?.allyBar(rec.x, rec.height * rec.batch.drawn + BAR_LIFT + rec.y, rec.z, bar);
     });
     if (this.drawnSummons.length > 0) this.drawnSummons.length = 0;

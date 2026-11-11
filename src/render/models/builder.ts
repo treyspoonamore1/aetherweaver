@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { ART_PASS } from './artFlag';
 import { ownRandom } from './ownRandom';
 
 /**
@@ -364,7 +363,7 @@ export class ModelBuilder {
     );
   }
 
-  /** Main's build, verbatim: the plain model while the art pass is off (artFlag.ts). */
+  /** A plain model (an arena's pillar): main's build, no stained-glass attributes. */
   private buildPlain(): THREE.BufferGeometry {
     let vertexCount = 0;
     const prepared: { geo: THREE.BufferGeometry; part: Part }[] = [];
@@ -413,7 +412,7 @@ export class ModelBuilder {
   build(): THREE.BufferGeometry {
     // A plain model (the arena, every figure the art pass has not redrawn) is built exactly as
     // main builds it, on or off; only a `glass` builder carries the art pass's attributes.
-    if (!ART_PASS || !this.glass) return ownRandom(() => this.buildPlain());
+    if (!this.glass) return ownRandom(() => this.buildPlain());
     return ownRandom(() => this.buildGlass());
   }
 

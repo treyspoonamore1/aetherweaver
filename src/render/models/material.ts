@@ -1,7 +1,5 @@
 import * as THREE from 'three';
 import { CHRONO_HEX } from '../chronoCues';
-import { ART_PASS } from './artFlag';
-import { createMainModelMaterial } from './materialMain';
 import { ownRandom } from './ownRandom';
 
 /** A hex colour as a GLSL vec3 literal (linear, like THREE.Color). */
@@ -170,7 +168,6 @@ export const RIG_VERTEX = `transformed = awRig(transformed);`;
 
 export interface ModelMaterial {
   material: THREE.MeshStandardMaterial;
-  /** `uOutline` only while the art pass is on (its stained-glass outline). */
   uniforms: {
     uTime: { value: number };
     uGlow: { value: number };
@@ -190,7 +187,6 @@ const BONE_LEAD_HEX = '#e8e3c8';
 const CRACK_HEX = '#a78bfa';
 
 export function createModelMaterial(): ModelMaterial {
-  if (!ART_PASS) return createMainModelMaterial();
   return ownRandom(createArtModelMaterial);
 }
 

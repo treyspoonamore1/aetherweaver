@@ -105,7 +105,7 @@ export class CombatView implements WorldView {
     ctx.stage.scene.add(this.root);
     this.model = createModelMaterial();
     this.arena = new ArenaView(ctx.arena, ctx.stage, this.model);
-    // Art pass: the figures' outline and self-light fitted to the world (no-op while it is off).
+    // The figures' self-light fitted to the world (models/artWorld.ts).
     applyArtWorld(this.model, arenaLook(ctx.arena));
     this.root.add(this.arena.group);
     this.entities = new EntityLayer(this.model);

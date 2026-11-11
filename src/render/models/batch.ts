@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { ART_PASS } from './artFlag';
 import { createRigDepthMaterial } from './material';
 import { ownRandom } from './ownRandom';
 
@@ -50,7 +49,7 @@ export class ModelBatch {
     geometry.setAttribute('aTint', this.tint);
     geometry.setAttribute('aShine', this.shine);
     // Only a rigged (stained-glass) model takes a pose; any other model is built as main builds it.
-    if (ART_PASS && geometry.getAttribute('aRig')) {
+    if (geometry.getAttribute('aRig')) {
       this.pose = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4);
       this.pose.setUsage(THREE.DynamicDrawUsage);
       geometry.setAttribute('aPose', this.pose);
@@ -59,7 +58,7 @@ export class ModelBatch {
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.frustumCulled = false;
     this.mesh.castShadow = castShadow;
-    if (ART_PASS && geometry.getAttribute('aRig'))
+    if (geometry.getAttribute('aRig'))
       this.mesh.customDepthMaterial = rigDepth ??= ownRandom(createRigDepthMaterial);
     this.mesh.receiveShadow = false;
     this.mesh.count = 0;

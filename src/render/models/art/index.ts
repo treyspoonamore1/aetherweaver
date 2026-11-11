@@ -13,10 +13,10 @@ import { ART as UNWEAVER } from './unweaver';
 import { ART as WEAVER } from './weaver';
 
 /**
- * The art pass's registry: every family file's `ART`, merged. library.ts asks here first while the
- * art pass is on and falls back to main's builder for anything not yet redrawn, so a half-redrawn
- * game always renders. A family adds a figure by adding it to its own file's `ART`; nothing here
- * changes. An id claimed by two families is an error (thrown when this module loads).
+ * The registry of the game's figures: every family file's `ART`, merged. library.ts builds every
+ * figure through it. A family adds or changes a figure in its own file's `ART`; nothing here
+ * changes. An id claimed by two families is an error (thrown when this module loads), and every
+ * content id must have a builder (tests/renderArt.test.ts).
  */
 const FAMILIES: Record<string, ArtFamily> = {
   heroes: HEROES,

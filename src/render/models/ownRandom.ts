@@ -1,12 +1,9 @@
-import { ART_PASS } from './artFlag';
-
 /**
  * Model building's own randomness. three.js gives every geometry, material and mesh an id drawn
  * from `Math.random`, so building a model used to take draws from the shared stream that the
  * fight's particles (and any test that seeds it) also use; a model built lazily, or a shared
- * resource built once per process, then shifted that stream. While the art pass is on, building
- * runs on this fixed-seed generator instead (deterministic, and the shared stream untouched).
- * Off, it is a plain call, exactly as main.
+ * resource built once per process, then shifted that stream. Building runs on this fixed-seed
+ * generator instead (deterministic, and the shared stream untouched).
  */
 let state = 0x2545f491;
 
@@ -18,7 +15,6 @@ function next(): number {
 }
 
 export function ownRandom<T>(fn: () => T): T {
-  if (!ART_PASS) return fn();
   const shared = Math.random;
   Math.random = next;
   try {

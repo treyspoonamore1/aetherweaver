@@ -54,7 +54,7 @@ import {
   recolorModel,
 } from './models/library';
 import { WEAVER_HANDS } from './models/art/weaver';
-import { ART_PASS, HERO_DRAWN, HOSTILE_EDGE } from './models/artFlag';
+import { HERO_DRAWN, HOSTILE_EDGE } from './models/artFlag';
 import {
   SEREN_FLASH,
   SEREN_VIOLET,
@@ -443,39 +443,18 @@ export function weaverRibbons(
   const sideX = -fz;
   const sideZ = fx;
   for (let r = 0; r < 3; r++) {
-    // Art pass: the outer two leave her hands (artPass.ts WEAVER_HANDS, as the Loom draws her),
-    // the middle one the knot at her back; `hist` samples a point just behind her. Off: as main.
-    const hand = ART_PASS && r !== 1;
-    // Art pass: her hands at her drawn scale (`drawn`, 1.12): the ribbons leave them.
-    const off = ART_PASS ? (hand ? (r - 1) * WEAVER_HANDS.side * drawn : 0) : (r - 1) * 0.16;
+    // The outer two leave her hands (art/weaver.ts WEAVER_HANDS, as the Loom draws her), the middle
+    // one the knot at her back; `hist` samples a point just behind her. Her hands are at her drawn
+    // scale (`drawn`, 1.12).
+    const hand = r !== 1;
+    const off = hand ? (r - 1) * WEAVER_HANDS.side * drawn : 0;
     const reach = hand ? (WEAVER_HANDS.forward + 0.18) * drawn : 0;
-    const baseY = ART_PASS ? (hand ? WEAVER_HANDS.y : 1.04) * drawn : 1.12 - r * 0.12;
+    const baseY = (hand ? WEAVER_HANDS.y : 1.04) * drawn;
     const c = r === 1 ? inner : outer;
     kit.ribbons.beginStrip();
     const n = Math.min(count, 18 + r * 3);
     for (let k = 0; k < n; k++) {
       const t = k / (n - 1);
-      if (!ART_PASS) {
-        const px = hist[k * 3] + sideX * off * (1 + t);
-        const pz = hist[k * 3 + 2] + sideZ * off * (1 + t);
-        let flutter = Math.sin(now * 5 + k * 0.55 + r * 2) * 0.09 * t;
-        let droop = t * 0.75;
-        if (lift > 0) {
-          // At rest: a slow swell runs down each ribbon, lifting its tail and easing it aside.
-          droop -= lift * t * (0.6 + 0.4 * Math.sin(now * 1.4 + r * 1.9 - t * 2.6));
-          flutter += lift * 0.6 * t * Math.sin(now * 0.9 + r * 2.4 - t * 1.8);
-        }
-        kit.ribbons.point(
-          px - fx * t * 0.55 + sideX * flutter,
-          hist[k * 3 + 1] + baseY - droop + Math.sin(now * 3.3 + k * 0.4 + r) * 0.06 * t,
-          pz - fz * t * 0.55 + sideZ * flutter,
-          0.075 * (1 - t * 0.7),
-          c,
-          (1 - t) * 0.85,
-          t * 2,
-        );
-        continue;
-      }
       const lead = reach * (1 - t) * (1 - t);
       const px = hist[k * 3] + sideX * off * (1 + 0.5 * t) + fx * lead;
       const pz = hist[k * 3 + 2] + sideZ * off * (1 + 0.5 * t) + fz * lead;
