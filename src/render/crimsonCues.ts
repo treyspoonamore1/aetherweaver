@@ -3,6 +3,7 @@ import { CONTENT, attackDef, enemyDef, partyHasDome } from '../content';
 import type { EntityId, ReadonlyEntity, WorldState } from '../sim';
 import { weaverHealCut } from '../sim';
 import { healReceivedMult, type HealVia } from '../sim/combat/health';
+import { LIT_MOOD } from './lightCues';
 
 /**
  * Movement II, the Crimson Legion (docs/phase-5a.md, Presentation; docs/phase-5a/vfx-audio.md):
@@ -138,7 +139,11 @@ export function arenaLook(def: Pick<ArenaDef, 'id' | 'biome'>): ArenaLook {
 }
 
 /** A mood row: the light; the floor and fog come from the arena's theme (and the rim, if null). */
-type MoodRow = Omit<ArenaMood, 'ground' | 'fog' | 'rim'> & { rim: string | null };
+type MoodRow = Omit<ArenaMood, 'ground' | 'fog' | 'rim'> & {
+  rim: string | null;
+  ground?: string;
+  fog?: string;
+};
 
 /**
  * The per-look mood table (replaces `warm = def.id !== 'sandbox'`). The warm and cool rows are
@@ -147,16 +152,9 @@ type MoodRow = Omit<ArenaMood, 'ground' | 'fog' | 'rim'> & { rim: string | null 
  * tears on the far side only (≤ 0.45, so a hero's edge never reads as Mended), nearer fog.
  */
 const MOODS: Record<ArenaLook, MoodRow> = {
-  crimson: {
-    sky: SPIRE_HEX.sky,
-    hemi: 0.55,
-    key: SPIRE_HEX.torch,
-    keyIntensity: 1.6,
-    rim: SPIRE_HEX.rim,
-    rimIntensity: 0.6,
-    fogNear: 38,
-    fogFar: 84,
-  },
+  // PROTOTYPE (p8/light): the three dark worlds lit to 04 §1 (lightCues.ts LIT_MOOD); the
+  // fog, which the camera sees as the sky behind the rim, and the ground are the row's own.
+  crimson: { ...LIT_MOOD.crimson },
   warm: {
     sky: '#ffe7c2',
     hemi: 0.6,
@@ -177,28 +175,8 @@ const MOODS: Record<ArenaLook, MoodRow> = {
     fogNear: 46,
     fogFar: 96,
   },
-  abyss: {
-    sky: ABYSS_MOOD.sky,
-    hemi: 0.5,
-    key: ABYSS_MOOD.moon,
-    keyIntensity: 1.5,
-    rim: ABYSS_MOOD.rim,
-    rimIntensity: ABYSS_MOOD.rimIntensity,
-    fogNear: 34,
-    fogFar: 80,
-  },
-  // The Celestial Crucible (docs/phase-5d.md): CRUCIBLE_MOOD. The white-gold lives on the
-  // perimeter and in the sky orrery only, never in the light.
-  crucible: {
-    sky: CRUCIBLE_MOOD.sky,
-    hemi: 0.5,
-    key: CRUCIBLE_MOOD.key,
-    keyIntensity: CRUCIBLE_MOOD.keyIntensity,
-    rim: CRUCIBLE_MOOD.rim,
-    rimIntensity: CRUCIBLE_MOOD.rimIntensity,
-    fogNear: 40,
-    fogFar: 90,
-  },
+  abyss: { ...LIT_MOOD.abyss },
+  crucible: { ...LIT_MOOD.crucible },
 };
 
 /** The light mood an arena is lit in: its look's row, with its theme's floor and fog. */
@@ -207,13 +185,13 @@ export function arenaMood(def: Pick<ArenaDef, 'id' | 'biome' | 'theme'>): ArenaM
   const row = MOODS[arenaLook(def)];
   return {
     sky: row.sky,
-    ground: theme.floor,
+    ground: row.ground ?? theme.floor,
     hemi: row.hemi,
     key: row.key,
     keyIntensity: row.keyIntensity,
     rim: row.rim ?? theme.accent,
     rimIntensity: row.rimIntensity,
-    fog: theme.fog,
+    fog: row.fog ?? theme.fog,
     fogNear: row.fogNear,
     fogFar: row.fogFar,
   };

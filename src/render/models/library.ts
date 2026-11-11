@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { EnemyDef, HeroDef } from '../../content';
 import { OWN_PALETTE, type WeaverPalette } from '../keepsakeCues';
 import { ModelBuilder } from './builder';
+import { LIT_MODEL } from '../lightCues';
 import { ALTO, BASS, CONDUCTOR, SOPRANO, TENOR } from '../../content/crucibleIds';
 
 /**
@@ -1053,9 +1054,11 @@ function seam(b: ModelBuilder, x: number, y: number, z: number, len: number, rz 
   const n = Math.max(2, Math.round(len / 0.18));
   for (let i = 0; i < n; i++) {
     const t = (i + 0.5) / n - 0.5;
-    b.box(0.03, 0.12, 0.03, BONE, {
+    // PROTOTYPE (p8/light): the stitches across a seam fray in glowing teal; the seam stays bone.
+    b.box(0.03, 0.12, 0.03, LIT_MODEL.riftFray, {
       p: [x + Math.cos(rz) * t * len, y + Math.sin(rz) * t * len, z],
       r: [0, 0, rz + 0.5],
+      glow: LIT_MODEL.riftFrayGlow,
     });
   }
 }
@@ -1066,7 +1069,9 @@ function seam(b: ModelBuilder, x: number, y: number, z: number, len: number, rz 
  * every role's fallback and from every other (tests/renderMovement3.test.ts). Forward is −z.
  */
 function buildUnstitched(def: EnemyDef, b: ModelBuilder): boolean {
-  const body = def.color;
+  // PROTOTYPE (p8/light): a render-side re-tint of the void cloth (content's colour unchanged):
+  // an indigo light enough to stand off the lit Rift floor.
+  const body = LIT_MODEL.riftCloth;
   const acc = def.accent;
   const r = def.radius;
   const h = def.height;
@@ -1503,6 +1508,10 @@ function buildCrucible(def: EnemyDef, b: ModelBuilder): boolean {
   };
   switch (def.id) {
     case CONDUCTOR: {
+      // PROTOTYPE (p8/light): the "silent" contrast, a white robe and a black hood, collar and
+      // arms (colour only; the shape is unchanged), its stave halo brighter.
+      const body = LIT_MODEL.conductorRobe;
+      const dark = LIT_MODEL.conductorDark;
       // The robe: a tall narrow bell, flaring at the hem.
       b.lathe(
         [
@@ -1519,7 +1528,7 @@ function buildCrucible(def: EnemyDef, b: ModelBuilder): boolean {
       );
       // A high collar and the hooded head, a thin slit of light for eyes.
       b.cyl(r * 0.24, r * 0.34, h * 0.08, dark, { p: [0, h * 0.8, 0] }, 10);
-      b.sphere(r * 0.22, shade(body, 0.12), { p: [0, h * 0.89, 0], s: [0.9, 1.15, 0.9] }, 10, 8);
+      b.sphere(r * 0.22, dark, { p: [0, h * 0.89, 0], s: [0.9, 1.15, 0.9] }, 10, 8);
       b.box(r * 0.22, 0.04, 0.04, acc, { p: [0, h * 0.9, -r * 0.2], glow: 0.8 });
       // The Weaver's ribbons, gone ash: strips wound down the robe and trailing behind.
       for (let i = 0; i < 4; i++) {
@@ -1549,7 +1558,7 @@ function buildCrucible(def: EnemyDef, b: ModelBuilder): boolean {
           r * (0.48 + i * 0.07),
           0.018,
           i === 2 ? acc : ASH,
-          { p: [0, h * 0.93, r * 0.28], glow: i === 2 ? 0.7 : 0.25 },
+          { p: [0, h * 0.93, r * 0.28], glow: i === 2 ? 0.7 : LIT_MODEL.conductorHaloGlow },
           Math.PI * 2,
           28,
         );

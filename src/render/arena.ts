@@ -16,10 +16,9 @@ import {
   CRUCIBLE_HEX,
   CRUCIBLE_SKY_HEX,
   ORRERY,
-  orreryCentre,
-  orreryRadius,
   type CrucibleSky,
 } from './crucibleCues';
+import { LIT_FLOOR, LIT_MOOD, LIT_ORRERY, LIT_RIM, type LitFloor } from './lightCues';
 
 /**
  * Arena (docs/plan/04 §1): a low-contrast, low-detail combat floor in the theme's colours so
@@ -39,7 +38,8 @@ const RIVETS = [
 /** A torch's cards: [kind (0 flame, 1 halo), width, height, base below the coal]. */
 const TORCH_CARDS = [
   [0, 0.55, 1.0, -0.05],
-  [1, 2.6, 2.6, -1.0],
+  // PROTOTYPE (p8/light): a wider halo, so the braziers light the rim the camera sees.
+  [1, LIT_RIM.torchHalo, LIT_RIM.torchHalo, -1.8],
 ] as const;
 
 export class ArenaView {
@@ -208,6 +208,8 @@ export class ArenaView {
     canvas: HTMLCanvasElement,
     floor: THREE.Color,
     rimHex: string = this.def.theme.accent,
+    glow?: HTMLCanvasElement,
+    fogHex?: string,
   ): void {
     const radius = this.def.radius;
     const texture = new THREE.CanvasTexture(canvas);
@@ -219,6 +221,15 @@ export class ArenaView {
       roughness: 0.9,
       metalness: 0.04,
     });
+    if (glow) {
+      // PROTOTYPE (p8/light): the floor's emissive seams, painted on their own canvas.
+      const glowTex = new THREE.CanvasTexture(glow);
+      glowTex.colorSpace = THREE.SRGBColorSpace;
+      glowTex.anisotropy = 4;
+      floorMat.emissive.set('#ffffff');
+      floorMat.emissiveMap = glowTex;
+      this.disposables.push(glowTex);
+    }
     const floorMesh = new THREE.Mesh(floorGeo, floorMat);
     floorMesh.rotation.x = -Math.PI / 2;
     floorMesh.receiveShadow = true;
@@ -228,7 +239,10 @@ export class ArenaView {
     // Outer apron, darker, receding into fog.
     const apronGeo = new THREE.RingGeometry(radius, radius + 40, 96);
     const apronMat = new THREE.MeshStandardMaterial({
-      color: floor.clone().multiplyScalar(0.45),
+      // PROTOTYPE (p8/light): in the dark worlds the apron leans toward the sky's colour.
+      color: fogHex
+        ? floor.clone().multiplyScalar(0.55).lerp(new THREE.Color(fogHex), 0.35)
+        : floor.clone().multiplyScalar(0.45),
       roughness: 1,
     });
     const apron = new THREE.Mesh(apronGeo, apronMat);
@@ -313,15 +327,15 @@ export class ArenaView {
     let base: THREE.BufferGeometry;
     if (this.look === 'crimson') {
       // An obsidian spire column, brass-banded, with a crimson inlay (library.ts).
-      const stone = new THREE.Color(theme.floor).lerp(new THREE.Color(SPIRE_HEX.obsidian), 0.4);
+      const stone = new THREE.Color(LIT_RIM.spirePillar).lerp(new THREE.Color(SPIRE_HEX.obsidian), 0.25);
       base = buildSpirePillar(`#${stone.getHexString()}`, theme.line, SPIRE_HEX.banner);
     } else if (this.look === 'abyss') {
       // A broken slab stitched back together with bone thread (library.ts).
-      const stone = new THREE.Color(theme.floor).lerp(new THREE.Color(ABYSS_HEX.slab), 0.5);
+      const stone = new THREE.Color(LIT_RIM.riftPillar).lerp(new THREE.Color(ABYSS_HEX.slab), 0.25);
       base = buildRiftPillar(`#${stone.getHexString()}`, ABYSS_HEX.bone, ABYSS_HEX.cloth);
     } else if (this.look === 'crucible') {
       // An obsidian glass column, banded in the line colour, a smoky crystal on top (no gold).
-      const stone = new THREE.Color(theme.floor).lerp(new THREE.Color('#3a3550'), 0.5);
+      const stone = new THREE.Color(LIT_RIM.cruciblePillar).lerp(new THREE.Color('#3a3550'), 0.25);
       base = buildCruciblePillar(`#${stone.getHexString()}`, theme.line, CRUCIBLE_HEX.glass);
     } else {
       const stone = new THREE.Color(theme.floor).lerp(new THREE.Color('#e8dcc2'), 0.55);
@@ -494,6 +508,8 @@ void main() {
    * Obsidian iron plates: a plate grid with faint blood-channel grooves and brass inlay rings.
    * As dark and as low in contrast as the Reliquary's flagstones (the same ×0.78), so lethal
    * and threat telegraphs pop; no crimson on the combat disc.
+   * PROTOTYPE (p8/light): painted from LIT_FLOOR's lifted obsidian, with emissive seams (faint
+   * inside, the blood channels glowing crimson toward the rim).
    */
   private createSpireFloor(): THREE.Group {
     const def = this.def;
@@ -504,7 +520,7 @@ void main() {
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext('2d');
-    const floor = new THREE.Color(def.theme.floor).multiplyScalar(0.78);
+    const floor = new THREE.Color(LIT_FLOOR.crimson.floor).multiplyScalar(0.78);
     const floorHex = `#${floor.getHexString()}`;
     const line = def.theme.line;
     if (ctx) {
@@ -579,8 +595,127 @@ void main() {
       ctx.stroke();
       ctx.globalAlpha = 1;
     }
-    this.floorMeshes(group, canvas, floor);
+    this.floorMeshes(group, canvas, floor, def.theme.accent, this.paintGlow('crimson'), LIT_MOOD.crimson.fog);
     return group;
+  }
+
+  /**
+   * PROTOTYPE (p8/light): a floor's emissive seams on their own canvas. The seams glow faintly
+   * on the inner disc (`seamInner`) and more toward the rim (`seamOuter`); the outer course
+   * carries the world's edge glow (the Spire's blood channels, the Rift's teal frays, the
+   * Crucible's prismatic rim). Composited on black, so the colour's strength is its alpha.
+   */
+  private paintGlow(look: 'crimson' | 'abyss' | 'crucible'): HTMLCanvasElement | undefined {
+    const lit: LitFloor = LIT_FLOOR[look];
+    const R = this.def.radius;
+    const size = 1024;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return undefined;
+    const c = size / 2;
+    const px = c / R;
+    const ring = (r: number, w: number, dash: number[] = []) => {
+      ctx.lineWidth = w * px;
+      ctx.setLineDash(dash.map((d) => d * px));
+      ctx.beginPath();
+      ctx.arc(c, c, r * px, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    };
+    const spoke = (a: number, r0: number, r1: number, w: number) => {
+      ctx.lineWidth = w * px;
+      ctx.beginPath();
+      ctx.moveTo(c + Math.cos(a) * r0 * px, c + Math.sin(a) * r0 * px);
+      ctx.lineTo(c + Math.cos(a) * r1 * px, c + Math.sin(a) * r1 * px);
+      ctx.stroke();
+    };
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(c, c, R * px, 0, Math.PI * 2);
+    ctx.clip();
+    // The seams, at full strength, then masked by a radial ramp (inner faint, outer stronger).
+    ctx.strokeStyle = lit.seam;
+    if (look === 'crimson') {
+      for (let g = -R; g <= R; g += 3) {
+        ctx.lineWidth = 0.07 * px;
+        ctx.beginPath();
+        ctx.moveTo(c + g * px, 0);
+        ctx.lineTo(c + g * px, size);
+        ctx.moveTo(0, c + g * px);
+        ctx.lineTo(size, c + g * px);
+        ctx.stroke();
+      }
+      for (const r of [3.2, R * 0.55]) ring(r, 0.08);
+    } else if (look === 'abyss') {
+      for (let r0 = 1.8; r0 < R; r0 += 3.1) ring(Math.min(R, r0 + 3.1), 0.06, [0.35, 0.3]);
+      ring(1.8, 0.06);
+    } else {
+      for (const r of [2.2, R * 0.5]) ring(r, 0.07);
+      for (let i = 0; i < 12; i++) spoke((i / 12) * Math.PI * 2, 2.2, R - 1.2, 0.05);
+      for (let k = 0; k < 5; k++) ring(R * 0.28 + k * 0.32, 0.03);
+    }
+    ctx.globalCompositeOperation = 'destination-in';
+    const ramp = ctx.createRadialGradient(c, c, 0, c, c, R * px);
+    ramp.addColorStop(0, `rgba(0,0,0,${lit.seamInner})`);
+    ramp.addColorStop(0.45, `rgba(0,0,0,${lit.seamInner})`);
+    ramp.addColorStop(0.8, `rgba(0,0,0,${lit.seamOuter})`);
+    ramp.addColorStop(1, `rgba(0,0,0,${lit.seamOuter})`);
+    ctx.fillStyle = ramp;
+    ctx.fillRect(0, 0, size, size);
+    ctx.globalCompositeOperation = 'source-over';
+    // The edge glow, outer course only.
+    ctx.strokeStyle = lit.edge;
+    ctx.globalAlpha = Math.min(1, lit.edgeGlow);
+    if (look === 'crimson') {
+      // The six blood channels, kindling from half-way out to the rim.
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+        const steps = 8;
+        for (let k = 0; k < steps; k++) {
+          const r0 = R * (0.5 + (0.5 * k) / steps);
+          ctx.globalAlpha = Math.min(1, lit.edgeGlow) * ((k + 1) / steps);
+          spoke(a, r0, r0 + (R * 0.5) / steps, 0.16);
+        }
+      }
+      ctx.globalAlpha = Math.min(1, lit.edgeGlow);
+      ring(R - 1.2, 0.1);
+      ring(R - 0.25, 0.3);
+    } else if (look === 'abyss') {
+      // Teal frays: short loose threads across the outer seam, and a frayed hem at the rim.
+      let seed = 29;
+      const rand = () => {
+        seed = (seed * 16807) % 2147483647;
+        return seed / 2147483647;
+      };
+      const rOut = R - 0.6;
+      for (let k = 0; k < 160; k++) {
+        const a = rand() * Math.PI * 2;
+        const r = rOut - rand() * 2.2;
+        const len = 0.25 + rand() * 0.45;
+        const t = a + (rand() - 0.5) * 0.6;
+        ctx.lineWidth = 0.05 * px;
+        ctx.beginPath();
+        ctx.moveTo(c + Math.cos(a) * r * px, c + Math.sin(a) * r * px);
+        ctx.lineTo(
+          c + (Math.cos(a) * r + Math.cos(t) * len) * px,
+          c + (Math.sin(a) * r + Math.sin(t) * len) * px,
+        );
+        ctx.stroke();
+      }
+      ring(R - 0.3, 0.22, [0.5, 0.25]);
+    } else {
+      ring(R - 1.2, 0.1);
+      ring(R - 0.3, 0.25);
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+    ctx.globalCompositeOperation = 'destination-over';
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, size, size);
+    ctx.globalCompositeOperation = 'source-over';
+    return canvas;
   }
 
   /**
@@ -591,8 +726,9 @@ void main() {
   private createRamparts(model: ModelMaterial): void {
     const theme = this.def.theme;
     const stone = new THREE.Color(theme.floor).lerp(new THREE.Color(SPIRE_HEX.obsidian), 0.5);
-    const stoneHex = `#${stone.clone().lerp(new THREE.Color('#5a4e52'), 0.35).getHexString()}`;
-    const darkHex = `#${stone.getHexString()}`;
+    // PROTOTYPE (p8/light): the rampart stone lifted (LIT_RIM), so the rim reads against the sky.
+    const stoneHex = `#${stone.clone().lerp(new THREE.Color(LIT_RIM.spireStone), 0.65).getHexString()}`;
+    const darkHex = `#${stone.clone().lerp(new THREE.Color(LIT_RIM.spireStone), 0.35).getHexString()}`;
     const brass = theme.line;
     const b = new ModelBuilder();
     const R = this.def.radius;
@@ -622,6 +758,7 @@ void main() {
           b.box(0.85, h * 0.6, 0.05, SPIRE_HEX.banner, {
             p: [fx, 0.4 + h * 0.62, fz],
             r: [0, -a + Math.PI / 2, 0],
+            glow: LIT_RIM.spireBannerGlow,
           });
           b.box(0.95, 0.07, 0.08, brass, {
             p: [fx, 0.4 + h * 0.93, fz],
@@ -753,7 +890,7 @@ void main() {
   } else {
     // The halo: a soft warm glow round the brazier.
     float d = length(p);
-    a = exp(-d * d * 3.5) * 0.22 * flicker;
+    a = exp(-d * d * 3.5) * ${LIT_RIM.torchHaloAlpha.toFixed(2)} * flicker;
     col = uColor;
   }
   gl_FragColor = vec4(col, a);
@@ -854,7 +991,8 @@ void main() {
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext('2d');
-    const floor = new THREE.Color(def.theme.floor).multiplyScalar(0.78);
+    // PROTOTYPE (p8/light): a lit indigo (LIT_FLOOR), the seams faintly emissive.
+    const floor = new THREE.Color(LIT_FLOOR.abyss.floor).multiplyScalar(0.78);
     const floorHex = `#${floor.getHexString()}`;
     const line = def.theme.line;
     if (ctx) {
@@ -935,7 +1073,7 @@ void main() {
       }
       ctx.globalAlpha = 1;
     }
-    this.floorMeshes(group, canvas, floor, line);
+    this.floorMeshes(group, canvas, floor, line, this.paintGlow('abyss'), LIT_MOOD.abyss.fog);
     return group;
   }
 
@@ -947,8 +1085,9 @@ void main() {
   private createRiftRim(model: ModelMaterial): void {
     const theme = this.def.theme;
     const slab = new THREE.Color(theme.floor).lerp(new THREE.Color(ABYSS_HEX.slab), 0.5);
-    const slabHex = `#${slab.clone().lerp(new THREE.Color('#5a5878'), 0.3).getHexString()}`;
-    const darkHex = `#${slab.getHexString()}`;
+    // PROTOTYPE (p8/light): lifted indigo slabs (LIT_RIM).
+    const slabHex = `#${slab.clone().lerp(new THREE.Color(LIT_RIM.riftStone), 0.7).getHexString()}`;
+    const darkHex = `#${slab.clone().lerp(new THREE.Color(LIT_RIM.riftStone), 0.35).getHexString()}`;
     const cloth = ABYSS_HEX.cloth;
     const bone = ABYSS_HEX.bone;
     const b = new ModelBuilder();
@@ -987,7 +1126,9 @@ void main() {
             r: [0, -a + Math.PI / 2, 0.05],
           });
           for (let k = 0; k < 3; k++) {
-            b.box(0.18, 0.4, 0.04, cloth, {
+            // PROTOTYPE (p8/light): the ragged hem frays in glowing teal (ABYSS_HEX.fray).
+            b.box(0.18, 0.4, 0.04, ABYSS_HEX.fray, {
+              glow: LIT_RIM.riftFrayGlow,
               p: [
                 fx + Math.sin(a) * (k - 1) * 0.3,
                 lift - ch - 0.05,
@@ -999,9 +1140,10 @@ void main() {
         }
         // A rift tear behind every other far slab.
         if (i % 2 === 1) {
-          const tx = Math.cos(a) * (R + 6.5);
-          const tz = Math.sin(a) * (R + 6.5);
-          this.tearSpots.push(tx, 0.4, tz, 4.5 + ((i * 3) % 3) * 1.2);
+          // PROTOTYPE (p8/light): the tears hang just past the rim, taller, where the camera sees.
+          const tx = Math.cos(a) * (R + LIT_RIM.tearOut);
+          const tz = Math.sin(a) * (R + LIT_RIM.tearOut);
+          this.tearSpots.push(tx, 0.2, tz, (4.5 + ((i * 3) % 3) * 1.2) * LIT_RIM.tearScale);
         }
       }
     }
@@ -1203,7 +1345,8 @@ void main() {
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext('2d');
-    const floor = new THREE.Color(def.theme.floor).multiplyScalar(0.78);
+    // PROTOTYPE (p8/light): deep blue-violet glass (LIT_FLOOR), not black; never white-gold.
+    const floor = new THREE.Color(LIT_FLOOR.crucible.floor).multiplyScalar(0.78);
     const floorHex = `#${floor.getHexString()}`;
     const line = def.theme.line;
     if (ctx) {
@@ -1285,7 +1428,7 @@ void main() {
       }
       ctx.globalAlpha = 1;
     }
-    this.floorMeshes(group, canvas, floor, line);
+    this.floorMeshes(group, canvas, floor, line, this.paintGlow('crucible'), LIT_MOOD.crucible.fog);
     return group;
   }
 
@@ -1313,13 +1456,17 @@ void main() {
       // An obsidian footing, and a choir stall on it: a low bench and a back (taller far off).
       b.box(1.8, 0.3, 1.2, footHex, { p: [x, 0.15, z], r: [0, -a + Math.PI / 2, 0] });
       const back = near ? 0.35 : 1.2 + ((i * 5) % 3) * 0.3;
-      b.box(1.6, 0.3, 0.6, stall, { p: [x, 0.45, z], r: [0, -a + Math.PI / 2, 0], glow: 0.1 });
+      b.box(1.6, 0.3, 0.6, stall, {
+        p: [x, 0.45, z],
+        r: [0, -a + Math.PI / 2, 0],
+        glow: LIT_RIM.stallGlow,
+      });
       const bx = Math.cos(a) * (r + 0.4);
       const bz = Math.sin(a) * (r + 0.4);
       b.box(1.6, back, 0.12, stall, {
         p: [bx, 0.6 + back / 2, bz],
         r: [0, -a + Math.PI / 2, 0],
-        glow: 0.12,
+        glow: LIT_RIM.stallGlow,
       });
       if (near) continue;
       // Organ pipes behind every far stall: a rank of five, the middle tallest.
@@ -1330,7 +1477,7 @@ void main() {
         const h = 3.2 + (2 - Math.abs(t)) * 1.1 + ((i * 3) % 2) * 0.8;
         const ox = Math.sin(a) * t * 0.36;
         const oz = -Math.cos(a) * t * 0.36;
-        b.cyl(0.14, 0.15, h, pipe, { p: [px + ox, h / 2, pz + oz], glow: 0.08 }, 6);
+        b.cyl(0.14, 0.15, h, pipe, { p: [px + ox, h / 2, pz + oz], glow: LIT_RIM.pipeGlow }, 6);
         b.cone(0.15, 0.22, pipe, { p: [px + ox, h * 0.18, pz + oz], r: [Math.PI, 0, 0] }, 6);
       }
       // A prism shard leaning out of every other far stall.
@@ -1362,17 +1509,18 @@ void main() {
    * relights one, from the innermost. Uniforms `uStems[4]`, `uNotes` (−1: no silence), `uBeat`.
    */
   private createSkyOrrery(): THREE.Mesh {
-    const centre = { x: 0, y: 0, z: 0 };
-    orreryCentre(this.def.radius, centre);
+    // PROTOTYPE (p8/light): the orrery brought into frame. Its eight rings are laid nearly flat
+    // round the stage (LIT_ORRERY), from just outside the disc's edge, leaning up a little toward
+    // the far side: white-gold rings the camera sees round the fight, never on the disc.
+    const inner = this.def.radius + LIT_ORRERY.clear;
+    const sinT = Math.sin(LIT_ORRERY.tilt);
+    const cosT = Math.cos(LIT_ORRERY.tilt);
     const positions: number[] = [];
     const uvs: number[] = [];
     const rings: number[] = [];
     const index: number[] = [];
-    // The plane's axes: x across, and up-and-toward the arena.
-    const vy = Math.sin(ORRERY.tilt);
-    const vz = Math.cos(ORRERY.tilt);
     for (let i = 0; i < ORRERY.rings; i++) {
-      const r = orreryRadius(i) + 0.4;
+      const r = inner + LIT_ORRERY.step * i + 0.4;
       const base = positions.length / 3;
       for (const [u, v] of [
         [-1, -1],
@@ -1380,7 +1528,7 @@ void main() {
         [1, 1],
         [-1, 1],
       ] as const) {
-        positions.push(centre.x + u * r, centre.y + v * r * vy, centre.z + v * r * vz);
+        positions.push(u * r, LIT_ORRERY.lift - v * r * sinT, v * r * cosT);
         uvs.push(u * r, v * r);
         rings.push(i);
       }
@@ -1397,8 +1545,8 @@ void main() {
         ...this.skyUniforms,
         uColor: { value: new THREE.Color(CRUCIBLE_SKY_HEX.orrery) },
         uDim: { value: new THREE.Color(CRUCIBLE_HEX.silence) },
-        uInner: { value: ORRERY.inner },
-        uStep: { value: ORRERY.step },
+        uInner: { value: inner },
+        uStep: { value: LIT_ORRERY.step },
       },
       vertexShader: /* glsl */ `
 attribute float aRing;

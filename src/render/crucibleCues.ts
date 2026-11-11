@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { LIT_ORRERY } from './lightCues';
 import type { ArenaDef } from '../content';
 import { CONTENT } from '../content';
 import { CRUCIBLE_ARENA, DISCORD_MAX, NOTES_NEEDED } from '../content/crucibleIds';
@@ -234,10 +235,12 @@ export function orreryTop(
   i: number,
   out: { x: number; y: number; z: number },
 ): void {
-  orreryCentre(radius, out);
-  const r = orreryRadius(i);
-  out.y += r * Math.sin(ORRERY.tilt);
-  out.z += r * Math.cos(ORRERY.tilt);
+  // PROTOTYPE (p8/light): the lit orrery (lightCues.ts LIT_ORRERY) rings the stage nearly flat;
+  // a note flies to ring i's far point.
+  const r = radius + LIT_ORRERY.clear + LIT_ORRERY.step * i;
+  out.x = 0;
+  out.y = LIT_ORRERY.lift + r * Math.sin(LIT_ORRERY.tilt);
+  out.z = -r * Math.cos(LIT_ORRERY.tilt);
 }
 
 /** What the orrery shows this frame (ArenaView.update's `sky`). */
