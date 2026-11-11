@@ -872,4 +872,259 @@ Both reviews found ground rules 1-3 holding: every pin passed, the goldens were 
 
 **Housekeeping**: the remote backup branches can be deleted once the release is tagged: `origin/backup/integ-p6`, `origin/backup/integ-p7`, `origin/backup/p6-W2`, `origin/backup/p6-W5`, `origin/backup/p6-W7` (as this checkout last fetched them; the older stream branches `5g-*`, `m5/*`, `integ-5g` and `wip/5f-w5` are there too).
 
-<!-- RELEASE-MEASUREMENTS -->
+## Release measurements
+
+Read on the release candidate, `f74a46b` (a detached checkout of main), with no number changed. The machine was shared with a long browser run, so every harness command ran alone, one at a time, at the reduced sizes said with each table.
+
+**In short.** The sim tick budget is met. Every tier reading equals Phase 6's final tables run for run where they were read on the same sim (tiers 0-II both bots, and the Expert at Tier IV: 870 runs); tier III and the Skilled bot at Tier IV differ from Phase 6's tables because those were read before Phase 6's own round 2 changed Tyrant, and they equal the end-of-Phase-6 tree's. So no band moved: met at tiers 0, I (Expert), II (Skilled), III and IV (Expert); missed, as known, at Tier I (Skilled −5 / −4 / −7 against −10) and Tier II (the Expert's 80% on 900007). No Movement cell is outside its band at 20 seeds (15 readings on the edge). The report tools of Phase 6's ground rule 1 print what they printed before Phase 6, byte for byte. Pillar 1: Perfect Ward rate correlates with grade (+0.29 within an encounter, +0.17 over runs) and with a fight's length against its par (−0.16), not with a whole run's minutes once the Calling is held fixed. Pillar 3: **missed**, 16.3% of downs in whole runs (28.5% in cells) name a telegraph and an answer; after Movement I every telegraph down names an answer, Movement I's never do. Pillar 4: heroes have no action for about 2% of their standing time with the Skilled or Expert Weaver (15% at the Silent Conductor). Pillar 5: no preset is best in every cell; 6 of 6 presets win ≥ 50% at Tier I.
+
+### The sim tick budget
+
+`npm run sim:bench -- --check` (its own nine scenes, full length). **Met**: "within budget", exit 0.
+
+| Scene | Ticks | Entities (up to) | ms/tick avg | p95 | p99 |
+|---|---|---|---|---|---|
+| crowd | 3,600 | 250 | 0.144 | 0.189 | 0.561 |
+| skilled-first-light | 2,400 | 12 | 0.139 | 0.122 | 4.192 |
+| novice-cantor | 5,400 | 9 | 0.040 | 0.035 | 0.100 |
+| hound-pack | 5,400 | 13 | 0.076 | 0.061 | 0.260 |
+| unweaver-peak | 5,400 | 17 | 0.078 | 0.084 | 0.544 |
+| conductor-peak | 5,400 | 9 | 0.059 | 0.055 | 0.175 |
+| grand-silence | 4,500 | 5 | 0.028 | 0.024 | 0.084 |
+| grove-peak | 5,400 | 17 | 0.115 | 0.117 | 1.471 |
+| crowd-150 | 2,640 | 160 | 0.331 | 0.406 | 0.912 |
+
+The budget is 1.5 ms a tick at 250 entities: the crowd scene's p95 is 0.189 ms (the doc's earlier reading was 0.186 ms). The p99 of 4.2 ms in the first-light scene is the warm-up and the shared machine's load (the check reads p95); it is not a budget the tool asserts.
+
+### The Dissonance tiers
+
+**Command.** The tiers were played by a scratch probe (`/home/user/aw-work/7/w9b/probes/tiers.ts`) that plays exactly what `tools/dissonance.ts --tiers` plays: the same `TIERS` sets, `TIER_CALLINGS` by seed, `rank20Build()`, Guardian, `expertPolicy` for the Expert only, seeds base + i × 104729, `playRun` with `movements: 4`. It adds read-only `onEvents`, `onFight` and `onEnd` hooks (for the pillar readings below) and writes one line a run (`tiers.jsonl`), so a restart lost nothing. The equivalent tool command is `npx tsx tools/dissonance.ts --tiers --sets --seeds 50 --bots expert` and `--seeds 30 --bots skilled`. To show the probe plays what the tool plays, `npx tsx tools/dissonance.ts --tiers --sets --seeds 4 --bots expert,skilled` was run as well: its 30 run lines equal, character for character, the lines rebuilt from the probe's first 4 runs of each set (`probes/toollines.py`).
+
+**Size.** Phase 6's reduced protocol, its own final size: the Expert 50 seeds on each of 2000, 900007 and 333003; the Skilled bot (same build, the harness's run policy) 30 a set. The Novice and Idle bots were not run at the tiers (as in Phase 6).
+
+**Against Phase 6.** Every run was compared with Phase 6's per-run files (`/home/user/aw-work/6/w8/tf-0.jsonl`, `tf-1.jsonl`, `tf3.jsonl`, `tfs.jsonl`; Tier IV against round 2's `/home/user/aw-work/6/w8b/tIV-0.jsonl`, `tIV-1.jsonl`): the same seed, the same fights in the same order, each fight's outcome and length to the second, and the run's minutes. "Same" in the tables means every one of those matched.
+
+| Tier | Bot | 2000 | 900007 | 333003 | Band | Verdict | Run for run against Phase 6 |
+|---|---|---|---|---|---|---|---|
+| 0 | Expert | 49/50 (98%) | 50/50 (100%) | 49/50 (98%) | ≥ 90% | **met** (inside on all three) | 150 of 150 the same |
+| 0 | Skilled | 29/30 (97%) | 29/30 (97%) | 29/30 (97%) | reported | reported | 90 of 90 the same |
+| I (10) | Expert | 44/50 (88%) | 42/50 (84%) | 45/50 (90%) | 70-90% | **met** (edge on 2000 and 333003, inside on 900007) | 150 of 150 the same |
+| I (10) | Skilled | 25/30 (83%) | 24/30 (80%) | 25/30 (83%) | ≤ Expert − 10 | **missed** on all three (−5 / −4 / −7) | 90 of 90 the same |
+| II (20) | Expert | 35/50 (70%) | 40/50 (80%) | 34/50 (68%) | 40-70% | **missed** on 900007 (outside); edge on the other two | 150 of 150 the same |
+| II (20) | Skilled | 16/30 (53%) | 11/30 (37%) | 10/30 (33%) | ≤ Expert − 10 | **met** (−17 / −43 / −35) | 90 of 90 the same |
+| III (30) | Expert | 17/50 (34%) | 12/50 (24%) | 17/50 (34%) | 15-40% | **met** (inside on all three) | 26 of 150 the same (see below) |
+| III (30) | Skilled | 4/30 (13%) | 2/30 (7%) | 2/30 (7%) | ≤ Expert − 5 | **met** (−21 / −17 / −27) | 31 of 90 the same (see below) |
+| IV (42) | Expert | 9/50 (18%) | 8/50 (16%) | 7/50 (14%) | 2-15%, above 0 on every set | **met** by the doc's reading (edge on 2000 and 900007, inside on 333003; above 0 on all three) | 150 of 150 the same as round 2 |
+| IV (42) | Skilled | 5/30 (17%) | 1/30 (3%) | 2/30 (7%) | reported | reported | 38 of 90 the same as round 1 (round 2 did not read the Skilled bot) |
+
+Over the three sets, the Expert reached the Finale in 148, 132, 109, 46 and 29 runs at tiers 0 to IV and won 148, 131, 109, 46 and 24 of them (won ÷ reached 100%, 99%, 100%, 100%, 83%); minutes of combat a run 17.5, 23.7, 21.8, 12.9, 12.0. The commonest loss at tiers III and IV is the Hollow Cantor (30 and 45 of the Expert's runs).
+
+**Tiers 0, I and II, and the Expert at Tier IV, are Phase 6's final tables run for run** (870 of 870 runs the same). **Tier III and the Skilled bot at Tier IV differ from the tables, but not because of Phase 7.** Tier III's set holds Tyrant and Mimicry (`TIERS` in `tools/dissonance.ts`), and Phase 6's tier III table (`tf-*`) was read before round 2 changed Tyrant's pacing in the sim (`e8b6839`); round 2 re-read only the Expert at Tier IV, and its "not measured" list says tiers 0-III hold no Tyrant or Mimicry, which is true of 0-II only. To make sure, the same probe played tier III (10 Expert and 10 Skilled runs on 2000) on the tree at the end of Phase 6 (`6a2b5eb`, extracted under the scratch folder): all 20 runs equal the release candidate's, every fight and every count. So the tier III and Skilled tier IV readings above are the first on the round-2 sim, and they replace Phase 6's: the Expert's tier III reads 34 / 24 / 34% (Phase 6: 32 / 26 / 38%), still inside its band; the Skilled bot's 13 / 7 / 7% (10 / 7 / 13%), and at Tier IV 17 / 3 / 7% (17 / 7 / 3%). No reading moved beyond seed noise, and none moved between the end of Phase 6 and the release candidate.
+
+**The bands, as Phase 6 left them, are unchanged:** met at tiers 0, I (Expert), II (Skilled), III (both) and IV (Expert, on the edge); missed at Tier I (Skilled not 10 below the Expert, −5 / −4 / −7) and Tier II (the Expert's 80% on 900007). Those are *Balance* items 1-3, as known.
+
+### Pillar 1: Perfect Ward rate against grade and clear time
+
+**Command.** `python3 -I /home/user/aw-work/7/w9b/probes/pillar1.py tiers.jsonl 0 expert`, over the tier-0 Expert runs above (150 whole Finale-route Expeditions, 50 on each set; 2,206 fights). No tool measured this before. What it counts, all from the harness's own events and the run's own results: Wards cast (`techniqueCast` with `ward`), Perfect Wards (`perfectWard`), telegraph hits aimed at a hero (`telegraphResolved` with a hero target, `cancelled` left out); each fight's `grade` (S 4, A 3, B 2, C 1, D 0) and `duration ÷ par` from its `EncounterResult`; the run's minutes of combat. Rate = Perfect ÷ Wards cast. Correlations are Pearson's (with a 95% interval) and Spearman's.
+
+Over the 150 runs: 16,362 Wards, 8,193 Perfect (50.1%); 36.0% of telegraph hits aimed at a hero met a Perfect Ward; the run rate runs from 0.36 to 0.67 (median 0.51). Grades: 1,477 S, 505 A, 222 B, 2 D.
+
+| Reading | n | Pearson (95%) | Spearman |
+|---|---|---|---|
+| Run: rate against mean fight grade | 150 | +0.17 (+0.01 to +0.32) | +0.13 |
+| Run: rate against mean grade, within Calling (won runs) | 148 | +0.32 (+0.17 to +0.46) | +0.36 |
+| Run: rate against minutes of combat (won runs) | 148 | −0.36 (−0.49 to −0.21) | −0.41 |
+| Run: rate against minutes, within Calling (won runs) | 148 | −0.02 (−0.18 to +0.14) | −0.04 |
+| Run: rate against won | 150 | +0.27 (+0.11 to +0.41) | +0.19 |
+| Fight, within encounter (≥ 3 Wards): rate against grade | 1,614 | +0.29 (+0.24 to +0.33) | +0.32 |
+| Fight, within encounter (≥ 3 Wards): rate against length ÷ par | 1,614 | −0.16 (−0.21 to −0.11) | −0.15 |
+
+The reading: **with grade, a positive correlation (met in direction, weak to moderate); with clear time, only within a fight.** Within an encounter, a fight with more of its Wards Perfect is graded higher and ends sooner against its par. Across whole runs the minutes correlation (−0.36) comes from the Callings, not from the Wards: Conductor runs are much shorter (10.9 min against 18-20) and the Conductor runs also Ward best (0.535; Martyr runs 0.438). Within a Calling it is zero. Two cautions: the grade counts Perfect Wards itself (`grade()` in `src/meta/run.ts` adds 5 a Perfect Ward, up to 20), so part of the grade correlation is by construction; and at tier 0 the Expert wins 148 of 150, so grade and minutes vary little. Pillar 1 names no number, so "met" here means only that the sign is the one the pillar asks for. For scale, the Skilled bot's 90 tier-0 runs read +0.23 within encounter against grade and −0.13 against length ÷ par.
+
+### Pillar 3: downs whose recap names a telegraph and an answer
+
+**Command.** `python3 -I /home/user/aw-work/7/w9b/probes/pillar3.py tiers.jsonl tier`, over every down in the tier runs above (1,200 whole Finale-route Expeditions: the Expert 50 a set and the Skilled bot 30 a set on 2000, 900007 and 333003, at all five tiers; 4,046 downs). No tool measured this before. What it counts, for each down in a fight's `EncounterResult.deaths` (the recap the Result screen draws):
+
+- *names a telegraph*: the hit that downed the hero was a telegraph's (the hero's last `damageTaken` before its `allyDowned`, in the same tick, carries a `telegraph`); the recap's headline then names that attack ("fell to Toll");
+- *names an answer*: `deathAdviceLine(death, party, calling, reel)`, the line the Result screen prints under the recap (`src/ui/screens/ResultScreen.tsx`), is not null.
+
+| Tier | Bot | Downs | Telegraph | Answer | Both |
+|---|---|---|---|---|---|
+| 0 | Expert | 42 | 57.1% | 45.2% | 28.6% |
+| 0 | Skilled | 66 | 84.8% | 39.4% | 36.4% |
+| I | Expert | 271 | 77.1% | 35.4% | 33.2% |
+| I | Skilled | 310 | 79.7% | 31.3% | 29.4% |
+| II | Expert | 456 | 63.2% | 30.5% | 25.4% |
+| II | Skilled | 450 | 64.4% | 17.3% | 14.7% |
+| III | Expert | 681 | 52.0% | 16.3% | 11.0% |
+| III | Skilled | 526 | 58.9% | 16.7% | 10.5% |
+| IV | Expert | 758 | 54.4% | 19.9% | 11.5% |
+| IV | Skilled | 486 | 54.1% | 17.3% | 8.6% |
+| all | | 4,046 | 60.6% | 22.0% | **16.3%** |
+
+**Missed** against the pillar's 100%. The cause is by design rather than a fault: Movement I's recaps name no answer at all (`deathAnswerLine` reads only Movement II's damage-over-time and telegraph answers; its comment says "Null when the recap has none (every Movement I death)"), and most downs in whole runs at Dissonance are in Movement I: 2,431 of the 4,046, none of them with an answer line, against 889 of the 1,615 downs after Movement I (55%). The commonest downs with no answer line are Movement I's: a Hollow Chorister's blow (822, not a telegraph), Toll (601), Requiem (499), Toll Cleave (288, the Bell Brute's), Glass Lance (146), Dirge (120). Of the downs to a telegraph, 1,795 name no answer. A looser reading counts the "Ready but unused" line too, when it names techniques that were ready (`deathReadyLine` with kind `ready`: for a death with no named answer it lists what was ready): 75.7% of downs then name something to do, and 43.4% a telegraph as well. The Movement split is in the cell reading below.
+
+**The same reading over the cells** (`python3 -I /home/user/aw-work/7/w9b/probes/pillar3.py cells.jsonl m`: every down in the 2,160 cell fights below, four bots, 20 seeds a cell; 3,042 downs), by Movement:
+
+| Movement | Downs | Telegraph | Answer | Both | Telegraph downs with no answer |
+|---|---|---|---|---|---|
+| I | 956 | 74.3% | 0.0% | 0.0% | 710 |
+| II | 969 | 35.6% | 73.3% | 35.6% | 0 |
+| III | 961 | 43.4% | 44.5% | 43.4% | 0 |
+| IV | 156 | 67.3% | 100.0% | 67.3% | 0 |
+| all | 3,042 | 51.8% | 42.5% | **28.5%** | 710 |
+
+So **after Movement I, every down to a telegraph names an answer** (no exception in either reading: in the tier runs, all 1,795 telegraph downs without one are Movement I's). What is left are Movement I's downs (none has an answer line) and, in Movements II and III, downs to a plain blow (a Sanguine Hound's bite, a Crimson Sentinel's, the Unweaver's own strike), whose recap names the enemy and, in Movement III, no answer. The Finale names an answer for every down. With the "Ready but unused" line counted too, 93.4% of cell downs name something to do.
+
+### The harness bands by Movement (cells)
+
+Phase 6's tuning read no Movement cells (its tables are the tiers and the levels' costs), so there is no Phase 6 cell table to set these against; the bands are each Movement's own (Movement I: `docs/phase-1.md`'s difficulty contract, which no harness row prints, its First Light "≈ 100%" for the Novice read as ≥ 95%; Movements II-IV: `tools/harness.ts` `MOVEMENT_BANDS`, from docs/phase-5a, 5c and 5d). The Expert has no cell band (its only one is the True Dissonance reference at the Conductor), so its column is reported.
+
+**Command.** A scratch probe (`/home/user/aw-work/7/w9b/probes/cells.ts`) that plays each Movement's cells as `tools/harness.ts --movement N --bots idle,novice,skilled,expert --seeds 20` does: the harness's own `parseArgs` (so the same fight list, kit and loadout: Movement I bare with Sostenuto + Fortissimo, Movement II the arrival kit, III `ARRIVAL3_KIT`, IV `ARRIVAL4_KIT`), seeds 1000 + i × 7919, `playEncounter`, with a read-only watch (for pillars 3 and 4). Tables: `python3 -I /home/user/aw-work/7/w9b/probes/celltable.py cells.jsonl`.
+
+**Size.** 20 seeds a cell on cell base 1000, the default party, four bots (2,160 fights). This is below the 5a-5d protocol's 50 seeds a cell, at the size Phase 6's tuning used for single cells (20 seeds on a base), so one standard error is about 10 points at 50% and 5-7 points near 90%. A cell is *edge* within one standard error of a bound, as Phase 6 reads it.
+
+**Against the pins.** The first 10 seeds of every Idle, Novice and Skilled cell in Movements II-IV are the committed cell baselines' fights (`tools/m2-baseline.json`, `m3-`, `m4-`: same kit, same seeds): all 540 match exactly (outcome, length, downs, Perfect Wards, share). (Movement I's baseline plays Guardian, not the harness's default loadout, so it is not the same fight.)
+
+#### Movement 1
+
+| Fight | Idle | Novice | Skilled (won · s · share) | Expert (won · s · share) | Bands: Idle / Novice / Skilled | Verdict |
+|---|---|---|---|---|---|---|
+| first_light | 4/20 | 20/20 | 20/20 · 30 · 47% | 20/20 · 29 · 46% | ≤40% / ≥95% / ≥100% · share ≥35% | all inside |
+| tolling_halls | 0/20 | 17/20 | 20/20 · 37 · 45% | 20/20 · 39 · 46% | ≤30% / ≥75% / ≥80% · share ≥35% | all inside |
+| glass_gallery | 1/20 | 18/20 | 17/20 · 36 · 46% | 20/20 · 35 · 48% | ≤30% / ≥75% / ≥80% · share ≥35% | skilled edge (85% against ≥80%) |
+| choir_loft | 0/20 | 20/20 | 20/20 · 28 · 47% | 20/20 · 30 · 48% | ≤30% / ≥75% / ≥80% · share ≥35% | all inside |
+| mourning_steps | 2/20 | 20/20 | 20/20 · 35 · 49% | 20/20 · 35 · 48% | ≤30% / ≥75% / ≥80% · share ≥35% | all inside |
+| muted_nave | 0/20 | 12/20 | 20/20 · 47 · 52% | 20/20 · 52 · 53% | 0% / 40-85% / ≥90% · share ≥35% | all inside |
+| shattered_choir | 0/20 | 16/20 | 20/20 · 47 · 48% | 20/20 · 41 · 50% | 0% / 40-85% / ≥90% · share ≥35% | novice edge (80% against 40-85%) |
+| bellwarden | 0/20 | 13/20 | 20/20 · 56 · 49% | 20/20 · 53 · 49% | 0% / 40-70% / ≥90% · share ≥35% | novice edge (65% against 40-70%) |
+| hollow_cantor | 0/20 | 12/20 | 19/20 · 146 · 40% | 18/20 · 145 · 41% | 0% / 40-75% / ≥90% · share ≥30% | all inside |
+
+#### Movement 2
+
+| Fight | Idle | Novice | Skilled (won · s · share) | Expert (won · s · share) | Bands: Idle / Novice / Skilled | Verdict |
+|---|---|---|---|---|---|---|
+| crimson_gate | 1/20 | 20/20 | 20/20 · 37 · 44% | 20/20 · 40 · 43% | ≤15% / ≥65% / ≥85% · share ≥35% · 35-60 s | all inside |
+| blood_rites | 1/20 | 20/20 | 20/20 · 43 · 49% | 20/20 · 43 · 49% | ≤15% / ≥65% / ≥85% · share ≥35% · 35-60 s | all inside |
+| pike_line | 0/20 | 20/20 | 20/20 · 41 · 51% | 20/20 · 40 · 49% | ≤15% / ≥65% / ≥85% · share ≥35% · 35-60 s | all inside |
+| red_muster | 0/20 | 20/20 | 20/20 · 58 · 53% | 20/20 · 60 · 52% | ≤15% / ≥65% / ≥85% · share ≥35% · 35-60 s | all inside |
+| leech_warren | 0/20 | 20/20 | 20/20 · 46 · 48% | 20/20 · 46 · 49% | ≤15% / ≥65% / ≥85% · share ≥35% · 35-60 s | all inside |
+| shield_wall | 0/20 | 14/20 | 19/20 · 75 · 50% | 19/20 · 77 · 50% | 0% / 35-75% / ≥85% · share ≥35% · 50-80 s | novice edge (70% against 35-75%) |
+| blood_forge | 0/20 | 13/20 | 18/20 · 66 · 48% | 18/20 · 63 · 49% | 0% / 35-75% / ≥85% · share ≥35% · 50-80 s | novice edge (65% against 35-75%); skilled edge (90% against ≥85%) |
+| gorehound_matriarch | 0/20 | 15/20 | 20/20 · 73 · 47% | 20/20 · 73 · 47% | 0% / 40-70% / ≥90% · share ≥35% · 60-110 s | novice edge (75% against 40-70%) |
+| vharun | 0/20 | 8/20 | 19/20 · 202 · 48% | 19/20 · 195 · 47% | 0% / 35-65% / ≥85% · share ≥30% · 180-300 s | novice edge (40% against 35-65%) |
+
+#### Movement 3
+
+| Fight | Idle | Novice | Skilled (won · s · share) | Expert (won · s · share) | Bands: Idle / Novice / Skilled | Verdict |
+|---|---|---|---|---|---|---|
+| frayed_threshold | 0/20 | 17/20 | 19/20 · 44 · 42% | 20/20 · 45 · 44% | ≤10% / ≥55% / ≥85% · share ≥35% · 40-65 s | all inside |
+| maw_hollow | 2/20 | 14/20 | 20/20 · 60 · 48% | 20/20 · 62 · 48% | ≤10% / ≥55% / ≥85% · share ≥35% · 40-65 s | idle edge (10% against ≤10%) |
+| wraith_vigil | 0/20 | 10/20 | 19/20 · 43 · 47% | 18/20 · 42 · 49% | ≤10% / ≥55% / ≥85% · share ≥35% · 40-65 s | novice edge (50% against ≥55%) |
+| null_chapel | 0/20 | 20/20 | 20/20 · 43 · 48% | 20/20 · 45 · 49% | ≤10% / ≥55% / ≥85% · share ≥35% · 40-65 s | all inside |
+| mirror_hall | 2/20 | 19/20 | 20/20 · 43 · 48% | 20/20 · 48 · 47% | ≤10% / ≥55% / ≥85% · share ≥35% · 40-65 s | idle edge (10% against ≤10%) |
+| frayed_court | 0/20 | 8/20 | 19/20 · 58 · 43% | 20/20 · 61 · 44% | 0% / 30-65% / ≥85% · share ≥35% · 55-85 s | novice edge (40% against 30-65%) |
+| the_seamstress | 0/20 | 5/20 | 18/20 · 82 · 50% | 20/20 · 78 · 50% | 0% / 30-60% / ≥90% · share ≥35% · 70-120 s | novice edge (25% against 30-60%); skilled edge (90% against ≥90%) |
+| the_unweaver | 0/20 | 8/20 | 20/20 · 188 · 49% | 20/20 · 191 · 50% | 0% / 25-55% / ≥80% · share ≥30% · 180-280 s | all inside |
+
+#### Movement 4
+
+| Fight | Idle | Novice | Skilled (won · s · share) | Expert (won · s · share) | Bands: Idle / Novice / Skilled | Verdict |
+|---|---|---|---|---|---|---|
+| the_silent_conductor | 0/20 | 4/20 | 19/20 · 175 · 50% | 20/20 · 171 · 50% | 0% / 15-40% / ≥80% · share ≥30% · 170-230 s | novice edge (20% against 15-40%) |
+
+Win counts are of 20; "s" is the mean fight length in seconds; share is the Weaver's share of party output.
+
+**Verdict: no cell is outside its band at this size; 15 readings are on the edge** (within one standard error of a bound): the Skilled bot at Glass Gallery (85% against ≥ 80%), the Blood Forge (90% against ≥ 85%) and the Seamstress (90% against ≥ 90%); the Novice at Shattered Choir (80%, band 40-85%), the Bellwarden (65%, 40-70%), Shield Wall (70%, 35-75%), the Blood Forge (65%, 35-75%), the Gorehound Matriarch (75%, above its 40-70%), Vharun (40%, 35-65%), Wraith Vigil (50%, under its ≥ 55%), Frayed Court (40%, 30-65%), the Seamstress (25%, under its 30-60%) and the Silent Conductor (20%, 15-40%); the Idle bot at Maw Hollow and Mirror Hall (2 of 20, at the ≤ 10% bound). Every Skilled share is above its floor (40-53%), and every Skilled length is inside its Movement II-IV band. The Novice's misses at the Matriarch (above) and the Seamstress and Wraith Vigil (below) would need the protocol's 50 seeds a cell (on its three cell sets, 16,200 fights for the four bots) to call; that was not run.
+
+### Pillar 4: the share of fight time each hero spends with no action
+
+**Command.** The cell probe above (`/home/user/aw-work/7/w9b/probes/cells.ts`, the four Movements' cells, 20 seeds, four bots, the default party), summed by `python3 -I /home/user/aw-work/7/w9b/probes/cellsum.py cells.jsonl idle`. No tool measured this before. What it counts: every tick of every fight until it ends, for each hero standing (not downed), the hero's `action`; "no action" is `idle` (not moving, attacking, casting, channeling, dodging, charging or reeled). Shares are of the hero's standing time, and of the standing time while at least one enemy stands (between waves a hero has nothing to do).
+
+| Bot (the Weaver) | Kael | Lyra | Vexis | All, with an enemy standing |
+|---|---|---|---|---|
+| Idle | 22.8% | 15.0% | 15.9% | 7.1% |
+| Novice | 7.7% | 6.8% | 6.8% | 3.2% |
+| Skilled | 2.7% | 1.8% | 1.9% | 2.1% |
+| Expert | 2.6% | 1.9% | 1.8% | 2.0% |
+
+By Movement, with the Skilled bot and an enemy standing: Movement I 0.1-0.2% for each hero; Movement II Kael 3.6%, Lyra and Vexis 0.2-0.3%; Movement III 0.2-0.4%; the Silent Conductor 14.5-14.6% for all three alike (the Expert 14.9-15.1%). The fights where a hero idles most with an enemy standing (Skilled and Expert together): the Silent Conductor (all three heroes, 14.7-14.9%), then Kael at Pike Line (7.4%), the Blood Forge (6.4%) and Vharun (6.2%); everything else is under 2.5%. That the Conductor's share is the same for all three heroes points to a hold the fight puts on the whole party (the Grand Silence's stilling, or a Finale turn), not to a hero's AI; it was not broken down further. Kael's Movement II share was not traced either. Across all bots the heroes spend their standing time attacking (Kael 64%, Lyra 77%, Vexis 56%), moving (29%, 7%, 8%), casting (Lyra 6.5%, Vexis 24%) and channeling (Vexis 4.8%).
+
+The pillar ("hero AI never does nothing") names no number. **Reported, not banded**: with a Weaver who plays (Skilled or Expert) the heroes have no action for about 2% of their standing time, 0.1-0.4% outside the Conductor's fight and Kael's Movement II; with an Idle Weaver much more of it (17%), most of that while no enemy stands (7.1% with one standing). Seren, Oro and Brann were not measured (the default party only).
+
+### The report tools of Phase 6's ground rule 1, byte for byte against a pre-Phase-6 tree (5g *Open* 11)
+
+**The trees.** The release candidate (`f74a46b`) and main at `2554e69`, the tree Phase 6's W0 checked before it changed any source (docs/phase-6.md, *Reconciled with main*; its children are the Phase 6 doc and W0's commits). The old tree was extracted with `git archive 2554e69` under the scratch folder (sharing the candidate's `node_modules`; the two `package.json` files differ only by three scripts) and removed afterwards.
+
+**Command.** `/home/user/aw-work/7/w9b/probes/rule1.sh <tree> <out>`, run once in each tree, one tool at a time: the nine tools of the rule (`callings`, `astrolabe`, `reliquary --power`, `powercap`, `bonds`, `variants`, `dissonance`, `decrees`, `verbs`) in 21 of their existing modes, each at `--seeds 2` (the size the shared machine allows: the brief's rule). Then each output was compared with `cmp`, and again with the `done in N s` timing line left out.
+
+| Mode (command, from the tree's root) | Byte for byte |
+|---|---|
+| `tools/callings.ts --calling luminary --seeds 2 --bots skilled` | identical |
+| `tools/callings.ts --cells --movement 3 --encounters the_unweaver --seeds 2` | identical |
+| `tools/callings.ts --cells --movement 4 --seeds 2` | identical |
+| `tools/astrolabe.ts --fights --seeds 2` | identical |
+| `tools/astrolabe.ts --trees silk,choir --bots novice --seeds 2` | identical |
+| `tools/astrolabe.ts --movement 4 --fights --seeds 2` | identical |
+| `tools/reliquary.ts --power --seeds 2 --bots novice` | identical |
+| `tools/powercap.ts --seeds 2 --set typical --steps 1.3` | identical |
+| `tools/bonds.ts --find --seeds 2` | identical |
+| `tools/bonds.ts --fires --seeds 2` | identical |
+| `tools/variants.ts --tree --fires --seeds 2` | identical |
+| `tools/variants.ts --tree --seeds 2 --base 0.85 --base-hard 0.61 --variants chorale` | identical |
+| `tools/dissonance.ts --seeds 2 --find` | identical |
+| `tools/dissonance.ts --seeds 2` (every level) | the 13 lines before identical; **3 lines added**, one for each of Phase 6's levels (Tyrant, Mimicry, True Dissonance), as the mode lists every level in content |
+| `tools/dissonance.ts --seeds 2 --combo --levels hardened:2,wounding_strikes:2` | identical |
+| `tools/dissonance.ts --seeds 2 --bot novice --levels brisk_foes` | identical |
+| `tools/decrees.ts --seeds 2` | identical |
+| `tools/decrees.ts --boss the_silent_conductor --seeds 2` | identical |
+| `tools/verbs.ts --seeds 2` | identical but for its timing line (`done in 31 s` / `32 s`) |
+| `tools/verbs.ts --movement 4 --seeds 2` | identical |
+| `tools/verbs.ts --movement 4 --seeds 2 --bot novice` | identical |
+
+**Met**: every existing mode prints what it printed before Phase 6, byte for byte (outputs in `/home/user/aw-work/7/w9b/rule1/`). The one difference is the three appended levels in the all-levels mode, which adds rows for content that did not exist before and leaves every earlier row as it was. Not covered: these modes at their protocol sizes (`--seeds 2` only), and modes these tools gained in Phase 6 (they have no pre-Phase-6 output to compare).
+
+### Pillar 5: no preset best in every cell
+
+**Commands and size.**
+
+1. `npx tsx tools/loadouts.ts --movement N --seeds 20 --bots skilled,novice --md <file>` for N = 1, 2, 3 and 4: the six Chord presets in every cell of each Movement (Movement I bare, II-IV on their kits), 20 seeds a cell on cell base 1000, the Skilled bot and the Novice (6,480 fights; no whole runs). The tool flags a preset that "dominates" (at least as good in every cell and 10 points better in total than every other). On top of it, `python3 -I /home/user/aw-work/7/w9b/probes/dominance.py m1.md m2.md m3.md m4.md` reads the pillar's own words: for each preset, in how many cells it is best (ties allowed), and whether any is best in every cell.
+2. The builds at Tier I, as Phase 6 read them: the Expert at Tier I's set with each of the five other presets, 10 seeds on each of 2000 and 900007 (the tier probe with `--loadout`, 100 runs; Guardian's are the tier table's first 10 a set), split by Calling (4 runs a cell).
+
+**Cells, by Movement** (cells in which each preset is best, ties allowed):
+
+| Movement (cells) | Bot | Steady | Guardian | Bastion | Anchor | All In | Wide Choir | Best in every cell | The tool's flag |
+|---|---|---|---|---|---|---|---|---|---|
+| I (9) | Skilled | 7 | 6 | 7 | 8 | 6 | 7 | none | none |
+| I (9) | Novice | 3 | 2 | 5 | 3 | 2 | 7 | none | none |
+| II (9) | Skilled | 6 | 6 | 7 | 6 | 5 | 7 | none | none |
+| II (9) | Novice | 5 | 6 | 4 | 4 | 5 | 8 | none | none |
+| III (8) | Skilled | 4 | 4 | 5 | 5 | 6 | 4 | none | none |
+| III (8) | Novice | 2 | 2 | 4 | 2 | 1 | 5 | none | none |
+| IV (1) | Skilled | 0 | 0 | 1 | 1 | 0 | 0 | Bastion and Anchor, tied (100%) | none |
+| IV (1) | Novice | 0 | 0 | 1 | 1 | 0 | 0 | Bastion and Anchor, tied (35%) | none |
+
+**Met**: no preset is best in every cell of any Movement with more than one cell, for either bot, and the tool flags no dominant preset anywhere. The nearest is Wide Choir for the Novice (best in 7 of 9, 8 of 9 and 5 of 8 cells in Movements I-III, the Novice's highest mean in I and II), which loses at the Glass Gallery (65%), the Matriarch (55%) and the Unweaver (0 of 20). The Finale is a single cell, so "best in every cell" there only names the cell's best. Two readings beside the pillar: Wide Choir's Weaver share reads 29-32% for the Skilled bot in every Movement (the other presets 46-50%), under the ≥ 35% / ≥ 30% share floors the default party's cells are held to; and the tool's Skilled floors flag All In at Vharun (80%) and the Conductor (75%), Steady at Frayed Threshold (80%), and Anchor and Wide Choir at Frayed Court (80%, 75%). None is a band this pillar sets.
+
+**Builds at Tier I** (Expert, won of 4 a cell; the band: at least 5 presets at ≥ 50%):
+
+| Preset | None | Luminary | Martyr | Chronomancer | Conductor | All (of 20) | Phase 6 |
+|---|---|---|---|---|---|---|---|
+| Steady | 4 | 4 | 4 | 3 | 4 | 19 (95%) | 19/20, run for run the same |
+| Guardian | 2 | 4 | 4 | 4 | 4 | 18 (90%) | 86/100 at 50 a set; these 20 are the tier table's |
+| Bastion | 3 | 4 | 4 | 4 | 4 | 19 (95%) | 19/20, the same |
+| Anchor | 3 | 4 | 4 | 2 | 4 | 17 (85%) | 17/20, the same |
+| All In | 1 | 3 | 3 | 2 | 4 | 13 (65%) | 13/20, the same |
+| Wide Choir | 1 | 4 | 4 | 3 | 4 | 16 (80%) | 16/20, the same |
+
+**Met**: 6 of 6 presets at ≥ 50%, as Phase 6 read it (100 of 100 runs the same as its `b-*.jsonl`), and no preset is best in all five Calling cells (Steady, Guardian and Bastion are best in 4, Anchor and Wide Choir in 3, All In in 1). At 4 runs a cell this split is a screen, not a reading; the protocol's size (100 seeds on three sets) was not run.
+
+### What was not run, or was run smaller
+
+- **The protocol's size.** The tiers at Phase 6's reduced final size (Expert 50 a set, Skilled 30 a set), not the doc's 100 a set; the cells at 20 seeds on one cell set, not 50 on three (16,200 fights for four bots); the builds at Tier I at 20 runs a preset on two run sets, not on 333003 and not split by Calling at a size that reads (4 runs a cell); `tools/loadouts.ts` at 20 seeds on one cell set and with no whole runs (`--runs`).
+- **The Novice and Idle bots at the tiers** (as in Phase 6): the Tier I band "Novice ≤ 15%" and the "Idle 0%" bands at every tier are still unmeasured. At the cells, the Idle bot's 0% bands hold at every boss, elite and miniboss.
+- **The Echoes, the weekly rotation, the True Dissonance Finale cell and the new levels' costs** (Tyrant, Mimicry by 4d's method): Phase 6's other tables, not asked for here and not re-read. The tier readings above, run for run equal to Phase 6's and to the end-of-Phase-6 tree's, show the fight and run layers they rest on did not move.
+- **Pillar 4 for Brann, Seren and Oro** (the default party only), and the cause of the Conductor's 15% idle share; **pillar 1** for any bot but the Expert and Skilled at tier 0.
+- **The report tools' modes at protocol size** (`--seeds 2` only) and the modes Phase 6 added (nothing older to compare with).
+- **The pillars' playtest halves** (people saying what mattered, describing the heroes): no person played.
+- **The perf budgets other than the sim tick** (`e2e/perf.spec.ts`, the bench page, the GPU half): W4's and the release candidate's own runs, not part of this reading.
