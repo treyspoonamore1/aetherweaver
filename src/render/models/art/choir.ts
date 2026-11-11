@@ -1,4 +1,4 @@
-import type { THREE } from './kit';
+import { THREE } from './kit';
 import {
   type ModelBuilder,
   BELL,
@@ -10,6 +10,7 @@ import {
   CHOIR_DEEP,
   CLOTH,
   FLAT,
+  FLOAT,
   HEAD,
   LEAD,
   LIMB,
@@ -482,11 +483,885 @@ function buildBellWalker(def: EnemyDef): THREE.BufferGeometry {
   return b.build();
 }
 
+// ── The rest of the Choir ─────────────────────────────────────────────────────────────
+
+/** The Choir's dark cloth: a cassock, and the lighter dusk of a hood or a sleeve. */
+const CASSOCK = '#3a3150';
+const HOOD = '#544b74';
+/** The hollow of a mask's eyes and mouth. */
+const HOLLOW = '#120a1e';
+/**
+ * The Glass Lancer's lance: deep blue-violet glass (ΔE ≥ 27 from every semantic colour in every
+ * colour vision; notes.md), its light the Choir's violet.
+ */
+const LANCE = '#6059ff';
+
+/** `n` points round a ring of radius `r` at height `y` in a plane tilted `tilt` about x. */
+function ringAt(c: V3, r: number, tilt: number, n: number, phase = 0): V3[] {
+  const out: V3[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = phase + (i / n) * Math.PI * 2;
+    const x = Math.cos(a) * r;
+    const z = Math.sin(a) * r;
+    // rotX(tilt) of (x, 0, z).
+    out.push([c[0] + x, c[1] - Math.sin(tilt) * z, c[2] + Math.cos(tilt) * z]);
+  }
+  return out;
+}
+
+/** A point in a frame at `c` turned by the Euler angles `r` (a part's own `p` and `r`). */
+function placer(c: V3, r: V3): (x: number, y: number, z: number) => V3 {
+  const e = new THREE.Euler(r[0], r[1], r[2]);
+  return (x, y, z) => {
+    const v = new THREE.Vector3(x, y, z).applyEuler(e);
+    return [c[0] + v.x, c[1] + v.y, c[2] + v.z];
+  };
+}
+
+/**
+ * An open book in a frame at `c` turned by `r` (its spine along z): two covers and two pages of
+ * porcelain, a V opening up, `staves` lines of light across each page.
+ */
+function openBook(
+  b: ModelBuilder,
+  c: V3,
+  r: V3,
+  w: number,
+  d: number,
+  page: string,
+  staves: number,
+): void {
+  for (const side of [-1, 1]) {
+    const rot: V3 = [r[0], r[1], r[2] + side * -0.16];
+    const at = placer(c, rot);
+    b.box(w * 1.06, w * 0.08, d * 1.08, CASSOCK, { p: at(side * w * 0.53, 0, 0), r: rot });
+    b.box(w * 0.96, w * 0.14, d, page, {
+      p: at(side * w * 0.5, w * 0.1, 0),
+      r: rot,
+      glow: 0.3,
+      lead: 0,
+    });
+    for (let i = 0; i < staves; i++) {
+      const z = d * (0.32 - (0.64 * i) / Math.max(1, staves - 1));
+      beam(
+        b,
+        at(side * w * 0.12, w * 0.18, z),
+        at(side * w * 0.86, w * 0.18, z),
+        d * 0.035,
+        w * 0.03,
+        CHOIR,
+        1,
+        {
+          lead: 0,
+          shell: false,
+        },
+      );
+    }
+  }
+}
+
+/**
+ * A Lamenter: a tall mourner in a long dark cassock under a torn porcelain surplice, a porcelain
+ * veil falling from a peaked hood down its back (its mark from above: a white teardrop pointing
+ * back), a bowed mask weeping violet light, its hands cradling the Dirge before it: a violet orb
+ * in a ring (the caster's glowing focus).
+ */
+export function buildLamenter(def: EnemyDef): THREE.BufferGeometry {
+  const s = def.radius / 0.5;
+  const b = figure('standard', { body: [0.85 * s, 0.9 * s] });
+  const body = porcelain(def.color);
+  const P = (x: number, y: number, z: number): V3 => [x * s, y * s, z * s];
+  // The cassock, long and narrow, to the floor.
+  b.lathe(
+    [
+      [0.44 * s, 0],
+      [0.42 * s, 0.07 * s],
+      [0.31 * s, 0.6 * s],
+      [0.22 * s, 1.2 * s],
+      [0.19 * s, 1.42 * s],
+      [0, 1.46 * s],
+    ],
+    CASSOCK,
+    {},
+    9,
+  );
+  // The surplice over it, its hem torn into strips that trail as it glides.
+  b.rigged({ k: CLOTH, at: P(0, 1.3, 0), a: 0.9 * s }, () => {
+    b.lathe(
+      [
+        [0.4 * s, 0.66 * s],
+        [0.36 * s, 0.74 * s],
+        [0.27 * s, 1.1 * s],
+        [0.21 * s, 1.4 * s],
+        [0, 1.44 * s],
+      ],
+      body,
+      glaze(0.13 * s, 0.35),
+      9,
+    );
+    for (let i = 0; i < 4; i++) {
+      const a = -1.2 + i * 0.8;
+      const len = (0.3 + ((i + 1) % 2) * 0.16) * s;
+      b.box(0.13 * s, len, 0.03 * s, body, {
+        ...glaze(0.1 * s, 0.3),
+        p: [Math.sin(a) * 0.37 * s, 0.68 * s - len / 2, -Math.cos(a) * 0.37 * s],
+        r: [-0.12 * Math.cos(a), -a, 0.12 * Math.sin(a)],
+      });
+    }
+  });
+  // The veil: a long fall of porcelain from the hood down its back and sides.
+  b.rigged({ k: CLOTH, at: P(0, 1.78, 0.1), a: 1.5 * s }, () => {
+    b.arc(0.17 * s, 0.5 * s, 1.5 * s, -1.3, 2.6, body, {
+      ...glaze(0.15 * s, 0.32),
+      p: P(0, 1.0, 0.08),
+      r: [-0.08, 0, 0],
+    });
+  });
+  // The head, bowed: the peaked hood and a long mask weeping violet light.
+  b.rigged({ k: HEAD, at: P(0, 1.5, 0) }, () => {
+    b.sphere(
+      0.21 * s,
+      body,
+      { ...glaze(0.1 * s, 0.35), p: P(0, 1.7, 0.03), s: [1, 1.08, 1.05] },
+      8,
+      6,
+    );
+    b.cone(
+      0.12 * s,
+      0.3 * s,
+      body,
+      { ...glaze(0.1 * s, 0.3), p: P(0, 1.88, 0.16), r: [-0.75, 0, 0] },
+      6,
+    );
+    b.torus(0.15 * s, 0.035 * s, HOOD, { p: P(0, 1.67, -0.13) }, Math.PI * 2, 10);
+    b.sphere(
+      0.135 * s,
+      body,
+      { p: P(0, 1.65, -0.14), s: [0.85, 1.25, 0.55], r: [-0.12, 0, 0], glow: 0.2, lead: 0 },
+      7,
+      5,
+    );
+    for (const side of [-1, 1]) {
+      b.box(0.075 * s, 0.03 * s, 0.03 * s, HOLLOW, {
+        p: P(side * 0.05, 1.69, -0.2),
+        r: [0, 0, side * 0.35],
+        lead: 0,
+        shell: false,
+      });
+      beam(
+        b,
+        P(side * 0.055, 1.67, -0.205),
+        P(side * 0.06, 1.47, -0.15),
+        0.016 * s,
+        0.01 * s,
+        CHOIR,
+        1,
+        {
+          lead: 0,
+          shell: false,
+        },
+      );
+    }
+    b.box(0.05 * s, 0.06 * s, 0.03 * s, HOLLOW, { p: P(0, 1.57, -0.19), lead: 0, shell: false });
+  });
+  // The arms reach forward to cradle the Dirge, raised as it sings it out.
+  b.rigged({ k: WEAPON, at: P(0, 1.4, 0), a: 0.6 }, () => {
+    for (const side of [-1, 1]) {
+      limb(b, P(side * 0.2, 1.4, 0), P(side * 0.16, 1.36, -0.42), 0.095 * s, 0.07 * s, HOOD, 6);
+      b.octa(0.055 * s, body, { p: P(side * 0.11, 1.38, -0.53), s: [1, 1.3, 1], glow: 0.16 });
+    }
+    b.ico(0.12 * s, CHOIR_DEEP, { p: P(0, 1.51, -0.6), glow: 1, lead: 0 });
+    b.torus(
+      0.22 * s,
+      0.016 * s,
+      CHOIR,
+      { p: P(0, 1.51, -0.6), r: [Math.PI / 2 - 0.55, 0, 0], glow: 1, lead: 0, shell: false },
+      Math.PI * 2,
+      14,
+    );
+  });
+  return b.build();
+}
+
+/**
+ * A Glass Lancer: long-limbed and narrow, porcelain stilts for legs, a dark coat with long tails,
+ * a tall diamond helm with one violet slit, and its mark from above: a long lance of blue glass
+ * levelled at the far end of the line, a core of violet light down it.
+ */
+export function buildLancer(def: EnemyDef): THREE.BufferGeometry {
+  const s = def.radius / 0.5;
+  const b = figure('standard', { body: [1.12 * s, 0.9 * s] });
+  const body = porcelain(def.color);
+  const P = (x: number, y: number, z: number): V3 => [x * s, y * s, z * s];
+  // Long porcelain stilts.
+  for (const side of [-1, 1]) {
+    b.rigged({ k: LIMB, at: P(side * 0.12, 1.15, 0), a: side * 0.8 }, () => {
+      limb(
+        b,
+        P(side * 0.12, 1.15, 0),
+        P(side * 0.15, 0.62, -0.06),
+        0.06 * s,
+        0.075 * s,
+        body,
+        6,
+        0.14,
+      );
+      limb(
+        b,
+        P(side * 0.15, 0.62, -0.06),
+        P(side * 0.14, 0.1, 0.03),
+        0.04 * s,
+        0.06 * s,
+        shade(body, -0.1),
+        5,
+        0.1,
+      );
+      b.octa(0.07 * s, BRONZE, { p: P(side * 0.155, 0.62, -0.1), s: [1, 1.2, 0.8] });
+      b.octa(0.08 * s, BRONZE_DARK, { p: P(side * 0.14, 0.05, -0.05), s: [0.8, 0.6, 1.9] });
+    });
+  }
+  // A dark coat, its tails trailing.
+  b.cyl(0.2 * s, 0.26 * s, 0.26 * s, CASSOCK, { p: P(0, 1.08, 0) }, 7);
+  b.rigged({ k: CLOTH, at: P(0, 1.15, 0.14), a: 1.0 * s }, () => {
+    for (const side of [-1, 1])
+      b.box(0.15 * s, 0.86 * s, 0.03 * s, CASSOCK, {
+        p: P(side * 0.09, 0.74, 0.22),
+        r: [-0.2, 0, side * 0.08],
+      });
+  });
+  b.cyl(0.26 * s, 0.19 * s, 0.5 * s, CASSOCK, { p: P(0, 1.43, 0) }, 7);
+  b.box(0.34 * s, 0.44 * s, 0.06 * s, body, {
+    ...glaze(0.12 * s, 0.35),
+    p: P(0, 1.45, -0.2),
+    r: [0.1, 0, 0],
+  });
+  for (const side of [-1, 1])
+    b.sphere(
+      0.13 * s,
+      body,
+      { ...glaze(0.1 * s, 0.4), p: P(side * 0.27, 1.65, 0), s: [1.25, 0.8, 1.1] },
+      7,
+      5,
+    );
+  // The helm: a tall porcelain diamond, one slit of violet light, a fin of lance glass behind.
+  b.rigged({ k: HEAD, at: P(0, 1.7, 0) }, () => {
+    b.cyl(0.07 * s, 0.08 * s, 0.14 * s, HOOD, { p: P(0, 1.72, 0) }, 6);
+    b.octa(0.19 * s, body, {
+      ...glaze(0.09 * s, 0.4, 0.2),
+      p: P(0, 1.93, -0.02),
+      s: [0.72, 1.4, 0.82],
+    });
+    b.box(0.17 * s, 0.035 * s, 0.03 * s, CHOIR, {
+      p: P(0, 1.93, -0.16),
+      glow: 1,
+      lead: 0,
+      shell: false,
+    });
+    beam(b, P(0, 2.12, 0.0), P(0, 1.86, 0.38), 0.03 * s, 0.12 * s, LANCE, 0.3, {
+      cell: 0.1 * s,
+      lit: 0.5,
+    });
+  });
+  // The lance, couched under the right arm and steadied by the left: a bronze shaft, a guard,
+  // a long faceted blade of glass with a core of light. It lifts to aim and drives on the blow.
+  b.rigged({ k: WEAPON, at: P(0, 1.48, 0), a: 0.32 }, () => {
+    limb(b, P(0.27, 1.6, 0), P(0.3, 1.32, 0.04), 0.05 * s, 0.06 * s, CASSOCK, 5);
+    limb(b, P(0.3, 1.32, 0.04), P(0.17, 1.28, -0.22), 0.045 * s, 0.05 * s, body, 5);
+    b.octa(0.06 * s, body, { p: P(0.15, 1.28, -0.25) });
+    limb(b, P(-0.27, 1.6, 0), P(-0.25, 1.36, -0.26), 0.05 * s, 0.06 * s, CASSOCK, 5);
+    limb(b, P(-0.25, 1.36, -0.26), P(0.06, 1.32, -0.62), 0.045 * s, 0.05 * s, body, 5);
+    b.octa(0.06 * s, body, { p: P(0.09, 1.32, -0.64) });
+    limb(b, P(0.14, 1.27, 0.55), P(0.13, 1.3, -0.36), 0.035 * s, 0.035 * s, BRONZE_DARK, 5);
+    b.cone(0.13 * s, 0.22 * s, BRONZE, { p: P(0.13, 1.3, -0.4), r: [-Math.PI / 2, 0, 0] }, 7);
+    b.cone(
+      0.085 * s,
+      2.0 * s,
+      LANCE,
+      {
+        glow: 0.32,
+        cell: 0.16 * s,
+        lit: 0.45,
+        litGlow: 0.8,
+        p: P(0.13, 1.32, -1.5),
+        r: [-Math.PI / 2, 0, 0],
+      },
+      5,
+    );
+    beam(b, P(0.13, 1.31, -0.52), P(0.13, 1.33, -2.25), 0.022 * s, 0.022 * s, CHOIR, 1, {
+      lead: 0,
+      shell: false,
+    });
+    b.octa(0.06 * s, CHOIR, { p: P(0.13, 1.33, -2.52), s: [0.6, 0.6, 1.8], glow: 1, lead: 0 });
+  });
+  return b.build();
+}
+
+/**
+ * The Mute: squat and heavy, a porcelain urn of a body over a dark cassock, a high collar where
+ * its mouth should be and a great sealed dome for a head, cracked violet all over and strapped
+ * shut with bronze (its mark from above: the white dome and its bronze cross); manacled arms
+ * ending in heavy porcelain fists.
+ */
+export function buildMute(def: EnemyDef): THREE.BufferGeometry {
+  const s = def.radius / 0.8;
+  const b = figure('standard', { body: [0.55 * s, 0.75 * s] });
+  const body = porcelain(def.color);
+  const plate = shade(body, -0.08);
+  const P = (x: number, y: number, z: number): V3 => [x * s, y * s, z * s];
+  b.rigged({ k: CLOTH, at: P(0, 0.95, 0), a: 0.8 * s }, () => {
+    b.lathe(
+      [
+        [0.84 * s, 0],
+        [0.82 * s, 0.06 * s],
+        [0.74 * s, 0.45 * s],
+        [0.64 * s, 0.9 * s],
+        [0, 0.95 * s],
+      ],
+      CASSOCK,
+      {},
+      9,
+    );
+  });
+  b.torus(0.66 * s, 0.05 * s, BRONZE, { p: P(0, 0.8, 0), r: FLAT }, Math.PI * 2, 14);
+  // The trunk: a porcelain urn, hunched forward, cracked.
+  b.lathe(
+    [
+      [0.6 * s, 0.72 * s],
+      [0.76 * s, 0.92 * s],
+      [0.8 * s, 1.15 * s],
+      [0.66 * s, 1.38 * s],
+      [0.42 * s, 1.48 * s],
+      [0, 1.5 * s],
+    ],
+    body,
+    { ...glaze(0.22 * s, 0.4, 0.12), p: P(0, 0, 0.04), r: [0.12, 0, 0] },
+    9,
+  );
+  // The high collar over its mouth.
+  b.cyl(0.4 * s, 0.5 * s, 0.24 * s, HOOD, { p: P(0, 1.5, -0.04) }, 9);
+  b.torus(0.4 * s, 0.04 * s, BRONZE, { p: P(0, 1.62, -0.04), r: FLAT }, Math.PI * 2, 12);
+  // The dome, sealed: cracked violet, strapped in bronze, two slits of faint light.
+  b.rigged({ k: HEAD, at: P(0, 1.5, -0.04) }, () => {
+    const C = P(0, 1.66, -0.05);
+    b.sphere(
+      0.44 * s,
+      shade(body, 0.1),
+      { ...glaze(0.13 * s, 0.6, 0.2), p: C, s: [1, 0.8, 1] },
+      9,
+      6,
+    );
+    b.torus(0.455 * s, 0.04 * s, BRONZE, { p: C, s: [1, 0.8, 1] }, Math.PI, 9);
+    b.torus(
+      0.455 * s,
+      0.04 * s,
+      BRONZE,
+      { p: C, s: [1, 0.8, 1], r: [0, Math.PI / 2, 0] },
+      Math.PI,
+      9,
+    );
+    b.octa(0.07 * s, BRONZE_DARK, { p: [C[0], C[1] + 0.36 * s, C[2]], s: [1, 0.6, 1] });
+    for (const side of [-1, 1]) {
+      b.box(0.12 * s, 0.03 * s, 0.04 * s, HOLLOW, {
+        p: P(side * 0.15, 1.73, -0.44),
+        r: [0, side * 0.33, 0],
+        lead: 0,
+        shell: false,
+      });
+      b.box(0.05 * s, 0.018 * s, 0.03 * s, CHOIR, {
+        p: P(side * 0.155, 1.73, -0.46),
+        r: [0, side * 0.33, 0],
+        glow: 1,
+        lead: 0,
+        shell: false,
+      });
+    }
+  });
+  // Heavy shoulders and arms, manacled at the wrist.
+  for (const side of [-1, 1]) {
+    b.rigged(
+      { k: side > 0 ? WEAPON : BRACE, at: P(side * 0.7, 1.3, 0), a: side > 0 ? 1.0 : 0.5 },
+      () => {
+        b.sphere(
+          0.27 * s,
+          body,
+          { ...glaze(0.15 * s, 0.4, 0.12), p: P(side * 0.72, 1.32, 0), s: [1, 0.8, 1] },
+          7,
+          4,
+        );
+        limb(b, P(side * 0.8, 1.2, 0), P(side * 0.9, 0.86, -0.06), 0.15 * s, 0.17 * s, HOOD, 6);
+        limb(
+          b,
+          P(side * 0.9, 0.86, -0.06),
+          P(side * 0.88, 0.55, -0.2),
+          0.13 * s,
+          0.15 * s,
+          plate,
+          6,
+          0.12,
+        );
+        b.torus(
+          0.15 * s,
+          0.045 * s,
+          BRONZE,
+          { p: P(side * 0.885, 0.58, -0.19), r: FLAT },
+          Math.PI * 2,
+          8,
+        );
+        b.ico(0.2 * s, body, {
+          ...glaze(0.12 * s, 0.4, 0.12),
+          p: P(side * 0.88, 0.4, -0.24),
+          s: [1, 0.85, 1.1],
+        });
+      },
+    );
+  }
+  return b.build();
+}
+
+/**
+ * A Cantor's Acolyte: upright and ordered where the Lamenter is torn, a dark cassock under a
+ * white surplice and a dusk stole, a serene mask with closed eyes of light under a cowl, a nimbus
+ * of cracked porcelain behind its head set with violet lights (its mark from above), an open
+ * hymnal held before it, a censer of violet light swinging at its hip.
+ */
+export function buildAcolyte(def: EnemyDef): THREE.BufferGeometry {
+  const s = def.radius / 0.5;
+  const b = figure('standard', { body: [0.85 * s, 0.85 * s] });
+  const body = porcelain(def.color);
+  const P = (x: number, y: number, z: number): V3 => [x * s, y * s, z * s];
+  b.lathe(
+    [
+      [0.42 * s, 0],
+      [0.4 * s, 0.07 * s],
+      [0.3 * s, 0.6 * s],
+      [0.22 * s, 1.2 * s],
+      [0.19 * s, 1.4 * s],
+      [0, 1.44 * s],
+    ],
+    CASSOCK,
+    {},
+    9,
+  );
+  b.rigged({ k: CLOTH, at: P(0, 1.3, 0), a: 0.9 * s }, () => {
+    b.lathe(
+      [
+        [0.45 * s, 0.56 * s],
+        [0.4 * s, 0.63 * s],
+        [0.3 * s, 1.0 * s],
+        [0.22 * s, 1.38 * s],
+        [0, 1.42 * s],
+      ],
+      body,
+      glaze(0.13 * s, 0.3),
+      10,
+    );
+    b.torus(0.43 * s, 0.025 * s, BRONZE, { p: P(0, 0.58, 0), r: FLAT }, Math.PI * 2, 12);
+    for (const side of [-1, 1])
+      b.box(0.08 * s, 0.8 * s, 0.03 * s, HOOD, {
+        p: P(side * 0.075, 1.0, -0.32),
+        r: [0.28, 0, 0],
+      });
+  });
+  // The censer at its hip, swinging on its chain, violet light inside.
+  b.rigged({ k: BELL, at: P(0.27, 1.02, -0.08), a: 0.9 }, () => {
+    beam(b, P(0.27, 1.02, -0.08), P(0.3, 0.62, -0.14), 0.014 * s, 0.014 * s, BRONZE_DARK, 0, {
+      shell: false,
+    });
+    b.cone(0.07 * s, 0.09 * s, BRONZE, { p: P(0.3, 0.6, -0.14) }, 6);
+    b.octa(0.075 * s, CHOIR, { p: P(0.3, 0.5, -0.14), s: [1, 1.15, 1], glow: 1, lead: 0 });
+    b.torus(0.07 * s, 0.018 * s, BRONZE, { p: P(0.3, 0.5, -0.14), r: FLAT }, Math.PI * 2, 8);
+  });
+  // The head under its cowl, and the nimbus behind it.
+  b.rigged({ k: HEAD, at: P(0, 1.44, 0) }, () => {
+    b.sphere(0.2 * s, HOOD, { p: P(0, 1.63, 0.04), s: [1, 1.08, 1.05] }, 8, 6);
+    b.cone(0.12 * s, 0.22 * s, HOOD, { p: P(0, 1.8, 0.14), r: [-0.7, 0, 0] }, 6);
+    b.sphere(
+      0.13 * s,
+      body,
+      { p: P(0, 1.61, -0.09), s: [0.88, 1.18, 0.6], glow: 0.2, lead: 0 },
+      7,
+      5,
+    );
+    for (const side of [-1, 1])
+      b.box(0.06 * s, 0.014 * s, 0.02 * s, CHOIR, {
+        p: P(side * 0.045, 1.645, -0.165),
+        r: [0, 0, side * -0.25],
+        glow: 1,
+        lead: 0,
+        shell: false,
+      });
+    b.sphere(
+      0.025 * s,
+      CHOIR_DEEP,
+      { p: P(0, 1.55, -0.165), s: [1, 1.3, 0.6], glow: 1, lead: 0, shell: false },
+      5,
+      4,
+    );
+    // The nimbus: a disc of cracked porcelain leaning back behind the head, a bronze rim, six
+    // lights round its edge.
+    const N = P(0, 1.88, 0.27);
+    const tilt = -0.88;
+    b.cyl(
+      0.32 * s,
+      0.32 * s,
+      0.035 * s,
+      body,
+      { ...glaze(0.1 * s, 0.4, 0.24), p: N, r: [tilt, 0, 0] },
+      12,
+    );
+    b.torus(0.32 * s, 0.022 * s, BRONZE, { p: N, r: [Math.PI / 2 + tilt, 0, 0] }, Math.PI * 2, 14);
+    for (const q of ringAt(N, 0.32 * s, tilt, 6, Math.PI / 6))
+      b.ico(0.032 * s, CHOIR, { p: [q[0], q[1] + 0.02 * s, q[2]], glow: 1, lead: 0, shell: false });
+  });
+  // The hymnal held open before it, lifted as it sings.
+  b.rigged({ k: WEAPON, at: P(0, 1.38, 0), a: 0.5 }, () => {
+    for (const side of [-1, 1]) {
+      limb(b, P(side * 0.2, 1.38, 0), P(side * 0.17, 1.17, -0.3), 0.085 * s, 0.065 * s, HOOD, 6);
+      b.octa(0.05 * s, body, { p: P(side * 0.17, 1.15, -0.36), glow: 0.16 });
+    }
+    openBook(b, P(0, 1.2, -0.45), [-0.25, 0, 0], 0.22 * s, 0.3 * s, body, 2);
+  });
+  return b.build();
+}
+
+/** The Hollow Cantor's chasuble profile ([radius, y]): its cracks run on its surface. */
+const CHASUBLE: [number, number][] = [
+  [1.04, 1.25],
+  [0.98, 1.4],
+  [0.84, 2.0],
+  [0.7, 2.6],
+  [0.62, 2.95],
+  [0, 3.0],
+];
+
+function chasubleRadius(y: number): number {
+  for (let i = 0; i < CHASUBLE.length - 1; i++) {
+    const [r0, y0] = CHASUBLE[i]!;
+    const [r1, y1] = CHASUBLE[i + 1]!;
+    if (y >= y0 && y <= y1) return r0 + ((y - y0) / (y1 - y0)) * (r1 - r0);
+  }
+  return CHASUBLE[0]![0];
+}
+
+/** A point on the chasuble's front at (x, y), standing `out` m proud of it. */
+function onChasuble(x: number, y: number, out = 0.02): V3 {
+  const r = chasubleRadius(y);
+  return [x, y, -Math.sqrt(Math.max(0, r * r - x * x)) - out];
+}
+
+/**
+ * Tall lit windows round a cassock's skirt, leaning in with its slope (`lean` rad), alternately
+ * violet and porcelain-white: the cathedral the Cantor wears.
+ */
+function skirtWindows(
+  b: ModelBuilder,
+  n: number,
+  r: number,
+  y: number,
+  h: number,
+  w: number,
+  lean: number,
+  pale: string,
+): void {
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + Math.PI / n - Math.PI / 2;
+    const p: V3 = [Math.cos(a) * r, y, Math.sin(a) * r];
+    const q: V3 = [Math.cos(a) * (r + 0.03), y, Math.sin(a) * (r + 0.03)];
+    b.box(0.07, h + 0.1, w + 0.1, LEAD, { p, r: [0, -a, lean], lead: 0 });
+    b.box(0.06, h, w, i % 2 ? CHOIR_DEEP : pale, {
+      p: q,
+      r: [0, -a, lean],
+      glow: 0.85,
+      cell: w * 0.6,
+      lit: 0.5,
+      shell: false,
+    });
+  }
+}
+
+/**
+ * The Hollow Cantor, the Choir's master (Movement I's boss): a towering figure in a dark cassock
+ * set with a ring of lit windows, a porcelain chasuble cracked violet from a hollow in its chest
+ * where a bronze bell hangs lit from inside, a high mantle, organ pipes fanning from its back, a
+ * tall mitre and a long singing mask before a rose window of porcelain glass. One hand bears a
+ * crozier hung with a bell (the Toll), the other is raised in song, and a great choir-book floats
+ * open before it: its marks from the fight's camera, low on the figure, where the boss bar
+ * cannot hide them.
+ */
+export function buildCantor(def: EnemyDef): THREE.BufferGeometry {
+  const s = def.radius / 1.4;
+  const b = figure('boss', { body: [1.2 * s, 1.7 * s] });
+  const body = porcelain(def.color);
+  const P = (x: number, y: number, z: number): V3 => [x * s, y * s, z * s];
+  // The cassock: dark, broad at the floor, a ring of lit windows round its skirt.
+  b.rigged({ k: CLOTH, at: P(0, 1.6, 0), a: 1.6 * s }, () => {
+    b.lathe(
+      [
+        [1.3 * s, 0],
+        [1.26 * s, 0.1 * s],
+        [1.08 * s, 0.7 * s],
+        [0.9 * s, 1.6 * s],
+        [0.74 * s, 2.4 * s],
+        [0.6 * s, 2.9 * s],
+        [0, 2.95 * s],
+      ],
+      CASSOCK,
+      {},
+      14,
+    );
+    b.torus(1.25 * s, 0.06 * s, BRONZE, { p: P(0, 0.1, 0), r: FLAT }, Math.PI * 2, 24);
+  });
+  skirtWindows(b, 10, 1.07 * s, 0.82 * s, 0.62 * s, 0.26 * s, 0.2, '#b9a4ff');
+  // The chasuble: porcelain, cracked, from the shoulders to the knee.
+  b.lathe(
+    CHASUBLE.map(([r, y]) => [r * s, y * s] as [number, number]),
+    body,
+    glaze(0.3 * s, 0.32, 0.12),
+    14,
+  );
+  b.torus(1.02 * s, 0.05 * s, BRONZE, { p: P(0, 1.28, 0), r: FLAT }, Math.PI * 2, 22);
+  // The hollow in its chest, and the bell that hangs in it.
+  b.sphere(
+    0.34 * s,
+    HOLLOW,
+    { p: onChasuble(0, 2.25 * s, -0.12 * s), s: [0.82, 1.15, 0.4], lead: 0 },
+    9,
+    6,
+  );
+  b.torus(
+    0.31 * s,
+    0.045 * s,
+    BRONZE,
+    { p: onChasuble(0, 2.25 * s, 0), s: [0.85, 1.2, 1], r: [0.2, 0, 0] },
+    Math.PI * 2,
+    14,
+  );
+  b.rigged({ k: BELL, at: P(0, 2.58, -0.82), a: 0.7 }, () => {
+    bell(b, P(0, 2.02, -0.86), 0.2 * s, 0.44 * s, BRONZE, {}, 9);
+    b.sphere(0.1 * s, CHOIR, { p: P(0, 2.06, -0.86), glow: 1, lead: 0 }, 6, 4);
+  });
+  // Cracks of violet light running out from the hollow across the chasuble.
+  const cracks: [number, number][][] = [
+    [
+      [0.2, 2.5],
+      [0.34, 2.72],
+      [0.3, 2.9],
+    ],
+    [
+      [-0.22, 2.48],
+      [-0.4, 2.62],
+      [-0.36, 2.86],
+    ],
+    [
+      [0.24, 2.02],
+      [0.42, 1.8],
+      [0.36, 1.56],
+      [0.52, 1.36],
+    ],
+    [
+      [-0.2, 1.98],
+      [-0.34, 1.72],
+      [-0.6, 1.5],
+    ],
+    [
+      [0.02, 1.92],
+      [-0.06, 1.66],
+      [0.08, 1.42],
+    ],
+  ];
+  for (const c of cracks)
+    for (let i = 0; i < c.length - 1; i++)
+      beam(
+        b,
+        onChasuble(c[i]![0] * s, c[i]![1] * s),
+        onChasuble(c[i + 1]![0] * s, c[i + 1]![1] * s),
+        0.05 * s,
+        0.03 * s,
+        CHOIR,
+        1,
+        { lead: 0, shell: false },
+      );
+  // The mantle over its shoulders, banded in bronze.
+  b.cone(1.02 * s, 0.9 * s, body, { ...glaze(0.24 * s, 0.35, 0.14), p: P(0, 2.93, 0.02) }, 12);
+  b.torus(1.0 * s, 0.05 * s, BRONZE, { p: P(0, 2.5, 0.02), r: FLAT }, Math.PI * 2, 20);
+  // The head: a porcelain cowl, a tall cracked mitre, a long mask singing to the sky; a rose
+  // window of porcelain glass leaning back behind it.
+  b.rigged({ k: HEAD, at: P(0, 3.0, 0) }, () => {
+    b.sphere(0.34 * s, body, { ...glaze(0.12 * s, 0.35, 0.14), p: P(0, 3.34, 0.06) }, 9, 6);
+    b.cone(
+      0.33 * s,
+      0.8 * s,
+      body,
+      { ...glaze(0.13 * s, 0.4, 0.2), p: P(0, 3.68, 0.1), r: [-0.15, 0, 0] },
+      8,
+    );
+    b.torus(
+      0.31 * s,
+      0.04 * s,
+      BRONZE,
+      { p: P(0, 3.3, 0.12), r: [Math.PI / 2 - 0.15, 0, 0] },
+      Math.PI * 2,
+      12,
+    );
+    b.torus(
+      0.3 * s,
+      0.05 * s,
+      CASSOCK,
+      { p: P(0, 3.3, -0.22), s: [0.9, 1.25, 1], r: [0.28, 0, 0] },
+      Math.PI * 2,
+      12,
+    );
+    const T = 0.28;
+    const C = P(0, 3.3, -0.2);
+    const up = (x: number, y: number, z: number): V3 => {
+      const dy = y * s - C[1];
+      const dz = z * s - C[2];
+      return [
+        x * s,
+        C[1] + Math.cos(T) * dy - Math.sin(T) * dz,
+        C[2] + Math.sin(T) * dy + Math.cos(T) * dz,
+      ];
+    };
+    b.sphere(
+      0.27 * s,
+      body,
+      { ...glaze(0.1 * s, 0.4, 0.22), p: C, s: [0.82, 1.25, 0.55], r: [T, 0, 0] },
+      8,
+      6,
+    );
+    for (const side of [-1, 1])
+      b.box(0.13 * s, 0.05 * s, 0.04 * s, HOLLOW, {
+        p: up(side * 0.09, 3.4, -0.33),
+        r: [T, 0, side * -0.3],
+        lead: 0,
+        shell: false,
+      });
+    b.sphere(
+      0.07 * s,
+      CHOIR,
+      { p: up(0, 3.16, -0.33), s: [0.8, 1.6, 0.45], r: [T, 0, 0], glow: 1, lead: 0, shell: false },
+      6,
+      4,
+    );
+    // The rose window: a wheel of porcelain panes, spokes of lead, a violet heart.
+    const R = P(0, 3.55, 0.62);
+    const tilt = -0.85;
+    b.cyl(
+      0.95 * s,
+      0.95 * s,
+      0.05 * s,
+      body,
+      { glow: 0.3, cell: 0.2 * s, lit: 0.4, litGlow: 0.7, p: R, r: [tilt, 0, 0] },
+      16,
+    );
+    b.torus(0.95 * s, 0.05 * s, BRONZE, { p: R, r: [Math.PI / 2 + tilt, 0, 0] }, Math.PI * 2, 24);
+    b.torus(
+      0.5 * s,
+      0.03 * s,
+      LEAD,
+      { p: R, r: [Math.PI / 2 + tilt, 0, 0], lead: 0 },
+      Math.PI * 2,
+      16,
+    );
+    const rim = ringAt(R, 0.93 * s, tilt, 8);
+    for (const q of rim) {
+      beam(b, R, q, 0.035 * s, 0.07 * s, LEAD, 0, { lead: 0 });
+    }
+    for (const q of ringAt(R, 0.72 * s, tilt, 8, Math.PI / 8))
+      b.ico(0.05 * s, CHOIR, {
+        p: [q[0], q[1] + 0.04 * s, q[2] - 0.03 * s],
+        glow: 1,
+        lead: 0,
+        shell: false,
+      });
+    b.cyl(0.2 * s, 0.2 * s, 0.07 * s, CHOIR_DEEP, { p: R, r: [tilt, 0, 0], glow: 0.9, lead: 0 }, 8);
+  });
+  // The arms, long and spread in song, in wide porcelain sleeves.
+  for (const side of [-1, 1]) {
+    const crozier = side > 0;
+    b.rigged(
+      { k: crozier ? WEAPON : BRACE, at: P(side * 0.7, 2.85, 0), a: crozier ? 0.6 : 0.7 },
+      () => {
+        limb(
+          b,
+          P(side * 0.66, 2.86, 0),
+          P(side * 1.22, 2.35, -0.28),
+          0.27 * s,
+          0.17 * s,
+          body,
+          9,
+          0.12,
+          glaze(0.18 * s, 0.32, 0.12),
+        );
+        b.torus(
+          0.25 * s,
+          0.03 * s,
+          BRONZE,
+          { p: P(side * 1.22, 2.35, -0.28), r: [Math.PI / 2 - 0.6, side * 0.8, 0] },
+          Math.PI * 2,
+          10,
+        );
+        limb(
+          b,
+          P(side * 1.22, 2.35, -0.28),
+          P(side * 1.52, 2.0, -0.56),
+          0.08 * s,
+          0.1 * s,
+          HOOD,
+          6,
+        );
+        b.octa(0.1 * s, body, { p: P(side * 1.56, 1.94, -0.6), s: [1, 1.4, 1], glow: 0.16 });
+        if (crozier) {
+          // The crozier: a bronze staff, its crook hung with a bell lit from inside.
+          limb(b, P(1.58, 0.4, -0.62), P(1.58, 3.35, -0.62), 0.045 * s, 0.045 * s, BRONZE_DARK, 6);
+          b.torus(0.24 * s, 0.05 * s, BRONZE, { p: P(1.82, 3.35, -0.62) }, Math.PI, 10);
+          bell(b, P(2.06, 2.84, -0.62), 0.22 * s, 0.4 * s, BRONZE, {}, 9);
+          b.sphere(0.09 * s, CHOIR, { p: P(2.06, 2.88, -0.62), glow: 1, lead: 0 }, 6, 4);
+        } else {
+          b.octa(0.09 * s, CHOIR, {
+            p: P(-1.58, 2.2, -0.66),
+            s: [0.8, 1.6, 0.8],
+            glow: 1,
+            lead: 0,
+          });
+        }
+      },
+    );
+  }
+  // The choir-book, floating open under its raised left hand, turned up to be read: porcelain
+  // pages with staves of light, a ribbon of violet hanging from its spine.
+  const book = P(-0.82, 1.72, -1.3);
+  const bookTurn: V3 = [-0.5, 0.35, 0];
+  b.rigged({ k: FLOAT, at: book, a: 0 }, () => {
+    openBook(b, book, bookTurn, 0.55 * s, 0.78 * s, body, 4);
+    const end = placer(book, bookTurn)(0, -0.03 * s, -0.4 * s);
+    beam(
+      b,
+      end,
+      [end[0] + 0.03 * s, end[1] - 0.42 * s, end[2] - 0.04 * s],
+      0.05 * s,
+      0.015 * s,
+      CHOIR_DEEP,
+      0.8,
+      {
+        lead: 0,
+        shell: false,
+      },
+    );
+  });
+  return b.build();
+}
+
 /** The Choir figures this family has redrawn, by enemy id (the registry reads only this). */
 export const ART: ArtFamily = {
   enemies: {
     hollow_chorister: buildChorister,
     bell_brute: buildBrute,
     the_bellwarden: buildBellwarden,
+    lamenter: buildLamenter,
+    glass_lancer: buildLancer,
+    mute: buildMute,
+    cantor_acolyte: buildAcolyte,
+    the_hollow_cantor: buildCantor,
   },
 };
