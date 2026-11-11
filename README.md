@@ -4,22 +4,34 @@ A support-focused action roguelite: **you are the Weaver, and your party is the 
 
 This repo is the remake of the original prototype, which is kept read-only in [`reference/original/`](reference/original/) and never imported. The design, the analysis of the original and the roadmap are in [`docs/plan/`](docs/plan/README.md).
 
-**Status:** Phase 4, the Loom, is done, and there's a **playtest demo** ([`docs/demo.md`](docs/demo.md)). On top of the playable **Prelude run**:
+**Status:** every phase up to the Expedition's Finale is built (the Prelude, the Loom, three Movements and the Finale, Echoes, This Week's Song, Dissonance), and Phase 7, polish and ship, is under way ([`docs/phase-7.md`](docs/phase-7.md)). There is also a **playtest demo** ([`docs/demo.md`](docs/demo.md)). What the game holds:
 
 - **the Loom**, a hub of stations that light up as you play, each with a short first-contact intro: the **Astrolabe** (a passive tree), **Deeds**, the **Reliquary** (relics kept, crafted and carried), **Dissonance** (endgame difficulty), hero **Bonds**, **technique variants**, and the **Atelier**, where Starlight buys variants and keepsakes. Callings open their paths by **mastery**, and the Training Grounds hold a **Perfect-Ward trainer**;
-- three **Callings** (the Luminary, the Martyr and the Chronomancer), relics, events and a run economy (Phase 3);
+- the **Prelude run**, then **Expeditions**: every Movement in turn, from the Spire to the Abyssal Rift and the Finale, where the Silent Conductor waits;
+- three **Callings** (the Luminary, the Martyr and the Chronomancer), relics, events and a run economy;
 - the signature features: heroes _call_ for your help (**Call and Response**), and the game shows the deaths you prevented and replays every fight **without you** (**proof of support**).
 
-Phase 4's exit checks (pacing, the raw-power cap, first contact) are in [`docs/phase-4h.md`](docs/phase-4h.md). Each step has its own doc: [`docs/phase-0.md`](docs/phase-0.md) through [`docs/phase-4h.md`](docs/phase-4h.md). Since then, the **Thread dial** makes Mend and Empower easy to tell apart mid-fight ([`docs/thread-dial.md`](docs/thread-dial.md)), and **health reads at a glance**: bars over the heroes, healer-style party frames, a low-life alert, and party frames and a Weaver bar you can move anywhere ([`docs/health-ui.md`](docs/health-ui.md)). **Hero autonomy** now has every hero use their Solo, the tank too, and works in the Training Grounds ([`docs/hero-autonomy.md`](docs/hero-autonomy.md)).
+Each phase has its own doc: [`docs/phase-0.md`](docs/phase-0.md) through [`docs/phase-7.md`](docs/phase-7.md).
 
 ![Kael calls for a Ward; answered, his glyph fills and names the Bulwark Flourish](docs/phase-2/vfx/call-answered-real-sim.jpg)
 
-## Quick start
+## Build, test and run
+
+You need Node 22.12 or newer.
 
 ```bash
 npm install
-npm run dev          # http://localhost:5173
+npm run dev          # the dev server, http://localhost:5173
+npm run build        # the production build, in dist/ (with source maps)
+npm run preview      # serve dist/ at http://localhost:4173
+npm test             # the unit and determinism tests (Vitest)
+npm run e2e          # the browser tests, against a fresh production build
+npm run ci           # everything CI runs, in order
 ```
+
+The browser tests need Chromium once: `npx playwright install chromium`. The dev server's page also opens the labs (`?lab=vfx`, `?lab=ui`, `?lab=audio`).
+
+## Playing
 
 From the title screen, **Enter the Loom**, then **the Gate** starts the Prelude. Build your songs in Prep (or pick a preset: new ones open as your Weaver Rank grows, or all at once with **Settings → Skip the unlocks**). Then travel the branching map through skirmishes, elites, shrines and respites to the **Bellwarden** and the **Hollow Cantor**. The **Training Grounds** are a sandbox with an enemy spawner and the Perfect-Ward trainer. Append `?seed=123` for a fixed seed.
 
@@ -40,7 +52,7 @@ From the title screen, **Enter the Loom**, then **the Gate** starts the Prelude.
 | Z · X                              | Directive shortcuts: Rally · Hold                                          |
 | Mouse wheel · Esc · `` ` `` · F3   | Zoom · Pause · Dev panel · Perf HUD                                        |
 
-Keys are bound by physical position (`KeyboardEvent.code`), so they work on AZERTY and QWERTZ layouts too, and every key can be rebound in **Settings → Controls**.
+Keys are bound by physical position (`KeyboardEvent.code`), so they work on AZERTY and QWERTZ layouts too. **Settings → Controls** lists every binding and rebinds the keys. This table is the short list; Settings has the rest.
 
 Your **beam song** (Chord I) pours into whoever you Thread at double strength; everyone else near you hears an echo. Your **field song** (Chord II, from Rank 2) reaches everyone near you at full strength.
 
@@ -57,6 +69,9 @@ When a hero **calls** for help (a gold glyph over them), answer it before their 
 | `lint`                 | ESLint (including the architecture rules) and a Prettier check                                                                       |
 | `test`                 | Vitest: combat mechanics, run logic, saves, bots, determinism goldens, replays, architecture                                         |
 | `e2e`                  | Playwright against the production build                                                                                              |
+| `e2e:fullrun`          | The full run: a whole Expedition played node by node through the real app (long; not in `e2e`, see Release)                          |
+| `licenses`             | Checks the licence record in `assets/licenses/` against the build in `dist/` (`-- --write` rebuilds it)                              |
+| `release-check`        | The release checklist, row by row: green, red, or not provable here, with the evidence (see Release)                                 |
 | `harness`              | Balance harness: Idle / Novice / Skilled bots per encounter; `-- --run` plays whole Prelude runs; `-- --loadout beam` picks a preset |
 | `loadouts`             | Loadout report: every Chord preset × every encounter × bot, flagging dead and dominant loadouts                                      |
 | `sim:bench`            | Headless sim benchmark; `-- --check` enforces the 1.5 ms/tick budget                                                                 |
@@ -98,6 +113,28 @@ When a hero **calls** for help (a gold glyph over them), answer it before their 
 6. **Balance changes go through the harness.** Run `npm run harness` before and after, and keep the bands in [`docs/phase-1.md`](docs/phase-1.md#difficulty-contract).
 7. **Definition of done** is in [docs/plan/06-roadmap.md §4](docs/plan/06-roadmap.md#4-definition-of-done-any-task).
 
-## Third-party assets
+## Release
 
-There are no art or audio assets: models are procedural three.js primitives and all sound is synthesised with WebAudio. The fonts are Cinzel, Inter and JetBrains Mono, self-hosted via `@fontsource` under the SIL Open Font License.
+`npm run build` writes a static site to `dist/`: serve it from any web server, with no server code, no account and no network request from the game. `npm run build:demo` writes the playtest demo to `dist-demo/` (relative paths, no source maps; [`docs/demo.md`](docs/demo.md)).
+
+**Checking a build.** `npm run release-check` prints each row of the release checklist (docs/plan/06 §6, and the exit criteria in [`docs/phase-7.md`](docs/phase-7.md)) as green, red, "not provable here" (it needs a person, a real GPU or a real laptop) or "not run" (nobody gave it the evidence). On its own it runs only quick checks. The long runs are read from their logs:
+
+```bash
+npm run e2e:fullrun > fullrun.log          # a whole Finale-route Expedition, through the real app, with sound on
+npm run release-check -- --suite full.log.json --e2e e2e.log --fullrun fullrun.log --run goldens,sim-bench
+```
+
+The full run is kept out of `npm run e2e` (it can take hours under software rendering): without `AW_FULLRUN` set, its file is skipped.
+
+**Release notes.**
+
+- **No offline mode.** There is no service worker and no manifest: the build is static, and a cached old build would read newer weekly replays as another version.
+- **No desktop wrapper.** A Tauri build is not made. It would need a `src-tauri` crate pointing at `dist-demo`-style relative paths, module workers, IndexedDB and WebGL2 working in each platform's web view (WebView2, WKWebView, WebKitGTK), `localStorage` kept per app, and icons, signing and installers for each platform. None of that can be shown from here.
+- **The demo's two starts stay out of the release.** The Fresh and Veteran choice exists only in `build:demo`.
+- **The dev panel, the test hook and the labs are in the release build.** The dev panel opens on Backquote, the test hook installs with `?e2e=1` and the labs open with `?lab=`. They act only on the player's own device, the browser tests run against the production build, and the run verifier refuses a replay that holds a debug command.
+
+## Third-party licences
+
+[`assets/licenses/`](assets/licenses/README.md) is the licence record: every package that ships in the build (react, react-dom, scheduler, three, zod, zustand and the three self-hosted font families, with the two build tools whose generated code is in the build), its version, its licence and the licence text itself. There are no art or audio assets: models are procedural three.js primitives and all sound is synthesised with WebAudio. The fonts are Cinzel, Inter and JetBrains Mono, self-hosted via `@fontsource` under the SIL Open Font License.
+
+`npm run licenses` rebuilds the shipped list from the build's source maps, its font files and the runtime dependencies, and fails if a shipped module has no record or the build holds a file that is not code, style or a font. CI runs it after the build.

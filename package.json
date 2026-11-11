@@ -18,11 +18,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
+    "e2e:fullrun": "AW_FULLRUN=1 playwright test e2e/fullrun.spec.ts",
     "sim:bench": "tsx tools/sim-bench.ts",
     "sim:replay": "tsx tools/replay-verify.ts",
     "golden:update": "tsx tools/update-golden.ts --write",
     "harness": "tsx tools/harness.ts",
     "loadouts": "tsx tools/loadouts.ts",
+    "licenses": "tsx tools/licenses.ts",
+    "release-check": "tsx tools/release-check.ts",
     "ci": "npm run typecheck && npm run lint && npm run test && npm run build && npm run e2e"
   },
   "dependencies": {
