@@ -667,7 +667,7 @@ export function buildSeren(def: HeroDef): THREE.BufferGeometry {
   });
   // The sword arm (her right): extended forward and low, the rapier far ahead of her (its tip
   // reaches past every hero's), a cupped violet guard, a violet light along the blade.
-  b.rigged({ k: WEAPON, at: [0.22, 1.62, 0], a: 0.8 }, () => {
+  b.rigged({ k: WEAPON, at: [0.22, 1.62, 0], a: 0.6 }, () => {
     limb(b, [0.22, 1.62, 0], [0.26, 1.42, -0.26], 0.055, 0.06, STEEL, 6, SIG, EXACT);
     limb(b, [0.26, 1.42, -0.26], [0.22, 1.32, -0.52], 0.05, 0.055, STEEL, 6, SIG, EXACT);
     b.sphere(0.05, boot, { p: [0.22, 1.31, -0.56] }, 5, 4);
@@ -746,7 +746,7 @@ export function buildOro(def: HeroDef): THREE.BufferGeometry {
   });
   // The mantle's front and sides end in a ragged hem of leaves.
   for (let i = 0; i < 6; i++) {
-    const a = Math.PI * (0.5 + (i / 5));
+    const a = Math.PI * (0.5 + i / 5);
     b.octa(0.11, leaf, {
       p: [Math.sin(a) * 0.58, 0.78, Math.cos(a) * 0.5],
       s: [1, 1.3, 0.3],

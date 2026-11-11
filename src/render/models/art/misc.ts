@@ -10,7 +10,7 @@ import {
   shade,
   type ArtFamily,
   type V3,
-  THREE,
+  type THREE,
 } from './kit';
 
 /**
@@ -121,15 +121,13 @@ export function buildAncient(moss: string): THREE.BufferGeometry {
     r: [-0.1, 0, 0.12],
     glow: 1,
   });
-  // Bark ridges down its front, and a beard of moss leaves hung from its brow.
+  // Bark ridges down its front.
   for (const [x, tilt] of [
     [-0.3, 0.06],
     [0.32, -0.05],
     [-0.12, -0.02],
   ] as const)
     b.box(0.07, 0.9, 0.06, BARK_DARK, { p: [x, 1.42, -0.55], r: [-0.1, 0, tilt] });
-  for (const x of [-0.22, 0, 0.22])
-    b.octa(0.1, deepMoss, { p: [x, 1.86, -0.56], s: [0.8, 1.6, 0.3], glow: 0.12 });
   for (const side of [-1, 1])
     b.sphere(
       0.3,
