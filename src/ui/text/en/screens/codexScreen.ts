@@ -227,4 +227,5 @@ export const codexScreen = {
   'screens.codexScreen.kind.elite': 'Elite',
   'screens.codexScreen.kind.miniboss': 'Mini-boss',
   'screens.codexScreen.kind.boss': 'Boss',
+  'screens.codexScreen.spirit': '{cost} Spirit',
 } satisfies Catalogue;

@@ -18,4 +18,6 @@ export const withoutYou = {
   'screens.withoutYou.bossLifeLeft': 'Boss life left',
   'screens.withoutYou.ofHeroesStanding': '{standing} of {length} heroes standing',
   'screens.withoutYou.time': 'Time',
+  'screens.withoutYou.of': '{wave} of {waves}',
+  'screens.withoutYou.of2': '{standing} of {length}',
 } satisfies Catalogue;

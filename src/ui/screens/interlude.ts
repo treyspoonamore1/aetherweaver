@@ -43,12 +43,12 @@ import { t } from '../text';
 
 /** "+20 Aether" / "−40 Aether". */
 export function aetherDelta(n: number): string {
-  return `${n < 0 ? '−' : '+'}${Math.abs(Math.round(n))} Aether`;
+  return t('screens.interlude.aether', { value: n < 0 ? '−' : '+', n: Math.abs(Math.round(n)) });
 }
 
 /** "35 Aether" */
 export function aetherAmount(n: number): string {
-  return `${Math.round(n)} Aether`;
+  return t('screens.interlude.aether2', { n: Math.round(n) });
 }
 
 /** What a fight paid in Aether, and how (for the result screen). Null: this kind never pays. */
@@ -154,7 +154,7 @@ export function relicSentence(r: RelicInfo): string {
   const curse = r.curse
     ? r.cleansed
       ? t('screens.interlude.itsCurseIsLifted', { curse: r.curse })
-      : ` Curse: ${r.curse}`
+      : t('screens.interlude.curse', { curse: r.curse })
     : '';
   if (r.dormant)
     return t('screens.interlude.relicDormantItsOwn', {
@@ -193,7 +193,10 @@ export function boonInfo(active: Pick<ActiveBoon, 'id' | 'fights'>): BoonInfo {
     icon: glyphKey(def),
     kind: def.kind,
     text: boonText(def),
-    left: n === null ? t('screens.interlude.theRestOfThe') : `${n} ${plural(n, 'fight')} left`,
+    left:
+      n === null
+        ? t('screens.interlude.theRestOfThe')
+        : t('screens.interlude.left', { n, nWord: plural(n, 'fight') }),
     short: n === null ? 'run' : `${n} ${plural(n, 'fight')}`,
   };
 }

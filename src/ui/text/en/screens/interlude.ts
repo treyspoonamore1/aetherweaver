@@ -110,4 +110,8 @@ export const interlude = {
   'screens.interlude.cursed': 'Cursed',
   'screens.interlude.epic': 'Epic',
   'screens.interlude.continue': 'Continue',
+  'screens.interlude.aether': '{value}{n} Aether',
+  'screens.interlude.aether2': '{n} Aether',
+  'screens.interlude.curse': ' Curse: {curse}',
+  'screens.interlude.left': '{n} {nWord} left',
 } satisfies Catalogue;

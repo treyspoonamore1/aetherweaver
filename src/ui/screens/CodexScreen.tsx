@@ -945,7 +945,7 @@ function Weaver() {
         perfectRefund: pct(t.ward.perfectRefund),
       }),
       stats: [
-        `${t.ward.cost} Spirit`,
+        txt('screens.codexScreen.spirit', { cost: t.ward.cost }),
         txt('screens.codexScreen.sCooldown', { cooldown: t.ward.cooldown }),
         txt('screens.codexScreen.mRange', { range: t.ward.range }),
       ],
@@ -960,7 +960,7 @@ function Weaver() {
         clutchWindow: t.chime.clutchWindow,
       }),
       stats: [
-        `${t.chime.cost} Spirit`,
+        txt('screens.codexScreen.spirit', { cost: t.chime.cost }),
         txt('screens.codexScreen.sCooldown', { cooldown: t.chime.cooldown }),
         txt('screens.codexScreen.mRange', { range: t.chime.range }),
       ],
@@ -978,7 +978,7 @@ function Weaver() {
           : '',
       }),
       stats: [
-        `${t.reel.cost} Spirit`,
+        txt('screens.codexScreen.spirit', { cost: t.reel.cost }),
         txt('screens.codexScreen.sCooldown', { cooldown: t.reel.cooldown }),
         txt('screens.codexScreen.mRange', { range: t.reel.range }),
       ],

@@ -92,4 +92,7 @@ export const atlasModel = {
   'screens.atlasModel.you': 'You',
   'screens.atlasModel.won': 'Won',
   'screens.atlasModel.lost': 'Lost',
+  'screens.atlasModel.of2': '{lit} of {of} {ofWord}',
+  'screens.atlasModel.left': '{days} {daysWord} left',
+  'screens.atlasModel.lit': '{countWord} {nWord} lit',
 } satisfies Catalogue;

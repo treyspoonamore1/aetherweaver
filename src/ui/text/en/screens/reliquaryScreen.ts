@@ -104,4 +104,5 @@ export const reliquaryScreen = {
   'screens.reliquaryScreen.slots': 'slots',
   'screens.reliquaryScreen.none': 'none',
   'screens.reliquaryScreen.prep': 'Prep',
+  'screens.reliquaryScreen.left2': '{length} left: {left}',
 } satisfies Catalogue;

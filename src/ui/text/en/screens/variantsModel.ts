@@ -55,4 +55,6 @@ export const variantsModel = {
   'screens.variantsModel.free': 'Free',
   'screens.variantsModel.life': 'Life',
   'screens.variantsModel.spirit': 'Spirit',
+  'screens.variantsModel.spirit2': '{cost} Spirit',
+  'screens.variantsModel.charges': '{maxCharges} charges',
 } satisfies Catalogue;

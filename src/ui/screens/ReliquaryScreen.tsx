@@ -1400,7 +1400,7 @@ function CategoryChooser({
               type="button"
               aria-pressed={chosen}
               aria-disabled={o.blocked !== null || undefined}
-              aria-label={`${o.name}, ${o.blurb}: ${o.blocked ?? `${o.left.length} left: ${o.left.join(', ')}`}`}
+              aria-label={`${o.name}, ${o.blurb}: ${o.blocked ?? txt('screens.reliquaryScreen.left2', { length: o.left.length, left: o.left.join(', ') })}`}
               title={o.blocked ?? `${o.blurb}: ${o.left.join(', ')}`}
               onClick={() => (o.blocked ? onRefuse(o.blocked) : onArg(o.category))}
               className={`relative flex min-w-0 flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 text-[0.75rem] font-semibold transition-colors ${o.blocked ? 'cursor-not-allowed border-dashed border-ink-600 bg-ink-950/40' : chosen ? 'bg-ink-700' : 'border-ink-600 bg-ink-900/70 hover:bg-ink-800'}`}

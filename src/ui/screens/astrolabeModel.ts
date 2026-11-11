@@ -347,7 +347,7 @@ export function pointsWord(n: number): string {
 
 /** "12 of 15 points". */
 export function pointsLine(spent: number, points: number): string {
-  return `${spent} of ${pointsWord(points)}`;
+  return t('screens.astrolabeModel.of', { spent, pointsWord: pointsWord(points) });
 }
 
 /** "3 points to spend", "Every point spent", "4 points over". */

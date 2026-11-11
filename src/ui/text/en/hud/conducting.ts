@@ -38,4 +38,6 @@ export const conducting = {
   'hud.conducting.free': 'Free',
   'hud.conducting.waiting': 'Waiting',
   'hud.conducting.marcato': 'Marcato',
+  'hud.conducting.next': '{linkName} next',
+  'hud.conducting.next2': '{name} next {powerLabel}',
 } satisfies Catalogue;

@@ -91,7 +91,7 @@ export function WithoutYouPanel({
   const alone: Column = {
     outcome: w.outcome,
     time: w.duration,
-    wave: w.waves > 1 ? `${w.wave} of ${w.waves}` : '—',
+    wave: w.waves > 1 ? t('screens.withoutYou.of', { wave: w.wave, waves: w.waves }) : '—',
     downs: w.downs,
     standing: w.standing,
     bossHp: w.bossHp,
@@ -188,7 +188,10 @@ function ColumnView({
     [t('screens.withoutYou.time'), clock(col.time)],
     [t('screens.withoutYou.waveReached'), col.wave],
     [t('screens.withoutYou.heroesWentDown'), String(col.downs)],
-    [t('screens.withoutYou.stillStanding'), `${col.standing} of ${heroIds.length}`],
+    [
+      t('screens.withoutYou.stillStanding'),
+      t('screens.withoutYou.of2', { standing: col.standing, length: heroIds.length }),
+    ],
   ];
   if (col.bossHp !== null) rows.push([t('screens.withoutYou.bossLifeLeft'), pct(col.bossHp)]);
   return (

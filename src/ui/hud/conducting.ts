@@ -370,13 +370,16 @@ export function pctLabel(share: number): string {
 
 /** The chain ring's label: "Duet next", "Trio next". */
 export function chainLabel(chain: NonNullable<ConductingHud['chain']>): string {
-  return `${linkName(chain.link)} next`;
+  return txt('hud.conducting.next', { linkName: linkName(chain.link) });
 }
 
 /** "Lyra next ×1.44"; "every hero left waits" when none can play yet. */
 export function finaleNextLabel(finale: FinaleHud): string {
   return finale.next
-    ? `${finale.next.name} next ${powerLabel(finale.next.power)}`
+    ? txt('hud.conducting.next2', {
+        name: finale.next.name,
+        powerLabel: powerLabel(finale.next.power),
+      })
     : txt('hud.conducting.waiting');
 }
 

@@ -83,4 +83,5 @@ export const dissonanceModel = {
   'screens.dissonanceModel.mimicry': 'Mimicry',
   'screens.dissonanceModel.depth': 'Depth {depth}',
   'screens.dissonanceModel.dissonance2': 'Dissonance',
+  'screens.dissonanceModel.of': '{points} of {pointsText}',
 } satisfies Catalogue;

@@ -257,7 +257,7 @@ export function withRank(
 
 /** "14 of 33 points". */
 export function totalLine(points: number): string {
-  return `${points} of ${pointsText(maxDissonance())}`;
+  return t('screens.dissonanceModel.of', { points, pointsText: pointsText(maxDissonance()) });
 }
 
 // ── What it pays ──────────────────────────────────────────────────────────────────────

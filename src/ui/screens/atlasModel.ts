@@ -491,7 +491,7 @@ function constellationView(
     lit,
     of,
     complete: of > 0 && lit === of,
-    progress: `${lit} of ${of} ${plural(of, 'star')}`,
+    progress: txt('screens.atlasModel.of2', { lit, of, ofWord: plural(of, 'star') }),
     reward,
     rewardLine: txt('screens.atlasModel.all', {
       countWord: countWord(of),
@@ -906,7 +906,7 @@ export interface WeeklyPanelView {
 
 export function daysLeftLine(days: number): string {
   if (days <= 1) return txt('screens.atlasModel.lastDay');
-  return `${days} ${plural(days, 'day')} left`;
+  return txt('screens.atlasModel.left', { days, daysWord: plural(days, 'day') });
 }
 
 export function weeklyPanelView(input: WeeklyPanelInput): WeeklyPanelView {
@@ -999,7 +999,10 @@ export function summaryAtlasView(r: AtlasRecord, cleared = true): SummaryAtlasVi
       ? txt('screens.atlasModel.echoClearedAtDissonance', { points: r.points })
       : txt('screens.atlasModel.echoCleared');
   const n = r.lit.length;
-  const litLine = n > 0 ? `${countWord(n)} ${plural(n, 'star')} lit` : null;
+  const litLine =
+    n > 0
+      ? txt('screens.atlasModel.lit', { countWord: countWord(n), nWord: plural(n, 'star') })
+      : null;
   const parts = [
     r.shards > 0 ? txt('screens.atlasModel.tuningShards', { shards: fmt(r.shards) }) : null,
     r.tears > 0

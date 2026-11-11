@@ -58,4 +58,5 @@ export const astrolabeModel = {
   'screens.astrolabeModel.choir': 'Choir',
   'screens.astrolabeModel.aegis': 'Aegis',
   'screens.astrolabeModel.bond': 'Bond',
+  'screens.astrolabeModel.of': '{spent} of {pointsWord}',
 } satisfies Catalogue;
