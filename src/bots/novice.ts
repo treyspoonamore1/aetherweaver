@@ -23,7 +23,7 @@
 import { CONTENT } from '../content';
 import { Rng } from '../sim/core/rng';
 import { rewindCanRevive } from '../sim/systems/rewind';
-import { weaverSilenced } from '../sim';
+import { finaleTurnBlock, weaverSilenced } from '../sim';
 import type { Command, ReadonlyEntity, ThreadMode, WorldState } from '../sim';
 import type { Bot } from './types';
 import {
@@ -75,7 +75,6 @@ import {
   cueCostNow,
   cueGateCost,
   crescendoCostOf,
-  finaleFree,
   finaleOn,
   onBeat,
   type HeroView,
@@ -518,7 +517,7 @@ export class NoviceBot implements Bot {
       !finaleOn(state) &&
       wc.crescendo <= 0 &&
       wc.resonance >= crescendoCostOf(state) &&
-      party.filter(finaleFree).length >= FINALE_HEROES &&
+      party.filter((h) => finaleTurnBlock(state, h.e.id) === null).length >= FINALE_HEROES &&
       ((!!boss?.health && !boss.health.dead) || enemies.length >= FINALE_CROWD) &&
       this.rng.chance(NOVICE_CONDUCTING.finale)
     ) {

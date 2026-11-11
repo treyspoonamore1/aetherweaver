@@ -185,3 +185,103 @@ test('a profile that won’t load is kept raw, and offered for download', async 
   expect(await page.evaluate(() => localStorage.getItem('aetherweaver.profile.corrupt'))).toBe(raw);
   expect(errors).toEqual([]);
 });
+
+/** Two frames after start-up: the notice reads storage in an effect after the first render. */
+async function settled(page: Page): Promise<void> {
+  await expect(page.getByTestId('front-door').or(page.getByTestId('demo-choice'))).toBeVisible();
+  await page.evaluate(
+    () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))),
+  );
+}
+
+async function startOn(page: Page, saves: Record<string, string>): Promise<void> {
+  await page.evaluate((s) => {
+    localStorage.clear();
+    for (const [k, v] of Object.entries(s)) localStorage.setItem(k, v);
+  }, saves);
+  await page.reload();
+  await ready(page);
+  await settled(page);
+}
+
+test('the kept-save notice shows once at start-up, downloads the raw text, and not again', async ({
+  page,
+}) => {
+  const errors = trackErrors(page);
+  await page.goto(START_URL);
+  await ready(page);
+  await settled(page);
+  test.skip(await page.getByTestId('playtest-line').isVisible(), 'not the demo’s build');
+  const notice = page.getByTestId('saves-kept-notice');
+
+  // A normal start, new or with a Weaver and a run: nothing.
+  await startOn(page, {});
+  await expect(notice).toHaveCount(0);
+  await page.evaluate(() => {
+    window.__AWRUN__!.newRun(4242);
+    window.__AWRUN__!.embark();
+  });
+  await page.reload();
+  await ready(page);
+  await settled(page);
+  await expect(notice).toHaveCount(0);
+
+  // A profile that won't load: the notice, once, over the Title. Dismissed, it doesn't come back.
+  const raw = '{"version":10,"xp":9001,"broken":';
+  await startOn(page, { 'aetherweaver.profile': raw });
+  await expect(notice).toHaveCount(1);
+  await expect(notice).toContainText('A save couldn’t be loaded');
+  await expect(notice).toContainText('Your profile couldn’t be loaded');
+  await notice.getByRole('button', { name: 'OK' }).click();
+  await expect(notice).toHaveCount(0);
+  await page.reload();
+  await ready(page);
+  await settled(page);
+  await expect(notice).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem('aetherweaver.profile.corrupt'))).toBe(raw);
+
+  // Another one that won't load: told again, and its download is the raw text.
+  const raw2 = '{"version":10,"xp":12,"runs":';
+  await page.evaluate((r) => localStorage.setItem('aetherweaver.profile', r), raw2);
+  await page.reload();
+  await ready(page);
+  await settled(page);
+  await expect(notice).toHaveCount(1);
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    notice.getByRole('button', { name: /^Download it/ }).click(),
+  ]);
+  expect(download.suggestedFilename()).toBe('aetherweaver-unreadable-profile.json');
+  expect(readFileSync(await download.path()).toString('utf8')).toBe(raw2);
+  await notice.getByRole('button', { name: 'OK' }).click();
+  await expect(notice).toHaveCount(0);
+  await page.reload();
+  await ready(page);
+  await settled(page);
+  await expect(notice).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+// Run in the demo's build only: `VITE_DEMO=1` for the build, and `-g "demo starts"`.
+test('both demo starts show no kept-save notice', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto(START_URL);
+  await ready(page);
+  await settled(page);
+  test.skip(!(await page.getByTestId('playtest-line').isVisible()), 'the demo’s build only');
+  const notice = page.getByTestId('saves-kept-notice');
+  for (const kind of ['fresh', 'veteran'] as const) {
+    await startOn(page, {});
+    await expect(page.getByTestId('demo-choice')).toBeVisible();
+    await expect(notice).toHaveCount(0);
+    await page.getByTestId(`demo-${kind}`).click();
+    await expect(page.getByTestId('front-door')).toBeVisible();
+    await expect(notice).toHaveCount(0);
+    await page.reload();
+    await ready(page);
+    await settled(page);
+    await expect(page.getByTestId('front-door')).toBeVisible();
+    await expect(notice).toHaveCount(0);
+  }
+  expect(errors).toEqual([]);
+});

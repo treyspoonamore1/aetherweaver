@@ -824,8 +824,12 @@ useProfile.subscribe((state, prev) => {
 export let startupReverify: { done: Promise<void>; cancel(): void } | null = null;
 
 if (typeof window !== 'undefined') {
-  // Save on the way out, so closing the tab never loses a transition.
-  window.addEventListener('pagehide', () => saveRun(storage(), useRun.getState().run));
+  // Save on the way out, so closing the tab never loses a transition. Only a run held in memory:
+  // none is until Continue, and saving none would delete the run saved.
+  window.addEventListener('pagehide', () => {
+    const run = useRun.getState().run;
+    if (run) saveRun(storage(), run);
+  });
   // An own weekly entry left Claimed (the page closed mid re-verification) is verified again.
   startupReverify = reverifyClaimedWeeklies();
 }

@@ -53,6 +53,7 @@
 import { CONTENT, attackDef, enemyDef, heroDef, partyHasDome } from '../content';
 import { Rng } from '../sim/core/rng';
 import { bloodRageBonus, gentle, segmentDistSq, specialsOf, weaverSilenced } from '../sim';
+import { finaleTurnBlock } from '../sim';
 import { HEAVY_LIFE } from '../content/rosterIds';
 import { contains } from '../sim/combat/telegraphs';
 import { dcos, dsin } from '../sim/core/dmath';
@@ -141,7 +142,6 @@ import {
   beatSoon,
   cueCostNow,
   crescendoCostOf,
-  finaleFree,
   finaleOn,
   marcatoReady,
   soloFullIn,
@@ -1646,7 +1646,8 @@ export class SkilledBot implements Bot {
     cost: number,
   ): boolean {
     if (resonance < cost || crescendo > 0 || finaleOn(state)) return false;
-    if (party.filter(finaleFree).length < FINALE_FREE) return false;
+    if (party.filter((h) => finaleTurnBlock(state, h.e.id) === null).length < FINALE_FREE)
+      return false;
     const boss =
       state.encounter.bossId === null ? undefined : state.entities.get(state.encounter.bossId);
     const bossUp =

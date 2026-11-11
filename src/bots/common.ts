@@ -1226,14 +1226,6 @@ export function marcatoReady(state: WorldState): boolean {
   return !c.field.marcato || state.time >= c.field.marcato.readyAt;
 }
 
-/** A hero able to take a Finale turn now (as the sim reads it: charge aside, not mid-Solo). */
-export function finaleFree(h: HeroView): boolean {
-  const c = h.e.hero!;
-  return (
-    c.soloActive <= 0 && c.hold === null && c.reel === null && !isStilled(h.e) && !isPossessed(h.e)
-  );
-}
-
 /** How far a hero's Solo reaches (m): its own radius or reach, else the hero's attack range. */
 export function soloReach(h: HeroView): number {
   const def = CONTENT.heroes.find((d) => d.id === h.defId)!;
