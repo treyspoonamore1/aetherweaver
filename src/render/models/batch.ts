@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ART_PASS } from './artFlag';
 import { createRigDepthMaterial } from './material';
+import { ownRandom } from './ownRandom';
 
 let rigDepth: THREE.MeshDepthMaterial | null = null;
 
@@ -46,12 +47,12 @@ export class ModelBatch {
       this.pose.setUsage(THREE.DynamicDrawUsage);
       geometry.setAttribute('aPose', this.pose);
     }
-    this.mesh = new THREE.InstancedMesh(geometry, material, capacity);
+    this.mesh = ownRandom(() => new THREE.InstancedMesh(geometry, material, capacity));
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.frustumCulled = false;
     this.mesh.castShadow = castShadow;
     if (ART_PASS && geometry.getAttribute('aRig'))
-      this.mesh.customDepthMaterial = rigDepth ??= createRigDepthMaterial();
+      this.mesh.customDepthMaterial = rigDepth ??= ownRandom(createRigDepthMaterial);
     this.mesh.receiveShadow = false;
     this.mesh.count = 0;
     this.mesh.visible = false;

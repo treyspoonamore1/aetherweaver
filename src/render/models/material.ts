@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CHRONO_HEX } from '../chronoCues';
 import { ART_PASS } from './artFlag';
 import { createMainModelMaterial } from './materialMain';
+import { ownRandom } from './ownRandom';
 
 /** A hex colour as a GLSL vec3 literal (linear, like THREE.Color). */
 function glslColor(hex: string): string {
@@ -174,6 +175,10 @@ const CRACK_HEX = '#a78bfa';
 
 export function createModelMaterial(): ModelMaterial {
   if (!ART_PASS) return createMainModelMaterial();
+  return ownRandom(createArtModelMaterial);
+}
+
+function createArtModelMaterial(): ModelMaterial {
   // uOutline: the outline shell's width, as a share of the view depth (~1.6 px at 720 px, 40° fov).
   const uniforms = { uTime: { value: 0 }, uGlow: { value: 1.6 }, uOutline: { value: 0.0016 } };
   const material = new THREE.MeshStandardMaterial({

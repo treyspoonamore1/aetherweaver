@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ART_PASS } from './artFlag';
+import { ownRandom } from './ownRandom';
 
 /**
  * Procedural low-poly model builder. Primitives are transformed and merged into ONE
@@ -220,23 +221,43 @@ export class ModelBuilder {
   }
 
   box(w: number, h: number, d: number, hex: string, opts?: PartOptions): this {
-    return this.add(new THREE.BoxGeometry(w, h, d), hex, opts);
+    return this.add(
+      ownRandom(() => new THREE.BoxGeometry(w, h, d)),
+      hex,
+      opts,
+    );
   }
 
   cyl(rTop: number, rBottom: number, h: number, hex: string, opts?: PartOptions, seg = 8): this {
-    return this.add(new THREE.CylinderGeometry(rTop, rBottom, h, seg, 1), hex, opts);
+    return this.add(
+      ownRandom(() => new THREE.CylinderGeometry(rTop, rBottom, h, seg, 1)),
+      hex,
+      opts,
+    );
   }
 
   sphere(r: number, hex: string, opts?: PartOptions, w = 8, h = 6): this {
-    return this.add(new THREE.SphereGeometry(r, w, h), hex, opts);
+    return this.add(
+      ownRandom(() => new THREE.SphereGeometry(r, w, h)),
+      hex,
+      opts,
+    );
   }
 
   ico(r: number, hex: string, opts?: PartOptions, detail = 0): this {
-    return this.add(new THREE.IcosahedronGeometry(r, detail), hex, opts);
+    return this.add(
+      ownRandom(() => new THREE.IcosahedronGeometry(r, detail)),
+      hex,
+      opts,
+    );
   }
 
   octa(r: number, hex: string, opts?: PartOptions): this {
-    return this.add(new THREE.OctahedronGeometry(r, 0), hex, opts);
+    return this.add(
+      ownRandom(() => new THREE.OctahedronGeometry(r, 0)),
+      hex,
+      opts,
+    );
   }
 
   torus(
@@ -247,11 +268,19 @@ export class ModelBuilder {
     arc = Math.PI * 2,
     seg = 16,
   ): this {
-    return this.add(new THREE.TorusGeometry(r, tube, 4, seg, arc), hex, opts);
+    return this.add(
+      ownRandom(() => new THREE.TorusGeometry(r, tube, 4, seg, arc)),
+      hex,
+      opts,
+    );
   }
 
   cone(r: number, h: number, hex: string, opts?: PartOptions, seg = 8): this {
-    return this.add(new THREE.ConeGeometry(r, h, seg, 1), hex, opts);
+    return this.add(
+      ownRandom(() => new THREE.ConeGeometry(r, h, seg, 1)),
+      hex,
+      opts,
+    );
   }
 
   /** An open slice of a (tapered) cylinder: a cloak or a train, `start`..`start + len` rad round. */
@@ -267,8 +296,14 @@ export class ModelBuilder {
   ): this {
     // Open: no outline shell (its inside would show), and an inner face so it is seen from both sides.
     const o = { ...opts, shell: false };
-    this.add(new THREE.CylinderGeometry(rTop, rBottom, h, seg, 1, true, start, len), hex, o);
-    const inner = new THREE.CylinderGeometry(rTop, rBottom, h, seg, 1, true, start, len);
+    this.add(
+      ownRandom(() => new THREE.CylinderGeometry(rTop, rBottom, h, seg, 1, true, start, len)),
+      hex,
+      o,
+    );
+    const inner = ownRandom(
+      () => new THREE.CylinderGeometry(rTop, rBottom, h, seg, 1, true, start, len),
+    );
     const idx = inner.index!.array as Uint16Array | Uint32Array;
     for (let i = 0; i < idx.length; i += 3) {
       const t = idx[i + 1]!;
@@ -281,7 +316,11 @@ export class ModelBuilder {
   /** Lathe profile: [radius, y] pairs from bottom to top. */
   lathe(profile: [number, number][], hex: string, opts?: PartOptions, seg = 10): this {
     const pts = profile.map(([x, y]) => new THREE.Vector2(x, y));
-    return this.add(new THREE.LatheGeometry(pts, seg), hex, opts);
+    return this.add(
+      ownRandom(() => new THREE.LatheGeometry(pts, seg)),
+      hex,
+      opts,
+    );
   }
 
   /** Main's build, verbatim: the plain model while the art pass is off (artFlag.ts). */
@@ -332,6 +371,10 @@ export class ModelBuilder {
 
   build(): THREE.BufferGeometry {
     if (!ART_PASS) return this.buildPlain();
+    return ownRandom(() => this.buildGlass());
+  }
+
+  private buildGlass(): THREE.BufferGeometry {
     let vertexCount = 0;
     const prepared: {
       geo: THREE.BufferGeometry;
