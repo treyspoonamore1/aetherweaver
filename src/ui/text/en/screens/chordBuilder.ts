@@ -28,7 +28,6 @@ export const chordBuilder = {
   'screens.chordBuilder.held': '{reserved} held ({heldPct}%)',
   'screens.chordBuilder.toFightWith': '{free} to fight with',
   'screens.chordBuilder.life': '{free} Life',
-  'screens.chordBuilder.youKeepAtLeast': '← you keep at least {value}%',
   'screens.chordBuilder.youFightWithLife': 'You fight with {free} Life of {max}{value}',
   'screens.chordBuilder.youStartBelowHalf': 'You start below half your Life.',
   'screens.chordBuilder.prismCovenantYouFight':

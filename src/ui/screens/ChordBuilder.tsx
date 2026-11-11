@@ -1210,7 +1210,7 @@ function LifeBudgetPanel({
           aria-hidden
         >
           <span className="absolute -top-0.5 left-1 whitespace-nowrap font-mono text-[0.75rem] leading-none text-muted">
-            {txt('screens.chordBuilder.youKeepAtLeast', { value: 100 - capPct })}
+            ← you keep at least {100 - capPct}%
           </span>
         </span>
         {prism !== null && (
