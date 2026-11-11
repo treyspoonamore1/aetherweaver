@@ -2,7 +2,6 @@ import { LIT_MODEL } from '../../lightCues';
 import {
   BRACE,
   CLOTH,
-  FLAT,
   FLOAT,
   HEAD,
   SPIN,
