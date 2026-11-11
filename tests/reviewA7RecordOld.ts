@@ -8,7 +8,8 @@
  *   npx tsx --tsconfig tsconfig.app.json tests/reviewA7RecordOld.ts <dir>
  *
  * It never overwrites a file (recorded on a later tree it would prove nothing): it writes only
- * the ones missing.
+ * the ones missing, as compact JSON, which `npx prettier --write` then lays out (the values are
+ * the recorded ones: only the layout changes).
  */
 import { existsSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
