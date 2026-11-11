@@ -54,9 +54,29 @@ export function artHero(def: HeroDef): THREE.BufferGeometry | null {
   return heroes.get(def.id)?.(def) ?? null;
 }
 
-/** An enemy's redrawn model, by its id, or null. */
+/**
+ * Each role's figure for an enemy id with no model of its own (a content id added before its
+ * figure): Movement I's, whose roles define the silhouettes (rule 2). Every content id has its own
+ * (tests/renderArt.test.ts); the role tests (renderMovement2/3, renderFinale) build an unknown id to
+ * check that no figure is merely its role's.
+ */
+const ROLE_FIGURE: Record<string, string> = {
+  swarm: 'hollow_chorister',
+  brute: 'bell_brute',
+  caster: 'lamenter',
+  sniper: 'glass_lancer',
+  controller: 'mute',
+  support: 'cantor_acolyte',
+  miniboss: 'the_bellwarden',
+  boss: 'the_hollow_cantor',
+};
+
+/** An enemy's model: its own by id, else its role's figure (in its own colours and size), or null. */
 export function artEnemy(def: EnemyDef): THREE.BufferGeometry | null {
-  return enemies.get(def.id)?.(def) ?? null;
+  const own = enemies.get(def.id);
+  if (own) return own(def);
+  const role = ROLE_FIGURE[def.role];
+  return role ? (enemies.get(role)?.(def) ?? null) : null;
 }
 
 export function artWeaver(palette: Readonly<WeaverPalette>): THREE.BufferGeometry | null {
