@@ -30,11 +30,20 @@ const BANNER_ICON: Partial<Record<Callout['kind'], IconName>> = {
   response: 'call',
 };
 
+/**
+ * The Crescendo's banner (made in src/app/runtime.ts): the one Perfect banner with neither a glyph
+ * of its own nor a detail line (Perfect Ward's names who and how much; the Finale's and Conducting's
+ * bring their glyphs). Read from what the callout carries, never its words, so every locale agrees.
+ */
+function crescendoBanner(c: Callout): boolean {
+  return c.kind === 'perfect' && !c.icon && !c.detail;
+}
+
 /** Big centred banners: PERFECT, SAVE, CLUTCH, Crescendo (a callout may bring its own glyph). */
 function Banner({ c }: { c: Callout }) {
   const ttl = useLifetime(c.expiresAt);
   const color = c.color ?? '#f5d78e';
-  const icon = c.icon ?? (c.text.startsWith('Crescendo') ? 'sparkle' : BANNER_ICON[c.kind]);
+  const icon = c.icon ?? (crescendoBanner(c) ? 'sparkle' : BANNER_ICON[c.kind]);
   return (
     <div
       className="flex flex-col items-center text-center"
@@ -67,9 +76,8 @@ function Banner({ c }: { c: Callout }) {
 function NoteBanner({ c }: { c: Callout }) {
   const ttl = useLifetime(c.expiresAt);
   const color = c.color ?? '#f5d78e';
-  const m = /^Note (\d+)\/(\d+)/.exec(c.text);
-  const n = m ? Number(m[1]) : 0;
-  const of = m ? Number(m[2]) : 8;
+  const n = c.note?.n ?? 0;
+  const of = c.note?.of ?? 8;
   return (
     <div
       className="flex flex-col items-center rounded-xl border bg-ink-950/80 px-5 py-2 text-center shadow-xl shadow-black/60"
