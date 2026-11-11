@@ -61,6 +61,7 @@ import type { WeaverLook } from '../keepsakeCues';
 import { Stage, type QualityTier } from '../stage';
 import type { FrameInfo } from '../types';
 import { KeepsakeLineup, type LineupPage } from './keepsakeLineup';
+import { ArtStudio, type StudioSpec } from './artStudio';
 import { VARIANT_SCENARIOS, VARIANT_SCENARIO_NAMES, scenarioConfig } from './variantScenarios';
 import { CONDUCT_SCENARIOS, CONDUCT_SCENARIO_NAMES } from './conductScenarios';
 import { FILL_SCENARIOS, FILL_SCENARIO_NAMES } from './fillScenarios';
@@ -208,6 +209,12 @@ interface LabApi {
   setLook(look: WeaverLook): void;
   /** Phase 4g: the keepsakes side by side (robes, or Thread looks in Mend and Empower); null: the fight. */
   lineup(page: LineupPage | null): void;
+  /** The art studio: the characters' models alone on a floor under a fixed camera; null: the fight. */
+  studio(spec: StudioSpec | null): void;
+  /**
+   * Pins the camera at `eye` looking at `at` (the follow camera stops); null: it follows again.
+   */
+  pinCamera(pin: { eye: [number, number, number]; at: [number, number, number] } | null): void;
   /** Phase 4g: what the fight's Weaver and Thread wear and draw, and the lineup's figures. */
   keepsakeStats(): KeepsakeStats;
   /** Phase 5a: Movement II's scenarios (docs/phase-5a/vfx-audio.md). */
@@ -2996,6 +3003,10 @@ class LabRuntime {
   settings: Settings = { screenShake: 1, flashes: 1, damageNumbers: true, colorVision: 'normal' };
   /** Phase 4g: the keepsakes' lineup while it shows (in place of the fight). */
   private keepsakes: KeepsakeLineup | null = null;
+  /** The art studio while it shows (in place of the fight). */
+  private art: ArtStudio | null = null;
+  /** A pinned camera (screenshots): the follow camera waits. */
+  pin: { eye: [number, number, number]; at: [number, number, number] } | null = null;
   private frames = 0;
   private fpsTimer = 0;
   fps = 0;
@@ -4967,6 +4978,21 @@ class LabRuntime {
     this.overlay.style.display = 'none';
   }
 
+  /** The art studio in place of the fight (the sim waits); null: back to the fight. */
+  studio(spec: StudioSpec | null): void {
+    this.closeLineup();
+    if (this.art) {
+      this.art.dispose();
+      this.art = null;
+      this.overlay.style.display = '';
+      this.view = this.createView();
+    }
+    if (!spec) return;
+    this.view.dispose();
+    this.art = new ArtStudio(this.stage, spec);
+    this.overlay.style.display = 'none';
+  }
+
   private closeLineup(): void {
     if (!this.keepsakes) return;
     this.keepsakes.dispose();
@@ -5582,6 +5608,15 @@ class LabRuntime {
   private advance(elapsed: number): void {
     const now = this.clock;
     if (this.start < 0) this.start = now;
+    if (this.art) {
+      this.art.sync(
+        (now - this.start) / 1000,
+        (elapsed / 1000) * this.timeScale,
+        this.stage.qualityTier,
+      );
+      if (!this.skipRender) this.stage.render();
+      return;
+    }
     const lineup = this.keepsakes;
     if (lineup) {
       // Phase 4g's lineup in place of the fight: the sim waits.
@@ -5613,6 +5648,12 @@ class LabRuntime {
       const wx = w.px + (w.x - w.px) * alpha;
       const wz = w.pz + (w.z - w.pz) * alpha;
       this.rig.update(wx, wz, this.aim?.x ?? wx, this.aim?.z ?? wz, elapsed / 1000);
+    }
+    if (this.pin) {
+      const cam = this.stage.camera;
+      cam.position.set(...this.pin.eye);
+      cam.lookAt(...this.pin.at);
+      cam.updateMatrixWorld();
     }
     // Slow-mo applies to the FX clock too, so transient moments can be reviewed (and shot).
     this.view.sync(state, {
@@ -5914,6 +5955,10 @@ export function VfxLab() {
         setThreadLook(look.thread);
       },
       lineup: (page) => rt.lineup(page),
+      studio: (spec) => rt.studio(spec),
+      pinCamera: (pin) => {
+        rt.pin = pin;
+      },
       keepsakeStats: () => rt.keepsakeStats(),
       crimsonScenarios: () => CRIMSON_SCENARIO_NAMES,
       crimsonScenario: (name) => rt.crimsonScenario(name),
