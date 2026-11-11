@@ -91,8 +91,9 @@ async function playScene(
   onGpu(gpuName(runtime));
   const stats = new FrameStats();
   runtime.start();
-  // The real-time cap: ten times the scene's game time, and never under two minutes.
-  const deadline = performance.now() + Math.max(120_000, (end / 60) * 10_000);
+  // The real-time cap, for a tab that stops drawing: thirty times the scene's game time, and
+  // never under ten minutes (a software renderer on a busy machine plays a few ticks a second).
+  const deadline = performance.now() + Math.max(600_000, (end / 60) * 30_000);
   let timedOut = false;
   while (runtime.sim.tick < scene.warmupTicks) {
     if (performance.now() > deadline) {
