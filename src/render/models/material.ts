@@ -168,9 +168,7 @@ export interface ModelMaterial {
     uTime: { value: number };
     uGlow: { value: number };
     uOutline?: { value: number };
-    /** The outline's colour in a dark world, how far it moves from lead to it, a self-light lift. */
-    uEdge?: { value: THREE.Color };
-    uEdgeMix?: { value: number };
+    /** A dark world's lift of the dark cut glass, and its lit panes' brightness (artWorld.ts). */
     uLift?: { value: number };
     uPaneBoost?: { value: number };
   };
@@ -193,8 +191,6 @@ function createArtModelMaterial(): ModelMaterial {
     uTime: { value: 0 },
     uGlow: { value: 1.6 },
     uOutline: { value: 0.0016 },
-    uEdge: { value: new THREE.Color(LEAD_HEX) },
-    uEdgeMix: { value: 0 },
     uLift: { value: 0 },
     uPaneBoost: { value: 1 },
   };
@@ -208,8 +204,6 @@ function createArtModelMaterial(): ModelMaterial {
     shader.uniforms.uTime = uniforms.uTime;
     shader.uniforms.uGlow = uniforms.uGlow;
     shader.uniforms.uOutline = uniforms.uOutline;
-    shader.uniforms.uEdge = uniforms.uEdge;
-    shader.uniforms.uEdgeMix = uniforms.uEdgeMix;
     shader.uniforms.uLift = uniforms.uLift;
     shader.uniforms.uPaneBoost = uniforms.uPaneBoost;
     shader.vertexShader = shader.vertexShader
@@ -256,8 +250,6 @@ ${RIG_VERTEX}`,
         `#include <common>
 uniform float uTime;
 uniform float uGlow;
-uniform vec3 uEdge;
-uniform float uEdgeMix;
 uniform float uLift;
 uniform float uPaneBoost;
 varying float vGlow;
@@ -461,8 +453,7 @@ if (vShine.w > 0.001) {
         '#include <opaque_fragment>',
         `if (vLead.y > 0.5) {
   // The outline shell is plain lead (it flashes with a hit and burns with a dissolve's edge).
-  // In a dark world the lead catches the light: a pewter edge (artWorld.ts), not a dark one.
-  outgoingLight = mix(AW_LEAD * 0.6, uEdge, uEdgeMix) * (1.0 - vFx.z * 0.5)
+  outgoingLight = AW_LEAD * 0.6
     + vec3(1.0, 0.97, 0.92) * vFx.x * vFx.x * 0.8 + vTint.rgb * awEdge * 4.0;
 }
 #include <opaque_fragment>`,

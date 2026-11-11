@@ -3,48 +3,37 @@ import { ART_PASS } from './artFlag';
 import type { ModelMaterial } from './material';
 
 /**
- * The art pass's stained-glass figures in each world (artPass.ts). In the Reliquary the dark lead
- * round a figure parts it from the warm stone. On the three dark worlds' floors (Phase 8a's lit
- * Spire, Rift and Crucible) dark lead vanishes, so there the lead "catches the light": the outline
- * turns a quarter of the way to pewter (enough to part a figure from the floor, not so much that it
- * greys the glass or outshines a rim), the dark cut glass gives back its own colour (`lift`: cut
- * glass only, so a foe's plain dark cloth stays dark and its hostile rim reads), and the lit panes
- * burn a little brighter. Tried and dropped: a full pewter edge (a chalk outline that greyed every
- * signature colour and weakened the hostile and Mend rims); a lift on every dark part (it turned
- * the Choir's hoods violet and drowned their hostile rim).
- *
- * The pewter (#9a9a7c) is ≥ 23 ΔE from every semantic colour in every colour vision (measured with
- * src/app/colorVision.ts against the palette, its vision palettes and the Weaver's): not gold, not
- * Mend, not Ward, not threat or lethal. Only the models' own outline and self-light change; the
- * arena, its lights, every aura, ring, rim and ornament are untouched (the hostile rim and the
- * aura rims are drawn on the body, inside the outline).
+ * The art pass's stained-glass figures in each world (artPass, models/art). The figures look the
+ * same in every world (the orchestrator's call: the outline stays lead everywhere). On the three
+ * dark worlds' floors (Phase 8a's lit Spire, Rift and Crucible) only the darkest cut glass (parts
+ * with panes: Vexis's night robe, Kael's darker plates) gives back a little of its own colour, so it
+ * does not sink into the floor; plain dark cloth (a foe's hood or cassock) stays dark so its
+ * hostile rim reads, and bright glass is untouched (nothing greys). The lit panes burn a little
+ * brighter there. Tried and dropped (docs/art-style.md): a pewter outline on the dark floors.
  */
 export interface ArtWorld {
-  edge: string;
-  edgeMix: number;
+  /** The dark cut glass's lift (0: none). */
   lift: number;
   /** How much brighter the lit panes burn. */
   panes: number;
 }
 
-const LEAD: ArtWorld = { edge: '#15131c', edgeMix: 0, lift: 0, panes: 1 };
-const PEWTER = '#9a9a7c';
+const PLAIN: ArtWorld = { lift: 0, panes: 1 };
+const DARK: ArtWorld = { lift: 0.14, panes: 1.4 };
 
 export const ART_WORLD: Record<ArenaLook, ArtWorld> = {
-  warm: LEAD,
-  cool: LEAD,
-  crimson: { edge: PEWTER, edgeMix: 0.25, lift: 0.14, panes: 1.4 },
-  abyss: { edge: PEWTER, edgeMix: 0.25, lift: 0.14, panes: 1.4 },
-  crucible: { edge: PEWTER, edgeMix: 0.25, lift: 0.14, panes: 1.4 },
+  warm: PLAIN,
+  cool: PLAIN,
+  crimson: DARK,
+  abyss: DARK,
+  crucible: DARK,
 };
 
-/** Fits the model material's outline and lift to the world an arena belongs to (art pass only). */
+/** Fits the model material's lift to the world an arena belongs to (art pass only). */
 export function applyArtWorld(model: ModelMaterial, look: ArenaLook): void {
   const u = model.uniforms;
-  if (!ART_PASS || !u.uEdge || !u.uEdgeMix || !u.uLift || !u.uPaneBoost) return;
+  if (!ART_PASS || !u.uLift || !u.uPaneBoost) return;
   const w = ART_WORLD[look];
-  u.uEdge.value.set(w.edge);
-  u.uEdgeMix.value = w.edgeMix;
   u.uLift.value = w.lift;
   u.uPaneBoost.value = w.panes;
 }

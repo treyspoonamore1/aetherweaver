@@ -4,15 +4,7 @@ import { OWN_PALETTE, type WeaverPalette } from '../keepsakeCues';
 import { ART_PASS } from './artFlag';
 import { ModelBuilder } from './builder';
 import { LIT_MODEL } from '../lightCues';
-import {
-  buildBellwarden,
-  buildBrute,
-  buildChorister,
-  buildKael,
-  buildLyra,
-  buildVexis,
-  buildWeaverArt,
-} from './artPass';
+import { artAncient, artCrown, artEnemy, artHero, artSapling, artWeaver } from './art';
 import { ALTO, BASS, CONDUCTOR, SOPRANO, TENOR } from '../../content/crucibleIds';
 
 /**
@@ -53,8 +45,11 @@ const BARK = '#5b4330';
  * in the same order, so a robe changed in the fight is recoloured in place (`recolorModel`).
  */
 export function buildWeaver(palette: Readonly<WeaverPalette> = OWN_PALETTE): THREE.BufferGeometry {
-  // Art pass prototype: her redrawn figure (artPass.ts); the old one below stays for reference.
-  if (ART_PASS) return buildWeaverArt(palette);
+  // The art pass (models/art): her redrawn figure; the old one below draws while it is off.
+  if (ART_PASS) {
+    const art = artWeaver(palette);
+    if (art) return art;
+  }
   const b = new ModelBuilder();
   const body = palette.body;
   b.lathe(
@@ -123,10 +118,10 @@ export function recolorModel(target: THREE.BufferGeometry, source: THREE.BufferG
 }
 
 export function buildHero(def: HeroDef): THREE.BufferGeometry {
+  // The art pass (models/art): a redrawn hero, else main's below.
   if (ART_PASS) {
-    if (def.role === 'tank') return buildKael(def);
-    if (def.role === 'ranger') return buildLyra(def);
-    if (def.role === 'arcanist') return buildVexis(def);
+    const art = artHero(def);
+    if (art) return art;
   }
   const b = new ModelBuilder();
   const col = def.color;
@@ -365,6 +360,10 @@ export function buildHero(def: HeroDef): THREE.BufferGeometry {
  * bark and moss, its seed bud ORO_SEED. Local forward is -z, feet at y = 0.
  */
 export function buildSapling(moss = '#487858'): THREE.BufferGeometry {
+  if (ART_PASS) {
+    const art = artSapling(moss);
+    if (art) return art;
+  }
   const b = new ModelBuilder();
   // The stump, wide at its roots, a ring of roots splayed at its foot.
   b.cyl(0.22, 0.3, 0.42, BARK, { p: [0, 0.21, 0] }, 7);
@@ -392,6 +391,10 @@ export function buildSapling(moss = '#487858'): THREE.BufferGeometry {
  * branch arms, a mossy crown and seed-glow eyes.
  */
 export function buildAncient(moss = '#487858'): THREE.BufferGeometry {
+  if (ART_PASS) {
+    const art = artAncient(moss);
+    if (art) return art;
+  }
   const b = new ModelBuilder();
   const dark = shade(BARK, -0.25);
   // Root legs, splayed.
@@ -414,6 +417,11 @@ export function buildAncient(moss = '#487858'): THREE.BufferGeometry {
 }
 
 export function buildEnemy(def: EnemyDef): THREE.BufferGeometry {
+  // The art pass (models/art): a redrawn enemy by id, else main's below.
+  if (ART_PASS) {
+    const art = artEnemy(def);
+    if (art) return art;
+  }
   const b = new ModelBuilder();
   const body = def.color;
   const acc = def.accent;
@@ -428,11 +436,6 @@ export function buildEnemy(def: EnemyDef): THREE.BufferGeometry {
   // The Finale: the Silent Conductor and its faceted glass choir, by id, before any role's.
   if (buildCrucible(def, b)) return b.build();
 
-  if (ART_PASS) {
-    if (def.id === 'the_bellwarden') return buildBellwarden(def);
-    if (def.role === 'swarm') return buildChorister(def);
-    if (def.role === 'brute') return buildBrute(def);
-  }
   if (def.id === 'the_bellwarden') {
     // A giant walking bell with a cracked, molten waist.
     b.lathe(
@@ -697,6 +700,10 @@ export function buildEnemy(def: EnemyDef): THREE.BufferGeometry {
 
 /** Elite crown: a gold ring with points, scaled per wearer. Unit size. */
 export function buildCrown(): THREE.BufferGeometry {
+  if (ART_PASS) {
+    const art = artCrown();
+    if (art) return art;
+  }
   const b = new ModelBuilder();
   b.torus(0.3, 0.045, GOLD_GLOW, { r: [Math.PI / 2, 0, 0], glow: 0.9 }, Math.PI * 2, 16);
   for (let i = 0; i < 5; i++) {

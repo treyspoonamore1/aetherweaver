@@ -53,8 +53,8 @@ import {
   buildWeaver,
   recolorModel,
 } from './models/library';
-import { WEAVER_HANDS } from './models/artPass';
-import { ART_PASS } from './models/artFlag';
+import { WEAVER_HANDS } from './models/art/weaver';
+import { ART_PASS, HERO_DRAWN } from './models/artFlag';
 import {
   SEREN_FLASH,
   SEREN_VIOLET,
@@ -434,6 +434,7 @@ export function weaverRibbons(
   inner: THREE.Color,
   outer: THREE.Color,
   still = 0,
+  drawn = 1,
 ): void {
   if (count < 3) return;
   const lift = IDLE.ribbonLift * still;
@@ -445,9 +446,10 @@ export function weaverRibbons(
     // Art pass: the outer two leave her hands (artPass.ts WEAVER_HANDS, as the Loom draws her),
     // the middle one the knot at her back; `hist` samples a point just behind her. Off: as main.
     const hand = ART_PASS && r !== 1;
-    const off = ART_PASS ? (hand ? (r - 1) * WEAVER_HANDS.side : 0) : (r - 1) * 0.16;
-    const reach = hand ? WEAVER_HANDS.forward + 0.18 : 0;
-    const baseY = ART_PASS ? (hand ? WEAVER_HANDS.y : 1.04) : 1.12 - r * 0.12;
+    // Art pass: her hands at her drawn scale (`drawn`, 1.12): the ribbons leave them.
+    const off = ART_PASS ? (hand ? (r - 1) * WEAVER_HANDS.side * drawn : 0) : (r - 1) * 0.16;
+    const reach = hand ? (WEAVER_HANDS.forward + 0.18) * drawn : 0;
+    const baseY = ART_PASS ? (hand ? WEAVER_HANDS.y : 1.04) * drawn : 1.12 - r * 0.12;
     const c = r === 1 ? inner : outer;
     kit.ribbons.beginStrip();
     const n = Math.min(count, 18 + r * 3);
@@ -481,7 +483,7 @@ export function weaverRibbons(
       // Art pass: at rest the hands' ribbons fall toward the floor beside her in a slow S
       // (the Loom's drawing), rather than streaming back.
       const fall = hand ? still : 0;
-      let droop = t * (0.75 + 0.1 * fall);
+      let droop = t * (0.75 + 0.1 * fall) * drawn;
       if (lift > 0) {
         droop -= lift * t * (0.6 + 0.4 * Math.sin(now * 1.4 + r * 1.9 - t * 2.6));
         flutter += lift * 0.6 * t * Math.sin(now * 0.9 + r * 2.4 - t * 1.8);
@@ -493,7 +495,7 @@ export function weaverRibbons(
         hist[k * 3 + 1] + baseY - droop + Math.sin(now * 3.3 + k * 0.4 + r) * 0.06 * t,
         pz - fz * t * back + sideZ * (flutter + out),
         // Art pass: wider and brighter, so they read as the threads' origin at the fight's camera.
-        0.12 * (1 - t * 0.55),
+        0.12 * drawn * (1 - t * 0.55),
         c,
         (1 - t * 0.85) * 0.95,
         t * 2,
@@ -889,11 +891,14 @@ export class EntityLayer {
         () => buildWeaver(weaverPalette(this.look, currentVision())),
         16,
       );
+      // Art pass: drawn 1.12× (the model only; HERO_DRAWN is 1 while it is off).
+      batch.drawn = HERO_DRAWN;
       this.weaverId = e.id;
     } else if (e.hero) {
       const def = heroDef(e.hero.defId);
       // Room for the hero plus a few save ghosts (same model, same draw call).
       batch = this.batchFor(`hero:${def.id}`, () => buildHero(def), 8);
+      batch.drawn = HERO_DRAWN;
       hex = def.color;
       accentHex = def.color;
       role = def.role;
@@ -3283,6 +3288,7 @@ export class EntityLayer {
       this.ribbonInner,
       this.ribbonOuter,
       this.ribbonStill,
+      HERO_DRAWN,
     );
   }
 

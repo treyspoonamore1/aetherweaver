@@ -1,38 +1,51 @@
 import * as THREE from 'three';
 import { CONTENT, arenaDef, enemyDef, heroDef } from '../../content';
 import { ArenaView } from '../arena';
+import { arenaLook } from '../crimsonCues';
 import { RIBBON_SAMPLES, weaverRibbons } from '../entities';
 import { FxKit } from '../fx/kit';
 import { RING } from '../fx/rings';
+import { GROVE_HEX } from '../groveCues';
 import { OWN_LOOK, restRim, ribbonHex, weaverPalette } from '../keepsakeCues';
-import { ModelBatch } from '../models/batch';
-import { arenaLook } from '../crimsonCues';
-import { buildBellwarden } from '../models/artPass';
+import { HERO_DRAWN } from '../models/artFlag';
 import { applyArtWorld } from '../models/artWorld';
-import { buildEnemy, buildHero, buildWeaver } from '../models/library';
+import { ModelBatch } from '../models/batch';
+import {
+  buildAncient,
+  buildCrown,
+  buildEnemy,
+  buildHero,
+  buildSapling,
+  buildWeaver,
+} from '../models/library';
 import { createModelMaterial, type ModelMaterial } from '../models/material';
 import { C, applyVision, color } from '../palette';
 import type { QualityTier, Stage } from '../stage';
 
 /**
- * The art studio (`__VFX__.studio`): the characters' models standing on a real arena floor under
- * the arena's own light, with no sim, under a fixed camera, so the same subject can be pictured
- * the same way before and after a change to its model. Each figure stands as the fight draws it
- * at rest: its blob shadow, a hero's ring in its colour, the Weaver's gold ring and ribbons, a
- * rank-and-file enemy's faint hostile rim.
+ * The art studio (`__VFX__.studio`): any figure a fight draws, standing on a real arena floor under
+ * the arena's own light, with no sim, under a fixed camera, so the same figure can be pictured the
+ * same way before and after a change to its model (docs/art-style.md, The studio). Each figure
+ * stands as the fight draws it at rest: its blob shadow, a hero's ring in its colour, the Weaver's
+ * gold ring and ribbons, a rank-and-file enemy's faint hostile rim; heroes and the Weaver drawn
+ * at the art pass's 1.12.
+ *
+ * A subject is any roster id: a hero id, `weaver`, an enemy id, `sapling`, `ancient` or `crown`.
  *
  * Framing (fixed per subject, from content's heights, never from the model, so a redesign is
  * framed exactly like the model it replaces):
  * - `close`: the subject alone at the floor's centre, turned 0.6 rad toward the key light, seen
- *   from the front and 15° above, at 2.15 × its height, looking at half its height.
- * - `lineup`: all seven in a row, turned alike, from the front and 12° above, 14.2 m out.
- * - `field`: the seven placed as in a fight, under the game's own camera (52° pitch, 27 m, 40°
+ *   from the front and 15° above, at 2.15 × its drawn height, looking at half its height.
+ * - `lineup`: the subjects in a row (default: the seven), turned alike, from the front and 12°
+ *   above, 14.2 m out (farther for a long row).
+ * - `field`: the subjects placed as in a fight under the game's own camera (52° pitch, 27 m, 40°
  *   field of view): the party facing up the screen toward the foes, the foes facing the party
  *   (`yaw` turns the party instead), to judge the figures at the size the player sees them.
+ * `pose` holds every figure at a point of its motion (a wind-up, a blow, a walk) for strips.
  */
-export type StudioSubject =
-  'kael' | 'lyra' | 'vexis' | 'weaver' | 'hollow_chorister' | 'bell_brute' | 'the_bellwarden';
+export type StudioSubject = string;
 
+/** The seven of the first art pass (the default line-up and field). */
 export const STUDIO_SUBJECTS: readonly StudioSubject[] = [
   'kael',
   'lyra',
@@ -47,14 +60,12 @@ export interface StudioSpec {
   layout: 'close' | 'lineup' | 'field';
   /** For `close`: the one subject. */
   subject?: StudioSubject;
-  /** The floor (default: First Light's, the Reliquary Hall). */
+  /** For `lineup` and `field`: the subjects (default: the seven). */
+  subjects?: StudioSubject[];
+  /** The floor (default: First Light's, the Reliquary Hall): any arena id. */
   arena?: string;
   /** The figures' facing (rad, default π + 0.6: toward the camera, turned to the key light). */
   yaw?: number;
-  /** The heroes' and the Weaver's render scale (default 1; an option picture only). */
-  heroScale?: number;
-  /** The Bellwarden as the art pass's keeper or walking bell (default: as the fight draws it). */
-  bellOption?: 'keeper' | 'bell';
   /**
    * A held pose for motion strips: the figures' clock (s, default the studio's time), wind-up,
    * blow (0..1 through a swing) and moving (0..1), as entities.ts passes them each frame.
@@ -62,8 +73,17 @@ export interface StudioSpec {
   pose?: { clock?: number; windup?: number; blow?: number; moving?: number };
   /** A rim on a subject, as the fight draws one (e.g. Mend's on the threaded hero). */
   rim?: Partial<Record<StudioSubject, { hex: string; strength: number }>>;
-  /** false: the figures as they were before the dark-world fit (artWorld.ts), for comparison. */
+  /** false: no dark-world fit (artWorld.ts), for comparison. */
   world?: boolean;
+}
+
+type Kind = 'hero' | 'weaver' | 'enemy' | 'summon';
+
+function kindOf(s: StudioSubject): Kind {
+  if (s === 'weaver') return 'weaver';
+  if (s === 'sapling' || s === 'ancient' || s === 'crown') return 'summon';
+  if (CONTENT.heroes.some((h) => h.id === s)) return 'hero';
+  return 'enemy';
 }
 
 /** Turned toward the camera (+z) and 0.6 rad toward the key light (+x). */
@@ -78,22 +98,30 @@ interface Figure {
   yaw: number;
   radius: number;
   height: number;
-  kind: 'hero' | 'weaver' | 'enemy';
+  kind: Kind;
   ring: THREE.Color | null;
   rim: THREE.Color;
   rimStrength: number;
   hist: Float32Array | null;
-  scale: number;
 }
 
 function sizeOf(s: StudioSubject): { radius: number; height: number } {
   if (s === 'weaver') return { radius: CONTENT.weaver.radius, height: WEAVER_HEIGHT };
-  if (s === 'kael' || s === 'lyra' || s === 'vexis') {
+  if (s === 'sapling') return { radius: 0.5, height: 1 };
+  if (s === 'ancient') return { radius: 0.9, height: 2.4 };
+  if (s === 'crown') return { radius: 0.35, height: 0.5 };
+  if (kindOf(s) === 'hero') {
     const d = heroDef(s);
     return { radius: d.radius, height: d.height };
   }
   const d = enemyDef(s);
   return { radius: d.radius, height: d.height };
+}
+
+/** A subject's drawn height (heroes and the Weaver at the art pass's 1.12). */
+function drawnHeight(s: StudioSubject): number {
+  const k = kindOf(s);
+  return sizeOf(s).height * (k === 'hero' || k === 'weaver' ? HERO_DRAWN : 1);
 }
 
 export class ArtStudio {
@@ -126,7 +154,7 @@ export class ArtStudio {
     if (spec.layout === 'close') {
       const subject = spec.subject ?? 'kael';
       this.figure(subject, 0, 0, yaw);
-      const h = sizeOf(subject).height;
+      const h = drawnHeight(subject);
       const el = (15 * Math.PI) / 180;
       const d = 2.15 * h;
       this.target.set(0, 0.5 * h, 0);
@@ -134,34 +162,78 @@ export class ArtStudio {
     } else if (spec.layout === 'field') {
       const party = spec.yaw ?? 0;
       const foe = Math.PI;
-      const place: [StudioSubject, number, number, number][] = [
-        ['weaver', 0.4, 2.6, party],
-        ['kael', 0.2, -1.4, party],
-        ['lyra', -2.6, 0.4, party + 0.3],
-        ['vexis', 2.8, 0.6, party - 0.3],
-        ['hollow_chorister', -1.6, -4.6, foe + 0.4],
-        ['bell_brute', 1.9, -4.9, foe - 0.3],
-        ['the_bellwarden', 6.4, -3.2, foe - 0.9],
-      ];
-      for (const [s, x, z, y] of place) this.figure(s, x, z, y);
+      const list = spec.subjects ?? STUDIO_SUBJECTS;
+      if (!spec.subjects) {
+        // The first pass's placing, so its pictures line up.
+        const place: [StudioSubject, number, number, number][] = [
+          ['weaver', 0.4, 2.6, party],
+          ['kael', 0.2, -1.4, party],
+          ['lyra', -2.6, 0.4, party + 0.3],
+          ['vexis', 2.8, 0.6, party - 0.3],
+          ['hollow_chorister', -1.6, -4.6, foe + 0.4],
+          ['bell_brute', 1.9, -4.9, foe - 0.3],
+          ['the_bellwarden', 6.4, -3.2, foe - 0.9],
+        ];
+        for (const [s, x, z, y] of place) this.figure(s, x, z, y);
+      } else {
+        // Friends in a row in front, foes in rows behind, spaced by their footprints.
+        const friends = list.filter((s) => kindOf(s) !== 'enemy');
+        const foes = list.filter((s) => kindOf(s) === 'enemy');
+        this.row(friends, 1.2, party, 0.9, 12);
+        this.row(foes, -4.4, foe, 0.9, 12, -3.4);
+      }
       const el = (52 * Math.PI) / 180;
       const d = 27;
       this.target.set(0.6, 0, -1);
       this.eye.set(0.6, d * Math.sin(el), -1 + d * Math.cos(el));
     } else {
+      const list = spec.subjects ?? STUDIO_SUBJECTS;
       const gap = 0.9;
-      const sizes = STUDIO_SUBJECTS.map(sizeOf);
+      const sizes = list.map(sizeOf);
       const width = sizes.reduce((a, s) => a + 2 * s.radius, 0) + gap * (sizes.length - 1);
       let x = -width / 2;
-      STUDIO_SUBJECTS.forEach((s, i) => {
+      list.forEach((s, i) => {
         const r = sizes[i]!.radius;
         this.figure(s, x + r, 0, yaw);
         x += 2 * r + gap;
       });
       const el = (12 * Math.PI) / 180;
-      const d = 14.2;
+      const d = Math.max(14.2, width * 0.95);
       this.target.set(0, 1.55, 0);
       this.eye.set(0, 1.55 + d * Math.sin(el), d * Math.cos(el));
+    }
+  }
+
+  /**
+   * Places `list` in rows of at most `width` m centred on x = 0, the first at depth `z`, each next
+   * row `step` m further (negative: up the screen), all facing `yaw`.
+   */
+  private row(
+    list: StudioSubject[],
+    z: number,
+    yaw: number,
+    gap: number,
+    width: number,
+    step = 2.4,
+  ) {
+    let rowStart = 0;
+    while (rowStart < list.length) {
+      let w = 0;
+      let end = rowStart;
+      while (end < list.length) {
+        const add = 2 * sizeOf(list[end]!).radius + (end > rowStart ? gap : 0);
+        if (end > rowStart && w + add > width) break;
+        w += add;
+        end++;
+      }
+      let x = -w / 2;
+      for (let i = rowStart; i < end; i++) {
+        const r = sizeOf(list[i]!).radius;
+        this.figure(list[i]!, x + r, z, yaw);
+        x += 2 * r + gap;
+      }
+      rowStart = end;
+      z += step;
     }
   }
 
@@ -172,15 +244,14 @@ export class ArtStudio {
 
   private figure(subject: StudioSubject, x: number, z: number, yaw: number): void {
     const { radius, height } = sizeOf(subject);
+    const kind = kindOf(subject);
     let geometry: THREE.BufferGeometry;
-    let kind: Figure['kind'];
     let ring: THREE.Color | null = null;
     let rim = this.black;
     let rimStrength = 0;
     let hist: Float32Array | null = null;
-    if (subject === 'weaver') {
+    if (kind === 'weaver') {
       geometry = buildWeaver(weaverPalette(OWN_LOOK, 'normal'));
-      kind = 'weaver';
       const r = restRim(null);
       rim = color(r.hex);
       rimStrength = r.strength;
@@ -193,18 +264,21 @@ export class ArtStudio {
         hist[k * 3] = x - fx * 0.18;
         hist[k * 3 + 2] = z - fz * 0.18;
       }
-    } else if (subject === 'kael' || subject === 'lyra' || subject === 'vexis') {
+    } else if (kind === 'hero') {
       const def = heroDef(subject);
       geometry = buildHero(def);
-      kind = 'hero';
       ring = color(def.color);
+    } else if (kind === 'summon') {
+      // Oro's summons in his moss, the elite crown on its own.
+      geometry =
+        subject === 'crown'
+          ? buildCrown()
+          : subject === 'ancient'
+            ? buildAncient(GROVE_HEX.moss)
+            : buildSapling(GROVE_HEX.moss);
     } else {
       const def = enemyDef(subject);
-      geometry =
-        subject === 'the_bellwarden' && this.spec.bellOption
-          ? buildBellwarden(def, this.spec.bellOption)
-          : buildEnemy(def);
-      kind = 'enemy';
+      geometry = buildEnemy(def);
       if (def.role !== 'boss' && def.role !== 'miniboss') {
         rim = this.hostile;
         rimStrength = 0.18;
@@ -216,6 +290,8 @@ export class ArtStudio {
       rimStrength = own.strength;
     }
     const batch = new ModelBatch(geometry, this.model.material, 1, true);
+    // Heroes and the Weaver drawn at the art pass's scale (as entities.ts draws them).
+    if (kind === 'hero' || kind === 'weaver') batch.drawn = HERO_DRAWN;
     this.group.add(batch.mesh);
     this.figures.push({
       subject,
@@ -230,15 +306,13 @@ export class ArtStudio {
       rim: rim.clone(),
       rimStrength,
       hist,
-      scale: kind === 'enemy' ? 1 : (this.spec.heroScale ?? 1),
     });
   }
 
-  private compose(x: number, z: number, yaw: number, scale = 1): THREE.Matrix4 {
+  private compose(x: number, z: number, yaw: number): THREE.Matrix4 {
     this.e.set(0, yaw, 0, 'YXZ');
     this.q.setFromEuler(this.e);
     this.p.set(x, 0, z);
-    this.s.set(scale, scale, scale);
     return this.m.compose(this.p, this.q, this.s);
   }
 
@@ -260,7 +334,7 @@ export class ArtStudio {
         pose?.blow ?? 0,
         pose?.moving ?? 0,
       );
-      f.batch.push(this.compose(f.x, f.z, f.yaw, f.scale), 0, 0, 0, 0, f.rim, f.rimStrength);
+      f.batch.push(this.compose(f.x, f.z, f.yaw), 0, 0, 0, 0, f.rim, f.rimStrength);
       this.kit.shadows.push(
         f.x,
         0.015,
@@ -289,6 +363,7 @@ export class ArtStudio {
           color(ribbons.filament),
           color(ribbons.glow),
           1,
+          HERO_DRAWN,
         );
       }
       f.batch.end();

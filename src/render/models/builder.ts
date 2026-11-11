@@ -160,6 +160,15 @@ const tmpQuat = new THREE.Quaternion();
 const tmpPos = new THREE.Vector3();
 const tmpScale = new THREE.Vector3();
 
+/**
+ * A stained-glass figure's outline (the dark shell round every part, art/kit.ts): `full` on every
+ * part (heroes, the Weaver, bosses), `major` only on the parts that shape the silhouette (swarms and
+ * crowds: about half the cost), `none` (an outline-free figure). A part's own `shell` wins.
+ */
+export type Outline = 'full' | 'major' | 'none';
+/** Under `major`, parts at least this big (bounding radius, m) keep their outline. */
+export const OUTLINE_MAJOR_RADIUS = 0.14;
+
 export class ModelBuilder {
   private readonly parts: Part[] = [];
   private group: PartOptions['rig'] = undefined;
@@ -170,7 +179,20 @@ export class ModelBuilder {
    * be lit from inside, and a dark outline shell (the part's faces turned inside out, pushed out by
    * a constant on-screen width in the vertex shader) leads the whole figure. One geometry, one draw.
    */
-  constructor(private readonly glass = false) {}
+  constructor(
+    private readonly glass = false,
+    private readonly outline: Outline = 'full',
+  ) {}
+
+  /** Whether a part gets the outline shell by default, under the figure's outline policy. */
+  private shellFor(geometry: THREE.BufferGeometry): boolean {
+    if (!this.glass || this.outline === 'none') return false;
+    if (this.outline === 'full') return true;
+    // 'major': only parts big enough to shape the silhouette (it roughly halves the outline's cost).
+    geometry.computeBoundingSphere();
+    const r = geometry.boundingSphere?.radius ?? 0;
+    return r * Math.max(tmpScale.x, tmpScale.y, tmpScale.z) >= OUTLINE_MAJOR_RADIUS;
+  }
 
   private hip = 0;
   private span = 0;
@@ -211,7 +233,7 @@ export class ModelBuilder {
       matrix,
       rig: rigOf(opts.rig ?? this.group),
       lead: this.glass ? (opts.lead ?? 1) : 0,
-      shell: this.glass && (opts.shell ?? true),
+      shell: this.glass && (opts.shell ?? this.shellFor(geometry)),
       lit: opts.lit ?? 0,
       litGlow: opts.litGlow ?? 0.6,
       jit: this.glass ? (opts.jit ?? 0.07) : 0,

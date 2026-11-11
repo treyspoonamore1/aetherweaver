@@ -26,6 +26,13 @@ export class ModelBatch {
    */
   private readonly pose: THREE.InstancedBufferAttribute | null = null;
   private readonly next = [0, 0, 0, 0];
+  /**
+   * The drawn scale of every instance (the art pass draws the heroes and the Weaver 1.12×: the
+   * model only; their rings, radii, reach and every effect placed by their height are unchanged).
+   */
+  drawn = 1;
+  private readonly drawnM = new THREE.Matrix4();
+  private readonly scaled = new THREE.Matrix4();
 
   constructor(
     readonly geometry: THREE.BufferGeometry,
@@ -86,7 +93,10 @@ export class ModelBatch {
   ): void {
     if (this.count >= this.capacity) return;
     const i = this.count++;
-    this.mesh.setMatrixAt(i, matrix);
+    if (this.drawn !== 1) {
+      this.drawnM.makeScale(this.drawn, this.drawn, this.drawn);
+      this.mesh.setMatrixAt(i, this.scaled.multiplyMatrices(matrix, this.drawnM));
+    } else this.mesh.setMatrixAt(i, matrix);
     const f = this.fx.array as Float32Array;
     f[i * 4] = flash;
     f[i * 4 + 1] = dissolve;
