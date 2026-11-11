@@ -1,5 +1,5 @@
 import { CONTENT } from '../../content';
-import { optionsOf, useSettings } from '../../app/settings';
+import { DEFAULT_MOUSE_ROLES, optionsOf, useSettings } from '../../app/settings';
 import type { Action, PadBindable, PadButton } from '../../input/actions';
 import { liveBindings } from '../../input/bindings';
 import { isModifierToken, isMouseCode, type MouseRole } from '../../input/inputMap';
@@ -58,6 +58,32 @@ export function mouseRoleCode(role: MouseRole): string {
 export function mouseRoleLabel(role: MouseRole): string {
   const code = mouseRoleCode(role);
   return code ? inputLabel(code) : '—';
+}
+
+/** True while a mouse role is on its default button (the words that name that button still hold). */
+export function mouseRoleDefault(role: MouseRole): boolean {
+  return mouseRoleCode(role) === DEFAULT_MOUSE_ROLES[role];
+}
+
+/**
+ * The Cue modifier as the hero keys' prefix, as the player has it: "⇧" for Shift (as always),
+ * otherwise its name and a plus ("Ctrl+").
+ */
+export function cueModifierMark(): string {
+  const mod = optionsOf(useSettings.getState().settings).input.cueModifier || 'Shift';
+  return mod === 'Shift'
+    ? t('input.labels.cueShiftMark')
+    : t('input.labels.cueModifierMark', { mod: inputLabel(mod) });
+}
+
+/**
+ * Content text that names a key of its own ("Bear (B)", decision 18) with the live key after it,
+ * for a `title`: the text alone while the binding is the one it names.
+ */
+export function withLiveKey(text: string, action: Action, named: string): string {
+  const code = bindingCode(action);
+  const label = code ? keyLabel(code) : '—';
+  return label === named ? text : t('input.liveKeyAfter', { text, key: label });
 }
 
 /** A pad button's short, brand-free glyph ("LB", "●↓"). */

@@ -277,4 +277,7 @@ export const input = {
   'input.labels.kind.miniboss': 'Mini-boss',
   'input.labels.kind.boss': 'Boss',
   'input.directiveWheel.frozenHint': 'Frozen · the silence holds',
+  'input.labels.cueShiftMark': '⇧',
+  'input.labels.cueModifierMark': '{mod}+',
+  'input.liveKeyAfter': '{text} · Your key: {key}',
 } satisfies Catalogue;

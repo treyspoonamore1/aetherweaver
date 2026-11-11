@@ -14,6 +14,7 @@ import { masteryLevel } from '../../meta/loom';
 import { MasteryStrip } from './MasteryParts';
 import { tiersLine, type PickerMastery } from './masteryModel';
 import { t } from '../text';
+import { withLiveKey } from '../hud/labels';
 
 export type { PickerMastery };
 
@@ -238,7 +239,11 @@ function CallingCard({
             : t('screens.callingPicker.theUnlocksAtRank', { name: def.name, rank })
         }
         // The passive in full on hover; the path dialog has it too.
-        title={callingText(def).passive}
+        title={
+          def.id === 'martyr'
+            ? withLiveKey(callingText(def).passive, 'bear', 'B')
+            : callingText(def).passive
+        }
         onClick={() => {
           if (open) onChoose();
           else playUi('error');

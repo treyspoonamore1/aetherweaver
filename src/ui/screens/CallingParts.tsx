@@ -8,6 +8,7 @@ import {
 import type { RunCalling } from '../../meta/types';
 import { CallingEmblem, CallingGlyph, PathPip, callingLook } from '../kit/CallingGlyph';
 import { Icon } from '../kit/Icon';
+import { LiveKey } from '../kit/KeyCap';
 import { Tip } from '../kit/Tip';
 import {
   AXIS_LOOK,
@@ -145,6 +146,7 @@ export function CallingPassive({
     <div className={`flex flex-col ${compact ? 'gap-1' : 'gap-2'}`}>
       <p className={`${compact ? 'text-sm' : 'text-base'} leading-relaxed text-text`}>
         {t.passive}
+        {def.id === 'martyr' && <LiveKey action="bear" named="B" className="ml-2" />}
       </p>
       <CrescendoLine def={def} compact={compact} />
     </div>
@@ -321,6 +323,7 @@ export function CallingStripItem({
           </span>
           <span className="mt-1.5 block text-xs leading-relaxed text-muted">
             {callingText(def).passive}
+            {def.id === 'martyr' && <LiveKey action="bear" named="B" className="ml-2" />}
           </span>
           {reviveSpentLine(calling) && (
             <span className="mt-1 flex items-center gap-1.5 text-xs" style={{ color: look.light }}>

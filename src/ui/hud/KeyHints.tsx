@@ -1,7 +1,7 @@
 import { CONTENT } from '../../content';
 import { Panel } from '../kit/Panel';
 import { REWIND_NAME } from '../screens/callingText';
-import { bindingLabel } from './labels';
+import { bindingLabel, cueModifierMark, mouseRoleLabel } from './labels';
 import { t as txt } from '../text';
 
 /**
@@ -36,10 +36,10 @@ export function KeyHints({
   const rows: [string, string][] = [
     [
       `${bindingLabel('moveUp')}${bindingLabel('moveLeft')}${bindingLabel('moveDown')}${bindingLabel('moveRight')}`,
-      'Move',
+      txt('hud.keyHints.move'),
     ],
     [txt('hud.keyHints.n14Click'), txt('hud.keyHints.threadAHero')],
-    ['RMB', txt('hud.keyHints.mendEmpower')],
+    [mouseRoleLabel('mode'), txt('hud.keyHints.mendEmpower')],
     ...(bear
       ? [[bindingLabel('bear'), txt('hud.keyHints.bearTakePartOf')] as [string, string]]
       : []),
@@ -48,22 +48,33 @@ export function KeyHints({
       names.join(' · '),
     ],
     [
-      `${bindingLabel('cue')} / ⇧1–4`,
+      txt('hud.keyHints.cueKeys', { cue: bindingLabel('cue'), mod: cueModifierMark() }),
       chainWindow !== undefined
         ? txt('hud.keyHints.cueASoloAnother', { Number: Number(chainWindow.toFixed(1)) })
         : txt('hud.keyHints.cueASolo'),
     ],
-    [bindingLabel('crescendo'), crescendoName ? `Crescendo: ${crescendoName}` : 'Crescendo'],
     [
-      txt('hud.keyHints.holdMmb', { bindingLabel: bindingLabel('directiveWheel') }),
+      bindingLabel('crescendo'),
+      crescendoName
+        ? txt('hud.keyHints.crescendoNamed', { crescendoName })
+        : txt('hud.keyHints.crescendo'),
+    ],
+    [
+      txt('hud.keyHints.holdMmb', {
+        bindingLabel: bindingLabel('directiveWheel'),
+        wheel: mouseRoleLabel('wheel'),
+      }),
       txt('hud.keyHints.directiveWheel'),
     ],
     [
-      txt('hud.keyHints.mmbClick', { bindingLabel: bindingLabel('directiveFocus') }),
+      txt('hud.keyHints.mmbClick', {
+        bindingLabel: bindingLabel('directiveFocus'),
+        wheel: mouseRoleLabel('wheel'),
+      }),
       txt('hud.keyHints.focusAnEnemy'),
     ],
     [bindingLabel('plant'), txt('hud.keyHints.plantPedalPoint')],
-    [bindingLabel('pause'), 'Pause'],
+    [bindingLabel('pause'), txt('hud.keyHints.pause')],
   ];
   return (
     <Panel

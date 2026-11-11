@@ -3,7 +3,14 @@ import type { Action } from '../../input/actions';
 import type { HeroHud, HudSnapshot } from '../store';
 import { keyLabel } from '../../input/keyLabel';
 import { fmt } from '../kit/format';
-import { ANSWER, bindingCode, bindingLabel } from './labels';
+import {
+  ANSWER,
+  bindingCode,
+  bindingLabel,
+  cueModifierMark,
+  mouseRoleDefault,
+  mouseRoleLabel,
+} from './labels';
 import { mult } from '../screens/chordModel';
 import { beamSong } from './songs';
 import { stasisCostMult } from './calling';
@@ -206,6 +213,7 @@ function allHints(hud: HudSnapshot): Hint[] {
             ? txt('hud.hints.isCallingForA2', { name: h.name, E, flourish: call.flourish })
             : txt('hud.hints.isCallingForEmpower', {
                 name: h.name,
+                RMB: modeKey(),
                 value: h.slot + 1,
                 flourish: call.flourish,
               }),
@@ -360,9 +368,10 @@ function allHints(hud: HudSnapshot): Hint[] {
           w.threadMode === 'bear'
             ? txt('hud.hints.isHurtPressTwice', {
                 name: h.name,
-                value: bearKey ? txt('hud.hints.orThen', { B }) : '',
+                RMB: modeKey(),
+                value: bearKey ? txt('hud.hints.orThen', { B, RMB: modeKey() }) : '',
               })
-            : txt('hud.hints.isHurtPressTo', { name: h.name }),
+            : txt('hud.hints.isHurtPressTo', { name: h.name, RMB: modeKey() }),
       });
     }
   }
@@ -417,11 +426,13 @@ function allHints(hud: HudSnapshot): Hint[] {
         ? txt('hud.hints.sIsReadyPress', {
             name: cueHero.name,
             soloName: cueHero.soloName,
+            mod: cueModifierMark(),
             value: cueHero.slot + 1,
           })
         : txt('hud.hints.sIsReadyPress2', {
             name: cueHero.name,
             soloName: cueHero.soloName,
+            mod: cueModifierMark(),
             value: cueHero.slot + 1,
             value2:
               w.cueCost === w.segment
@@ -477,7 +488,12 @@ function allHints(hud: HudSnapshot): Hint[] {
       text:
         strays >= 2
           ? txt('hud.hints.yourPartyIsSpread', { bindingLabel: bindingLabel('directiveWheel') })
-          : txt('hud.hints.holdOrTheMiddle', { bindingLabel: bindingLabel('directiveWheel') }),
+          : mouseRoleDefault('wheel')
+            ? txt('hud.hints.holdOrTheMiddle', { bindingLabel: bindingLabel('directiveWheel') })
+            : txt('hud.hints.holdOrTheWheelButton', {
+                bindingLabel: bindingLabel('directiveWheel'),
+                wheel: mouseRoleLabel('wheel'),
+              }),
     });
   }
   if (w.threadSlot === null && hud.encounter.elapsed > 3 && party.some(alive)) {
@@ -516,7 +532,7 @@ function allHints(hud: HudSnapshot): Hint[] {
   ) {
     out.push({
       id: 'empower',
-      text: txt('hud.hints.everyoneIsHealthyPress'),
+      text: txt('hud.hints.everyoneIsHealthyPress', { RMB: modeKey() }),
     });
   }
   return out;
@@ -543,6 +559,7 @@ function conductingHints(hud: HudSnapshot): Hint[] {
         Number: Number(c.chain.total.toFixed(1)),
         linkName: linkName(chained.cue!.link),
         name: chained.name,
+        mod: cueModifierMark(),
         value: chained.slot + 1,
       }),
     });
@@ -563,6 +580,11 @@ function conductingHints(hud: HudSnapshot): Hint[] {
       }),
     });
   return out;
+}
+
+/** The Mend ⇄ Empower mouse role as a key part of a hint: `{RMB}` by default. */
+function modeKey(): string {
+  return `{${mouseRoleLabel('mode')}}`;
 }
 
 /** Splits `text {Q} more` into plain and key parts. */
@@ -961,8 +983,11 @@ function movementThreeHints(hud: HudSnapshot, keys: { Q: string; E: string; F: s
       id: 'unravel',
       text:
         w.bearShare > 0 && bindingCode('bear')
-          ? txt('hud.hints.unravelYourMendWounds', { bindingLabel: bindingLabel('bear') })
-          : txt('hud.hints.unravelYourMendWounds2'),
+          ? txt('hud.hints.unravelYourMendWounds', {
+              RMB: modeKey(),
+              bindingLabel: bindingLabel('bear'),
+            })
+          : txt('hud.hints.unravelYourMendWounds2', { RMB: modeKey() }),
     });
   if (boss?.spindles)
     out.push({
@@ -989,7 +1014,7 @@ function movementThreeHints(hud: HudSnapshot, keys: { Q: string; E: string; F: s
       id: 'mimic',
       text:
         copy === 'empower'
-          ? txt('hud.hints.aMimicIsCopying3')
+          ? txt('hud.hints.aMimicIsCopying3', { RMB: modeKey() })
           : copy === 'ward'
             ? txt('hud.hints.aMimicIsCopying', { E, focus })
             : txt('hud.hints.aMimicIsCopying2', { Q, focus }),

@@ -5,7 +5,7 @@
  */
 import { callingLook } from '../kit/callingLook';
 import type { HeroHud, WeaverHud } from '../store';
-import { bindingCode, bindingLabel } from './labels';
+import { bindingCode, bindingLabel, mouseRoleLabel } from './labels';
 import { CUT_CAUSE_NAME, cutPlate, unravelPlate } from './riftLook';
 import { t } from '../text';
 
@@ -73,9 +73,9 @@ export interface ThreadDialView {
   says: string;
 }
 
-/** The key the player has bound to Mend ⇄ Empower (the right mouse button always works too). */
+/** The key bound to Mend ⇄ Empower, else the mouse button that plays it (RMB by default). */
 export function switchKeyLabel(): string {
-  return bindingCode('threadMode') ? bindingLabel('threadMode') : 'RMB';
+  return bindingCode('threadMode') ? bindingLabel('threadMode') : mouseRoleLabel('mode');
 }
 
 /**

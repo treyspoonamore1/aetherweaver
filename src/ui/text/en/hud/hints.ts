@@ -160,21 +160,23 @@ export const hints = {
   'hud.hints.yourAurasAreSilenced2':
     'Your auras are silenced — mark the {silencerName} with {{bindingLabel}} so the party breaks its dome',
   'hud.hints.sIsReadyPress':
-    "{name}'s {soloName} is ready — press {⇧{value}} now to Cue the stronger form, or it fires on its own",
+    "{name}'s {soloName} is ready — press {{mod}{value}} now to Cue the stronger form, or it fires on its own",
   'hud.hints.sIsReadyPress2':
-    "{name}'s {soloName} is ready — press {⇧{value}} to Cue it (costs {value2})",
+    "{name}'s {soloName} is ready — press {{mod}{value}} to Cue it (costs {value2})",
   'hud.hints.resonanceIsFullPress':
     'Resonance is full — press {{bindingLabel}} for {crescendoName}',
   'hud.hints.yourPartyIsSpread':
     'Your party is spread out — hold {{bindingLabel}} and flick toward Rally to call them to you',
   'hud.hints.holdOrTheMiddle':
     'Hold {{bindingLabel}} (or the middle mouse button) for the Directive wheel: Focus, Rally, Hold, Scatter',
+  'hud.hints.holdOrTheWheelButton':
+    'Hold {{bindingLabel}} (or {{wheel}}) for the Directive wheel: Focus, Rally, Hold, Scatter',
   'hud.hints.clickAPartyFrame':
     'Click a party frame or press {1} to attach your Thread — Mend heals, Empower hits harder',
   'hud.hints.everyoneIsHealthyPress':
     'Everyone is healthy — press {RMB} to switch the Thread to Empower and add damage',
   'hud.hints.cueAnotherWithinS':
-    'Cue another within {Number} s for a {linkName}: {name}, {⇧{value}}',
+    'Cue another within {Number} s for a {linkName}: {name}, {{mod}{value}}',
   'hud.hints.playsEverySoloRising':
     '{crescendoName} {{bindingLabel}} plays every Solo, rising, then fills them all',
   'hud.hints.aBloodPactScatter':

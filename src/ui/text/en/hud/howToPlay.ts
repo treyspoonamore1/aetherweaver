@@ -20,6 +20,8 @@ export const howToPlay = {
   'hud.howToPlay.threadAHero': 'Thread a hero',
   'hud.howToPlay.clickAPartyFrame':
     'Click a party frame (or press its number) to tie your Thread to that hero. Mend heals them; right-click switches to Empower for extra damage. Your beam song pours into whoever you thread.{value}',
+  'hud.howToPlay.clickAPartyFrameMode':
+    'Click a party frame (or press its number) to tie your Thread to that hero. Mend heals them; {mode} switches to Empower for extra damage. Your beam song pours into whoever you thread.{value}',
   'hud.howToPlay.asTheMartyrBears':
     ' As the Martyr, {bindingLabel} Bears: you take part of what they would lose, and your songs hold your Life instead of your Spirit.',
   'hud.howToPlay.wardBeforeTheHit': 'Ward before the hit',

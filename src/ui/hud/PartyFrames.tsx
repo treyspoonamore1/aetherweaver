@@ -21,7 +21,7 @@ import { StatusBadge } from './StatusBadge';
 import { ConductMarks, CueBadge } from './ConductParts';
 import { POSSESSED_COLOR, PossessedStrip, StitchChip } from './RiftMarks';
 import { healCutTitle } from './legionLook';
-import { ROLE_LABEL, bindingLabel } from './labels';
+import { ROLE_LABEL, bindingLabel, cueModifierMark, mouseRoleLabel } from './labels';
 import { beamSong, heroSongs, type HeroSongs } from './songs';
 import { bearLabel, shineLabel } from './calling';
 import { CallingGlyph, callingLook } from '../kit/CallingGlyph';
@@ -586,7 +586,7 @@ function callKeys(h: HeroHud, answer: CallAnswer, threadMode: ThreadMode): strin
   const keys: string[] = [];
   if (!h.threaded) keys.push(String(h.slot + 1));
   if (threadMode === 'bear') keys.push(bindingLabel('bear'));
-  else if (!h.threaded || threadMode !== 'empower') keys.push('RMB');
+  else if (!h.threaded || threadMode !== 'empower') keys.push(mouseRoleLabel('mode'));
   return keys.length > 0 ? keys : ['✓'];
 }
 
@@ -1400,7 +1400,7 @@ function Portrait({ hero: h, bondRank = null }: { hero: HeroHud; bondRank?: numb
               : txt('hud.partyFrames.cue', { soloName: h.soloName })
           }
         >
-          <KeyCap label={`⇧${h.slot + 1}`} accent />
+          <KeyCap label={`${cueModifierMark()}${h.slot + 1}`} accent />
         </span>
       )}
       {/* The Conductor (docs/phase-5f.md): what a Cue now would be, "Duet ×1.25", "Free". */}
