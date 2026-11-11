@@ -760,6 +760,13 @@ export class SfxEngine {
   private readonly lowArmed = new Map<number, boolean>();
   private lowAlertAt = -10;
   lowLifeAlert = true;
+  /**
+   * Game speed (Settings → Assists, `src/app/gameSpeed.ts`): how fast the runtime's clock runs, so
+   * a sim second lasts `1 / speed` real seconds. A telegraph's windup, given in sim seconds, is
+   * stretched by it to end on the hit, and A Tempo's beat is read at it (review A, finding 5). At
+   * 1 (the default) every duration is exactly as before. No aura sound reads it.
+   */
+  speed = 1;
   /** Low-life alerts sounded (tests, the audio lab). */
   lowAlerts = 0;
   private whine: { gain: GainNode; osc: OscillatorNode; band: BiquadFilterNode } | null = null;
@@ -6623,7 +6630,7 @@ export class SfxEngine {
     state: WorldState,
   ): boolean {
     const { pan } = this.placeOf(this.shapeX(ev.shape, state), state);
-    const dur = clamp(ev.impact - ev.start, 0.4, 4.5);
+    const dur = clamp(ev.impact - ev.start, 0.4, 4.5) / this.speed;
     if (sound === 'shears') {
       this.shears.add(ev.telegraph);
       return false;
@@ -6874,7 +6881,7 @@ export class SfxEngine {
     }
     // The whole windup, however long the assists make it (telegraphLead 2 alone doubles pulse 1's
     // 3.0 s): the tutti must still be sounding as the pulse lands, where it is cut.
-    const dur = clamp(ev.impact - ev.start, 0.5, TUTTI_MAX);
+    const dur = clamp(ev.impact - ev.start, 0.5, TUTTI_MAX) / this.speed;
     const c = this.chord();
     const h = this.finale('tutti', (v, t) => this.tutti(v, t, dur, c), { big: true });
     if (h) this.trackWindup(ev.telegraph, h);
@@ -6890,7 +6897,7 @@ export class SfxEngine {
     const rem = tg.impact - state.time;
     if (!(rem > 0.08)) return;
     const p = clamp(1 - rem / total, 0, 1);
-    const dur = Math.min(rem, TUTTI_MAX);
+    const dur = Math.min(rem, TUTTI_MAX) / this.speed;
     const c = this.chord();
     const h = this.finale(
       'tutti',
@@ -7193,7 +7200,7 @@ export class SfxEngine {
     if (legion === 'howl') this.howl(state, ev.owner);
     else if (legion === 'roll') {
       // Execution's windup is its drum roll; its outcome sounds when it resolves.
-      const roll = this.drumRoll(SfxEngine.rollLength(ev.start, ev.impact));
+      const roll = this.drumRoll(SfxEngine.rollLength(ev.start, ev.impact) / this.speed);
       if (roll) this.trackWindup(ev.telegraph, roll);
       return;
     }
@@ -7202,7 +7209,7 @@ export class SfxEngine {
     const style = this.windStyle(ev.kind, ev.answers, state);
     if (!this.e.gate('wind', 0.08)) return;
     const { pan, near } = this.placeOf(this.shapeX(ev.shape, state), state);
-    const dur = clamp(ev.impact - ev.start, 0.5, 3.2);
+    const dur = clamp(ev.impact - ev.start, 0.5, 3.2) / this.speed;
     const c = this.chord();
     const h = this.play(
       `wind:${style}`,
@@ -7291,12 +7298,12 @@ export class SfxEngine {
       const total = SfxEngine.rollLength(tg.start, tg.impact);
       const elapsed = clamp(state.time - tg.start, 0, total);
       if (!(total - elapsed > 0.08)) return;
-      const roll = this.drumRoll(total, elapsed);
+      const roll = this.drumRoll(total / this.speed, elapsed / this.speed);
       if (roll) this.trackWindup(tg.id, roll);
       return;
     }
-    const total = clamp(tg.impact - tg.start, 0.5, 3.2);
-    const elapsed = Math.max(0, state.time - tg.start);
+    const total = clamp(tg.impact - tg.start, 0.5, 3.2) / this.speed;
+    const elapsed = Math.max(0, state.time - tg.start) / this.speed;
     const rem = total - elapsed;
     // Its windup had (all but) run its course before time stopped.
     if (!(rem > 0.08)) return;
@@ -7832,7 +7839,7 @@ export class SfxEngine {
     // told them, in the lab). Never set outside the Finale.
     this.followFinale(state, bossPhase);
     // Phase 5f: A Tempo's beat for the music (only with A Tempo on the path) and its tick.
-    const beat = this.conduct.update(state);
+    const beat = this.conduct.update(state, this.speed);
     // Phase 5g: Razor Silk's tick (only while `mods.razorDps` is above 0).
     this.fill.update(state);
     // Phase 6: the Postlude's music input (only while `field.finale.postlude` exists).

@@ -92,6 +92,7 @@ export class SynthDirector implements AudioDirector {
   private lowLifeAlert = true;
   /** Phase 7: hero voices (off by default), kept for an SfxEngine made later. */
   private heroVoices = false;
+  private gameSpeed = 1;
   private timer: ReturnType<typeof setInterval> | null = null;
   private unlocking: Promise<void> | null = null;
   private disabled = false;
@@ -180,8 +181,9 @@ export class SynthDirector implements AudioDirector {
       const apply = () => {
         const settings = useSettings.getState().settings;
         this.setVolumes(settings.volumes);
-        // Phase 7: hero voices, read through the options (absent: off).
+        // Phase 7: hero voices, read through the options (absent: off), and game speed.
         this.setHeroVoices(optionsOf(settings).heroVoices);
+        this.setGameSpeed(optionsOf(settings).aids.gameSpeed);
       };
       apply();
       this.cleanups.push(useSettings.subscribe(apply));
@@ -198,6 +200,7 @@ export class SynthDirector implements AudioDirector {
       this.sfx = new SfxEngine(this.engine, this.music);
       this.sfx.lowLifeAlert = this.lowLifeAlert;
       this.sfx.barks.on = this.heroVoices;
+      this.sfx.speed = this.gameSpeed;
       this.engine.setVolumes(mixVolumes(this.volumes));
       this.music.setMood(this.mood);
       this.music.setBiome(this.biome);
@@ -356,6 +359,15 @@ export class SynthDirector implements AudioDirector {
   setHeroVoices(on: boolean): void {
     this.heroVoices = on;
     if (this.sfx) this.sfx.barks.on = on;
+  }
+
+  /**
+   * Phase 7: game speed (Settings → Assists: the runtime's clock rate, 0.7-1): telegraph windups
+   * stretch to end on the hit and A Tempo's beat follows the sim's slower clock. 1 by default.
+   */
+  setGameSpeed(speed: number): void {
+    this.gameSpeed = speed > 0 && Number.isFinite(speed) ? speed : 1;
+    if (this.sfx) this.sfx.speed = this.gameSpeed;
   }
 
   /** Phase 7: whether hero voices are on (the lab, tests). */
