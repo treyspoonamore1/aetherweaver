@@ -21,6 +21,11 @@ const HEAD = 6;
 const LIMB = 7;
 const SPIN = 8;
 const WHEEL = 9;
+/**
+ * A signature colour's own faint light: the heroes' colours stay saturated under the Reliquary's
+ * warm key light and read at the fight's camera (luminous accents, docs/plan/04 §1).
+ */
+const SIG = 0.16;
 
 type V3 = [number, number, number];
 
@@ -108,7 +113,7 @@ export function buildKael(def: HeroDef): THREE.BufferGeometry {
     });
   }
   // Tassets: a faceted skirt of plates in his colour.
-  b.cyl(0.32, 0.44, 0.36, col, { p: [0, 0.82, 0] }, 8);
+  b.cyl(0.32, 0.44, 0.36, col, { p: [0, 0.82, 0], glow: SIG }, 8);
   b.torus(0.33, 0.045, GOLD, { p: [0, 1.0, 0], r: FLAT, glow: 0.35 }, Math.PI * 2, 12);
   // Tabard down the front, a long cape behind: his colour in big blocks.
   b.rigged({ k: CLOTH, at: [0, 1.0, -0.25], a: 0.7 }, () => {
@@ -116,11 +121,11 @@ export function buildKael(def: HeroDef): THREE.BufferGeometry {
     b.box(0.36, 0.05, 0.05, GOLD, { p: [0, 0.35, -0.4], glow: 0.4 });
   });
   b.rigged({ k: CLOTH, at: [0, 1.62, 0.28], a: 1.4 }, () => {
-    b.box(0.9, 1.4, 0.05, col, { p: [0, 0.94, 0.38], r: [-0.1, 0, 0] });
+    b.box(0.9, 1.4, 0.05, col, { p: [0, 0.94, 0.38], r: [-0.1, 0, 0], glow: SIG });
     b.box(0.92, 0.06, 0.07, GOLD, { p: [0, 0.27, 0.44], r: [-0.1, 0, 0], glow: 0.3 });
   });
   // Chest: a broad cuirass in his colour, a steel breastplate, a glowing glass sigil.
-  b.cyl(0.47, 0.31, 0.68, col, { p: [0, 1.32, 0] }, 8);
+  b.cyl(0.47, 0.31, 0.68, col, { p: [0, 1.32, 0], glow: SIG }, 8);
   b.cyl(0.3, 0.47, 0.12, deep, { p: [0, 1.72, 0] }, 8);
   b.box(0.5, 0.5, 0.1, steel, { p: [0, 1.36, -0.36], r: [0.12, 0, 0] });
   b.octa(0.12, glass, { p: [0, 1.38, -0.42], s: [0.8, 1.4, 0.4], glow: 1 });
@@ -190,6 +195,7 @@ export function buildLyra(def: HeroDef): THREE.BufferGeometry {
   const leather = '#6b4a2a';
   const skin = '#f1dcc4';
   const hair = '#d9a05b';
+  const scarf = shade(col, 0.15);
   for (const side of [-1, 1]) {
     b.rigged({ k: LIMB, at: [side * 0.1, 0.82, 0], a: side }, () => {
       limb(b, [side * 0.1, 0.82, 0], [side * 0.11, 0.3, 0], 0.08, 0.065, deep, 6);
@@ -198,8 +204,8 @@ export function buildLyra(def: HeroDef): THREE.BufferGeometry {
     });
   }
   // Slim jerkin, a belt, a short skirt of leaves.
-  b.cyl(0.21, 0.17, 0.56, col, { p: [0, 1.12, 0] }, 7);
-  b.cyl(0.18, 0.26, 0.26, mid, { p: [0, 0.8, 0] }, 7);
+  b.cyl(0.21, 0.17, 0.56, col, { p: [0, 1.12, 0], glow: SIG }, 7);
+  b.cyl(0.18, 0.26, 0.26, mid, { p: [0, 0.8, 0], glow: SIG }, 7);
   b.torus(0.19, 0.03, leather, { p: [0, 0.9, 0], r: FLAT }, Math.PI * 2, 10);
   b.octa(0.05, glass, { p: [0, 0.9, -0.2], glow: 1 });
   // The wind cloak: three long panels from the shoulders, each trailing on its own, edged in light.
@@ -211,6 +217,7 @@ export function buildLyra(def: HeroDef): THREE.BufferGeometry {
     b.rigged({ k: CLOTH, at: [dx * 0.6, 1.44, 0.16], a: 1.1 + i * 0.12 }, () => {
       const long = i === 1 ? 0.12 : 0;
       b.box(0.3, 1.2 + long, 0.04, i === 1 ? col : mid, {
+        glow: SIG,
         p: [dx, 0.82 - long / 2, 0.25],
         r: [-0.13, 0, dx * -0.5],
       });
@@ -223,8 +230,8 @@ export function buildLyra(def: HeroDef): THREE.BufferGeometry {
   }
   // Two scarf tails from the neck: her motion's tell.
   b.rigged({ k: CLOTH, at: [0, 1.42, 0.12], a: 0.6 }, () => {
-    b.box(0.08, 0.6, 0.03, glass, { p: [0.08, 1.14, 0.22], r: [-0.4, 0, 0.1], glow: 0.45 });
-    b.box(0.08, 0.5, 0.03, glass, { p: [-0.06, 1.18, 0.2], r: [-0.3, 0, -0.1], glow: 0.45 });
+    b.box(0.08, 0.6, 0.03, scarf, { p: [0.08, 1.14, 0.22], r: [-0.4, 0, 0.1], glow: 0.45 });
+    b.box(0.08, 0.5, 0.03, scarf, { p: [-0.06, 1.18, 0.2], r: [-0.3, 0, -0.1], glow: 0.45 });
   });
   // Quiver across the back, glowing fletching.
   b.cyl(0.07, 0.07, 0.56, leather, { p: [-0.12, 1.17, 0.22], r: [0.3, 0, 0.35] }, 6);
@@ -236,8 +243,8 @@ export function buildLyra(def: HeroDef): THREE.BufferGeometry {
     b.box(0.2, 0.07, 0.12, hair, { p: [0, 1.66, -0.1], r: [0.3, 0, 0] });
     b.box(0.03, 0.03, 0.02, '#1d3b2f', { p: [0.045, 1.57, -0.165] });
     b.box(0.03, 0.03, 0.02, '#1d3b2f', { p: [-0.045, 1.57, -0.165] });
-    b.sphere(0.18, col, { p: [0, 1.6, 0.08], s: [1.05, 1.0, 0.95] }, 7, 5);
-    b.cone(0.16, 0.44, col, { p: [0, 1.62, 0.32], r: [-1.25, 0, 0] }, 6);
+    b.sphere(0.18, col, { p: [0, 1.6, 0.08], s: [1.05, 1.0, 0.95], glow: SIG }, 7, 5);
+    b.cone(0.16, 0.44, col, { p: [0, 1.62, 0.32], r: [-1.25, 0, 0], glow: SIG }, 6);
     b.torus(0.17, 0.035, mid, { p: [0, 1.55, 0.02], r: [1.1, 0, 0] }, Math.PI, 8);
   });
   // Right arm: draws the string.
@@ -273,7 +280,8 @@ export function buildLyra(def: HeroDef): THREE.BufferGeometry {
 
 export function buildVexis(def: HeroDef): THREE.BufferGeometry {
   const b = new ModelBuilder();
-  const col = def.color;
+  // Her violet, deepened and saturated: a warm key light greys a pale violet toward pink.
+  const col = `#${new THREE.Color(def.color).offsetHSL(0, 0.12, -0.08).getHexString()}`;
   const deep = shade(col, -0.6);
   const mid = shade(col, -0.3);
   const star = '#f3e8ff';
@@ -307,11 +315,11 @@ export function buildVexis(def: HeroDef): THREE.BufferGeometry {
     b.torus(0.42, 0.035, GOLD, { p: [0, 0.05, 0], r: FLAT, glow: 0.45 }, Math.PI * 2, 14);
   });
   // Torso and a high, pointed mantle in her colour.
-  b.cyl(0.24, 0.2, 0.5, col, { p: [0, 1.27, 0] }, 8);
+  b.cyl(0.24, 0.2, 0.5, col, { p: [0, 1.27, 0], glow: SIG }, 8);
   b.cyl(0.08, 0.1, 0.16, '#efe1ff', { p: [0, 1.66, -0.02] }, 6);
-  b.cone(0.42, 0.36, col, { p: [0, 1.44, 0] }, 7);
+  b.cone(0.42, 0.36, col, { p: [0, 1.44, 0], glow: SIG }, 7);
   b.torus(0.4, 0.025, GOLD, { p: [0, 1.28, 0], r: FLAT, glow: 0.5 }, Math.PI * 2, 14);
-  b.cone(0.3, 0.26, mid, { p: [0, 1.56, 0] }, 7);
+  b.cone(0.3, 0.26, mid, { p: [0, 1.56, 0], glow: SIG }, 7);
   b.torus(0.21, 0.025, GOLD, { p: [0, 1.06, 0], r: FLAT, glow: 0.45 }, Math.PI * 2, 10);
   // Head: a pale face, glowing violet eyes, a tall bent star-hat with a star at its tip.
   b.rigged({ k: HEAD, at: [0, 1.62, 0] }, () => {
@@ -327,8 +335,8 @@ export function buildVexis(def: HeroDef): THREE.BufferGeometry {
       Math.PI * 2,
       12,
     );
-    b.cone(0.2, 0.5, col, { p: [0, 2.18, 0.08], r: [-0.14, 0, 0] }, 7);
-    b.cone(0.1, 0.42, mid, { p: [0, 2.54, 0.24], r: [-0.65, 0, 0] }, 6);
+    b.cone(0.2, 0.5, col, { p: [0, 2.18, 0.08], r: [-0.14, 0, 0], glow: SIG }, 7);
+    b.cone(0.1, 0.42, mid, { p: [0, 2.54, 0.24], r: [-0.65, 0, 0], glow: SIG }, 6);
     b.torus(
       0.19,
       0.025,
@@ -434,7 +442,7 @@ export function buildWeaverArt(palette: Readonly<WeaverPalette>): THREE.BufferGe
     8,
   );
   // A high mantle and sleeves that hang and sway.
-  b.cone(0.34, 0.26, body, { p: [0, 1.33, 0], glow: lit }, 10);
+  b.cone(0.34, 0.26, trim, { p: [0, 1.33, 0], glow: 0.35 }, 10);
   for (const side of [-1, 1]) {
     b.rigged({ k: CLOTH, at: [side * 0.26, 1.34, 0], a: 0.6 }, () => {
       b.cone(
