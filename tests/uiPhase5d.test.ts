@@ -819,10 +819,11 @@ describe('review fixes', () => {
   });
 
   it('the Directive wheel greys every spoke with “Frozen” in the silence, and only then', async () => {
-    const { DirectiveWheelView, FROZEN_HINT } = await tsx<{
+    const { DirectiveWheelView, frozenHint } = await tsx<{
       DirectiveWheelView: FunctionComponent<Props>;
-      FROZEN_HINT: string;
+      frozenHint: () => string;
     }>('../src/ui/hud/DirectiveWheel');
+    const FROZEN_HINT = frozenHint();
     const wheel = { x: 200, y: 200, dx: 0, dy: -60, via: 'key', focusTarget: 4, spoke: 'focus' };
     const frozen = renderToStaticMarkup(createElement(DirectiveWheelView, { wheel, frozen: true }));
     expect(frozen).toContain('data-frozen="true"');

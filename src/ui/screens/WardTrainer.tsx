@@ -127,7 +127,8 @@ export function WardTrainerView({
 }: WardTrainerViewProps) {
   const [open, setOpen] = useState(!folded);
   const heroes = party();
-  const name = (slot: number) => heroes[slot]?.name ?? `Hero ${slot + 1}`;
+  const name = (slot: number) =>
+    heroes[slot]?.name ?? txt('screens.wardTrainer.heroN', { n: slot + 1 });
   const key = (slot: number) => bindingLabel(FOCUS[slot] ?? 'focus1');
   const wardKey = bindingLabel('ward');
   const mixed = v.mode === 'mixed';

@@ -314,7 +314,7 @@ export function CodexView({
     <ScreenFrame>
       <div className="mx-auto max-w-7xl px-6 py-8">
         <ScreenHeader
-          eyebrow="Reference"
+          eyebrow={txt('screens.codexScreen.reference')}
           title={txt('screens.codexScreen.codex')}
           right={
             <Button variant="secondary" onClick={onBack} sound="back">
@@ -707,7 +707,17 @@ function HeroEntry({ hero: h }: { hero: HeroDef }) {
 }
 
 const CALL = 'var(--color-call, #fde68a)';
-const CALL_ANSWER = { ward: 'Ward', empower: 'Empower', chime: 'Chime' } as const;
+const CALL_ANSWER = {
+  get ward() {
+    return txt('screens.codexScreen.callWard');
+  },
+  get empower() {
+    return txt('screens.codexScreen.callEmpower');
+  },
+  get chime() {
+    return txt('screens.codexScreen.callChime');
+  },
+};
 const CALL_ICON = { ward: 'ward', empower: 'empower', chime: 'chime' } as const;
 
 /**
@@ -913,7 +923,7 @@ function Weaver() {
     stats: string[];
   }[] = [
     {
-      name: 'Thread',
+      name: txt('screens.codexScreen.thread'),
       icon: 'thread',
       keys: `${key('focus1')}–${key('focus4')} / ${threadClick}, ${mouseRoleLabel('mode')}`,
       body: txt('screens.codexScreen.tieYourThreadTo', { bindingLabel: bindingLabel('bear') }),
@@ -984,7 +994,7 @@ function Weaver() {
       ],
     },
     {
-      name: 'Resonance',
+      name: txt('screens.codexScreen.resonance'),
       icon: 'note',
       keys: `${key('cue')} / ${key('crescendo')}`,
       body: txt('screens.codexScreen.goodSupportFillsThe', {
@@ -1015,7 +1025,7 @@ function Weaver() {
       ],
     },
     {
-      name: 'Directives',
+      name: txt('screens.codexScreen.directives'),
       icon: 'wheel',
       keys: txt('screens.codexScreen.hold', {
         key: key('directiveWheel'),
@@ -1432,7 +1442,12 @@ function Astrolabe({ onDeeds }: { onDeeds(): void }) {
 function Ranks({ deeds }: { deeds: number }) {
   const kinds = (['skirmish', 'elite', 'miniboss', 'boss'] as const).map((k) => ({
     k,
-    label: { skirmish: 'Skirmish', elite: 'Elite', miniboss: 'Mini-boss', boss: 'Boss' }[k],
+    label: {
+      skirmish: txt('screens.codexScreen.kind.skirmish'),
+      elite: txt('screens.codexScreen.kind.elite'),
+      miniboss: txt('screens.codexScreen.kind.miniboss'),
+      boss: txt('screens.codexScreen.kind.boss'),
+    }[k],
   }));
   return (
     <div className="flex flex-col gap-6">

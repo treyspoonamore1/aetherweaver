@@ -146,7 +146,17 @@ const BLOOD = callingLook('martyr').color;
 const BLOOD_LIGHT = callingLook('martyr').light;
 /** The Chronomancer's steel and silver (Rewind, Foresight). */
 const CHRONO = callingLook('chronomancer');
-const MODE_LABEL: Record<ThreadMode, string> = { mend: 'Mend', empower: 'Empower', bear: 'Bear' };
+const MODE_LABEL: Record<ThreadMode, string> = {
+  get mend() {
+    return txt('hud.partyFrames.modeMend');
+  },
+  get empower() {
+    return txt('hud.partyFrames.modeEmpower');
+  },
+  get bear() {
+    return txt('hud.partyFrames.modeBear');
+  },
+};
 
 /** The Weaver's Rewind (`WeaverHud.rewind`): ready, and how far back it reaches. */
 type RewindReady = Pick<NonNullable<WeaverHud['rewind']>, 'ready' | 'seconds'> | null;

@@ -34,4 +34,5 @@ export const wardTrainer = {
   'screens.wardTrainer.show': 'show',
   'screens.wardTrainer.stop': 'Stop',
   'screens.wardTrainer.start': 'Start',
+  'screens.wardTrainer.heroN': 'Hero {n}',
 } satisfies Catalogue;

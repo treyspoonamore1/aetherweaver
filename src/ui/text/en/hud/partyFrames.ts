@@ -102,4 +102,7 @@ export const partyFrames = {
   'hud.partyFrames.sunrise2': ' (Sunrise)',
   'hud.partyFrames.lethal': ', lethal',
   'hud.partyFrames.landingInSeconds': ', landing in {in} seconds',
+  'hud.partyFrames.modeMend': 'Mend',
+  'hud.partyFrames.modeEmpower': 'Empower',
+  'hud.partyFrames.modeBear': 'Bear',
 } satisfies Catalogue;

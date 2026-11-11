@@ -77,24 +77,24 @@ export function SettingsPanel({
 
   return (
     <div className={`mt-4 grid gap-4 ${compact ? '' : 'lg:grid-cols-2'}`}>
-      <Section title="Sound">
+      <Section title={t('a11y.settings.sound')}>
         <Slider
-          label="Master"
+          label={t('a11y.settings.master')}
           value={settings.volumes.master}
           onChange={(v) => setVolume('master', v)}
         />
         <Slider
-          label="Music"
+          label={t('a11y.settings.music')}
           value={settings.volumes.music}
           onChange={(v) => setVolume('music', v)}
         />
         <Slider
-          label="Effects"
+          label={t('a11y.settings.effects')}
           value={settings.volumes.sfx}
           onChange={(v) => setVolume('sfx', v)}
         />
         <Slider
-          label="Interface"
+          label={t('a11y.settings.interface')}
           value={settings.volumes.ui}
           onChange={(v) => setVolume('ui', v)}
         />
@@ -111,17 +111,17 @@ export function SettingsPanel({
           onChange={(v) => update((d) => ({ ...d, heroVoices: v }))}
         />
       </Section>
-      <Section title="Comfort">
+      <Section title={t('a11y.settings.comfort')}>
         <Slider
-          label="Screen shake"
+          label={t('a11y.settings.screenShake')}
           value={settings.screenShake}
           onChange={(v) => update((d) => ({ ...d, screenShake: v }))}
         />
         <Slider
-          label="Screen flashes"
+          label={t('a11y.settings.screenFlashes')}
           value={settings.flashes}
           onChange={(v) => update((d) => ({ ...d, flashes: v }))}
-          format={(v) => (v <= 0 ? 'Off' : `${Math.round(v * 100)}%`)}
+          format={(v) => (v <= 0 ? t('a11y.settings.off') : `${Math.round(v * 100)}%`)}
         />
         <p className="-mt-2 text-xs text-muted">{t('a11y.flashes.hint')}</p>
         <Segmented
@@ -138,8 +138,8 @@ export function SettingsPanel({
           onChange={(v) => update((d) => ({ ...d, slowmoVignette: v }))}
         />
         <Toggle
-          label="Damage numbers"
-          hint="Floating numbers over heroes and enemies."
+          label={t('a11y.settings.damageNumbers')}
+          hint={t('a11y.settings.floatingNumbersOverHeroes')}
           checked={settings.damageNumbers}
           onChange={(v) => update((d) => ({ ...d, damageNumbers: v }))}
         />
@@ -150,41 +150,41 @@ export function SettingsPanel({
           onChange={(v) => update((d) => ({ ...d, importantNumbersOnly: v }))}
         />
         <Toggle
-          label="Captions"
+          label={t('a11y.settings.captions')}
           hint={t('a11y.captions.hint')}
           checked={settings.captions}
           onChange={(v) => update((d) => ({ ...d, captions: v }))}
         />
         <Toggle
-          label="Coach hints"
-          hint="Short tips during the first fights; each shows at most three times."
+          label={t('a11y.settings.coachHints')}
+          hint={t('a11y.settings.shortTipsDuringThe')}
           checked={settings.hints}
           onChange={(v) => update((d) => ({ ...d, hints: v }))}
         />
         <div>
           <Button size="sm" onClick={resetHints}>
-            Show all hints again
+            {t('a11y.settings.showAllHintsAgain')}
           </Button>
         </div>
       </Section>
-      <Section title="Assists">
+      <Section title={t('a11y.settings.assists')}>
         <Segmented
-          label="Perfect Ward window"
-          hint="Extra time to land a Perfect Ward."
+          label={t('a11y.settings.perfectWardWindow')}
+          hint={t('a11y.settings.extraTimeToLand')}
           value={settings.assists.perfectWindowBonus}
           options={[
-            { value: 0, label: 'Standard' },
+            { value: 0, label: t('a11y.settings.standard') },
             { value: 0.1, label: '+0.1 s' },
             { value: 0.2, label: '+0.2 s' },
           ]}
           onChange={(v) => setAssist('perfectWindowBonus', v)}
         />
         <Segmented
-          label="Telegraph lead"
-          hint="Enemy attacks wind up for longer."
+          label={t('a11y.settings.telegraphLead')}
+          hint={t('a11y.settings.enemyAttacksWindUp')}
           value={settings.assists.telegraphLead}
           options={[
-            { value: 1, label: 'Standard' },
+            { value: 1, label: t('a11y.settings.standard') },
             { value: 1.25, label: '×1.25' },
             { value: 1.5, label: '×1.5' },
           ]}
@@ -198,29 +198,27 @@ export function SettingsPanel({
           onChange={(v) => update((d) => ({ ...d, aids: { ...d.aids, gameSpeed: v } }))}
         />
         <Toggle
-          label="Hero autonomy"
-          hint="Heroes fire their own Solos a moment after they charge, unless you Cue them first. Kael saves his wall for a big hit, but never for more than 3 seconds."
+          label={t('a11y.settings.heroAutonomy')}
+          hint={t('a11y.settings.heroesFireTheirOwn')}
           checked={settings.assists.autonomy}
           onChange={(v) => setAssist('autonomy', v)}
         />
-        <p className="text-xs text-muted">
-          Assists never block anything. They show as a small badge on the run summary.
-        </p>
+        <p className="text-xs text-muted">{t('a11y.settings.assistsNeverBlockAnything')}</p>
         {context && (
           <p className="text-xs text-gold-200" data-testid="assists-when">
             {context === 'run'
-              ? 'Assist changes apply from your next fight.'
-              : 'Assist changes restart the Training Grounds when you resume.'}
+              ? t('a11y.settings.assistChangesApplyFrom')
+              : t('a11y.settings.assistChangesRestartThe')}
           </p>
         )}
       </Section>
       <Section title={t('a11y.telegraphs.title')}>
         <TelegraphSettingsRows />
       </Section>
-      <Section title="Health and the HUD">
+      <Section title={t('a11y.settings.healthAndTheHud')}>
         <HudSettings />
       </Section>
-      <Section title="Accessibility">
+      <Section title={t('a11y.settings.accessibility')}>
         <AccessibilitySettings />
       </Section>
       <Section title={t('a11y.graphics.title')}>
@@ -232,7 +230,7 @@ export function SettingsPanel({
           onChange={(v) => update((d) => ({ ...d, quality: v }))}
         />
       </Section>
-      <Section title="Progress">
+      <Section title={t('a11y.settings.progress')}>
         <ProgressSettings />
         {/* Export, import and kept saves (docs/phase-7.md, W5): nothing until W5 fills it. */}
         <SavesPanel />
@@ -240,13 +238,13 @@ export function SettingsPanel({
         {DEMO && !compact && <DemoOver />}
       </Section>
       <div className={compact ? '' : 'lg:col-span-2'}>
-        <Section title="Controls">
+        <Section title={t('a11y.settings.controls')}>
           <ControlsSettings compact={compact} />
         </Section>
       </div>
       <div className={compact ? '' : 'lg:col-span-2'}>
         <Button variant="ghost" size="sm" onClick={reset}>
-          Restore defaults
+          {t('a11y.settings.restoreDefaults')}
         </Button>
       </div>
     </div>
@@ -376,35 +374,35 @@ function HudSettings() {
   return (
     <>
       <Segmented
-        label="Bars over the heroes"
-        hint="Their life over their heads, coloured by how much is left."
+        label={t('a11y.settings.barsOverTheHeroes')}
+        hint={t('a11y.settings.theirLifeOverTheir')}
         value={hud.allyBars}
         options={[
-          { value: 'always', label: 'Always' },
-          { value: 'hurt', label: 'When hurt' },
-          { value: 'off', label: 'Off' },
+          { value: 'always', label: t('a11y.settings.always') },
+          { value: 'hurt', label: t('a11y.settings.whenHurt') },
+          { value: 'off', label: t('a11y.settings.off') },
         ]}
         onChange={(v) => set({ allyBars: v })}
       />
       <Segmented
-        label="Party frames show"
-        hint="The big number on each frame."
+        label={t('a11y.settings.partyFramesShow')}
+        hint={t('a11y.settings.theBigNumberOn')}
         value={hud.healthText}
         options={[
-          { value: 'missing', label: 'Life missing' },
-          { value: 'percent', label: 'Percent' },
-          { value: 'current', label: 'Life left' },
+          { value: 'missing', label: t('a11y.settings.lifeMissing') },
+          { value: 'percent', label: t('a11y.settings.percent') },
+          { value: 'current', label: t('a11y.settings.lifeLeft') },
         ]}
         onChange={(v) => set({ healthText: v })}
       />
       <Toggle
-        label="Low-life sound"
-        hint="A soft tone when a hero falls under a quarter of their life."
+        label={t('a11y.settings.lowLifeSound')}
+        hint={t('a11y.settings.aSoftToneWhen')}
         checked={hud.lowHealthSound}
         onChange={(v) => set({ lowHealthSound: v })}
       />
       <Slider
-        label="Party frame size"
+        label={t('a11y.settings.partyFrameSize')}
         value={hud.frames.scale}
         min={0.75}
         max={1.5}
@@ -412,16 +410,16 @@ function HudSettings() {
         onChange={(v) => frames({ scale: v })}
       />
       <Segmented
-        label="Party frames"
+        label={t('a11y.settings.partyFrames')}
         value={hud.frames.orientation}
         options={[
-          { value: 'vertical', label: 'Stacked' },
-          { value: 'horizontal', label: 'Side by side' },
+          { value: 'vertical', label: t('a11y.settings.stacked') },
+          { value: 'horizontal', label: t('a11y.settings.sideBySide') },
         ]}
         onChange={(v) => frames({ orientation: v })}
       />
       <Slider
-        label="Weaver bar size"
+        label={t('a11y.settings.weaverBarSize')}
         value={hud.weaverBar.scale}
         min={0.75}
         max={1.25}
@@ -440,12 +438,9 @@ function HudSettings() {
           disabled={!moved}
           data-testid="hud-reset-places"
         >
-          Reset positions
+          {t('a11y.settings.resetPositions')}
         </Button>
-        <p className="min-w-0 flex-1 text-xs text-muted">
-          Puts the party frames and the Weaver bar back. Move them anywhere in a fight: pause, then
-          Edit HUD layout.
-        </p>
+        <p className="min-w-0 flex-1 text-xs text-muted">{t('a11y.settings.putsThePartyFrames')}</p>
       </div>
     </>
   );
@@ -462,14 +457,14 @@ function ProgressSettings() {
   return (
     <>
       <p className="text-sm text-text">
-        Weaver Rank <b className="text-gold-300">{p.rank}</b>
+        {t('a11y.settings.weaverRank')} <b className="text-gold-300">{p.rank}</b>
         <span className="ml-2 font-mono text-xs text-muted">
           {p.progressText} · {p.record}
         </span>
       </p>
       <Toggle
-        label="Skip the unlocks"
-        hint="Every song, aura, ornament and Calling from the start. You still earn XP and Rank."
+        label={t('a11y.settings.skipTheUnlocks')}
+        hint={t('a11y.settings.everySongAuraOrnament')}
         checked={settings.unlockAll}
         onChange={(v) => update((d) => ({ ...d, unlockAll: v }))}
       />
@@ -480,13 +475,11 @@ function ProgressSettings() {
           aria-labelledby="reset-progress-q"
         >
           <p id="reset-progress-q" className="text-sm text-rose-100">
-            Back to Rank 1? Your Weaver XP, Deeds, Astrolabe, Reliquary (its relics and materials),
-            Dissonance (its levels and records), runs and wins are cleared and everything locks
-            again. Settings and a run in progress stay.
+            {t('a11y.settings.backToRank1')}
           </p>
           <div className="mt-2 flex gap-2">
             <Button size="sm" onClick={() => setConfirm(false)} sound="back" autoFocus>
-              Keep my progress
+              {t('a11y.settings.keepMyProgress')}
             </Button>
             <Button
               size="sm"
@@ -497,18 +490,18 @@ function ProgressSettings() {
                 setDone(true);
               }}
             >
-              Reset to Rank 1
+              {t('a11y.settings.resetToRank1')}
             </Button>
           </div>
         </div>
       ) : (
         <div className="flex items-center gap-3">
           <Button size="sm" variant="danger" onClick={() => setConfirm(true)}>
-            Reset progress…
+            {t('a11y.settings.resetProgress')}
           </Button>
           {done && (
             <span className="text-xs text-muted" role="status">
-              Progress reset: you’re Rank 1 again.
+              {t('a11y.settings.progressResetYouRe')}
             </span>
           )}
         </div>
@@ -527,7 +520,7 @@ function DemoOver() {
     return (
       <div className="border-t border-ink-600/60 pt-3">
         <Button size="sm" onClick={() => setConfirm(true)} data-testid="demo-over">
-          <Icon name="reroll" size={14} /> Start the demo over…
+          <Icon name="reroll" size={14} /> {t('a11y.settings.startTheDemoOver')}
         </Button>
       </div>
     );
@@ -538,12 +531,11 @@ function DemoOver() {
       aria-labelledby="demo-over-q"
     >
       <p id="demo-over-q" className="text-sm text-gold-100">
-        Back to the demo’s first choice? You’ll choose again how to start, fresh or as a veteran,
-        and that replaces this Weaver’s progress and any run in progress. Settings stay.
+        {t('a11y.settings.backToTheDemo')}
       </p>
       <div className="mt-2 flex gap-2">
         <Button size="sm" onClick={() => setConfirm(false)} sound="back" autoFocus>
-          Keep playing
+          {t('a11y.settings.keepPlaying')}
         </Button>
         <Button
           size="sm"
@@ -554,7 +546,7 @@ function DemoOver() {
           }}
           data-testid="demo-over-confirm"
         >
-          Start over
+          {t('a11y.settings.startOver')}
         </Button>
       </div>
     </div>
@@ -562,11 +554,41 @@ function DemoOver() {
 }
 
 const SWATCHES: { key: keyof VisionPalette; label: string; icon: IconName }[] = [
-  { key: 'heal', label: 'Life', icon: 'mend' },
-  { key: 'threat', label: 'Threat', icon: 'sparkle' },
-  { key: 'lethal', label: 'Lethal', icon: 'skull' },
-  { key: 'empower', label: 'Empower', icon: 'empower' },
-  { key: 'call', label: 'Call', icon: 'note' },
+  {
+    key: 'heal',
+    get label() {
+      return t('a11y.settings.life');
+    },
+    icon: 'mend',
+  },
+  {
+    key: 'threat',
+    get label() {
+      return t('a11y.settings.threat');
+    },
+    icon: 'sparkle',
+  },
+  {
+    key: 'lethal',
+    get label() {
+      return t('a11y.settings.lethal');
+    },
+    icon: 'skull',
+  },
+  {
+    key: 'empower',
+    get label() {
+      return t('a11y.settings.empower');
+    },
+    icon: 'empower',
+  },
+  {
+    key: 'call',
+    get label() {
+      return t('a11y.settings.call');
+    },
+    icon: 'note',
+  },
 ];
 
 /** Colour vision, UI scale. Applied to the page immediately. */
@@ -580,7 +602,7 @@ function AccessibilitySettings() {
     <>
       <div className="grid grid-cols-[8rem_1fr] items-center gap-3">
         <label htmlFor={id} className="text-sm text-text">
-          Colour vision
+          {t('a11y.settings.colourVision')}
         </label>
         <select
           id={id}
@@ -599,10 +621,7 @@ function AccessibilitySettings() {
           ))}
         </select>
       </div>
-      <ul
-        className="flex flex-wrap gap-1.5"
-        aria-label="How the danger, life and call colours look with this palette"
-      >
+      <ul className="flex flex-wrap gap-1.5" aria-label={t('a11y.settings.howTheDangerLife')}>
         {SWATCHES.map((sw) => (
           <li
             key={sw.key}
@@ -614,12 +633,9 @@ function AccessibilitySettings() {
           </li>
         ))}
       </ul>
-      <p className="-mt-1.5 text-xs text-muted">
-        Danger, life and calls get colours that stay apart for this kind of colour vision. Every
-        colour also has a glyph.
-      </p>
+      <p className="-mt-1.5 text-xs text-muted">{t('a11y.settings.dangerLifeAndCalls')}</p>
       <Slider
-        label="Interface size"
+        label={t('a11y.settings.interfaceSize')}
         value={settings.uiScale}
         min={0.8}
         max={1.5}
@@ -641,11 +657,11 @@ export function SettingsScreen() {
     <ScreenFrame>
       <div className="mx-auto max-w-5xl px-6 py-8">
         <ScreenHeader
-          eyebrow="Options"
-          title="Settings"
+          eyebrow={t('a11y.settings.options')}
+          title={t('a11y.settings.settings')}
           right={
             <Button variant="secondary" onClick={back} sound="back">
-              <Icon name="back" size={16} /> Back
+              <Icon name="back" size={16} /> {t('a11y.settings.back')}
             </Button>
           }
         />
