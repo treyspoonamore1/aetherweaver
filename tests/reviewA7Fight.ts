@@ -148,7 +148,8 @@ function seeded(seed: number): () => number {
   };
 }
 
-const round = (v: number) => Math.round(v * 1e9) / 1e9;
+/** Rounded to 1e-9, and -0 read as 0 (as the recorded JSON holds it). */
+const round = (v: number) => Math.round(v * 1e9) / 1e9 || 0;
 
 /** Plays the fight; the caller has installed `fakeDom()` and set the settings. */
 export function playFight(m: FightModules): FightRecord {

@@ -30,6 +30,12 @@ import {
   type FightRecord,
 } from './reviewA7Fight';
 import OLD_FIGHT from './reviewA7Fight.81a12ef.json';
+import OLD_POUR from './reviewA7Pour.81a12ef.json';
+import { POUR_IN, POUR_OUT, playPour, type PourFrame, type PourModules } from './reviewA7Pour';
+import { EntityLayer } from '../src/render/entities';
+import { FxKit } from '../src/render/fx/kit';
+import { ModelBatch } from '../src/render/models/batch';
+import { createModelMaterial } from '../src/render/models/material';
 
 const old = OLD_FIGHT as unknown as { commit: string; defaults: FightRecord; shake0: FightRecord };
 
@@ -431,5 +437,36 @@ describe('finding 9: a second press of the held wheel’s button, its release lo
     frame();
     expect(input.wheelOpen).toBe(false);
     input.dispose();
+  });
+});
+
+describe('finding 10: the beam song’s swell on the poured hero, as at 81a12ef', () => {
+  const old = (OLD_POUR as unknown as { commit: string; frames: PourFrame[] }).frames;
+  const pour = () =>
+    playPour({
+      createSim: createSim as unknown as PourModules['createSim'],
+      EntityLayer: EntityLayer as unknown as PourModules['EntityLayer'],
+      createModelMaterial,
+      FxKit: FxKit as unknown as PourModules['FxKit'],
+      ModelBatch: ModelBatch as unknown as PourModules['ModelBatch'],
+    });
+
+  it('the recorded pour: Lyra swells from the Thread’s move to her until it drains after it leaves', () => {
+    const swelling = old.filter((f) => f.beam > 0.001).map((f) => f.tick);
+    expect(swelling[0]).toBeGreaterThan(POUR_IN);
+    expect(swelling[swelling.length - 1]).toBeGreaterThan(POUR_OUT);
+    // One unbroken swell, from its first frame to its last.
+    expect(swelling.length).toBe(swelling[swelling.length - 1]! - swelling[0]! + 1);
+    expect(Math.max(...old.map((f) => f.beam))).toBeGreaterThan(0.9);
+  });
+
+  it('every frame of the swell, her instance is exactly 81a12ef’s (no idle on top of it)', () => {
+    const now = pour();
+    expect(now.map((f) => f.beam)).toEqual(old.map((f) => f.beam));
+    const swell = (f: PourFrame[]) => f.filter((x) => x.beam > 0.001);
+    expect(swell(now)).toEqual(swell(old));
+    // The frame before it and the frame after, too: the idle only begins once the swell is gone.
+    const first = swell(old)[0]!.tick;
+    expect(now[first - 1]!.pushes).not.toEqual(old[first - 1]!.pushes); // W6's idle, at rest
   });
 });
