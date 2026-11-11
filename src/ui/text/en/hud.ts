@@ -30,6 +30,7 @@ import { statusBadge as hudStatusBadge } from './hud/statusBadge';
 import { threadMode as hudThreadMode } from './hud/threadMode';
 import { triggerChips as hudTriggerChips } from './hud/triggerChips';
 import { triggers as hudTriggers } from './hud/triggers';
+import { weaverBar as hudWeaverBar } from './hud/weaverBar';
 
 /**
  * The English catalogue's `hud.*` keys (docs/phase-7.md, *Contracts*): W3's file. Each source
@@ -68,4 +69,5 @@ export const hud = {
   ...hudThreadMode,
   ...hudTriggerChips,
   ...hudTriggers,
+  ...hudWeaverBar,
 } satisfies Catalogue;

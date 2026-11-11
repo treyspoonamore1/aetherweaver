@@ -49,6 +49,7 @@ import { lowLifeMarks, type LowLifeMark } from './callingText';
 import { AstrolabeGlyph } from '../kit/AstrolabeGlyph';
 import { CONSTELLATION_LOOK, STARLIGHT } from '../kit/astrolabeLook';
 import { reserveStars } from './astrolabeModel';
+import { t as txt } from '../text';
 
 const ANCHOR_ICON = { weaver: 'note', planted: 'pin' } as const satisfies Record<string, IconName>;
 
@@ -83,15 +84,19 @@ export function AstrolabeShare({
   const relics = passives.some((p) => p.effect === 'reserve');
   const stars = [
     ...new Set(reserveStars(astrolabe).map((n) => n.name)),
-    ...(relics ? ['your carried relics’ Inscriptions'] : []),
+    ...(relics ? [txt('screens.chordBuilder.yourCarriedRelicsInscriptions')] : []),
   ];
   const source =
     astrolabe.length > 0 && relics
-      ? 'the Astrolabe and relics'
+      ? txt('screens.chordBuilder.theAstrolabeAndRelics')
       : relics
         ? 'relics'
-        : 'the Astrolabe';
-  const text = `${less > 0 ? '−' : '+'}${Math.abs(less)}% from ${source}`;
+        : txt('screens.chordBuilder.theAstrolabe');
+  const text = txt('screens.chordBuilder.from', {
+    value: less > 0 ? '−' : '+',
+    less: Math.abs(less),
+    source,
+  });
   return (
     <span
       className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-px text-xs font-semibold ${className}`}
@@ -100,7 +105,15 @@ export function AstrolabeShare({
         borderColor: `color-mix(in srgb, ${CONSTELLATION_LOOK.choir.color} 60%, transparent)`,
         background: `color-mix(in srgb, ${CONSTELLATION_LOOK.choir.color} 14%, transparent)`,
       }}
-      title={`${relics ? 'Your Astrolabe and relics make' : 'Your Astrolabe makes'} your songs ${Math.abs(less)}% ${less > 0 ? 'lighter' : 'heavier'}: ${stars.join(', ')}`}
+      title={txt('screens.chordBuilder.yourSongs', {
+        value: relics
+          ? txt('screens.chordBuilder.yourAstrolabeAndRelics')
+          : txt('screens.chordBuilder.yourAstrolabeMakes'),
+        less: Math.abs(less),
+        value2:
+          less > 0 ? txt('screens.chordBuilder.lighter') : txt('screens.chordBuilder.heavier'),
+        stars: stars.join(', '),
+      })}
       data-testid="astrolabe-share"
     >
       <AstrolabeGlyph glyph="weaver_star" size={12} style={{ color: STARLIGHT.color }} />
@@ -121,7 +134,7 @@ export interface SlotBonus {
 
 /** "in the beam song" for the palette's tags. */
 function inSong(index: number): string {
-  return `in the ${songName(index).toLowerCase()}`;
+  return txt('screens.chordBuilder.inThe', { songName: songName(index).toLowerCase() });
 }
 
 /**
@@ -217,7 +230,7 @@ export function ChordBuilder({
           id="presets-title"
           className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted"
         >
-          Presets · one click
+          {txt('screens.chordBuilder.presetsOneClick')}
         </h3>
         <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {CHORD_PRESETS.map((p) => {
@@ -230,7 +243,9 @@ export function ChordBuilder({
                   aria-pressed={on}
                   disabled={lock !== null}
                   aria-label={
-                    lock !== null ? `${p.name}: unlocks at Rank ${lock}` : `${p.name}. ${p.summary}`
+                    lock !== null
+                      ? txt('screens.chordBuilder.unlocksAtRank2', { name: p.name, lock })
+                      : `${p.name}. ${p.summary}`
                   }
                   onClick={() => {
                     playUi('pick');
@@ -260,7 +275,9 @@ export function ChordBuilder({
                     ) : lock !== null ? (
                       <LockTag rank={lock} />
                     ) : (
-                      <span className="font-mono text-xs text-muted">Rank {p.rank}</span>
+                      <span className="font-mono text-xs text-muted">
+                        {txt('screens.chordBuilder.rank', { rank: p.rank })}
+                      </span>
                     )}
                   </span>
                   <span
@@ -346,7 +363,7 @@ export function ChordBuilder({
               data-testid="chord-problems"
             >
               <p className="flex items-center gap-2 font-semibold text-rose-200">
-                <Icon name="info" size={16} /> These songs can’t be sung yet
+                <Icon name="info" size={16} /> {txt('screens.chordBuilder.theseSongsCanT')}
               </p>
               <ul className="mt-1 list-disc pl-6 text-rose-100">
                 {problems.map((p) => (
@@ -376,9 +393,9 @@ export function LockTag({ rank }: { rank: number }) {
   return (
     <span
       className="inline-flex shrink-0 items-center gap-1 rounded border border-ink-500 bg-ink-900 px-1.5 text-xs font-medium text-muted"
-      title={`Unlocks at Rank ${rank}`}
+      title={txt('screens.chordBuilder.unlocksAtRank3', { rank })}
     >
-      <Icon name="lock" size={11} /> Rank {rank}
+      <Icon name="lock" size={11} /> {txt('screens.chordBuilder.rank', { rank })}
     </span>
   );
 }
@@ -387,7 +404,7 @@ export function LockTag({ rank }: { rank: number }) {
 export function NewTag() {
   return (
     <span className="anim-glow inline-flex shrink-0 items-center rounded bg-gold-400 px-1.5 text-xs font-bold uppercase leading-5 tracking-wider text-ink-950">
-      New
+      {txt('screens.chordBuilder.new')}
     </span>
   );
 }
@@ -484,14 +501,18 @@ function SongCard({
       {lock !== null && empty ? (
         <div className="mt-2 flex flex-1 flex-col items-start justify-center gap-1.5 rounded-lg border border-dashed border-ink-600 bg-ink-950/40 px-4 py-5">
           <p className="flex items-center gap-2 text-sm font-semibold text-text">
-            <Icon name="lock" size={16} className="text-muted" /> Unlocks at Rank {lock}
+            <Icon name="lock" size={16} className="text-muted" />{' '}
+            {txt('screens.chordBuilder.unlocksAtRank', { lock })}
           </p>
           {unlock && <p className="text-xs leading-relaxed text-muted">{unlock.text}</p>}
         </div>
       ) : (
         <>
           <p className="mt-1 text-xs leading-relaxed text-muted">{info.blurb}</p>
-          <dl className="mt-2 grid grid-cols-2 gap-2" aria-label={`${info.name} strength`}>
+          <dl
+            className="mt-2 grid grid-cols-2 gap-2"
+            aria-label={txt('screens.chordBuilder.strength', { name: info.name })}
+          >
             {info.facts.map((f) => (
               <div
                 key={f.label}
@@ -508,12 +529,17 @@ function SongCard({
             ))}
           </dl>
           <p className="mb-1.5 mt-3 text-xs font-semibold uppercase tracking-wider text-muted">
-            Auras
+            {txt('screens.chordBuilder.auras')}
             {bonus && auraSlots > w.auraSlots && (
               <span className="font-normal normal-case tracking-normal">
-                {' '}
-                · {bonus.name} adds a {auraSlots === 3 ? 'third' : 'new'} slot: it needs{' '}
-                {poolWord(pool)}, and Grace Note helps
+                {txt('screens.chordBuilder.addsASlotIt', {
+                  name: bonus.name,
+                  value:
+                    auraSlots === 3
+                      ? txt('screens.chordBuilder.third')
+                      : txt('screens.chordBuilder.new2'),
+                  poolWord: poolWord(pool),
+                })}
               </span>
             )}
           </p>
@@ -572,25 +598,28 @@ function SongCard({
           {!empty && (
             <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-muted">
               <span>
-                reserves <b className="text-text">{pct(n.reserve * reserveMult)}</b> of{' '}
-                {poolWord(pool)}
+                {txt('screens.chordBuilder.reserves')}{' '}
+                <b className="text-text">{pct(n.reserve * reserveMult)}</b>{' '}
+                {txt('screens.chordBuilder.of', { poolWord: poolWord(pool) })}
               </span>
               {Math.abs(n.effect - 1) > 0.001 && (
                 <span className={n.effect > 1 ? 'text-gold-300' : 'text-threat'}>
-                  ornaments {mult(n.effect)} strength
+                  {txt('screens.chordBuilder.ornamentsStrength', { mult: mult(n.effect) })}
                 </span>
               )}
             </p>
           )}
           {pedal && (
             <p className="mt-2 flex items-center gap-1.5 text-xs text-lime-200">
-              <Icon name="pin" size={13} /> Plant it at the cursor with{' '}
-              <KeyCap label={bindingLabel('plant')} /> (every {CONTENT.weaver.plantCooldown} s).
+              <Icon name="pin" size={13} /> {txt('screens.chordBuilder.plantItAtThe')}
+              <KeyCap label={bindingLabel('plant')} />{' '}
+              {txt('screens.chordBuilder.everyS', { plantCooldown: CONTENT.weaver.plantCooldown })}
             </p>
           )}
           {lock !== null && (
             <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-threat">
-              <Icon name="lock" size={13} /> {info.name} unlocks at Rank {lock}: empty it to embark.
+              <Icon name="lock" size={13} />{' '}
+              {txt('screens.chordBuilder.unlocksAtRankEmpty', { name: info.name, lock })}
             </p>
           )}
         </>
@@ -931,7 +960,7 @@ function LifeTechniques({ budget: b }: { budget: SpiritBudget }) {
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1" data-testid="techniques-life">
       <span className="flex items-center gap-1.5" style={{ color: LIFE }}>
-        <Icon name="heart" size={12} /> Your techniques cost Life:
+        <Icon name="heart" size={12} /> {txt('screens.chordBuilder.yourTechniquesCostLife')}
       </span>
       {b.techniques.map((t) => (
         <span
@@ -961,28 +990,40 @@ function BudgetPanel({
   // Eldritch Conduit: Spirit is the songs' alone; the techniques cost Life.
   const lifeTech = b.techPool === 'life';
   return (
-    <Panel tone="solid" className="p-3.5" aria-label="Spirit budget">
+    <Panel tone="solid" className="p-3.5" aria-label={txt('screens.chordBuilder.spiritBudget')}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <p className="flex items-center gap-2 text-sm font-semibold text-text">
-          Spirit budget
+          {txt('screens.chordBuilder.spiritBudget')}
           <AstrolabeShare reserveMult={b.reserveMult} astrolabe={astrolabe} passives={b.passives} />
         </p>
         <p className="font-mono text-xs text-muted">
-          <span className={b.over ? 'text-lethal' : ''}>{fmt(b.reserved)} reserved</span> ·{' '}
-          <span style={{ color: 'var(--color-spirit)' }}>{fmt(b.free)} free</span> of {b.max}
+          <span className={b.over ? 'text-lethal' : ''}>
+            {txt('screens.chordBuilder.reserved', { reserved: fmt(b.reserved) })}
+          </span>{' '}
+          ·{' '}
+          <span style={{ color: 'var(--color-spirit)' }}>
+            {txt('screens.chordBuilder.free', { free: fmt(b.free) })}
+          </span>{' '}
+          {txt('screens.chordBuilder.of2', { max: b.max })}
         </p>
       </div>
       <div
         className="relative mt-2 flex h-6 overflow-hidden rounded-full border border-ink-500 bg-ink-700"
         role="img"
-        aria-label={`${fmt(b.free)} of ${b.max} Spirit free; ${b.slices.map((s) => `${s.name} reserves ${fmt(s.spirit)}`).join(', ') || 'no auras'}`}
+        aria-label={txt('screens.chordBuilder.ofSpiritFree', {
+          free: fmt(b.free),
+          max: b.max,
+          value:
+            b.slices.map((s) => `${s.name} reserves ${fmt(s.spirit)}`).join(', ') ||
+            txt('screens.chordBuilder.noAuras'),
+        })}
       >
         {b.slices.map((s) => (
           <div
             key={`${s.chord}${s.id}`}
             className="stripes flex h-full items-center justify-center overflow-hidden border-r border-ink-950 text-xs font-semibold text-ink-950 transition-[width] duration-200"
             style={{ width: width(s.spirit), backgroundColor: s.color }}
-            title={`${s.name}: ${fmt(s.spirit)} reserved`}
+            title={txt('screens.chordBuilder.reserved2', { name: s.name, spirit: fmt(s.spirit) })}
           >
             <span className="truncate px-1">{s.name}</span>
           </div>
@@ -1008,7 +1049,7 @@ function BudgetPanel({
           <div
             className="absolute inset-y-0 right-0 border-l-2 border-white bg-lethal/70"
             style={{ width: width(b.reserved - b.max) }}
-            title="Over budget"
+            title={txt('screens.chordBuilder.overBudget')}
           />
         )}
       </div>
@@ -1028,8 +1069,10 @@ function BudgetPanel({
             ))}
             <li className={b.allThree ? 'text-muted' : 'text-threat'}>
               {b.allThree
-                ? 'Room for all three back to back'
-                : `All three back to back need ${costText(b.techniques.reduce((s, t) => s + t.cost, 0))}`}
+                ? txt('screens.chordBuilder.roomForAllThree')
+                : txt('screens.chordBuilder.allThreeBackTo', {
+                    costText: costText(b.techniques.reduce((s, t) => s + t.cost, 0)),
+                  })}
             </li>
           </>
         )}
@@ -1039,8 +1082,12 @@ function BudgetPanel({
           className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-lethal"
           role="status"
         >
-          <Icon name="ward" size={14} /> Only {fmt(b.free)} Spirit stays free: you could never cast
-          {` ${ward.name}`} ({costText(ward.cost)}).
+          <Icon name="ward" size={14} />{' '}
+          {txt('screens.chordBuilder.onlySpiritStaysFree', {
+            free: fmt(b.free),
+            value: ` ${ward.name}`,
+            costText: costText(ward.cost),
+          })}
         </p>
       )}
       <p
@@ -1048,8 +1095,12 @@ function BudgetPanel({
       >
         <Icon name="sparkle" size={13} />
         {b.chorus
-          ? `Chorus: ${b.auraCount} auras, so every Cue releases a pulse that heals ${pct(c.healPctPerAura * b.auraCount, 1)} and shields ${pct(c.barrierPctPerAura * b.auraCount, 1)} of life.`
-          : `With ${c.minAuras}+ auras, every Cue also releases a chorus pulse (heal + barrier).`}
+          ? txt('screens.chordBuilder.chorusAurasSoEvery', {
+              auraCount: b.auraCount,
+              pct: pct(c.healPctPerAura * b.auraCount, 1),
+              pct2: pct(c.barrierPctPerAura * b.auraCount, 1),
+            })
+          : txt('screens.chordBuilder.withAurasEveryCue', { minAuras: c.minAuras })}
       </p>
     </Panel>
   );
@@ -1089,41 +1140,57 @@ function LifeBudgetPanel({
     <Panel
       tone="solid"
       className="p-3.5"
-      aria-label="Life budget"
+      aria-label={txt('screens.chordBuilder.lifeBudget')}
       data-testid="life-budget"
       style={{ borderColor: `color-mix(in srgb, ${look.color} 45%, var(--color-ink-600))` }}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
         <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-text">
-          <Icon name="drop" size={14} style={{ color: look.color }} /> Life budget
-          <span className="font-normal text-muted">· your songs reserve Life, not Spirit</span>
+          <Icon name="drop" size={14} style={{ color: look.color }} />{' '}
+          {txt('screens.chordBuilder.lifeBudget')}
+          <span className="font-normal text-muted">
+            {txt('screens.chordBuilder.yourSongsReserveLife')}
+          </span>
           <AstrolabeShare reserveMult={b.reserveMult} astrolabe={astrolabe} passives={b.passives} />
         </p>
         <p className="font-mono text-xs text-muted">
           <span className={b.over ? 'text-lethal' : ''}>
-            {fmt(b.reserved)} held ({heldPct}%)
+            {txt('screens.chordBuilder.held', { reserved: fmt(b.reserved), heldPct })}
           </span>{' '}
-          · <span style={{ color: LIFE }}>{fmt(b.free)} to fight with</span> of {fmt(b.max)}
+          ·{' '}
+          <span style={{ color: LIFE }}>
+            {txt('screens.chordBuilder.toFightWith', { free: fmt(b.free) })}
+          </span>{' '}
+          {txt('screens.chordBuilder.of2', { max: fmt(b.max) })}
         </p>
       </div>
       <div className="relative mt-5">
         <div
           className="relative flex h-6 overflow-hidden rounded-full border border-ink-500 bg-ink-700"
           role="img"
-          aria-label={`${fmt(b.free)} of ${fmt(b.max)} Life to fight with; ${b.slices.map((s) => `${s.name} holds ${fmt(s.spirit)}`).join(', ') || 'no auras'}. Your songs may hold at most ${capPct}%.`}
+          aria-label={txt('screens.chordBuilder.ofLifeToFight', {
+            free: fmt(b.free),
+            max: fmt(b.max),
+            value:
+              b.slices.map((s) => `${s.name} holds ${fmt(s.spirit)}`).join(', ') ||
+              txt('screens.chordBuilder.noAuras'),
+            capPct,
+          })}
         >
           <div
             className="flex h-full items-center overflow-hidden px-2 text-xs font-semibold text-ink-950 transition-[width] duration-200"
             style={{ width: at(b.free), background: LIFE }}
           >
-            <span className="truncate">{fmt(b.free)} Life</span>
+            <span className="truncate">
+              {txt('screens.chordBuilder.life', { free: fmt(b.free) })}
+            </span>
           </div>
           {b.slices.map((s) => (
             <div
               key={`${s.chord}${s.id}`}
               className="stripes flex h-full items-center justify-center overflow-hidden border-l border-ink-950 text-xs font-semibold text-ink-950 transition-[width] duration-200"
               style={{ width: at(s.spirit), backgroundColor: s.color }}
-              title={`${s.name}: holds ${fmt(s.spirit)} Life`}
+              title={txt('screens.chordBuilder.holdsLife', { name: s.name, spirit: fmt(s.spirit) })}
             >
               <span className="truncate px-1">{s.name}</span>
             </div>
@@ -1132,7 +1199,7 @@ function LifeBudgetPanel({
             <div
               className="absolute inset-y-0 border-l-2 border-white bg-lethal/70"
               style={{ left: at(b.max - b.reserved), width: at(b.reserved - b.cap) }}
-              title="More than your songs may hold"
+              title={txt('screens.chordBuilder.moreThanYourSongs')}
             />
           )}
         </div>
@@ -1143,7 +1210,7 @@ function LifeBudgetPanel({
           aria-hidden
         >
           <span className="absolute -top-0.5 left-1 whitespace-nowrap font-mono text-[0.75rem] leading-none text-muted">
-            ← you keep at least {100 - capPct}%
+            {txt('screens.chordBuilder.youKeepAtLeast', { value: 100 - capPct })}
           </span>
         </span>
         {prism !== null && (
@@ -1151,7 +1218,10 @@ function LifeBudgetPanel({
           <span
             className="absolute -bottom-1 -top-1 w-0.5"
             style={{ left: at(prism), background: CONSTELLATION_LOOK.choir.light }}
-            title={`Prism Covenant: you fight at ${Math.round(b.lifeCap * 100)}% of it (${fmt(prism)} Life)`}
+            title={txt('screens.chordBuilder.prismCovenantYouFight2', {
+              round: Math.round(b.lifeCap * 100),
+              prism: fmt(prism),
+            })}
             data-testid="life-budget-prism"
             aria-hidden
           />
@@ -1163,7 +1233,10 @@ function LifeBudgetPanel({
               key={m.id}
               className="absolute -bottom-1.5 -top-1.5 w-0.5"
               style={{ left: at(m.below * b.max), background: look.light }}
-              title={`${m.name}: below ${Math.round(m.below * 100)}% of your Life`}
+              title={txt('screens.chordBuilder.belowOfYourLife', {
+                name: m.name,
+                round: Math.round(m.below * 100),
+              })}
               aria-hidden
             >
               <span
@@ -1183,10 +1256,15 @@ function LifeBudgetPanel({
       <ul className={`flex flex-col gap-1 text-xs ${marks.length > 0 ? 'mt-5' : 'mt-2'}`}>
         <li className="flex items-center gap-1.5 text-text">
           <Icon name="heart" size={12} style={{ color: LIFE }} />
-          You fight with {fmt(b.free)} Life of {fmt(b.max)}
-          {martyr ? `: a Weaver without the Martyr has ${fmt(b.baseLife)}.` : '.'}
+          {txt('screens.chordBuilder.youFightWithLife', {
+            free: fmt(b.free),
+            max: fmt(b.max),
+            value: martyr
+              ? txt('screens.chordBuilder.aWeaverWithoutThe', { baseLife: fmt(b.baseLife) })
+              : '.',
+          })}
           {b.free < b.max * 0.5 && b.reserved > 0 && (
-            <span className="text-muted">You start below half your Life.</span>
+            <span className="text-muted">{txt('screens.chordBuilder.youStartBelowHalf')}</span>
           )}
         </li>
         {prism !== null && (
@@ -1195,8 +1273,10 @@ function LifeBudgetPanel({
             style={{ color: CONSTELLATION_LOOK.choir.light }}
           >
             <AstrolabeGlyph glyph="prism_covenant" size={12} />
-            Prism Covenant: you fight at {Math.round(b.lifeCap * 100)}% of that ({fmt(prism)} Life)
-            and can’t be healed above it.
+            {txt('screens.chordBuilder.prismCovenantYouFight', {
+              round: Math.round(b.lifeCap * 100),
+              prism: fmt(prism),
+            })}
           </li>
         )}
         {marks.map((m) => {
@@ -1204,8 +1284,14 @@ function LifeBudgetPanel({
           return (
             <li key={m.id} className="flex items-center gap-1.5" style={{ color: look.light }}>
               <CallingGlyph icon={m.icon} size={12} />
-              {m.name} below {Math.round(m.below * 100)}% ({fmt(m.below * b.max)} Life):{' '}
-              {on ? 'on from the start with these songs' : 'once you’ve been hurt'}.
+              {txt('screens.chordBuilder.belowLife', {
+                name: m.name,
+                round: Math.round(m.below * 100),
+                fmt: fmt(m.below * b.max),
+                value: on
+                  ? txt('screens.chordBuilder.onFromTheStart')
+                  : txt('screens.chordBuilder.onceYouVeBeen'),
+              })}
             </li>
           );
         })}
@@ -1214,7 +1300,8 @@ function LifeBudgetPanel({
         ) : (
           <li className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="flex items-center gap-1.5" style={{ color: 'var(--color-spirit)' }}>
-              <Icon name="sparkle" size={12} /> All {fmt(b.spirit)} Spirit is free:
+              <Icon name="sparkle" size={12} />{' '}
+              {txt('screens.chordBuilder.allSpiritIsFree', { spirit: fmt(b.spirit) })}
             </span>
             {b.techniques.map((t) => (
               <span
@@ -1233,8 +1320,12 @@ function LifeBudgetPanel({
       >
         <Icon name="sparkle" size={13} />
         {b.chorus
-          ? `Chorus: ${b.auraCount} auras, so every Cue releases a pulse that heals ${pct(c.healPctPerAura * b.auraCount, 1)} and shields ${pct(c.barrierPctPerAura * b.auraCount, 1)} of life.`
-          : `With ${c.minAuras}+ auras, every Cue also releases a chorus pulse (heal + barrier).`}
+          ? txt('screens.chordBuilder.chorusAurasSoEvery', {
+              auraCount: b.auraCount,
+              pct: pct(c.healPctPerAura * b.auraCount, 1),
+              pct2: pct(c.barrierPctPerAura * b.auraCount, 1),
+            })
+          : txt('screens.chordBuilder.withAurasEveryCue', { minAuras: c.minAuras })}
       </p>
     </Panel>
   );

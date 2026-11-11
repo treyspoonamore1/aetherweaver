@@ -15,6 +15,7 @@ import { callingParts as screensCallingParts } from './screens/callingParts';
 import { callingPicker as screensCallingPicker } from './screens/callingPicker';
 import { callingScreen as screensCallingScreen } from './screens/callingScreen';
 import { callingText as screensCallingText } from './screens/callingText';
+import { chordBuilder as screensChordBuilder } from './screens/chordBuilder';
 import { chordModel as screensChordModel } from './screens/chordModel';
 import { codexAttack as screensCodexAttack } from './screens/codexAttack';
 import { codexScreen as screensCodexScreen } from './screens/codexScreen';
@@ -95,6 +96,7 @@ export const screens = {
   ...screensCallingPicker,
   ...screensCallingScreen,
   ...screensCallingText,
+  ...screensChordBuilder,
   ...screensChordModel,
   ...screensCodexAttack,
   ...screensCodexScreen,
