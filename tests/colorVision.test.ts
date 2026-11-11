@@ -937,8 +937,12 @@ describe('Phase 8a: the lit dark worlds (lightCues.ts)', () => {
         for (const [where, floor] of Object.entries(seen)) {
           const l = ratio(palette.lethal, floor);
           const t = ratio(palette.threat, floor);
-          expect(l, `${vision}: lethal on ${w} ${where}`).toBeGreaterThanOrEqual(LETHAL_MIN_CONTRAST);
-          expect(t, `${vision}: threat on ${w} ${where}`).toBeGreaterThanOrEqual(THREAT_MIN_CONTRAST);
+          expect(l, `${vision}: lethal on ${w} ${where}`).toBeGreaterThanOrEqual(
+            LETHAL_MIN_CONTRAST,
+          );
+          expect(t, `${vision}: threat on ${w} ${where}`).toBeGreaterThanOrEqual(
+            THREAT_MIN_CONTRAST,
+          );
         }
     });
   }

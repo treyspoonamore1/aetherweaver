@@ -329,7 +329,10 @@ export class ArenaView {
     let base: THREE.BufferGeometry;
     if (this.look === 'crimson') {
       // An obsidian spire column, brass-banded, with a crimson inlay (library.ts).
-      const stone = new THREE.Color(LIT_RIM.spirePillar).lerp(new THREE.Color(SPIRE_HEX.obsidian), 0.25);
+      const stone = new THREE.Color(LIT_RIM.spirePillar).lerp(
+        new THREE.Color(SPIRE_HEX.obsidian),
+        0.25,
+      );
       base = buildSpirePillar(`#${stone.getHexString()}`, theme.line, SPIRE_HEX.banner);
     } else if (this.look === 'abyss') {
       // A broken slab stitched back together with bone thread (library.ts).
@@ -602,7 +605,14 @@ void main() {
       ctx.globalAlpha = 1;
     }
     if (ctx) this.shadeInner(ctx, size, LIT_FLOOR.crimson.innerShade);
-    this.floorMeshes(group, canvas, floor, def.theme.accent, this.paintGlow('crimson'), LIT_MOOD.crimson.fog);
+    this.floorMeshes(
+      group,
+      canvas,
+      floor,
+      def.theme.accent,
+      this.paintGlow('crimson'),
+      LIT_MOOD.crimson.fog,
+    );
     return group;
   }
 

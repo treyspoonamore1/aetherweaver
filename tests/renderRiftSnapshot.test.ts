@@ -216,184 +216,220 @@ function snapshot(): { arenas: Record<string, ArenaShot>; models: Record<string,
   return { arenas, models };
 }
 
-/** Captured on main (b11f149), before any Phase 5d render change. */
+/**
+ * Captured on main (b11f149), before any Phase 5d render change; re-recorded when Phase 8a lit the
+ * Rift (docs/phase-8.md): the moods, floor paintings and glow canvases.
+ */
 const ARENAS: Record<string, ArenaShot> = {
   rift_mouth: {
     look: 'abyss',
     mood: {
-      sky: '#1b1a3a',
-      ground: '#1a1830',
-      hemi: 0.5,
+      sky: '#4a44a0',
+      ground: '#221e48',
+      hemi: 1,
       key: '#e6e1cf',
-      keyIntensity: 1.5,
+      keyIntensity: 1.85,
       rim: '#346782',
-      rimIntensity: 0.42,
-      fog: '#0a0a1c',
-      fogNear: 34,
-      fogFar: 80,
+      rimIntensity: 0.45,
+      fog: '#221c56',
+      fogNear: 28,
+      fogFar: 70,
     },
     meshes: 7,
-    hash: '6c1bb553',
+    hash: '8374081b',
     paint: [
       {
         width: 2048,
         height: 2048,
-        ops: 6313,
-        hash: 'a1d964f5',
+        ops: 6319,
+        hash: '4b56f0ca',
+      },
+      {
+        width: 1024,
+        height: 1024,
+        ops: 629,
+        hash: '2f5a2e77',
       },
     ],
   },
   torn_nave: {
     look: 'abyss',
     mood: {
-      sky: '#1b1a3a',
-      ground: '#19172e',
-      hemi: 0.5,
+      sky: '#4a44a0',
+      ground: '#221e48',
+      hemi: 1,
       key: '#e6e1cf',
-      keyIntensity: 1.5,
+      keyIntensity: 1.85,
       rim: '#346782',
-      rimIntensity: 0.42,
-      fog: '#0a0a1c',
-      fogNear: 34,
-      fogFar: 80,
+      rimIntensity: 0.45,
+      fog: '#221c56',
+      fogNear: 28,
+      fogFar: 70,
     },
     meshes: 7,
-    hash: 'fa0d26f9',
+    hash: '3317eff9',
     paint: [
       {
         width: 2048,
         height: 2048,
-        ops: 4839,
-        hash: 'ecf2e356',
+        ops: 4845,
+        hash: '2a01e181',
+      },
+      {
+        width: 1024,
+        height: 1024,
+        ops: 623,
+        hash: '8d2a6e5',
       },
     ],
   },
   mirror_loom: {
     look: 'abyss',
     mood: {
-      sky: '#1b1a3a',
-      ground: '#18162c',
-      hemi: 0.5,
+      sky: '#4a44a0',
+      ground: '#221e48',
+      hemi: 1,
       key: '#e6e1cf',
-      keyIntensity: 1.5,
+      keyIntensity: 1.85,
       rim: '#346782',
-      rimIntensity: 0.42,
-      fog: '#0a0a1c',
-      fogNear: 34,
-      fogFar: 80,
+      rimIntensity: 0.45,
+      fog: '#221c56',
+      fogNear: 28,
+      fogFar: 70,
     },
     meshes: 7,
-    hash: 'd30f1868',
+    hash: '8533f6ae',
     paint: [
       {
         width: 2048,
         height: 2048,
-        ops: 4797,
-        hash: 'e38252b',
+        ops: 4803,
+        hash: '9acfcf1',
+      },
+      {
+        width: 1024,
+        height: 1024,
+        ops: 623,
+        hash: 'f631b1a',
       },
     ],
   },
   loom_hollow: {
     look: 'abyss',
     mood: {
-      sky: '#1b1a3a',
-      ground: '#18162b',
-      hemi: 0.5,
+      sky: '#4a44a0',
+      ground: '#221e48',
+      hemi: 1,
       key: '#e6e1cf',
-      keyIntensity: 1.5,
+      keyIntensity: 1.85,
       rim: '#346782',
-      rimIntensity: 0.42,
-      fog: '#0a0a1c',
-      fogNear: 34,
-      fogFar: 80,
+      rimIntensity: 0.45,
+      fog: '#221c56',
+      fogNear: 28,
+      fogFar: 70,
     },
     meshes: 6,
-    hash: '6e5e4068',
+    hash: 'b7f4c65c',
     paint: [
       {
         width: 2048,
         height: 2048,
-        ops: 4839,
-        hash: 'd82490',
+        ops: 4845,
+        hash: '69e93402',
+      },
+      {
+        width: 1024,
+        height: 1024,
+        ops: 623,
+        hash: '8d2a6e5',
       },
     ],
   },
   the_unwoven: {
     look: 'abyss',
     mood: {
-      sky: '#1b1a3a',
-      ground: '#17152a',
-      hemi: 0.5,
+      sky: '#4a44a0',
+      ground: '#221e48',
+      hemi: 1,
       key: '#e6e1cf',
-      keyIntensity: 1.5,
+      keyIntensity: 1.85,
       rim: '#346782',
-      rimIntensity: 0.42,
-      fog: '#0a0a1c',
-      fogNear: 34,
-      fogFar: 80,
+      rimIntensity: 0.45,
+      fog: '#221c56',
+      fogNear: 28,
+      fogFar: 70,
     },
     meshes: 6,
-    hash: 'c5c4bf8f',
+    hash: 'ed58375f',
     paint: [
       {
         width: 2048,
         height: 2048,
-        ops: 6355,
-        hash: 'a3be566c',
+        ops: 6361,
+        hash: 'a7fe5dfa',
+      },
+      {
+        width: 1024,
+        height: 1024,
+        ops: 629,
+        hash: '7d1579f1',
       },
     ],
   },
 };
 
-/** Captured on main (b11f149), before any Phase 5d render change. */
+/**
+ * Captured on main (b11f149), before any Phase 5d render change; re-recorded when Phase 8a re-tinted
+ * the void cloth and frayed the stitches teal (docs/phase-8.md).
+ */
 const MODELS: Record<string, ModelShot> = {
   'enemy:shears': {
-    hash: '8fb6dac0',
+    hash: 'd7fb07a8',
     quadruped: false,
     material: 'cloth',
   },
   'enemy:void_maw': {
-    hash: 'e06726a2',
+    hash: '9bcca7a2',
     quadruped: false,
     material: 'cloth',
   },
   'enemy:doubt_wraith': {
-    hash: '2c02afb7',
+    hash: '43be3197',
     quadruped: false,
     material: 'cloth',
   },
   'enemy:null_priest': {
-    hash: '1de7c3da',
+    hash: '42301aa2',
     quadruped: false,
     material: 'cloth',
   },
   'enemy:mimic': {
-    hash: '7528129f',
+    hash: 'f830554f',
     quadruped: false,
     material: 'cloth',
   },
   'enemy:spindle': {
-    hash: 'ad7409fe',
+    hash: '627df8be',
     quadruped: false,
     material: 'cloth',
   },
   'enemy:stolen_verse': {
-    hash: '56b6bb77',
+    hash: 'c5a855d7',
     quadruped: false,
     material: 'cloth',
   },
   'enemy:mirror_champion': {
-    hash: '9f1ce239',
+    hash: 'bca60d09',
     quadruped: false,
     material: 'cloth',
   },
   'enemy:the_seamstress': {
-    hash: '81c7ad31',
+    hash: '978c13b9',
     quadruped: false,
     material: 'cloth',
   },
   'enemy:the_unweaver': {
-    hash: '3893c66e',
+    hash: 'db8a1f8e',
     quadruped: false,
     material: 'cloth',
   },
@@ -420,9 +456,12 @@ describe('the Abyssal Rift is drawn as before (Phase 5d, W0a)', () => {
       expect(shootArena(id)).toEqual(want);
     });
 
-  it('every Rift arena paints exactly one 2048px floor canvas, and the painting is recorded', () => {
+  it('every Rift arena paints one 2048px floor canvas and one 1024px glow canvas, and the painting is recorded', () => {
     for (const [id, want] of Object.entries(ARENAS)) {
-      expect(want.paint, id).toHaveLength(1);
+      // Phase 8a: the floor's seams and frayed edge glow (an emissive map on the same floor mesh).
+      expect(want.paint, id).toHaveLength(2);
+      expect(want.paint[1]!.width, id).toBe(1024);
+      expect(want.paint[1]!.ops, id).toBeGreaterThan(50);
       expect(want.paint[0]!.width, id).toBe(2048);
       expect(want.paint[0]!.height, id).toBe(2048);
       expect(want.paint[0]!.ops, id).toBeGreaterThan(1000);

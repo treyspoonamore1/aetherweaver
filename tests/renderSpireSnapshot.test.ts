@@ -213,7 +213,10 @@ function snapshot(): { arenas: Record<string, ArenaShot>; models: Record<string,
   return { arenas, models };
 }
 
-/** Captured on main (eccfbbd), before any Phase 5c render change. */
+/**
+ * Captured on main (eccfbbd), before any Phase 5c render change; the five Crimson Spire arenas
+ * re-recorded when Phase 8a lit them (docs/phase-8.md): their mood, floor painting and glow canvas.
+ */
 const ARENAS: Record<string, ArenaShot> = {
   sandbox: {
     look: 'cool',
@@ -326,92 +329,157 @@ const ARENAS: Record<string, ArenaShot> = {
   spire_gate: {
     look: 'crimson',
     mood: {
-      sky: '#3a1416',
-      ground: '#221c1e',
-      hemi: 0.55,
+      sky: '#64646c',
+      ground: '#262226',
+      hemi: 0.95,
       key: '#ffb27a',
-      keyIntensity: 1.6,
+      keyIntensity: 1.9,
       rim: '#9e2a33',
-      rimIntensity: 0.6,
-      fog: '#1c0f10',
-      fogNear: 38,
-      fogFar: 84,
+      rimIntensity: 0.8,
+      fog: '#7a2022',
+      fogNear: 28,
+      fogFar: 64,
     },
     meshes: 7,
-    hash: '299845a',
-    paint: [{ width: 2048, height: 2048, ops: 3588, hash: '7c2c202c' }],
+    hash: '65bfc196',
+    paint: [
+      {
+        width: 2048,
+        height: 2048,
+        ops: 3588,
+        hash: '37e806e1',
+      },
+      {
+        width: 1024,
+        height: 1024,
+        ops: 335,
+        hash: 'bd2b5138',
+      },
+    ],
   },
   barracks: {
     look: 'crimson',
     mood: {
-      sky: '#3a1416',
-      ground: '#211b1d',
-      hemi: 0.55,
+      sky: '#64646c',
+      ground: '#262226',
+      hemi: 0.95,
       key: '#ffb27a',
-      keyIntensity: 1.6,
+      keyIntensity: 1.9,
       rim: '#9e2a33',
-      rimIntensity: 0.6,
-      fog: '#1c0f10',
-      fogNear: 38,
-      fogFar: 84,
+      rimIntensity: 0.8,
+      fog: '#7a2022',
+      fogNear: 28,
+      fogFar: 64,
     },
     meshes: 7,
-    hash: '1e99e05b',
-    paint: [{ width: 2048, height: 2048, ops: 3588, hash: 'f740aa3c' }],
+    hash: '1fd2b177',
+    paint: [
+      {
+        width: 2048,
+        height: 2048,
+        ops: 3588,
+        hash: '295b0f32',
+      },
+      {
+        width: 1024,
+        height: 1024,
+        ops: 335,
+        hash: 'c3f7525d',
+      },
+    ],
   },
   blood_forge: {
     look: 'crimson',
     mood: {
-      sky: '#3a1416',
-      ground: '#201b1d',
-      hemi: 0.55,
+      sky: '#64646c',
+      ground: '#262226',
+      hemi: 0.95,
       key: '#ffb27a',
-      keyIntensity: 1.6,
+      keyIntensity: 1.9,
       rim: '#9e2a33',
-      rimIntensity: 0.6,
-      fog: '#1c0f10',
-      fogNear: 38,
-      fogFar: 84,
+      rimIntensity: 0.8,
+      fog: '#7a2022',
+      fogNear: 28,
+      fogFar: 64,
     },
     meshes: 7,
-    hash: '9e5c5f40',
-    paint: [{ width: 2048, height: 2048, ops: 3102, hash: '878612a0' }],
+    hash: '29ba9f42',
+    paint: [
+      {
+        width: 2048,
+        height: 2048,
+        ops: 3102,
+        hash: 'd298e4fe',
+      },
+      {
+        width: 1024,
+        height: 1024,
+        ops: 335,
+        hash: 'f42013a0',
+      },
+    ],
   },
   kennels: {
     look: 'crimson',
     mood: {
-      sky: '#3a1416',
-      ground: '#201a1c',
-      hemi: 0.55,
+      sky: '#64646c',
+      ground: '#262226',
+      hemi: 0.95,
       key: '#ffb27a',
-      keyIntensity: 1.6,
+      keyIntensity: 1.9,
       rim: '#9e2a33',
-      rimIntensity: 0.6,
-      fog: '#1c0f10',
-      fogNear: 38,
-      fogFar: 84,
+      rimIntensity: 0.8,
+      fog: '#7a2022',
+      fogNear: 28,
+      fogFar: 64,
     },
     meshes: 6,
-    hash: '4537fb12',
-    paint: [{ width: 2048, height: 2048, ops: 3588, hash: '757790cc' }],
+    hash: 'fb0744ad',
+    paint: [
+      {
+        width: 2048,
+        height: 2048,
+        ops: 3588,
+        hash: 'd459bbf9',
+      },
+      {
+        width: 1024,
+        height: 1024,
+        ops: 335,
+        hash: 'c3f7525d',
+      },
+    ],
   },
   wardens_throne: {
     look: 'crimson',
     mood: {
-      sky: '#3a1416',
-      ground: '#1f1a1c',
-      hemi: 0.55,
+      sky: '#64646c',
+      ground: '#262226',
+      hemi: 0.95,
       key: '#ffb27a',
-      keyIntensity: 1.6,
+      keyIntensity: 1.9,
       rim: '#9e2a33',
-      rimIntensity: 0.6,
-      fog: '#1c0f10',
-      fogNear: 38,
-      fogFar: 84,
+      rimIntensity: 0.8,
+      fog: '#7a2022',
+      fogNear: 28,
+      fogFar: 64,
     },
     meshes: 6,
-    hash: 'bb71f856',
-    paint: [{ width: 2048, height: 2048, ops: 4110, hash: '8213fa88' }],
+    hash: '65aad7d8',
+    paint: [
+      {
+        width: 2048,
+        height: 2048,
+        ops: 4110,
+        hash: '542dce07',
+      },
+      {
+        width: 1024,
+        height: 1024,
+        ops: 335,
+        hash: 'd92c537d',
+      },
+    ],
   },
 };
 
@@ -536,9 +604,14 @@ describe('the Reliquary and the Crimson Spire are drawn as before (Phase 5c, W0a
       expect(shootArena(id)).toEqual(want);
     });
 
-  it('every arena paints exactly one 2048px floor canvas, and the painting is recorded', () => {
+  it('every arena paints one 2048px floor canvas (a lit Spire floor, also a 1024px glow canvas), and the painting is recorded', () => {
     for (const [id, want] of Object.entries(ARENAS)) {
-      expect(want.paint, id).toHaveLength(1);
+      // Phase 8a: the Crimson Spire's floor glows (an emissive map on the same floor mesh).
+      expect(want.paint, id).toHaveLength(want.look === 'crimson' ? 2 : 1);
+      if (want.look === 'crimson') {
+        expect(want.paint[1]!.width, id).toBe(1024);
+        expect(want.paint[1]!.ops, id).toBeGreaterThan(50);
+      }
       expect(want.paint[0]!.width, id).toBe(2048);
       expect(want.paint[0]!.height, id).toBe(2048);
       expect(want.paint[0]!.ops, id).toBeGreaterThan(1000);
