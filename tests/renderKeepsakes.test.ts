@@ -138,7 +138,37 @@ function spritesIn(kit: FxKit, [from, count]: readonly [number, number], c: THRE
 }
 
 describe('robes on the Weaver', () => {
-  it('her own model is exactly as it was: ivory, the gold sash and hem, white-gold halo and hands', () => {
+  // Phase 8b: she is stained glass (src/render/models/art/weaver.ts). Each pane's glass varies a
+  // little in tone round its palette colour (a fixed tone per pane), so her colours are read with a
+  // tolerance; the outline shell (dark lead) is left out. What these pin is unchanged: her own
+  // palette, and every robe's colours (and only the robe's) reaching her model in place.
+  /** Her model's glass vertices (no outline shell): [colour, glow]. */
+  const glassOf = (g: THREE.BufferGeometry) => {
+    const col = g.getAttribute('color') as THREE.BufferAttribute;
+    const glow = g.getAttribute('aGlow') as THREE.BufferAttribute;
+    const misc = g.getAttribute('aMisc') as THREE.BufferAttribute;
+    const out: { c: THREE.Color; glow: number }[] = [];
+    for (let i = 0; i < col.count; i++)
+      if (misc.getY(i) < 8.5)
+        out.push({ c: new THREE.Color(col.getX(i), col.getY(i), col.getZ(i)), glow: glow.getX(i) });
+    return out;
+  };
+  const dist = (a: THREE.Color, hex: string) => {
+    const b = new THREE.Color(hex);
+    return Math.hypot(a.r - b.r, a.g - b.g, a.b - b.b);
+  };
+  /** A pane's tone stays within this (linear RGB) of its palette colour. */
+  const TONE = 0.13;
+  const nearShare = (g: THREE.BufferGeometry, hex: string) => {
+    const v = glassOf(g);
+    return v.filter((x) => dist(x.c, hex) < 0.08).length / v.length;
+  };
+  const litNearOnly = (g: THREE.BufferGeometry, hexes: string[]) =>
+    glassOf(g)
+      .filter((x) => x.glow > 0.5)
+      .every((x) => hexes.some((h) => dist(x.c, h) < TONE));
+
+  it('her own model: ivory glass, her gold trim and halo, white-gold hands', () => {
     const ivory = '#f4ecdc';
     expect(OWN_PALETTE).toEqual({
       body: ivory,
@@ -147,9 +177,12 @@ describe('robes on the Weaver', () => {
       halo: '#ffd27a',
       hand: '#fff1c4',
     });
-    expect(vertexColors(buildWeaver())).toEqual(
-      new Set([ivory, '#ffd27a', '#fff8ea', '#fff1c4', shade(ivory, -0.06)]),
-    );
+    const g = buildWeaver();
+    // Her robe is ivory glass; her lights are her trim, halo and hands, nothing else.
+    expect(nearShare(g, ivory)).toBeGreaterThan(0.15);
+    expect(nearShare(g, OWN_PALETTE.trim)).toBeGreaterThan(0.15);
+    expect(nearShare(g, OWN_PALETTE.hand)).toBeGreaterThan(0);
+    expect(litNearOnly(g, [OWN_PALETTE.trim, OWN_PALETTE.halo, OWN_PALETTE.hand])).toBe(true);
     // No look in the fight: her own, and her faint gold rim.
     const h = harness();
     h.run(4);
@@ -165,22 +198,16 @@ describe('robes on the Weaver', () => {
       h.wear({ robe: robe.id });
       h.run(3);
       const geometry = h.weaverRec().batch.geometry;
-      const seen = vertexColors(geometry);
       const c = robe.colors;
-      for (const hex of [c.body, c.trim, c.glow, shade(c.body, -0.06)])
-        expect(seen, `${robe.id} ${hex}`).toContain(hex.toLowerCase());
+      for (const hex of [c.body, c.trim, c.glow])
+        expect(nearShare(geometry, hex), `${robe.id} ${hex}`).toBeGreaterThan(0.05);
       // Nothing of her own ivory and gold is left but her hands (her Thread's).
+      const seen = vertexColors(geometry);
       expect(seen, robe.id).not.toContain(OWN_PALETTE.body);
       expect(seen, robe.id).not.toContain(OWN_PALETTE.trim);
-      expect(seen, robe.id).toContain(OWN_PALETTE.hand);
-      // The sash and hem glow in the trim; the halo in the glow (the model's emissive parts).
-      const glow = geometry.getAttribute('aGlow') as THREE.BufferAttribute;
-      const col = geometry.getAttribute('color') as THREE.BufferAttribute;
-      const lit = new Set<string>();
-      const tmp = new THREE.Color();
-      for (let i = 0; i < glow.count; i++)
-        if (glow.getX(i) > 0.5) lit.add(hexOf(tmp.setRGB(col.getX(i), col.getY(i), col.getZ(i))));
-      expect(lit, robe.id).toEqual(new Set([c.trim, c.glow, OWN_PALETTE.hand]));
+      expect(nearShare(geometry, OWN_PALETTE.hand), robe.id).toBeGreaterThan(0);
+      // The sash and hem glow in the trim, the halo in the glow, her hands in theirs: no other light.
+      expect(litNearOnly(geometry, [c.trim, c.glow, OWN_PALETTE.hand]), robe.id).toBe(true);
     }
   });
 

@@ -380,56 +380,59 @@ const ARENAS: Record<string, ArenaShot> = {
 
 /**
  * Captured on main (b11f149), before any Phase 5d render change; re-recorded when Phase 8a re-tinted
- * the void cloth and frayed the stitches teal (docs/phase-8.md).
+ * the void cloth and frayed the stitches teal (docs/phase-8.md), and again in Phase 8b when every
+ * figure was redrawn in stained glass (src/render/models/art, docs/art-style.md). The pin keeps its
+ * purpose: a change to a Movement III figure must be deliberate and re-recorded here. The
+ * quadruped and death-material entries are rules and were not changed.
  */
 const MODELS: Record<string, ModelShot> = {
   'enemy:shears': {
-    hash: 'd7fb07a8',
+    hash: '50cc1c91',
     quadruped: false,
     material: 'cloth',
   },
   'enemy:void_maw': {
-    hash: '9bcca7a2',
+    hash: '65b0b161',
     quadruped: false,
     material: 'cloth',
   },
   'enemy:doubt_wraith': {
-    hash: '43be3197',
+    hash: '4284f4ea',
     quadruped: false,
     material: 'cloth',
   },
   'enemy:null_priest': {
-    hash: '42301aa2',
+    hash: 'bac1fa33',
     quadruped: false,
     material: 'cloth',
   },
   'enemy:mimic': {
-    hash: 'f830554f',
+    hash: '116b67e1',
     quadruped: false,
     material: 'cloth',
   },
   'enemy:spindle': {
-    hash: '627df8be',
+    hash: 'c64a20fd',
     quadruped: false,
     material: 'cloth',
   },
   'enemy:stolen_verse': {
-    hash: 'c5a855d7',
+    hash: 'f70560af',
     quadruped: false,
     material: 'cloth',
   },
   'enemy:mirror_champion': {
-    hash: 'bca60d09',
+    hash: '1c1e06fd',
     quadruped: false,
     material: 'cloth',
   },
   'enemy:the_seamstress': {
-    hash: '978c13b9',
+    hash: '446e891e',
     quadruped: false,
     material: 'cloth',
   },
   'enemy:the_unweaver': {
-    hash: 'db8a1f8e',
+    hash: 'a8596fc1',
     quadruped: false,
     material: 'cloth',
   },

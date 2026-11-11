@@ -358,16 +358,20 @@ const M1_MOODS: Record<
   },
 };
 
-/** Movement I's enemy models (geometry fingerprints), as built before Movement II. */
+/**
+ * Movement I's enemy models (geometry fingerprints), as built before Movement II; re-recorded in
+ * Phase 8b for the stained-glass Choir (src/render/models/art/choir.ts): Movement II's work must
+ * leave them untouched.
+ */
 const M1_MODELS: Record<string, string> = {
-  hollow_chorister: '2c17d72b',
-  bell_brute: '1c518cff',
-  lamenter: 'a47dbf9e',
-  glass_lancer: '9a5faae3',
-  mute: 'f852c54b',
-  cantor_acolyte: 'e5b07abd',
-  the_bellwarden: 'aafaccd7',
-  the_hollow_cantor: 'd2ee4dae',
+  hollow_chorister: 'c4763c9d',
+  bell_brute: 'c7cae524',
+  lamenter: '59f5de5d',
+  glass_lancer: '9e9dac71',
+  mute: '76fa8352',
+  cantor_acolyte: '977b5951',
+  the_bellwarden: '8af37aad',
+  the_hollow_cantor: 'f3850cb0',
 };
 
 function fnv(h: number, s: string): number {

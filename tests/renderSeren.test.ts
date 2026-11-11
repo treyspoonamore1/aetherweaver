@@ -202,10 +202,12 @@ afterEach(() => applyVision('normal'));
 
 describe('Seren’s model', () => {
   /** The starters' geometry, pinned (renderBrann.test.ts: before Brann, and still). */
+  // The starters as drawn in stained glass (re-recorded in Phase 8b, docs/art-style.md): this
+  // hero's work must leave them untouched.
   const STARTERS: Record<string, string> = {
-    kael: 'a308e371062b933d',
-    lyra: '255f216e02f7ed32',
-    vexis: 'dd3c1eeb35556e95',
+    kael: '2aefa43a6c4660c0',
+    lyra: '53666482d35be426',
+    vexis: 'c0865eb6dbb63724',
   };
   const hashOf = (g: THREE.BufferGeometry) => {
     const h = createHash('sha256');

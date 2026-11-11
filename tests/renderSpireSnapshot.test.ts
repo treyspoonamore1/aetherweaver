@@ -483,104 +483,110 @@ const ARENAS: Record<string, ArenaShot> = {
   },
 };
 
-/** Captured on main (eccfbbd), before any Phase 5c render change. */
+/**
+ * Captured on main (eccfbbd), before any Phase 5c render change. *
+ * Re-recorded in Phase 8b (docs/art-style.md, docs/phase-8.md "8b"): every figure is now drawn in
+ * stained glass (src/render/models/art). The pin keeps its purpose: any change to a figure's
+ * geometry, colours or motion tags must be deliberate and re-recorded here. The quadruped and
+ * death-material entries are rules and were not changed.
+ */
 const MODELS: Record<string, ModelShot> = {
   'enemy:hollow_chorister': {
-    hash: '2c17d72b',
+    hash: 'c4763c9d',
     quadruped: false,
     material: 'porcelain',
   },
   'enemy:bell_brute': {
-    hash: '1c518cff',
+    hash: 'c7cae524',
     quadruped: false,
     material: 'porcelain',
   },
   'enemy:lamenter': {
-    hash: 'a47dbf9e',
+    hash: '59f5de5d',
     quadruped: false,
     material: 'porcelain',
   },
   'enemy:glass_lancer': {
-    hash: '9a5faae3',
+    hash: '9e9dac71',
     quadruped: false,
     material: 'porcelain',
   },
   'enemy:mute': {
-    hash: 'f852c54b',
+    hash: '76fa8352',
     quadruped: false,
     material: 'porcelain',
   },
   'enemy:cantor_acolyte': {
-    hash: 'e5b07abd',
+    hash: '977b5951',
     quadruped: false,
     material: 'porcelain',
   },
   'enemy:the_bellwarden': {
-    hash: 'aafaccd7',
+    hash: '8af37aad',
     quadruped: false,
     material: 'porcelain',
   },
   'enemy:the_hollow_cantor': {
-    hash: 'd2ee4dae',
+    hash: 'f3850cb0',
     quadruped: false,
     material: 'porcelain',
   },
   'enemy:sanguine_hound': {
-    hash: 'de80c058',
+    hash: '5e5d93e6',
     quadruped: true,
     material: 'iron',
   },
   'enemy:hemomancer': {
-    hash: 'ebc9f4bf',
+    hash: '20be71c7',
     quadruped: false,
     material: 'iron',
   },
   'enemy:impaler': {
-    hash: 'ff4f8df9',
+    hash: 'beeb08df',
     quadruped: false,
     material: 'iron',
   },
   'enemy:crimson_sentinel': {
-    hash: '527ec7c9',
+    hash: '72f0afd5',
     quadruped: false,
     material: 'iron',
   },
   'enemy:leech': {
-    hash: '9903c1b3',
+    hash: '3607d18b',
     quadruped: false,
     material: 'iron',
   },
   'enemy:gorehound_matriarch': {
-    hash: 'ea47ade1',
+    hash: 'e5399585',
     quadruped: true,
     material: 'iron',
   },
   'enemy:vharun_crimson_warden': {
-    hash: '34b5d5f',
+    hash: '6906bce8',
     quadruped: false,
     material: 'iron',
   },
   'hero:kael': {
-    hash: '236946eb',
+    hash: '31997596',
   },
   'hero:lyra': {
-    hash: 'ccf5b855',
+    hash: '409ab5b9',
   },
   'hero:vexis': {
-    hash: '7489414d',
+    hash: '59dc39fe',
   },
   'hero:brann': {
-    hash: '2a832b7c',
+    hash: 'bea6eedd',
   },
   // Phase 5e (docs/phase-5e.md): appended; every model above is unchanged.
   'hero:seren': {
-    hash: 'd480e0e5',
+    hash: '21d5c101',
   },
   'hero:oro': {
-    hash: 'b45b6fe6',
+    hash: '61aecf2b',
   },
   weaver: {
-    hash: 'e3840c18',
+    hash: 'a7d4ad7c',
   },
 };
 

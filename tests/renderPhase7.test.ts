@@ -12,6 +12,7 @@
  *   still win over the idle (a held hero stands frozen; a poured-into hero only swells).
  */
 import * as THREE from 'three';
+import { WEAVER_HANDS } from '../src/render/models/art/weaver';
 import { createElement, type FunctionComponent } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -342,7 +343,11 @@ describe('the idle: heroes and the Weaver breathe at rest', () => {
 });
 
 describe('the Weaver’s ribbons at rest', () => {
-  /** The ribbons as drawn before Phase 7 (still 0 must draw exactly these points). */
+  /**
+   * The ribbons while she moves (still 0 must draw exactly these points; the rest drift adds only
+   * at rest). Phase 8b: the outer two leave her hands (art/weaver.ts WEAVER_HANDS), the middle one
+   * the knot at her back, wider; before, all three left a point behind her. Drawn here at scale 1.
+   */
   function before(hist: Float32Array, count: number, yaw: number, now: number): number[] {
     const out: number[] = [];
     const fx = -Math.sin(yaw);
@@ -350,13 +355,16 @@ describe('the Weaver’s ribbons at rest', () => {
     const sideX = -fz;
     const sideZ = fx;
     for (let r = 0; r < 3; r++) {
-      const off = (r - 1) * 0.16;
-      const baseY = 1.12 - r * 0.12;
+      const hand = r !== 1;
+      const off = hand ? (r - 1) * WEAVER_HANDS.side : 0;
+      const reach = hand ? WEAVER_HANDS.forward + 0.18 : 0;
+      const baseY = hand ? WEAVER_HANDS.y : 1.04;
       const n = Math.min(count, 18 + r * 3);
       for (let k = 0; k < n; k++) {
         const t = k / (n - 1);
-        const px = hist[k * 3]! + sideX * off * (1 + t);
-        const pz = hist[k * 3 + 2]! + sideZ * off * (1 + t);
+        const lead = reach * (1 - t) * (1 - t);
+        const px = hist[k * 3]! + sideX * off * (1 + 0.5 * t) + fx * lead;
+        const pz = hist[k * 3 + 2]! + sideZ * off * (1 + 0.5 * t) + fz * lead;
         const flutter = Math.sin(now * 5 + k * 0.55 + r * 2) * 0.09 * t;
         const droop = t * 0.75;
         out.push(
@@ -391,7 +399,7 @@ describe('the Weaver’s ribbons at rest', () => {
     return still === 0 ? pts.concat(before(hist, 26, 0.7, now)) : pts;
   }
 
-  it('draws exactly the old ribbons while she moves (still 0)', () => {
+  it('draws exactly the plain ribbons while she moves (still 0)', () => {
     for (const now of [0, 1.3, 7.7]) {
       const both = drawn(0, now);
       const half = both.length / 2;
