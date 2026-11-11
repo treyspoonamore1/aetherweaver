@@ -34,7 +34,8 @@ function glslColor(hex: string): string {
  * 3 cloth (hangs below its pivot: trails back as it moves, sways at rest; `a` = its length),
  * 4 pendulum (a bell: swings back through a wind-up and through on the blow), 5 float (bobs
  * and turns, `a` = turn rate), 6 head (breathes, looks about, ducks into a blow), 7 limb
- * (swings with the stride, `a` signed), 8 spin (turns about its pivot, `a` = rate).
+ * (swings with the stride, `a` signed), 8 spin (turns about its pivot, `a` = rate), 9 wheel
+ * (turns in the figure's front plane, `a` = rate: a halo behind the head).
  */
 export const RIG_VERTEX_PARS = `
 attribute vec4 aRig;
@@ -98,6 +99,9 @@ vec3 awRig(vec3 pos) {
   }
   if (kind == 8) {
     return piv + awRotY(d, c * A);
+  }
+  if (kind == 9) {
+    return piv + awRotZ(d, c * A);
   }
   return pos;
 }

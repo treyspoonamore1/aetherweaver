@@ -460,9 +460,10 @@ export function weaverRibbons(
         px - fx * t * 0.55 + sideX * flutter,
         hist[k * 3 + 1] + baseY - droop + Math.sin(now * 3.3 + k * 0.4 + r) * 0.06 * t,
         pz - fz * t * 0.55 + sideZ * flutter,
-        0.075 * (1 - t * 0.7),
+        // Art pass: wider and brighter, so they read as the threads' origin at the fight's camera.
+        0.11 * (1 - t * 0.6),
         c,
-        (1 - t) * 0.85,
+        (1 - t * 0.85) * 0.95,
         t * 2,
       );
     }
