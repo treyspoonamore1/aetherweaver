@@ -26,7 +26,7 @@ export interface LitFloor {
 
 export const LIT_FLOOR = {
   crimson: {
-    floor: '#3e3436',
+    floor: '#2e2a30',
     seam: '#6a1a1e',
     seamInner: 0.0,
     seamOuter: 0.18,
@@ -34,7 +34,7 @@ export const LIT_FLOOR = {
     edgeGlow: 0.7,
   },
   abyss: {
-    floor: '#34306a',
+    floor: '#2a2656',
     seam: '#6a62b0',
     seamInner: 0.12,
     seamOuter: 0.3,
@@ -43,7 +43,7 @@ export const LIT_FLOOR = {
     edgeGlow: 1.2,
   },
   crucible: {
-    floor: '#302e5c',
+    floor: '#28264c',
     seam: '#7a70b0',
     seamInner: 0.14,
     seamOuter: 0.4,
@@ -55,8 +55,8 @@ export const LIT_FLOOR = {
 /** The light rows (Stage.setMood), with the fog / background colour the camera sees as sky. */
 export const LIT_MOOD = {
   crimson: {
-    sky: '#9a5a52',
-    ground: '#3a2a2a',
+    sky: '#86625e',
+    ground: '#2a2226',
     hemi: 0.95,
     key: '#ffb27a',
     keyIntensity: 2.1,

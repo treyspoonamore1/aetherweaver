@@ -552,7 +552,8 @@ void main() {
           const x0 = c + gx * px;
           const y0 = c + gz * px;
           ctx.fillRect(x0, y0, plate * px, plate * px);
-          ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+          // PROTOTYPE (p8/light): a quieter seam on the lit plate (was 0.3).
+          ctx.strokeStyle = 'rgba(0,0,0,0.16)';
           ctx.lineWidth = 3;
           ctx.strokeRect(x0, y0, plate * px, plate * px);
           ctx.fillStyle = 'rgba(255,255,255,0.05)';
