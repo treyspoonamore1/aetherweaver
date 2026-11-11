@@ -1266,8 +1266,13 @@ export class Overlay {
     if (this.flashScale > 0 && !this.still) this.chromaT = 1;
   }
 
-  setSlowmo(v: number): void {
-    this.slow = this.vignette && !this.still ? v : 0;
+  /**
+   * The slow-motion vignette at `v`. `aura`: the slow motion is Fermata's hold (its `'hold'`
+   * time scale), whose vignette shows as it did before Phase 7 whatever the comfort options say
+   * (ground rule 4); every other slow motion's follows Reduced motion and the vignette option.
+   */
+  setSlowmo(v: number, aura = false): void {
+    this.slow = aura || (this.vignette && !this.still) ? v : 0;
   }
 
   update(dt: number): void {

@@ -28,12 +28,24 @@ import { ARRIVAL3_KIT, ARRIVAL4_KIT, ARRIVAL_KIT, presetChords } from '../tools/
 
 const RUNTIME = readFileSync(new URL('../src/app/runtime.ts', import.meta.url), 'utf8');
 
-/** Feeds `seconds` of frames of `ms` each; returns how many samples changed something. */
-function feed(auto: AutoQuality, ms: number, seconds: number): number {
+/**
+ * Feeds `seconds` of frames of `ms` each; returns how many samples changed something. `spread`: a
+ * machine that can't keep up misses vsyncs unevenly, so its frames are `ms` × 0.8, 1, 1.2 in turn
+ * (0: one steady interval, as a display's cap gives: review A, finding 6).
+ */
+function feed(auto: AutoQuality, ms: number, seconds: number, spread = 0): number {
   let changed = 0;
-  for (let t = 0; t < seconds * 1000; t += ms) if (auto.sample(ms)) changed++;
+  let i = 0;
+  for (let t = 0; t < seconds * 1000;) {
+    const f = ms * (1 + spread * ((i++ % 3) - 1));
+    t += f;
+    if (auto.sample(f)) changed++;
+  }
   return changed;
 }
+
+/** A machine that can't keep up: its frames spread by whole vsyncs (`feed`'s spread). */
+const UNEVEN = 0.2;
 
 describe('quality: the setting', () => {
   it('is high with the key absent, as before Phase 7', () => {
@@ -77,24 +89,24 @@ describe('quality: auto on scripted frame times', () => {
 
   it('a machine at 30 fps steps to low while picking, then the resolution to 0.6, and stays', () => {
     const auto = new AutoQuality();
-    feed(auto, 33, AUTO_QUALITY.settleMs / 1000);
+    feed(auto, 33, AUTO_QUALITY.settleMs / 1000, UNEVEN);
     expect(auto.tier).toBe('high'); // the first second is ignored
-    feed(auto, 33, 3);
+    feed(auto, 33, 3, UNEVEN);
     expect(auto.tier).toBe('low');
     expect(auto.scale).toBe(1);
-    feed(auto, 33, 30);
+    feed(auto, 33, 30, UNEVEN);
     expect(auto.scale).toBe(0.6);
     // high → medium → low, then 0.9, 0.8, 0.7, 0.6, and nothing more.
     expect(auto.changes).toBe(6);
-    expect(feed(auto, 33, 30)).toBe(0);
+    expect(feed(auto, 33, 30, UNEVEN)).toBe(0);
   });
 
   it('a 45 fps machine ends the pick on low, then the resolution settles at 0.6', () => {
     const auto = new AutoQuality();
-    feed(auto, 22, 1 + AUTO_QUALITY.pickMs / 1000);
+    feed(auto, 22, 1 + AUTO_QUALITY.pickMs / 1000, UNEVEN);
     expect(auto.tier).toBe('low');
     expect(auto.picking).toBe(false);
-    feed(auto, 22, 10);
+    feed(auto, 22, 10, UNEVEN);
     expect(auto.tier).toBe('low');
     expect(auto.scale).toBe(0.6);
   });
@@ -118,7 +130,7 @@ describe('quality: auto on scripted frame times', () => {
 
   it('the resolution climbs back only after fast windows in a row, never the tier after the pick', () => {
     const auto = new AutoQuality();
-    feed(auto, 33, 12);
+    feed(auto, 33, 12, UNEVEN);
     expect([auto.tier, auto.scale]).toEqual(['low', 0.6]);
     // Two fast windows, then one between the bounds: no step up (the run starts again).
     const win = AUTO_QUALITY.window;
@@ -142,7 +154,8 @@ describe('quality: auto on scripted frame times', () => {
     let last = auto.scale;
     for (let w = 0; w < 200; w++) {
       const ms = w % 2 === 0 ? 25 : 1000 / 60;
-      for (let i = 0; i < win; i++) auto.sample(ms);
+      for (let i = 0; i < win; i++)
+        auto.sample(w % 2 === 0 ? ms * (1 + UNEVEN * ((i % 3) - 1)) : ms);
       if (auto.scale > last) ups++;
       last = auto.scale;
     }

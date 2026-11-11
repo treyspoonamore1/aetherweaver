@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useUi } from '../ui/store';
 import { GameRuntime, type CombatSession } from './runtime';
+import { runFightStarted } from './runStore';
 import { setRuntime } from './runtimeRegistry';
 import { installTestHook } from './testHook';
 
@@ -27,6 +28,8 @@ export function GameHost({ session }: { session: CombatSession }) {
     setRuntime(runtime);
     const uninstallHook = installTestHook(runtime);
     runtime.start();
+    // A run's fight marks the run for an assist as it starts (decision 16), here, not in render.
+    runFightStarted(session.config);
     return () => {
       uninstallHook();
       setRuntime(null);

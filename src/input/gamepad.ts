@@ -12,6 +12,8 @@ import { PAD_BUTTONS, type PadButton } from './actions';
 /** The parts of a `Gamepad` read here (a fake one in tests and e2e has just these). */
 export interface PadLike {
   readonly connected?: boolean;
+  /** The browser's layout for it: `'standard'` when its buttons and axes are the standard ones. */
+  readonly mapping?: string;
   readonly buttons: ArrayLike<{ readonly pressed: boolean; readonly value: number }>;
   readonly axes: ArrayLike<number>;
 }
@@ -121,8 +123,10 @@ export function shapeStickOf(stick: StickAxes, out: { x: number; z: number }): b
 }
 
 /**
- * Reads every connected pad into one state: a bit per standard button (bit i is `PAD_BUTTONS[i]`)
- * and the two sticks, the first pad that has them. Allocates nothing.
+ * Reads one pad into a state: a bit per standard button (bit i is `PAD_BUTTONS[i]`) and the two
+ * sticks, all from the same pad: the first connected pad in the standard mapping, else the first
+ * connected pad (review A's note: buttons merged from several pads, or sticks from another, could
+ * mix two devices' readings). Allocates nothing.
  */
 export class PadReader {
   /** Buttons down, a bit per standard button. */
@@ -145,10 +149,17 @@ export class PadReader {
     this.lx = this.ly = this.rx = this.ry = 0;
     this.connected = false;
     if (!pads) return false;
-    let sticks = false;
+    let pad: PadLike | null = null;
     for (let p = 0; p < pads.length; p++) {
-      const pad = pads[p];
-      if (!pad || pad.connected === false) continue;
+      const one = pads[p];
+      if (!one || one.connected === false) continue;
+      if (one.mapping === 'standard') {
+        pad = one;
+        break;
+      }
+      pad ??= one;
+    }
+    if (pad) {
       this.connected = true;
       const buttons = pad.buttons;
       const n = Math.min(buttons.length, PAD_BUTTONS.length);
@@ -161,10 +172,9 @@ export class PadReader {
             : b.pressed;
         if (down) this.mask |= 1 << i;
       }
-      if (!sticks && pad.axes.length >= 2) {
+      if (pad.axes.length >= 2) {
         // Read inline, not through a helper: a helper's number result is boxed (an allocation)
         // wherever the call isn't inlined.
-        sticks = true;
         const axes = pad.axes;
         const lx = axes[0]!;
         const ly = axes[1]!;

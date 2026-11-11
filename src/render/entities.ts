@@ -1779,17 +1779,6 @@ export class EntityLayer {
     }
     // Glide: lean hard into the dash.
     if (e.weaver && e.weaver.glide > 0) pitch -= 0.35;
-    // Phase 7: the heroes and the Weaver breathe while they stand (a slow rise and a sway, out of
-    // step with each other), fading out as they walk. Never while held, stilled, down or poured
-    // into by the beam song (whose swell is left exactly as it was).
-    if ((e.kind === 'hero' || rec.kind === 'weaver') && !held && !downed && rec.dissolve === 0) {
-      const rest = this.still ? 0 : (1 - moving) * (1 - rec.beam);
-      if (rest > 0.001) {
-        scaleY *= 1 + IDLE.breath * rest * Math.sin(this.now * IDLE.breathRate + rec.id * 1.7);
-        roll += IDLE.sway * rest * Math.sin(this.now * IDLE.swayRate + rec.id * 2.3);
-        this.drawn7.idle++;
-      }
-    }
     if (rec.kind === 'enemy' && (rec.role === 'boss' || rec.role === 'miniboss')) {
       // Bosses breathe (held while Stasis holds them).
       scale *= 1 + Math.sin(clock * 1.6) * 0.012;
@@ -1805,6 +1794,25 @@ export class EntityLayer {
     if (rec.beam > 0.001) {
       const swell = 0.03 + 0.03 * Math.min(1, this.beamLevel) + (this.beamAllIn ? 0.02 : 0);
       scale *= 1 + swell * rec.beam * (1 + 0.15 * Math.sin(this.now * 5));
+    }
+    // Phase 7: the heroes and the Weaver breathe while they stand (a slow rise and a sway, out of
+    // step with each other), fading out as they walk. Never while held, stilled, down or poured
+    // into by the beam song: not on any frame its swell is drawn (`rec.beam` over 0.001, just
+    // above), so the swell is exactly as it was before Phase 7 from its first frame to its last
+    // (review A, finding 10).
+    if (
+      (e.kind === 'hero' || rec.kind === 'weaver') &&
+      !held &&
+      !downed &&
+      rec.dissolve === 0 &&
+      rec.beam <= 0.001
+    ) {
+      const rest = this.still ? 0 : 1 - moving;
+      if (rest > 0.001) {
+        scaleY *= 1 + IDLE.breath * rest * Math.sin(this.now * IDLE.breathRate + rec.id * 1.7);
+        roll += IDLE.sway * rest * Math.sin(this.now * IDLE.swayRate + rec.id * 2.3);
+        this.drawn7.idle++;
+      }
     }
     // Seren's Thousand Cuts (docs/phase-5e.md): she vanishes; her afterimages are the ghosts'.
     if (e.hero?.duel && cutting(e)) {

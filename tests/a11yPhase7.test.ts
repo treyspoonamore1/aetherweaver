@@ -501,8 +501,10 @@ describe('W2: reduced motion in the UI', () => {
     expect(css).toContain(
       "@media (prefers-reduced-motion: reduce) {\n  :root:not([data-motion='off']),",
     );
+    // The On rule leaves the song chips (and the Chord builder's aura and ornament cards) alone
+    // (review A, finding 2: e2e/a11y.spec.ts reads their computed motion per OS and setting).
     expect(css).toContain(
-      ":root[data-motion='on'] :not([data-testid='chords'], [data-testid='chords'] *),",
+      ":root[data-motion='on']\n  :not(\n    [data-testid='chords'],\n    [data-testid='chords'] *,",
     );
   });
 });
@@ -606,7 +608,7 @@ describe('W2: captions', () => {
     expect(text({ type: 'reignited', tick: 0 })).toBe('[The song returns]');
   });
 
-  it('wind-ups come at most every 0.6 s; none under Stasis; a non-damage cast has none', () => {
+  it('wind-ups come at most every 0.6 s; none under Stasis; a non-damage cast’s too', () => {
     const { sim, state, enemies } = stage();
     const e = tg({ kind: 'circle', x: -9, z: -2, r: 2 }, ['ward'], enemies[0]!.id);
     expect(captionFor(e, state)).not.toBeNull();
@@ -614,9 +616,10 @@ describe('W2: captions', () => {
     for (let i = 0; i < 40; i++) sim.step();
     expect(captionFor(e, state)).not.toBeNull();
     for (let i = 0; i < 40; i++) sim.step();
+    // A non-damage cast winds up aloud as well (review A, finding 7: tests/reviewA7.test.ts).
     expect(
       captionFor(tg({ kind: 'circle', x: 0, z: 0, r: 1 }, [], enemies[0]!.id, 'summon'), state),
-    ).toBeNull();
+    ).not.toBeNull();
   });
 
   it('the low-life tone: once as a hero crosses under a quarter, again only after 40%; off with the sound', () => {

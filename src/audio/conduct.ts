@@ -248,14 +248,16 @@ export class ConductSounds {
 
   /**
    * A Tempo's beat for the music (`inputs.beat`, only with A Tempo on the path) and the soft
-   * baton tick on each of the sim's downbeats; Triad's chord as the state has it.
+   * baton tick on each of the sim's downbeats; Triad's chord as the state has it. `speed`: game
+   * speed (the runtime's clock rate), which slows the sim's clock against the audio's as its time
+   * scale does (1: exactly as before).
    */
-  update(state: WorldState): BeatInput | null {
+  update(state: WorldState, speed = 1): BeatInput | null {
     const beat = state.calling?.conducting?.beat;
     let input: BeatInput | null = null;
     if (beat && beat.bar > 0 && typeof state.time === 'number' && !fightOver(state)) {
       const b = beatAt(state.time, beat.bar);
-      input = { simTime: state.time, nextDownbeat: b.next, scale: state.timeScale ?? 1 };
+      input = { simTime: state.time, nextDownbeat: b.next, scale: (state.timeScale ?? 1) * speed };
       this.h.music.inputs.beat = input;
       const bar = Math.round(b.next / beat.bar);
       const now = this.e.now;

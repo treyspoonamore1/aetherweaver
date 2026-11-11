@@ -7,7 +7,9 @@
  * What is captioned, each from the event that plays its sound:
  * - a telegraph's wind-up, by its timbre (which says the answer: brass for a Ward, glass for a
  *   Chime...) and its side, worked out as the effects engine picks them (`windupStyle`,
- *   `windupSide`; src/audio/sfx.ts `windStyle`, `shapeX`, `panFor`);
+ *   `windupSide`; src/audio/sfx.ts `windStyle`, `shapeX`, `panFor`): every telegraph's but a
+ *   Mimic's mirror (named once on its own), as every one winds up aloud; one begun in Stasis when
+ *   time resumes, as its sound waits until then;
  * - Tyrant's edict, the Postlude's rise and its pair Cues, a Mimic's first mirror in a fight;
  * - the low-life tone: a hero falling under a quarter of their life, re-armed over 40%, at most
  *   one every 1.5 s across the party (src/audio/sfx.ts `lowAlert`), while it is on in Settings;
@@ -91,6 +93,8 @@ export function windupSide(
 interface FightMemory {
   slot: number;
   windupAt: number;
+  /** Telegraphs begun in Stasis: their wind-ups sound when time resumes (src/audio/sfx.ts). */
+  frozen: Set<number>;
   mimicSeen: boolean;
   lowAt: number;
   /** Heroes whose low-life tone has played and not yet re-armed. */
@@ -102,7 +106,14 @@ const memory = new WeakMap<object, FightMemory>();
 function memoryOf(state: WorldState): FightMemory {
   let m = memory.get(state);
   if (!m) {
-    m = { slot: 0, windupAt: -Infinity, mimicSeen: false, lowAt: -Infinity, low: new Set() };
+    m = {
+      slot: 0,
+      windupAt: -Infinity,
+      frozen: new Set(),
+      mimicSeen: false,
+      lowAt: -Infinity,
+      low: new Set(),
+    };
     memory.set(state, m);
   }
   return m;
@@ -151,9 +162,20 @@ function windup(e: SimEventOf<'telegraphStarted'>, state: WorldState): FinaleCal
     m.mimicSeen = true;
     return line(state, t('a11y.caption.mimic', { name: enemyName(state, e.owner) }));
   }
-  if (e.effect !== 'damage') return null;
-  // Under Stasis the wind-up waits, as its sound does (src/audio/sfx.ts).
-  if (state.field.stasis) return null;
+  // Under Stasis the wind-up waits, as its sound does (src/audio/sfx.ts): captioned as it plays.
+  const m = memoryOf(state);
+  if (state.field.stasis) {
+    m.frozen.add(e.telegraph);
+    return null;
+  }
+  return windupLine(e, state);
+}
+
+/** A wind-up's caption, at most one every WINDUP_GAP. */
+function windupLine(
+  e: { kind: string; answers: readonly string[]; shape: TelegraphShape },
+  state: WorldState,
+): FinaleCallout | null {
   const m = memoryOf(state);
   if (state.time - m.windupAt < WINDUP_GAP) return null;
   m.windupAt = state.time;
@@ -166,6 +188,21 @@ function windup(e: SimEventOf<'telegraphStarted'>, state: WorldState): FinaleCal
       side: t(`a11y.caption.side.${side}`),
     }),
   );
+}
+
+/**
+ * Time resumes after Stasis: the effects engine winds up again each telegraph begun in it that is
+ * still to land (src/audio/sfx.ts `resumeWindups`), so the first of them is captioned now.
+ */
+function resumed(state: WorldState): FinaleCallout | null {
+  const m = memoryOf(state);
+  if (m.frozen.size === 0 || state.field.stasis) return null;
+  const ids = m.frozen;
+  m.frozen = new Set();
+  for (const tg of state.telegraphs ?? [])
+    if (ids.has(tg.id) && tg.effect !== 'mimic' && tg.impact - state.time > 0.08)
+      return windupLine(tg, state);
+  return null;
 }
 
 /**
@@ -194,8 +231,12 @@ function lowLife(e: SimEvent, state: WorldState): FinaleCallout | null {
   return line(state, t('a11y.caption.lowLife', { name: heroName(state, id) }));
 }
 
-/** The caption for `event`, or null. */
+/** The caption for `event`, or null; else a wind-up resumed after Stasis (`resumed`). */
 export function captionFor(event: SimEvent, state: WorldState): FinaleCallout | null {
+  return ownCaption(event, state) ?? resumed(state);
+}
+
+function ownCaption(event: SimEvent, state: WorldState): FinaleCallout | null {
   const finale = finaleCaption(event);
   if (finale) return line(state, finale);
   switch (event.type) {

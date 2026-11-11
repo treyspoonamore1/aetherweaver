@@ -1,6 +1,12 @@
 import * as THREE from 'three';
 import { heroDef } from '../content';
-import { fallingFast, type ReadonlyEntity, type SimEvent, type WorldState } from '../sim';
+import {
+  fallingFast,
+  type ReadonlyEntity,
+  type SimEvent,
+  type SimEventOf,
+  type WorldState,
+} from '../sim';
 import { ArenaView } from './arena';
 import { AstrolabeView } from './astrolabe';
 import { BondsView } from './bonds';
@@ -82,6 +88,11 @@ export class CombatView implements WorldView {
   private readonly bufferSize = new THREE.Vector2();
   private readonly heroHex = new Map<number, string>();
   private disposed = false;
+  /**
+   * Why the sim last changed its time scale: Fermata's hold (`'hold'`) keeps its slow-motion
+   * vignette whatever the comfort options say (Overlay.setSlowmo).
+   */
+  private slowReason: SimEventOf<'timeScaleChanged'>['reason'] = 'perfect';
   /** The Crucible's sky orrery inputs (reused; read only on its floor). */
   private readonly sky = emptySky();
 
@@ -268,12 +279,16 @@ export class CombatView implements WorldView {
         : undefined;
     this.arena.update(frame.time, pointScale, this.quality, sky);
     this.kit.end(fxDt, this.overlay.width, this.overlay.height, this.bufferSize.y, camera.fov);
-    this.overlay.setSlowmo(state.timeScale < 0.98 ? Math.min(0.8, (1 - state.timeScale) * 1.1) : 0);
+    this.overlay.setSlowmo(
+      state.timeScale < 0.98 ? Math.min(0.8, (1 - state.timeScale) * 1.1) : 0,
+      this.slowReason === 'hold',
+    );
     this.overlay.update(realDt);
   }
 
   onEvents(events: readonly SimEvent[], state: WorldState): void {
     if (this.disposed) return;
+    for (const ev of events) if (ev.type === 'timeScaleChanged') this.slowReason = ev.reason;
     this.feedback.handle(events, state);
     this.relics.handle(events, state);
     this.calling.handle(events, state);

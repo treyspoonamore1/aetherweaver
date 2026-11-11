@@ -204,3 +204,86 @@ for (const vision of COLOR_VISIONS) {
     expect(errors).toEqual([]);
   });
 }
+
+/**
+ * Review A, finding 2 (docs/phase-7.md, ground rule 4): an aura's and an ornament's own interface
+ * keeps its motion exactly as at 81a12ef, whatever Reduced motion says. At 81a12ef the stylesheet
+ * had one rule, the OS's: under `reduce` every animation and transition was cut to 0.01 ms, and
+ * otherwise each played as styled. So, for each OS setting and each Reduced motion setting, the
+ * computed transition of a Weaver-bar song chip's part (inside `chords`), a Chord-builder aura or
+ * ornament slot card and a picker item must equal: the styled duration with the OS not reducing
+ * motion, and 0.01 ms (`1e-05s`) with it reducing. System is the OS rule alone, as at 81a12ef.
+ */
+test('the aura and ornament interface keeps its motion as at 81a12ef, per OS and setting', async ({
+  page,
+}) => {
+  const errors = trackErrors(page);
+  const CUT = '1e-05s';
+  const read = async (selector: string, os: 'no-preference' | 'reduce', motion: string | null) =>
+    page
+      .evaluate(
+        ([sel, m]) => {
+          const root = document.documentElement;
+          if (m === null) delete root.dataset.motion;
+          else root.dataset.motion = m;
+          const els = [...document.querySelectorAll(sel)];
+          return els.map((el) => getComputedStyle(el).transitionDuration);
+        },
+        [selector, motion] as const,
+      )
+      .then((v) => ({ os, motion, v }));
+  const SITES = [
+    // The song chips: the Ring's arc as the Ring styles it (src/ui/kit/Ring.tsx; it shows on a
+    // chip while a song cools down), put inside the HUD's real chips, and the chips' own parts.
+    { view: 'hud-calm', sel: '[data-testid="chords"] *', styled: '0.12s', ring: true },
+    // A song's aura and ornament slot cards, and the palette's picker items.
+    {
+      view: 'chords-illegal',
+      sel: '[data-testid="chord-builder"] [data-testid^="song-"] button[aria-pressed]',
+      styled: '0.15s',
+      ring: false,
+    },
+    {
+      view: 'chords-illegal',
+      sel: '[data-testid="chord-builder"] [aria-labelledby="palette-title"] button[aria-pressed]',
+      styled: '0.15s',
+      ring: false,
+    },
+  ];
+  for (const site of SITES) {
+    for (const os of ['no-preference', 'reduce'] as const) {
+      await page.emulateMedia({ reducedMotion: os });
+      await page.goto(`/?lab=ui&view=${site.view}&nav=0&fit=0`);
+      await expect(page.locator(site.sel).first()).toBeAttached({ timeout: 60_000 });
+      if (site.ring)
+        await page.evaluate(() => {
+          const arc = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          arc.setAttribute('style', 'transition: stroke-dashoffset 120ms linear');
+          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          svg.append(arc);
+          document.querySelector('[data-testid="chords"]')!.append(svg);
+        });
+      // As at 81a12ef: the OS rule alone (System, no `data-motion`).
+      const base = await read(site.sel, os, null);
+      if (os === 'no-preference') {
+        const moving = base.v.filter((d) => d !== '0s');
+        expect(moving.length, `${site.view}: something here transitions`).toBeGreaterThan(0);
+        if (site.styled) expect(new Set(moving)).toEqual(new Set([site.styled]));
+      } else expect(new Set(base.v)).toEqual(new Set([CUT]));
+      for (const motion of ['off', 'on']) {
+        const got = await read(site.sel, os, motion);
+        expect(got.v, `${site.view}: OS ${os}, Reduced motion ${motion}`).toEqual(base.v);
+      }
+    }
+  }
+  // Everything else still follows the setting: On cuts it, Off keeps it, whatever the OS says.
+  for (const os of ['no-preference', 'reduce'] as const) {
+    await page.emulateMedia({ reducedMotion: os });
+    await page.goto('/?lab=ui&view=chords-illegal&nav=0&fit=0');
+    const sel = '[data-testid="chord-builder"] [aria-labelledby="presets-title"] button';
+    await expect(page.locator(sel).first()).toBeAttached({ timeout: 60_000 });
+    expect(new Set((await read(sel, os, 'on')).v)).toEqual(new Set([CUT]));
+    expect(new Set((await read(sel, os, 'off')).v)).toEqual(new Set(['0.15s']));
+  }
+  expect(errors).toEqual([]);
+});

@@ -137,7 +137,7 @@ describe('the left stick', () => {
     expect(seen.size).toBe(64);
   });
 
-  it('PadReader merges pads into one mask and takes the sticks of the first', () => {
+  it('PadReader reads one pad, buttons and sticks alike: the first standard one, else the first', () => {
     const a = new FakePad();
     const b = new FakePad();
     a.press('faceDown');
@@ -145,14 +145,20 @@ describe('the left stick', () => {
     a.left(0.5, -0.5);
     b.left(1, 1);
     // A trigger counts past half its travel.
-    b.buttons[7]!.value = 0.4;
+    a.buttons[7]!.value = 0.4;
     const r = new PadReader();
+    // No pad in the standard mapping: the first connected one, alone (review A's note).
     expect(r.read(() => [null, a, b])).toBe(true);
-    expect(r.mask).toBe((1 << 0) | (1 << 12));
+    expect(r.mask).toBe(1 << 0);
     expect([r.lx, r.ly]).toEqual([0.5, -0.5]);
-    b.buttons[7]!.value = 0.6;
+    a.buttons[7]!.value = 0.6;
     r.read(() => [a, b]);
     expect(r.mask & (1 << 7)).toBeTruthy();
+    // A pad in the standard mapping is preferred, wherever it sits: its buttons and its sticks.
+    const std = Object.assign(b, { mapping: 'standard' });
+    r.read(() => [a, std]);
+    expect(r.mask).toBe(1 << 12);
+    expect([r.lx, r.ly]).toEqual([1, 1]);
     expect(r.read(() => [])).toBe(false);
     expect(r.read(() => [{ ...a, connected: false }])).toBe(false);
   });
