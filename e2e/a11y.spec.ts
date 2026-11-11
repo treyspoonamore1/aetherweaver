@@ -249,6 +249,13 @@ test('the aura and ornament interface keeps its motion as at 81a12ef, per OS and
       styled: '0.15s',
       ring: false,
     },
+    // The Spirit (or Life) budget bar: each song's share, in its aura's colour.
+    {
+      view: 'chords-illegal',
+      sel: '[data-testid="chord-builder"] [role="img"] > div',
+      styled: '0.2s',
+      ring: false,
+    },
   ];
   for (const site of SITES) {
     for (const os of ['no-preference', 'reduce'] as const) {
