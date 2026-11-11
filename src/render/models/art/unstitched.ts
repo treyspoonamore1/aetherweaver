@@ -12,7 +12,6 @@ import {
   beam,
   figure,
   limb,
-  shade,
   type ArtFamily,
   type EnemyDef,
   THREE,
@@ -25,10 +24,10 @@ import {
  * that glow. The Unweaver is unweaver.ts's.
  *
  * The family's base (below): the cloth's glass (`cloth`), its seams (`seam`, `seamDown`, `seamRing`)
- * and the colours. The cloth is the Rift's landed re-tint (`LIT_MODEL.riftCloth`), never darker
- * than its deep shade: on near-black cloth the hostile rim's red reads as a plum body, on this
- * indigo it reads as an edge. The stitches are the landed teal fray (`LIT_MODEL.riftFray`, ≥ 20 ΔE
- * from Mend in every vision), small and thin, never a field of teal.
+ * and the colours (below). Every cloth part is cut glass or carries a faint light of its own: a
+ * plain dark part takes the hostile rim's red over its whole face and reads plum. The stitches are
+ * the landed teal fray (`LIT_MODEL.riftFray`, ≥ 20 ΔE from Mend in every vision), small and thin,
+ * never a field of teal. Colours measured in /home/user/aw-work/8/w4/notes.md.
  */
 
 // ── The family's base ─────────────────────────────────────────────────────────────────
@@ -299,7 +298,7 @@ export function buildShears(def: EnemyDef): THREE.BufferGeometry {
         along(tip, [side * 0.03, 0.02, 0.06], 1),
         0.025,
         0.02,
-        shade(steel, 0.6),
+        steel,
         0.7,
         NO_LEAD,
       );
@@ -1120,9 +1119,9 @@ export function buildSeamstress(def: EnemyDef): THREE.BufferGeometry {
   // The spool on her back, its thread over her shoulder.
   const SP: V3 = [0, h * 0.72, r * 0.5];
   b.cyl(
-    r * 0.3,
-    r * 0.3,
-    r * 0.7,
+    r * 0.34,
+    r * 0.34,
+    r * 0.76,
     acc,
     { cell: 0.12, lit: 0.25, glow: 0.12, p: SP, r: [0, 0, Math.PI / 2] },
     12,
@@ -1150,10 +1149,11 @@ export function buildSeamstress(def: EnemyDef): THREE.BufferGeometry {
       Math.PI * 2,
       12,
     );
-  // Six arms: needles raised to rain, a pair braced, a pair holding a taut thread.
+  // Six arms: four needles raised together to rain (the wind-up reads from any side), the lowest
+  // pair holding a taut thread.
   const rows = [
     { y: 0.68, k: WEAPON, a: 1.0, reach: 1.35, up: 0.24 },
-    { y: 0.6, k: BRACE, a: 0.55, reach: 1.15, up: 0.02 },
+    { y: 0.6, k: WEAPON, a: 0.7, reach: 1.15, up: 0.02 },
     { y: 0.52, k: WEAPON, a: 0.4, reach: 0.85, up: -0.12 },
   ] as const;
   rows.forEach((row, ri) => {
@@ -1173,11 +1173,11 @@ export function buildSeamstress(def: EnemyDef): THREE.BufferGeometry {
         if (ri < 2) {
           // A needle: long, bone, an eye at its head.
           const tip: V3 = [
-            hand[0] + side * r * 0.12,
-            hand[1] + (ri === 0 ? h * 0.18 : -h * 0.04),
-            hand[2] - r * 0.55,
+            hand[0] + side * r * 0.16,
+            hand[1] + (ri === 0 ? h * 0.24 : -h * 0.05),
+            hand[2] - r * 0.7,
           ];
-          limb(b, hand, tip, 0.012, 0.045, BONE, 4, 0.2);
+          limb(b, hand, tip, 0.015, 0.065, BONE, 4, 0.22);
         }
         if (ri === 0 && side > 0) {
           // The spool's thread, through this needle's eye.
