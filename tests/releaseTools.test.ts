@@ -28,6 +28,8 @@ import {
   exitCode,
   gather,
   glyphPaths,
+  parseStamp,
+  PHASE7_OPTION_TESTS,
   parseFullRun,
   parsePlaywright,
   parseSuite,
@@ -316,6 +318,12 @@ describe('tools/licenses.ts', () => {
 const TESTS = [
   'tests/colorVision.test.ts',
   'tests/input.test.ts',
+  'tests/a11yPhase7.test.ts',
+  'tests/inputPhase7.test.ts',
+  'tests/gamepad.test.ts',
+  'tests/reducedMotionSites.test.ts',
+  'tests/textSize.test.ts',
+  'tests/contrast.test.ts',
   'tests/meta/migration.test.ts',
   'tests/sim/m1Unchanged.test.ts',
   'tests/sim/dissonancePins.test.ts',
@@ -327,6 +335,11 @@ const TESTS = [
   'tests/aura/presentationPin.test.ts',
   'tests/aura/chordCardsPin.test.ts',
 ];
+
+/** The commit the fixture's tree is at, and every log's stamp for it. */
+const HEAD = 'd22f5e0c0ffee0000000000000000000000000ab';
+const STAMP = { commit: HEAD, dirty: false };
+const SPECS = ['a11y.spec.ts', 'fullrun.spec.ts', 'saves.spec.ts', 'smoke.spec.ts'];
 
 const FULLRUN: FullRun = {
   outcome: 'victory',
@@ -345,6 +358,7 @@ function greenInputs(): Inputs {
     files: new Map(TESTS.map((t) => [t, 'passed'] as const)),
     tests: 100,
     failed: [],
+    stamp: STAMP,
   };
   const pins = [
     ['SIM_VERSION', 22],
@@ -356,10 +370,14 @@ function greenInputs(): Inputs {
       passed: 40,
       failed: 0,
       skipped: 0,
-      passedTitles: ['smoke.spec.ts:1:1 › Phase 7: export and import a save'],
+      passedTitles: [
+        'e2e/saves.spec.ts:68:1 › export a file and a code, import each through the panel, refuse garbage',
+      ],
       failedTitles: [],
+      specs: SPECS,
+      stamp: STAMP,
     },
-    fullrun: { run: FULLRUN, text: '' },
+    fullrun: { run: FULLRUN, text: '', stamp: STAMP },
     baselines: [
       { name: 'm1-A.log', text: 'M1 party A baseline unchanged: 270 fights byte-equal.' },
     ],
@@ -374,6 +392,8 @@ function greenInputs(): Inputs {
       typecheck: { code: 0, tail: '' },
       lint: { code: 0, tail: '' },
     },
+    tree: { commit: HEAD, dirty: false },
+    e2eSpecs: SPECS,
   };
 }
 
@@ -384,20 +404,22 @@ describe('tools/release-check.ts', () => {
     const rows = checkRows(greenInputs());
     expect(rows.map((r) => r.id)).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']);
     expect(rows.filter((r) => r.status === 'red' || r.status === 'not run')).toEqual([]);
-    for (const id of ['1', '2', '3', '4']) expect(byId(rows, id).status).toBe('not provable here');
+    for (const id of ['1', '3', '4']) expect(byId(rows, id).status).toBe('not provable here');
+    expect(byId(rows, '2').status).toBe('accepted');
+    expect(byId(rows, '2').parts[1]!.text).toMatch(/^accepted \(decision 13\)/);
     for (const id of ['5', '6', '7', '8', '9', '10']) expect(byId(rows, id).status).toBe('green');
     expect(exitCode(rows, true)).toBe(0);
     const text = render(rows);
     for (const id of ['1', '10']) expect(text).toContain(`\n${id.padStart(2)}  `);
     expect(text).toContain('NOT PROVABLE HERE');
-    expect(text).toContain('6 green, 0 red, 4 not provable here, 0 not run');
+    expect(text).toContain('6 green, 0 red, 3 not provable here, 1 accepted, 0 not run');
   });
 
   it('a known-red fixture: each failure turns its own row red, with the evidence, and exits 1', () => {
     const inputs = greenInputs();
     inputs.suite!.failed = ['tests/sim/golden.test.ts > the goldens'];
     inputs.suite!.files.set('tests/sim/golden.test.ts', 'failed');
-    inputs.fullrun = { run: { ...FULLRUN, warnings: 2, errors: 1 }, text: '' };
+    inputs.fullrun = { run: { ...FULLRUN, warnings: 2, errors: 1 }, text: '', stamp: STAMP };
     inputs.baselines = [{ name: 'm1-A.log', text: 'M1 baseline drifted' }];
     inputs.pins = [{ name: 'SIM_VERSION', expected: 22, actual: 23 }];
     inputs.auraChanged = ['src/render/field.ts'];
@@ -409,6 +431,8 @@ describe('tools/release-check.ts', () => {
       skipped: 0,
       passedTitles: [],
       failedTitles: ['smoke.spec.ts:9:1 › the title'],
+      specs: SPECS,
+      stamp: STAMP,
     };
     const rows = checkRows(inputs);
     for (const id of ['1', '2', '3', '5', '6', '7', '8', '9', '10'])
@@ -469,15 +493,116 @@ describe('tools/release-check.ts', () => {
     expect(inputs.auraChanged).toEqual([]);
   });
 
+  it('evidence from another commit, a dirty tree or an unstamped log is red (review B, finding 3)', () => {
+    const other = { commit: 'a1b2c3d4e5f6a7b8c9d0a1b2c3d4e5f6a7b8c9d0', dirty: false };
+    // The reviewer's case: another branch's suite, e2e and full-run logs, all green in themselves.
+    const stale = greenInputs();
+    stale.suite!.stamp = other;
+    stale.e2e!.stamp = other;
+    stale.fullrun!.stamp = other;
+    const rows = checkRows(stale);
+    for (const id of ['1', '4', '5', '6', '8', '9', '10'])
+      expect(byId(rows, id).status, id).toBe('red');
+    expect(byId(rows, '6').parts[0]!.text).toContain(
+      'recorded on a1b2c3d4e5f6, not on the checked',
+    );
+    expect(exitCode(rows, false)).toBe(1);
+    // Each log on its own.
+    for (const which of ['suite', 'e2e', 'fullrun'] as const) {
+      const one = greenInputs();
+      one[which]!.stamp = null;
+      const red = checkRows(one)
+        .filter((r) => r.status === 'red')
+        .map((r) => r.id);
+      expect(red, which).toEqual(
+        which === 'suite' ? ['1', '4', '5', '8', '9', '10'] : which === 'e2e' ? ['5', '10'] : ['6'],
+      );
+    }
+    const dirtyLog = greenInputs();
+    dirtyLog.suite!.stamp = { commit: HEAD, dirty: true };
+    expect(byId(checkRows(dirtyLog), '10').parts[0]!.text).toContain('uncommitted changes');
+    // A checked tree with uncommitted changes: no log binds to it.
+    const dirtyTree = greenInputs();
+    dirtyTree.tree = { commit: HEAD, dirty: true };
+    expect(byId(checkRows(dirtyTree), '6').status).toBe('red');
+    // An abbreviated stamp of the same commit is the same commit.
+    const short = greenInputs();
+    short.suite!.stamp = { commit: HEAD.slice(0, 12), dirty: false };
+    expect(byId(checkRows(short), '10').status).toBe('green');
+  });
+
+  it('the e2e part needs every e2e/*.spec.ts file accounted for (review B, finding 3)', () => {
+    const partial = greenInputs();
+    partial.e2e!.specs = ['saves.spec.ts', 'smoke.spec.ts'];
+    const rows = checkRows(partial);
+    expect(byId(rows, '10').status).toBe('red');
+    expect(byId(rows, '10').parts[3]!.text).toContain(
+      'no result for a11y.spec.ts, fullrun.spec.ts',
+    );
+    expect(byId(rows, '5').status).toBe('red');
+    // Skipped counts as accounted for (the full run is skipped outside its own run).
+    const skipped = greenInputs();
+    skipped.e2e!.skipped = 1;
+    expect(byId(checkRows(skipped), '10').status).toBe('green');
+  });
+
+  it('row 4 needs the Phase 7 option and input test files by name (review B, finding 3)', () => {
+    const old = greenInputs();
+    for (const f of PHASE7_OPTION_TESTS) old.suite!.files.delete(f);
+    const row4 = byId(checkRows(old), '4');
+    expect(row4.status).toBe('red');
+    expect(row4.parts[1]!.text).toContain('not in the log: tests/a11yPhase7.test.ts');
+    const failing = greenInputs();
+    failing.suite!.files.set('tests/gamepad.test.ts', 'failed');
+    expect(byId(checkRows(failing), '4').parts[1]!.text).toContain(
+      'failing: tests/gamepad.test.ts',
+    );
+  });
+
+  it('reads the stamp of every log, and the spec files of a Playwright log', () => {
+    const sha = 'd22f5e0c0ffee0000000000000000000000000ab';
+    expect(parseStamp(`[evidence] commit ${sha}\nnoise`)).toEqual({ commit: sha, dirty: false });
+    expect(parseStamp(`[evidence] commit ${sha} dirty`)).toEqual({ commit: sha, dirty: true });
+    // Two stamps that differ: the tree moved during the run.
+    expect(parseStamp(`[evidence] commit ${sha}\n[evidence] commit abcdef1`)!.dirty).toBe(true);
+    expect(parseStamp('nothing')).toBeNull();
+    const json = JSON.stringify({
+      evidence: `[evidence] commit ${sha}`,
+      numTotalTests: 0,
+      testResults: [],
+    });
+    expect(parseSuite(json)!.stamp).toEqual({ commit: sha, dirty: false });
+    const log = [
+      `[evidence] commit ${sha}`,
+      '  ✓  1 e2e/saves.spec.ts:68:1 › export a file (18.2s)',
+      '  -  5 e2e/saves.spec.ts:322:1 › both demo starts show no kept-save notice',
+      '  -  6 e2e/fullrun.spec.ts:20:1 › the full run',
+      '  ✓   7 [chromium] › smoke.spec.ts:30:1 › the title (2.1s)',
+      '  2 skipped',
+      '  2 passed (45.9s)',
+    ].join('\n');
+    const pw = parsePlaywright(log)!;
+    expect(pw.specs).toEqual(['fullrun.spec.ts', 'saves.spec.ts', 'smoke.spec.ts']);
+    expect(pw.stamp).toEqual({ commit: sha, dirty: false });
+    expect(pw.passedTitles).toHaveLength(2);
+  });
+
+  it('at HEAD, gather knows the tree’s commit and every e2e spec file', () => {
+    const inputs = gather([], REPO, REPO);
+    expect(inputs.tree?.commit).toMatch(/^[0-9a-f]{40}$/);
+    expect(inputs.e2eSpecs).toContain('saves.spec.ts');
+    expect(inputs.e2eSpecs).toContain('fullrun.spec.ts');
+  });
+
   it('a full run that never printed its result, or ended in defeat, or ran without sound, is red', () => {
     const inputs = greenInputs();
-    inputs.fullrun = { run: null, text: 'timed out' };
+    inputs.fullrun = { run: null, text: 'timed out', stamp: STAMP };
     expect(byId(checkRows(inputs), '6').status).toBe('red');
-    inputs.fullrun = { run: { ...FULLRUN, outcome: 'defeat' }, text: '' };
+    inputs.fullrun = { run: { ...FULLRUN, outcome: 'defeat' }, text: '', stamp: STAMP };
     expect(byId(checkRows(inputs), '6').parts[0]!.text).toContain('ended in defeat');
-    inputs.fullrun = { run: { ...FULLRUN, fast: true }, text: '' };
+    inputs.fullrun = { run: { ...FULLRUN, fast: true }, text: '', stamp: STAMP };
     expect(byId(checkRows(inputs), '6').parts[0]!.text).toContain('navigation-only');
-    inputs.fullrun = { run: { ...FULLRUN, sound: false }, text: '' };
+    inputs.fullrun = { run: { ...FULLRUN, sound: false }, text: '', stamp: STAMP };
     expect(byId(checkRows(inputs), '6').parts[0]!.text).toContain('sound was not running');
   });
 
