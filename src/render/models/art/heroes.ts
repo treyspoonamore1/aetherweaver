@@ -426,12 +426,12 @@ export function buildBrann(def: HeroDef): THREE.BufferGeometry {
     });
   }
   // The war-kilt: a skirt of crimson glass plates to the knee, a leather belt with a brass buckle.
-  b.cyl(0.4, 0.52, 0.36, col, { ...HERO_GLASS, p: [0, 0.84, 0] }, 8);
+  b.cyl(0.4, 0.52, 0.36, col, { ...HERO_GLASS, lit: 0.12, p: [0, 0.84, 0] }, 8);
   b.cyl(0.42, 0.42, 0.1, leather, { p: [0, 1.02, 0] }, 8);
   b.box(0.16, 0.13, 0.05, BRASS, { ...EXACT, p: [0, 1.02, -0.42], glow: 0.25 });
   // A broad, wedge-shaped torso in a sleeveless jerkin of crimson glass, crossed by a leather
   // baldric (the axe's sling) from his right shoulder to his left hip, a brass boss on it.
-  b.cyl(0.56, 0.34, 0.7, crimson, { ...HERO_GLASS, p: [0, 1.4, 0], s: [1, 1, 0.66] }, 8);
+  b.cyl(0.56, 0.34, 0.7, crimson, { ...HERO_GLASS, lit: 0.12, p: [0, 1.4, 0], s: [1, 1, 0.66] }, 8);
   b.octa(0.07, BRASS, { ...EXACT, p: [0.02, 1.4, -0.36], glow: 0.25 });
   beam(b, [0.36, 1.74, -0.2], [-0.32, 1.06, -0.3], 0.13, 0.05, leather);
   // The half-cloak: crimson glass from his left shoulder down his back (what the camera sees of
@@ -439,7 +439,7 @@ export function buildBrann(def: HeroDef): THREE.BufferGeometry {
   b.rigged({ k: CLOTH, at: [-0.1, 1.74, 0.3], a: 1.35 }, () => {
     b.box(0.84, 1.12, 0.05, col, {
       ...HERO_GLASS,
-      lit: 0.3,
+      lit: 0.14,
       cell: 0.21,
       p: [-0.12, 1.2, 0.42],
       r: [-0.14, 0, 0.1],
@@ -519,11 +519,12 @@ export function buildBrann(def: HeroDef): THREE.BufferGeometry {
   // The axe arm (his right): the great two-handed axe carried low before him, its head forward
   // and down past every other hero's reach; swung up over his shoulder and down through a blow.
   b.rigged({ k: WEAPON, at: [0.56, 1.66, 0], a: 1.1 }, () => {
-    limb(b, [0.6, 1.66, 0], [0.7, 1.28, -0.08], 0.12, 0.13, skin, 6);
-    limb(b, [0.7, 1.3, -0.08], [0.68, 1.02, -0.26], 0.12, 0.12, wine, 6, SIG);
-    b.cyl(0.13, 0.13, 0.16, iron, { p: [0.69, 1.1, -0.2], r: [0.7, 0, 0] }, 6);
-    const top: V3 = [0.6, 1.48, 0.24];
-    const bot: V3 = [0.7, 0.3, -0.62];
+    limb(b, [0.6, 1.66, 0], [0.76, 1.3, -0.06], 0.12, 0.13, skin, 6);
+    limb(b, [0.76, 1.32, -0.06], [0.86, 1.04, -0.18], 0.12, 0.12, wine, 6, SIG);
+    b.cyl(0.13, 0.13, 0.16, iron, { p: [0.83, 1.12, -0.15], r: [0.5, 0, 0.3] }, 6);
+    // The haft runs beside him, not before him, so the blade shows from behind and above.
+    const top: V3 = [0.88, 1.5, 0.26];
+    const bot: V3 = [0.9, 0.32, -0.58];
     const d = new THREE.Vector3(bot[0] - top[0], bot[1] - top[1], bot[2] - top[2]).normalize();
     const u: V3 = [d.x, d.y, d.z];
     // Forward of the haft, in its own plane (the blade's reach).
@@ -533,34 +534,27 @@ export function buildBrann(def: HeroDef): THREE.BufferGeometry {
     b.octa(0.07, iron, { p: top });
     // The head: a broad bearded blade of dark iron (a wedge, narrow at the haft, wide at the
     // edge), crimson glass let into it, its long edge in brass.
-    const at = along(bot, u, -0.2);
+    const at = along(bot, u, -0.24);
     const ang = Math.atan2(f[1], -f[2]);
     const flat: V3 = [ang, 0, Math.PI / 2];
-    b.cyl(
-      0.36,
-      0.36,
-      0.06,
-      iron,
-      { p: along(at, f, 0.2), r: flat, s: [1.25, 1, 1], glow: 0.05 },
-      3,
-    );
+    const blade = { r: flat, s: [1.25, 1, 1] as V3 };
+    b.cyl(0.36, 0.36, 0.06, iron, { ...blade, p: along(at, f, 0.34), glow: 0.05 }, 3);
     b.cyl(
       0.2,
       0.2,
       0.075,
       crimson,
       {
-        p: along(at, f, 0.24),
-        r: flat,
-        s: [1.25, 1, 1],
+        ...blade,
+        p: along(at, f, 0.38),
         glow: 0.3,
         cell: 0.07,
-        lit: 0.4,
+        lit: 0.3,
       },
       3,
     );
-    const edge = along(at, f, 0.39);
-    beam(b, along(edge, u, -0.34), along(edge, u, 0.34), 0.08, 0.07, BRASS, 0.35, EXACT);
+    const edge = along(at, f, 0.53);
+    beam(b, along(edge, u, -0.4), along(edge, u, 0.4), 0.08, 0.07, BRASS, 0.35, EXACT);
     // A hooked back-spike behind the haft.
     b.cone(
       0.07,
@@ -605,7 +599,7 @@ export function buildSeren(def: HeroDef): THREE.BufferGeometry {
   // The long coat: a fitted torso of steel glass open over a dark waistcoat, its skirt cut in four:
   // two front panels to the knee and the tail split in two behind her to the boot, each trailing
   // on its own, lined dark (silver with dark between, never a white block: the Weaver is white).
-  const coat = { ...HERO_GLASS, ...EXACT, glow: 0.22, cell: 0.13, lit: 0.16 };
+  const coat = { ...HERO_GLASS, ...EXACT, glow: 0.14, cell: 0.13, lit: 0.16 };
   b.cyl(0.22, 0.16, 0.62, STEEL, { ...coat, p: [0, 1.32, 0] }, 8);
   b.box(0.16, 0.5, 0.04, steelDeep, { p: [0, 1.3, -0.19], r: [0.06, 0, 0] });
   b.octa(0.04, violet, { p: [0, 1.42, -0.22], glow: 1, shell: false });
@@ -657,8 +651,8 @@ export function buildSeren(def: HeroDef): THREE.BufferGeometry {
   // (her mark from above with the blade's long line).
   b.rigged({ k: HEAD, at: [0, 1.74, 0] }, () => {
     b.sphere(0.13, skin, { p: [0, 1.86, -0.02], lead: 0 }, 7, 5);
-    b.box(0.04, 0.022, 0.02, violet, { p: [0.045, 1.87, -0.145], glow: 1, shell: false });
-    b.box(0.04, 0.022, 0.02, violet, { p: [-0.045, 1.87, -0.145], glow: 1, shell: false });
+    b.box(0.032, 0.018, 0.02, violet, { p: [0.045, 1.87, -0.145], glow: 0.6, shell: false });
+    b.box(0.032, 0.018, 0.02, violet, { p: [-0.045, 1.87, -0.145], glow: 0.6, shell: false });
     b.sphere(0.135, hair, { p: [0, 1.92, 0.03], s: [1, 0.8, 1.05] }, 7, 5);
     b.sphere(0.07, hair, { p: [0, 2.03, 0.08] }, 6, 4);
   });
@@ -750,6 +744,16 @@ export function buildOro(def: HeroDef): THREE.BufferGeometry {
     ] as const)
       b.octa(0.12, leaf, { p: [x, y, 0.58], s: [1, 1.4, 0.3], r: [-0.18, 0, 0], glow: SIG });
   });
+  // The mantle's front and sides end in a ragged hem of leaves.
+  for (let i = 0; i < 6; i++) {
+    const a = Math.PI * (0.5 + (i / 5));
+    b.octa(0.11, leaf, {
+      p: [Math.sin(a) * 0.58, 0.78, Math.cos(a) * 0.5],
+      s: [1, 1.3, 0.3],
+      r: [0, a, 0],
+      glow: SIG,
+    });
+  }
   for (const side of [-1, 1])
     b.sphere(
       0.24,
@@ -768,10 +772,10 @@ export function buildOro(def: HeroDef): THREE.BufferGeometry {
     b.sphere(0.14, beard, { p: [0, 1.36, -0.1], s: [1.1, 1.25, 0.75] }, 7, 4);
     b.cone(0.1, 0.18, beard, { p: [0, 1.17, -0.15], r: [Math.PI + 0.2, 0, 0] }, 5);
     b.sphere(0.16, mossDeep, { p: [0, 1.58, 0.04], s: [1.05, 0.6, 1.05] }, 7, 4);
-    for (const a of [-1.0, -0.45, 0.45, 1.0]) {
+    for (const a of [-1.05, -0.45, 0.45, 1.05]) {
       const x = Math.sin(a) * 0.12;
-      const tipX = Math.sin(a) * 0.4;
-      const tipY = 1.9 - Math.abs(a) * 0.12;
+      const tipX = Math.sin(a) * 0.5;
+      const tipY = 1.92 - Math.abs(a) * 0.14;
       limb(b, [x, 1.6, 0.03], [tipX, tipY, 0.07], 0.02, 0.032, BARK, 4);
       limb(
         b,
@@ -782,7 +786,7 @@ export function buildOro(def: HeroDef): THREE.BufferGeometry {
         barkDark,
         4,
       );
-      b.octa(0.05, SEED, { ...EXACT, p: [tipX, tipY + 0.02, 0.07], glow: 0.9 });
+      b.octa(0.065, SEED, { ...EXACT, p: [tipX, tipY + 0.02, 0.07], glow: 1 });
     }
     b.octa(0.08, leaf, { p: [0.14, 1.66, -0.04], s: [1, 0.4, 1.4], glow: SIG });
     b.octa(0.08, leaf, { p: [-0.16, 1.67, 0.06], s: [1, 0.4, 1.4], glow: SIG });
