@@ -19,6 +19,12 @@ export interface LitFloor {
   seam: string;
   seamInner: number;
   seamOuter: number;
+  /**
+   * How much the inner disc is shaded down (black, at the centre, fading out by 0.9 R): the
+   * light stays on the rim and in the sky while the combat floor keeps lethal crimson at
+   * ≥ 3.1:1 in every colour vision (LETHAL_MIN_CONTRAST).
+   */
+  innerShade: number;
   /** The outer course's own glow (the Rift's teal frays; the Spire's crimson channels). */
   edge: string;
   edgeGlow: number;
@@ -30,6 +36,7 @@ export const LIT_FLOOR = {
     seam: '#6a1a1e',
     seamInner: 0.0,
     seamOuter: 0.18,
+    innerShade: 0.12,
     edge: '#8c2a1e',
     edgeGlow: 0.8,
   },
@@ -38,6 +45,7 @@ export const LIT_FLOOR = {
     seam: '#4c5cc0',
     seamInner: 0.12,
     seamOuter: 0.3,
+    innerShade: 0.3,
     // The fray: ABYSS_HEX.fray's dark teal (≥ 20 ΔE from Mend in every vision), outer course only.
     edge: '#176762',
     edgeGlow: 1.2,
@@ -47,6 +55,7 @@ export const LIT_FLOOR = {
     seam: '#5a70b8',
     seamInner: 0.14,
     seamOuter: 0.4,
+    innerShade: 0.3,
     edge: '#4a6ab0',
     edgeGlow: 0.6,
   },
@@ -129,6 +138,8 @@ export const LIT_ORRERY = {
   lift: 0.9,
   /** A slight lean up toward the far side (rad), so the far rings rise into the frame's top. */
   tilt: 0.05,
+  /** The rings' overall strength (was 0.8 when they stood out of frame). */
+  alpha: 0.3,
 } as const;
 
 /**
@@ -140,7 +151,7 @@ export const LIT_MODEL = {
   // ABYSS_HEX.fray's dark teal (measured ≥ 20 ΔE from Mend in every vision), made to glow.
   riftFray: '#176762',
   riftFrayGlow: 1.8,
-  conductorRobe: '#c8c4cc',
+  conductorRobe: '#b4b098',
   conductorDark: '#18161f',
   conductorHaloGlow: 0.75,
 } as const;

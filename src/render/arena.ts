@@ -599,8 +599,23 @@ void main() {
       ctx.stroke();
       ctx.globalAlpha = 1;
     }
+    if (ctx) this.shadeInner(ctx, size, LIT_FLOOR.crimson.innerShade);
     this.floorMeshes(group, canvas, floor, def.theme.accent, this.paintGlow('crimson'), LIT_MOOD.crimson.fog);
     return group;
+  }
+
+  /**
+   * The dark worlds' inner disc shaded down (LIT_FLOOR.innerShade): black at the centre, fading
+   * out by 0.9 R, so the combat floor keeps lethal crimson readable while the rim stays lit.
+   */
+  private shadeInner(ctx: CanvasRenderingContext2D, size: number, k: number): void {
+    const c = size / 2;
+    const g = ctx.createRadialGradient(c, c, 0, c, c, c * 0.9);
+    g.addColorStop(0, `rgba(0,0,0,${k})`);
+    g.addColorStop(0.55, `rgba(0,0,0,${k})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
   }
 
   /**
@@ -1077,6 +1092,7 @@ void main() {
       }
       ctx.globalAlpha = 1;
     }
+    if (ctx) this.shadeInner(ctx, size, LIT_FLOOR.abyss.innerShade);
     this.floorMeshes(group, canvas, floor, line, this.paintGlow('abyss'), LIT_MOOD.abyss.fog);
     return group;
   }
@@ -1435,6 +1451,7 @@ void main() {
       }
       ctx.globalAlpha = 1;
     }
+    if (ctx) this.shadeInner(ctx, size, LIT_FLOOR.crucible.innerShade);
     this.floorMeshes(group, canvas, floor, line, this.paintGlow('crucible'), LIT_MOOD.crucible.fog);
     return group;
   }
@@ -1580,9 +1597,9 @@ void main() {
   float r = uInner + uStep * i;
   float d = length(vUv);
   float band = abs(d - r);
-  // PROTOTYPE (p8/light): bolder rings, so they read at the game camera's distance.
-  float core = 1.0 - smoothstep(0.045, 0.1, band);
-  float halo = exp(-band * band * 10.0) * 0.4;
+  // A quiet set piece: thin rings, a faint halo, dimmer than any telegraph, aura ring or HUD text.
+  float core = 1.0 - smoothstep(0.03, 0.07, band);
+  float halo = exp(-band * band * 18.0) * 0.25;
   // Ticks along the ring, turning (each ring its own way and speed) and kicked on the beat.
   float dir = mod(i, 2.0) < 0.5 ? 1.0 : -1.0;
   float ang = atan(vUv.y, vUv.x) + dir * (uTime * (0.05 + 0.015 * i) + 0.12 * uBeat);
@@ -1594,7 +1611,7 @@ void main() {
   float a = (core * 0.85 + halo + ticks * 0.5) * mix(0.07, 1.0, lit) * beat;
   vec3 col = mix(uDim, uColor, lit);
   if (a < 0.003) discard;
-  gl_FragColor = vec4(col, a * 0.8);
+  gl_FragColor = vec4(col, a * ${LIT_ORRERY.alpha.toFixed(2)});
   #include <colorspace_fragment>
 }`,
       transparent: true,
