@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, type ReactNode } from 'react';
 import { installPresentation } from '../ui/presentation';
 import { DeedToasts } from '../ui/screens/DeedToasts';
+import { KeptSaveNotice } from '../ui/screens/SavesPanel';
 import { TitleScreen } from '../ui/screens/TitleScreen';
 import { useUi } from '../ui/store';
 
@@ -122,6 +123,7 @@ export function App() {
     <>
       <Screen />
       <DeedToasts />
+      <KeptSaveNotice />
     </>
   );
 }
