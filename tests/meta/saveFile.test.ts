@@ -25,7 +25,7 @@ import {
   saveCodeOf,
   saveFileBytes,
 } from '../../src/app/saveTransfer';
-import { DEFAULT_SETTINGS, useSettings } from '../../src/app/settings';
+import { DEFAULT_SETTINGS, migrateSettings, useSettings } from '../../src/app/settings';
 import { storage } from '../../src/app/storage';
 import * as Run from '../../src/meta/run';
 import { awardXp, newProfile } from '../../src/meta/profile';
@@ -187,7 +187,7 @@ describe('a save that won’t load is kept raw', () => {
     store.setItem(SAVE_KEYS.profileBackup, JSON.stringify(profile));
     expect(readProfile(store, 2)).toMatchObject({ from: 'backup', kept: false });
     expect(loadProfile(store, 2).xp).toBe(777);
-    expect(CORRUPT_KEYS.map((k) => store.getItem(k))).toEqual([null, null, null, null]);
+    expect(CORRUPT_KEYS.map((k) => store.getItem(k)).every((v) => v === null)).toBe(true);
   });
 
   it('nothing saved, or a demo start: nothing kept, and no notice', () => {
@@ -292,6 +292,7 @@ describe('export and import', () => {
     const file = exportSave(from);
     const judged = previewImport(file);
     if (!judged.ok) throw new Error(judged.error);
+    const inForce = useSettings.getState().settings;
     // Not chosen: the device's settings stay.
     applyImport(judged.preview, false, to);
     expect(to.getItem(SETTINGS_KEY)).toBe(JSON.stringify(withKey));
@@ -299,7 +300,10 @@ describe('export and import', () => {
     const imported = JSON.parse(to.getItem(SETTINGS_KEY)!) as Record<string, unknown>;
     for (const key of ['aids', 'input', 'telegraphs', 'reducedMotion', 'quality', 'locale'])
       expect(key in imported, key).toBe(false);
-    expect(useSettings.getState().settings.volumes.music).toBe(0.25);
+    // Written, and read on the reload: no store is set before it (review B, finding 1), so the
+    // settings in force stay the device's until the page starts again.
+    expect(migrateSettings(imported)?.volumes.music).toBe(0.25);
+    expect(useSettings.getState().settings).toBe(inForce);
     // The other way: the key set on export comes back set.
     const back = previewImport(exportSave(memoryStoreWith(SETTINGS_KEY, JSON.stringify(withKey))));
     if (!back.ok) throw new Error(back.error);
@@ -473,6 +477,7 @@ describe('hostile files and codes are refused in words, with no throw and no wri
       'notSave',
       'newer',
       'tooLarge',
+      'saveTooLarge',
       'typo',
       'damaged',
       'empty',

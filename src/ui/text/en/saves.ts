@@ -46,25 +46,34 @@ export const saves = {
   'saves.import.withSettings': 'Also import its settings',
   'saves.import.warning':
     'Importing replaces this browser’s profile and any run in progress. They’re kept first, and you can put them back from here.',
+  'saves.import.warningKept':
+    'Importing replaces this browser’s profile and any run in progress. The saves from before your earlier import stay kept instead, so the ones you have now aren’t: export them first if you may want them.',
   'saves.import.confirm': 'Import, replacing my saves',
   'saves.import.cancel': 'Cancel',
   'saves.import.done': 'Imported. Starting again on the imported saves…',
   'saves.import.inFight': 'Saves can be imported from the Settings screen, outside a fight.',
 
   // Restore what an import replaced.
-  'saves.restore.offer': 'Your saves from before the last import are kept.',
+  'saves.restore.offer':
+    'Your saves from before you imported are kept until you put them back or forget them. Importing again keeps these, not the saves you have then.',
   'saves.restore.button': 'Put them back…',
   'saves.restore.question':
     'Put back the saves from before the import? The profile, run and settings you have now are replaced by them.',
   'saves.restore.confirm': 'Put them back',
   'saves.restore.keep': 'Keep these',
   'saves.restore.failed': 'This browser’s storage refused the change. Nothing was changed.',
+  'saves.restore.forget': 'Forget them…',
+  'saves.restore.forgetQuestion':
+    'Forget the saves from before the import for good? The next import keeps the saves you have then.',
+  'saves.restore.forgetConfirm': 'Forget them',
 
   // Why a file or code is refused.
   'saves.error.notSave': 'This isn’t an Aetherweaver save, so nothing was imported.',
   'saves.error.newer':
     'This save was made by a newer version of the game, which this one can’t read. Nothing was imported.',
   'saves.error.tooLarge': 'This is far larger than any save can be, so it wasn’t read.',
+  'saves.error.saveTooLarge':
+    'A save in this file is far longer than any save can be, so nothing was imported.',
   'saves.error.typo':
     'This code has a typo, or it was cut short: its check value doesn’t match. Nothing was imported.',
   'saves.error.damaged': 'This save is damaged: its compressed data doesn’t open.',
@@ -84,6 +93,7 @@ export const saves = {
   'saves.kept.run':
     'Your run in progress couldn’t be loaded, so it was set aside. It’s kept here, as it was.',
   'saves.kept.backup': '(its backup copy)',
+  'saves.kept.latest': '(a later one, kept beside the first)',
   'saves.kept.download': 'Download it',
   'saves.kept.forget': 'Forget it…',
   'saves.kept.forgetQuestion': 'Forget this save for good? Download it first if you may want it.',
@@ -91,6 +101,6 @@ export const saves = {
   'saves.kept.keep': 'Keep it',
   'saves.notice.title': 'A save couldn’t be loaded',
   'saves.notice.body':
-    'It’s kept as it was, and nothing will overwrite it. You can download it here, or later from Settings → Progress.',
+    'It’s kept as it was. The first save that couldn’t be loaded stays until you forget it; if another can’t be loaded later, the latest is kept beside it. You can download it here, or later from Settings → Progress.',
   'saves.notice.ok': 'OK',
 } satisfies Catalogue;

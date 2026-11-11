@@ -8,23 +8,20 @@
  * stops at a cap, nothing here throws, and a save is parsed and loaded in memory before anything
  * is written (`previewSave`), with the current saves backed up first (`writeImport`).
  */
-import {
-  CORRUPT_SUFFIX,
-  keptUnreadable,
-  loadRun,
-  SAVE_KEYS,
-  type KeyValueStore,
-} from '../meta/save';
+import { CORRUPT_KEYS, keptUnreadable, loadRun, SAVE_KEYS, type KeyValueStore } from '../meta/save';
 import {
   collectSave,
   crc32,
   decodeSaveCode,
   encodeSaveCode,
+  forgetBeforeImport,
   hasBeforeImport,
   parseSaveText,
   previewSave,
   restoreBeforeImport,
+  SAVE_FILE_FORMAT,
   SAVE_FILE_MAX_BYTES,
+  SAVE_FILE_VERSION,
   SAVE_JSON_MAX_BYTES,
   saveFileText,
   writeImport,
@@ -36,7 +33,7 @@ import {
 } from '../meta/saveFile';
 import type { RunState } from '../meta/types';
 import { useRun } from './runStore';
-import { migrateSettings, useSettings } from './settings';
+import { migrateSettings } from './settings';
 import { storage } from './storage';
 
 /** Settings a save may carry: any version `migrateSettings` reads. */
@@ -174,24 +171,20 @@ export function previewImport(file: SaveFile): SavePreviewRead {
 
 /**
  * Writes an import over this device's saves, the current ones backed up first
- * (`BEFORE_IMPORT_SUFFIX`), and sets the settings in force when they are imported. The app's other
- * stores still hold the old saves: `reloadAfterImport` starts the game again on the new ones.
+ * (`BEFORE_IMPORT_SUFFIX`). Only storage changes: the app's stores still hold the old saves, and
+ * `reloadAfterImport` starts the game again on the new ones (the imported settings included).
+ *
+ * No store is set here, the settings included: a store change wakes its subscribers, and some
+ * of them save. Settings with another "Skip the unlocks" made the run store's subscriber follow
+ * the profile with the run held in memory (a run in Prep, left for the Loom's Settings) and save
+ * it over the run just imported.
  */
 export function applyImport(
   preview: SavePreview,
   withSettings: boolean,
   store: KeyValueStore = storage(),
 ): { ok: true } | { ok: false; error: SaveError } {
-  const written = writeImport(store, preview, withSettings);
-  if (written.ok && withSettings && preview.settingsText !== null) {
-    try {
-      const settings = migrateSettings(JSON.parse(preview.settingsText));
-      if (settings) useSettings.setState({ settings });
-    } catch {
-      // Written, and read again on the reload.
-    }
-  }
-  return written;
+  return writeImport(store, preview, withSettings);
 }
 
 /**
@@ -214,14 +207,26 @@ export function reloadAfterImport(store: KeyValueStore = storage()): void {
   window.location.reload();
 }
 
-/** Are the saves from before the last import still kept? */
+/** Are the saves from before an import still kept (until put back or forgotten)? */
 export function canRestoreImport(store: KeyValueStore = storage()): boolean {
   return hasBeforeImport(store);
 }
 
-/** Puts back the saves from before the last import (then `reloadAfterImport`). */
+/**
+ * Puts back the saves from before the import (then `reloadAfterImport`). They are the saves the
+ * player had before the first import since they last put a copy back or forgot it: a later import
+ * keeps that copy (`BEFORE_IMPORT_SUFFIX`, review B finding 6).
+ */
 export function restoreImport(store: KeyValueStore = storage()): boolean {
   return restoreBeforeImport(store);
+}
+
+/**
+ * Forgets the saves from before the import, without putting them back (the player dismissed
+ * them): the next import keeps a copy of the saves they have then. False: storage refused.
+ */
+export function forgetRestoreImport(store: KeyValueStore = storage()): boolean {
+  return forgetBeforeImport(store);
 }
 
 // ── Unreadable saves kept (docs/phase-7.md, W5: "kept raw and offered for export") ──────
@@ -235,20 +240,23 @@ export interface KeptSave {
   kind: 'profile' | 'run';
   /** The save's backup copy (the main copy's is `false`). */
   backup: boolean;
+  /**
+   * Kept beside an earlier one of the same copy, which is never overwritten: the latest of the
+   * later ones (`CORRUPT_LATEST_SUFFIX`).
+   */
+  latest: boolean;
   raw: string;
 }
 
-/** The unreadable saves this device keeps, profile first. */
+/** The unreadable saves this device keeps, profile first, each first one before its latest. */
 export function keptSaves(store: KeyValueStore = storage()): KeptSave[] {
-  return keptUnreadable(store).map(({ key, raw }) => {
-    const of = key.slice(0, -CORRUPT_SUFFIX.length);
-    return {
-      key,
-      kind: of === SAVE_KEYS.profile || of === SAVE_KEYS.profileBackup ? 'profile' : 'run',
-      backup: of === SAVE_KEYS.profileBackup || of === SAVE_KEYS.runBackup,
-      raw,
-    };
-  });
+  return keptUnreadable(store).map(({ key, raw, of, latest }) => ({
+    key,
+    kind: of === SAVE_KEYS.profile || of === SAVE_KEYS.profileBackup ? 'profile' : 'run',
+    backup: of === SAVE_KEYS.profileBackup || of === SAVE_KEYS.runBackup,
+    latest,
+    raw,
+  }));
 }
 
 /** A short mark of which kept saves there are (their keys and the CRC-32 of each). */
@@ -280,7 +288,7 @@ export function markKeptNoticed(store: KeyValueStore = storage()): void {
 
 /** Forgets a kept unreadable save (the player chose to, after the offer to download it). */
 export function forgetKept(key: string, store: KeyValueStore = storage()): void {
-  if (!key.endsWith(CORRUPT_SUFFIX)) return;
+  if (!CORRUPT_KEYS.includes(key)) return;
   try {
     store.removeItem(key);
     if (keptSaves(store).length === 0) store.removeItem(NOTICED_KEY);
@@ -289,9 +297,35 @@ export function forgetKept(key: string, store: KeyValueStore = storage()): void 
   }
 }
 
-/** A kept save's download name: `aetherweaver-unreadable-profile.json`, `…-run-backup.json`. */
+/**
+ * A kept save's download name: `aetherweaver-unreadable-profile.json`, `…-run-backup.json`,
+ * `…-profile-latest.json`.
+ */
 export function keptFileName(kept: KeptSave): string {
-  return `aetherweaver-unreadable-${kept.kind}${kept.backup ? '-backup' : ''}.json`;
+  return `aetherweaver-unreadable-${kept.kind}${kept.backup ? '-backup' : ''}${kept.latest ? '-latest' : ''}.json`;
+}
+
+/**
+ * A kept save's download (review B, finding 7): when its raw text is JSON, a save file (v1) that
+ * holds it as the profile or the run it was, so a build that can read it (a later one, for a save a
+ * later build wrote) imports it from Settings; this build's import reads the file and says why
+ * the save in it can't be loaded here. Text that isn't JSON is given as it was kept.
+ */
+export function keptDownload(kept: KeptSave): string {
+  let json: unknown;
+  try {
+    json = JSON.parse(kept.raw) as unknown;
+  } catch {
+    return kept.raw;
+  }
+  if (json === null) return kept.raw;
+  return saveFileText({
+    format: SAVE_FILE_FORMAT,
+    version: SAVE_FILE_VERSION,
+    profile: kept.kind === 'profile' ? json : null,
+    run: kept.kind === 'run' ? json : null,
+    settings: null,
+  });
 }
 
 /** Saves bytes as a file through a download link (nothing without a document). */
