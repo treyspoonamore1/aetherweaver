@@ -29,6 +29,7 @@ import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 
 import { join, resolve } from 'node:path';
 import { DEFAULT_SETTINGS, migrateSettings } from '../src/app/settings';
 import { createSim } from '../src/sim';
+import { FIGHT_AETHER, RELIC_OFFERS } from '../src/meta/economy';
 import * as Run from '../src/meta/run';
 import { readProfile, readRun, SAVE_KEYS } from '../src/meta/save';
 import { memoryStore, SETTINGS_KEY } from '../src/meta/saveFile';
@@ -307,18 +308,106 @@ export function playFight(run: RunState): { hash: string; tick: number; encounte
   return { hash: sim.hash(), tick: sim.tick, encounter: config.encounter ?? '' };
 }
 
+type Json = Record<string, unknown>;
+const isObject = (v: unknown): v is Json =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
+
 /**
- * The same run built fresh by today's build: `newRun(seed)` with the fixture's own content (every
- * key its save held, as loaded) and the rest as a new run has it. Its next fight must hash as the
- * loaded run's does: the migrations' defaults for the systems an old save never had are a fresh
- * run's.
+ * The values a loader gives a run save's nested fields the save never had, each stated here from
+ * the decision behind it rather than read from the loader (review B, finding 9): a path (array
+ * indices as `[]`), the value from the save's own objects around it (`parents`, outermost first,
+ * the field's own object last), and where the decision is written.
+ */
+export const NESTED_DEFAULTS: readonly {
+  path: string;
+  value: (parents: readonly Json[]) => unknown;
+  why: string;
+}[] = [
+  {
+    path: 'map.rows[][].reward.threat',
+    value: () => 1,
+    why: 'maps tuned before Threat keep their fights at ×1 (17dbc56, 71b6b0c; `v3to4`)',
+  },
+  {
+    path: 'map.rows[][].movement',
+    value: () => 1,
+    why: 'maps from before Movements are Movement I’s (docs/phase-5a.md)',
+  },
+  {
+    path: 'map.rows[][].eventId',
+    value: () => null,
+    why: 'maps from before events have none (Phase 3b; `v3to4`)',
+  },
+  {
+    path: 'map.rows[][].reward.aether',
+    value: (p) => FIGHT_AETHER[String(p.at(-2)?.kind) as keyof typeof FIGHT_AETHER] ?? 0,
+    why: 'a fight pays its kind’s Aether (`FIGHT_AETHER`, Phase 3b economy)',
+  },
+  {
+    path: 'map.rows[][].reward.relics',
+    value: (p) =>
+      p.at(-2)?.kind === 'elite'
+        ? RELIC_OFFERS.elite.count
+        : p.at(-2)?.kind === 'miniboss'
+          ? RELIC_OFFERS.boss.count
+          : 0,
+    why: 'an elite and a miniboss offer their relics (`RELIC_OFFERS`, Phase 3b economy)',
+  },
+];
+
+/**
+ * Nested fields the twin takes from the loaded run, unproven by it: the records of the fights
+ * already played (their tallies and rewards), which no later fight reads.
+ */
+export const LOADED_RECORDS: readonly string[] = ['results[]', 'lastResult'];
+
+/** `raw` (a value the save had) over `loaded`'s shape, with the nested defaults above. */
+function fromRaw(raw: unknown, loaded: unknown, path: string, parents: readonly Json[]): unknown {
+  if (isObject(raw) && isObject(loaded)) {
+    const out: Json = {};
+    const around = [...parents, raw];
+    for (const [k, v] of Object.entries(loaded)) {
+      const at = `${path}.${k}`;
+      if (k in raw) out[k] = fromRaw(raw[k], v, at, around);
+      else if (LOADED_RECORDS.some((r) => at.startsWith(`${r}.`) || at === r)) out[k] = v;
+      else {
+        const rule = NESTED_DEFAULTS.find((d) => d.path === at);
+        if (!rule)
+          throw new Error(
+            `freshTwin: the loader fills ${at}, which the save never had, and NESTED_DEFAULTS states no value for it`,
+          );
+        out[k] = rule.value(around);
+      }
+    }
+    return out;
+  }
+  if (Array.isArray(raw) && Array.isArray(loaded) && raw.length === loaded.length)
+    return raw.map((r, i) => fromRaw(r, loaded[i], `${path}[]`, parents));
+  return raw;
+}
+
+/**
+ * The same run built fresh by today's build, from the save's own values (review B, finding 9):
+ * `newRun(seed)` for every key the save never had (the migrations' defaults for the systems an old
+ * save never had are a fresh run's), and for every key it had, its raw value, nested field by
+ * field, with only these from elsewhere:
+ *   - a nested field the save never had takes its stated default (`NESTED_DEFAULTS`); one with no
+ *     stated default throws, so a new nested default must be stated before it passes;
+ *   - the records of fights already played (`LOADED_RECORDS`) are the loaded run's;
+ *   - `version` (the save's stamp) and `chords` for a v1 save's `auras` (a rename) are the loaded
+ *     run's.
+ * Its next fight must hash as the loaded run's does: so a loader that changes a value the save had,
+ * or fills a nested field with another value than its stated default, fails the matrix.
  */
 export function freshTwin(loaded: RunState, raw: Record<string, unknown>): RunState {
   const own = new Set(Object.keys(raw));
-  if (own.has('auras')) own.add('chords');
-  const fresh = Run.newRun(loaded.seed) as unknown as Record<string, unknown>;
-  for (const key of Object.keys(loaded))
-    if (own.has(key)) fresh[key] = (loaded as unknown as Record<string, unknown>)[key];
+  const fresh = Run.newRun(loaded.seed) as unknown as Json;
+  const from = loaded as unknown as Json;
+  for (const key of Object.keys(loaded)) {
+    if (key === 'version' || (key === 'chords' && !own.has('chords') && own.has('auras')))
+      fresh[key] = from[key];
+    else if (own.has(key)) fresh[key] = fromRaw(raw[key], from[key], key, []);
+  }
   return fresh as unknown as RunState;
 }
 

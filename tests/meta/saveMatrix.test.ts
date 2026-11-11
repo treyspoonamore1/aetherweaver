@@ -94,6 +94,13 @@ describe.each(fixtures.map((f) => [`${f.id} (${f.why})`, f] as const))('%s', (_n
     expect(next, `a next fight from ${read.run!.phase}`).not.toBeNull();
     const fight = playFight(next!);
     expect(fight).toEqual(want.run!.fight);
+    // The fresh twin (review B, finding 9): a fresh run with the save's own raw values, nested
+    // field by field. It proves the loader changes no value the save had, and fills each nested
+    // field the save never had (Threat, Movement, an event, a fight's Aether and relics) with the
+    // value its decision states (`NESTED_DEFAULTS`), not with whatever the loader gives: a schema
+    // default of Threat ×1.5 fails b04 here even without the recorded hash above. It does not
+    // prove the records of fights already played (`LOADED_RECORDS`, which no later fight reads),
+    // nor the version stamp or v1's renamed `auras`: those are the loaded run's.
     const raw = JSON.parse(f.keys[SAVE_KEYS.run]!) as Record<string, unknown>;
     const twin = toNextFight(freshTwin(read.run!, raw));
     expect(playFight(twin!)!.hash).toBe(fight!.hash);

@@ -46,6 +46,8 @@ import {
   settingsLoad,
 } from '../src/app/saveTransfer';
 import { saves } from '../src/ui/text/en/saves';
+import type { RunState } from '../src/meta/types';
+import { freshTwin } from '../tools/save-fixtures';
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/saves', import.meta.url));
 
@@ -588,5 +590,54 @@ describe('finding 7: a kept unreadable save is as safe as its notice says', () =
     expect(saves['saves.notice.body']).not.toMatch(/nothing will overwrite/);
     expect(saves['saves.notice.body']).toMatch(/first save that couldn’t be loaded stays/);
     expect(saves['saves.kept.latest']).toMatch(/kept beside the first/);
+  });
+});
+
+// ── Finding 9: the migration matrix's fresh twin is built from the save's own values ─────
+
+describe('finding 9: the fresh twin compares the loader with the save, not with itself', () => {
+  const saved = () => {
+    const run = embark(newRun(11));
+    return JSON.parse(JSON.stringify(run)) as Record<string, unknown> & {
+      map: { rows: { reward: Record<string, unknown>; movement?: number }[][] };
+    };
+  };
+  const loadedOf = (raw: unknown) => {
+    const store = memoryStore();
+    store.setItem(SAVE_KEYS.run, JSON.stringify(raw));
+    return readRun(store).run!;
+  };
+
+  it('a nested field the save never had takes its stated default, not the loader’s', () => {
+    const raw = saved();
+    for (const row of raw.map.rows)
+      for (const node of row) {
+        delete node.reward.threat;
+        delete node.movement;
+      }
+    const loaded = loadedOf(raw);
+    // A loader that filled Threat with ×1.5 (the reviewer's mutation): the twin keeps ×1.
+    const mutated = structuredClone(loaded);
+    for (const row of mutated.map.rows) for (const node of row) node.reward.threat = 1.5;
+    const twin = freshTwin(mutated, raw);
+    expect(twin.map.rows.flat().every((n) => n.reward.threat === 1 && n.movement === 1)).toBe(true);
+  });
+
+  it('a value the save had is the save’s, whatever the loader made of it', () => {
+    const raw = saved();
+    const loaded = structuredClone(loadedOf(raw));
+    loaded.aether = 999;
+    expect(freshTwin(loaded, raw).aether).toBe(raw.aether);
+  });
+
+  it('a nested field the loader fills with no stated default is refused, by path', () => {
+    const raw = saved();
+    const loaded = structuredClone(loadedOf(raw)) as unknown as {
+      map: { rows: Record<string, unknown>[][] };
+    };
+    loaded.map.rows[0]![0]!.newField = 3;
+    expect(() => freshTwin(loaded as unknown as RunState, raw)).toThrow(
+      /fills map\.rows\[\]\[\]\.newField/,
+    );
   });
 });
