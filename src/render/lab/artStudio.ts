@@ -7,7 +7,7 @@ import { FxKit } from '../fx/kit';
 import { RING } from '../fx/rings';
 import { GROVE_HEX } from '../groveCues';
 import { OWN_LOOK, restRim, ribbonHex, weaverPalette } from '../keepsakeCues';
-import { HERO_DRAWN } from '../models/artFlag';
+import { HERO_DRAWN, HOSTILE_EDGE } from '../models/artFlag';
 import { applyArtWorld } from '../models/artWorld';
 import { ModelBatch } from '../models/batch';
 import {
@@ -75,6 +75,13 @@ export interface StudioSpec {
   rim?: Partial<Record<StudioSubject, { hex: string; strength: number }>>;
   /** false: no dark-world fit (artWorld.ts), for comparison. */
   world?: boolean;
+  /** Subjects staged as elites: the game's gold elite rim and the elite crown over them. */
+  elite?: StudioSubject[];
+  /**
+   * The hostile rim as an edge only (artFlag.ts HOSTILE_EDGE; default: the constant), or `none`
+   * (no hostile rim, for measuring it).
+   */
+  hostile?: 'flat' | 'edge' | 'none';
 }
 
 type Kind = 'hero' | 'weaver' | 'enemy' | 'summon';
@@ -138,6 +145,8 @@ export class ArtStudio {
   private readonly black = new THREE.Color(0, 0, 0);
   private readonly hostile = color('#ef4444');
   private readonly eye = new THREE.Vector3();
+  /** The elite crown over every subject staged as an elite (entities.ts's own crown batch). */
+  private crown: ModelBatch | null = null;
   private readonly target = new THREE.Vector3();
 
   constructor(
@@ -150,6 +159,10 @@ export class ArtStudio {
     this.arena = new ArenaView(arena, stage, this.model);
     if (spec.world !== false) applyArtWorld(this.model, arenaLook(arena));
     this.group.add(this.arena.group, this.kit.group);
+    if (spec.elite?.length) {
+      this.crown = new ModelBatch(buildCrown(), this.model.material, 32, false);
+      this.group.add(this.crown.mesh);
+    }
     const yaw = spec.yaw ?? FACE;
     if (spec.layout === 'close') {
       const subject = spec.subject ?? 'kael';
@@ -279,9 +292,14 @@ export class ArtStudio {
     } else {
       const def = enemyDef(subject);
       geometry = buildEnemy(def);
-      if (def.role !== 'boss' && def.role !== 'miniboss') {
-        rim = this.hostile;
+      if (this.spec.elite?.includes(subject)) {
+        // As entities.ts draws an elite at rest: its gold rim, and its crown (below).
+        rim = C.gold;
         rimStrength = 0.18;
+      } else if (def.role !== 'boss' && def.role !== 'miniboss') {
+        const mode = this.spec.hostile ?? (HOSTILE_EDGE ? 'edge' : 'flat');
+        rim = this.hostile;
+        rimStrength = mode === 'none' ? 0 : mode === 'edge' ? -0.18 : 0.18;
       }
     }
     const own = this.spec.rim?.[subject];
@@ -324,7 +342,18 @@ export class ArtStudio {
     camera.updateMatrixWorld();
     this.model.uniforms.uTime.value = time;
     this.kit.begin(time, camera.position);
+    this.crown?.begin();
     for (const f of this.figures) {
+      if (this.crown && this.spec.elite?.includes(f.subject)) {
+        // As entities.ts places it: over the head, turning, sized to the foe, tinted gold.
+        const s = Math.max(0.8, f.radius * 1.2);
+        this.e.set(0, time * 0.8, 0, 'YXZ');
+        this.q.setFromEuler(this.e);
+        this.p.set(f.x, f.height + 0.22, f.z);
+        this.s.set(s, s, s);
+        this.crown.push(this.m.compose(this.p, this.q, this.s), 0, 0, 0, 0, C.gold, 0.4);
+        this.s.set(1, 1, 1);
+      }
       f.batch.begin();
       // At rest, each on its own clock (secondary motion, material.ts).
       const pose = this.spec.pose;
@@ -368,6 +397,7 @@ export class ArtStudio {
       }
       f.batch.end();
     }
+    this.crown?.end();
     const canvas = this.stage.canvas;
     const pointScale = canvas.height / (2 * Math.tan((camera.fov * Math.PI) / 360));
     this.arena.update(time, pointScale, quality);
@@ -376,6 +406,7 @@ export class ArtStudio {
 
   dispose(): void {
     for (const f of this.figures) f.batch.dispose();
+    this.crown?.dispose();
     this.kit.dispose();
     this.arena.dispose();
     this.model.material.dispose();

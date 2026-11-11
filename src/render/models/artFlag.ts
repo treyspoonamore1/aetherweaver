@@ -17,3 +17,11 @@ export const ART_PASS: boolean = (proc?.env ? proc.env.VITE_ART_PASS : meta?.VIT
  * placed by their content height are unchanged. 1 while the art pass is off.
  */
 export const HERO_DRAWN = ART_PASS ? 1.12 : 1;
+
+/**
+ * An alternative for readability rule 5 (the rank-and-file hostile rim), built for the owner to
+ * judge and off: on, the rim on a stained-glass foe keeps to its silhouette's edge (a sharper,
+ * brighter fresnel) instead of also washing the whole body in a faint flat red, which turns a dark
+ * body red. Only the hostile rim: every aura, effect and elite rim is drawn as before.
+ */
+export const HOSTILE_EDGE = false;

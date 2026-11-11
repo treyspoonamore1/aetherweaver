@@ -40,7 +40,9 @@ const STITCH_GLOW = LIT_MODEL.riftFrayGlow;
 
 /** Void cloth: dark glass in irregular panes, few of them lit (the Unstitched's cloth). */
 function voidCloth(cell: number, lit = 0.07): PartOptions {
-  return { cell, lit, litGlow: 0.4, glow: 0, jit: 0.1 };
+  // `lift: false` (integration, the kit's request): the void stays deep indigo in the dark worlds
+  // rather than lifted toward Kael's blue; its bone and teal carry it.
+  return { cell, lit, litGlow: 0.4, glow: 0, jit: 0.1, lift: false };
 }
 
 /**

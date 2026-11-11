@@ -40,7 +40,8 @@ export type { PartOptions };
  * BELL: a pendulum (draws back, flings through, rings out). FLOAT: bobs and turns (`a` = turn rate).
  * HEAD: breathes, looks about, ducks and drives. LIMB: a leg's stride (`a` = ±1 per side). SPIN /
  * WHEEL: turn about y / in the front plane (`a` = rate). BODY: a body that walks on its own (the
- * walking bell's rock). WEAVE: the Weaver's weaving hands (`a` = side).
+ * walking bell's rock). WEAVE: the Weaver's weaving hands (`a` = side). THRUST: a lunge (`a` = reach,
+ * m): use it for rapiers, spears and lances, never WEAPON (a chop).
  */
 export const WEAPON = 1;
 export const BRACE = 2;
@@ -52,6 +53,20 @@ export const LIMB = 7;
 export const SPIN = 8;
 export const BODY = 10;
 export const WEAVE = 11;
+/** A thrust (a rapier, a lance): drawn back, driven out along the figure's forward, recovered. */
+export const THRUST = 12;
+
+/** Lead kinds (`lead`): dark lead (the default), the Weaver's gold came, porcelain's cracks, bone. */
+export const LEAD_KIND = { none: 0, lead: 1, came: 2, crack: 3, bone: 4 } as const;
+
+/**
+ * Shared trims (the colour tests count them exactly on the models: give these parts `jit: 0`).
+ * Brann's brass (docs/phase-5b.md, BRANN_HEX.brass); Oro's seed glow (docs/phase-5e.md); Oro's bark
+ * (his robe and staff, the Saplings' and the Ancient's wood).
+ */
+export const BRASS_TRIM = '#a6a650';
+export const ORO_SEED = '#a0f870';
+export const BARK = '#5b4330';
 /**
  * A signature colour's own faint light: the heroes' colours stay saturated under the Reliquary's
  * warm key light and read at the fight's camera (luminous accents, docs/plan/04 §1).

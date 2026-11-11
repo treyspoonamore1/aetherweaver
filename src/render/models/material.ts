@@ -38,7 +38,8 @@ function glslColor(hex: string): string {
  * 4 pendulum (a bell: swings back through a wind-up and through on the blow), 5 float (bobs
  * and turns, `a` = turn rate), 6 head (breathes, looks about, ducks into a blow), 7 limb
  * (swings with the stride, `a` signed), 8 spin (turns about its pivot, `a` = rate), 9 wheel
- * (turns in the figure's front plane, `a` = rate: a halo behind the head).
+ * (turns in the figure's front plane, `a` = rate: a halo behind the head). 12 thrust (drawn back,
+ * driven out along the figure's forward, recovered; `a` = reach).
  */
 export const RIG_VERTEX_PARS = `
 attribute vec4 aRig;
@@ -131,6 +132,12 @@ vec3 awRig(vec3 pos) {
     float ax = (0.13 * sin(ph) + 0.05) * rest + 0.06 * mv + 0.45 * antic - 0.2 * strike;
     float az = A * (0.07 * cos(ph) * rest + 0.1 * antic);
     q = piv + awRotZ(awRotX(d, ax), az);
+  } else if (kind == 12) {
+    // A thrust (a rapier, a lance): drawn back and a little up through the anticipation, driven
+    // straight out along the figure's forward (-z) on the strike, then recovered (a = reach, m).
+    float ax = A * (0.2 * antic - 0.06 * strike) + 0.03 * sin(c * 1.7) * rest + 0.08 * sin(c * 7.0) * mv;
+    q = piv + awRotX(d, ax);
+    q.z += A * (0.22 * antic - 0.62 * strike + 0.08 * settle);
   } else if (kind == 10) {
     // A body that walks on its own (the walking bell): rocks from foot to foot, heavily.
     float ax = -A * 0.08 * antic + A * 0.12 * strike + 0.04 * mv;
@@ -177,6 +184,8 @@ export interface ModelMaterial {
 /** Dark lead between panes and round a stained-glass figure; the Weaver's gold came. */
 const LEAD_HEX = '#15131c';
 const CAME_HEX = '#f0c46a';
+/** Bone lead (lead kind 4): the Unstitched's seams along pane borders (the Rift's bone, as main draws it). */
+const BONE_LEAD_HEX = '#e8e3c8';
 /** The Hollow Choir's violet cracks (docs/plan/04 §1: porcelain with violet cracks). */
 const CRACK_HEX = '#a78bfa';
 
@@ -301,6 +310,7 @@ vec2 awPanes(vec3 x, out vec3 c1, out vec3 c2) {
 }
 const vec3 AW_LEAD = ${glslColor(LEAD_HEX)};
 const vec3 AW_CAME = ${glslColor(CAME_HEX)};
+const vec3 AW_BONE = ${glslColor(BONE_LEAD_HEX)};
 float awLeadMask = 0.0;
 float awHeart = 1.0;
 const vec3 AW_FROST = ${glslColor(CHRONO_HEX.frost)};
@@ -347,7 +357,9 @@ if (awKind > 0.5 && vLead.y < 0.5) {
   // wide, fading out when the panes are too small on screen to carry it.
   float awFade = 0.0;
   float awD = 99.0;
-  if (awKind < 2.5) {
+  // Kinds 1 (dark lead), 2 (the Weaver's gold came), 4 (bone lead) lead their facets; 3 cracks.
+  bool awLeads = awKind < 2.5 || awKind > 3.5;
+  if (awLeads) {
     vec3 awBw = max(fwidth(vBary), vec3(1e-6));
     vec3 awPx = vBary / awBw;
     awD = min(min(awPx.x, awPx.y), awPx.z);
@@ -360,23 +372,24 @@ if (awKind > 0.5 && vLead.y < 0.5) {
   // pane), each its own tone, a share lit from inside; on porcelain, a share of the borders crack.
   float awCellPx = 0.0;
   float awBd = 99.0;
-  if (vLead.z > 0.001) {
+  float awCellM = abs(vLead.z); // negative: cut glass kept dark in the dark worlds (no lift)
+  if (awCellM > 0.001) {
     vec3 awC1;
     vec3 awC2;
-    vec2 awF = awPanes(vObjPos / vLead.z, awC1, awC2);
+    vec2 awF = awPanes(vObjPos / awCellM, awC1, awC2);
     float awUpp = max(length(fwidth(vObjPos)), 1e-6);
-    awCellPx = vLead.z / awUpp;
+    awCellPx = awCellM / awUpp;
     float awFadeV = smoothstep(6.0, 16.0, awCellPx);
-    awBd = awF.x * vLead.z / awUpp;
+    awBd = awF.x * awCellM / awUpp;
     float awWv = clamp(awCellPx * 0.03, 0.8, 2.2);
     float awLine = 1.0 - smoothstep(awWv - 0.5, awWv + 0.6, awBd);
     float awH = awH1(awC1);
     float awShare = fract(vLead.x + 0.001);
-    if (awKind > 2.5) {
+    if (awKind > 2.5 && awKind < 3.5) {
       awCrack = awLine * step(awH1(awC1 + awC2 + 17.0), awShare) * mix(0.35, 1.0, awFadeV);
     } else {
       awLeadMask = max(awLeadMask, awLine * awFadeV);
-      if (awKind > 1.5) {
+      if (awKind > 1.5 && awKind < 2.5) {
         // White-gold glass: each pane between white and pale gold, never darker.
         diffuseColor.rgb *= mix(vec3(1.0), vec3(1.05, 0.9, 0.66), awH * awH * mix(0.5, 1.0, awFadeV));
       } else {
@@ -388,8 +401,8 @@ if (awKind > 0.5 && vLead.y < 0.5) {
     }
   }
   awHeart = mix(1.0, smoothstep(0.0, 12.0, awD), awFade);
-  if (awKind < 2.5) diffuseColor.rgb *= 0.84 + 0.22 * awHeart;
-  vec3 awLeadCol = awKind > 1.5 ? AW_CAME * 0.8 : AW_LEAD;
+  if (awLeads) diffuseColor.rgb *= 0.84 + 0.22 * awHeart;
+  vec3 awLeadCol = awKind > 3.5 ? AW_BONE : awKind > 1.5 ? AW_CAME * 0.8 : AW_LEAD;
   diffuseColor.rgb = mix(diffuseColor.rgb, awLeadCol, awLeadMask);
   diffuseColor.rgb = mix(diffuseColor.rgb, AW_CRACK * 0.7, awCrack);
 }`,
@@ -406,7 +419,7 @@ totalEmissiveRadiance += awAccent * vGlow * uGlow * awPulse * (1.0 - vFx.z * 0.8
 float awK = floor(vLead.x + 0.001);
 if (awK > 1.5 && awK < 2.5) totalEmissiveRadiance += AW_CAME * awLeadMask * 0.55 * (1.0 - awFrost);
 // Lit panes glow in their own glass; cracks burn violet.
-totalEmissiveRadiance += vColor.rgb * awLit * (awK > 1.5 ? 0.55 : 0.3) * uPaneBoost * uGlow * (0.6 + 0.5 * awHeart) * (1.0 - awLeadMask) * (1.0 - awFrost) * (1.0 - vFx.z);
+totalEmissiveRadiance += vColor.rgb * awLit * (awK > 1.5 && awK < 2.5 ? 0.55 : 0.3) * uPaneBoost * uGlow * (0.6 + 0.5 * awHeart) * (1.0 - awLeadMask) * (1.0 - awFrost) * (1.0 - vFx.z);
 // A dark world's lift: the glass gives a little of its own colour back (artWorld.ts).
 // Only the dark glass is lifted (a night robe, dark steel, a cassock): bright glass keeps its
 // saturation, and the lift is the part's own colour, normalised, so a dark violet lifts violet.
@@ -419,7 +432,10 @@ if (abs(vLead.x) > 0.5 && vLead.z > 0.001) {
 }
 totalEmissiveRadiance += AW_CRACK * awCrack * 1.5 * (1.0 - awFrost * 0.7) * (1.0 - vFx.z * 0.7);
 float awFres = pow(1.0 - clamp(abs(dot(normalize(normal), normalize(vViewPosition))), 0.0, 1.0), 2.2);
-totalEmissiveRadiance += vTint.rgb * vTint.a * (0.18 + awFres * 1.9);
+// A negative strength (entities.ts, artFlag.ts HOSTILE_EDGE): the hostile rim kept to the edge,
+// no flat wash. Every other rim (positive) is drawn exactly as before.
+if (vTint.a >= 0.0) totalEmissiveRadiance += vTint.rgb * vTint.a * (0.18 + awFres * 1.9);
+else totalEmissiveRadiance += vTint.rgb * -vTint.a * (0.02 + pow(awFres, 1.4) * 2.8);
 totalEmissiveRadiance += vec3(1.0, 0.97, 0.92) * vFx.x * vFx.x * 1.2;
 totalEmissiveRadiance += vTint.rgb * awEdge * 4.0;
 totalEmissiveRadiance += mix(vec3(1.0, 0.9, 0.6), AW_SILVER, awFrost) * awGhost * 0.9;

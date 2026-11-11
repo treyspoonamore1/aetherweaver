@@ -35,6 +35,11 @@ export interface PartOptions {
    * `lit` of them lit from inside; with `lead` 3 (porcelain), `lit` of their borders crack violet.
    */
   cell?: number;
+  /**
+   * Stained glass: false keeps this cut glass dark in the dark worlds (no lift: a black coat, a deep
+   * void cloth). Only for parts with `cell`.
+   */
+  lift?: boolean;
 }
 
 interface Part {
@@ -49,6 +54,7 @@ interface Part {
   litGlow: number;
   jit: number;
   cell: number;
+  lift: boolean;
 }
 
 /** A small deterministic hash in [0, 1) (pane tones, lit panes). */
@@ -240,6 +246,7 @@ export class ModelBuilder {
       litGlow: opts.litGlow ?? 0.6,
       jit: this.glass ? (opts.jit ?? 0.07) : 0,
       cell: this.glass ? (opts.cell ?? 0) : 0,
+      lift: opts.lift ?? true,
     });
     return this;
   }
@@ -252,9 +259,19 @@ export class ModelBuilder {
     );
   }
 
-  cyl(rTop: number, rBottom: number, h: number, hex: string, opts?: PartOptions, seg = 8): this {
+  /** A (tapered) cylinder; `start`/`len` (rad) make a closed sector of it (a crescent blade). */
+  cyl(
+    rTop: number,
+    rBottom: number,
+    h: number,
+    hex: string,
+    opts?: PartOptions,
+    seg = 8,
+    start = 0,
+    len = Math.PI * 2,
+  ): this {
     return this.add(
-      ownRandom(() => new THREE.CylinderGeometry(rTop, rBottom, h, seg, 1)),
+      ownRandom(() => new THREE.CylinderGeometry(rTop, rBottom, h, seg, 1, false, start, len)),
       hex,
       opts,
     );
@@ -456,7 +473,8 @@ export class ModelBuilder {
             ? -1 // glass with no lead (a face, a light): still part of a glass figure
             : part.lead + (part.cell > 0 ? Math.min(0.95, part.lit) : 0);
         misc[g + 2] = bodyOf(pos.getY(i));
-        misc[g + 3] = part.cell;
+        // The pane size; negative keeps the cut glass dark in the dark worlds (material.ts).
+        misc[g + 3] = part.lift ? part.cell : -part.cell;
         const t = (i / 3) | 0;
         if (shell) {
           const sm = panes!.smooth.get(panes!.keys[i]!);

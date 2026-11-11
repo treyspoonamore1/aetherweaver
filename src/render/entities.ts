@@ -54,7 +54,7 @@ import {
   recolorModel,
 } from './models/library';
 import { WEAVER_HANDS } from './models/art/weaver';
-import { ART_PASS, HERO_DRAWN } from './models/artFlag';
+import { ART_PASS, HERO_DRAWN, HOSTILE_EDGE } from './models/artFlag';
 import {
   SEREN_FLASH,
   SEREN_VIOLET,
@@ -1953,6 +1953,8 @@ export class EntityLayer {
       // Not while it is still forming: the dissolve's edge would glow in the rim's colour.
       this.tint.copy(ENEMY_BAR);
       tintStrength = HOSTILE_RIM;
+      // The edge-only alternative on a stained-glass foe (artFlag.ts; off): negative = edge only.
+      if (HOSTILE_EDGE && rec.batch.geometry.getAttribute('aMisc')) tintStrength = -HOSTILE_RIM;
     } else {
       this.tint.copy(BLACK);
     }

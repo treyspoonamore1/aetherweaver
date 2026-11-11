@@ -66,6 +66,11 @@ const TINT = {
 const FACET: PartOptions = { glow: 0.14, lit: 0.34, litGlow: 0.62, jit: 0.1 };
 /** Black glass: the lead still shows on it; a few panes faintly lit. */
 const BLACK: PartOptions = { glow: 0.04, lit: 0.12, litGlow: 0.3, jit: 0.12 };
+/**
+ * The Conductor's coat: black glass cut into panes and kept dark in the dark worlds (`lift: false`,
+ * integration, the kit's request: cut panes used to be lifted to lavender).
+ */
+const COAT: PartOptions = { ...BLACK, cell: 0.34, lift: false };
 
 /** A mapping that tilts a point about the x axis through `c` by `t` (positive: a face turns up). */
 function tilt(c: V3, t: number) {
@@ -609,13 +614,13 @@ export function buildConductor(def: EnemyDef): THREE.BufferGeometry {
         0.06 * w,
         DARK,
         0,
-        BLACK,
+        COAT,
       );
       b.cone(
         0.22 * w,
         0.32 * k,
         DARK,
-        { ...BLACK, p: P(side * 0.51, 0.78, 1.17), r: [Math.PI + 0.23, 0, side * -0.09] },
+        { ...COAT, p: P(side * 0.51, 0.78, 1.17), r: [Math.PI + 0.23, 0, side * -0.09] },
         4,
       );
     }
@@ -630,7 +635,7 @@ export function buildConductor(def: EnemyDef): THREE.BufferGeometry {
       [0, 3.7 * k],
     ],
     DARK,
-    BLACK,
+    COAT,
     8,
   );
   for (const side of [-1, 1])

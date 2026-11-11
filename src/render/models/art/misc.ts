@@ -1,5 +1,6 @@
-import { BARK, SEED } from './heroes';
 import {
+  BARK,
+  ORO_SEED as SEED,
   BRACE,
   FLAT,
   HEAD,

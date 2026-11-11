@@ -18,6 +18,10 @@ import {
   type HeroDef,
   type V3,
   THREE,
+  BARK,
+  BRASS_TRIM,
+  ORO_SEED,
+  THRUST,
 } from './kit';
 
 /**
@@ -393,7 +397,7 @@ export function buildVexis(def: HeroDef): THREE.BufferGeometry {
  * band and his axe's edge, the trim that carries him where his crimson can't (the Spire).
  * tests/colorVision.test.ts counts its exact colour on the model, so these parts never jitter.
  */
-const BRASS = '#a6a650';
+const BRASS = BRASS_TRIM;
 /** A trim part that keeps its exact colour (no per-pane tone): the colour tests count it. */
 const EXACT = { jit: 0 } as const;
 
@@ -667,7 +671,8 @@ export function buildSeren(def: HeroDef): THREE.BufferGeometry {
   });
   // The sword arm (her right): extended forward and low, the rapier far ahead of her (its tip
   // reaches past every hero's), a cupped violet guard, a violet light along the blade.
-  b.rigged({ k: WEAPON, at: [0.22, 1.62, 0], a: 0.6 }, () => {
+  // A lunge: drawn back through the wind-up, driven straight out on the blow (the kit's THRUST).
+  b.rigged({ k: THRUST, at: [0.22, 1.62, 0], a: 0.9 }, () => {
     limb(b, [0.22, 1.62, 0], [0.26, 1.42, -0.26], 0.055, 0.06, STEEL, 6, SIG, EXACT);
     limb(b, [0.26, 1.42, -0.26], [0.22, 1.32, -0.52], 0.05, 0.055, STEEL, 6, SIG, EXACT);
     b.sphere(0.05, boot, { p: [0.22, 1.31, -0.56] }, 5, 4);
@@ -692,9 +697,9 @@ export function buildSeren(def: HeroDef): THREE.BufferGeometry {
  * and branch crown that carries him where his moss sits close to the Spire's and the Rift's
  * colours. tests/colorVision.test.ts counts its exact colour on the model.
  */
-export const SEED = '#a0f870';
+export const SEED = ORO_SEED;
 /** Oro's bark (his robe, his crown's branches, his staff; the Saplings' and the Ancient's wood). */
-export const BARK = '#5b4330';
+export { BARK };
 
 export function buildOro(def: HeroDef): THREE.BufferGeometry {
   const b = figure('hero', { body: [0.7, 0.7] });
