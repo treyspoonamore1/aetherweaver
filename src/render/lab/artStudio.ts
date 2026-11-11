@@ -22,7 +22,7 @@ import type { QualityTier, Stage } from '../stage';
  * framed exactly like the model it replaces):
  * - `close`: the subject alone at the floor's centre, turned 0.6 rad toward the key light, seen
  *   from the front and 15° above, at 2.15 × its height, looking at half its height.
- * - `lineup`: all seven in a row, turned alike, from the front and 12° above.
+ * - `lineup`: all seven in a row, turned alike, from the front and 12° above, 14.2 m out.
  */
 export type StudioSubject =
   'kael' | 'lyra' | 'vexis' | 'weaver' | 'hollow_chorister' | 'bell_brute' | 'the_bellwarden';
@@ -120,9 +120,9 @@ export class ArtStudio {
         x += 2 * r + gap;
       });
       const el = (12 * Math.PI) / 180;
-      const d = 15.5;
-      this.target.set(0, 1.2, 0);
-      this.eye.set(0, 1.2 + d * Math.sin(el), d * Math.cos(el));
+      const d = 14.2;
+      this.target.set(0, 1.55, 0);
+      this.eye.set(0, 1.55 + d * Math.sin(el), d * Math.cos(el));
     }
   }
 
