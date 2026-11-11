@@ -52,4 +52,8 @@ export const routeText = {
   'screens.routeText.summary2': '{routeName} · summary',
   'screens.routeText.stepOf3': 'step {min} of {steps}',
   'screens.routeText.stepOf4': '{movementLabel} · step {step} of {of}',
+  'screens.routeText.stop': 'stop',
+  'screens.routeText.stops': 'stops',
+  'screens.routeText.straight': 'straight ',
+  'screens.routeText.movement': 'Movement {movementNumeral}',
 } satisfies Catalogue;

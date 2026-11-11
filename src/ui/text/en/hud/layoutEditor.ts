@@ -23,4 +23,6 @@ export const layoutEditor = {
   'hud.layoutEditor.stacked': 'Stacked',
   'hud.layoutEditor.sideBySide': 'Side by side',
   'hud.layoutEditor.acrossDown': '{round}% across, {round2}% down',
+  'hud.layoutEditor.frames2': 'frames',
+  'hud.layoutEditor.bar': 'bar',
 } satisfies Catalogue;

@@ -30,4 +30,5 @@ export const forgeScreen = {
   'screens.forgeScreen.leaveTheForge': 'Leave the forge',
   'screens.forgeScreen.leaveWithoutUsingIt': 'Leave without using it',
   'screens.forgeScreen.aether2': '{title}, {price} Aether. {text}{value}',
+  'screens.forgeScreen.unavailable': ' Unavailable: {problem}',
 } satisfies Catalogue;

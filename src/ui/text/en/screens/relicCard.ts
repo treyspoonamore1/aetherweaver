@@ -9,4 +9,8 @@ export const relicCard = {
   'screens.relicCard.carriedFromTheReliquary':
     '{relicSentence} Carried from the Reliquary{value}.{value2}',
   'screens.relicCard.attuned': ', attuned',
+  'screens.relicCard.curse': 'Curse: ',
+  'screens.relicCard.bane': 'Bane',
+  'screens.relicCard.boon': 'Boon',
+  'screens.relicCard.aether': 'Aether',
 } satisfies Catalogue;

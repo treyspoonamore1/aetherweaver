@@ -135,7 +135,10 @@ export function RespiteView({
               shaken > 0
                 ? t('screens.respiteScreen.steadiesShakenTheirLife', {
                     shaken,
-                    value: shaken === 1 ? 'hero' : 'heroes',
+                    value:
+                      shaken === 1
+                        ? t('screens.respiteScreen.hero')
+                        : t('screens.respiteScreen.heroes'),
                   })
                 : t('screens.respiteScreen.noOneIsShaken'),
             ]}
@@ -161,7 +164,7 @@ export function RespiteView({
             color="#fcd98a"
             lines={[
               t('screens.respiteScreen.rebuildYourSongsAuras', {
-                value: sung.length ? sung.join(', ') : 'nothing',
+                value: sung.length ? sung.join(', ') : t('screens.respiteScreen.nothing'),
               }),
               t('screens.respiteScreen.noHealingAndNo'),
             ]}

@@ -13,6 +13,7 @@ import { useUi } from '../store';
 import { RankPanelView } from './Rank';
 import { allowanceFor, rankOf } from '../../meta/profile';
 import { titleEyebrow } from './routeText';
+import { t } from '../text';
 
 /** Golden threads drifting across the cosmos: the title's "living" layer. */
 function Threads() {
@@ -58,20 +59,30 @@ function Threads() {
 }
 
 /** The demo's quiet line: it's a playtest, and where its progress lives. */
-export const PLAYTEST_LINE = 'A playtest build: your progress stays in this browser.';
+export function playtestLine(): string {
+  return t('screens.titleScreen.playtestLine');
+}
 
 const STARTS: readonly { kind: DemoStart; icon: IconName; title: string; text: string }[] = [
   {
     kind: 'fresh',
     icon: 'sparkle',
-    title: 'Start fresh',
-    text: 'A new Weaver: the real first hours. Every station of the Loom stays dark until it opens, and shows you around when it does.',
+    get title() {
+      return t('screens.titleScreen.startFresh');
+    },
+    get text() {
+      return t('screens.titleScreen.aNewWeaverThe');
+    },
   },
   {
     kind: 'veteran',
     icon: 'crown',
-    title: 'Veteran',
-    text: `A Weaver some hours in: Rank ${VETERAN_RANK} with Starlight to spend, the Luminary mastered, Bonds and the Reliquary under way. Try the later systems at once.`,
+    get title() {
+      return t('screens.titleScreen.veteran');
+    },
+    get text() {
+      return t('screens.titleScreen.aWeaverSomeHours', { VETERAN_RANK });
+    },
   },
 ];
 
@@ -94,10 +105,10 @@ export function DemoChoiceView({ onChoose }: { onChoose(kind: DemoStart): void }
         id="demo-choice-title"
         className="text-center font-display text-xl font-bold tracking-wide text-gold-200"
       >
-        How would you like to begin?
+        {t('screens.titleScreen.howWouldYouLike')}
       </h2>
       <p className="mt-1 text-center text-sm text-muted">
-        Choose once. Settings can bring you back to this choice.
+        {t('screens.titleScreen.chooseOnceSettingsCan')}
       </p>
       <div ref={box} className="mt-4 grid gap-3 sm:grid-cols-2" onKeyDown={onKey}>
         {STARTS.map((s, i) => (
@@ -158,7 +169,7 @@ export function TitleScreen({
     hidden?: boolean;
   }[] = [
     {
-      label: 'Continue',
+      label: t('screens.titleScreen.continue'),
       icon: 'play',
       primary: true,
       hidden: !hasSave,
@@ -166,8 +177,17 @@ export function TitleScreen({
         if (useRun.getState().resume()) setScreen('run');
       },
     },
-    { label: 'Enter the Loom', icon: 'loom', primary: !hasSave, onClick: () => setScreen('loom') },
-    { label: 'Settings', icon: 'gear', onClick: () => setScreen('settings') },
+    {
+      label: t('screens.titleScreen.enterTheLoom'),
+      icon: 'loom',
+      primary: !hasSave,
+      onClick: () => setScreen('loom'),
+    },
+    {
+      label: t('screens.titleScreen.settings'),
+      icon: 'gear',
+      onClick: () => setScreen('settings'),
+    },
   ];
 
   return (
@@ -182,13 +202,13 @@ export function TitleScreen({
           className="anim-rise mt-4 text-center font-display text-4xl font-bold tracking-wide text-gold-300 min-[430px]:text-5xl sm:text-7xl lg:text-8xl"
           style={{ textShadow: '0 0 40px rgb(245 184 61 / 0.35), 0 4px 0 rgb(0 0 0 / 0.5)' }}
         >
-          Aetherweaver
+          {t('screens.titleScreen.aetherweaver')}
         </h1>
         <p
           className="anim-fade mt-4 text-center text-lg text-muted"
           style={{ animationDelay: '300ms' }}
         >
-          You are the support. Your party is the weapon.
+          {t('screens.titleScreen.youAreTheSupport')}
         </p>
 
         {asking ? (
@@ -200,7 +220,7 @@ export function TitleScreen({
           />
         ) : (
           <nav
-            aria-label="Main menu"
+            aria-label={t('screens.titleScreen.mainMenu')}
             className="mt-12 flex w-80 flex-col gap-2.5"
             data-testid="front-door"
             onKeyDown={(e) => {
@@ -239,8 +259,8 @@ export function TitleScreen({
           />
         )}
         <div className="absolute bottom-4 flex flex-col items-center gap-0.5 text-xs text-muted">
-          {demo && <p data-testid="playtest-line">{PLAYTEST_LINE}</p>}
-          <p>Arrow keys or Tab to move · Enter to choose</p>
+          {demo && <p data-testid="playtest-line">{playtestLine()}</p>}
+          <p>{t('screens.titleScreen.arrowKeysOrTab')}</p>
         </div>
       </div>
     </main>

@@ -3,6 +3,8 @@ import { astrolabeLook as commonAstrolabeLook } from './common/astrolabeLook';
 import { chip as commonChip } from './common/chip';
 import { contribution as commonContribution } from './common/contribution';
 import { hudBridge as commonHudBridge } from './common/hudBridge';
+import { loading as commonLoading } from './common/loading';
+import { loomLook as commonLoomLook } from './common/loomLook';
 import { relicGlyph as commonRelicGlyph } from './common/relicGlyph';
 import { reliquaryLook as commonReliquaryLook } from './common/reliquaryLook';
 import { starlight as commonStarlight } from './common/starlight';
@@ -17,6 +19,8 @@ export const common = {
   ...commonChip,
   ...commonContribution,
   ...commonHudBridge,
+  ...commonLoading,
+  ...commonLoomLook,
   ...commonRelicGlyph,
   ...commonReliquaryLook,
   ...commonStarlight,

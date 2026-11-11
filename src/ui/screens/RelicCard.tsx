@@ -51,7 +51,7 @@ export function RelicBody({
           />
           <span>
             <b className="font-semibold">
-              {lifted ? t('screens.relicCard.curseLifted') : 'Curse: '}
+              {lifted ? t('screens.relicCard.curseLifted') : t('screens.relicCard.curse')}
             </b>
             <span className={lifted ? 'line-through decoration-2 opacity-70' : ''}>
               {info.curse}
@@ -293,7 +293,7 @@ export function BoonTip({ info: b, left = true }: { info: BoonInfo; left?: boole
       <span className="flex items-center justify-between gap-2">
         <b className="font-display text-base text-gold-200">{b.name}</b>
         <span className="text-xs font-semibold" style={{ color: b.kind === 'bane' ? BANE : BOON }}>
-          {b.kind === 'bane' ? 'Bane' : 'Boon'}
+          {b.kind === 'bane' ? t('screens.relicCard.bane') : t('screens.relicCard.boon')}
         </span>
       </span>
       <span className="mt-1 block text-sm leading-relaxed text-text">{b.text}</span>
@@ -306,7 +306,7 @@ export function BoonTip({ info: b, left = true }: { info: BoonInfo; left?: boole
 export function Purse({
   aether,
   size = 'md',
-  label = 'Aether',
+  label = t('screens.relicCard.aether'),
 }: {
   aether: number;
   size?: 'md' | 'lg';

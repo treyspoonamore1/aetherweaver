@@ -16,7 +16,7 @@ import {
 import { InstabilityBar, PanelLabel, TierBadge } from './ReliquaryParts';
 import {
   DISSONANCE_KINDS,
-  DORMANT_LINE,
+  dormantLine,
   ROLE_LINE,
   andList,
   blankRelic,
@@ -34,6 +34,7 @@ import {
   tierLabel,
 } from './reliquaryModel';
 import { bandsSentence, oddsLine } from './dissonanceModel';
+import { t as txt } from '../text';
 
 const GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(22rem,1fr))]';
 
@@ -83,14 +84,14 @@ export function ReliquaryCodexPage({ open, rank }: { open: boolean; rank: number
       <Panel tone="solid" className="border-dashed p-6" data-testid="codex-reliquary-locked">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <h2 className="flex items-center gap-2 font-display text-2xl font-bold text-gold-200">
-            <Icon name="reliquary" size={26} /> The Reliquary
+            <Icon name="reliquary" size={26} /> {txt('screens.reliquaryCodex.theReliquary')}
           </h2>
-          <Chip icon="lock">Rank {openRank}</Chip>
+          <Chip icon="lock">{txt('screens.reliquaryCodex.rank', { openRank })}</Chip>
         </div>
         <p className="mt-3 max-w-3xl text-sm leading-relaxed text-text">{unlock?.text}</p>
         <p className="mt-3 flex items-center gap-1.5 text-sm text-muted">
-          <Icon name="lock" size={14} /> It opens at Weaver Rank {openRank} (you’re Rank {rank}).
-          Its rules wait here until then, or turn on Settings → Skip the unlocks.
+          <Icon name="lock" size={14} />{' '}
+          {txt('screens.reliquaryCodex.itOpensAtWeaver', { openRank, rank })}
         </p>
       </Panel>
     );
@@ -110,30 +111,34 @@ export function ReliquaryCodexPage({ open, rank }: { open: boolean; rank: number
       <div className="grid items-start gap-4 lg:grid-cols-[1fr_22rem]">
         <Panel tone="gold" className="p-5">
           <h2 className="flex items-center gap-2 font-display text-xl font-bold text-gold-200">
-            <Icon name="reliquary" size={22} /> The Reliquary
+            <Icon name="reliquary" size={22} /> {txt('screens.reliquaryCodex.theReliquary')}
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-text">
-            Relics that outlive their runs. <b>Enshrine:</b> a won run’s Summary lets you keep one
-            relic it found (not one it carried in). It arrives with its first Inscriptions:{' '}
-            {enshrine.common} for a common, {enshrine.rare} for a rare, {enshrine.legendary} for a
-            legendary and {enshrine.cursed} for a cursed relic, rolled as Inscribe rolls them but
-            adding no Instability. A cursed relic a Forge cleansed comes cleansed. The Reliquary
-            holds {rules.capacity}; a full one must release a relic before it takes another. The
-            same relic can be enshrined more than once: each is its own.
+            {txt('screens.reliquaryCodex.relicsThatOutliveTheir')}{' '}
+            <b>{txt('screens.reliquaryCodex.enshrine')}</b>{' '}
+            {txt('screens.reliquaryCodex.aWonRunS', {
+              common: enshrine.common,
+              rare: enshrine.rare,
+              legendary: enshrine.legendary,
+              cursed: enshrine.cursed,
+              capacity: rules.capacity,
+            })}
           </p>
           <p className="mt-2 text-sm leading-relaxed text-text">
-            <b>Carry:</b> in Prep, choose up to{' '}
-            {rules.slotRanks.map((r, i) => `${i + 1} at Rank ${r}`).join(', ')}, never two of the
-            same relic. They’re yours from the first fight, and the run’s offers won’t give them
-            again. Embarking copies them, Inscriptions and all: crafting later doesn’t change a run
-            under way. The Training Grounds use the relics you’ve chosen, so you can try them first.
+            <b>{txt('screens.reliquaryCodex.carry')}</b>{' '}
+            {txt('screens.reliquaryCodex.inPrepChooseUp', {
+              slotRanks: rules.slotRanks
+                .map((r, i) => txt('screens.reliquaryCodex.atRank', { value: i + 1, r }))
+                .join(', '),
+            })}
           </p>
           <p className="mt-2 text-sm leading-relaxed text-text" data-testid="codex-attunement">
-            <b style={{ color: CARRIED_LOOK.color }}>Attunement:</b> the relic in the first slot is{' '}
-            <b>attuned</b>: its own effect (Empowered, if a Dissonate Empowered it) and its
-            Inscriptions. The others are <b>dormant</b>: their own effect sleeps, a cursed relic’s
-            own curse with it, so a Forge has nothing to lift; they lend the run their Inscriptions,
-            a Dissonant one and a Reliquary curse. Choose which to attune by reordering the carry.
+            <b style={{ color: CARRIED_LOOK.color }}>{txt('screens.reliquaryCodex.attunement')}</b>{' '}
+            {txt('screens.reliquaryCodex.theRelicInThe')}
+            <b>{txt('screens.reliquaryCodex.attuned')}</b>
+            {txt('screens.reliquaryCodex.itsOwnEffectEmpowered')}{' '}
+            <b>{txt('screens.reliquaryCodex.dormant')}</b>
+            {txt('screens.reliquaryCodex.theirOwnEffectSleeps')}
           </p>
           <p className="mt-2 flex items-start gap-1.5 text-xs text-muted">
             <Icon
@@ -143,7 +148,7 @@ export function ReliquaryCodexPage({ open, rank }: { open: boolean; rank: number
               style={{ color: SHARD_LOOK.color }}
             />
             <span>
-              <b className="text-text">Tuning Shards.</b> {how.shards}
+              <b className="text-text">{txt('screens.reliquaryCodex.tuningShards')}</b> {how.shards}
             </span>
           </p>
           <p className="mt-1 flex items-start gap-1.5 text-xs text-muted">
@@ -154,12 +159,12 @@ export function ReliquaryCodexPage({ open, rank }: { open: boolean; rank: number
               style={{ color: TEAR_LOOK.color }}
             />
             <span>
-              <b className="text-text">Discord Tears.</b> {how.tears}
+              <b className="text-text">{txt('screens.reliquaryCodex.discordTears')}</b> {how.tears}
             </span>
           </p>
         </Panel>
         <Panel tone="solid" className="p-4">
-          <PanelLabel>The carry</PanelLabel>
+          <PanelLabel>{txt('screens.reliquaryCodex.theCarry')}</PanelLabel>
           <ol className="mt-2 flex flex-col gap-1.5 text-sm">
             {rules.slotRanks.map((r, i) => (
               <li key={r} className="flex items-start gap-2">
@@ -169,89 +174,109 @@ export function ReliquaryCodexPage({ open, rank }: { open: boolean; rank: number
                   {i + 1}
                 </span>
                 <span className="leading-snug">
-                  <b className="text-text">Rank {r}</b>{' '}
+                  <b className="text-text">{txt('screens.reliquaryCodex.rank2', { r })}</b>{' '}
                   <span className="text-muted">· {ROLE_LINE[i === 0 ? 'attuned' : 'lends']}</span>
                 </span>
               </li>
             ))}
           </ol>
-          <p className="mt-2 text-xs leading-snug text-muted">{DORMANT_LINE}</p>
+          <p className="mt-2 text-xs leading-snug text-muted">{dormantLine()}</p>
         </Panel>
       </div>
 
       <Panel tone="solid" className="p-5" data-testid="codex-crafts">
-        <h3 className="font-display text-lg font-bold text-gold-300">The crafts</h3>
-        <p className="mt-1 text-sm text-muted">
-          Between runs, on the Reliquary’s screen. Each shows its cost, its odds and its chance to
-          Fracture before you commit; its roll is seeded and saved, so reloading can’t roll it
-          again.
-        </p>
+        <h3 className="font-display text-lg font-bold text-gold-300">
+          {txt('screens.reliquaryCodex.theCrafts')}
+        </h3>
+        <p className="mt-1 text-sm text-muted">{txt('screens.reliquaryCodex.betweenRunsOnThe')}</p>
         <div className="mt-3 overflow-x-auto">
           <table className="w-full min-w-[40rem] text-left text-sm">
             <thead className="text-xs uppercase tracking-wider text-muted">
               <tr>
-                <th className="py-1 pr-3 font-semibold">Craft</th>
-                <th className="py-1 pr-3 font-semibold">Cost</th>
-                <th className="py-1 pr-3 font-semibold">What it does</th>
-                <th className="py-1 font-semibold">Instability</th>
+                <th className="py-1 pr-3 font-semibold">{txt('screens.reliquaryCodex.craft')}</th>
+                <th className="py-1 pr-3 font-semibold">{txt('screens.reliquaryCodex.cost')}</th>
+                <th className="py-1 pr-3 font-semibold">
+                  {txt('screens.reliquaryCodex.whatItDoes')}
+                </th>
+                <th className="py-1 font-semibold">{txt('screens.reliquaryCodex.instability')}</th>
               </tr>
             </thead>
             <tbody className="align-top">
               <tr className="border-t border-ink-600/70" data-craft="inscribe">
-                <td className="py-2 pr-3 font-semibold text-text">Inscribe</td>
+                <td className="py-2 pr-3 font-semibold text-text">
+                  {txt('screens.reliquaryCodex.inscribe')}
+                </td>
                 <td className="py-2 pr-3 font-mono text-text">{shardsText(rules.inscribe.cost)}</td>
                 <td className="py-2 pr-3 text-text">
-                  Adds a random Inscription of the kind you choose (one it doesn’t have), up to{' '}
-                  {rules.maxInscriptions}:{' '}
-                  {rules.inscribe.tierOdds
-                    .map((p, i) => (p > 0 ? `${tierLabel(5 - i)} ${num(p)}%` : null))
-                    .filter(Boolean)
-                    .join(', ')}
-                  . A relic won deeper rolls higher:{' '}
-                  {rules.bands.map((b) => `from ${b.depth}, ${oddsLine(b.depth)}`).join('; ')}.
+                  {txt('screens.reliquaryCodex.addsARandomInscription', {
+                    maxInscriptions: rules.maxInscriptions,
+                    tierOdds: rules.inscribe.tierOdds
+                      .map((p, i) => (p > 0 ? `${tierLabel(5 - i)} ${num(p)}%` : null))
+                      .filter(Boolean)
+                      .join(', '),
+                    bands: rules.bands
+                      .map((b) =>
+                        txt('screens.reliquaryCodex.from', {
+                          depth: b.depth,
+                          oddsLine: oddsLine(b.depth),
+                        }),
+                      )
+                      .join('; '),
+                  })}
                 </td>
                 <td className="py-2 font-mono text-text">+{rules.inscribe.instability}</td>
               </tr>
               <tr className="border-t border-ink-600/70" data-craft="retune">
-                <td className="py-2 pr-3 font-semibold text-text">Retune</td>
+                <td className="py-2 pr-3 font-semibold text-text">
+                  {txt('screens.reliquaryCodex.retune')}
+                </td>
                 <td className="py-2 pr-3 font-mono text-text">{shardsText(rules.retune.cost)}</td>
                 <td className="py-2 pr-3 text-text">
-                  Rolls one Inscription’s value again within its tier, every value as likely.
+                  {txt('screens.reliquaryCodex.rollsOneInscriptionS')}
                 </td>
                 <td className="py-2 font-mono text-text">+{rules.retune.instability}</td>
               </tr>
               <tr className="border-t border-ink-600/70" data-craft="ascend">
-                <td className="py-2 pr-3 font-semibold text-text">Ascend</td>
+                <td className="py-2 pr-3 font-semibold text-text">
+                  {txt('screens.reliquaryCodex.ascend')}
+                </td>
                 <td className="py-2 pr-3 font-mono text-text">{shardsText(rules.ascend.cost)}</td>
                 <td className="py-2 pr-3 text-text">
-                  Tries to raise one Inscription a tier:{' '}
-                  {ladder
-                    .map(
-                      (l) =>
-                        `${tierLabel(l.from)} → ${tierLabel(l.from - 1)} ${oddsText(l.p)}${l.depth > 0 ? ` (won at ${l.depth}+)` : ''}`,
-                    )
-                    .join(', ')}
-                  . A miss changes nothing (the cost and Instability are spent). How far it goes is
-                  the relic’s depth, the Dissonance it was won at: {bandsSentence()}.
+                  {txt('screens.reliquaryCodex.triesToRaiseOne', {
+                    ladder: ladder
+                      .map(
+                        (l) =>
+                          `${tierLabel(l.from)} → ${tierLabel(l.from - 1)} ${oddsText(l.p)}${l.depth > 0 ? txt('screens.reliquaryCodex.wonAt', { depth: l.depth }) : ''}`,
+                      )
+                      .join(', '),
+                    bandsSentence: bandsSentence(),
+                  })}
                 </td>
                 <td className="py-2 font-mono text-text">+{rules.ascend.instability}</td>
               </tr>
               <tr className="border-t border-ink-600/70" data-craft="dissonate">
-                <td className="py-2 pr-3 font-semibold text-text">Dissonate</td>
+                <td className="py-2 pr-3 font-semibold text-text">
+                  {txt('screens.reliquaryCodex.dissonate')}
+                </td>
                 <td className="py-2 pr-3 font-mono text-text">{tearsText(rules.dissonate.cost)}</td>
                 <td className="py-2 pr-3 text-text">
-                  The final gamble (below). It never Fractures, and the relic can’t be crafted
-                  afterwards.
+                  {txt('screens.reliquaryCodex.theFinalGambleBelow')}
                 </td>
                 <td className="py-2 font-mono text-muted">—</td>
               </tr>
               <tr className="border-t border-ink-600/70" data-craft="release">
-                <td className="py-2 pr-3 font-semibold text-text">Release</td>
+                <td className="py-2 pr-3 font-semibold text-text">
+                  {txt('screens.reliquaryCodex.release')}
+                </td>
                 <td className="py-2 pr-3 font-mono text-muted">—</td>
                 <td className="py-2 pr-3 text-text">
-                  The relic leaves for Tuning Shards: {release.common} for a common, {release.rare}{' '}
-                  for a rare, {release.cursed} for a cursed relic, {release.legendary} for a
-                  legendary, and {release.perInscription} more for each Inscription.
+                  {txt('screens.reliquaryCodex.theRelicLeavesFor', {
+                    common: release.common,
+                    rare: release.rare,
+                    cursed: release.cursed,
+                    legendary: release.legendary,
+                    perInscription: release.perInscription,
+                  })}
                 </td>
                 <td className="py-2 font-mono text-muted">—</td>
               </tr>
@@ -263,29 +288,31 @@ export function ReliquaryCodexPage({ open, rank }: { open: boolean; rank: number
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel tone="solid" className="p-5" data-testid="codex-fracture">
           <h3 className="flex items-center gap-2 font-display text-lg font-bold text-gold-300">
-            <Icon name="crack" size={20} style={{ color: FRACTURED_LOOK.color }} /> Instability and
-            Fracture
+            <Icon name="crack" size={20} style={{ color: FRACTURED_LOOK.color }} />{' '}
+            {txt('screens.reliquaryCodex.instabilityAndFracture')}
           </h3>
           <p className="mt-2 text-sm leading-relaxed text-text">
-            Instability runs 0–100 and only rises. Past {above}, every craft but a Dissonate (its
-            own gamble) first risks a <b style={{ color: FRACTURED_LOOK.color }}>Fracture</b>:{' '}
-            {num(rules.fracture.perPoint)}% for each point past it, so{' '}
-            {andList(fractureExamples().map((e) => `${oddsText(e.p)} at ${e.at}`))}. A fractured
-            relic freezes as it was, and the craft and its cost are lost. It still works, and can
-            still be carried. The odds are always shown.
+            {txt('screens.reliquaryCodex.instabilityRuns0100', { above })}{' '}
+            <b style={{ color: FRACTURED_LOOK.color }}>{txt('screens.reliquaryCodex.fracture')}</b>
+            {txt('screens.reliquaryCodex.forEachPointPast', {
+              perPoint: num(rules.fracture.perPoint),
+              andList: andList(fractureExamples().map((e) => `${oddsText(e.p)} at ${e.at}`)),
+            })}
           </p>
           <div className="mt-3 max-w-md">
             <InstabilityBar view={instabilityView(demo)} />
             <p className="mt-1 text-xs text-muted">
-              At {demo.instability}, Inscribe, Retune and Ascend each risk{' '}
-              {oddsText(instabilityView(demo).fracture)}. A Dissonate never Fractures.
+              {txt('screens.reliquaryCodex.atInscribeRetuneAnd', {
+                instability: demo.instability,
+                oddsText: oddsText(instabilityView(demo).fracture),
+              })}
             </p>
           </div>
         </Panel>
         <Panel tone="solid" className="p-5" data-testid="codex-dissonate">
           <h3 className="flex items-center gap-2 font-display text-lg font-bold text-gold-300">
             <Icon name="dissonate" size={20} style={{ color: DISSONANCE_LOOK.dissonant.color }} />{' '}
-            Dissonate
+            {txt('screens.reliquaryCodex.dissonate')}
           </h3>
           <ul className="mt-2 flex flex-col gap-2">
             {growsOdds.map((c) => {
@@ -303,7 +330,7 @@ export function ReliquaryCodexPage({ open, rank }: { open: boolean; rank: number
                     <span className="font-mono text-text">{c.text}</span>{' '}
                     <span className="text-muted">
                       {c.key === 'empowered'
-                        ? 'Its own effect grows (the relics below).'
+                        ? txt('screens.reliquaryCodex.itsOwnEffectGrows')
                         : c.detail}
                     </span>
                   </span>
@@ -313,23 +340,31 @@ export function ReliquaryCodexPage({ open, rank }: { open: boolean; rank: number
           </ul>
           {still && stillOdds && (
             <p className="mt-2 text-xs text-muted">
-              A relic with no numbers to grow turns Dissonant instead: for {still.name},{' '}
-              {DISSONANCE_KINDS.map(
-                (k) => `${DISSONANCE_LOOK[k].label} ${oddsText(stillOdds[k])}`,
-              ).join(', ')}
-              .
+              {txt('screens.reliquaryCodex.aRelicWithNo', {
+                name: still.name,
+                DISSONANCE_KINDS: DISSONANCE_KINDS.map(
+                  (k) => `${DISSONANCE_LOOK[k].label} ${oddsText(stillOdds[k])}`,
+                ).join(', '),
+              })}
             </p>
           )}
         </Panel>
       </div>
 
-      <section aria-label="Inscriptions" data-testid="codex-inscriptions">
-        <h3 className="mb-1 font-display text-lg font-bold text-gold-300">Inscriptions</h3>
+      <section
+        aria-label={txt('screens.reliquaryCodex.inscriptions')}
+        data-testid="codex-inscriptions"
+      >
+        <h3 className="mb-1 font-display text-lg font-bold text-gold-300">
+          {txt('screens.reliquaryCodex.inscriptions')}
+        </h3>
         <p className="mb-3 max-w-4xl text-sm text-muted">
-          Up to {rules.maxInscriptions} on a relic (and a Dissonant one), never the same twice. A
-          tier is a range: the value rolls within it. They add to the Astrolabe’s own sums. Past{' '}
-          {tierLabel(rules.tierCap)}, a relic’s depth decides: {bandsSentence()} (a Dissonate gone
-          Cursed reaches {tierLabel(rules.dissonate.cursedTierCap)} sooner).
+          {txt('screens.reliquaryCodex.upToOnA', {
+            maxInscriptions: rules.maxInscriptions,
+            tierLabel: tierLabel(rules.tierCap),
+            bandsSentence: bandsSentence(),
+            tierLabel2: tierLabel(rules.dissonate.cursedTierCap),
+          })}
         </p>
         <div className={GRID}>
           {codexInscriptions().map((group) => {
@@ -363,7 +398,9 @@ export function ReliquaryCodexPage({ open, rank }: { open: boolean; rank: number
                             title={
                               t.reachable
                                 ? undefined
-                                : `A relic won at ${t.depth ?? '?'} Dissonance or more`
+                                : txt('screens.reliquaryCodex.aRelicWonAt', {
+                                    value: t.depth ?? '?',
+                                  })
                             }
                           >
                             <TierBadge tier={t.tier} size="sm" />
@@ -386,11 +423,9 @@ export function ReliquaryCodexPage({ open, rank }: { open: boolean; rank: number
             className="font-display text-lg font-bold"
             style={{ color: DISSONANCE_LOOK.dissonant.color }}
           >
-            Dissonant Inscriptions
+            {txt('screens.reliquaryCodex.dissonantInscriptions')}
           </h3>
-          <p className="mt-1 text-sm text-muted">
-            One of these fills a fifth slot when a Dissonate goes Dissonant.
-          </p>
+          <p className="mt-1 text-sm text-muted">{txt('screens.reliquaryCodex.oneOfTheseFills')}</p>
           <ul className="mt-2 flex flex-col gap-1.5">
             {CONTENT.inscriptions
               .filter((d) => d.kind === 'dissonant')
@@ -415,14 +450,18 @@ export function ReliquaryCodexPage({ open, rank }: { open: boolean; rank: number
             className="font-display text-lg font-bold"
             style={{ color: DISSONANCE_LOOK.cursed.color }}
           >
-            Curses
+            {txt('screens.reliquaryCodex.curses')}
           </h3>
           <p className="mt-1 text-sm text-muted">
-            One of these joins a relic when a Dissonate goes Cursed (and its Inscriptions rise a
-            tier, as far as {tierLabel(rules.dissonate.cursedTierCap)}
+            {txt('screens.reliquaryCodex.oneOfTheseJoins', {
+              tierLabel: tierLabel(rules.dissonate.cursedTierCap),
+            })}
             {rules.bands.length > 0 &&
-              `, or ${tierLabel(band(rules.bands[0]!.depth).cursedTierCap)} for a relic won at ${rules.bands[0]!.depth} or more`}
-            ). A curse is an affix: a dormant relic still lends it.
+              txt('screens.reliquaryCodex.orForARelic', {
+                tierLabel: tierLabel(band(rules.bands[0]!.depth).cursedTierCap),
+                depth: rules.bands[0]!.depth,
+              })}
+            {txt('screens.reliquaryCodex.aCurseIsAn')}
           </p>
           <ul className="mt-2 flex flex-col gap-1.5">
             {CONTENT.curses.map((c) => (
@@ -448,18 +487,20 @@ export function ReliquaryCodexPage({ open, rank }: { open: boolean; rank: number
           className="font-display text-lg font-bold"
           style={{ color: DISSONANCE_LOOK.empowered.color }}
         >
-          Empowered relics
+          {txt('screens.reliquaryCodex.empoweredRelics')}
         </h3>
         <p className="mt-1 text-sm text-muted">
-          What an Empowered relic plays, attuned. {andList(empowered.none)} have no numbers to grow.
+          {txt('screens.reliquaryCodex.whatAnEmpoweredRelic', { andList: andList(empowered.none) })}
         </p>
         <div className="mt-3 overflow-x-auto">
           <table className="w-full min-w-[40rem] text-left text-sm">
             <thead className="text-xs uppercase tracking-wider text-muted">
               <tr>
-                <th className="py-1 pr-3 font-semibold">Relic</th>
-                <th className="py-1 pr-3 font-semibold">Its effect</th>
-                <th className="py-1 font-semibold">Empowered</th>
+                <th className="py-1 pr-3 font-semibold">{txt('screens.reliquaryCodex.relic')}</th>
+                <th className="py-1 pr-3 font-semibold">
+                  {txt('screens.reliquaryCodex.itsEffect')}
+                </th>
+                <th className="py-1 font-semibold">{txt('screens.reliquaryCodex.empowered')}</th>
               </tr>
             </thead>
             <tbody className="align-top">

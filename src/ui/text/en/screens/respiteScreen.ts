@@ -38,4 +38,7 @@ export const respiteScreen = {
   'screens.respiteScreen.retuneYourSongsOr':
     ' retune your songs, or sit by the fire with a friend.',
   'screens.respiteScreen.orRetuneYourSongs': ' or retune your songs.',
+  'screens.respiteScreen.hero': 'hero',
+  'screens.respiteScreen.heroes': 'heroes',
+  'screens.respiteScreen.nothing': 'nothing',
 } satisfies Catalogue;

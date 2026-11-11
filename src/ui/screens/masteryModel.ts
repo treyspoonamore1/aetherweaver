@@ -106,11 +106,14 @@ export function masteryView(callingId: string, xp: number): MasteryView {
 
 /** "Mastery 3 opens tier III." / "Mastery 5 earns the title Lightbearer and Chorale in…". */
 export function nextLine(v: MasteryView): string {
-  if (!v.next) return v.mastered ?? 'Mastered.';
+  if (!v.next) return v.mastered ?? txt('screens.masteryModel.mastered2');
   return v.next.opens
     ? txt('screens.masteryModel.mastery', {
         level: v.next.level,
-        value: v.next.level >= v.top ? 'earns' : 'opens',
+        value:
+          v.next.level >= v.top
+            ? txt('screens.masteryModel.earns')
+            : txt('screens.masteryModel.opens'),
         opens: v.next.opens,
       })
     : txt('screens.masteryModel.masteryIsNext', { level: v.next.level });
@@ -137,11 +140,14 @@ export function tiersLine(
   const levels = spanOf(shut.map((t) => String(tierMastery(callingId, t))));
   return txt('screens.masteryModel.withMastery', {
     offers,
-    value: shown.length === 1 ? 'tier' : 'tiers',
+    value:
+      shown.length === 1 ? txt('screens.masteryModel.tier') : txt('screens.masteryModel.tiers'),
     listOf: listOf(shown),
-    value2: shut.length === 1 ? 'Tier' : 'Tiers',
+    value2:
+      shut.length === 1 ? txt('screens.masteryModel.tier2') : txt('screens.masteryModel.tiers2'),
     lockedTiers,
-    value3: shut.length === 1 ? 'opens' : 'open',
+    value3:
+      shut.length === 1 ? txt('screens.masteryModel.opens') : txt('screens.masteryModel.open'),
     levels,
   });
 }
@@ -186,7 +192,10 @@ export function masteryGain(callingId: string, xpAfter: number, earned: number):
     ...(tiers.length > 0
       ? [
           txt('screens.masteryModel.fromYourNextRun', {
-            value: tiers.length === 1 ? 'tier' : 'tiers',
+            value:
+              tiers.length === 1
+                ? txt('screens.masteryModel.tier')
+                : txt('screens.masteryModel.tiers'),
             listOf: listOf(tiers),
             name: view.name,
           }),

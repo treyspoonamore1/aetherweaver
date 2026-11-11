@@ -21,4 +21,12 @@ export const masteryModel = {
   'screens.masteryModel.mastery2': '+{gained} {name} mastery',
   'screens.masteryModel.mastery3': 'Mastery {listOf}: {value}.',
   'screens.masteryModel.nothingNewToOpen': 'nothing new to open',
+  'screens.masteryModel.earns': 'earns',
+  'screens.masteryModel.opens': 'opens',
+  'screens.masteryModel.tier': 'tier',
+  'screens.masteryModel.tiers': 'tiers',
+  'screens.masteryModel.tier2': 'Tier',
+  'screens.masteryModel.tiers2': 'Tiers',
+  'screens.masteryModel.open': 'open',
+  'screens.masteryModel.mastered2': 'Mastered.',
 } satisfies Catalogue;

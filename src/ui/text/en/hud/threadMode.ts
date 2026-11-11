@@ -20,4 +20,5 @@ export const threadMode = {
   'hud.threadMode.unravelYourMendWounds':
     'Unravel: your Mend wounds {value}. {switchKey} switches to Empower.',
   'hud.threadMode.bear2': 'Bear {share}%',
+  'hud.threadMode.snapped': 'Snapped',
 } satisfies Catalogue;

@@ -287,7 +287,7 @@ function PathTrack({
                 ? s.chosen.name
                 : s.state === 'offer'
                   ? t('screens.callingScreen.tierNow', { numeral: s.numeral })
-                  : `Tier ${s.numeral}`}
+                  : t('screens.callingScreen.tier', { numeral: s.numeral })}
             </span>
             <span className="text-xs leading-tight text-muted">
               {s.state === 'offer'

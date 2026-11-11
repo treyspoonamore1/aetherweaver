@@ -89,7 +89,7 @@ export function deathAnswerLine(
     (a) => (ANSWER as Record<string, { label: string } | undefined>)[a]?.label ?? a,
   );
   if (names.length === 0) return null;
-  return `${names.length === 1 ? 'Answer' : 'Answers'}: ${names.join(' or ')}`;
+  return `${names.length === 1 ? txt('screens.resultText.answer') : txt('screens.resultText.answers')}: ${names.join(' or ')}`;
 }
 
 /**
@@ -481,7 +481,7 @@ export function statLines(
                 value:
                   healed === s.holds
                     ? s.holds === 1
-                      ? 'them'
+                      ? txt('screens.resultText.them')
                       : txt('screens.resultText.everyOne')
                     : healed,
               })

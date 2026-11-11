@@ -43,12 +43,12 @@ import { t } from '../text';
 
 /** "+20 Aether" / "−40 Aether". */
 export function aetherDelta(n: number): string {
-  return `${n < 0 ? '−' : '+'}${Math.abs(Math.round(n))} Aether`;
+  return t('screens.interlude.aether', { value: n < 0 ? '−' : '+', n: Math.abs(Math.round(n)) });
 }
 
 /** "35 Aether" */
 export function aetherAmount(n: number): string {
-  return `${Math.round(n)} Aether`;
+  return t('screens.interlude.aether2', { n: Math.round(n) });
 }
 
 /** What a fight paid in Aether, and how (for the result screen). Null: this kind never pays. */
@@ -104,10 +104,18 @@ export interface RelicInfo {
 }
 
 const RARITY_LABEL: Record<RelicRarity, string> = {
-  common: 'Common',
-  rare: 'Rare',
-  legendary: 'Legendary',
-  cursed: 'Cursed',
+  get common() {
+    return t('screens.interlude.common');
+  },
+  get rare() {
+    return t('screens.interlude.rare');
+  },
+  get legendary() {
+    return t('screens.interlude.legendary');
+  },
+  get cursed() {
+    return t('screens.interlude.cursed');
+  },
 };
 
 export function relicInfo(
@@ -146,7 +154,7 @@ export function relicSentence(r: RelicInfo): string {
   const curse = r.curse
     ? r.cleansed
       ? t('screens.interlude.itsCurseIsLifted', { curse: r.curse })
-      : ` Curse: ${r.curse}`
+      : t('screens.interlude.curse', { curse: r.curse })
     : '';
   if (r.dormant)
     return t('screens.interlude.relicDormantItsOwn', {
@@ -185,7 +193,10 @@ export function boonInfo(active: Pick<ActiveBoon, 'id' | 'fights'>): BoonInfo {
     icon: glyphKey(def),
     kind: def.kind,
     text: boonText(def),
-    left: n === null ? t('screens.interlude.theRestOfThe') : `${n} ${plural(n, 'fight')} left`,
+    left:
+      n === null
+        ? t('screens.interlude.theRestOfThe')
+        : t('screens.interlude.left', { n, nWord: plural(n, 'fight') }),
     short: n === null ? 'run' : `${n} ${plural(n, 'fight')}`,
   };
 }
@@ -226,7 +237,12 @@ export function rewardChips(reward: RewardPreview): RewardChip[] {
       tone: 'relic',
     });
   if (reward.draft) {
-    const label = reward.draft === 'common' ? 'Common' : reward.draft === 'rare' ? 'Rare' : 'Epic';
+    const label =
+      reward.draft === 'common'
+        ? t('screens.interlude.common')
+        : reward.draft === 'rare'
+          ? t('screens.interlude.rare')
+          : t('screens.interlude.epic');
     chips.push({
       icon: 'diamond',
       text: t('screens.interlude.motif', { label }),
@@ -476,7 +492,7 @@ export interface ShopItemStatus {
 }
 
 export function shopItemStatus(run: Pick<RunState, 'aether'>, item: ShopItem): ShopItemStatus {
-  if (item.sold) return { available: false, problem: 'Sold' };
+  if (item.sold) return { available: false, problem: t('screens.interlude.sold') };
   if (run.aether < item.price)
     return {
       available: false,
@@ -539,6 +555,8 @@ export interface ForgeServiceStatus {
   available: boolean;
   /** Why not: the forge has cooled, nothing to use it on, or not enough Aether. */
   problem: string | null;
+  /** The problem is not enough Aether (its sound is "can't afford"), decided on the run, not the words. */
+  short: boolean;
   /** A short line under the title when it is available ("3 motifs can grow"). */
   note: string;
 }
@@ -560,7 +578,9 @@ export function forgeServiceStatus(run: RunState, service: ForgeService): ForgeS
         : t('screens.interlude.sameRulesAsPrep');
   const used = run.forge?.used ?? null;
   let problem: string | null = null;
-  if (used !== null) problem = used === service ? 'Done' : t('screens.interlude.theForgeHasCooled');
+  if (used !== null)
+    problem =
+      used === service ? t('screens.interlude.done') : t('screens.interlude.theForgeHasCooled');
   else if (targets.length === 0)
     problem =
       service === 'temper'
@@ -570,7 +590,8 @@ export function forgeServiceStatus(run: RunState, service: ForgeService): ForgeS
         : t('screens.interlude.youCarryNoCurse');
   else if (run.aether < price)
     problem = t('screens.interlude.needsMoreAether', { value: price - run.aether });
-  return { price, targets, available: problem === null, problem, note };
+  const short = used === null && targets.length > 0 && run.aether < price;
+  return { price, targets, available: problem === null, problem, short, note };
 }
 
 /** What the forge did this visit, for the "after" view (the run only records the service). */
@@ -635,6 +656,8 @@ export interface ChoiceInfo {
   odds: { win: number; lose: number } | null;
   /** Why it is greyed out (null: it can be chosen). */
   problem: string | null;
+  /** That problem is not enough Aether (the run's numbers decide, not the words). */
+  short: boolean;
   /** It asks for one of your motifs first. */
   motif: EventChoice['motif'];
   /** It opens the song builder first. */
@@ -702,6 +725,7 @@ export function choiceInfo(
   if (retune)
     tags.push({ icon: 'tune', text: t('screens.interlude.opensTheSongBuilder'), tone: 'plain' });
   const live = run.event?.eventId === eventId;
+  const problem = live ? eventChoiceProblem(run, choice.id) : null;
   return {
     id: choice.id,
     label: choice.label,
@@ -712,7 +736,9 @@ export function choiceInfo(
     ),
     cost: choice.cost,
     odds,
-    problem: live ? eventChoiceProblem(run, choice.id) : null,
+    problem,
+    // A Rank-gated choice is refused first (no allowance here), so only an open one can be short.
+    short: problem !== null && choice.rank === undefined && run.aether < choice.cost,
     motif: choice.motif,
     retune,
     fight,
@@ -840,7 +866,7 @@ export function songsLine(chords: RunState['chords']): string {
     )
     .filter(Boolean);
   return t('screens.interlude.yourSongsNow', {
-    value: parts.length ? parts.join(' · ') : 'silence',
+    value: parts.length ? parts.join(' · ') : t('screens.interlude.silence'),
   });
 }
 
@@ -854,13 +880,14 @@ export function eventNameOf(run: Pick<RunState, 'event'>): string | null {
 /** What Continue leads to after a fight: a relic, a motif, the map or the summary. */
 export function nextStep(run: RunState): string {
   const r = run.lastResult;
-  if (!r || run.outcome === 'defeat' || r.outcome !== 'victory') return 'Continue';
+  if (!r || run.outcome === 'defeat' || r.outcome !== 'victory')
+    return t('screens.interlude.continue');
   const node = run.pending ? findNode(run, run.pending) : undefined;
   // The run's last boss ends it; an Expedition's Cantor leads on (docs/phase-5a.md).
-  if (!node || isFinalNode(node)) return 'Continue';
+  if (!node || isFinalNode(node)) return t('screens.interlude.continue');
   if (callingTierAt(run, node) !== null) return t('screens.interlude.continueYourCallingGrows');
   const relics = node.kind === 'event' ? (run.event?.relics ?? 0) : node.reward.relics;
   if (relics > 0) return t('screens.interlude.continueChooseARelic');
   if (node.reward.draft) return t('screens.interlude.continueChooseAMotif');
-  return 'Continue';
+  return t('screens.interlude.continue');
 }

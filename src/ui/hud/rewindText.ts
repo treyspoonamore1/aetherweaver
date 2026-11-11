@@ -36,7 +36,7 @@ export function rewindMark(r: RewindHud): string | null {
         value: r.escape ? ` · ${escapeWords(r)}` : '',
       });
     case 'none':
-      return r.escape ? `Rewind: ${escapeWords(r)}` : null;
+      return r.escape ? t('hud.rewindText.rewind2', { escapeWords: escapeWords(r) }) : null;
   }
 }
 

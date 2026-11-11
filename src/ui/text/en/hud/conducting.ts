@@ -32,4 +32,12 @@ export const conducting = {
   'hud.conducting.lost': ' · {lost} lost',
   'hud.conducting.marcatoForS': 'Marcato · {pctLabel} for {Number} s',
   'hud.conducting.waitsTheirTurnIs': "{name} waits: their turn is kept until they're free",
+  'hud.conducting.one': 'one',
+  'hud.conducting.solo': 'Solo',
+  'hud.conducting.solos': 'Solos',
+  'hud.conducting.free': 'Free',
+  'hud.conducting.waiting': 'Waiting',
+  'hud.conducting.marcato': 'Marcato',
+  'hud.conducting.next': '{linkName} next',
+  'hud.conducting.next2': '{name} next {powerLabel}',
 } satisfies Catalogue;

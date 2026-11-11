@@ -222,11 +222,15 @@ export const KIND_LABEL: Readonly<Record<StarKind, string>> = {
   get travel() {
     return t('screens.astrolabeModel.travelStar');
   },
-  notable: 'Notable',
+  get notable() {
+    return t('screens.astrolabeModel.notable');
+  },
   get great() {
     return t('screens.astrolabeModel.greatNotable');
   },
-  keystone: 'Keystone',
+  get keystone() {
+    return t('screens.astrolabeModel.keystone');
+  },
 };
 
 // ── States ────────────────────────────────────────────────────────────────────────────
@@ -343,7 +347,7 @@ export function pointsWord(n: number): string {
 
 /** "12 of 15 points". */
 export function pointsLine(spent: number, points: number): string {
-  return `${spent} of ${pointsWord(points)}`;
+  return t('screens.astrolabeModel.of', { spent, pointsWord: pointsWord(points) });
 }
 
 /** "3 points to spend", "Every point spent", "4 points over". */
@@ -391,7 +395,10 @@ export function previewLine(p: StarPreview): string {
     case 'held':
       return t('screens.astrolabeModel.yoursSomethingYouVe', {
         namesLine: namesLine(p.hangs),
-        value: p.hangs.length === 1 ? 'that' : 'those',
+        value:
+          p.hangs.length === 1
+            ? t('screens.astrolabeModel.that')
+            : t('screens.astrolabeModel.those'),
       });
   }
 }
@@ -432,7 +439,7 @@ export function starLabel(node: AstrolabeNode, state: StarState, p: StarPreview 
     state === 'centre'
       ? ''
       : state === 'owned'
-        ? 'Taken. '
+        ? t('screens.astrolabeModel.taken')
         : state === 'takeable'
           ? t('screens.astrolabeModel.canBeTaken')
           : t('screens.astrolabeModel.outOfReachFor');
@@ -440,10 +447,18 @@ export function starLabel(node: AstrolabeNode, state: StarState, p: StarPreview 
 }
 
 const CONSTELLATION_NAME: Readonly<Record<Constellation, string>> = {
-  silk: 'Silk',
-  choir: 'Choir',
-  aegis: 'Aegis',
-  bond: 'Bond',
+  get silk() {
+    return t('screens.astrolabeModel.silk');
+  },
+  get choir() {
+    return t('screens.astrolabeModel.choir');
+  },
+  get aegis() {
+    return t('screens.astrolabeModel.aegis');
+  },
+  get bond() {
+    return t('screens.astrolabeModel.bond');
+  },
 };
 
 // ── Sounds ────────────────────────────────────────────────────────────────────────────

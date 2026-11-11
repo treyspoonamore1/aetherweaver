@@ -185,14 +185,16 @@ export function ResultView({
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-muted">
               {t('screens.resultScreen.step', {
                 last,
-                value: r.kind === 'miniboss' ? 'Mini-boss' : r.kind,
+                value: r.kind === 'miniboss' ? t('screens.resultScreen.miniBoss') : r.kind,
               })}
             </p>
             <h1
               className="mt-1 font-display text-4xl font-bold tracking-wide"
               style={{ color: victory ? 'var(--color-gold-300)' : '#fda4af' }}
             >
-              {victory ? 'Victory' : t('screens.resultScreen.theSongFallsSilent')}
+              {victory
+                ? t('screens.resultScreen.victory')
+                : t('screens.resultScreen.theSongFallsSilent')}
             </h1>
             <p className="mt-1 text-base text-text">{r.name}</p>
             <p className="mt-1 flex items-center gap-3 text-sm text-muted">
@@ -381,10 +383,10 @@ export function ResultView({
               {r.heroes.map((h, slot) => {
                 const def = heroDef(h.heroId);
                 const state = h.dead
-                  ? 'Fell'
+                  ? t('screens.resultScreen.fell')
                   : h.downed
                     ? t('screens.resultScreen.wentDown')
-                    : 'Standing';
+                    : t('screens.resultScreen.standing');
                 return (
                   <li key={slot} className="flex items-center gap-3">
                     <HeroDisc heroId={h.heroId} size={40} />

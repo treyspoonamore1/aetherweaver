@@ -48,7 +48,7 @@ export function StatusBadge({ status, blind = false }: { status: StatusHud; blin
         </span>
       )}
       <span className="font-mono text-xs leading-none">{timed ? `${secs}s` : look.label}</span>
-      {urgent && !blind && look.answer?.startsWith('Chime') && (
+      {urgent && !blind && look.answer && look.chime && (
         <span
           className="ml-0.5 text-gold-200"
           title={t('hud.statusBadge.chimeItAway')}

@@ -35,8 +35,8 @@ import { finaleCleared } from '../src/meta/runEnd';
 import { createSim, type SimEvent } from '../src/sim';
 import { evaluateHints, ANSWER_HINTS } from '../src/ui/hud/hints';
 import {
-  DEFEAT_LINE,
-  FINALE_DEFEAT_LINE,
+  finaleDefeatLine,
+  plainDefeatLine,
   captionCallout,
   cueText,
   defeatLine,
@@ -537,9 +537,9 @@ describe('hints, recaps and callouts', () => {
   });
 
   it('the defeat callout: the Conductor’s silence holds; elsewhere the song falls silent', () => {
-    expect(defeatLine(CONDUCTOR)).toBe(FINALE_DEFEAT_LINE);
-    expect(defeatLine('the_unweaver')).toBe(DEFEAT_LINE);
-    expect(DEFEAT_LINE).toBe('The song falls silent…');
+    expect(defeatLine(CONDUCTOR)).toBe(finaleDefeatLine());
+    expect(defeatLine('the_unweaver')).toBe(plainDefeatLine());
+    expect(plainDefeatLine()).toBe('The song falls silent…');
   });
 
   it('the Calling- and variant-aware note sources', () => {
@@ -819,10 +819,11 @@ describe('review fixes', () => {
   });
 
   it('the Directive wheel greys every spoke with “Frozen” in the silence, and only then', async () => {
-    const { DirectiveWheelView, FROZEN_HINT } = await tsx<{
+    const { DirectiveWheelView, frozenHint } = await tsx<{
       DirectiveWheelView: FunctionComponent<Props>;
-      FROZEN_HINT: string;
+      frozenHint: () => string;
     }>('../src/ui/hud/DirectiveWheel');
+    const FROZEN_HINT = frozenHint();
     const wheel = { x: 200, y: 200, dx: 0, dy: -60, via: 'key', focusTarget: 4, spoke: 'focus' };
     const frozen = renderToStaticMarkup(createElement(DirectiveWheelView, { wheel, frozen: true }));
     expect(frozen).toContain('data-frozen="true"');

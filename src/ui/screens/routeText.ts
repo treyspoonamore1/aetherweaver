@@ -57,7 +57,10 @@ export function movementLabel(
   n: number,
   movements: readonly { readonly label?: string }[] = CONTENT.movements,
 ): string {
-  return movements[n - 1]?.label ?? `Movement ${movementNumeral(n)}`;
+  return (
+    movements[n - 1]?.label ??
+    t('screens.routeText.movement', { movementNumeral: movementNumeral(n) })
+  );
 }
 
 /** Movement `n`'s label mid-sentence: "for the Finale", "Met in Movement II" (docs/phase-5d.md). */
@@ -183,7 +186,7 @@ export function movementCard(n: number, movements?: number): { title: string; te
     text: t('screens.routeText.to', {
       mapTitle: def.mapTitle,
       rows,
-      value: rows === 1 ? 'stop' : 'stops',
+      value: rows === 1 ? t('screens.routeText.stop') : t('screens.routeText.stops'),
       value2: def.label ? inSentence(boss) : boss,
     }),
   };
@@ -311,7 +314,7 @@ export function runMovementCard(
     text: t('screens.routeText.to2', {
       mapTitle: def.mapTitle,
       rows,
-      value: rows === 1 ? 'stop' : 'stops',
+      value: rows === 1 ? t('screens.routeText.stop') : t('screens.routeText.stops'),
       boss,
     }),
     look: CARD_LOOK[def.biome] ?? CARD_LOOK.crimson_spire,
@@ -429,7 +432,10 @@ export function abandonLine(
   const name =
     echoName(run) ??
     (run.weekly !== undefined ? t('screens.routeText.thisWeekSSong2') : routeName(run));
-  return t('screens.routeText.endsHereAndYou', { name, value: straight ? 'straight ' : '' });
+  return t('screens.routeText.endsHereAndYou', {
+    name,
+    value: straight ? t('screens.routeText.straight') : '',
+  });
 }
 
 /** The run's final stop: a boss with nothing after it (the Prelude's Cantor, an Expedition's last boss). */

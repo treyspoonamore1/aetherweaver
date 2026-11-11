@@ -22,4 +22,5 @@ export const callingScreen = {
   'screens.callingScreen.chooseBelow': 'Choose below',
   'screens.callingScreen.lockedMastery': 'Locked: {name} mastery {mastery}',
   'screens.callingScreen.take2': 'Take {name}: {text}',
+  'screens.callingScreen.tier': 'Tier {numeral}',
 } satisfies Catalogue;

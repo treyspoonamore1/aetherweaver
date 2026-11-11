@@ -264,7 +264,8 @@ export function twistLines(t: EchoTwists): TwistLine[] {
       kind: 'dissonance',
       text: txt('screens.atlasModel.alwaysOnAndAdd', {
         forcedNames: forcedNames(t.dissonance),
-        value: t.dissonance.length === 1 ? 'is' : 'are',
+        value:
+          t.dissonance.length === 1 ? txt('screens.atlasModel.is') : txt('screens.atlasModel.are'),
       }),
       icon: 'dissonance',
     });
@@ -490,7 +491,7 @@ function constellationView(
     lit,
     of,
     complete: of > 0 && lit === of,
-    progress: `${lit} of ${of} ${plural(of, 'star')}`,
+    progress: txt('screens.atlasModel.of2', { lit, of, ofWord: plural(of, 'star') }),
     reward,
     rewardLine: txt('screens.atlasModel.all', {
       countWord: countWord(of),
@@ -524,12 +525,12 @@ export function atlasAbout(): string {
     const which = ord[i] ?? `star ${i + 1}`;
     if (s.points <= 0)
       return txt('screens.atlasModel.byClearingIt', {
-        value: i === 0 ? txt('screens.atlasModel.lightThe') : 'the',
+        value: i === 0 ? txt('screens.atlasModel.lightThe') : txt('screens.atlasModel.the'),
         which,
       });
     return i <= 1 || ECHO_STARS[i - 1]!.points <= 0
       ? txt('screens.atlasModel.byClearingItAt', {
-          value: i === 0 ? txt('screens.atlasModel.lightThe') : 'the',
+          value: i === 0 ? txt('screens.atlasModel.lightThe') : txt('screens.atlasModel.the'),
           which,
           points: s.points,
         })
@@ -609,8 +610,8 @@ export function prepEchoView(echoId: string, atlas?: ProfileAtlas): PrepEchoView
     name: dissonanceLevel(l.id).name,
     rank: l.rank,
   }));
-  const own = ['Chords', 'techniques'];
-  if (!echo.twists.noCalling) own.unshift('Calling');
+  const own = [txt('screens.atlasModel.chords'), 'techniques'];
+  if (!echo.twists.noCalling) own.unshift(txt('screens.atlasModel.calling'));
   if (!party) own.unshift('party');
   const yours = txt('screens.atlasModel.yourAreYourOwn', { andList: andList(own) });
   const offLine = off.length > 0 ? `${off.join(', ').replace(/^No/, 'no')}. ` : '';
@@ -664,7 +665,7 @@ export function routeWords(route: WeeklyEntry['route']): string {
 export function prepWeeklyView(input: PrepWeeklyInput): PrepWeeklyView {
   const { week, entry } = input;
   const calling = entry.calling
-    ? `The ${callingDef(entry.calling).name}`
+    ? txt('screens.atlasModel.the2', { name: callingDef(entry.calling).name })
     : txt('screens.atlasModel.noCalling');
   const party = andList(entry.party.map((h) => heroDef(h).name));
   const dissonance = entry.dissonance.map((l) => ({
@@ -675,7 +676,7 @@ export function prepWeeklyView(input: PrepWeeklyInput): PrepWeeklyView {
   const points = dissonancePoints(entry.dissonance);
   const levels = dissonance.length
     ? `${points} (${andList(dissonance.map((d) => (dissonanceLevel(d.id).ranks > 1 ? `${d.name} ${d.rank}` : d.name)))})`
-    : 'None';
+    : txt('screens.atlasModel.none');
   const fixed: PrepWeeklyView['fixed'] = [
     { label: txt('screens.atlasModel.route'), value: routeWords(entry.route), icon: 'flag' },
     { label: txt('screens.atlasModel.calling'), value: calling, icon: 'crown' },
@@ -854,19 +855,21 @@ export function minutes(seconds: number): string {
 export function weeklyRow(row: WeeklyRowInput, place: number): WeeklyRowView {
   const status = STATUS_LOOK[row.entry.status];
   const mine = !!row.entry.mine;
-  const who = mine ? 'You' : (row.entry.name ?? txt('screens.atlasModel.aCode'));
+  const who = mine
+    ? txt('screens.atlasModel.you')
+    : (row.entry.name ?? txt('screens.atlasModel.aCode'));
   const score = row.score === null ? null : fmt(row.score);
   const result =
     row.won === null
       ? null
       : row.won
-        ? 'Won'
+        ? txt('screens.atlasModel.won')
         : row.fightsWon !== null
           ? txt('screens.atlasModel.lostAfterWon', {
               fightsWon: row.fightsWon,
               fightsWonWord: plural(row.fightsWon, 'fight'),
             })
-          : 'Lost';
+          : txt('screens.atlasModel.lost');
   const time = row.seconds === null ? null : minutes(row.seconds);
   return {
     code: row.entry.code,
@@ -903,7 +906,7 @@ export interface WeeklyPanelView {
 
 export function daysLeftLine(days: number): string {
   if (days <= 1) return txt('screens.atlasModel.lastDay');
-  return `${days} ${plural(days, 'day')} left`;
+  return txt('screens.atlasModel.left', { days, daysWord: plural(days, 'day') });
 }
 
 export function weeklyPanelView(input: WeeklyPanelInput): WeeklyPanelView {
@@ -996,7 +999,10 @@ export function summaryAtlasView(r: AtlasRecord, cleared = true): SummaryAtlasVi
       ? txt('screens.atlasModel.echoClearedAtDissonance', { points: r.points })
       : txt('screens.atlasModel.echoCleared');
   const n = r.lit.length;
-  const litLine = n > 0 ? `${countWord(n)} ${plural(n, 'star')} lit` : null;
+  const litLine =
+    n > 0
+      ? txt('screens.atlasModel.lit', { countWord: countWord(n), nWord: plural(n, 'star') })
+      : null;
   const parts = [
     r.shards > 0 ? txt('screens.atlasModel.tuningShards', { shards: fmt(r.shards) }) : null,
     r.tears > 0
@@ -1068,7 +1074,7 @@ export function summaryWeeklyView(w: SummaryWeeklyInput): SummaryWeeklyView {
   return {
     title: txt('screens.atlasModel.thisWeekSSong', { week: w.week }),
     score: `${fmt(w.score)} ${plural(w.score, 'point')}`,
-    result: w.won ? 'Won' : 'Lost',
+    result: w.won ? txt('screens.atlasModel.won') : txt('screens.atlasModel.lost'),
     code: w.code,
     canShare: w.code !== null,
     ...(w.recorded === false ? { none: txt('screens.atlasModel.nothingWasRecordedNo') } : {}),

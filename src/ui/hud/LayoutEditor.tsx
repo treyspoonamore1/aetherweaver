@@ -349,7 +349,12 @@ export function LayoutEditor({
         <div className="mt-4 flex justify-between gap-2">
           <Button size="sm" onClick={reset} data-testid="layout-reset">
             <Icon name="back" size={14} />{' '}
-            {txt('hud.layoutEditor.reset', { value: selected === 'frames' ? 'frames' : 'bar' })}
+            {txt('hud.layoutEditor.reset', {
+              value:
+                selected === 'frames'
+                  ? txt('hud.layoutEditor.frames2')
+                  : txt('hud.layoutEditor.bar'),
+            })}
           </Button>
           <Button
             variant="primary"

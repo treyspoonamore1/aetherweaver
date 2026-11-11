@@ -57,6 +57,7 @@ import { AtlasScreenView } from './AtlasParts';
 import { weeklyPanelFrom } from './atlasModel';
 import { installAtlasActions, useWeeklyVerify } from './atlasWiring';
 import { useAllowance } from './PrepScreen';
+import { t } from '../text';
 
 export interface LoomViewProps {
   profile: LoomProfile;
@@ -183,10 +184,11 @@ export function LoomView({
         <header className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div className="min-w-0">
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-muted">
-              Between runs{unlockAll && ' · all unlocked'}
+              {t('screens.loomScreen.betweenRuns')}
+              {unlockAll && t('screens.loomScreen.allUnlocked')}
             </p>
             <h1 className="flex items-center gap-2 font-display text-3xl font-bold tracking-wide text-gold-300">
-              <Icon name="loom" size={28} /> The Loom
+              <Icon name="loom" size={28} /> {t('screens.loomScreen.theLoom')}
             </h1>
           </div>
           <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
@@ -208,11 +210,18 @@ export function LoomView({
                 </span>
               )}
             </div>
-            <Button variant="ghost" size="sm" onClick={onSettings} aria-label="Settings">
-              <Icon name="gear" size={16} /> <span className="hidden sm:inline">Settings</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onSettings}
+              aria-label={t('screens.loomScreen.settings')}
+            >
+              <Icon name="gear" size={16} />{' '}
+              <span className="hidden sm:inline">{t('screens.loomScreen.settings')}</span>
             </Button>
             <Button variant="ghost" onClick={onFrontDoor} sound="back" data-testid="loom-back">
-              <Icon name="back" size={16} /> Front door <KeyCap label="Esc" />
+              <Icon name="back" size={16} /> {t('screens.loomScreen.frontDoor')}{' '}
+              <KeyCap label={t('screens.loomScreen.esc')} />
             </Button>
           </div>
         </header>
@@ -249,14 +258,18 @@ export function LoomView({
               ribbons={ribbonColors(profile.look.thread, vision)}
               still={still}
               className="h-36 w-auto lg:h-44"
-              label={`The Weaver${plate.title ? `, ${plate.title}` : ''}`}
+              label={t('screens.loomScreen.theWeaver', {
+                value: plate.title ? `, ${plate.title}` : '',
+              })}
             />
             {/* Her name plate: a plaque, not a place (the stations have none). */}
             <div
               className="-mt-1.5 flex w-56 flex-col items-center rounded-xl border border-gold-500/45 bg-ink-900/90 px-3 pb-2 pt-1 shadow-lg shadow-black/50"
               data-testid="loom-nameplate"
             >
-              <p className="font-mono text-xs uppercase tracking-[0.3em] text-muted">You</p>
+              <p className="font-mono text-xs uppercase tracking-[0.3em] text-muted">
+                {t('screens.loomScreen.you')}
+              </p>
               <p className="font-display text-base font-bold leading-tight tracking-wide text-gold-100">
                 {plate.name}
               </p>
@@ -270,12 +283,12 @@ export function LoomView({
               )}
               <div className="mt-1.5 flex w-full items-center gap-2">
                 <span className="shrink-0 font-mono text-xs font-semibold text-gold-300">
-                  Rank {plate.rank}
+                  {t('screens.loomScreen.rank', { rank: plate.rank })}
                 </span>
                 <XpBar
                   before={plate.fraction}
                   after={plate.fraction}
-                  label={`Weaver XP: ${plate.progress}`}
+                  label={t('screens.loomScreen.weaverXp', { progress: plate.progress })}
                   className="flex-1"
                 />
               </div>
@@ -306,7 +319,7 @@ export function LoomView({
           )}
         </div>
         <p className="mt-2 hidden text-center text-xs text-muted lg:block">
-          Arrow keys to move between stations · Enter to open · Esc for the front door
+          {t('screens.loomScreen.arrowKeysToMove')}
         </p>
       </div>
       {intro && (
@@ -320,17 +333,15 @@ export function LoomView({
       )}
       {confirmNew && (
         <Modal
-          title="Begin a new run?"
+          title={t('screens.loomScreen.beginANewRun')}
           onClose={() => setConfirmNew(false)}
           closeOnEscape
           width="max-w-md"
         >
-          <p className="mt-2 text-sm text-text">
-            Starting a new run replaces your saved one. What it earned is kept.
-          </p>
+          <p className="mt-2 text-sm text-text">{t('screens.loomScreen.startingANewRun')}</p>
           <div className="mt-4 flex justify-end gap-2">
             <Button onClick={() => setConfirmNew(false)} sound="back" data-autofocus>
-              Keep it
+              {t('screens.loomScreen.keepIt')}
             </Button>
             <Button
               variant="primary"
@@ -341,7 +352,7 @@ export function LoomView({
               sound="confirm"
               data-testid="gate-new-confirm"
             >
-              New run
+              {t('screens.loomScreen.newRun')}
             </Button>
           </div>
         </Modal>
@@ -414,7 +425,7 @@ function Station({
             style={{ background: look.light }}
             aria-hidden
           >
-            New
+            {t('screens.loomScreen.new')}
           </span>
         )}
       </span>
@@ -501,7 +512,7 @@ function GateStation({
           data-testid="gate-new-run"
           className="lg:-mt-1"
         >
-          <Icon name="flag" size={14} /> New run (ends this one)
+          <Icon name="flag" size={14} /> {t('screens.loomScreen.newRunEndsThis')}
         </Button>
       )}
     </div>

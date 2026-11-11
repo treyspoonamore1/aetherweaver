@@ -19,7 +19,7 @@ import {
   dissonanceBlurb,
   foundLine,
   levelRows,
-  EXPEDITIONS_ONLY,
+  expeditionsOnlyText,
   openedLines,
   rememberLine,
   rewardView,
@@ -31,6 +31,7 @@ import {
   wonLine,
   type LevelRow,
 } from './dissonanceModel';
+import { t as txt } from '../text';
 
 const DISCORD = DISCORD_LOOK.color;
 
@@ -108,11 +109,15 @@ function RankStepper({
   const button =
     'flex h-6 w-6 items-center justify-center rounded-md border border-ink-500 bg-ink-800 font-mono text-sm font-bold text-text transition-colors hover:border-gold-400 aria-disabled:cursor-not-allowed aria-disabled:text-ink-500 aria-disabled:hover:border-ink-500';
   return (
-    <span className="flex items-center gap-1.5" role="group" aria-label={`${name}: its rank`}>
+    <span
+      className="flex items-center gap-1.5"
+      role="group"
+      aria-label={txt('screens.dissonanceParts.itsRank', { name })}
+    >
       <button
         type="button"
         className={button}
-        aria-label={`${name}: one rank fewer`}
+        aria-label={txt('screens.dissonanceParts.oneRankFewer', { name })}
         aria-disabled={rank <= 0 || undefined}
         onClick={() => step(-1)}
         data-testid="level-rank-less"
@@ -123,13 +128,13 @@ function RankStepper({
         <RankPips rank={rank} ranks={ranks} />
         <span className="font-mono text-muted" aria-live="polite">
           {rank}/{ranks}
-          <span className="sr-only"> ranks</span>
+          <span className="sr-only"> {txt('screens.dissonanceParts.ranks')}</span>
         </span>
       </span>
       <button
         type="button"
         className={button}
-        aria-label={`${name}: one rank more`}
+        aria-label={txt('screens.dissonanceParts.oneRankMore', { name })}
         aria-disabled={rank >= ranks || undefined}
         onClick={() => step(1)}
         data-testid="level-rank-more"
@@ -193,7 +198,7 @@ function LevelCard({
           <span className="mt-0.5 block text-xs leading-snug text-muted">{row.text}</span>
           {row.forced && (
             <span className="mt-1 block text-xs font-semibold text-text" data-testid="level-forced">
-              Set by the Echo · no points
+              {txt('screens.dissonanceParts.setByTheEcho')}
             </span>
           )}
           {row.expeditionsOnly && !row.idle && (
@@ -201,7 +206,7 @@ function LevelCard({
               className="mt-1 block text-xs font-semibold text-text"
               data-testid="level-expeditions"
             >
-              {EXPEDITIONS_ONLY}
+              {expeditionsOnlyText()}
             </span>
           )}
           {row.idle && (
@@ -246,7 +251,10 @@ export function DepthChip({ depth, className = '' }: { depth: number; className?
       data-cap={d.cap}
     >
       <Icon name={DISCORD_LOOK.icon} size={12} />
-      {depthLabel(depth)} · reaches {tierName(d.cap)}
+      {txt('screens.dissonanceParts.reaches', {
+        depthLabel: depthLabel(depth),
+        tierName: tierName(d.cap),
+      })}
     </span>
   );
 }
@@ -352,17 +360,16 @@ export function PrepDissonancePanel(props: PrepDissonanceProps) {
           className="flex items-center gap-2 font-display text-lg font-bold tracking-wide"
           style={{ color: DISCORD }}
         >
-          <Icon name={DISCORD_LOOK.icon} size={20} /> Dissonance
+          <Icon name={DISCORD_LOOK.icon} size={20} /> {txt('screens.dissonanceParts.dissonance')}
         </h2>
         <p className="text-right text-xs leading-relaxed text-muted">
-          Opt-in levels for this run: each makes the fight harder and pays more. Prep keeps your
-          choice for the next run; embarking keeps it for this one.
+          {txt('screens.dissonanceParts.optInLevelsFor')}
         </p>
       </div>
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_19rem]">
         <ul
           className="grid content-start gap-2 sm:grid-cols-2 xl:grid-cols-3"
-          aria-label="Dissonance levels"
+          aria-label={txt('screens.dissonanceParts.dissonanceLevels')}
         >
           {rows.map((row) => (
             <LevelCard
@@ -376,13 +383,13 @@ export function PrepDissonancePanel(props: PrepDissonanceProps) {
         <aside
           className="flex flex-col gap-3 self-start rounded-xl border bg-ink-900/80 p-3"
           style={{ borderColor: tint(45, 'var(--color-ink-600)') }}
-          aria-label="What this run’s Dissonance means"
+          aria-label={txt('screens.dissonanceParts.whatThisRunS')}
           data-testid="dissonance-summary"
         >
           <div data-testid="dissonance-total" data-points={points} data-max={max}>
             <p className="flex items-baseline justify-between gap-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted">
-                This run
+                {txt('screens.dissonanceParts.thisRun')}
               </span>
               {points > 0 && (
                 <Button
@@ -393,7 +400,7 @@ export function PrepDissonancePanel(props: PrepDissonanceProps) {
                   onClick={() => change([])}
                   data-testid="dissonance-clear"
                 >
-                  Clear
+                  {txt('screens.dissonanceParts.clear')}
                 </Button>
               )}
             </p>
@@ -404,17 +411,21 @@ export function PrepDissonancePanel(props: PrepDissonanceProps) {
               >
                 {points}
               </span>
-              <span className="font-mono text-sm text-muted">/ {max} points</span>
+              <span className="font-mono text-sm text-muted">
+                {txt('screens.dissonanceParts.points', { max })}
+              </span>
             </p>
             <TotalBar points={points} max={max} />
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted">It pays</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+              {txt('screens.dissonanceParts.itPays')}
+            </p>
             <ul className="mt-1 flex flex-col gap-0.5 text-sm" data-testid="dissonance-pays">
               <li className="flex items-center gap-1.5" data-xp={pays.xpPct}>
                 <Icon name="star" size={14} solid className="shrink-0 text-gold-300" />
                 <b className="font-mono text-text">+{pays.xpPct}%</b>
-                <span className="text-muted">Weaver XP</span>
+                <span className="text-muted">{txt('screens.dissonanceParts.weaverXp')}</span>
               </li>
               <li className="flex items-center gap-1.5" data-shards={pays.shardsPct}>
                 <Icon
@@ -424,7 +435,7 @@ export function PrepDissonancePanel(props: PrepDissonanceProps) {
                   style={{ color: SHARD_LOOK.color }}
                 />
                 <b className="font-mono text-text">+{pays.shardsPct}%</b>
-                <span className="text-muted">Tuning Shards</span>
+                <span className="text-muted">{txt('screens.dissonanceParts.tuningShards')}</span>
               </li>
             </ul>
             <ul
@@ -447,7 +458,9 @@ export function PrepDissonancePanel(props: PrepDissonanceProps) {
                   <span>
                     {t.text}
                     <span className="sr-only">
-                      {t.applies ? ' (this run)' : ' (not at this total)'}
+                      {t.applies
+                        ? txt('screens.dissonanceParts.thisRun2')
+                        : txt('screens.dissonanceParts.notAtThisTotal')}
                     </span>
                   </span>
                 </li>
@@ -456,7 +469,7 @@ export function PrepDissonancePanel(props: PrepDissonanceProps) {
           </div>
           <div data-testid="dissonance-depth" data-cap={depth.cap}>
             <p className="text-xs font-semibold uppercase tracking-wider text-muted">
-              The relics it finds
+              {txt('screens.dissonanceParts.theRelicsItFinds')}
             </p>
             <p className="mt-1 flex items-start gap-2 text-sm leading-snug text-text">
               <TierBadge tier={depth.cap} size="sm" />
@@ -467,7 +480,9 @@ export function PrepDissonancePanel(props: PrepDissonanceProps) {
             </p>
           </div>
           <div data-testid="dissonance-best" data-key={record.key} data-best={record.best ?? 0}>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted">Your best</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+              {txt('screens.dissonanceParts.yourBest')}
+            </p>
             <p className="mt-1 text-sm text-text">{record.line}</p>
             <p
               className={`text-xs ${record.newBest ? 'font-semibold' : 'text-muted'}`}
@@ -481,7 +496,12 @@ export function PrepDissonancePanel(props: PrepDissonanceProps) {
             </p>
           </div>
           <p className="sr-only" aria-live="polite">
-            {`Dissonance ${totalLine(points)}. ${pays.xpText}, ${pays.shardsText}. ${foundLine(points)}`}
+            {txt('screens.dissonanceParts.dissonance3', {
+              totalLine: totalLine(points),
+              xpText: pays.xpText,
+              shardsText: pays.shardsText,
+              foundLine: foundLine(points),
+            })}
           </p>
         </aside>
       </div>
@@ -498,7 +518,7 @@ function TotalBar({ points, max }: { points: number; max: number }) {
       <div
         className="relative h-2 overflow-hidden rounded-full border border-ink-500 bg-ink-800"
         role="meter"
-        aria-label={`Dissonance ${totalLine(points)}`}
+        aria-label={txt('screens.dissonanceParts.dissonance4', { totalLine: totalLine(points) })}
         aria-valuemin={0}
         aria-valuemax={max}
         aria-valuenow={points}
@@ -561,9 +581,9 @@ export function DissonanceClosed({ rank, className = '' }: { rank: number; class
           id="dissonance-title"
           className="flex items-center gap-2 font-display text-base font-bold text-text"
         >
-          Dissonance
+          {txt('screens.dissonanceParts.dissonance')}
           <span className="inline-flex items-center gap-1 rounded-md border border-ink-500 px-1.5 py-px font-sans text-xs font-semibold text-muted">
-            <Icon name="lock" size={11} /> Locked
+            <Icon name="lock" size={11} /> {txt('screens.dissonanceParts.locked')}
           </span>
         </h2>
         <p className="mt-0.5 text-sm text-muted">{dissonanceBlurb()}</p>
@@ -590,7 +610,8 @@ export function EmbarkDissonance({
       data-testid="embark-dissonance"
       data-points={points}
     >
-      <Icon name={DISCORD_LOOK.icon} size={16} /> Dissonance {points}
+      <Icon name={DISCORD_LOOK.icon} size={16} />{' '}
+      {txt('screens.dissonanceParts.dissonance2', { points })}
     </span>
   );
 }
@@ -615,7 +636,7 @@ export function RunDissonancePanel({ run, quiet = false }: { run: RunState; quie
   if (v.points <= 0 && !v.opened) return null;
   return (
     <section
-      aria-label="Dissonance"
+      aria-label={txt('screens.dissonanceParts.dissonance')}
       data-testid="summary-dissonance"
       data-points={v.points}
       data-opened={v.opened}
@@ -643,7 +664,8 @@ export function RunDissonancePanel({ run, quiet = false }: { run: RunState; quie
             }
           >
             <span className="flex items-center gap-2" style={{ color: DISCORD }}>
-              <Icon name={DISCORD_LOOK.icon} size={20} /> Dissonance {v.points}
+              <Icon name={DISCORD_LOOK.icon} size={20} />{' '}
+              {txt('screens.dissonanceParts.dissonance2', { points: v.points })}
             </span>
           </SectionTitle>
           {v.best && v.bestLine && (
@@ -656,7 +678,10 @@ export function RunDissonancePanel({ run, quiet = false }: { run: RunState; quie
               {v.bestLine}
             </p>
           )}
-          <ul className="flex flex-wrap gap-1.5" aria-label="Its levels">
+          <ul
+            className="flex flex-wrap gap-1.5"
+            aria-label={txt('screens.dissonanceParts.itsLevels')}
+          >
             {v.levels.map((l) => (
               <li
                 key={l.id}
@@ -701,10 +726,10 @@ function OpenedCard() {
         <DiscordDisc size={44} />
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: DISCORD }}>
-            This win opened it
+            {txt('screens.dissonanceParts.thisWinOpenedIt')}
           </p>
           <p className="font-display text-2xl font-bold" style={{ color: DISCORD_LOOK.light }}>
-            Dissonance opens
+            {txt('screens.dissonanceParts.dissonanceOpens')}
           </p>
           <p className="mt-1 text-sm text-text">{dissonanceBlurb()}</p>
           <ul className="mt-2 flex flex-col gap-1 text-sm text-muted">

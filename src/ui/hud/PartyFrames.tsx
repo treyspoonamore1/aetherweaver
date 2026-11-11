@@ -9,11 +9,11 @@ import { KeyCap } from '../kit/KeyCap';
 import { Ring } from '../kit/Ring';
 import type { BossHud, Callout, ChordHud, HeroHud, WeaverHud } from '../store';
 import {
-  DOWNED_SONG_LINE,
+  downedSongLine,
   NOTE_GOLD,
   REIGNITE_LINE,
   SILENCE_INK,
-  STILLED_LINE,
+  stilledLine,
   stilledAria,
 } from './finaleLook';
 import type { CallAnswer, ThreadMode } from '../types';
@@ -21,7 +21,7 @@ import { StatusBadge } from './StatusBadge';
 import { ConductMarks, CueBadge } from './ConductParts';
 import { POSSESSED_COLOR, PossessedStrip, StitchChip } from './RiftMarks';
 import { healCutTitle } from './legionLook';
-import { ROLE_LABEL, bindingLabel } from './labels';
+import { ROLE_LABEL, bindingLabel, cueModifierMark, mouseRoleLabel } from './labels';
 import { beamSong, heroSongs, type HeroSongs } from './songs';
 import { bearLabel, shineLabel } from './calling';
 import { CallingGlyph, callingLook } from '../kit/CallingGlyph';
@@ -65,6 +65,7 @@ import {
   tendingTitle,
   type SaplingRow,
 } from './groveLook';
+import { t as txt } from '../text';
 
 /** The Silk's gold: the Astrolabe's Thread stars (Afterglow, Overflowing Grace). */
 const SILK = CONSTELLATION_LOOK.silk;
@@ -87,8 +88,11 @@ function AstrolabeMarks({ hero: h }: { hero: HeroHud }) {
             background: `color-mix(in srgb, ${AMP} 14%, transparent)`,
           }}
           role="img"
-          aria-label={`Afterglow: Empower lingers on ${h.name} for ${h.afterglow.remaining.toFixed(1)} more seconds`}
-          title={`Afterglow: Empower lingers on ${h.name} after your Thread left them`}
+          aria-label={txt('hud.partyFrames.afterglowEmpowerLingersOn', {
+            name: h.name,
+            remaining: h.afterglow.remaining.toFixed(1),
+          })}
+          title={txt('hud.partyFrames.afterglowEmpowerLingersOn2', { name: h.name })}
           data-testid="afterglow"
         >
           <Ring
@@ -99,7 +103,7 @@ function AstrolabeMarks({ hero: h }: { hero: HeroHud }) {
           >
             <Icon name="empower" size={8} />
           </Ring>
-          Afterglow
+          {txt('hud.partyFrames.afterglow')}
           <span className="font-semibold tabular-nums">{secondsLabel(h.afterglow.remaining)}</span>
         </span>
       )}
@@ -112,12 +116,19 @@ function AstrolabeMarks({ hero: h }: { hero: HeroHud }) {
             background: `color-mix(in srgb, ${SILK.color} 12%, transparent)`,
           }}
           role="img"
-          aria-label={`Overflowing Grace: a ${fmt(h.grace.amount)} shield on ${h.name} from Mend's overheal, ${h.grace.remaining.toFixed(1)} seconds left`}
-          title={`Overflowing Grace: Mend’s overheal keeps a shield on ${h.name} (up to ${fmt(h.grace.cap)})`}
+          aria-label={txt('hud.partyFrames.overflowingGraceAShield', {
+            amount: fmt(h.grace.amount),
+            name: h.name,
+            remaining: h.grace.remaining.toFixed(1),
+          })}
+          title={txt('hud.partyFrames.overflowingGraceMendS', {
+            name: h.name,
+            cap: fmt(h.grace.cap),
+          })}
           data-testid="grace"
         >
           <AstrolabeGlyph glyph="overflowing_grace" size={12} style={{ color: SILK.color }} />
-          Grace +{fmt(h.grace.amount)}
+          {txt('hud.partyFrames.grace', { amount: fmt(h.grace.amount) })}
         </span>
       )}
     </>
@@ -135,7 +146,17 @@ const BLOOD = callingLook('martyr').color;
 const BLOOD_LIGHT = callingLook('martyr').light;
 /** The Chronomancer's steel and silver (Rewind, Foresight). */
 const CHRONO = callingLook('chronomancer');
-const MODE_LABEL: Record<ThreadMode, string> = { mend: 'Mend', empower: 'Empower', bear: 'Bear' };
+const MODE_LABEL: Record<ThreadMode, string> = {
+  get mend() {
+    return txt('hud.partyFrames.modeMend');
+  },
+  get empower() {
+    return txt('hud.partyFrames.modeEmpower');
+  },
+  get bear() {
+    return txt('hud.partyFrames.modeBear');
+  },
+};
 
 /** The Weaver's Rewind (`WeaverHud.rewind`): ready, and how far back it reaches. */
 type RewindReady = Pick<NonNullable<WeaverHud['rewind']>, 'ready' | 'seconds'> | null;
@@ -160,14 +181,17 @@ function ChronoMarks({ hero: h, rewind }: { hero: HeroHud; rewind: RewindReady }
             background: `color-mix(in srgb, ${CHRONO.color} 26%, transparent)`,
           }}
           role="img"
-          aria-label={`Rewind: ${rewindSentence(h.name, r)}${r.inRange ? '' : '. Too far: move closer'}`}
-          title={`${bindingLabel('reel')}: ${rewindSentence(h.name, r)}${r.inRange ? '' : ' (too far: move closer)'}`}
+          aria-label={txt('hud.partyFrames.rewind', {
+            rewindSentence: rewindSentence(h.name, r),
+            value: r.inRange ? '' : txt('hud.partyFrames.tooFarMoveCloser'),
+          })}
+          title={`${bindingLabel('reel')}: ${rewindSentence(h.name, r)}${r.inRange ? '' : txt('hud.partyFrames.tooFarMoveCloser2')}`}
           data-testid="rewind-mark"
           data-kind={r.kind}
         >
           <Icon name="rewind" size={12} />
           {mark}
-          {!r.inRange && <span className="font-medium">· too far</span>}
+          {!r.inRange && <span className="font-medium">{txt('hud.partyFrames.tooFar')}</span>}
         </span>
       )}
       {h.lands && (
@@ -181,8 +205,18 @@ function ChronoMarks({ hero: h, rewind }: { hero: HeroHud; rewind: RewindReady }
             background: 'rgb(5 8 20 / 0.6)',
           }}
           role="img"
-          aria-label={`${h.lands.name} lands on ${h.name} ${h.lands.in < 0.05 ? 'now' : `in ${h.lands.in.toFixed(1)} seconds`}`}
-          title={`${h.lands.name} lands in ${secondsLabel(h.lands.in)}`}
+          aria-label={txt('hud.partyFrames.landsOn', {
+            name: h.lands.name,
+            name2: h.name,
+            value:
+              h.lands.in < 0.05
+                ? txt('hud.partyFrames.now')
+                : txt('hud.partyFrames.inSeconds', { in: h.lands.in.toFixed(1) }),
+          })}
+          title={txt('hud.partyFrames.landsIn', {
+            name: h.lands.name,
+            secondsLabel: secondsLabel(h.lands.in),
+          })}
           data-testid="lands-in"
         >
           <Icon name="clock" size={12} />
@@ -200,8 +234,26 @@ function ChronoMarks({ hero: h, rewind }: { hero: HeroHud; rewind: RewindReady }
             boxShadow: f.aimed ? `inset 0 0 0 1px ${CHRONO.color}` : undefined,
           }}
           role="img"
-          aria-label={`Foresight: ${f.name} ${f.aimed ? `on ${h.name}` : 'on every hero'}, ${f.in < 0.05 ? 'about to begin' : `in ${f.in.toFixed(1)} seconds`}`}
-          title={`Foresight: ${f.name} begins ${f.in < 0.05 ? 'any moment' : `in ${secondsLabel(f.in)}`}${f.aimed ? `, at ${h.name}` : ', on every hero'}`}
+          aria-label={txt('hud.partyFrames.foresight', {
+            name: f.name,
+            value: f.aimed
+              ? txt('hud.partyFrames.on', { name: h.name })
+              : txt('hud.partyFrames.onEveryHero'),
+            value2:
+              f.in < 0.05
+                ? txt('hud.partyFrames.aboutToBegin')
+                : txt('hud.partyFrames.inSeconds', { in: f.in.toFixed(1) }),
+          })}
+          title={txt('hud.partyFrames.foresightBegins', {
+            name: f.name,
+            value:
+              f.in < 0.05
+                ? txt('hud.partyFrames.anyMoment')
+                : txt('hud.partyFrames.in', { secondsLabel: secondsLabel(f.in) }),
+            value2: f.aimed
+              ? txt('hud.partyFrames.at', { name: h.name })
+              : txt('hud.partyFrames.onEveryHero2'),
+          })}
           data-testid="foreseen"
         >
           <CallingGlyph icon="foresight" size={12} />
@@ -230,11 +282,18 @@ function MartyrMarks({ hero: h }: { hero: HeroHud }) {
             background: `color-mix(in srgb, ${BLOOD} 22%, transparent)`,
           }}
           role="img"
-          aria-label={`Borne: you take ${bearLabel(h.borne)} of what ${h.name} would lose`}
-          title={`You Bear for ${h.name}: ${bearLabel(h.borne)} of what they’d lose comes to you`}
+          aria-label={txt('hud.partyFrames.borneYouTakeOf', {
+            bearLabel: bearLabel(h.borne),
+            name: h.name,
+          })}
+          title={txt('hud.partyFrames.youBearForOf', {
+            name: h.name,
+            bearLabel: bearLabel(h.borne),
+          })}
           data-testid="borne"
         >
-          <Icon name="bear" size={12} /> Borne · {bearLabel(h.borne)}
+          <Icon name="bear" size={12} />{' '}
+          {txt('hud.partyFrames.borne', { bearLabel: bearLabel(h.borne) })}
         </span>
       )}
       {h.vow && (
@@ -246,11 +305,11 @@ function MartyrMarks({ hero: h }: { hero: HeroHud }) {
             boxShadow: `0 0 0 1px ${BLOOD}`,
           }}
           role="img"
-          aria-label={`Martyr’s Vow: ${h.name} can’t fall below 1 life`}
-          title="Martyr’s Vow: they can’t fall below 1 life while it lasts; the rest comes to you"
+          aria-label={txt('hud.partyFrames.martyrSVowCan', { name: h.name })}
+          title={txt('hud.partyFrames.martyrSVowThey')}
           data-testid="vow"
         >
-          <Icon name="vow" size={12} /> Vow · ≥ 1 life
+          <Icon name="vow" size={12} /> {txt('hud.partyFrames.vow1Life')}
         </span>
       )}
     </>
@@ -323,7 +382,7 @@ export function PartyFrames({
       data-testid="party-frames"
       data-orientation={layout.orientation}
       role="group"
-      aria-label="Party"
+      aria-label={txt('hud.partyFrames.party')}
     >
       <div
         className={`flex gap-2 ${row ? `flex-row ${align}` : 'w-[19rem] flex-col'}`}
@@ -425,7 +484,7 @@ function FrameTip({
             className="flex items-center gap-1 text-xs font-semibold"
             style={{ color: BOND_LOOK.color }}
           >
-            <Icon name="bond" size={13} /> Bond rank {rank}
+            <Icon name="bond" size={13} /> {txt('hud.partyFrames.bondRank', { rank })}
           </span>
         )}
       </p>
@@ -433,7 +492,7 @@ function FrameTip({
         <Icon name="note" size={13} className="text-gold-300" />
         <b className="text-gold-200">{tip.solo.name}</b>
         <span className="text-xs text-muted">
-          {tip.solo.alt ? '· their alternate Solo' : '· Solo'}
+          {tip.solo.alt ? txt('hud.partyFrames.theirAlternateSolo') : txt('hud.partyFrames.solo')}
         </span>
       </p>
       <p className="text-xs leading-snug text-muted">{tip.solo.text}</p>
@@ -442,7 +501,7 @@ function FrameTip({
         <div className="mt-2 border-t border-ink-600/70 pt-1.5">
           {tip.talents.length === 0 ? (
             <p className="flex items-center gap-1.5 text-xs text-muted">
-              <Icon name="talent" size={13} /> No talents this fight.
+              <Icon name="talent" size={13} /> {txt('hud.partyFrames.noTalentsThisFight')}
             </p>
           ) : (
             <ul className="flex flex-col gap-1">
@@ -498,9 +557,24 @@ function Bark({
 }
 
 const CALL_LOOK: Record<CallAnswer, { icon: 'ward' | 'empower' | 'chime'; label: string }> = {
-  ward: { icon: 'ward', label: 'Ward' },
-  empower: { icon: 'empower', label: 'Empower' },
-  chime: { icon: 'chime', label: 'Chime' },
+  ward: {
+    icon: 'ward',
+    get label() {
+      return txt('hud.partyFrames.ward');
+    },
+  },
+  empower: {
+    icon: 'empower',
+    get label() {
+      return txt('hud.partyFrames.empower');
+    },
+  },
+  chime: {
+    icon: 'chime',
+    get label() {
+      return txt('hud.partyFrames.chime');
+    },
+  },
 };
 
 /** The keys that answer a call on this hero. */
@@ -512,7 +586,7 @@ function callKeys(h: HeroHud, answer: CallAnswer, threadMode: ThreadMode): strin
   const keys: string[] = [];
   if (!h.threaded) keys.push(String(h.slot + 1));
   if (threadMode === 'bear') keys.push(bindingLabel('bear'));
-  else if (!h.threaded || threadMode !== 'empower') keys.push('RMB');
+  else if (!h.threaded || threadMode !== 'empower') keys.push(mouseRoleLabel('mode'));
   return keys.length > 0 ? keys : ['✓'];
 }
 
@@ -539,7 +613,8 @@ function CallStrip({
         style={{ borderColor: CALL, color: CALL, background: 'rgb(253 230 138 / 0.12)' }}
         data-testid="call-answered"
       >
-        <Icon name="check" size={13} /> Answered · {call.flourish}!
+        <Icon name="check" size={13} />{' '}
+        {txt('hud.partyFrames.answered', { flourish: call.flourish })}
       </div>
     );
   }
@@ -550,9 +625,14 @@ function CallStrip({
       className="mt-1.5 flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs"
       style={{ borderColor: CALL, background: 'rgb(253 230 138 / 0.1)' }}
       role="status"
-      aria-label={`${h.name} calls for ${look.label}: ${call.remaining.toFixed(1)} seconds to answer for ${call.flourish}`}
+      aria-label={txt('hud.partyFrames.callsForSecondsTo', {
+        name: h.name,
+        label: look.label,
+        remaining: call.remaining.toFixed(1),
+        flourish: call.flourish,
+      })}
       data-testid="call-strip"
-      title={`Answer in time and it becomes ${call.flourish}`}
+      title={txt('hud.partyFrames.answerInTimeAnd', { flourish: call.flourish })}
     >
       <span className="flex items-center gap-1 font-bold" style={{ color: CALL }}>
         <Icon name="call" size={13} />
@@ -578,7 +658,9 @@ function CallStrip({
       </span>
       <span className="ml-auto" />
       <Ring value={frac} size={18} stroke={3} color={CALL}>
-        <span className="sr-only">{call.remaining.toFixed(1)} s</span>
+        <span className="sr-only">
+          {txt('hud.partyFrames.s', { remaining: call.remaining.toFixed(1) })}
+        </span>
       </Ring>
       {/* Two keys (thread them, then RMB) leave no room in the frame: the ring alone counts. */}
       {keys.length < 2 && (
@@ -611,7 +693,7 @@ function StilledStrip({ hero: h, silence }: { hero: HeroHud; silence?: BossHud['
       data-testid="stilled-strip"
     >
       <Icon name="mute" size={15} />
-      {STILLED_LINE}
+      {stilledLine()}
       <span className="ml-auto flex items-center gap-0.5" aria-hidden>
         {Array.from({ length: of }, (_, i) => (
           <span
@@ -660,14 +742,19 @@ function HeldStrip({ hero: h }: { hero: HeroHud }) {
       className="animate-pulse-lethal mt-1.5 flex items-center gap-1.5 rounded-md border-2 px-2 py-1 text-xs font-bold"
       style={{ borderColor: HOLD, color: HOLD, background: 'rgb(226 214 248 / 0.14)' }}
       role="alert"
-      aria-label={`Fermata holds ${h.name} at 1 life: heal them within ${held.remaining.toFixed(1)} seconds`}
+      aria-label={txt('hud.partyFrames.fermataHoldsAt1', {
+        name: h.name,
+        remaining: held.remaining.toFixed(1),
+      })}
       data-testid="held-strip"
     >
       <Icon name="fermata" size={15} />
-      HELD at 1 · Heal!
+      {txt('hud.partyFrames.heldAt1Heal')}
       <span className="ml-auto" />
       <Ring value={frac} size={18} stroke={3} color={HOLD}>
-        <span className="sr-only">{held.remaining.toFixed(1)} s</span>
+        <span className="sr-only">
+          {txt('hud.partyFrames.s', { remaining: held.remaining.toFixed(1) })}
+        </span>
       </Ring>
       <span className="w-7 text-right font-mono">{held.remaining.toFixed(1)}</span>
     </div>
@@ -687,13 +774,13 @@ function AuraPips({ songs }: { songs: HeroSongs }) {
   ];
   if (all.length === 0) return null;
   const describe = (x: (typeof all)[number]) =>
-    `${auraDef(x.id).name}${x.how === 'focus' ? ` (beam ${songs.focus})` : x.how === 'echo' ? ` (echo${songs.echo ? ` ${songs.echo}` : ''})` : ''}`;
+    `${auraDef(x.id).name}${x.how === 'focus' ? txt('hud.partyFrames.beam', { focus: songs.focus }) : x.how === 'echo' ? txt('hud.partyFrames.echo', { value: songs.echo ? ` ${songs.echo}` : '' }) : ''}`;
   const names = all.map(describe);
   return (
     <span
       className="flex items-center gap-0.5"
       role="img"
-      aria-label={`Auras on them: ${names.join(', ')}`}
+      aria-label={txt('hud.partyFrames.aurasOnThem', { names: names.join(', ') })}
       title={names.join(' · ')}
       data-testid="aura-pips"
     >
@@ -746,8 +833,16 @@ function RadianceMark({
         boxShadow: sunrise ? `0 0 0 1px ${color}, 0 0 10px ${color}` : undefined,
       }}
       role="img"
-      aria-label={`${name} shines: ${label} damage, credited to you${sunrise ? ', Sunrise' : ''}`}
-      title={`Radiance: ${name} hits ${label} harder${sunrise ? ' (Sunrise)' : ''}`}
+      aria-label={txt('hud.partyFrames.shinesDamageCreditedTo', {
+        name,
+        label,
+        value: sunrise ? txt('hud.partyFrames.sunrise') : '',
+      })}
+      title={txt('hud.partyFrames.radianceHitsHarder', {
+        name,
+        label,
+        value: sunrise ? txt('hud.partyFrames.sunrise2') : '',
+      })}
       data-testid="radiance"
       data-sunrise={sunrise || undefined}
     >
@@ -768,7 +863,7 @@ function BeamBadge({ focus, colors, name }: { focus: string; colors: string[]; n
     <span
       className="flex items-center gap-0.5 rounded-md border px-1 font-mono text-xs font-bold leading-4 text-gold-100"
       style={{ borderColor: GOLD, background: gradient }}
-      title={`Your beam song pours into ${name} at ${focus}`}
+      title={txt('hud.partyFrames.yourBeamSongPours', { name, focus })}
       data-testid="beam-badge"
     >
       <Icon name="note" size={11} />
@@ -869,7 +964,11 @@ export function HeroFrame({
     <button
       type="button"
       aria-pressed={h.threaded}
-      aria-label={`Thread ${h.name}${out ? ' (out of the fight)' : ''}${sung.focus ? `. Your beam song pours into them at ${sung.focus}` : ''}`}
+      aria-label={txt('hud.partyFrames.thread', {
+        name: h.name,
+        value: out ? txt('hud.partyFrames.outOfTheFight') : '',
+        value2: sung.focus ? txt('hud.partyFrames.yourBeamSongPours2', { focus: sung.focus }) : '',
+      })}
       aria-describedby={tipId}
       onClick={(e) => {
         getRuntime()?.queue({ t: 'thread', slot: h.slot as PartySlot });
@@ -913,7 +1012,7 @@ export function HeroFrame({
                 <span
                   className="flex items-center gap-0.5 text-xs font-semibold"
                   style={{ color: threadColor }}
-                  title={`Threaded: ${MODE_LABEL[threadMode]}`}
+                  title={txt('hud.partyFrames.threaded', { value: MODE_LABEL[threadMode] })}
                 >
                   <Icon name="thread" size={13} />
                   <Icon name={threadMode} size={12} />
@@ -931,7 +1030,7 @@ export function HeroFrame({
           </div>
           {out ? (
             <p className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-muted">
-              <Icon name="skull" size={14} /> Out for this fight
+              <Icon name="skull" size={14} /> {txt('hud.partyFrames.outForThisFight')}
             </p>
           ) : down ? (
             <>
@@ -979,8 +1078,11 @@ export function HeroFrame({
                   ))}
                 {h.castName && <CastLine name={h.castName} progress={h.castProgress} />}
                 {!h.inField && (
-                  <span className="text-xs font-medium text-threat" title="Outside your aura field">
-                    Outside field
+                  <span
+                    className="text-xs font-medium text-threat"
+                    title={txt('hud.partyFrames.outsideYourAuraField')}
+                  >
+                    {txt('hud.partyFrames.outsideField')}
                   </span>
                 )}
                 <span className="ml-auto flex items-center gap-1.5">
@@ -1145,14 +1247,16 @@ function SaplingBar({ row: r }: { row: SaplingRow }) {
       </span>
       {r.felled ? (
         <span className="shrink-0 font-mono text-[0.75rem] leading-none text-muted">
-          {r.respawnIn !== null ? `${Math.ceil(r.respawnIn)}s` : '—'}
+          {r.respawnIn !== null
+            ? txt('hud.partyFrames.s4', { respawnIn: Math.ceil(r.respawnIn) })
+            : '—'}
         </span>
       ) : r.held ? (
         <span
           className="shrink-0 text-[0.75rem] font-bold leading-none text-muted"
           data-testid="sapling-held"
         >
-          held
+          {txt('hud.partyFrames.held')}
         </span>
       ) : r.inField ? (
         r.auras.length > 0 && (
@@ -1171,7 +1275,7 @@ function SaplingBar({ row: r }: { row: SaplingRow }) {
           className="shrink-0 text-[0.75rem] font-bold leading-none text-threat"
           data-testid="sapling-out"
         >
-          out
+          {txt('hud.partyFrames.out')}
         </span>
       )}
     </span>
@@ -1199,7 +1303,7 @@ function FrameBondRank({ rank }: { rank: number }) {
         borderColor: `color-mix(in srgb, ${BOND_LOOK.color} 45%, transparent)`,
       }}
       role="img"
-      aria-label={`Bond rank ${rank}`}
+      aria-label={txt('hud.partyFrames.bondRank', { rank })}
       data-testid="frame-bond-rank"
       data-rank={rank}
     >
@@ -1214,8 +1318,16 @@ function InFieldPip({ inField, out }: { inField: boolean; out: boolean }) {
   return (
     <span
       role="img"
-      aria-label={inField ? 'In your aura field' : 'Outside your aura field'}
-      title={inField ? 'In your aura field' : 'Outside your aura field'}
+      aria-label={
+        inField
+          ? txt('hud.partyFrames.inYourAuraField')
+          : txt('hud.partyFrames.outsideYourAuraField')
+      }
+      title={
+        inField
+          ? txt('hud.partyFrames.inYourAuraField')
+          : txt('hud.partyFrames.outsideYourAuraField')
+      }
       style={{ color: inField ? GOLD : 'var(--color-threat)' }}
     >
       <Icon name="diamond" size={11} solid={inField} />
@@ -1267,16 +1379,16 @@ function Portrait({ hero: h, bondRank = null }: { hero: HeroHud; bondRank?: numb
       </Ring>
       <span
         className={`font-mono text-xs leading-none ${ready ? 'font-bold text-gold-300' : 'text-muted'}`}
-        title={`${h.soloName}: ${Math.floor(h.solo)}% charged`}
+        title={txt('hud.partyFrames.charged', { soloName: h.soloName, solo: Math.floor(h.solo) })}
       >
         {h.dead
           ? ''
           : h.soloActive
-            ? 'SOLO'
+            ? txt('hud.partyFrames.solo2')
             : ready
               ? h.soloAuto
-                ? 'AUTO'
-                : 'READY'
+                ? txt('hud.partyFrames.auto')
+                : txt('hud.partyFrames.ready')
               : `${Math.floor(h.solo)}%`}
       </span>
       {ready && (
@@ -1284,11 +1396,11 @@ function Portrait({ hero: h, bondRank = null }: { hero: HeroHud; bondRank?: numb
           className="mt-0.5 flex items-center gap-0.5"
           title={
             h.soloAuto
-              ? `${h.soloName} fires on its own in a moment. Cue it now for the stronger form.`
-              : `Cue ${h.soloName}`
+              ? txt('hud.partyFrames.firesOnItsOwn', { soloName: h.soloName })
+              : txt('hud.partyFrames.cue', { soloName: h.soloName })
           }
         >
-          <KeyCap label={`⇧${h.slot + 1}`} accent />
+          <KeyCap label={`${cueModifierMark()}${h.slot + 1}`} accent />
         </span>
       )}
       {/* The Conductor (docs/phase-5f.md): what a Cue now would be, "Duet ×1.25", "Free". */}
@@ -1358,11 +1470,30 @@ function HpBar({
     <div className="mt-1.5">
       <div
         role="meter"
-        aria-label={`${h.name} health`}
+        aria-label={txt('hud.partyFrames.health', { name: h.name })}
         aria-valuemin={0}
         aria-valuemax={h.maxHp}
         aria-valuenow={Math.round(h.hp)}
-        aria-valuetext={`${fmt(h.hp)} of ${fmt(h.maxHp)}${h.shield > 0 ? `, ${fmt(h.shield)} shield` : ''}${h.incoming > 0 ? `, ${fmt(h.incoming)} incoming${h.lethal ? ', lethal' : ''}${h.lands ? `, landing in ${h.lands.in.toFixed(1)} seconds` : ''}` : ''}${h.healCut !== undefined ? `, ${healCutTitle(h.healCut)}` : ''}${h.execute !== undefined ? `, condemned below ${Math.round(h.execute * 100)}%` : ''}`}
+        aria-valuetext={txt('hud.partyFrames.of', {
+          hp: fmt(h.hp),
+          maxHp: fmt(h.maxHp),
+          value: h.shield > 0 ? txt('hud.partyFrames.shield', { shield: fmt(h.shield) }) : '',
+          value2:
+            h.incoming > 0
+              ? txt('hud.partyFrames.incoming', {
+                  incoming: fmt(h.incoming),
+                  value: h.lethal ? txt('hud.partyFrames.lethal') : '',
+                  value2: h.lands
+                    ? txt('hud.partyFrames.landingInSeconds', { in: h.lands.in.toFixed(1) })
+                    : '',
+                })
+              : '',
+          value3: h.healCut !== undefined ? `, ${healCutTitle(h.healCut)}` : '',
+          value4:
+            h.execute !== undefined
+              ? txt('hud.partyFrames.condemnedBelow', { round: Math.round(h.execute * 100) })
+              : '',
+        })}
         className="relative h-[1.375rem] overflow-hidden rounded-md bg-ink-950/90 shadow-[inset_0_0_0_1px_rgb(255_255_255/0.07)]"
         data-testid="hp-bar"
         data-level={level}
@@ -1390,7 +1521,7 @@ function HpBar({
               background: BLOODLET_COLOR,
               animation: `fade-out ${BLOODLET_DRAIN_S}s ease-in forwards`,
             }}
-            title="Bloodletting: life he spent, not a hit"
+            title={txt('hud.partyFrames.bloodlettingLifeHeSpent')}
             data-testid="hp-drain"
           />
         )}
@@ -1421,7 +1552,7 @@ function HpBar({
               borderColor: CHRONO.light,
               background: `color-mix(in srgb, ${CHRONO.light} 22%, transparent)`,
             }}
-            title={`Rewind would give back ${fmt(ghost)}`}
+            title={txt('hud.partyFrames.rewindWouldGiveBack', { ghost: fmt(ghost) })}
             data-testid="rewind-ghost"
           />
         )}
@@ -1449,7 +1580,7 @@ function HpBar({
               width: pctOf(h.maxHp * (band.top - band.bottom)),
               background: RAGING_COLOR,
             }}
-            title="Raging: he fights best here. Keep him alive, not full"
+            title={txt('hud.partyFrames.ragingHeFightsBest')}
             data-testid="raging-band"
           />
         )}
@@ -1472,7 +1603,9 @@ function HpBar({
               background: 'var(--color-lethal)',
               boxShadow: '0 0 6px var(--color-lethal)',
             }}
-            title={`Execution: below ${Math.round(h.execute * 100)}% when it lands, they die`}
+            title={txt('hud.partyFrames.executionBelowWhenIt', {
+              round: Math.round(h.execute * 100),
+            })}
             data-testid="execute-tick"
           />
         )}
@@ -1501,7 +1634,7 @@ function HpBar({
             style={{ color: h.lethal ? 'var(--color-lethal)' : 'var(--color-threat)' }}
           >
             <Icon name={h.lethal ? 'skull' : 'sparkle'} size={12} />
-            {h.lethal ? 'LETHAL ' : ''}-{fmt(h.incoming)}
+            {h.lethal ? txt('hud.partyFrames.lethal2') : ''}-{fmt(h.incoming)}
           </span>
         )}
       </div>
@@ -1513,7 +1646,7 @@ function CastLine({ name, progress }: { name: string; progress: number }) {
   return (
     <span
       className="flex min-w-0 flex-1 items-center gap-1.5 text-xs text-muted"
-      title={`Casting ${name}`}
+      title={txt('hud.partyFrames.casting', { name })}
     >
       <span className="truncate">{name}</span>
       <span className="relative h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-ink-700">
@@ -1542,7 +1675,7 @@ function RewindRevive({ hero: h, rewind }: { hero: HeroHud; rewind: RewindReady 
       <p
         className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-muted"
         role="img"
-        aria-label={`Rewind: ${rewindSentence(h.name, r)}`}
+        aria-label={txt('hud.partyFrames.rewind2', { rewindSentence: rewindSentence(h.name, r) })}
         data-testid="rewind-mark"
         data-kind={r.kind}
       >
@@ -1560,14 +1693,18 @@ function RewindRevive({ hero: h, rewind }: { hero: HeroHud; rewind: RewindReady 
         background: `color-mix(in srgb, ${CHRONO.color} 24%, transparent)`,
       }}
       role="status"
-      aria-label={`Rewind: ${rewindSentence(h.name, r)}${r.inRange ? '' : '. Too far: move closer'}. Keys: ${keys.join(', then ')}`}
+      aria-label={txt('hud.partyFrames.rewindKeys', {
+        rewindSentence: rewindSentence(h.name, r),
+        value: r.inRange ? '' : txt('hud.partyFrames.tooFarMoveCloser'),
+        keys: keys.join(txt('hud.partyFrames.then')),
+      })}
       data-testid="rewind-mark"
       data-kind="revive"
     >
       <span className="flex items-center gap-1.5 font-bold">
         <Icon name="rewind" size={14} className="shrink-0" />
         <span className="truncate">
-          {r.inRange ? rewindMark(r) : 'Rewind: too far, move closer'}
+          {r.inRange ? rewindMark(r) : txt('hud.partyFrames.rewindTooFarMove')}
         </span>
         <span className="ml-auto" />
         <Ring
@@ -1576,11 +1713,13 @@ function RewindRevive({ hero: h, rewind }: { hero: HeroHud; rewind: RewindReady 
           stroke={3}
           color={CHRONO.light}
         >
-          <span className="sr-only">{r.left.toFixed(1)} s</span>
+          <span className="sr-only">{txt('hud.partyFrames.s2', { left: r.left.toFixed(1) })}</span>
         </Ring>
       </span>
       <span className="mt-0.5 flex items-center gap-1.5">
-        <span className="font-medium">once a run · {r.left.toFixed(1)} s</span>
+        <span className="font-medium">
+          {txt('hud.partyFrames.onceARunS', { left: r.left.toFixed(1) })}
+        </span>
         <span className="ml-auto flex shrink-0 items-center gap-0.5">
           {keys.map((k) => (
             <KeyCap key={k} label={k} accent />
@@ -1613,7 +1752,7 @@ function DownedBlock({
           data-testid="downed-song"
         >
           <Icon name="note" size={14} />
-          {DOWNED_SONG_LINE}
+          {downedSongLine()}
           <span className="ml-auto font-mono">
             {silence.notes}/{silence.of}
           </span>
@@ -1623,13 +1762,15 @@ function DownedBlock({
         className={`flex items-center gap-1.5 text-xs font-bold tracking-wide text-lethal ${grey}`}
       >
         <Icon name="skull" size={14} />
-        DOWN
-        <span className="font-mono font-medium">{Math.ceil(h.bleedOut)}s</span>
+        {txt('hud.partyFrames.down')}
+        <span className="font-mono font-medium">
+          {txt('hud.partyFrames.s3', { bleedOut: Math.ceil(h.bleedOut) })}
+        </span>
       </p>
       <RewindRevive hero={h} rewind={rewind} />
       <div className={`mt-1 grid grid-cols-2 gap-2 ${grey}`}>
         <div>
-          <p className="text-xs text-muted">Bleeding out</p>
+          <p className="text-xs text-muted">{txt('hud.partyFrames.bleedingOut')}</p>
           <div className="h-1.5 overflow-hidden rounded-full bg-ink-700">
             <div
               className="h-full bg-lethal transition-[width] duration-150 ease-linear"
@@ -1638,7 +1779,7 @@ function DownedBlock({
           </div>
         </div>
         <div>
-          <p className="text-xs text-muted">Mend to revive</p>
+          <p className="text-xs text-muted">{txt('hud.partyFrames.mendToRevive')}</p>
           <div className="h-1.5 overflow-hidden rounded-full bg-ink-700">
             <div
               className="h-full transition-[width] duration-150 ease-linear"

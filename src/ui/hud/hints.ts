@@ -3,14 +3,21 @@ import type { Action } from '../../input/actions';
 import type { HeroHud, HudSnapshot } from '../store';
 import { keyLabel } from '../../input/keyLabel';
 import { fmt } from '../kit/format';
-import { ANSWER, bindingCode, bindingLabel } from './labels';
+import {
+  ANSWER,
+  bindingCode,
+  bindingLabel,
+  cueModifierMark,
+  mouseRoleDefault,
+  mouseRoleLabel,
+} from './labels';
 import { mult } from '../screens/chordModel';
 import { beamSong } from './songs';
 import { stasisCostMult } from './calling';
 import { secondsLabel } from './chrono';
 import { healBarelyTakes } from './legionLook';
 import { DOOM_EMPHASIS, doomCount, spindleCutPct } from './riftLook';
-import { FORTISSIMO_NAME, noteSources } from './finaleLook';
+import { fortissimoName, noteSources } from './finaleLook';
 import { outOfReach } from './duelLook';
 import { saplingsOutside } from './groveLook';
 import { heroPronouns } from '../screens/rosterModel';
@@ -206,6 +213,7 @@ function allHints(hud: HudSnapshot): Hint[] {
             ? txt('hud.hints.isCallingForA2', { name: h.name, E, flourish: call.flourish })
             : txt('hud.hints.isCallingForEmpower', {
                 name: h.name,
+                RMB: modeKey(),
                 value: h.slot + 1,
                 flourish: call.flourish,
               }),
@@ -214,7 +222,7 @@ function allHints(hud: HudSnapshot): Hint[] {
 
   // Phase 4f: the Ward's slot may play a variant: the hints name it.
   const ward = variantIn(hud, 'ward');
-  const wardIt = ward ? `cast ${variantName(ward)} ${Q}` : `Ward ${Q}`;
+  const wardIt = ward ? `cast ${variantName(ward)} ${Q}` : txt('hud.hints.ward', { Q });
   for (const h of party.filter(alive)) {
     if (h.lethal) {
       if (techReady(hud, 'ward')) {
@@ -313,7 +321,7 @@ function allHints(hud: HudSnapshot): Hint[] {
       out.push({
         id: 'bear-back',
         text: txt('hud.hints.bearingStopsYourOn', {
-          value: w.lastMode === 'mend' ? 'Mend' : 'Empower',
+          value: w.lastMode === 'mend' ? txt('hud.hints.mend') : txt('hud.hints.empower'),
           name: threaded.name,
           B,
         }),
@@ -360,9 +368,10 @@ function allHints(hud: HudSnapshot): Hint[] {
           w.threadMode === 'bear'
             ? txt('hud.hints.isHurtPressTwice', {
                 name: h.name,
-                value: bearKey ? txt('hud.hints.orThen', { B }) : '',
+                RMB: modeKey(),
+                value: bearKey ? txt('hud.hints.orThen', { B, RMB: modeKey() }) : '',
               })
-            : txt('hud.hints.isHurtPressTo', { name: h.name }),
+            : txt('hud.hints.isHurtPressTo', { name: h.name, RMB: modeKey() }),
       });
     }
   }
@@ -417,16 +426,18 @@ function allHints(hud: HudSnapshot): Hint[] {
         ? txt('hud.hints.sIsReadyPress', {
             name: cueHero.name,
             soloName: cueHero.soloName,
+            mod: cueModifierMark(),
             value: cueHero.slot + 1,
           })
         : txt('hud.hints.sIsReadyPress2', {
             name: cueHero.name,
             soloName: cueHero.soloName,
+            mod: cueModifierMark(),
             value: cueHero.slot + 1,
             value2:
               w.cueCost === w.segment
                 ? txt('hud.hints.oneResonanceSegment')
-                : `${w.cueCost} Resonance`,
+                : txt('hud.hints.resonance', { cueCost: w.cueCost }),
           }),
     });
   }
@@ -448,13 +459,16 @@ function allHints(hud: HudSnapshot): Hint[] {
       text: txt('hud.hints.foresightIsComingFor', {
         name: f.name,
         name2: seen.name,
-        value: f.in < 0.05 ? txt('hud.hints.anyMoment') : `in ${secondsLabel(f.in)}`,
+        value:
+          f.in < 0.05
+            ? txt('hud.hints.anyMoment')
+            : txt('hud.hints.in', { secondsLabel: secondsLabel(f.in) }),
       }),
     });
   }
   if (hud.boss?.cast && hud.boss.cast.answers.length > 0) {
     const names = hud.boss.cast.answers
-      .map((a) => (a === 'reel' && w.rewind ? 'Rewind' : ANSWER[a].label))
+      .map((a) => (a === 'reel' && w.rewind ? txt('hud.hints.rewind') : ANSWER[a].label))
       .join(' or ');
     out.push({
       id: 'boss-cast',
@@ -477,7 +491,12 @@ function allHints(hud: HudSnapshot): Hint[] {
       text:
         strays >= 2
           ? txt('hud.hints.yourPartyIsSpread', { bindingLabel: bindingLabel('directiveWheel') })
-          : txt('hud.hints.holdOrTheMiddle', { bindingLabel: bindingLabel('directiveWheel') }),
+          : mouseRoleDefault('wheel')
+            ? txt('hud.hints.holdOrTheMiddle', { bindingLabel: bindingLabel('directiveWheel') })
+            : txt('hud.hints.holdOrTheWheelButton', {
+                bindingLabel: bindingLabel('directiveWheel'),
+                wheel: mouseRoleLabel('wheel'),
+              }),
     });
   }
   if (w.threadSlot === null && hud.encounter.elapsed > 3 && party.some(alive)) {
@@ -516,7 +535,7 @@ function allHints(hud: HudSnapshot): Hint[] {
   ) {
     out.push({
       id: 'empower',
-      text: txt('hud.hints.everyoneIsHealthyPress'),
+      text: txt('hud.hints.everyoneIsHealthyPress', { RMB: modeKey() }),
     });
   }
   return out;
@@ -543,6 +562,7 @@ function conductingHints(hud: HudSnapshot): Hint[] {
         Number: Number(c.chain.total.toFixed(1)),
         linkName: linkName(chained.cue!.link),
         name: chained.name,
+        mod: cueModifierMark(),
         value: chained.slot + 1,
       }),
     });
@@ -563,6 +583,11 @@ function conductingHints(hud: HudSnapshot): Hint[] {
       }),
     });
   return out;
+}
+
+/** The Mend ⇄ Empower mouse role as a key part of a hint: `{RMB}` by default. */
+function modeKey(): string {
+  return `{${mouseRoleLabel('mode')}}`;
 }
 
 /** Splits `text {Q} more` into plain and key parts. */
@@ -648,7 +673,7 @@ function movementTwoHints(hud: HudSnapshot, keys: { Q: string; E: string; F: str
       id: 'pact',
       text: txt('hud.hints.aBloodPactScatter', {
         pact: pact.map((h) => h.name).join(' and '),
-        value: pact.length > 1 ? 'share' : 'carries',
+        value: pact.length > 1 ? txt('hud.hints.share') : txt('hud.hints.carries'),
         bindingLabel: bindingLabel('directiveScatter'),
       }),
     });
@@ -827,7 +852,7 @@ function mawRescue(hud: HudSnapshot, F: string, who: 'one' | 'him'): string {
 function silencerName(hud: HudSnapshot): string {
   return hud.rift?.silencer && !hud.foes?.includes('mute')
     ? txt('hud.hints.silencingElite')
-    : 'Mute';
+    : txt('hud.hints.mute');
 }
 
 /** Bloodlust's line, as a whole percent (content's `quirk.below`). */
@@ -857,7 +882,7 @@ function movementThreeHints(hud: HudSnapshot, keys: { Q: string; E: string; F: s
     out.push({
       id: 'rune',
       text: txt('hud.hints.youStandInA', {
-        value: w.rewind ? 'Rewind' : 'Reel',
+        value: w.rewind ? txt('hud.hints.rewind') : txt('hud.hints.reel'),
         bindingLabel: bindingLabel('glide'),
       }),
     });
@@ -961,8 +986,11 @@ function movementThreeHints(hud: HudSnapshot, keys: { Q: string; E: string; F: s
       id: 'unravel',
       text:
         w.bearShare > 0 && bindingCode('bear')
-          ? txt('hud.hints.unravelYourMendWounds', { bindingLabel: bindingLabel('bear') })
-          : txt('hud.hints.unravelYourMendWounds2'),
+          ? txt('hud.hints.unravelYourMendWounds', {
+              RMB: modeKey(),
+              bindingLabel: bindingLabel('bear'),
+            })
+          : txt('hud.hints.unravelYourMendWounds2', { RMB: modeKey() }),
     });
   if (boss?.spindles)
     out.push({
@@ -989,7 +1017,7 @@ function movementThreeHints(hud: HudSnapshot, keys: { Q: string; E: string; F: s
       id: 'mimic',
       text:
         copy === 'empower'
-          ? txt('hud.hints.aMimicIsCopying3')
+          ? txt('hud.hints.aMimicIsCopying3', { RMB: modeKey() })
           : copy === 'ward'
             ? txt('hud.hints.aMimicIsCopying', { E, focus })
             : txt('hud.hints.aMimicIsCopying2', { Q, focus }),
@@ -1022,9 +1050,12 @@ function finaleHints(hud: HudSnapshot): Hint[] {
       id: 'fortissimo',
       text:
         boss.fortissimo && w.resonance >= w.crescendoCost
-          ? txt('hud.hints.yourCrescendoCancelsIt', { FORTISSIMO_NAME, crescendo })
+          ? txt('hud.hints.yourCrescendoCancelsIt', {
+              FORTISSIMO_NAME: fortissimoName(),
+              crescendo,
+            })
           : txt('hud.hints.holdResonanceYourCrescendo', {
-              FORTISSIMO_NAME,
+              FORTISSIMO_NAME: fortissimoName(),
               crescendoCost: w.crescendoCost,
               crescendo,
             }),

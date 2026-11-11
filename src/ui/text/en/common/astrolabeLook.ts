@@ -6,4 +6,8 @@ export const astrolabeLook = {
   'common.astrolabeLook.theSongs': 'the songs',
   'common.astrolabeLook.theTechniques': 'the techniques',
   'common.astrolabeLook.theHeroes': 'the heroes',
+  'common.astrolabeLook.silk': 'Silk',
+  'common.astrolabeLook.choir': 'Choir',
+  'common.astrolabeLook.aegis': 'Aegis',
+  'common.astrolabeLook.bond': 'Bond',
 } satisfies Catalogue;

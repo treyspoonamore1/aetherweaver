@@ -13,15 +13,42 @@ import { KeyCap } from '../kit/KeyCap';
 import { bindingCode } from './labels';
 import { keyLabel } from '../../input/keyLabel';
 import { useUi } from '../store';
+import { t } from '../text';
 
 /** The Finale's Grand Silence: the heroes are stilled, so every spoke greys with this line. */
-export const FROZEN_HINT = 'Frozen · the silence holds';
+export function frozenHint(): string {
+  return t('input.directiveWheel.frozenHint');
+}
 
 const LOOK: Record<WheelSpoke, { icon: IconName; hint: string; action: Action }> = {
-  focus: { icon: 'focus', hint: 'The party targets it', action: 'directiveFocus' },
-  rally: { icon: 'stack', hint: 'Regroup on you', action: 'directiveRally' },
-  hold: { icon: 'lock', hint: 'Stay put', action: 'directiveHold' },
-  scatter: { icon: 'scatter', hint: 'Spread 6 m apart', action: 'directiveScatter' },
+  focus: {
+    icon: 'focus',
+    get hint() {
+      return t('input.directiveWheel.thePartyTargetsIt');
+    },
+    action: 'directiveFocus',
+  },
+  rally: {
+    icon: 'stack',
+    get hint() {
+      return t('input.directiveWheel.regroupOnYou');
+    },
+    action: 'directiveRally',
+  },
+  hold: {
+    icon: 'lock',
+    get hint() {
+      return t('input.directiveWheel.stayPut');
+    },
+    action: 'directiveHold',
+  },
+  scatter: {
+    icon: 'scatter',
+    get hint() {
+      return t('input.directiveWheel.spread6MApart');
+    },
+    action: 'directiveScatter',
+  },
 };
 
 /**
@@ -62,7 +89,7 @@ export function DirectiveWheelView({
       className="pointer-events-none z-30"
       style={style}
       role="menu"
-      aria-label="Directive wheel"
+      aria-label={t('input.directiveWheel.directiveWheel')}
       data-testid="directive-wheel"
       data-frozen={frozen || undefined}
     >
@@ -88,7 +115,7 @@ export function DirectiveWheelView({
           background: 'rgb(5 8 20 / 0.85)',
         }}
       >
-        {wheel.spoke ? '' : 'Cancel'}
+        {wheel.spoke ? '' : t('input.directiveWheel.cancel')}
       </div>
       {len > 4 && (
         <div
@@ -132,12 +159,12 @@ export function DirectiveWheelView({
             </span>
             <span className={`text-xs leading-tight ${on ? 'text-ink-900' : 'text-muted'}`}>
               {frozen
-                ? FROZEN_HINT
+                ? frozenHint()
                 : s.id === 'focus'
                   ? disabled
-                    ? 'No enemy targeted'
+                    ? t('input.directiveWheel.noEnemyTargeted')
                     : focusName
-                      ? `Mark ${focusName}`
+                      ? t('input.directiveWheel.mark', { focusName })
                       : look.hint
                   : look.hint}
             </span>

@@ -2,11 +2,14 @@ import type { Catalogue } from '../catalogue';
 import { bloodLook as hudBloodLook } from './hud/bloodLook';
 import { bossBar as hudBossBar } from './hud/bossBar';
 import { calling as hudCalling } from './hud/calling';
+import { callingChip as hudCallingChip } from './hud/callingChip';
 import { callouts as hudCallouts } from './hud/callouts';
+import { conductParts as hudConductParts } from './hud/conductParts';
 import { conducting as hudConducting } from './hud/conducting';
 import { dissonanceChip as hudDissonanceChip } from './hud/dissonanceChip';
 import { duelLook as hudDuelLook } from './hud/duelLook';
 import { encounterHeader as hudEncounterHeader } from './hud/encounterHeader';
+import { finaleLook as hudFinaleLook } from './hud/finaleLook';
 import { groveLook as hudGroveLook } from './hud/groveLook';
 import { hints as hudHints } from './hud/hints';
 import { howToPlay as hudHowToPlay } from './hud/howToPlay';
@@ -15,7 +18,9 @@ import { keyHints as hudKeyHints } from './hud/keyHints';
 import { keystoneChip as hudKeystoneChip } from './hud/keystoneChip';
 import { layoutEditor as hudLayoutEditor } from './hud/layoutEditor';
 import { legionLook as hudLegionLook } from './hud/legionLook';
+import { partyFrames as hudPartyFrames } from './hud/partyFrames';
 import { pauseMenu as hudPauseMenu } from './hud/pauseMenu';
+import { relicBar as hudRelicBar } from './hud/relicBar';
 import { relics as hudRelics } from './hud/relics';
 import { rewindText as hudRewindText } from './hud/rewindText';
 import { riftLook as hudRiftLook } from './hud/riftLook';
@@ -25,6 +30,7 @@ import { statusBadge as hudStatusBadge } from './hud/statusBadge';
 import { threadMode as hudThreadMode } from './hud/threadMode';
 import { triggerChips as hudTriggerChips } from './hud/triggerChips';
 import { triggers as hudTriggers } from './hud/triggers';
+import { weaverBar as hudWeaverBar } from './hud/weaverBar';
 
 /**
  * The English catalogue's `hud.*` keys (docs/phase-7.md, *Contracts*): W3's file. Each source
@@ -35,11 +41,14 @@ export const hud = {
   ...hudBloodLook,
   ...hudBossBar,
   ...hudCalling,
+  ...hudCallingChip,
   ...hudCallouts,
+  ...hudConductParts,
   ...hudConducting,
   ...hudDissonanceChip,
   ...hudDuelLook,
   ...hudEncounterHeader,
+  ...hudFinaleLook,
   ...hudGroveLook,
   ...hudHints,
   ...hudHowToPlay,
@@ -48,7 +57,9 @@ export const hud = {
   ...hudKeystoneChip,
   ...hudLayoutEditor,
   ...hudLegionLook,
+  ...hudPartyFrames,
   ...hudPauseMenu,
+  ...hudRelicBar,
   ...hudRelics,
   ...hudRewindText,
   ...hudRiftLook,
@@ -58,4 +69,5 @@ export const hud = {
   ...hudThreadMode,
   ...hudTriggerChips,
   ...hudTriggers,
+  ...hudWeaverBar,
 } satisfies Catalogue;

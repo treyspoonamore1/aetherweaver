@@ -31,7 +31,7 @@ import {
   unlockId,
 } from '../src/ui/screens/chordModel';
 import {
-  NOTHING_NEW,
+  nothingNew,
   fightXp,
   rankPanel,
   runRank,
@@ -213,7 +213,7 @@ describe('Weaver Rank text', () => {
     expect(r.unlocks.every((u) => u.rank === 2)).toBe(true);
     expect(runRank({ xp: 10 }, 15).line).toBe('This run earned 10 Weaver XP toward Rank 2.');
     expect(runRank({ xp: 0 }, 15).line).toBe('This run earned no Weaver XP.');
-    expect(NOTHING_NEW).toMatch(/XP keeps counting/);
+    expect(nothingNew()).toMatch(/XP keeps counting/);
   });
 });
 

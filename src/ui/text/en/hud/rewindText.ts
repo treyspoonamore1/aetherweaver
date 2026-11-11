@@ -17,4 +17,5 @@ export const rewindText = {
   'hud.rewindText.hasBeenDownToo': '{name} has been down too long for Rewind to reach',
   'hud.rewindText.getsLifeBack': '{name} gets {amount} life back{away}',
   'hud.rewindText.goesBackToWhere': '{name} goes back to where they stood{away}',
+  'hud.rewindText.rewind2': 'Rewind: {escapeWords}',
 } satisfies Catalogue;

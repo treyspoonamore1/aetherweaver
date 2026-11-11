@@ -14,6 +14,7 @@ import {
 import type { NoteSource, SimEvent } from '../../sim';
 import type { IconName } from '../kit/iconPaths';
 import type { BossHud, Callout } from '../store';
+import { t } from '../text';
 
 // ── Colours (each paired with a glyph and words, never colour alone) ──────────────────
 
@@ -33,9 +34,13 @@ export const SILENCE_INK = '#cbd5e1';
 export const NOTE_GOLD = '#f5d78e';
 
 /** "Fortissimo Silence" is always written in full (Fortissimo alone is an aura). */
-export const FORTISSIMO_NAME = 'Fortissimo Silence';
+export function fortissimoName(): string {
+  return t('hud.finaleLook.fortissimoName');
+}
 /** Discord's owner, in words: never 'Resonance', which is always the Weaver's. */
-export const DISCORD_LABEL = 'Conductor’s Discord';
+export function discordLabel(): string {
+  return t('hud.finaleLook.discordLabel');
+}
 
 // ── The Discord stave meter (phases 1-2) ─────────────────────────────────────────────
 
@@ -56,8 +61,14 @@ export function discordText(
   d: Pick<NonNullable<BossHud['discord']>, 'value' | 'max'>,
   blind = false,
 ): string {
-  const head = `${DISCORD_LABEL} ${Math.floor(Math.max(0, d.value))}/${d.max}`;
-  return blind ? head : `${head} · Crescendo cancels ${FORTISSIMO_NAME}`;
+  const head = t('hud.finaleLook.discordHead', {
+    label: discordLabel(),
+    value: Math.floor(Math.max(0, d.value)),
+    max: d.max,
+  });
+  return blind
+    ? head
+    : t('hud.finaleLook.crescendoCancels', { head, FORTISSIMO_NAME: fortissimoName() });
 }
 
 /**
@@ -72,12 +83,18 @@ export function fortissimoIn(d: NonNullable<BossHud['discord']>): number | null 
 export function fortissimoInText(d: NonNullable<BossHud['discord']>): string | null {
   const s = fortissimoIn(d);
   if (s === null) return null;
-  return s <= 0.05 ? `${FORTISSIMO_NAME} now` : `${FORTISSIMO_NAME} in ~${Math.ceil(s)} s`;
+  return s <= 0.05
+    ? t('hud.finaleLook.fortissimoNow', { FORTISSIMO_NAME: fortissimoName() })
+    : t('hud.finaleLook.inS', { FORTISSIMO_NAME: fortissimoName(), s: Math.ceil(s) });
 }
 
 /** Fortissimo Silence's pulses as the bar names them: "pulse 2 of 3". */
 export function fortissimoPulseText(f: NonNullable<BossHud['fortissimo']>): string {
-  return `${FORTISSIMO_NAME} · pulse ${f.pulse} of ${f.of}`;
+  return t('hud.finaleLook.pulseOf', {
+    FORTISSIMO_NAME: fortissimoName(),
+    pulse: f.pulse,
+    of: f.of,
+  });
 }
 
 // ── The Grand Silence's stave (phase 3) ───────────────────────────────────────────────
@@ -107,7 +124,7 @@ export function silencePips(
 
 /** The stave's words: "Grand Silence · 3/8 notes". */
 export function silenceText(s: Pick<NonNullable<BossHud['silence']>, 'notes' | 'of'>): string {
-  return `Grand Silence · ${s.notes}/${s.of} notes`;
+  return t('hud.finaleLook.grandSilenceNotes', { notes: s.notes, of: s.of });
 }
 
 /**
@@ -121,12 +138,12 @@ export function silenceLeftFrac(s: Pick<NonNullable<BossHud['silence']>, 'left' 
 
 /** The countdown to the Coda: "The Coda in 32 s". */
 export function codaText(left: number): string {
-  return `The Coda in ${Math.max(0, Math.ceil(left))} s`;
+  return t('hud.finaleLook.theCodaInS', { max: Math.max(0, Math.ceil(left)) });
 }
 
 /** What the stave asks for, Calling-aware (Rewind on a Chronomancer's run, no Reel with Anchor). */
 export function silenceAsk(opts: { rewinds?: boolean; reel?: string | null } = {}): string {
-  return `Eight notes wake them: ${noteSources(opts)}`;
+  return t('hud.finaleLook.eightNotesWakeThem', { noteSources: noteSources(opts) });
 }
 
 /**
@@ -135,11 +152,10 @@ export function silenceAsk(opts: { rewinds?: boolean; reel?: string | null } = {
  * makes a Reel-save ("Perfect Wards and Clutch Chimes"); Swap takes the blow on the Weaver.
  */
 export function noteSources(opts: { rewinds?: boolean; reel?: string | null } = {}): string {
-  if (opts.rewinds) return 'Perfect Wards, Clutch Chimes and a Rewind that undoes a blow';
-  if (opts.reel === 'anchor') return 'Perfect Wards and Clutch Chimes';
-  if (opts.reel === 'swap')
-    return 'Perfect Wards, Clutch Chimes and Reel-saves (Swap takes the blow on you)';
-  return 'Perfect Wards, Clutch Chimes and Reel-saves';
+  if (opts.rewinds) return t('hud.finaleLook.perfectWardsClutchChimes');
+  if (opts.reel === 'anchor') return t('hud.finaleLook.perfectWardsAndClutch');
+  if (opts.reel === 'swap') return t('hud.finaleLook.perfectWardsClutchChimes2');
+  return t('hud.finaleLook.perfectWardsClutchChimes3');
 }
 
 // ── The Cue (a soloist and its Solo) ──────────────────────────────────────────────────
@@ -151,28 +167,45 @@ export function voiceName(name: string): string {
 
 /** The Cue line: "Cue · Bass: Basso Ostinato", then "→ Lyra" once the Solo has begun. */
 export function cueText(cue: NonNullable<BossHud['cue']>): string {
-  return `Cue · ${voiceName(cue.soloist)}: ${cue.solo}${cue.target ? ` → ${cue.target}` : ''}`;
+  return t('hud.finaleLook.cue', {
+    voiceName: voiceName(cue.soloist),
+    solo: cue.solo,
+    value: cue.target ? ` → ${cue.target}` : '',
+  });
 }
 
 /** What answers a Cued Solo, after the "·" (Blind Score hides it). */
-export const CUE_ANSWER = 'interrupt the soloist, or answer its Solo';
+export function cueAnswer(): string {
+  return t('hud.finaleLook.cueAnswer');
+}
 
 // ── Party frames ──────────────────────────────────────────────────────────────────────
 
 /** A stilled hero's strip. */
-export const STILLED_LINE = 'Stilled · waits for your song';
+export function stilledLine(): string {
+  return t('hud.finaleLook.stilledLine');
+}
 /** A downed hero's line while the silence holds: the eighth note stands them back up. */
-export const DOWNED_SONG_LINE = 'The song will bring them back';
+export function downedSongLine(): string {
+  return t('hud.finaleLook.downedSongLine');
+}
 /** A frame just after Reignite: relit gold; `risen` for a hero the song stood back up. */
 export const REIGNITE_LINE: Readonly<Record<'relit' | 'risen', string>> = {
-  relit: 'Relit · the song returns',
-  risen: 'Risen · the song brought them back',
+  get relit() {
+    return t('hud.finaleLook.relitTheSongReturns');
+  },
+  get risen() {
+    return t('hud.finaleLook.risenTheSongBrought');
+  },
 };
 
 /** A stilled frame's accessible line: what holds them, and how long until the Coda. */
 export function stilledAria(name: string, notes: number, of: number, left: number | null): string {
-  const coda = left === null ? '' : `; the Coda in ${Math.max(0, Math.ceil(left))} seconds`;
-  return `${name} is stilled by the Grand Silence and waits for your song: ${notes} of ${of} notes${coda}`;
+  const coda =
+    left === null
+      ? ''
+      : t('hud.finaleLook.theCodaInSeconds', { max: Math.max(0, Math.ceil(left)) });
+  return t('hud.finaleLook.isStilledByThe', { name, notes, of, coda });
 }
 
 // ── Callouts and captions (from the Finale's events only) ────────────────────────────
@@ -218,7 +251,10 @@ export function finaleCallouts(
         {
           callout: {
             kind: 'system',
-            text: `${names.join(' and ')} ${names.length === 1 ? 'stands' : 'stand'} again`,
+            text: t('hud.finaleLook.again', {
+              names: names.join(' and '),
+              value: names.length === 1 ? t('hud.finaleLook.stands') : t('hud.finaleLook.stand'),
+            }),
             color: NOTE_GOLD,
           },
           ttl: 2400,
@@ -230,8 +266,8 @@ export function finaleCallouts(
         {
           callout: {
             kind: 'system',
-            text: 'The Coda — your heroes wake without the song',
-            detail: `${event.notes}/${NOTES_NEEDED} notes`,
+            text: t('hud.finaleLook.theCodaYourHeroes'),
+            detail: t('hud.finaleLook.notes', { notes: event.notes, NOTES_NEEDED }),
             color: SILENCE_INK,
           },
           ttl: 2600,
@@ -243,7 +279,7 @@ export function finaleCallouts(
         {
           callout: {
             kind: 'perfect',
-            text: `${FORTISSIMO_NAME} — cancelled`,
+            text: t('hud.finaleLook.cancelled', { FORTISSIMO_NAME: fortissimoName() }),
             color: NOTE_GOLD,
             icon: 'sun',
           },
@@ -263,13 +299,17 @@ export function finaleCallouts(
 export function finaleCaption(event: SimEvent): string | null {
   switch (event.type) {
     case 'silenceBegan':
-      return 'The music stops';
+      return t('hud.finaleLook.theMusicStops');
     case 'silenceNote':
-      return `Note ${event.n} of ${event.of} · ${NOTE_LOOK[event.source].label}`;
+      return t('hud.finaleLook.noteOf', {
+        n: event.n,
+        of: event.of,
+        label: NOTE_LOOK[event.source].label,
+      });
     case 'discordRose':
-      return 'Discord rises';
+      return t('hud.finaleLook.discordRises');
     case 'reignited':
-      return 'The song returns';
+      return t('hud.finaleLook.theSongReturns');
     default:
       return null;
   }
@@ -281,11 +321,15 @@ export function captionCallout(text: string): FinaleCallout {
 }
 
 /** The defeat callout in the Finale; elsewhere the song falls silent as it always did. */
-export const FINALE_DEFEAT_LINE = 'The Conductor’s silence holds.';
-export const DEFEAT_LINE = 'The song falls silent…';
+export function finaleDefeatLine(): string {
+  return t('hud.finaleLook.finaleDefeatLine');
+}
+export function plainDefeatLine(): string {
+  return t('hud.finaleLook.defeatLine');
+}
 
 export function defeatLine(encounterId: string): string {
-  return encounterId === CONDUCTOR_ENCOUNTER ? FINALE_DEFEAT_LINE : DEFEAT_LINE;
+  return encounterId === CONDUCTOR_ENCOUNTER ? finaleDefeatLine() : plainDefeatLine();
 }
 
 /** Fortissimo Silence's attack ids (its three pulses). */
@@ -295,6 +339,7 @@ export const FORTISSIMO_IDS: ReadonlySet<string> = new Set(FORTISSIMO);
 
 /** A boss's lore line, under its Codex entry (docs/phase-5d.md "The Silent Conductor"). */
 export const ENEMY_LORE: Readonly<Record<string, string>> = {
-  the_silent_conductor:
-    'Tall and robed in a Weaver’s ribbons gone ash-grey, it carries a baton and a stilled halo of five stave lines. It was the first Weaver.',
+  get the_silent_conductor() {
+    return t('hud.finaleLook.tallAndRobedIn');
+  },
 };

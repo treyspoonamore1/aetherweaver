@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, type ReactNode } from 'react';
+import { weavingLine } from '../ui/kit/loading';
 import { useGamepadMenu } from '../ui/kit/menuNav';
 import { installPresentation } from '../ui/presentation';
 import { DeedToasts } from '../ui/screens/DeedToasts';
@@ -39,7 +40,7 @@ function Loading({ children }: { children: ReactNode }) {
     <Suspense
       fallback={
         <div className="flex h-full items-center justify-center font-display text-gold-300">
-          Weaving…
+          {weavingLine()}
         </div>
       }
     >

@@ -34,6 +34,7 @@ import { VARIANT_LOOK } from '../kit/variantLook';
 import { RUNE_KEYS, slotSilenced, slotState } from './techniqueState';
 import { cutPlate, unravelPlate } from './riftLook';
 import { defaultName, techniqueTip, type TechniqueTipView } from '../screens/variantsModel';
+import { t as txt } from '../text';
 
 /** The Chronomancer's clockwork (Phase 3e): Stasis on the buttons, Rewind, Temporal Mastery. */
 const CHRONO = callingLook('chronomancer');
@@ -152,7 +153,7 @@ export function WeaverBar({
             <span
               className={`animate-pulse-soft absolute ${below ? '-bottom-3.5' : '-top-3.5'} right-4 flex items-center gap-1 rounded-md border border-lethal bg-ink-900 px-2 py-0.5 text-xs font-bold text-rose-200`}
             >
-              <Icon name="mute" size={13} /> Auras silenced
+              <Icon name="mute" size={13} /> {txt('hud.weaverBar.aurasSilenced')}
             </span>
           )}
           <div className="flex items-end gap-4">
@@ -229,7 +230,7 @@ function LifeBar({ weaver: w, callingId }: { weaver: WeaverHud; callingId?: stri
     >
       <div className="flex items-center justify-between text-xs text-muted">
         <span className="flex items-center gap-1">
-          <Icon name="heart" size={12} style={{ color: LIFE }} /> Life
+          <Icon name="heart" size={12} style={{ color: LIFE }} /> {txt('hud.weaverBar.life')}
         </span>
         <span className="font-mono">
           {w.downed ? (
@@ -242,7 +243,7 @@ function LifeBar({ weaver: w, callingId }: { weaver: WeaverHud; callingId?: stri
                 <span
                   className="ml-1 inline-flex items-center gap-0.5 align-middle"
                   style={{ color: PRISM.light }}
-                  title={`Prism Covenant: you can’t be healed above ${fmt(cap)}`}
+                  title={txt('hud.weaverBar.prismCovenantYouCan', { cap: fmt(cap) })}
                   data-testid="life-cap"
                 >
                   <AstrolabeGlyph glyph="prism_covenant" size={11} />≤{fmt(cap)}
@@ -252,7 +253,10 @@ function LifeBar({ weaver: w, callingId }: { weaver: WeaverHud; callingId?: stri
                 <span
                   className="ml-1"
                   style={{ color: holdLook.light }}
-                  title={`Your songs hold ${fmt(w.reservedLife)} of your ${fmt(total)} Life`}
+                  title={txt('hud.weaverBar.yourSongsHoldOf', {
+                    reservedLife: fmt(w.reservedLife),
+                    total: fmt(total),
+                  })}
                 >
                   ▨{fmt(w.reservedLife)}
                 </span>
@@ -264,13 +268,35 @@ function LifeBar({ weaver: w, callingId }: { weaver: WeaverHud; callingId?: stri
       <div className="relative mt-1">
         <div
           role="meter"
-          aria-label="Weaver life"
+          aria-label={txt('hud.weaverBar.weaverLife')}
           aria-valuemin={0}
           aria-valuemax={w.maxLife}
           aria-valuenow={Math.round(w.life)}
           aria-valuetext={
             held || cap !== null
-              ? `${fmt(w.life)} of ${fmt(w.maxLife)}${held ? `, ${fmt(w.reservedLife)} held by your songs, of ${fmt(total)} in all` : ''}${cap !== null ? `; Prism Covenant: no healing above ${fmt(cap)}` : ''}${marks.map((m) => `; ${m.name} below ${fmt(m.at)}${m.active ? ', on' : ''}`).join('')}`
+              ? txt('hud.weaverBar.of', {
+                  life: fmt(w.life),
+                  maxLife: fmt(w.maxLife),
+                  value: held
+                    ? txt('hud.weaverBar.heldByYourSongs', {
+                        reservedLife: fmt(w.reservedLife),
+                        total: fmt(total),
+                      })
+                    : '',
+                  value2:
+                    cap !== null
+                      ? txt('hud.weaverBar.prismCovenantNoHealing', { cap: fmt(cap) })
+                      : '',
+                  marks: marks
+                    .map((m) =>
+                      txt('hud.weaverBar.below', {
+                        name: m.name,
+                        at: fmt(m.at),
+                        value: m.active ? txt('hud.weaverBar.on') : '',
+                      }),
+                    )
+                    .join(''),
+                })
               : undefined
           }
           className={`relative h-3 overflow-hidden rounded-full bg-ink-700 ${low ? 'ring-1 ring-lethal/80' : ''}`}
@@ -289,7 +315,7 @@ function LifeBar({ weaver: w, callingId }: { weaver: WeaverHud; callingId?: stri
                 backgroundColor: `color-mix(in srgb, ${PRISM.deep} 70%, transparent)`,
                 borderColor: PRISM.light,
               }}
-              title={`Prism Covenant: you can’t be healed above ${fmt(cap)}`}
+              title={txt('hud.weaverBar.prismCovenantYouCan', { cap: fmt(cap) })}
               data-testid="life-capped"
             />
           )}
@@ -301,7 +327,7 @@ function LifeBar({ weaver: w, callingId }: { weaver: WeaverHud; callingId?: stri
                 backgroundColor: `color-mix(in srgb, ${holdLook.deep} 85%, transparent)`,
                 borderColor: holdLook.color,
               }}
-              title="Held by your songs"
+              title={txt('hud.weaverBar.heldByYourSongs2')}
               data-testid="life-reserved"
             />
           )}
@@ -315,7 +341,11 @@ function LifeBar({ weaver: w, callingId }: { weaver: WeaverHud; callingId?: stri
               background: m.active ? look.light : 'rgb(255 255 255 / 0.55)',
               boxShadow: m.active ? `0 0 6px ${look.color}` : undefined,
             }}
-            title={`${m.name}: below ${fmt(m.at)} Life${m.active ? ' (on)' : ''}`}
+            title={txt('hud.weaverBar.belowLife', {
+              name: m.name,
+              at: fmt(m.at),
+              value: m.active ? txt('hud.weaverBar.on2') : '',
+            })}
             data-testid={`life-mark-${m.id}`}
             data-active={m.active || undefined}
             aria-hidden
@@ -358,20 +388,17 @@ function SpiritBar({ weaver: w }: { weaver: WeaverHud }) {
     <div>
       <div className="flex items-center justify-between text-xs text-muted">
         <span className="flex items-center gap-1">
-          <Icon name="sparkle" size={12} style={{ color: SPIRIT }} /> Spirit
+          <Icon name="sparkle" size={12} style={{ color: SPIRIT }} /> {txt('hud.weaverBar.spirit')}
           {w.pool === 'life' && (
-            <span
-              className="text-[0.75rem]"
-              title="Your songs reserve Life, so all your Spirit is free"
-            >
-              · all free
+            <span className="text-[0.75rem]" title={txt('hud.weaverBar.yourSongsReserveLife')}>
+              {txt('hud.weaverBar.allFree')}
             </span>
           )}
         </span>
         <span className="font-mono">
           {fmt(w.spirit)} / {fmt(freeMax)}
           {w.reserved > 0 && (
-            <span className="ml-1 text-gold-300" title="Reserved by your active auras">
+            <span className="ml-1 text-gold-300" title={txt('hud.weaverBar.reservedByYourActive')}>
               ▨{fmt(w.reserved)}
             </span>
           )}
@@ -379,11 +406,15 @@ function SpiritBar({ weaver: w }: { weaver: WeaverHud }) {
       </div>
       <div
         role="meter"
-        aria-label="Spirit"
+        aria-label={txt('hud.weaverBar.spirit')}
         aria-valuemin={0}
         aria-valuemax={freeMax}
         aria-valuenow={Math.round(w.spirit)}
-        aria-valuetext={`${fmt(w.spirit)} of ${fmt(freeMax)}, ${fmt(w.reserved)} reserved by auras`}
+        aria-valuetext={txt('hud.weaverBar.ofReservedByAuras', {
+          spirit: fmt(w.spirit),
+          freeMax: fmt(freeMax),
+          reserved: fmt(w.reserved),
+        })}
         className="relative mt-1 h-3 overflow-hidden rounded-full bg-ink-700"
       >
         <div
@@ -394,7 +425,7 @@ function SpiritBar({ weaver: w }: { weaver: WeaverHud }) {
           <div
             className="stripes absolute inset-y-0 right-0 border-l border-gold-400"
             style={{ width: `${reservedPct}%`, backgroundColor: 'rgb(217 154 30 / 0.55)' }}
-            title="Reserved by your active auras"
+            title={txt('hud.weaverBar.reservedByYourActive')}
           />
         )}
       </div>
@@ -404,7 +435,7 @@ function SpiritBar({ weaver: w }: { weaver: WeaverHud }) {
 
 /** What Temporal Mastery gives back: a Ward charge, or the technique's cooldown. */
 function broughtBack(t: TechniqueHud): string {
-  return t.key === 'ward' ? `a ${t.name} charge` : t.name;
+  return t.key === 'ward' ? txt('hud.weaverBar.aCharge', { name: t.name }) : t.name;
 }
 
 /** A Spirit cost as the button shows it ("20", "12.5" in Stasis). */
@@ -463,13 +494,13 @@ function TechniqueButton({
   const keyName = t.key0 ? keyLabel(t.key0) : bindingLabel(t.key);
   // Eldritch Conduit (Phase 4): paid in Life, in Life's colour and with its heart.
   const lifeCost = t.pool === 'life';
-  const poolName = lifeCost ? 'Life' : 'Spirit';
+  const poolName = lifeCost ? txt('hud.weaverBar.poolLife') : txt('hud.weaverBar.poolSpirit');
   const state = runeLock
-    ? 'refused inside the Null rune: Glide out'
+    ? txt('hud.weaverBar.refusedInsideTheNull')
     : cooling
       ? `${Math.ceil(t.remaining)} seconds`
       : dim
-        ? `not enough ${poolName}`
+        ? txt('hud.weaverBar.notEnough', { poolName })
         : 'ready';
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -480,16 +511,34 @@ function TechniqueButton({
   const tip = techniqueTip(t, rewindSeconds);
   const tipId = `technique-tip-${t.key}`;
   const label = [
-    `${t.name}${t.variant ? ` (a ${defaultName(t.key)} variant)` : ''}, key ${keyName}, ${state}`,
+    txt('hud.weaverBar.key', {
+      name: t.name,
+      value: t.variant ? txt('hud.weaverBar.aVariant', { defaultName: defaultName(t.key) }) : '',
+      keyName,
+      state,
+    }),
     charged
-      ? `${t.charges} of ${t.maxCharges} charges${refilling ? `, the next in ${Math.ceil(t.remaining)} seconds` : ''}`
+      ? txt('hud.weaverBar.ofCharges', {
+          charges: t.charges,
+          maxCharges: t.maxCharges,
+          value: refilling
+            ? txt('hud.weaverBar.theNextInSeconds', { remaining: Math.ceil(t.remaining) })
+            : '',
+        })
       : '',
     t.cost > 0
-      ? `costs ${costLabel(t.cost)} ${poolName}${t.free && t.cost < t.baseCost ? ` in Stasis (${costLabel(t.baseCost)} otherwise)` : ''}`
+      ? txt('hud.weaverBar.costsPool', {
+          cost: costLabel(t.cost),
+          poolName,
+          stasis:
+            t.free && t.cost < t.baseCost
+              ? txt('hud.weaverBar.inStasisOtherwise', { costLabel: costLabel(t.baseCost) })
+              : '',
+        })
       : '',
-    t.free ? 'no cooldown while Stasis lasts' : '',
+    t.free ? txt('hud.weaverBar.noCooldownWhileStasis') : '',
     rewind && ready ? rewind : '',
-    brings ? `Temporal Mastery: a Glide now brings back ${broughtBack(brings)}` : '',
+    brings ? txt('hud.weaverBar.temporalMasteryAGlide', { broughtBack: broughtBack(brings) }) : '',
   ]
     .filter(Boolean)
     .join(', ');
@@ -586,7 +635,7 @@ function TechniqueButton({
           <span
             className="absolute -right-1.5 -top-2 flex items-center rounded-md border bg-ink-900 px-0.5 py-px"
             style={{ color: CHRONO.light, borderColor: CHRONO.color }}
-            title="Stasis: no cooldown while it lasts"
+            title={txt('hud.weaverBar.stasisNoCooldownWhile')}
             data-testid="technique-free"
           >
             <Icon name="stasis" size={12} />
@@ -612,10 +661,14 @@ function TechniqueButton({
             }
             title={
               t.free && t.cost < t.baseCost
-                ? `Costs ${costLabel(t.cost)} ${poolName} in Stasis (${costLabel(t.baseCost)} otherwise)`
+                ? txt('hud.weaverBar.costsInStasisOtherwise', {
+                    costLabel: costLabel(t.cost),
+                    poolName,
+                    costLabel2: costLabel(t.baseCost),
+                  })
                 : lifeCost
-                  ? `Costs ${costLabel(t.cost)} Life (Eldritch Conduit): never your last`
-                  : `Costs ${costLabel(t.cost)} Spirit`
+                  ? txt('hud.weaverBar.costsLifeEldritchConduit', { costLabel: costLabel(t.cost) })
+                  : txt('hud.weaverBar.costsSpirit', { costLabel: costLabel(t.cost) })
             }
             data-testid={lifeCost ? 'technique-life-cost' : undefined}
           >
@@ -633,7 +686,7 @@ function TechniqueButton({
           <span
             className="absolute -bottom-2 -right-1.5 flex items-center gap-px rounded-md border bg-ink-900 px-0.5 py-px"
             style={{ color: CHRONO.light, borderColor: CHRONO.color }}
-            title={`Temporal Mastery: a Glide now brings back ${broughtBack(brings)}`}
+            title={txt('hud.weaverBar.temporalMasteryAGlide', { broughtBack: broughtBack(brings) })}
             data-testid="mastery-mark"
           >
             <CallingGlyph icon="mastery" size={11} />
@@ -708,7 +761,7 @@ function TechniqueTip({
       <span className="mt-1.5 block text-xs leading-snug text-text">{tip.text}</span>
       {rewind && (
         <span className="mt-1 block text-xs leading-snug" style={{ color: CHRONO.light }}>
-          Now: {rewind}.
+          {txt('hud.weaverBar.now', { rewind })}
         </span>
       )}
       {tip.stats.length > 0 && (
@@ -762,11 +815,19 @@ function ResonanceArc({
     <div
       className="relative h-[4.6rem] w-[8.5rem] shrink-0"
       role="meter"
-      aria-label="Resonance"
+      aria-label={txt('hud.weaverBar.resonance')}
       aria-valuemin={0}
       aria-valuemax={w.resonanceMax}
       aria-valuenow={Math.round(w.resonance)}
-      aria-valuetext={`${full} of ${segments} segments${ready ? ', Crescendo ready' : ''}${ticks.length > 0 ? `. ${cueLine(w.cueCost)} Enough for ${cues}` : ''}`}
+      aria-valuetext={txt('hud.weaverBar.ofSegments', {
+        full,
+        segments,
+        value: ready ? txt('hud.weaverBar.crescendoReady') : '',
+        value2:
+          ticks.length > 0
+            ? txt('hud.weaverBar.enoughFor', { cueLine: cueLine(w.cueCost), cues })
+            : '',
+      })}
       title={ticks.length > 0 ? cueLine(w.cueCost) : undefined}
       data-cue-cost={w.cueCost}
     >
@@ -813,7 +874,7 @@ function ResonanceArc({
           data-testid="cue-cost"
         >
           <Icon name="note" size={10} />
-          Cue {w.cueCost}
+          {txt('hud.weaverBar.cue', { cueCost: w.cueCost })}
         </span>
       )}
       <div className="absolute inset-x-0 bottom-0 flex flex-col items-center">
@@ -839,7 +900,10 @@ function ResonanceArc({
             >
               <Icon name={w.stasis ? 'stasis' : 'vow'} size={11} />
             </Ring>
-            {w.crescendoName} {Math.ceil(w.crescendo)}s
+            {txt('hud.weaverBar.s', {
+              crescendoName: w.crescendoName,
+              crescendo: Math.ceil(w.crescendo),
+            })}
           </span>
         ) : active ? (
           <span
@@ -854,7 +918,10 @@ function ResonanceArc({
             >
               <Icon name="note" size={11} className="text-gold-200" />
             </Ring>
-            {w.crescendoName} {Math.ceil(w.crescendo)}s
+            {txt('hud.weaverBar.s', {
+              crescendoName: w.crescendoName,
+              crescendo: Math.ceil(w.crescendo),
+            })}
           </span>
         ) : (
           <div
@@ -863,7 +930,13 @@ function ResonanceArc({
                 ? 'anim-glow border-gold-300 bg-gold-400 text-ink-950'
                 : 'border-ink-500 bg-ink-800 text-muted'
             }`}
-            title={`Crescendo: ${w.crescendoName}. Costs ${w.crescendoCost >= w.resonanceMax ? `a full song (${w.crescendoCost} Resonance)` : `${w.crescendoCost} Resonance`}.`}
+            title={txt('hud.weaverBar.crescendoCosts', {
+              crescendoName: w.crescendoName,
+              value:
+                w.crescendoCost >= w.resonanceMax
+                  ? txt('hud.weaverBar.aFullSongResonance', { crescendoCost: w.crescendoCost })
+                  : txt('hud.weaverBar.resonance2', { crescendoCost: w.crescendoCost }),
+            })}
             data-testid="crescendo-key"
             data-cost={w.crescendoCost}
           >
@@ -908,7 +981,7 @@ export function WeaverEdgeBadges({
           style={{ borderColor: RUNE_BONE, color: RUNE_BONE }}
           data-testid="rune-lock"
         >
-          <Icon name="rune" size={13} /> Rune: Glide out
+          <Icon name="rune" size={13} /> {txt('hud.weaverBar.runeGlideOut')}
           <KeyCap label={bindingLabel('glide')} />
         </span>
       )}
@@ -929,8 +1002,17 @@ function ContributionReadout({ c }: { c: ContributionHud }) {
     <span
       className="flex items-center gap-1.5 rounded-md border border-ink-600 bg-ink-900 px-2 py-0.5 text-xs"
       role="img"
-      aria-label={`This fight: auras ${compact(s.auras)}, Thread ${compact(s.thread)}`}
-      title={`This fight: your auras healed ${compact(c.auras.healing)}, shielded ${compact(c.auras.shielded)} and added ${compact(c.auras.amplified)} damage; your Thread healed ${compact(c.thread.healing)} and added ${compact(c.thread.amplified)}.`}
+      aria-label={txt('hud.weaverBar.thisFightAurasThread', {
+        compact: compact(s.auras),
+        compact2: compact(s.thread),
+      })}
+      title={txt('hud.weaverBar.thisFightYourAuras', {
+        compact: compact(c.auras.healing),
+        compact2: compact(c.auras.shielded),
+        compact3: compact(c.auras.amplified),
+        compact4: compact(c.thread.healing),
+        compact5: compact(c.thread.amplified),
+      })}
       data-testid="contribution-readout"
     >
       <Icon name="note" size={11} style={{ color: AURAS }} />
@@ -986,7 +1068,11 @@ function ThreadStatus({
         }}
         title={
           bear
-            ? `Bear: you take ${Math.round(w.bearShare * 100)}% of what your threaded hero would lose. No ${w.lastMode === 'mend' ? 'Mend' : 'Empower'} while it’s on.`
+            ? txt('hud.weaverBar.bearYouTakeOf', {
+                round: Math.round(w.bearShare * 100),
+                value:
+                  w.lastMode === 'mend' ? txt('hud.weaverBar.mend') : txt('hud.weaverBar.empower'),
+              })
             : undefined
         }
       >
@@ -1005,16 +1091,19 @@ function ThreadStatus({
               <span
                 className="ml-1 font-mono text-xs font-bold"
                 style={{ color: BEAM }}
-                title={`Your beam song pours into ${targetName} at ${mult(beamFocus)}`}
+                title={txt('hud.weaverBar.yourBeamSongPours', {
+                  targetName,
+                  mult: mult(beamFocus),
+                })}
               >
                 ♪{mult(beamFocus)}
               </span>
             )}
           </>
         ) : w.chords.some((c) => c.role === 'beam' && c.auras.length > 0) ? (
-          'no one (1–3): beam song idle'
+          txt('hud.weaverBar.noOne13')
         ) : (
-          'no one (press 1–3)'
+          txt('hud.weaverBar.noOnePress1')
         )}
       </span>
       <KeyCap label={switchKeyLabel()} />
@@ -1023,7 +1112,7 @@ function ThreadStatus({
         // Movement III: Unravel turns Mend into harm; Empower is the answer.
         <span
           className={`flex items-center gap-1 rounded-md border px-1 text-xs font-bold ${w.threadMode === 'mend' ? 'animate-pulse-soft border-lethal text-rose-200' : 'border-ink-500 text-muted'}`}
-          title="Unravel: your Mend wounds whoever you thread. Switch to Empower until it passes."
+          title={txt('hud.weaverBar.unravelYourMendWounds')}
           data-testid="thread-unravelled"
         >
           <Icon name="empower" size={12} />
@@ -1034,14 +1123,14 @@ function ThreadStatus({
         <span className="text-xs font-semibold text-lethal" data-testid="thread-lock">
           {w.threadCut
             ? cutPlate(w.threadCut.cause, w.threadLock)
-            : `Snapped · ${w.threadLock.toFixed(1)}s`}
+            : txt('hud.weaverBar.snappedS', { threadLock: w.threadLock.toFixed(1) })}
         </span>
       ) : targetName ? (
         <span
           className="flex items-center gap-1"
-          title="Thread tension: stay close or it snaps"
+          title={txt('hud.weaverBar.threadTensionStayClose')}
           role="meter"
-          aria-label="Thread tension"
+          aria-label={txt('hud.weaverBar.threadTension')}
           aria-valuemin={0}
           aria-valuemax={1}
           aria-valuenow={Number(w.threadTension.toFixed(2))}
@@ -1055,7 +1144,9 @@ function ThreadStatus({
               }}
             />
           </span>
-          {taut && <span className="text-xs font-semibold text-lethal">Taut!</span>}
+          {taut && (
+            <span className="text-xs font-semibold text-lethal">{txt('hud.weaverBar.taut')}</span>
+          )}
         </span>
       ) : null}
     </div>

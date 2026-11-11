@@ -19,7 +19,7 @@ import {
   SOPRANO,
   TENOR,
 } from '../../content/crucibleIds';
-import { FORTISSIMO_NAME, noteSources } from './finaleLook';
+import { fortissimoName, noteSources } from './finaleLook';
 import { t as txt } from '../text';
 
 /** How long a "New foe" card stays, in ms. */
@@ -143,7 +143,9 @@ function riftLesson(
       };
     case 'null_priest':
       return {
-        lesson: txt('hud.sighting.itClosesARune', { value: rewinds ? 'Rewind' : 'Reel' }),
+        lesson: txt('hud.sighting.itClosesARune', {
+          value: rewinds ? txt('hud.sighting.rewind') : txt('hud.sighting.reel'),
+        }),
         answers: ['move'],
       };
     case 'mimic':
@@ -237,7 +239,7 @@ function crucibleLesson(
       return {
         lesson: txt('hud.sighting.itCuesItsMirror', {
           DISCORD_MAX,
-          FORTISSIMO_NAME,
+          FORTISSIMO_NAME: fortissimoName(),
           noteSources: noteSources({ rewinds, reel }),
         }),
         answers: [
@@ -452,7 +454,7 @@ export function allyOf(heroId: string): Ally | null {
       txt('hud.sighting.yourHealingOnHim', {
         value:
           passive.weaverHealMult === 0.5
-            ? 'halved'
+            ? txt('hud.sighting.halved')
             : txt('hud.sighting.cutTo', { round: Math.round(passive.weaverHealMult * 100) }),
       }),
       txt('hud.sighting.wardHimAndGive'),

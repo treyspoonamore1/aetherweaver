@@ -11,7 +11,7 @@ import { secondsLabel } from './chrono';
 import { BLIND_LOOK } from '../kit/dissonanceLook';
 import { blindDecree, blindLine, levelName } from '../screens/dissonanceModel';
 import {
-  CUE_ANSWER,
+  cueAnswer,
   DISCORD_HEX,
   DISCORD_INK,
   NOTE_LOOK,
@@ -285,7 +285,9 @@ export function BossBar({
                 boss.foreseen.in < 0.05
                   ? txt('hud.bossBar.isAboutToBegin')
                   : txt('hud.bossBar.beginsInSeconds', { in: boss.foreseen.in.toFixed(1) }),
-              value2: boss.foreseen.target ? `, at ${boss.foreseen.target}` : '',
+              value2: boss.foreseen.target
+                ? txt('hud.bossBar.at', { target: boss.foreseen.target })
+                : '',
             })}
             data-testid="boss-foreseen"
           >
@@ -553,7 +555,7 @@ function CueLine({ cue, blind }: { cue: NonNullable<BossHud['cue']>; blind: bool
     >
       <Icon name="baton" size={14} />
       <span className="font-display text-sm font-bold">{cueText(cue)}</span>
-      {!blind && <span className="font-normal text-rose-100">· {CUE_ANSWER}</span>}
+      {!blind && <span className="font-normal text-rose-100">· {cueAnswer()}</span>}
     </p>
   );
 }

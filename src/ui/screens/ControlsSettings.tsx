@@ -65,12 +65,19 @@ const REWINDER = CONTENT.callings.find((c) => (c.values.rewind ?? 0) > 0);
  * on a Chronomancer run.
  */
 function labelOf(action: Action): string {
-  return action === 'reel' && REWINDER ? `Reel / ${REWIND_NAME}` : actionLabel(action);
+  return action === 'reel' && REWINDER
+    ? t('input.controls.reel', { REWIND_NAME })
+    : actionLabel(action);
 }
 
 function hintOf(action: Action, hint: string | undefined): string | undefined {
   if (action !== 'reel' || !REWINDER) return hint;
-  return `${hint ? `${hint}. ` : ''}The ${REWINDER.name}: ${REWIND_NAME} them ${REWINDER.values.rewind} s back instead`;
+  return t('input.controls.theThemSBack', {
+    value: hint ? `${hint}. ` : '',
+    name: REWINDER.name,
+    REWIND_NAME,
+    rewind: REWINDER.values.rewind,
+  });
 }
 
 /** The hero keys' hint names the Cue modifier as bound (Phase 7: it is bindable). */
@@ -308,8 +315,8 @@ export function ControlsSettings({ compact = false }: { compact?: boolean }) {
     <div className="flex flex-col gap-4" data-testid="controls-settings">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-muted">
-          Keys follow their physical position, so they work on any keyboard layout. Click a key,
-          then press the new one (<b className="text-text">Esc</b> cancels).
+          {t('input.controls.keysFollowTheirPhysical')}
+          <b className="text-text">{t('input.controls.esc')}</b> {t('input.controls.cancels')}
         </p>
         <Button
           size="sm"
@@ -320,7 +327,7 @@ export function ControlsSettings({ compact = false }: { compact?: boolean }) {
             update((d) => ({ ...d, bindings: {} }));
           }}
         >
-          <Icon name="reroll" size={14} /> Reset all keys
+          <Icon name="reroll" size={14} /> {t('input.controls.resetAllKeys')}
         </Button>
       </div>
       <div className={`grid gap-4 ${compact ? '' : 'xl:grid-cols-2'}`}>
@@ -685,8 +692,8 @@ function KeySlot({
     return (
       <span
         className="min-w-[4.25rem] shrink-0 rounded-md border border-ink-600 px-2 py-1 text-center font-mono text-xs text-muted"
-        title={`${keyLabel(code)} always works for ${label}`}
-        aria-label={`${label}: ${keyLabel(code)}, fixed`}
+        title={t('input.controls.alwaysWorksFor', { keyLabel: keyLabel(code), label })}
+        aria-label={t('input.controls.fixed', { label, keyLabel: keyLabel(code) })}
       >
         {keyLabel(code)}
       </span>
@@ -702,10 +709,13 @@ function KeySlot({
         }}
         aria-label={
           capturing
-            ? `Press a key for ${label} (Escape cancels)`
+            ? t('input.controls.pressAKeyFor', { label })
             : code
-              ? `${label}: ${keyLabel(code)}. Change`
-              : `${label}: ${slot === 0 ? 'no key' : 'no second key'}. Add one`
+              ? t('input.controls.change2', { label, keyLabel: keyLabel(code) })
+              : t('input.controls.addOne', {
+                  label,
+                  value: slot === 0 ? t('input.controls.noKey') : t('input.controls.noSecondKey'),
+                })
         }
         className={`min-w-[4.25rem] rounded-md border px-2 py-1 font-mono text-xs transition-colors ${
           capturing
@@ -715,7 +725,13 @@ function KeySlot({
               : 'border-dashed border-ink-600 text-muted hover:border-gold-400 hover:text-text'
         } ${code && !capturing ? 'rounded-r-none' : ''}`}
       >
-        {capturing ? 'Press a key…' : code ? keyLabel(code) : slot === 0 ? 'Unbound' : '+'}
+        {capturing
+          ? t('input.controls.pressAKey')
+          : code
+            ? keyLabel(code)
+            : slot === 0
+              ? t('input.controls.unbound')
+              : '+'}
       </button>
       {code && !capturing && (
         <button
@@ -724,8 +740,8 @@ function KeySlot({
             playUi('back');
             onClear();
           }}
-          aria-label={`Remove ${keyLabel(code)} from ${label}`}
-          title="Remove this key"
+          aria-label={t('input.controls.removeFrom', { keyLabel: keyLabel(code), label })}
+          title={t('input.controls.removeThisKey')}
           className="flex h-[1.625rem] items-center rounded-r-md border border-l-0 border-ink-500 bg-ink-800 px-1 text-muted hover:text-rose-300"
         >
           <Icon name="close" size={12} />

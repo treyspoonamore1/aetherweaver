@@ -21,7 +21,7 @@ export { SAPLING_NAMES };
 
 /** "Moss" (the Sapling at this index), or "Sapling 4" past the names. */
 export function saplingName(index: number): string {
-  return SAPLING_NAMES[index] ?? `Sapling ${index + 1}`;
+  return SAPLING_NAMES[index] ?? t('hud.groveLook.sapling', { value: index + 1 });
 }
 
 export interface SaplingRow {

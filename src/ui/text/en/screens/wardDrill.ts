@@ -35,4 +35,7 @@ export const wardDrill = {
   'screens.wardDrill.nextInSYour':
     'Next: {heroName} ({heroKey}), {label}, in {max} s, your Ward readied for it.',
   'screens.wardDrill.asTheMarkCloses': '{heroName}! {wardKey} as the mark closes.',
+  'screens.wardDrill.mixed': 'Mixed',
+  'screens.wardDrill.perfect': 'Perfect',
+  'screens.wardDrill.missed': 'Missed',
 } satisfies Catalogue;

@@ -442,7 +442,9 @@ export function BondsScreen() {
       onTalent={(h, tier, id) => useProfile.getState().setTalent(h, tier, id)}
       onSolo={(h, solo) => useProfile.getState().setSolo(h, solo)}
       onBack={back}
-      backTo={previous === 'run' ? 'Prep' : txt('screens.bondsScreen.theLoom')}
+      backTo={
+        previous === 'run' ? txt('screens.bondsScreen.prep') : txt('screens.bondsScreen.theLoom')
+      }
       runUnderWay={runUnderWay}
       onRules={() => setCodex(true)}
     />

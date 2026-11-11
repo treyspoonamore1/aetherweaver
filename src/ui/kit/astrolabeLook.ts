@@ -36,7 +36,9 @@ export const CONSTELLATIONS: readonly Constellation[] = ['silk', 'choir', 'aegis
 
 export const CONSTELLATION_LOOK: Readonly<Record<Constellation, ConstellationLook>> = {
   silk: {
-    name: 'Silk',
+    get name() {
+      return t('common.astrolabeLook.silk');
+    },
     get blurb() {
       return t('common.astrolabeLook.theThread');
     },
@@ -47,7 +49,9 @@ export const CONSTELLATION_LOOK: Readonly<Record<Constellation, ConstellationLoo
     icon: 'thread',
   },
   choir: {
-    name: 'Choir',
+    get name() {
+      return t('common.astrolabeLook.choir');
+    },
     get blurb() {
       return t('common.astrolabeLook.theSongs');
     },
@@ -58,7 +62,9 @@ export const CONSTELLATION_LOOK: Readonly<Record<Constellation, ConstellationLoo
     icon: 'note',
   },
   aegis: {
-    name: 'Aegis',
+    get name() {
+      return t('common.astrolabeLook.aegis');
+    },
     get blurb() {
       return t('common.astrolabeLook.theTechniques');
     },
@@ -69,7 +75,9 @@ export const CONSTELLATION_LOOK: Readonly<Record<Constellation, ConstellationLoo
     icon: 'ward',
   },
   bond: {
-    name: 'Bond',
+    get name() {
+      return t('common.astrolabeLook.bond');
+    },
     get blurb() {
       return t('common.astrolabeLook.theHeroes');
     },

@@ -5,7 +5,7 @@
  */
 import { callingLook } from '../kit/callingLook';
 import type { HeroHud, WeaverHud } from '../store';
-import { bindingCode, bindingLabel } from './labels';
+import { bindingCode, bindingLabel, mouseRoleLabel } from './labels';
 import { CUT_CAUSE_NAME, cutPlate, unravelPlate } from './riftLook';
 import { t } from '../text';
 
@@ -73,9 +73,9 @@ export interface ThreadDialView {
   says: string;
 }
 
-/** The key the player has bound to Mend ⇄ Empower (the right mouse button always works too). */
+/** The key bound to Mend ⇄ Empower, else the mouse button that plays it (RMB by default). */
 export function switchKeyLabel(): string {
-  return bindingCode('threadMode') ? bindingLabel('threadMode') : 'RMB';
+  return bindingCode('threadMode') ? bindingLabel('threadMode') : mouseRoleLabel('mode');
 }
 
 /**
@@ -95,8 +95,8 @@ export function threadDialView(w: WeaverHud, target: HeroHud | null): ThreadDial
         ? 'live'
         : 'idle';
   const share = Math.round(w.bearShare * 100);
-  const other = mode === 'mend' ? 'Empower' : 'Mend';
-  const back = w.lastMode === 'mend' ? 'Mend' : 'Empower';
+  const other = mode === 'mend' ? t('hud.threadMode.empower') : t('hud.threadMode.mend');
+  const back = w.lastMode === 'mend' ? t('hud.threadMode.mend') : t('hud.threadMode.empower');
   const doing =
     mode === 'bear'
       ? t('hud.threadMode.bearYouTakeOf', {
@@ -112,7 +112,7 @@ export function threadDialView(w: WeaverHud, target: HeroHud | null): ThreadDial
           });
   const how =
     mode === 'bear'
-      ? t('hud.threadMode.againGoesBackTo', { value: bearKey ?? 'Bear', back })
+      ? t('hud.threadMode.againGoesBackTo', { value: bearKey ?? t('hud.threadMode.bear'), back })
       : t('hud.threadMode.switchesTo', { switchKey, other });
   // Movement III (docs/phase-5c.md): an enemy's cut names what cut it; Unravel turns Mend.
   const cut = state === 'snapped' ? w.threadCut : undefined;
@@ -138,7 +138,7 @@ export function threadDialView(w: WeaverHud, target: HeroHud | null): ThreadDial
   const plate = cut
     ? cutPlate(cut.cause, w.threadLock)
     : state === 'snapped'
-      ? 'Snapped'
+      ? t('hud.threadMode.snapped')
       : unravelled
         ? unravelPlate(w.unravelLeft ?? 0)
         : mode === 'bear'

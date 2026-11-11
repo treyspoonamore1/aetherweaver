@@ -43,14 +43,18 @@ export const TEAR_TOO_GRADE = 'A';
  */
 export const LATER_LEVELS: readonly { name: string; text: string; effect: DissonanceEffect }[] = [
   {
-    name: 'Tyrant',
+    get name() {
+      return t('screens.dissonanceModel.tyrant');
+    },
     get text() {
       return t('screens.dissonanceModel.bossesGainAMechanic');
     },
     effect: 'tyrant',
   },
   {
-    name: 'Mimicry',
+    get name() {
+      return t('screens.dissonanceModel.mimicry');
+    },
     get text() {
       return t('screens.dissonanceModel.aMimickingAffix');
     },
@@ -84,7 +88,9 @@ export function expeditionsOnly(def: DissonanceLevel): boolean {
 }
 
 /** "Expeditions only", as Prep marks such a level. */
-export const EXPEDITIONS_ONLY = 'Expeditions only';
+export function expeditionsOnlyText(): string {
+  return t('screens.dissonanceModel.expeditionsOnly');
+}
 
 // ── Words and numbers ─────────────────────────────────────────────────────────────────
 
@@ -160,7 +166,7 @@ export interface LevelRow {
 /** Why a chosen level has nothing to do in this run (its effect's own reason). */
 export function idleReason(effect: DissonanceEffect): string {
   if (effect === 'true_dissonance')
-    return t('screens.dissonanceModel.aPreludeHasNo', { EXPEDITIONS_ONLY });
+    return t('screens.dissonanceModel.aPreludeHasNo', { EXPEDITIONS_ONLY: expeditionsOnlyText() });
   return effect === 'cursed_start'
     ? t('screens.dissonanceModel.nothingToGiveYou')
     : t('screens.dissonanceModel.nothingToChangeIn');
@@ -251,7 +257,7 @@ export function withRank(
 
 /** "14 of 33 points". */
 export function totalLine(points: number): string {
-  return `${points} of ${pointsText(maxDissonance())}`;
+  return t('screens.dissonanceModel.of', { points, pointsText: pointsText(maxDissonance()) });
 }
 
 // ── What it pays ──────────────────────────────────────────────────────────────────────
@@ -430,7 +436,7 @@ export function rememberLine(points: number): string {
 
 /** "Depth 12". */
 export function depthLabel(depth: number): string {
-  return `Depth ${depth}`;
+  return t('screens.dissonanceModel.depth', { depth });
 }
 
 /** Everything the Reliquary says about a relic's depth. */
@@ -690,7 +696,10 @@ export function pactLine(): string {
 
 /** A level's name by its effect, as content names it ("Blind Score", "Unforgiving"). */
 export function levelName(effect: DissonanceEffect): string {
-  return CONTENT.dissonance.find((d) => d.effect === effect)?.name ?? 'Dissonance';
+  return (
+    CONTENT.dissonance.find((d) => d.effect === effect)?.name ??
+    t('screens.dissonanceModel.dissonance2')
+  );
 }
 
 /** Blind Score in the fight, in a line. */

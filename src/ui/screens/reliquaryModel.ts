@@ -91,12 +91,12 @@ export function tierLabel(tier: number): string {
 
 /** "6 Tuning Shards", "1 Tuning Shard". */
 export function shardsText(n: number): string {
-  return `${n} Tuning ${plural(n, 'Shard')}`;
+  return `${n} Tuning ${plural(n, t('screens.reliquaryModel.shard'))}`;
 }
 
 /** "1 Discord Tear", "2 Discord Tears". */
 export function tearsText(n: number): string {
-  return `${n} Discord ${plural(n, 'Tear')}`;
+  return `${n} Discord ${plural(n, t('screens.reliquaryModel.tear'))}`;
 }
 
 /** What a craft costs, in words: "6 Tuning Shards", "1 Discord Tear". */
@@ -197,7 +197,7 @@ export function inscriptionRow(
       tierLabel: tierLabel(ins.tier),
       tier: ins.tier,
       text,
-      value: fixed ? t('screens.reliquaryModel.isAlways') : 'ranges',
+      value: fixed ? t('screens.reliquaryModel.isAlways') : t('screens.reliquaryModel.ranges2'),
       rangeText: rangeText(def, ins.tier),
       categoryName: categoryName(def.category),
     }),
@@ -226,10 +226,18 @@ export function curseRow(id: string): FixedRow {
 // ── A relic ───────────────────────────────────────────────────────────────────────────
 
 const RARITY_WORD: Readonly<Record<RelicRarity, string>> = {
-  common: 'Common',
-  rare: 'Rare',
-  legendary: 'Legendary',
-  cursed: 'Cursed',
+  get common() {
+    return t('screens.reliquaryModel.common');
+  },
+  get rare() {
+    return t('screens.reliquaryModel.rare');
+  },
+  get legendary() {
+    return t('screens.reliquaryModel.legendary');
+  },
+  get cursed() {
+    return t('screens.reliquaryModel.cursed');
+  },
 };
 
 export interface RelicView {
@@ -442,11 +450,21 @@ export const ACTIONS: readonly ActionId[] = [
 ];
 
 export const ACTION_LABEL: Readonly<Record<ActionId, string>> = {
-  inscribe: 'Inscribe',
-  retune: 'Retune',
-  ascend: 'Ascend',
-  dissonate: 'Dissonate',
-  release: 'Release',
+  get inscribe() {
+    return t('screens.reliquaryModel.inscribe');
+  },
+  get retune() {
+    return t('screens.reliquaryModel.retune');
+  },
+  get ascend() {
+    return t('screens.reliquaryModel.ascend');
+  },
+  get dissonate() {
+    return t('screens.reliquaryModel.dissonate');
+  },
+  get release() {
+    return t('screens.reliquaryModel.release');
+  },
 };
 
 /**
@@ -593,7 +611,7 @@ export function craftPreview(
       });
       if (typeof arg === 'string') {
         const left = inscribable(r, arg);
-        verb = `Inscribe ${categoryName(arg)}`;
+        verb = t('screens.reliquaryModel.inscribe2', { categoryName: categoryName(arg) });
         if (left.length > 0)
           stakes.push(
             left.length === 1
@@ -612,7 +630,7 @@ export function craftPreview(
     }
     case 'retune':
       if (row) {
-        verb = `Retune ${row.name}`;
+        verb = t('screens.reliquaryModel.retune2', { name: row.name });
         chances.push(...retuneChances(ins!));
         stakes.push(
           t('screens.reliquaryModel.rollsAgainWithinEvery', {
@@ -626,7 +644,7 @@ export function craftPreview(
       break;
     case 'ascend':
       if (row) {
-        verb = `Ascend ${row.name}`;
+        verb = t('screens.reliquaryModel.ascend2', { name: row.name });
         const p = odds.success ?? 0;
         const to = row.tier - 1;
         chances.push(
@@ -836,7 +854,7 @@ export function releaseView(r: ReliquaryRelic): ReleaseView {
           ? t('screens.reliquaryModel.andForEachOf', {
               perInscription: v.perInscription,
               count,
-              countWord: plural(count, 'Inscription'),
+              countWord: plural(count, t('screens.reliquaryModel.inscription')),
             })
           : '',
     }),
@@ -1061,7 +1079,7 @@ function dissonatedView(
             rose.length > 0
               ? t('screens.reliquaryModel.roseATierAnd', {
                   length: rose.length,
-                  lengthWord: plural(rose.length, 'Inscription'),
+                  lengthWord: plural(rose.length, t('screens.reliquaryModel.inscription')),
                 })
               : t('screens.reliquaryModel.noInscriptionCouldRise'),
           value2: curse?.name ?? t('screens.reliquaryModel.aCurse'),
@@ -1109,7 +1127,9 @@ export function carriedUids(rq: Reliquary, slots: number): string[] {
 export type CarryRole = 'attuned' | 'lends';
 
 export const ROLE_LABEL: Readonly<Record<CarryRole, string>> = {
-  attuned: 'Attuned',
+  get attuned() {
+    return t('screens.reliquaryModel.attuned');
+  },
   get lends() {
     return t('screens.reliquaryModel.lendsItsInscriptions');
   },
@@ -1126,7 +1146,9 @@ export const ROLE_LINE: Readonly<Record<CarryRole, string>> = {
 };
 
 /** A dormant relic, wherever a run shows it. */
-export const DORMANT_LINE = 'Dormant: its own effect sleeps. It lends the run its Inscriptions.';
+export function dormantLine(): string {
+  return t('screens.reliquaryModel.dormantLine');
+}
 
 /** The role of the relic in this carry slot (0: the first, attuned). */
 export function carryRole(index: number): CarryRole {
@@ -1226,7 +1248,10 @@ export function carryChange(
             : t('screens.reliquaryModel.allCarrySlotsAre', { slots }),
         value2:
           next !== undefined
-            ? t('screens.reliquaryModel.rankOpensASlot', { next, value: ORDINAL[slots] ?? 'new' })
+            ? t('screens.reliquaryModel.rankOpensASlot', {
+                next,
+                value: ORDINAL[slots] ?? t('screens.reliquaryModel.new'),
+              })
             : '',
       }),
     };
@@ -1241,9 +1266,12 @@ export function carryChange(
 export function reliquaryUnlockLine(u: { kind: string; target: string }): string | null {
   const ranks = RULES().slotRanks;
   if (u.kind === 'reliquary') {
-    const later = ranks
-      .slice(1)
-      .map((r, i) => t('screens.reliquaryModel.rankGivesA', { r, value: ORDINAL[i + 1] ?? 'new' }));
+    const later = ranks.slice(1).map((r, i) =>
+      t('screens.reliquaryModel.rankGivesA', {
+        r,
+        value: ORDINAL[i + 1] ?? t('screens.reliquaryModel.new'),
+      }),
+    );
     return t('screens.reliquaryModel.oneRelicToCarry', {
       value: later.length ? `; ${andList(later)}` : '',
     });
@@ -1318,7 +1346,9 @@ export function materialsHow(): { shards: string; tears: string } {
     }),
     tears: t('screens.reliquaryModel.aDiscordTearFor', {
       finalBossName: finalBossName(),
-      value: /^[AEFHILMNORSX]/.test(grade) ? 'an' : 'a',
+      value: /^[AEFHILMNORSX]/.test(grade)
+        ? t('screens.reliquaryModel.an')
+        : t('screens.reliquaryModel.a'),
       grade,
       tearOnA: d.tearOnA,
       TEAR_TOO_GRADE,
@@ -1378,7 +1408,7 @@ export function enshrineChoices(run: RunState): EnshrineChoice[] {
       arrives,
       arrivesLine: t('screens.reliquaryModel.itArrivesWith', {
         arrives,
-        arrivesWord: plural(arrives, 'Inscription'),
+        arrivesWord: plural(arrives, t('screens.reliquaryModel.inscription')),
         value: cleansed ? t('screens.reliquaryModel.andCleansed') : '',
       }),
     };

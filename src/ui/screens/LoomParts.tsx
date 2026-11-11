@@ -697,7 +697,7 @@ export function StationBadge({
           <span className="flex items-center gap-1">
             <Icon name="shard" size={13} style={{ color: SHARD_LOOK.color }} />
             <span className="font-mono">{reliquary.shards}</span>{' '}
-            {reliquary.shards === 1 ? 'Shard' : 'Shards'}
+            {reliquary.shards === 1 ? t('screens.loomParts.shard') : t('screens.loomParts.shards')}
           </span>
         )}
         {reliquary.shards > 0 && reliquary.tears > 0 && <span className="text-muted">·</span>}
@@ -705,7 +705,7 @@ export function StationBadge({
           <span className="flex items-center gap-1">
             <Icon name="tear" size={13} style={{ color: TEAR_LOOK.color }} />
             <span className="font-mono">{reliquary.tears}</span>{' '}
-            {reliquary.tears === 1 ? 'Tear' : 'Tears'}
+            {reliquary.tears === 1 ? t('screens.loomParts.tear') : t('screens.loomParts.tears')}
           </span>
         )}
       </span>

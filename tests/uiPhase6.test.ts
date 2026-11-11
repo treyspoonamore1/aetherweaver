@@ -120,7 +120,7 @@ import {
 } from '../src/ui/screens/atlasModel';
 import { atlasProgress, deedBest, deedGlyph } from '../src/ui/screens/deedsModel';
 import {
-  EXPEDITIONS_ONLY,
+  expeditionsOnlyText,
   LATER_LEVELS,
   expeditionsOnly,
   idleReason,
@@ -446,7 +446,9 @@ describe('Prep: an Echo’s twists, the weekly’s fixed choices, the levels', (
     expect(expeditionsOnly({ ...CONTENT.dissonance[0]!, expeditionsOnly: false } as never)).toBe(
       false,
     );
-    expect(idleReason('true_dissonance')).toBe(`${EXPEDITIONS_ONLY}: a Prelude has no Finale.`);
+    expect(idleReason('true_dissonance')).toBe(
+      `${expeditionsOnlyText()}: a Prelude has no Finale.`,
+    );
     expect(maxDissonance()).toBe(CONTENT.dissonance.reduce((n, d) => n + d.points * d.ranks, 0));
   });
 });

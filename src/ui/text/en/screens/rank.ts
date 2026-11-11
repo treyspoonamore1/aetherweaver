@@ -16,4 +16,5 @@ export const rank = {
   'screens.rank.rankOpens': 'Rank {nextRank} opens',
   'screens.rank.rankReached': 'Rank {rank} reached · ',
   'screens.rank.weaverRank2': 'Weaver Rank ',
+  'screens.rank.ranks': 'Ranks ',
 } satisfies Catalogue;

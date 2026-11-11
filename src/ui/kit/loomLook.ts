@@ -7,6 +7,7 @@ import { BOND_LOOK } from './bondLook';
 import { DISCORD_LOOK } from './dissonanceLook';
 import type { IconName } from './iconPaths';
 import { CARRIED_LOOK } from './reliquaryLook';
+import { t as txt } from '../text';
 
 /**
  * How the Loom looks (Phase 4g, docs/phase-4g.md), without React so text modules and tests can
@@ -148,8 +149,22 @@ export function ribbonColors(
  * Empower's gold, each with its glyph. CSS variables, so the colour-vision palettes follow.
  */
 export const THREAD_MODES = [
-  { mode: 'mend', label: 'Mend', color: 'var(--color-heal)', icon: 'mend' },
-  { mode: 'empower', label: 'Empower', color: 'var(--color-amp)', icon: 'empower' },
+  {
+    mode: 'mend',
+    get label() {
+      return txt('common.loomLook.mend');
+    },
+    color: 'var(--color-heal)',
+    icon: 'mend',
+  },
+  {
+    mode: 'empower',
+    get label() {
+      return txt('common.loomLook.empower');
+    },
+    color: 'var(--color-amp)',
+    icon: 'empower',
+  },
 ] as const satisfies readonly { mode: string; label: string; color: string; icon: IconName }[];
 
 /**

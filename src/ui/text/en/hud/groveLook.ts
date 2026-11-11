@@ -18,4 +18,5 @@ export const groveLook = {
   'hud.groveLook.isBurrowingItRe': '{name} is burrowing: it re-plants ahead of you',
   'hud.groveLook.isHeldWhereIt':
     '{name} is held where it stands ({round}% life): it hears no songs until it wakes',
+  'hud.groveLook.sapling': 'Sapling {value}',
 } satisfies Catalogue;

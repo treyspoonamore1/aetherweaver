@@ -24,7 +24,7 @@ import { STARLIGHT_LOOK } from '../kit/loomLook';
 import { atelierUnlock } from './loomModel';
 import type { DissonanceChoice } from '../../meta/dissonance';
 import {
-  NOTHING_NEW,
+  nothingNew,
   fightXp,
   rankAstrolabeLine,
   rankPanel,
@@ -383,7 +383,7 @@ export function RankUpCard({
           className="mt-3 font-display text-3xl font-bold tracking-wide text-gold-300"
         >
           {/* Numerals in the sans, as everywhere: the display face's 1 reads as an I. */}
-          {rankUps.length > 1 ? 'Ranks ' : txt('screens.rank.weaverRank2')}
+          {rankUps.length > 1 ? txt('screens.rank.ranks') : txt('screens.rank.weaverRank2')}
           <span className="font-sans">
             {rankUps.length > 1 ? rankUps.map((r) => r.rank).join(', ') : top}
           </span>
@@ -397,7 +397,7 @@ export function RankUpCard({
                 </p>
               )}
               {r.unlocks.length === 0 && !r.point && !r.atelier ? (
-                <p className="text-sm text-muted">{NOTHING_NEW}</p>
+                <p className="text-sm text-muted">{nothingNew()}</p>
               ) : (
                 <ul className="flex flex-col gap-2">
                   {r.unlocks.map((u) => {

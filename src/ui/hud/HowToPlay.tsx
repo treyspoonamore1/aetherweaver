@@ -2,7 +2,7 @@ import { Button } from '../kit/Button';
 import { Icon, type IconName } from '../kit/Icon';
 import { KeyCap } from '../kit/KeyCap';
 import { Modal } from '../kit/Modal';
-import { bindingLabel } from './labels';
+import { bindingLabel, mouseRoleDefault, mouseRoleLabel } from './labels';
 import { levelName } from '../screens/dissonanceModel';
 import { t } from '../text';
 
@@ -107,13 +107,19 @@ function rows(
     },
     {
       icon: 'thread',
-      keys: ['1', '2', '3', 'RMB', ...(bear ? [bindingLabel('bear')] : [])],
+      keys: ['1', '2', '3', mouseRoleLabel('mode'), ...(bear ? [bindingLabel('bear')] : [])],
       title: t('hud.howToPlay.threadAHero'),
-      body: t('hud.howToPlay.clickAPartyFrame', {
-        value: bear
-          ? t('hud.howToPlay.asTheMartyrBears', { bindingLabel: bindingLabel('bear') })
-          : '',
-      }),
+      body: t(
+        mouseRoleDefault('mode')
+          ? 'hud.howToPlay.clickAPartyFrame'
+          : 'hud.howToPlay.clickAPartyFrameMode',
+        {
+          mode: mouseRoleLabel('mode'),
+          value: bear
+            ? t('hud.howToPlay.asTheMartyrBears', { bindingLabel: bindingLabel('bear') })
+            : '',
+        },
+      ),
     },
     {
       icon: 'ward',

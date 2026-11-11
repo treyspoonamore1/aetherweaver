@@ -121,7 +121,10 @@ export function pickProblem(chosen: readonly string[]): string | null {
   if (n === PARTY_SIZE) return null;
   const more = PARTY_SIZE - n;
   return more > 0
-    ? txt('screens.rosterModel.pickMore', { more, value: more === 1 ? 'hero' : 'heroes' })
+    ? txt('screens.rosterModel.pickMore', {
+        more,
+        value: more === 1 ? txt('screens.rosterModel.hero') : txt('screens.rosterModel.heroes'),
+      })
     : null;
 }
 
@@ -260,8 +263,12 @@ const PASSIVE_NAME: Readonly<Record<string, string>> = {
   get bloodRage() {
     return txt('screens.rosterModel.bloodRage');
   },
-  parry: 'Parry',
-  rootbond: 'Rootbond',
+  get parry() {
+    return txt('screens.rosterModel.parry');
+  },
+  get rootbond() {
+    return txt('screens.rosterModel.rootbond');
+  },
 };
 
 /** A passive's glyph (Prep's card, the Codex): Blood Rage's flame, Seren's blades, Oro's leaf. */
@@ -378,7 +385,7 @@ export function heroTermList(): HeroTerm[] {
   const root = oro.abilities.find((a) => a.id === 'bramble')?.root ?? 1.5;
   return [
     {
-      term: 'Parry',
+      term: txt('screens.rosterModel.parry'),
       text: txt('screens.rosterModel.aWardOfYours', {
         PARRY_REACH,
         round: Math.round((parry?.counterPct ?? 3) * 100),
@@ -394,12 +401,12 @@ export function heroTermList(): HeroTerm[] {
       heroes: ['seren'],
     },
     {
-      term: 'Showboat',
+      term: txt('screens.rosterModel.showboat'),
       text: txt('screens.rosterModel.yourFocusMovesHer', { description: seren.quirk.description }),
       heroes: ['seren'],
     },
     {
-      term: 'Sapling',
+      term: txt('screens.rosterModel.sapling'),
       text: sapling
         ? txt('screens.rosterModel.oneOfOroS', {
             count: sapling.count,
@@ -411,7 +418,7 @@ export function heroTermList(): HeroTerm[] {
       heroes: ['oro'],
     },
     {
-      term: 'Ancient',
+      term: txt('screens.rosterModel.ancient'),
       text: ancient
         ? txt('screens.rosterModel.oroSSoloA', {
             maxHp: fmt(ancient.maxHp),
@@ -424,22 +431,22 @@ export function heroTermList(): HeroTerm[] {
       heroes: ['oro'],
     },
     {
-      term: 'Rooted',
+      term: txt('screens.rosterModel.rooted'),
       text: txt('screens.rosterModel.heldInPlaceBy', { root }),
       heroes: ['oro'],
     },
     {
-      term: 'Rootbond',
+      term: txt('screens.rosterModel.rootbond'),
       text: passiveRow(oro)?.text ?? txt('screens.rosterModel.yourThreadOnOro2'),
       heroes: ['oro'],
     },
     {
-      term: 'Tending',
+      term: txt('screens.rosterModel.tending'),
       text: txt('screens.rosterModel.setAFocusTo', { description: oro.quirk.description }),
       heroes: ['oro'],
     },
     {
-      term: 'Heavy',
+      term: txt('screens.rosterModel.heavy'),
       text: txt('screens.rosterModel.aNormalOrElite', { HEAVY_LIFE: fmt(HEAVY_LIFE) }),
       heroes: ['seren', 'oro'],
     },
@@ -619,7 +626,7 @@ export function bloodLine(heroId: string, b: HeroBloodStats, oath = false, run =
   return txt('screens.rosterModel.underOfTheLifesteal', {
     below,
     share: pct(share),
-    value: run ? 'run' : 'fight',
+    value: run ? txt('screens.rosterModel.run') : txt('screens.rosterModel.fight'),
     lifesteal: fmt(b.lifesteal),
     obj: heroPronouns(heroId).obj,
     cut,
@@ -805,7 +812,8 @@ export function harmonyLeads(
     out.push({
       harmony: h,
       text: txt('screens.rosterModel.harmony', {
-        value: named.length > 0 ? `with ${named.join(' and ')} ` : '',
+        value:
+          named.length > 0 ? txt('screens.rosterModel.with', { named: named.join(' and ') }) : '',
         name: h.name,
       }),
       others,

@@ -60,7 +60,7 @@ export function cueBadgeLabel(next: {
   const chained = next.link > 1 ? `${linkName(next.link)} ${powerLabel(next.power)}` : null;
   const beat = next.onBeat
     ? next.cost <= 0
-      ? 'Free'
+      ? txt('hud.conducting.free')
       : txt('hud.conducting.onTheBeat', { cost: next.cost })
     : null;
   return [chained, beat].filter(Boolean).join(' · ') || null;
@@ -370,12 +370,17 @@ export function pctLabel(share: number): string {
 
 /** The chain ring's label: "Duet next", "Trio next". */
 export function chainLabel(chain: NonNullable<ConductingHud['chain']>): string {
-  return `${linkName(chain.link)} next`;
+  return txt('hud.conducting.next', { linkName: linkName(chain.link) });
 }
 
 /** "Lyra next ×1.44"; "every hero left waits" when none can play yet. */
 export function finaleNextLabel(finale: FinaleHud): string {
-  return finale.next ? `${finale.next.name} next ${powerLabel(finale.next.power)}` : 'Waiting';
+  return finale.next
+    ? txt('hud.conducting.next2', {
+        name: finale.next.name,
+        powerLabel: powerLabel(finale.next.power),
+      })
+    : txt('hud.conducting.waiting');
 }
 
 /**
@@ -410,7 +415,10 @@ export function finaleTurnSentence(name: string, t: FinaleTurnHud): string {
       return txt('hud.conducting.canTPlayTheir', { name, value: LOST_REASON[t.block ?? 'down'] });
     case 'lost':
       return (t.played ?? 0) > 0
-        ? txt('hud.conducting.playedATurnOf', { name, value: t.lost === 1 ? 'one' : t.lost })
+        ? txt('hud.conducting.playedATurnOf', {
+            name,
+            value: t.lost === 1 ? txt('hud.conducting.one') : t.lost,
+          })
         : txt('hud.conducting.lostTheirTurn', { name });
     case 'plays':
       return txt('hud.conducting.sFinaleSoloIs', { name });
@@ -423,7 +431,9 @@ export function finaleTurnSentence(name: string, t: FinaleTurnHud): string {
 
 /** The Calling chip's Marcato: "Marcato" when ready, "Marcato 5s" while it comes back. */
 export function marcatoChipLabel(m: NonNullable<ConductingHud['marcato']>): string {
-  return m.ready ? 'Marcato' : txt('hud.conducting.marcatoS', { ceil: Math.ceil(m.readyIn - EPS) });
+  return m.ready
+    ? txt('hud.conducting.marcato')
+    : txt('hud.conducting.marcatoS', { ceil: Math.ceil(m.readyIn - EPS) });
 }
 
 /** The chip's sentence for the Conductor's states (the chip's aria label adds it). */
@@ -577,7 +587,7 @@ export function conductingCallouts(
             detail: txt('hud.conducting.played', {
               value: ctx.crescendoName ?? txt('hud.conducting.theFinale'),
               fired: event.fired,
-              value2: event.fired === 1 ? 'Solo' : 'Solos',
+              value2: event.fired === 1 ? txt('hud.conducting.solo') : txt('hud.conducting.solos'),
               value3: event.lost > 0 ? txt('hud.conducting.lost', { lost: event.lost }) : '',
             }),
             color: gold,

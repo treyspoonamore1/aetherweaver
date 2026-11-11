@@ -36,7 +36,9 @@ export const CATEGORY_LOOK: Readonly<Record<InscriptionCategory, CategoryLook>> 
   aegis: CONSTELLATION_LOOK.aegis,
   bond: CONSTELLATION_LOOK.bond,
   weaver: {
-    name: 'Weaver',
+    get name() {
+      return t('common.reliquaryLook.weaver');
+    },
     blurb: 'yourself',
     color: '#d4f0c0',
     light: '#f1fbe9',

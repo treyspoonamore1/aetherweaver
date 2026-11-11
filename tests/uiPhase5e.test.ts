@@ -31,7 +31,7 @@ import { ancientChip, saplingRows, saplingsOutside, tendingTitle } from '../src/
 import { frameState } from '../src/ui/hud/healthModel';
 import { bindingLabel } from '../src/ui/hud/labels';
 import { evaluateHints } from '../src/ui/hud/hints';
-import { MIRROR_CHOIR_OTHERS, shownDecree } from '../src/ui/hud/legionLook';
+import { mirrorChoirOthers, shownDecree } from '../src/ui/hud/legionLook';
 import { CONDUCTOR_DECREES } from '../src/content/crucible';
 import { SILENCE_INK } from '../src/ui/hud/finaleLook';
 import { allyOf } from '../src/ui/hud/sighting';
@@ -717,11 +717,11 @@ describe('review fixes: the Mirror Choir decree, and Brann’s Codex entry', () 
 
   it('the Mirror Choir decree says your other heroes still sing, for a Seren or Oro party only', () => {
     const text = CONDUCTOR_DECREES.mirrorChoir;
-    expect(shownDecree(text, look('kael', 'seren', 'oro'))).toBe(MIRROR_CHOIR_OTHERS);
-    expect(shownDecree(text, look('lyra', 'vexis', 'oro'))).toBe(MIRROR_CHOIR_OTHERS);
-    expect(shownDecree(text, look('kael', 'brann', 'seren'))).toBe(MIRROR_CHOIR_OTHERS);
-    expect(MIRROR_CHOIR_OTHERS).toContain('your other heroes still sing');
-    expect(MIRROR_CHOIR_OTHERS).not.toContain('every voice of your party');
+    expect(shownDecree(text, look('kael', 'seren', 'oro'))).toBe(mirrorChoirOthers());
+    expect(shownDecree(text, look('lyra', 'vexis', 'oro'))).toBe(mirrorChoirOthers());
+    expect(shownDecree(text, look('kael', 'brann', 'seren'))).toBe(mirrorChoirOthers());
+    expect(mirrorChoirOthers()).toContain('your other heroes still sing');
+    expect(mirrorChoirOthers()).not.toContain('every voice of your party');
     // Every party of the first four reads the sim's text, unchanged.
     for (const p of [
       look('kael', 'lyra', 'vexis'),
@@ -737,7 +737,7 @@ describe('review fixes: the Mirror Choir decree, and Brann’s Codex entry', () 
   it('the HUD bridge words a Seren party’s Mirror Choir decree that way too', async () => {
     const { decreeShownNow } = await import('../src/ui/hudBridge');
     const sim = createSim({ seed: 7, encounter: 'first_light', party: ['kael', 'seren', 'oro'] });
-    expect(decreeShownNow(sim.state, CONDUCTOR_DECREES.mirrorChoir)).toBe(MIRROR_CHOIR_OTHERS);
+    expect(decreeShownNow(sim.state, CONDUCTOR_DECREES.mirrorChoir)).toBe(mirrorChoirOthers());
     const plain = createSim({ seed: 7, encounter: 'first_light' });
     expect(decreeShownNow(plain.state, CONDUCTOR_DECREES.mirrorChoir)).toBe(
       CONDUCTOR_DECREES.mirrorChoir,

@@ -35,6 +35,7 @@ import {
   type DrillView,
   type TryKind,
 } from './wardDrill';
+import { t as txt } from '../text';
 
 /**
  * The Perfect-Ward trainer (Phase 4g, docs/phase-4g.md) over the Training Grounds: choose a speed
@@ -48,11 +49,41 @@ import {
 export const TRY_LOOK: Readonly<Record<TryKind, { color: string; icon: IconName; label: string }>> =
   {
     // The Perfect Ward callout's gold.
-    perfect: { color: '#f5d78e', icon: 'ward', label: 'Perfect' },
-    early: { color: '#93c5fd', icon: 'back', label: 'Early' },
-    late: { color: '#fdba74', icon: 'arrow', label: 'Late' },
-    warded: { color: 'var(--color-shield)', icon: 'ward', label: 'Warded, not Perfect' },
-    missed: { color: '#fda4af', icon: 'close', label: 'Missed' },
+    perfect: {
+      color: '#f5d78e',
+      icon: 'ward',
+      get label() {
+        return txt('screens.wardTrainer.perfect');
+      },
+    },
+    early: {
+      color: '#93c5fd',
+      icon: 'back',
+      get label() {
+        return txt('screens.wardTrainer.early');
+      },
+    },
+    late: {
+      color: '#fdba74',
+      icon: 'arrow',
+      get label() {
+        return txt('screens.wardTrainer.late');
+      },
+    },
+    warded: {
+      color: 'var(--color-shield)',
+      icon: 'ward',
+      get label() {
+        return txt('screens.wardTrainer.wardedNotPerfect');
+      },
+    },
+    missed: {
+      color: '#fda4af',
+      icon: 'close',
+      get label() {
+        return txt('screens.wardTrainer.missed');
+      },
+    },
   };
 
 /** The Grounds' own light (the Loom's station): the Ward's shield, cooler. */
@@ -96,7 +127,8 @@ export function WardTrainerView({
 }: WardTrainerViewProps) {
   const [open, setOpen] = useState(!folded);
   const heroes = party();
-  const name = (slot: number) => heroes[slot]?.name ?? `Hero ${slot + 1}`;
+  const name = (slot: number) =>
+    heroes[slot]?.name ?? txt('screens.wardTrainer.heroN', { n: slot + 1 });
   const key = (slot: number) => bindingLabel(FOCUS[slot] ?? 'focus1');
   const wardKey = bindingLabel('ward');
   const mixed = v.mode === 'mixed';
@@ -104,7 +136,7 @@ export function WardTrainerView({
     <Panel
       className={`pointer-events-auto w-[31rem] p-3 ${className}`}
       style={{ borderColor: `color-mix(in srgb, ${LOOK.color} 45%, var(--color-ink-600))` }}
-      aria-label="Perfect-Ward trainer"
+      aria-label={txt('screens.wardTrainer.perfectWardTrainer')}
       data-testid="ward-trainer"
       data-running={v.running}
     >
@@ -120,8 +152,10 @@ export function WardTrainerView({
           }}
         >
           <Icon name="ward" size={15} style={{ color: LOOK.color }} />
-          Perfect-Ward trainer
-          <span className="font-sans text-xs font-normal text-muted">{open ? 'hide' : 'show'}</span>
+          {txt('screens.wardTrainer.perfectWardTrainer')}
+          <span className="font-sans text-xs font-normal text-muted">
+            {open ? txt('screens.wardTrainer.hide') : txt('screens.wardTrainer.show')}
+          </span>
         </button>
         <p
           className="flex items-center gap-2 font-mono text-xs text-muted"
@@ -130,7 +164,7 @@ export function WardTrainerView({
           data-best={v.best}
         >
           <span>
-            Streak{' '}
+            {txt('screens.wardTrainer.streak')}
             <b
               className="text-sm text-text"
               style={v.streak > 0 ? { color: TRY_LOOK.perfect.color } : undefined}
@@ -140,18 +174,23 @@ export function WardTrainerView({
           </span>
           <span aria-hidden>·</span>
           <span
-            title={`Your best streak at ${modeLabel(v.mode).toLowerCase()}, kept on this device`}
+            title={txt('screens.wardTrainer.yourBestStreakAt', {
+              modeLabel: modeLabel(v.mode).toLowerCase(),
+            })}
           >
-            Best <b className="text-sm text-text">{v.best}</b>
-            <span className="sr-only"> at {modeLabel(v.mode)}</span>
+            {txt('screens.wardTrainer.best')} <b className="text-sm text-text">{v.best}</b>
+            <span className="sr-only">
+              {' '}
+              {txt('screens.wardTrainer.at', { modeLabel: modeLabel(v.mode) })}
+            </span>
           </span>
           {v.assisted && (
             <span
               className="text-[0.75rem] text-muted"
-              title="The Perfect window is widened (Settings → Assists): streaks still count, but no best is kept"
+              title={txt('screens.wardTrainer.thePerfectWindowIs')}
               data-testid="drill-assisted"
             >
-              assisted · not kept
+              {txt('screens.wardTrainer.assistedNotKept')}
             </span>
           )}
           {v.newBest && v.streak > 0 && v.streak === v.best && (
@@ -159,7 +198,7 @@ export function WardTrainerView({
               className="rounded-md px-1.5 font-sans text-[0.75rem] font-bold leading-5 text-ink-950"
               style={{ background: TRY_LOOK.perfect.color }}
             >
-              New best
+              {txt('screens.wardTrainer.newBest')}
             </span>
           )}
         </p>
@@ -167,7 +206,7 @@ export function WardTrainerView({
       {open && (
         <>
           <div className="mt-2.5 flex flex-col gap-2">
-            <Choices label="Speed">
+            <Choices label={txt('screens.wardTrainer.speed')}>
               {DRILL_MODES.map((m) => (
                 <Choice
                   key={m}
@@ -176,21 +215,26 @@ export function WardTrainerView({
                   testId={`drill-mode-${m}`}
                   title={
                     m === 'mixed'
-                      ? 'Any hero, any speed, at random'
-                      : `Each blow winds up for ${DRILL_SPEEDS[m].windup.toFixed(1)} s`
+                      ? txt('screens.wardTrainer.anyHeroAnySpeed')
+                      : txt('screens.wardTrainer.eachBlowWindsUp', {
+                          windup: DRILL_SPEEDS[m].windup.toFixed(1),
+                        })
                   }
                 >
                   {modeLabel(m)}
                   {m !== 'mixed' && (
                     <span className="font-mono text-[0.75rem] font-normal opacity-80">
-                      {DRILL_SPEEDS[m].windup.toFixed(1)} s
+                      {txt('screens.wardTrainer.s', { windup: DRILL_SPEEDS[m].windup.toFixed(1) })}
                     </span>
                   )}
                 </Choice>
               ))}
             </Choices>
             <div className="flex items-center justify-between gap-2">
-              <Choices label="Hero" note={mixed ? 'Mixed picks any hero.' : undefined}>
+              <Choices
+                label={txt('screens.wardTrainer.hero')}
+                note={mixed ? txt('screens.wardTrainer.mixedPicksAnyHero') : undefined}
+              >
                 {heroes.map((h, slot) => (
                   <Choice
                     key={h.name}
@@ -198,7 +242,10 @@ export function WardTrainerView({
                     disabled={mixed}
                     onPick={() => onTarget(slot as PartySlot)}
                     testId={`drill-target-${slot}`}
-                    title={`The blows come at ${h.name}: ${key(slot)} Threads them`}
+                    title={txt('screens.wardTrainer.theBlowsComeAt', {
+                      name: h.name,
+                      key: key(slot),
+                    })}
                   >
                     <span
                       className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -225,7 +272,7 @@ export function WardTrainerView({
                 data-testid="drill-start"
               >
                 <Icon name={v.running ? 'pause' : 'play'} size={14} />
-                {v.running ? 'Stop' : 'Start'}
+                {v.running ? txt('screens.wardTrainer.stop') : txt('screens.wardTrainer.start')}
               </button>
             </div>
           </div>
@@ -340,7 +387,9 @@ function TryResult({
               <span className="sr-only">: {tryDetail(last, heroName)}</span>
             </p>
           ) : (
-            <p className="font-display text-base font-semibold text-muted">No tries yet</p>
+            <p className="font-display text-base font-semibold text-muted">
+              {txt('screens.wardTrainer.noTriesYet')}
+            </p>
           )}
         </div>
         <TryHistory history={history} />
@@ -354,8 +403,7 @@ function TryResult({
         </>
       ) : (
         <p className="mt-0.5 text-xs leading-snug text-muted">
-          The bell strikes on a steady beat, your Ward and Spirit readied for each blow. Ward in the
-          window, the last moment before it lands, for a Perfect.
+          {txt('screens.wardTrainer.theBellStrikesOn')}
         </p>
       )}
     </div>
@@ -369,7 +417,10 @@ function TryHistory({ history }: { history: readonly TryKind[] }) {
   return (
     <ol
       className="flex shrink-0 items-center gap-0.5"
-      aria-label={`The last ${history.length} tries: ${perfects} Perfect`}
+      aria-label={txt('screens.wardTrainer.theLastTriesPerfect', {
+        length: history.length,
+        perfects,
+      })}
       data-testid="drill-history"
     >
       {history.map((k, i) => (
@@ -433,12 +484,12 @@ function TimingBar({ t }: { t: DrillTry }) {
         )}
       </div>
       <div className="relative mt-0.5 h-3.5 font-mono text-[0.75rem] leading-none text-muted">
-        <span className="absolute left-0">−1 s</span>
+        <span className="absolute left-0">{txt('screens.wardTrainer.n1S')}</span>
         <span className="absolute -translate-x-1/2" style={{ left: `${(from + impact) / 2}%` }}>
-          window
+          {txt('screens.wardTrainer.window')}
         </span>
         <span className="absolute -translate-x-1/2 text-text" style={{ left: `${impact}%` }}>
-          lands
+          {txt('screens.wardTrainer.lands')}
         </span>
       </div>
     </div>

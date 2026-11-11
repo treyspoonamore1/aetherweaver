@@ -27,4 +27,5 @@ export const bossBar = {
   'hud.bossBar.ofNotesPlayed': '{notes} of {of} notes played',
   'hud.bossBar.note': 'note {value}: {label}',
   'hud.bossBar.noteNotYet': 'note {value}: not yet',
+  'hud.bossBar.at': ', at {target}',
 } satisfies Catalogue;

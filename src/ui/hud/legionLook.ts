@@ -107,8 +107,9 @@ const MIRRORED: ReadonlySet<string> = new Set(['lyra', 'brann', 'kael', 'vexis']
  * docs/phase-5e.md 'Known gaps'): 'every voice of your party' would be inexact, so it names the
  * four it sings and says your other heroes still sing.
  */
-export const MIRROR_CHOIR_OTHERS =
-  'Mirror Choir — the choir sings Lyra, Brann, Kael and Vexis back at you; your other heroes still sing. Discord swells: hold your Crescendo before it fills.';
+export function mirrorChoirOthers(): string {
+  return t('hud.legionLook.mirrorChoirOthers');
+}
 
 /**
  * A decree as the HUD shows it to this party. The sim's text (hashed, never edited) is matched to
@@ -120,7 +121,7 @@ export const MIRROR_CHOIR_OTHERS =
  */
 export function shownDecree(text: string, party: PartyLook): string {
   if (text === CONDUCTOR_DECREES.mirrorChoir && party.some((h) => !MIRRORED.has(h.defId)))
-    return MIRROR_CHOIR_OTHERS;
+    return mirrorChoirOthers();
   const attack = CONTENT.attacks.find((a) => a.decree === text);
   if (!attack) return text;
   if (attack.executeBelow !== undefined) {

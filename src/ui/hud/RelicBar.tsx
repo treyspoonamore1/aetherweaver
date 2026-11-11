@@ -9,6 +9,7 @@ import { boonInfo, relicInfo } from '../screens/interlude';
 import { RelicTip } from '../screens/RelicCard';
 import { CarriedMark, CarriedRelicTip } from '../screens/ReliquaryParts';
 import { START_RELICS, pulsed, type RelicHud } from './relics';
+import { t as txt } from '../text';
 
 const FLASH_MS = 900;
 
@@ -86,7 +87,7 @@ export function RelicBar({
       className="flex max-w-[30rem] flex-wrap items-center gap-1.5 rounded-xl border border-ink-600/70 bg-ink-900/80 px-2 py-1.5 shadow-lg shadow-black/40 backdrop-blur-sm"
       data-testid="relic-bar"
       role="group"
-      aria-label="Relics"
+      aria-label={txt('hud.relicBar.relics')}
     >
       {relics.map((r) => (
         <RelicTile
@@ -166,7 +167,7 @@ function RelicTile({
               data-testid="relic-asleep"
             >
               <Icon name="moon" size={13} className="mt-px shrink-0" />
-              Asleep in this fight: its effect does nothing here. {asleep}.
+              {txt('hud.relicBar.asleepInThisFight', { asleep })}
             </span>
           </>
         ) : (
@@ -189,7 +190,9 @@ function RelicTile({
               : undefined,
         }}
         role="img"
-        aria-label={attuned ? `${r.label}: carried from the Reliquary, attuned` : r.label}
+        aria-label={
+          attuned ? txt('hud.relicBar.carriedFromTheReliquary', { label: r.label }) : r.label
+        }
         data-relic={r.id}
         data-state={
           asleep
@@ -251,7 +254,7 @@ function DormantTile({ relic }: { relic: ReliquaryRelic }) {
         tabIndex={0}
         className="relative inline-flex h-8 w-8 items-center justify-center rounded-full"
         role="img"
-        aria-label={`${info.name}: dormant, its own effect sleeps; it lends its Inscriptions`}
+        aria-label={txt('hud.relicBar.dormantItsOwnEffect', { name: info.name })}
         data-relic={relic.id}
         data-state="dormant"
       >

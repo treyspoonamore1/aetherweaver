@@ -33,10 +33,18 @@ export const EMBOLDENED_PCT = Math.round((EMBOLDENED_MULT - 1) * 100);
 
 /** What cut the Thread, as the chip says it: "Shears", "Severing", "Snip", "Unpick". */
 export const CUT_CAUSE_NAME: Readonly<Record<ThreadCutCause, string>> = {
-  shears: 'Shears',
-  severing: 'Severing',
-  snip: 'Snip',
-  unpick: 'Unpick',
+  get shears() {
+    return t('hud.riftLook.shears');
+  },
+  get severing() {
+    return t('hud.riftLook.severing');
+  },
+  get snip() {
+    return t('hud.riftLook.snip');
+  },
+  get unpick() {
+    return t('hud.riftLook.unpick');
+  },
 };
 
 /** "Cut · 3.0 s (Snip)": the Thread chip after an enemy cut, while its lock runs. */
