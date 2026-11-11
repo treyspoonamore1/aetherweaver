@@ -501,8 +501,10 @@ describe('W2: reduced motion in the UI', () => {
     expect(css).toContain(
       "@media (prefers-reduced-motion: reduce) {\n  :root:not([data-motion='off']),",
     );
+    // The On rule leaves the song chips (and the Chord builder's aura and ornament cards) alone
+    // (review A, finding 2: e2e/a11y.spec.ts reads their computed motion per OS and setting).
     expect(css).toContain(
-      ":root[data-motion='on'] :not([data-testid='chords'], [data-testid='chords'] *),",
+      ":root[data-motion='on']\n  :not(\n    [data-testid='chords'],\n    [data-testid='chords'] *,",
     );
   });
 });

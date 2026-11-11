@@ -278,23 +278,79 @@ input[type='range'] {
 /*
  * Reduced motion (docs/phase-7.md, W2). System (no data-motion, the default): the operating
  * system's setting, exactly as before. Off (data-motion="off"): animations play whatever the OS
- * says. On (data-motion="on"): cut as the OS setting cuts them, except the Weaver bar's song chips
- * (an aura's presentation, held for the owner: docs/phase-7.md, ground rule 4).
+ * says. On (data-motion="on"): cut as the OS setting cuts them.
+ *
+ * Except an aura's and an ornament's own interface (docs/phase-7.md, ground rule 4, held for the
+ * owner), which follows the operating system alone, exactly as before Phase 7 whatever the setting:
+ * the Weaver bar's song chips (`chords`), and the Chord builder's aura and ornament slot cards (the
+ * pressable buttons in a song's card) and picker items (the pressable buttons in the palette).
+ * Off keeps them cut where the OS reduces motion; On leaves them alone.
  */
 @media (prefers-reduced-motion: reduce) {
   :root:not([data-motion='off']),
   :root:not([data-motion='off']) *,
   :root:not([data-motion='off']) *::before,
-  :root:not([data-motion='off']) *::after {
+  :root:not([data-motion='off']) *::after,
+  :root[data-motion='off']
+    :is(
+      [data-testid='chords'],
+      [data-testid='chords'] *,
+      [data-testid='chord-builder'] [data-testid^='song-'] [aria-pressed],
+      [data-testid='chord-builder'] [data-testid^='song-'] [aria-pressed] *,
+      [data-testid='chord-builder'] [aria-labelledby='palette-title'] [aria-pressed],
+      [data-testid='chord-builder'] [aria-labelledby='palette-title'] [aria-pressed] *
+    ),
+  :root[data-motion='off']
+    :is(
+      [data-testid='chords'],
+      [data-testid='chords'] *,
+      [data-testid='chord-builder'] [data-testid^='song-'] [aria-pressed],
+      [data-testid='chord-builder'] [data-testid^='song-'] [aria-pressed] *,
+      [data-testid='chord-builder'] [aria-labelledby='palette-title'] [aria-pressed],
+      [data-testid='chord-builder'] [aria-labelledby='palette-title'] [aria-pressed] *
+    )::before,
+  :root[data-motion='off']
+    :is(
+      [data-testid='chords'],
+      [data-testid='chords'] *,
+      [data-testid='chord-builder'] [data-testid^='song-'] [aria-pressed],
+      [data-testid='chord-builder'] [data-testid^='song-'] [aria-pressed] *,
+      [data-testid='chord-builder'] [aria-labelledby='palette-title'] [aria-pressed],
+      [data-testid='chord-builder'] [aria-labelledby='palette-title'] [aria-pressed] *
+    )::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }
 :root[data-motion='on'],
-:root[data-motion='on'] :not([data-testid='chords'], [data-testid='chords'] *),
-:root[data-motion='on'] :not([data-testid='chords'], [data-testid='chords'] *)::before,
-:root[data-motion='on'] :not([data-testid='chords'], [data-testid='chords'] *)::after {
+:root[data-motion='on']
+  :not(
+    [data-testid='chords'],
+    [data-testid='chords'] *,
+    [data-testid='chord-builder'] [data-testid^='song-'] [aria-pressed],
+    [data-testid='chord-builder'] [data-testid^='song-'] [aria-pressed] *,
+    [data-testid='chord-builder'] [aria-labelledby='palette-title'] [aria-pressed],
+    [data-testid='chord-builder'] [aria-labelledby='palette-title'] [aria-pressed] *
+  ),
+:root[data-motion='on']
+  :not(
+    [data-testid='chords'],
+    [data-testid='chords'] *,
+    [data-testid='chord-builder'] [data-testid^='song-'] [aria-pressed],
+    [data-testid='chord-builder'] [data-testid^='song-'] [aria-pressed] *,
+    [data-testid='chord-builder'] [aria-labelledby='palette-title'] [aria-pressed],
+    [data-testid='chord-builder'] [aria-labelledby='palette-title'] [aria-pressed] *
+  )::before,
+:root[data-motion='on']
+  :not(
+    [data-testid='chords'],
+    [data-testid='chords'] *,
+    [data-testid='chord-builder'] [data-testid^='song-'] [aria-pressed],
+    [data-testid='chord-builder'] [data-testid^='song-'] [aria-pressed] *,
+    [data-testid='chord-builder'] [aria-labelledby='palette-title'] [aria-pressed],
+    [data-testid='chord-builder'] [aria-labelledby='palette-title'] [aria-pressed] *
+  )::after {
   animation-duration: 0.01ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
