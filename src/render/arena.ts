@@ -683,7 +683,8 @@ void main() {
         return seed / 2147483647;
       };
       const rOut = R - 0.6;
-      for (let k = 0; k < 160; k++) {
+      ctx.globalAlpha = Math.min(1, lit.edgeGlow) * 0.7;
+      for (let k = 0; k < 110; k++) {
         const a = rand() * Math.PI * 2;
         const r = rOut - rand() * 2.2;
         const len = 0.25 + rand() * 0.45;
@@ -697,7 +698,11 @@ void main() {
         );
         ctx.stroke();
       }
-      ring(R - 0.3, 0.22, [0.5, 0.25]);
+      // The rim itself is a plain seam line, never a dashed teal ring: a dashed teal circle on the
+      // floor would read as a song field (round 4).
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = lit.seam;
+      ring(R - 0.3, 0.12);
     } else {
       ring(R - 1.2, 0.1);
       ring(R - 0.3, 0.25);
@@ -1566,8 +1571,9 @@ void main() {
   float r = uInner + uStep * i;
   float d = length(vUv);
   float band = abs(d - r);
-  float core = 1.0 - smoothstep(0.03, 0.07, band);
-  float halo = exp(-band * band * 18.0) * 0.35;
+  // PROTOTYPE (p8/light): bolder rings, so they read at the game camera's distance.
+  float core = 1.0 - smoothstep(0.045, 0.1, band);
+  float halo = exp(-band * band * 10.0) * 0.4;
   // Ticks along the ring, turning (each ring its own way and speed) and kicked on the beat.
   float dir = mod(i, 2.0) < 0.5 ? 1.0 : -1.0;
   float ang = atan(vUv.y, vUv.x) + dir * (uTime * (0.05 + 0.015 * i) + 0.12 * uBeat);

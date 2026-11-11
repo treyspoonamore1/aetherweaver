@@ -55,11 +55,13 @@ export const LIT_FLOOR = {
 /** The light rows (Stage.setMood), with the fog / background colour the camera sees as sky. */
 export const LIT_MOOD = {
   crimson: {
-    sky: '#86625e',
-    ground: '#2a2226',
+    // Round 4: a neutral obsidian fill on the disc, so crimson telegraphs keep their edge; the
+    // red lives in the sky (fog), the rim light, the braziers and the blood channels.
+    sky: '#6c6470',
+    ground: '#262226',
     hemi: 0.95,
-    key: '#ffb27a',
-    keyIntensity: 2.1,
+    key: '#ffc290',
+    keyIntensity: 1.9,
     rim: '#e0473f',
     rimIntensity: 1.1,
     fog: '#7a2022',
