@@ -30,7 +30,14 @@ import {
  * shears' edges are the Rift's bone.
  */
 
-const CLOTH_HEX = LIT_MODEL.riftCloth;
+/**
+ * The robe's indigo (integration): the lighting's riftCloth (#5560c0) read as Kael's blue (14.8 ΔE
+ * from his #5b8def at its closest); #3c4494 is 28.4 from him and ≥ 26.9 from every semantic colour in
+ * every vision (ailment, tritanopia, the lowest), so the Unweaver reads deep indigo, its bone and
+ * teal carrying it. The hood rim keeps the lighting's cloth.
+ */
+const CLOTH_HEX = '#3c4494';
+const RIM_CLOTH = LIT_MODEL.riftCloth;
 const DEEP = '#373e7c';
 const STEEL = '#4a4858';
 const BONE = '#e8e3c8';
@@ -203,7 +210,7 @@ export function buildUnweaver(def: EnemyDef): THREE.BufferGeometry {
     b.torus(
       0.42 * w,
       0.06 * w,
-      CLOTH_HEX,
+      RIM_CLOTH,
       { p: P(0, 3.94, -0.32), s: [0.9, 1.12, 1], r: [0.2, 0, 0] },
       Math.PI * 2,
       12,
