@@ -251,6 +251,15 @@ export const AUTO_QUALITY = {
   fastMs: 17.5,
   /** Fast windows in a row a step up takes: with the gap between the two bounds, the hysteresis. */
   fastWindows: 3,
+  /**
+   * A display cap, not a slow machine (review A, finding 6): a window whose frames all come at one
+   * steady interval (the 10th and 90th percentiles at most `steadyMs` apart) of at most `capMs`
+   * (30 Hz and its jitter) is the screen's or the browser's pace (a 30, 48 or 50 Hz display, a
+   * power saver): it never steps down. A machine that can't keep up misses vsyncs unevenly, so
+   * its frames spread by whole vsync periods (8 ms or more), far over `steadyMs`.
+   */
+  steadyMs: 4,
+  capMs: 36,
 } as const;
 
 /** Dynamic resolution's steps, from 1 down to 0.6. */
@@ -258,8 +267,8 @@ const SCALE_STEPS = [1, 0.9, 0.8, 0.7, 0.6] as const;
 
 /**
  * `auto` quality (docs/plan/05 §5.1, docs/phase-7.md W4): picks a tier from the frame times of the
- * first seconds of a fight, and runs dynamic resolution between 0.6 and 1.0. A slow window steps
- * down at once: the tier while it is being picked, else (or already on low) the resolution. A
+ * first seconds of a fight, and runs dynamic resolution between 0.6 and 1.0. A slow window (but
+ * not a display's steady cap: `steadyMs`) steps down at once: the tier while it is being picked, else (or already on low) the resolution. A
  * step up takes `fastWindows` fast windows in a row: the resolution first, and the tier only while
  * it is being picked and at most once a fight, so it can't swing between two tiers. Pure, and
  * allocation free: the runtime feeds it every frame.
@@ -319,9 +328,12 @@ export class AutoQuality {
       sorted[j + 1] = v;
     }
     const p90 = sorted[Math.floor(n * 0.9)]!;
+    const p10 = sorted[Math.floor(n * 0.1)]!;
     const picking = this.picking;
     if (p90 > AUTO_QUALITY.slowMs) {
       this.fastRun = 0;
+      // A steady interval no slower than 30 Hz: the display's cap, which no tier would beat.
+      if (p90 - p10 <= AUTO_QUALITY.steadyMs && p90 <= AUTO_QUALITY.capMs) return false;
       if (picking && this.tier !== 'low') return this.changed(lowerTier(this.tier), this.step);
       if (this.step < SCALE_STEPS.length - 1) return this.changed(this.tier, this.step + 1);
       return false;

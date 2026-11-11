@@ -14,6 +14,7 @@ import { useWheel } from '../src/input/wheel';
 import type { Command, Sim } from '../src/sim';
 import { CameraRig } from '../src/render/camera';
 import { CombatView } from '../src/render/combatView';
+import { AutoQuality } from '../src/render/stage';
 import { createSim } from '../src/sim/api';
 import {
   CRESCENDO_TICK,
@@ -281,5 +282,41 @@ describe('finding 4: a pad capture in the pause menu keeps the button it binds',
     input.updatePointer(sim.state);
     expect(ui).toEqual(['pause']);
     input.dispose();
+  });
+});
+
+describe('finding 6: auto quality takes a steady frame interval for a display cap', () => {
+  /** A minute of frames from `series` (ms); the tier and scale it ends on, and its changes. */
+  function feed(series: (i: number) => number, seconds = 60) {
+    const a = new AutoQuality('high');
+    let t = 0;
+    for (let i = 0; t < seconds * 1000; i++) {
+      const ms = series(i);
+      t += ms;
+      a.sample(ms);
+    }
+    return [a.tier, a.scale, a.changes];
+  }
+  const chrome = [-0.7, 0.7, 0, 1.5, -1.5]; // Chrome's rAF jitter, as review A measured at 60 Hz
+
+  it('a 30, 48 or 50 Hz display, or a power saver’s 30 Hz, stays on high at full resolution', () => {
+    for (const ms of [1000 / 30, 1000 / 48, 1000 / 50, 1000 / 60, 1000 / 120]) {
+      expect(
+        feed(() => ms),
+        `${ms} ms`,
+      ).toEqual(['high', 1, 0]);
+      expect(
+        feed((i) => ms + chrome[i % 5]!),
+        `${ms} ms, jittered`,
+      ).toEqual(['high', 1, 0]);
+    }
+  });
+
+  it('a machine that can’t keep up still steps down: missed vsyncs, or under 30 fps', () => {
+    // Behind a 60 Hz screen: frames of one and two vsyncs; behind a 30 Hz cap: of two and three.
+    expect(feed((i) => (i % 3 === 0 ? 1000 / 30 : 1000 / 60))).toEqual(['low', 0.6, 6]);
+    expect(feed((i) => (i % 2 === 0 ? 1000 / 20 : 1000 / 30))).toEqual(['low', 0.6, 6]);
+    // A steady 20 fps is slower than any display caps a game: a slow machine.
+    expect(feed(() => 50)).toEqual(['low', 0.6, 6]);
   });
 });
