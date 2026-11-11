@@ -370,7 +370,9 @@ export class ModelBuilder {
   }
 
   build(): THREE.BufferGeometry {
-    if (!ART_PASS) return this.buildPlain();
+    // A plain model (the arena, every figure the art pass has not redrawn) is built exactly as
+    // main builds it, on or off; only a `glass` builder carries the art pass's attributes.
+    if (!ART_PASS || !this.glass) return ownRandom(() => this.buildPlain());
     return ownRandom(() => this.buildGlass());
   }
 

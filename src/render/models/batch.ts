@@ -42,7 +42,8 @@ export class ModelBatch {
     geometry.setAttribute('aFx', this.fx);
     geometry.setAttribute('aTint', this.tint);
     geometry.setAttribute('aShine', this.shine);
-    if (ART_PASS) {
+    // Only a rigged (stained-glass) model takes a pose; any other model is built as main builds it.
+    if (ART_PASS && geometry.getAttribute('aRig')) {
       this.pose = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4);
       this.pose.setUsage(THREE.DynamicDrawUsage);
       geometry.setAttribute('aPose', this.pose);

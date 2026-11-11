@@ -468,6 +468,17 @@ if (vShine.w > 0.001) {
 #include <opaque_fragment>`,
       );
   };
+  // A plain model drawn with this material (the arena, any figure not redrawn) has none of the art
+  // pass's attributes: they read as these (no rig, no lead, no shell, no pose), never as whatever
+  // generic value another program left in that slot.
+  (
+    material as unknown as { defaultAttributeValues: Record<string, number[]> }
+  ).defaultAttributeValues = {
+    aRig: [0, 0, 0, 0],
+    aMisc: [0, 0, 0, 0],
+    aBary: [2, 2, 2],
+    aPose: [0, 0, 0, 0],
+  };
   material.customProgramCacheKey = () => 'aw-model-v6';
   return { material, uniforms };
 }
