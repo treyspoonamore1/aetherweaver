@@ -4,7 +4,9 @@
  * replaced saves kept under `.before-import`), garbage refused in words, and a profile that won't
  * load kept raw and offered for download.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { DEFAULT_SETTINGS } from '../src/app/settings';
 import { newProfile } from '../src/meta/profile';
@@ -238,6 +240,171 @@ test('a profile that won’t load is kept raw, and offered for download', async 
   expect(errors).toEqual([]);
 });
 
+/**
+ * A file path for a file the test makes: under the system's temp folder. The test's own output
+ * folder is named after its title, and with curly quotes in the title the file chooser found no
+ * file there (the same flow worked from a plain path).
+ */
+function scratchPath(name: string): string {
+  return join(mkdtempSync(join(tmpdir(), 'aw-saves-')), name);
+}
+
+/** A save file with a Weaver at Rank 10 and a run on its map, written for the test to open. */
+function importFile(name: string): string {
+  let run = embark(newRun(4242));
+  run = chooseNode(run, reachable(run)[0]!.id);
+  const path = scratchPath(name);
+  writeFileSync(
+    path,
+    JSON.stringify({
+      format: 'aetherweaver-save',
+      version: 1,
+      profile: { ...newProfile(3), xp: 4400, runs: 7, wins: 3 },
+      run,
+      settings: null,
+    }),
+  );
+  return path;
+}
+
+/** Imports the file named, from Settings, and waits for the page to start again on it. */
+async function importFrom(page: Page, path: string): Promise<void> {
+  await openSaves(page);
+  await page.getByTestId('saves-import-file').setInputFiles(path);
+  await expect(page.getByTestId('saves-preview')).toBeVisible();
+  await Promise.all([page.waitForEvent('load'), page.getByTestId('saves-import-confirm').click()]);
+  await ready(page);
+}
+
+const BEFORE = 'aetherweaver.profile.before-import';
+
+// Review B, finding 6: a second import keeps the copy from before the first, and the panel says so.
+test('import twice, then “Put them back” restores the saves from before the first import', async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const errors = trackErrors(page);
+  await page.goto(START_URL);
+  await ready(page);
+  await otherSaves(page);
+  const first = (await stored(page))['aetherweaver.profile'];
+  expect(first).not.toBeNull();
+  const path = importFile('import-twice.json');
+
+  // The first import: no earlier copy, so the plain warning; the saves it replaces are kept.
+  await openSaves(page);
+  await expect(page.getByTestId('saves-restore')).toHaveCount(0);
+  await page.getByTestId('saves-import-file').setInputFiles(path);
+  await expect(page.getByTestId('saves-import-warning')).toContainText(
+    'They’re kept first, and you can put them back from here.',
+  );
+  await Promise.all([page.waitForEvent('load'), page.getByTestId('saves-import-confirm').click()]);
+  await ready(page);
+  expect(await page.evaluate((k) => localStorage.getItem(k), BEFORE)).toBe(first);
+  const imported = (await stored(page))['aetherweaver.profile'];
+  expect(imported).not.toBe(first);
+
+  // The second import: the panel says the earlier copy stays kept, and it does.
+  await openSaves(page);
+  await expect(page.getByTestId('saves-restore')).toBeVisible();
+  await page.getByTestId('saves-import-file').setInputFiles(path);
+  await expect(page.getByTestId('saves-import-warning')).toContainText(
+    'The saves from before your earlier import stay kept instead',
+  );
+  await Promise.all([page.waitForEvent('load'), page.getByTestId('saves-import-confirm').click()]);
+  await ready(page);
+  expect(await page.evaluate((k) => localStorage.getItem(k), BEFORE)).toBe(first);
+
+  // Put them back: the saves from before the first import.
+  await openSaves(page);
+  await page.getByRole('button', { name: 'Put them back…' }).click();
+  await Promise.all([page.waitForEvent('load'), page.getByTestId('saves-restore-confirm').click()]);
+  await ready(page);
+  expect((await stored(page))['aetherweaver.profile']).toBe(first);
+  expect(await page.evaluate((k) => localStorage.getItem(k), BEFORE)).toBeNull();
+  await openSaves(page);
+  await expect(page.getByTestId('saves-restore')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('“Forget them…” asks first, then removes the offer and the copy', async ({ page }) => {
+  test.setTimeout(240_000);
+  const errors = trackErrors(page);
+  await page.goto(START_URL);
+  await ready(page);
+  await otherSaves(page);
+  const first = (await stored(page))['aetherweaver.profile'];
+  const path = importFile('import-forget.json');
+  await importFrom(page, path);
+  const imported = (await stored(page))['aetherweaver.profile'];
+
+  await openSaves(page);
+  const restore = page.getByTestId('saves-restore');
+  await expect(restore).toBeVisible();
+  // Asked first; “Keep these” leaves everything as it was.
+  await restore.getByRole('button', { name: 'Forget them…' }).click();
+  await expect(restore).toContainText('Forget the saves from before the import for good?');
+  await restore.getByRole('button', { name: 'Keep these' }).click();
+  await expect(restore.getByRole('button', { name: 'Put them back…' })).toBeVisible();
+  expect(await page.evaluate((k) => localStorage.getItem(k), BEFORE)).toBe(first);
+
+  // Forgotten: the offer goes, the copy is gone, the saves in force are untouched.
+  await restore.getByRole('button', { name: 'Forget them…' }).click();
+  await restore.getByTestId('saves-restore-forget-confirm').click();
+  await expect(page.getByTestId('saves-restore')).toHaveCount(0);
+  expect(await page.evaluate((k) => localStorage.getItem(k), BEFORE)).toBeNull();
+  expect((await stored(page))['aetherweaver.profile']).toBe(imported);
+  await page.reload();
+  await ready(page);
+  await openSaves(page);
+  await expect(page.getByTestId('saves-restore')).toHaveCount(0);
+
+  // The next import then keeps the saves in force then, under the plain warning.
+  await page.getByTestId('saves-import-file').setInputFiles(path);
+  await expect(page.getByTestId('saves-import-warning')).toContainText(
+    'They’re kept first, and you can put them back from here.',
+  );
+  expect(errors).toEqual([]);
+});
+
+test('a kept unreadable profile’s download is a file the import reads, and says why it can’t load', async ({
+  page,
+}) => {
+  const errors = trackErrors(page);
+  await page.goto(START_URL);
+  await ready(page);
+  // Valid JSON that is not a profile this build can read (a later build’s, say).
+  const raw = '{"version":9999,"xp":9001,"someFutureField":{"a":[1,2,3]}}';
+  await page.evaluate((r) => {
+    localStorage.clear();
+    localStorage.setItem('aetherweaver.profile', r);
+  }, raw);
+  await page.reload();
+  await ready(page);
+  expect(await page.evaluate(() => localStorage.getItem('aetherweaver.profile.corrupt'))).toBe(raw);
+  await openSaves(page);
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTestId('saves-kept-download').click(),
+  ]);
+  expect(download.suggestedFilename()).toBe('aetherweaver-unreadable-profile.json');
+  const path = scratchPath('kept-profile.json');
+  await download.saveAs(path);
+  const file = JSON.parse(readFileSync(path).toString('utf8')) as Record<string, unknown>;
+  expect(file).toMatchObject({ format: 'aetherweaver-save', version: 1, run: null });
+  expect(file['profile']).toEqual(JSON.parse(raw));
+
+  // The import’s reader accepts it as a save file, and says why this save can’t load here.
+  const before = await stored(page);
+  await page.getByTestId('saves-import-file').setInputFiles(path);
+  await expect(page.getByTestId('saves-error')).toHaveText(
+    'The profile in this save can’t be read by this version of the game. Nothing was imported.',
+  );
+  await expect(page.getByTestId('saves-preview')).toHaveCount(0);
+  expect(await stored(page)).toEqual(before);
+  expect(errors).toEqual([]);
+});
+
 /** Two frames after start-up: the notice reads storage in an effect after the first render. */
 async function settled(page: Page): Promise<void> {
   await expect(page.getByTestId('front-door').or(page.getByTestId('demo-choice'))).toBeVisible();
@@ -306,6 +473,8 @@ test('the kept-save notice shows once at start-up, downloads the raw text, and n
   ).toBe(raw2);
   const downloads = notice.getByRole('button', { name: /^Download it/ });
   await expect(downloads).toHaveCount(2);
+  await expect(downloads.nth(1)).toContainText('(a later one, kept beside the first)');
+  await expect(downloads.nth(0)).not.toContainText('a later one');
   const [download] = await Promise.all([page.waitForEvent('download'), downloads.nth(1).click()]);
   expect(download.suggestedFilename()).toBe('aetherweaver-unreadable-profile-latest.json');
   expect(readFileSync(await download.path()).toString('utf8')).toBe(raw2);

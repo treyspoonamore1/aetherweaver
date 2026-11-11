@@ -14,6 +14,8 @@ import {
   downloadFile,
   exportSave,
   forgetKept,
+  forgetRestoreImport,
+  keptDownload,
   keptFileName,
   keptNoticeDue,
   keptSaves,
@@ -183,6 +185,9 @@ function ImportSaves() {
   const [preview, setPreview] = useState<SavePreview | null>(null);
   const [withSettings, setWithSettings] = useState(false);
   const [done, setDone] = useState(false);
+  // Whether an earlier import's copy is kept, as it was when this file was read: the import itself
+  // makes a copy, which must not change the warning shown while it applies.
+  const [earlierKept, setEarlierKept] = useState(false);
 
   const took = (read: SaveRead) => {
     if (!read.ok) {
@@ -196,6 +201,7 @@ function ImportSaves() {
     }
     setReading({ kind: 'idle' });
     setWithSettings(false);
+    setEarlierKept(canRestoreImport());
     setPreview(judged.preview);
   };
   const start = () => {
@@ -299,7 +305,9 @@ function ImportSaves() {
               {t('saves.import.withSettings')}
             </label>
           )}
-          <p className="mt-2 text-xs text-muted">{t('saves.import.warning')}</p>
+          <p className="mt-2 text-xs text-muted" data-testid="saves-import-warning">
+            {t(earlierKept ? 'saves.import.warningKept' : 'saves.import.warning')}
+          </p>
           {done ? (
             <p className="mt-2 text-xs text-gold-200" role="status">
               {t('saves.import.done')}
@@ -336,18 +344,18 @@ function ImportSaves() {
 
 /** The saves from before the last import, offered back. */
 function RestoreImport() {
-  const [can] = useState(() => canRestoreImport());
-  const [confirm, setConfirm] = useState(false);
+  const [can, setCan] = useState(() => canRestoreImport());
+  const [confirm, setConfirm] = useState<'restore' | 'forget' | null>(null);
   const [failed, setFailed] = useState(false);
   if (!can) return null;
   return (
     <div className="flex flex-col gap-2" data-testid="saves-restore">
       <p className="text-xs text-muted">{t('saves.restore.offer')}</p>
-      {confirm ? (
+      {confirm === 'restore' ? (
         <div className="rounded-lg border border-lethal/60 bg-lethal/10 p-3" role="alertdialog">
           <p className="text-sm text-rose-100">{t('saves.restore.question')}</p>
           <div className="mt-2 flex gap-2">
-            <Button size="sm" onClick={() => setConfirm(false)} sound="back" autoFocus>
+            <Button size="sm" onClick={() => setConfirm(null)} sound="back" autoFocus>
               {t('saves.restore.keep')}
             </Button>
             <Button
@@ -357,7 +365,7 @@ function RestoreImport() {
               onClick={() => {
                 if (restoreImport()) reloadAfterImport();
                 else {
-                  setConfirm(false);
+                  setConfirm(null);
                   setFailed(true);
                 }
               }}
@@ -366,10 +374,44 @@ function RestoreImport() {
             </Button>
           </div>
         </div>
+      ) : confirm === 'forget' ? (
+        <div className="rounded-lg border border-lethal/60 bg-lethal/10 p-3" role="alertdialog">
+          <p className="text-sm text-rose-100">{t('saves.restore.forgetQuestion')}</p>
+          <div className="mt-2 flex gap-2">
+            <Button size="sm" onClick={() => setConfirm(null)} sound="back" autoFocus>
+              {t('saves.restore.keep')}
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              data-testid="saves-restore-forget-confirm"
+              onClick={() => {
+                setConfirm(null);
+                if (forgetRestoreImport()) setCan(false);
+                else setFailed(true);
+              }}
+            >
+              {t('saves.restore.forgetConfirm')}
+            </Button>
+          </div>
+        </div>
       ) : (
-        <div>
-          <Button size="sm" variant="ghost" onClick={() => setConfirm(true)}>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            data-testid="saves-restore-button"
+            onClick={() => setConfirm('restore')}
+          >
             {t('saves.restore.button')}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            data-testid="saves-restore-forget"
+            onClick={() => setConfirm('forget')}
+          >
+            {t('saves.restore.forget')}
           </Button>
         </div>
       )}
@@ -384,11 +426,14 @@ function RestoreImport() {
 
 function keptLine(kept: KeptSave): string {
   const text = t(kept.kind === 'profile' ? 'saves.kept.profile' : 'saves.kept.run');
-  return kept.backup ? `${text} ${t('saves.kept.backup')}` : text;
+  const parts = [text];
+  if (kept.backup) parts.push(t('saves.kept.backup'));
+  if (kept.latest) parts.push(t('saves.kept.latest'));
+  return parts.join(' ');
 }
 
 function downloadKept(kept: KeptSave): void {
-  downloadFile(keptFileName(kept), kept.raw, 'application/json');
+  downloadFile(keptFileName(kept), keptDownload(kept), 'application/json');
   markKeptNoticed();
 }
 
@@ -479,6 +524,7 @@ export function KeptSaveNotice() {
           <Button key={k.key} size="sm" onClick={() => downloadKept(k)}>
             {t('saves.kept.download')}
             {k.backup ? ` ${t('saves.kept.backup')}` : ''}
+            {k.latest ? ` ${t('saves.kept.latest')}` : ''}
           </Button>
         ))}
         <Button size="sm" variant="primary" onClick={close} autoFocus>
