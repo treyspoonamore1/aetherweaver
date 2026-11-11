@@ -9,6 +9,7 @@ import { BUDGET, type ArtFamily, type SizeClass } from './kit';
 import { ART as LEGION } from './legion';
 import { ART as MISC } from './misc';
 import { ART as UNSTITCHED } from './unstitched';
+import { ART as UNWEAVER } from './unweaver';
 import { ART as WEAVER } from './weaver';
 
 /**
@@ -23,6 +24,7 @@ const FAMILIES: Record<string, ArtFamily> = {
   choir: CHOIR,
   legion: LEGION,
   unstitched: UNSTITCHED,
+  unweaver: UNWEAVER,
   finale: FINALE,
   misc: MISC,
 };
