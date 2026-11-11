@@ -46,19 +46,26 @@ export const saves = {
   'saves.import.withSettings': 'Also import its settings',
   'saves.import.warning':
     'Importing replaces this browser’s profile and any run in progress. They’re kept first, and you can put them back from here.',
+  'saves.import.warningKept':
+    'Importing replaces this browser’s profile and any run in progress. The saves from before your earlier import stay kept instead, so the ones you have now aren’t: export them first if you may want them.',
   'saves.import.confirm': 'Import, replacing my saves',
   'saves.import.cancel': 'Cancel',
   'saves.import.done': 'Imported. Starting again on the imported saves…',
   'saves.import.inFight': 'Saves can be imported from the Settings screen, outside a fight.',
 
   // Restore what an import replaced.
-  'saves.restore.offer': 'Your saves from before the last import are kept.',
+  'saves.restore.offer':
+    'Your saves from before you imported are kept until you put them back or forget them. Importing again keeps these, not the saves you have then.',
   'saves.restore.button': 'Put them back…',
   'saves.restore.question':
     'Put back the saves from before the import? The profile, run and settings you have now are replaced by them.',
   'saves.restore.confirm': 'Put them back',
   'saves.restore.keep': 'Keep these',
   'saves.restore.failed': 'This browser’s storage refused the change. Nothing was changed.',
+  'saves.restore.forget': 'Forget them…',
+  'saves.restore.forgetQuestion':
+    'Forget the saves from before the import for good? The next import keeps the saves you have then.',
+  'saves.restore.forgetConfirm': 'Forget them',
 
   // Why a file or code is refused.
   'saves.error.notSave': 'This isn’t an Aetherweaver save, so nothing was imported.',

@@ -69,7 +69,10 @@ export const IMPORT_KEYS: readonly string[] = [
   SETTINGS_KEY,
 ];
 
-/** The saves as they were before the last import: each key plus this. */
+/**
+ * The saves as they were before an import (the first since the copy was last put back or
+ * forgotten): each key plus this.
+ */
 export const BEFORE_IMPORT_SUFFIX = '.before-import';
 
 /** A save file: each save as the game stores it (its JSON, parsed), or null for none. */
@@ -346,21 +349,59 @@ export function previewSave(
   }
 }
 
+/** The saves an import replaces, as stored now (null: none under that key). */
+type Snapshot = readonly (readonly [string, string | null])[];
+
+function snapshot(store: KeyValueStore): Snapshot {
+  return IMPORT_KEYS.map((k) => [k, store.getItem(k)] as const);
+}
+
 /**
- * Copies the saves an import replaces to their `BEFORE_IMPORT_SUFFIX` keys (a key with nothing
- * clears its copy, so the copies are the saves of one moment). False: storage refused a write.
+ * Writes each key as `saves` holds it: every key cleared first (which frees the room a full
+ * storage needs), then the texts written. Throws if storage refuses.
  */
-export function backupBeforeImport(store: KeyValueStore): boolean {
+function writeAll(store: KeyValueStore, saves: Snapshot): void {
+  for (const [key] of saves) store.removeItem(key);
+  for (const [key, text] of saves) if (text !== null) store.setItem(key, text);
+}
+
+/** Forgets the copy of the saves from before an import. Throws if storage refuses. */
+function clearCopy(store: KeyValueStore): void {
+  for (const key of IMPORT_KEYS) store.removeItem(key + BEFORE_IMPORT_SUFFIX);
+}
+
+/**
+ * Keeps the saves an import replaces under their `BEFORE_IMPORT_SUFFIX` keys, unless a copy is
+ * kept already (review B, finding 6): the copy is of the saves the player had before the first
+ * import since they last put a copy back or forgot it, and a later import never replaces it, so
+ * "Put them back" still brings those back. `made`: the copy was made now; `kept`: an earlier copy
+ * stays, and the saves now are not copied. False: storage refused a write, and any copy this
+ * call made is gone again (an earlier copy is never touched).
+ */
+function copyBeforeImport(store: KeyValueStore): 'made' | 'kept' | false {
   try {
-    for (const key of IMPORT_KEYS) {
-      const text = store.getItem(key);
-      if (text === null) store.removeItem(key + BEFORE_IMPORT_SUFFIX);
-      else store.setItem(key + BEFORE_IMPORT_SUFFIX, text);
+    if (hasBeforeImport(store)) return 'kept';
+    const now = snapshot(store);
+    try {
+      for (const [key, text] of now)
+        if (text !== null) store.setItem(key + BEFORE_IMPORT_SUFFIX, text);
+      if (now.every(([k, text]) => read(store, k + BEFORE_IMPORT_SUFFIX) === text)) return 'made';
+    } catch {
+      // Refused part way: the copies written are taken back below.
     }
-    return IMPORT_KEYS.every((k) => store.getItem(k) === store.getItem(k + BEFORE_IMPORT_SUFFIX));
+    clearCopy(store);
+    return false;
   } catch {
     return false;
   }
+}
+
+/**
+ * Copies the saves an import replaces to their `BEFORE_IMPORT_SUFFIX` keys, the saves of one
+ * moment, unless a copy is kept already (`copyBeforeImport`). False: storage refused a write.
+ */
+export function backupBeforeImport(store: KeyValueStore): boolean {
+  return copyBeforeImport(store) !== false;
 }
 
 /** Are there saves from before an import to go back to? */
@@ -368,12 +409,20 @@ export function hasBeforeImport(store: KeyValueStore): boolean {
   return IMPORT_KEYS.some((k) => read(store, k + BEFORE_IMPORT_SUFFIX) !== null);
 }
 
-/** Puts back the saves from before the last import, and forgets that copy. False: refused. */
+/** Puts back the saves from before the import, and forgets that copy. False: refused. */
 export function restoreBeforeImport(store: KeyValueStore): boolean {
   if (!hasBeforeImport(store)) return false;
-  if (!putBack(store)) return false;
   try {
-    for (const key of IMPORT_KEYS) store.removeItem(key + BEFORE_IMPORT_SUFFIX);
+    writeAll(
+      store,
+      IMPORT_KEYS.map((k) => [k, store.getItem(k + BEFORE_IMPORT_SUFFIX)] as const),
+    );
+  } catch {
+    // Refused part way: the copy stays under its own keys, and may be put back again.
+    return false;
+  }
+  try {
+    clearCopy(store);
   } catch {
     // Put back; the copy stays, and may be put back again.
   }
@@ -381,32 +430,39 @@ export function restoreBeforeImport(store: KeyValueStore): boolean {
 }
 
 /**
- * Puts each key back as its `BEFORE_IMPORT_SUFFIX` copy holds it: every key cleared first (which
- * frees the room a full storage needs), then the copies written. False: storage refused.
+ * Forgets the saves from before an import without putting them back (the player dismissed them):
+ * the next import keeps a copy of the saves the player has then. False: storage refused.
  */
-function putBack(store: KeyValueStore): boolean {
+export function forgetBeforeImport(store: KeyValueStore): boolean {
   try {
-    const copies = IMPORT_KEYS.map((k) => [k, store.getItem(k + BEFORE_IMPORT_SUFFIX)] as const);
-    for (const [key] of copies) store.removeItem(key);
-    for (const [key, text] of copies) if (text !== null) store.setItem(key, text);
-    return true;
+    clearCopy(store);
+    return !hasBeforeImport(store);
   } catch {
     return false;
   }
 }
 
 /**
- * Writes an import (`previewSave`'s result) over the device's saves, after backing them up
- * (`backupBeforeImport`): the profile and the run replace the device's (none in the save: none
- * here), each without a backup copy; the settings only when `withSettings` and the save held
- * some it can read. If storage refuses a write, the backup is put back and nothing has changed.
+ * Writes an import (`previewSave`'s result) over the device's saves, after keeping a copy of
+ * them (`backupBeforeImport`; an earlier copy stays instead): the profile and the run replace the
+ * device's (none in the save: none here), each without a backup copy; the settings only when
+ * `withSettings` and the save held some it can read. If storage refuses a write, the saves are
+ * written back as they were just before, a copy made for this import is forgotten, and nothing
+ * has changed (an earlier copy stays exactly as it was).
  */
 export function writeImport(
   store: KeyValueStore,
   preview: SavePreview,
   withSettings: boolean,
 ): { ok: true } | { ok: false; error: SaveError } {
-  if (!backupBeforeImport(store)) return { ok: false, error: 'storage' };
+  let before: Snapshot;
+  try {
+    before = snapshot(store);
+  } catch {
+    return { ok: false, error: 'storage' };
+  }
+  const copy = copyBeforeImport(store);
+  if (copy === false) return { ok: false, error: 'storage' };
   try {
     const put = (key: string, text: string | null) =>
       text === null ? store.removeItem(key) : store.setItem(key, text);
@@ -417,8 +473,13 @@ export function writeImport(
     if (withSettings && preview.settingsText !== null) put(SETTINGS_KEY, preview.settingsText);
     return { ok: true };
   } catch {
-    // If even that is refused, the copy stays under its own keys: Restore can put it back.
-    putBack(store);
+    try {
+      writeAll(store, before);
+      if (copy === 'made') clearCopy(store);
+    } catch {
+      // If even that is refused, a copy made now stays under its own keys: Restore can put it
+      // back.
+    }
     return { ok: false, error: 'storage' };
   }
 }

@@ -21,13 +21,18 @@ import {
   type KeyValueStore,
 } from '../src/meta/save';
 import {
+  BEFORE_IMPORT_SUFFIX,
+  hasBeforeImport,
+  IMPORT_KEYS,
+  memoryStore,
   previewSave,
+  restoreBeforeImport,
   SAVE_FILE_FORMAT,
   SAVE_TEXT_MAX_CHARS,
   writeImport,
   type SaveFile,
 } from '../src/meta/saveFile';
-import { settingsLoad } from '../src/app/saveTransfer';
+import { forgetRestoreImport, settingsLoad } from '../src/app/saveTransfer';
 import { saves } from '../src/ui/text/en/saves';
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/saves', import.meta.url));
@@ -341,5 +346,94 @@ describe('finding 5: a save longer than any can be is refused before anything is
     const loaded = readProfile(store).profile;
     saveProfile(store, { ...loaded, xp: loaded.xp + 100 });
     expect(profileFromText(store.getItem(SAVE_KEYS.profile)!)!.xp).toBe(5100);
+  });
+});
+
+// ── Finding 6: the copy of the saves from before an import ───────────────────────────────
+
+describe('finding 6: the saves from before an import are never lost to a later import', () => {
+  const fileWith = (xp: number) => {
+    const r = previewSave(
+      fileOf({ profile: JSON.parse(JSON.stringify({ ...newProfile(1), xp })) }),
+      settingsLoad,
+    );
+    if (!r.ok) throw new Error(r.error);
+    return r.preview;
+  };
+  const xpIn = (text: string | null) => (text ? (JSON.parse(text) as { xp: number }).xp : null);
+  const copyOf = (store: KeyValueStore, key: string) => store.getItem(key + BEFORE_IMPORT_SUFFIX);
+
+  it('a second import keeps the copy of the original saves: Put them back restores those', () => {
+    const store = memoryStore();
+    saveProfile(store, { ...newProfile(1), xp: 111 });
+    expect(writeImport(store, fileWith(222), false)).toEqual({ ok: true });
+    expect(xpIn(copyOf(store, SAVE_KEYS.profile))).toBe(111);
+    expect(writeImport(store, fileWith(333), false)).toEqual({ ok: true });
+    expect(xpIn(store.getItem(SAVE_KEYS.profile))).toBe(333);
+    expect(xpIn(copyOf(store, SAVE_KEYS.profile))).toBe(111);
+    expect(restoreBeforeImport(store)).toBe(true);
+    expect(xpIn(store.getItem(SAVE_KEYS.profile))).toBe(111);
+    expect(hasBeforeImport(store)).toBe(false);
+    // Put back, the copy is gone: the next import copies the saves of that moment.
+    expect(writeImport(store, fileWith(444), false)).toEqual({ ok: true });
+    expect(xpIn(copyOf(store, SAVE_KEYS.profile))).toBe(111);
+  });
+
+  it('forgotten (dismissed), the next import copies the saves the player has then', () => {
+    const store = memoryStore();
+    saveProfile(store, { ...newProfile(1), xp: 111 });
+    expect(writeImport(store, fileWith(222), false)).toEqual({ ok: true });
+    expect(forgetRestoreImport(store)).toBe(true);
+    expect(hasBeforeImport(store)).toBe(false);
+    expect(xpIn(store.getItem(SAVE_KEYS.profile))).toBe(222);
+    expect(writeImport(store, fileWith(333), false)).toEqual({ ok: true });
+    expect(xpIn(copyOf(store, SAVE_KEYS.profile))).toBe(222);
+  });
+
+  it('an import refused by a full storage leaves the earlier copy and the saves exactly as they were', () => {
+    const store = quotaStore(100_000);
+    saveProfile(store, { ...newProfile(1), xp: 111 });
+    store.setItem('aetherweaver.settings', JSON.stringify({ v: 'original settings' }));
+    expect(writeImport(store, fileWith(222), false)).toEqual({ ok: true });
+    // The player has played on: a big run in storage now, and new settings.
+    store.setItem('aetherweaver.settings', JSON.stringify({ v: 'newer settings' }));
+    store.setItem(SAVE_KEYS.run, 'x'.repeat(60_000));
+    const copies = IMPORT_KEYS.map((k) => copyOf(store, k));
+    const saved = IMPORT_KEYS.map((k) => store.getItem(k));
+    const big = previewSave(
+      fileOf({
+        profile: JSON.parse(
+          JSON.stringify({ ...newProfile(1), xp: 333, junk: 'y'.repeat(50_000) }),
+        ),
+      }),
+      settingsLoad,
+    );
+    if (!big.ok) throw new Error(big.error);
+    expect(writeImport(store, big.preview, false)).toEqual({ ok: false, error: 'storage' });
+    expect(IMPORT_KEYS.map((k) => copyOf(store, k))).toEqual(copies);
+    expect(IMPORT_KEYS.map((k) => store.getItem(k))).toEqual(saved);
+    expect(xpIn(copyOf(store, SAVE_KEYS.profile))).toBe(111);
+  });
+
+  it('a copy refused part way is taken back: no mixed set, and nothing else changes', () => {
+    const store = quotaStore(1_000_000);
+    saveProfile(store, { ...newProfile(1), xp: 111 });
+    store.setItem(SAVE_KEYS.run, 'r'.repeat(300_000));
+    store.setItem('aetherweaver.settings', JSON.stringify(DEFAULT_SETTINGS));
+    // Room for the profile's and the settings' copies, not the run's.
+    const filler = 'f'.repeat(1_000_000 - store.used() - 200_000);
+    store.setItem('filler', filler);
+    const saved = IMPORT_KEYS.map((k) => store.getItem(k));
+    expect(writeImport(store, fileWith(222), false)).toEqual({ ok: false, error: 'storage' });
+    expect(hasBeforeImport(store)).toBe(false);
+    expect(IMPORT_KEYS.map((k) => store.getItem(k))).toEqual(saved);
+  });
+
+  it('the preview and the panel have words for it', () => {
+    expect(saves['saves.import.warningKept']).toMatch(/export them first/);
+    expect(saves['saves.restore.offer']).toMatch(/Importing again keeps these/);
+    expect(saves['saves.restore.forget']).toBe('Forget them…');
+    expect(saves['saves.restore.forgetQuestion']).toMatch(/The next import keeps/);
+    expect(saves['saves.restore.forgetConfirm']).toBe('Forget them');
   });
 });

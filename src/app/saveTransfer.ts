@@ -20,6 +20,7 @@ import {
   crc32,
   decodeSaveCode,
   encodeSaveCode,
+  forgetBeforeImport,
   hasBeforeImport,
   parseSaveText,
   previewSave,
@@ -210,14 +211,26 @@ export function reloadAfterImport(store: KeyValueStore = storage()): void {
   window.location.reload();
 }
 
-/** Are the saves from before the last import still kept? */
+/** Are the saves from before an import still kept (until put back or forgotten)? */
 export function canRestoreImport(store: KeyValueStore = storage()): boolean {
   return hasBeforeImport(store);
 }
 
-/** Puts back the saves from before the last import (then `reloadAfterImport`). */
+/**
+ * Puts back the saves from before the import (then `reloadAfterImport`). They are the saves the
+ * player had before the first import since they last put a copy back or forgot it: a later import
+ * keeps that copy (`BEFORE_IMPORT_SUFFIX`, review B finding 6).
+ */
 export function restoreImport(store: KeyValueStore = storage()): boolean {
   return restoreBeforeImport(store);
+}
+
+/**
+ * Forgets the saves from before the import, without putting them back (the player dismissed
+ * them): the next import keeps a copy of the saves they have then. False: storage refused.
+ */
+export function forgetRestoreImport(store: KeyValueStore = storage()): boolean {
+  return forgetBeforeImport(store);
 }
 
 // ── Unreadable saves kept (docs/phase-7.md, W5: "kept raw and offered for export") ──────
