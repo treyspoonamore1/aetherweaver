@@ -28,9 +28,10 @@ import {
 } from './kit';
 
 /**
- * The Hollow Choir (Movement I), porcelain with violet cracks (docs/art-style.md). Redrawn: the
- * Chorister, the Bell Brute and the Bellwarden (the walking bell). To do: the Lamenter, the Glass
- * Lancer, the Mute, the Cantor's Acolyte and the Hollow Cantor.
+ * The Hollow Choir (Movement I), porcelain with violet cracks over dark cassocks, lit violet,
+ * never amber (docs/art-style.md). Every figure of the family is redrawn: the Chorister, the Bell
+ * Brute, the Bellwarden (the walking bell), the Lamenter, the Glass Lancer, the Mute, the Cantor's
+ * Acolyte and the Hollow Cantor.
  */
 /**
  * A Hollow Chorister: a small porcelain choir-child in a dark cassock and a white surplice, its
@@ -611,10 +612,10 @@ export function buildLamenter(def: EnemyDef): THREE.BufferGeometry {
   });
   // The veil: a long fall of porcelain from the hood down its back and sides.
   b.rigged({ k: CLOTH, at: P(0, 1.78, 0.1), a: 1.5 * s }, () => {
-    b.arc(0.17 * s, 0.5 * s, 1.5 * s, -1.3, 2.6, body, {
+    b.arc(0.17 * s, 0.62 * s, 1.55 * s, -1.3, 2.6, body, {
       ...glaze(0.15 * s, 0.32),
-      p: P(0, 1.0, 0.08),
-      r: [-0.08, 0, 0],
+      p: P(0, 0.98, 0.2),
+      r: [-0.22, 0, 0],
     });
   });
   // The head, bowed: the peaked hood and a long mask weeping violet light.
@@ -862,13 +863,13 @@ export function buildMute(def: EnemyDef): THREE.BufferGeometry {
     b.octa(0.07 * s, BRONZE_DARK, { p: [C[0], C[1] + 0.36 * s, C[2]], s: [1, 0.6, 1] });
     for (const side of [-1, 1]) {
       b.box(0.12 * s, 0.03 * s, 0.04 * s, HOLLOW, {
-        p: P(side * 0.15, 1.73, -0.44),
+        p: P(side * 0.15, 1.7, -0.475),
         r: [0, side * 0.33, 0],
         lead: 0,
         shell: false,
       });
       b.box(0.05 * s, 0.018 * s, 0.03 * s, CHOIR, {
-        p: P(side * 0.155, 1.73, -0.46),
+        p: P(side * 0.152, 1.7, -0.49),
         r: [0, side * 0.33, 0],
         glow: 1,
         lead: 0,
@@ -1107,7 +1108,7 @@ export function buildCantor(def: EnemyDef): THREE.BufferGeometry {
   skirtWindows(b, 10, 1.07 * s, 0.82 * s, 0.62 * s, 0.26 * s, 0.2, '#b9a4ff');
   // The cope: porcelain, cracked, from the shoulders to the knee, open down the front on the
   // dark cassock, its edges banded in bronze; it trails as it walks.
-  const open = 0.55;
+  const open = 0.72;
   b.rigged({ k: CLOTH, at: P(0, 2.9, 0), a: 2.2 * s }, () => {
     b.arc(
       0.66 * s,
@@ -1144,7 +1145,7 @@ export function buildCantor(def: EnemyDef): THREE.BufferGeometry {
   b.sphere(
     0.34 * s,
     HOLLOW,
-    { p: onFront(0, 2.25 * s, -0.12 * s), s: [0.82, 1.15, 0.4], lead: 0 },
+    { p: onFront(0, 2.08 * s, -0.12 * s), s: [0.82, 1.15, 0.4], lead: 0 },
     9,
     6,
   );
@@ -1152,43 +1153,44 @@ export function buildCantor(def: EnemyDef): THREE.BufferGeometry {
     0.31 * s,
     0.045 * s,
     BRONZE,
-    { p: onFront(0, 2.25 * s, 0), s: [0.85, 1.2, 1], r: [0.2, 0, 0] },
+    { p: onFront(0, 2.08 * s, 0), s: [0.85, 1.2, 1], r: [0.2, 0, 0] },
     Math.PI * 2,
     14,
   );
-  b.rigged({ k: BELL, at: P(0, 2.58, -0.82), a: 0.7 }, () => {
-    bell(b, P(0, 2.02, -0.86), 0.2 * s, 0.44 * s, BRONZE, {}, 9);
-    b.sphere(0.1 * s, CHOIR, { p: P(0, 2.06, -0.86), glow: 1, lead: 0 }, 6, 4);
+  b.rigged({ k: BELL, at: P(0, 2.42, -0.9), a: 0.7 }, () => {
+    bell(b, P(0, 1.86, -0.94), 0.2 * s, 0.44 * s, BRONZE, {}, 9);
+    b.sphere(0.1 * s, CHOIR, { p: P(0, 1.9, -0.94), glow: 1, lead: 0 }, 6, 4);
   });
   // Cracks of violet light running out from the hollow across the chasuble.
   const cracks: [number, number][][] = [
     [
-      [0.2, 2.5],
-      [0.34, 2.72],
-      [0.3, 2.9],
+      [0.2, 2.3],
+      [0.32, 2.48],
+      [0.28, 2.62],
     ],
     [
-      [-0.22, 2.48],
-      [-0.4, 2.62],
-      [-0.36, 2.86],
+      [-0.22, 2.28],
+      [-0.38, 2.44],
+      [-0.34, 2.62],
     ],
     [
-      [0.24, 2.02],
-      [0.42, 1.8],
-      [0.36, 1.56],
-      [0.52, 1.36],
+      [0.24, 1.86],
+      [0.4, 1.66],
+      [0.34, 1.46],
+      [0.48, 1.3],
     ],
     [
-      [-0.2, 1.98],
-      [-0.34, 1.72],
-      [-0.6, 1.5],
+      [-0.2, 1.84],
+      [-0.34, 1.6],
+      [-0.52, 1.4],
     ],
     [
-      [0.02, 1.92],
-      [-0.06, 1.66],
-      [0.08, 1.42],
+      [0.02, 1.76],
+      [-0.06, 1.54],
+      [0.08, 1.34],
     ],
   ];
+
   for (const c of cracks)
     for (let i = 0; i < c.length - 1; i++)
       beam(
@@ -1204,17 +1206,17 @@ export function buildCantor(def: EnemyDef): THREE.BufferGeometry {
   // The mantle over its shoulders, banded in bronze.
   b.lathe(
     [
-      [0.98 * s, 2.5 * s],
-      [0.92 * s, 2.68 * s],
-      [0.74 * s, 2.92 * s],
-      [0.42 * s, 3.08 * s],
+      [0.84 * s, 2.64 * s],
+      [0.8 * s, 2.78 * s],
+      [0.64 * s, 2.96 * s],
+      [0.36 * s, 3.08 * s],
       [0, 3.12 * s],
     ],
     body,
     { ...glaze(0.22 * s, 0.35, 0.14), p: P(0, 0, 0.02) },
     12,
   );
-  b.torus(0.97 * s, 0.05 * s, BRONZE, { p: P(0, 2.52, 0.02), r: FLAT }, Math.PI * 2, 20);
+  b.torus(0.83 * s, 0.05 * s, BRONZE, { p: P(0, 2.66, 0.02), r: FLAT }, Math.PI * 2, 18);
   // The head: a porcelain cowl, a tall cracked mitre, a long mask singing to the sky; a rose
   // window of porcelain glass leaning back behind it.
   b.rigged({ k: HEAD, at: P(0, 3.0, 0) }, () => {
