@@ -15,7 +15,7 @@ import { PartyBarsView, vowCoversAll } from './partyBars';
 import { healthLevel } from '../app/healthLevels';
 import { optionsOf, useSettings } from '../app/settings';
 import { fightStill } from '../ui/presentation';
-import { signalHex } from './crimsonCues';
+import { arenaLook, signalHex } from './crimsonCues';
 import { CallingView } from './calling';
 import { ChronoView } from './chrono';
 import { ConductView } from './conduct';
@@ -44,6 +44,7 @@ import { ThreadView } from './thread';
 import { TyrantView } from './tyrant';
 import type { FrameInfo, RenderContext, WorldView } from './types';
 import { VariantsView } from './variants';
+import { applyArtWorld } from './models/artWorld';
 
 /**
  * The Phase 1 combat view (docs/plan/05 §5). Persistent visuals are derived from `WorldState`
@@ -104,6 +105,8 @@ export class CombatView implements WorldView {
     ctx.stage.scene.add(this.root);
     this.model = createModelMaterial();
     this.arena = new ArenaView(ctx.arena, ctx.stage, this.model);
+    // Art pass: the figures' outline and self-light fitted to the world (no-op while it is off).
+    applyArtWorld(this.model, arenaLook(ctx.arena));
     this.root.add(this.arena.group);
     this.entities = new EntityLayer(this.model);
     this.root.add(this.entities.group);

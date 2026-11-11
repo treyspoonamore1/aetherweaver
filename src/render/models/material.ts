@@ -164,7 +164,16 @@ export const RIG_VERTEX = `transformed = awRig(transformed);`;
 export interface ModelMaterial {
   material: THREE.MeshStandardMaterial;
   /** `uOutline` only while the art pass is on (its stained-glass outline). */
-  uniforms: { uTime: { value: number }; uGlow: { value: number }; uOutline?: { value: number } };
+  uniforms: {
+    uTime: { value: number };
+    uGlow: { value: number };
+    uOutline?: { value: number };
+    /** The outline's colour in a dark world, how far it moves from lead to it, a self-light lift. */
+    uEdge?: { value: THREE.Color };
+    uEdgeMix?: { value: number };
+    uLift?: { value: number };
+    uPaneBoost?: { value: number };
+  };
 }
 
 /** Dark lead between panes and round a stained-glass figure; the Weaver's gold came. */
@@ -180,7 +189,15 @@ export function createModelMaterial(): ModelMaterial {
 
 function createArtModelMaterial(): ModelMaterial {
   // uOutline: the outline shell's width, as a share of the view depth (~1.6 px at 720 px, 40° fov).
-  const uniforms = { uTime: { value: 0 }, uGlow: { value: 1.6 }, uOutline: { value: 0.0016 } };
+  const uniforms = {
+    uTime: { value: 0 },
+    uGlow: { value: 1.6 },
+    uOutline: { value: 0.0016 },
+    uEdge: { value: new THREE.Color(LEAD_HEX) },
+    uEdgeMix: { value: 0 },
+    uLift: { value: 0 },
+    uPaneBoost: { value: 1 },
+  };
   const material = new THREE.MeshStandardMaterial({
     vertexColors: true,
     roughness: 0.62,
@@ -191,6 +208,10 @@ function createArtModelMaterial(): ModelMaterial {
     shader.uniforms.uTime = uniforms.uTime;
     shader.uniforms.uGlow = uniforms.uGlow;
     shader.uniforms.uOutline = uniforms.uOutline;
+    shader.uniforms.uEdge = uniforms.uEdge;
+    shader.uniforms.uEdgeMix = uniforms.uEdgeMix;
+    shader.uniforms.uLift = uniforms.uLift;
+    shader.uniforms.uPaneBoost = uniforms.uPaneBoost;
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
@@ -235,6 +256,10 @@ ${RIG_VERTEX}`,
         `#include <common>
 uniform float uTime;
 uniform float uGlow;
+uniform vec3 uEdge;
+uniform float uEdgeMix;
+uniform float uLift;
+uniform float uPaneBoost;
 varying float vGlow;
 varying vec4 vFx;
 varying vec4 vTint;
@@ -389,7 +414,17 @@ totalEmissiveRadiance += awAccent * vGlow * uGlow * awPulse * (1.0 - vFx.z * 0.8
 float awK = floor(vLead.x + 0.001);
 if (awK > 1.5 && awK < 2.5) totalEmissiveRadiance += AW_CAME * awLeadMask * 0.55 * (1.0 - awFrost);
 // Lit panes glow in their own glass; cracks burn violet.
-totalEmissiveRadiance += vColor.rgb * awLit * (awK > 1.5 ? 0.55 : 0.3) * uGlow * (0.6 + 0.5 * awHeart) * (1.0 - awLeadMask) * (1.0 - awFrost) * (1.0 - vFx.z);
+totalEmissiveRadiance += vColor.rgb * awLit * (awK > 1.5 ? 0.55 : 0.3) * uPaneBoost * uGlow * (0.6 + 0.5 * awHeart) * (1.0 - awLeadMask) * (1.0 - awFrost) * (1.0 - vFx.z);
+// A dark world's lift: the glass gives a little of its own colour back (artWorld.ts).
+// Only the dark glass is lifted (a night robe, dark steel, a cassock): bright glass keeps its
+// saturation, and the lift is the part's own colour, normalised, so a dark violet lifts violet.
+// Cut glass only (parts with panes): a foe's plain dark cloth stays dark, so its hostile rim reads.
+if (abs(vLead.x) > 0.5 && vLead.z > 0.001) {
+  float awAlb = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
+  vec3 awHue = diffuseColor.rgb / max(max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b)), 0.02);
+  totalEmissiveRadiance += awHue * uLift * (1.0 - smoothstep(0.04, 0.3, awAlb))
+    * (1.0 - awLeadMask) * (1.0 - awFrost) * (1.0 - vFx.z);
+}
 totalEmissiveRadiance += AW_CRACK * awCrack * 1.5 * (1.0 - awFrost * 0.7) * (1.0 - vFx.z * 0.7);
 float awFres = pow(1.0 - clamp(abs(dot(normalize(normal), normalize(vViewPosition))), 0.0, 1.0), 2.2);
 totalEmissiveRadiance += vTint.rgb * vTint.a * (0.18 + awFres * 1.9);
@@ -426,7 +461,9 @@ if (vShine.w > 0.001) {
         '#include <opaque_fragment>',
         `if (vLead.y > 0.5) {
   // The outline shell is plain lead (it flashes with a hit and burns with a dissolve's edge).
-  outgoingLight = AW_LEAD * 0.6 + vec3(1.0, 0.97, 0.92) * vFx.x * vFx.x * 0.8 + vTint.rgb * awEdge * 4.0;
+  // In a dark world the lead catches the light: a pewter edge (artWorld.ts), not a dark one.
+  outgoingLight = mix(AW_LEAD * 0.6, uEdge, uEdgeMix) * (1.0 - vFx.z * 0.5)
+    + vec3(1.0, 0.97, 0.92) * vFx.x * vFx.x * 0.8 + vTint.rgb * awEdge * 4.0;
 }
 #include <opaque_fragment>`,
       );

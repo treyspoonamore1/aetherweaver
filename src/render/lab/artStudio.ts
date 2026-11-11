@@ -6,7 +6,9 @@ import { FxKit } from '../fx/kit';
 import { RING } from '../fx/rings';
 import { OWN_LOOK, restRim, ribbonHex, weaverPalette } from '../keepsakeCues';
 import { ModelBatch } from '../models/batch';
+import { arenaLook } from '../crimsonCues';
 import { buildBellwarden } from '../models/artPass';
+import { applyArtWorld } from '../models/artWorld';
 import { buildEnemy, buildHero, buildWeaver } from '../models/library';
 import { createModelMaterial, type ModelMaterial } from '../models/material';
 import { C, applyVision, color } from '../palette';
@@ -58,6 +60,10 @@ export interface StudioSpec {
    * blow (0..1 through a swing) and moving (0..1), as entities.ts passes them each frame.
    */
   pose?: { clock?: number; windup?: number; blow?: number; moving?: number };
+  /** A rim on a subject, as the fight draws one (e.g. Mend's on the threaded hero). */
+  rim?: Partial<Record<StudioSubject, { hex: string; strength: number }>>;
+  /** false: the figures as they were before the dark-world fit (artWorld.ts), for comparison. */
+  world?: boolean;
 }
 
 /** Turned toward the camera (+z) and 0.6 rad toward the key light (+x). */
@@ -112,7 +118,9 @@ export class ArtStudio {
   ) {
     this.group.name = 'art-studio';
     stage.scene.add(this.group);
-    this.arena = new ArenaView(arenaDef(spec.arena ?? 'reliquary_hall'), stage, this.model);
+    const arena = arenaDef(spec.arena ?? 'reliquary_hall');
+    this.arena = new ArenaView(arena, stage, this.model);
+    if (spec.world !== false) applyArtWorld(this.model, arenaLook(arena));
     this.group.add(this.arena.group, this.kit.group);
     const yaw = spec.yaw ?? FACE;
     if (spec.layout === 'close') {
@@ -201,6 +209,11 @@ export class ArtStudio {
         rim = this.hostile;
         rimStrength = 0.18;
       }
+    }
+    const own = this.spec.rim?.[subject];
+    if (own) {
+      rim = color(own.hex);
+      rimStrength = own.strength;
     }
     const batch = new ModelBatch(geometry, this.model.material, 1, true);
     this.group.add(batch.mesh);

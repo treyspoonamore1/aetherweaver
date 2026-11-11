@@ -424,7 +424,11 @@ export class ModelBuilder {
         rigs[g + 3] = part.rig[3];
         misc[g] = part.rig[4];
         // The lead field: its kind plus the share of lit panes; 9 marks the outline shell.
-        misc[g + 1] = shell ? 9 : part.lead + (part.cell > 0 ? Math.min(0.95, part.lit) : 0);
+        misc[g + 1] = shell
+          ? 9
+          : this.glass && part.lead === 0
+            ? -1 // glass with no lead (a face, a light): still part of a glass figure
+            : part.lead + (part.cell > 0 ? Math.min(0.95, part.lit) : 0);
         misc[g + 2] = bodyOf(pos.getY(i));
         misc[g + 3] = part.cell;
         const t = (i / 3) | 0;
