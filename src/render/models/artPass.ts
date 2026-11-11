@@ -95,8 +95,8 @@ export function buildKael(def: HeroDef): THREE.BufferGeometry {
   const col = def.color;
   const deep = shade(col, -0.45);
   const bright = shade(col, 0.18);
-  const steel = '#d3dff2';
-  const steelDark = '#7f8fae';
+  const steel = '#b8cdf2';
+  const steelDark = '#6c80a8';
   const glass = shade(col, 0.55);
   // Legs: armoured, striding (each swings from the hip).
   for (const side of [-1, 1]) {
@@ -308,47 +308,37 @@ export function buildVexis(def: HeroDef): THREE.BufferGeometry {
   });
   // Torso and a high, pointed mantle in her colour.
   b.cyl(0.24, 0.2, 0.5, col, { p: [0, 1.27, 0] }, 8);
-  for (let i = 0; i < 7; i++) {
-    const a = (i / 7) * Math.PI * 2 + 0.2;
-    b.cone(
-      0.13,
-      0.42,
-      i % 2 ? col : mid,
-      {
-        p: [Math.cos(a) * 0.24, 1.36, Math.sin(a) * 0.24],
-        r: [Math.sin(a) * 2.2, 0, -Math.cos(a) * 2.2],
-      },
-      4,
-    );
-  }
-  b.cyl(0.19, 0.15, 0.2, mid, { p: [0, 1.6, 0.04] }, 8);
+  b.cyl(0.08, 0.1, 0.16, '#efe1ff', { p: [0, 1.66, -0.02] }, 6);
+  b.cone(0.42, 0.36, col, { p: [0, 1.44, 0] }, 7);
+  b.torus(0.4, 0.025, GOLD, { p: [0, 1.28, 0], r: FLAT, glow: 0.5 }, Math.PI * 2, 14);
+  b.cone(0.3, 0.26, mid, { p: [0, 1.56, 0] }, 7);
   b.torus(0.21, 0.025, GOLD, { p: [0, 1.06, 0], r: FLAT, glow: 0.45 }, Math.PI * 2, 10);
   // Head: a pale face, glowing violet eyes, a tall bent star-hat with a star at its tip.
-  b.rigged({ k: HEAD, at: [0, 1.6, 0] }, () => {
-    b.sphere(0.13, skin, { p: [0, 1.72, -0.03] }, 7, 5);
-    b.box(0.04, 0.025, 0.02, col, { p: [0.045, 1.73, -0.16], glow: 1 });
-    b.box(0.04, 0.025, 0.02, col, { p: [-0.045, 1.73, -0.16], glow: 1 });
-    b.box(0.26, 0.2, 0.18, '#2a1d3d', { p: [0, 1.76, 0.1] });
+  b.rigged({ k: HEAD, at: [0, 1.62, 0] }, () => {
+    b.sphere(0.13, skin, { p: [0, 1.8, -0.03] }, 7, 5);
+    b.box(0.04, 0.025, 0.02, col, { p: [0.045, 1.81, -0.16], glow: 1 });
+    b.box(0.04, 0.025, 0.02, col, { p: [-0.045, 1.81, -0.16], glow: 1 });
+    b.box(0.24, 0.22, 0.14, '#2a1d3d', { p: [0, 1.82, 0.12] });
     b.torus(
       0.27,
       0.05,
       deep,
-      { p: [0, 1.86, 0.02], r: [Math.PI / 2 + 0.28, 0, 0] },
+      { p: [0, 1.94, 0.02], r: [Math.PI / 2 + 0.28, 0, 0] },
       Math.PI * 2,
       12,
     );
-    b.cone(0.2, 0.5, col, { p: [0, 2.1, 0.08], r: [-0.14, 0, 0] }, 7);
-    b.cone(0.1, 0.42, mid, { p: [0, 2.46, 0.24], r: [-0.65, 0, 0] }, 6);
+    b.cone(0.2, 0.5, col, { p: [0, 2.18, 0.08], r: [-0.14, 0, 0] }, 7);
+    b.cone(0.1, 0.42, mid, { p: [0, 2.54, 0.24], r: [-0.65, 0, 0] }, 6);
     b.torus(
       0.19,
       0.025,
       GOLD,
-      { p: [0, 1.9, 0.03], r: [Math.PI / 2 + 0.28, 0, 0], glow: 0.6 },
+      { p: [0, 1.98, 0.03], r: [Math.PI / 2 + 0.28, 0, 0], glow: 0.6 },
       Math.PI * 2,
       10,
     );
   });
-  b.octa(0.08, star, { p: [0, 2.64, 0.4], glow: 1, rig: { k: FLOAT, at: [0, 2.64, 0.4], a: 1.2 } });
+  b.octa(0.08, star, { p: [0, 2.72, 0.4], glow: 1, rig: { k: FLOAT, at: [0, 2.72, 0.4], a: 1.2 } });
   // Staff arm (her right): the staff raised as she casts.
   const top: V3 = [0.46, 2.2, -0.18];
   b.rigged({ k: WEAPON, at: [0.24, 1.52, 0], a: 0.55 }, () => {
@@ -639,15 +629,19 @@ export function buildChorister(def: EnemyDef): THREE.BufferGeometry {
   return b.build();
 }
 
-/** A Bell Brute: a wide, hunched porcelain hulk whose fists are bronze bells. */
+/**
+ * A Bell Brute: a wide, hunched porcelain hulk in a torn choir cassock, plated like a broken
+ * statue, a bronze bell-helm sunk between its shoulders and bronze bells for fists.
+ */
 export function buildBrute(def: EnemyDef): THREE.BufferGeometry {
   const b = new ModelBuilder();
   const body = porcelain(def.color);
   const acc = def.accent;
   const crack = '#a78bfa';
   const s = def.radius / 0.9;
-  const glaze = 0.16;
-  const under = shade(def.color, -0.5);
+  const glaze = 0.14;
+  const cassock = '#3b3150';
+  const plate = shade(body, -0.12);
   // Short, thick legs.
   for (const side of [-1, 1]) {
     b.rigged({ k: LIMB, at: [side * 0.32 * s, 0.72 * s, 0], a: side * 0.6 }, () => {
@@ -657,8 +651,9 @@ export function buildBrute(def: EnemyDef): THREE.BufferGeometry {
         [side * 0.36 * s, 0.14 * s, 0],
         0.21 * s,
         0.17 * s,
-        under,
+        plate,
         6,
+        glaze,
       );
       b.cyl(
         0.2 * s,
@@ -670,80 +665,106 @@ export function buildBrute(def: EnemyDef): THREE.BufferGeometry {
       );
     });
   }
-  // A massive trunk: a faceted barrel, broad at the shoulders, hunched.
+  // The torn cassock: a dark skirt in strips, swaying.
+  b.rigged({ k: CLOTH, at: [0, 1.0 * s, 0], a: 0.8 * s }, () => {
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2;
+      b.box(0.36 * s, (0.62 + (i % 2) * 0.14) * s, 0.05 * s, cassock, {
+        p: [Math.sin(a) * 0.58 * s, (0.68 - (i % 2) * 0.07) * s, Math.cos(a) * 0.58 * s],
+        r: [0.18 * Math.cos(a), a, -0.18 * Math.sin(a)],
+      });
+    }
+  });
+  // A massive trunk: faceted porcelain, broad at the shoulders, hunched forward.
   b.lathe(
     [
-      [0.42 * s, 0.62 * s],
-      [0.6 * s, 0.85 * s],
-      [0.72 * s, 1.2 * s],
-      [0.8 * s, 1.55 * s],
-      [0.6 * s, 1.8 * s],
-      [0.2 * s, 1.88 * s],
-      [0, 1.89 * s],
+      [0.5 * s, 0.7 * s],
+      [0.66 * s, 0.95 * s],
+      [0.8 * s, 1.35 * s],
+      [0.84 * s, 1.6 * s],
+      [0.56 * s, 1.84 * s],
+      [0, 1.88 * s],
     ],
     body,
-    { p: [0, 0, 0.08 * s], r: [0.18, 0, 0], glow: glaze },
-    7,
+    { p: [0, 0, 0.1 * s], r: [0.2, 0, 0], glow: glaze },
+    6,
   );
+  // Breast plates, darker glaze, edged in lead: a broken statue's panels.
+  for (const side of [-1, 1]) {
+    b.box(0.5 * s, 0.5 * s, 0.08 * s, plate, {
+      p: [side * 0.3 * s, 1.36 * s, -0.68 * s],
+      r: [0.32, side * 0.38, 0],
+      glow: glaze,
+    });
+  }
   b.torus(
-    0.6 * s,
-    0.07 * s,
+    0.66 * s,
+    0.08 * s,
     BRONZE,
-    { p: [0, 0.86 * s, 0.05 * s], r: FLAT, glow: 0.1 },
+    { p: [0, 0.98 * s, 0.04 * s], r: FLAT, glow: 0.1 },
     Math.PI * 2,
-    14,
+    12,
   );
   // A small head sunk between the shoulders: a slotted bronze bell-helm, two burning eyes.
   b.rigged({ k: HEAD, at: [0, 1.62 * s, -0.25 * s] }, () => {
     b.lathe(
       [
-        [0.26 * s, 0],
-        [0.24 * s, 0.05 * s],
-        [0.18 * s, 0.27 * s],
-        [0.08 * s, 0.36 * s],
-        [0, 0.37 * s],
+        [0.27 * s, 0],
+        [0.25 * s, 0.05 * s],
+        [0.19 * s, 0.28 * s],
+        [0.08 * s, 0.37 * s],
+        [0, 0.38 * s],
       ],
       BRONZE,
-      { p: [0, 1.56 * s, -0.5 * s] },
+      { p: [0, 1.56 * s, -0.56 * s] },
       8,
     );
-    b.box(0.09 * s, 0.05 * s, 0.04 * s, acc, { p: [0.09 * s, 1.7 * s, -0.73 * s], glow: 1 });
-    b.box(0.09 * s, 0.05 * s, 0.04 * s, acc, { p: [-0.09 * s, 1.7 * s, -0.73 * s], glow: 1 });
+    b.box(0.1 * s, 0.055 * s, 0.04 * s, acc, { p: [0.09 * s, 1.7 * s, -0.8 * s], glow: 1 });
+    b.box(0.1 * s, 0.055 * s, 0.04 * s, acc, { p: [-0.09 * s, 1.7 * s, -0.8 * s], glow: 1 });
   });
   // A bell hung on the chest, swinging.
-  b.rigged({ k: BELL, at: [0, 1.36 * s, -0.78 * s], a: 1 }, () => {
-    b.cyl(0.015 * s, 0.015 * s, 0.2 * s, BRONZE_DARK, { p: [0, 1.26 * s, -0.8 * s] }, 4);
+  b.rigged({ k: BELL, at: [0, 1.2 * s, -0.84 * s], a: 1 }, () => {
+    b.cyl(0.015 * s, 0.015 * s, 0.2 * s, BRONZE_DARK, { p: [0, 1.1 * s, -0.86 * s] }, 4);
     b.lathe(
       [
-        [0.17 * s, 0],
-        [0.14 * s, 0.05 * s],
-        [0.1 * s, 0.2 * s],
-        [0, 0.22 * s],
+        [0.18 * s, 0],
+        [0.15 * s, 0.05 * s],
+        [0.1 * s, 0.21 * s],
+        [0, 0.23 * s],
       ],
       BRONZE,
-      { p: [0, 0.95 * s, -0.8 * s] },
+      { p: [0, 0.78 * s, -0.86 * s] },
       8,
     );
-    b.sphere(0.06 * s, acc, { p: [0, 0.96 * s, -0.8 * s], glow: 1 }, 5, 4);
+    b.sphere(0.065 * s, acc, { p: [0, 0.79 * s, -0.86 * s], glow: 1 }, 5, 4);
   });
   cracks(b, crack, [
-    [0.34 * s, 1.3 * s, -0.66 * s, 0.42 * s, 0.5],
-    [-0.42 * s, 1.05 * s, -0.6 * s, 0.34 * s, -0.4],
-    [0.12 * s, 1.72 * s, -0.42 * s, 0.3 * s, 1.2],
+    [0.36 * s, 1.5 * s, -0.74 * s, 0.46 * s, 0.5],
+    [-0.4 * s, 1.24 * s, -0.72 * s, 0.4 * s, -0.4],
+    [0.14 * s, 1.78 * s, -0.4 * s, 0.34 * s, 1.2],
+    [-0.62 * s, 1.62 * s, -0.3 * s, 0.3 * s, 0.9],
   ]);
   // Huge arms with bronze bells for fists, raised overhead through the Toll's wind-up.
   for (const side of [-1, 1]) {
-    b.rigged({ k: WEAPON, at: [side * 0.74 * s, 1.6 * s, 0], a: 0.95 }, () => {
-      b.ico(0.32 * s, body, {
-        p: [side * 0.82 * s, 1.62 * s, 0.04 * s],
-        s: [1, 0.8, 1],
+    b.rigged({ k: WEAPON, at: [side * 0.76 * s, 1.62 * s, 0], a: 0.95 }, () => {
+      b.ico(0.34 * s, plate, {
+        p: [side * 0.84 * s, 1.66 * s, 0.04 * s],
+        s: [1, 0.78, 1],
         glow: glaze,
       });
+      b.torus(
+        0.3 * s,
+        0.05 * s,
+        BRONZE,
+        { p: [side * 0.86 * s, 1.5 * s, 0.02 * s], r: FLAT },
+        Math.PI * 2,
+        8,
+      );
       limb(
         b,
-        [side * 0.86 * s, 1.5 * s, 0],
-        [side * 1.0 * s, 1.0 * s, -0.12 * s],
-        0.2 * s,
+        [side * 0.88 * s, 1.5 * s, 0],
+        [side * 1.02 * s, 1.0 * s, -0.12 * s],
+        0.21 * s,
         0.17 * s,
         body,
         6,
@@ -751,12 +772,13 @@ export function buildBrute(def: EnemyDef): THREE.BufferGeometry {
       );
       limb(
         b,
-        [side * 1.0 * s, 1.0 * s, -0.12 * s],
-        [side * 1.04 * s, 0.75 * s, -0.24 * s],
+        [side * 1.02 * s, 1.0 * s, -0.12 * s],
+        [side * 1.06 * s, 0.75 * s, -0.24 * s],
         0.17 * s,
         0.14 * s,
-        under,
+        plate,
         6,
+        glaze,
       );
       b.lathe(
         [
@@ -767,18 +789,18 @@ export function buildBrute(def: EnemyDef): THREE.BufferGeometry {
           [0, 0.43 * s],
         ],
         BRONZE,
-        { p: [side * 1.06 * s, 0.32 * s, -0.28 * s] },
+        { p: [side * 1.08 * s, 0.34 * s, -0.28 * s] },
         9,
       );
       b.torus(
         0.3 * s,
         0.035 * s,
         BRONZE_DARK,
-        { p: [side * 1.06 * s, 0.35 * s, -0.28 * s], r: FLAT },
+        { p: [side * 1.08 * s, 0.37 * s, -0.28 * s], r: FLAT },
         Math.PI * 2,
         10,
       );
-      b.sphere(0.11 * s, acc, { p: [side * 1.06 * s, 0.32 * s, -0.28 * s], glow: 1 }, 6, 4);
+      b.sphere(0.11 * s, acc, { p: [side * 1.08 * s, 0.34 * s, -0.28 * s], glow: 1 }, 6, 4);
     });
   }
   return b.build();
@@ -795,8 +817,8 @@ export function buildBellwarden(def: EnemyDef): THREE.BufferGeometry {
   const acc = def.accent;
   const crack = '#a78bfa';
   const glaze = 0.12;
-  const cloak = '#4a4160';
-  const cloakDark = '#2c2640';
+  const cloak = '#5d5180';
+  const cloakDark = '#3a3156';
   // The bell it stands in: porcelain with bronze lips, windows of amber and violet glass.
   b.rigged({ k: CLOTH, at: [0, 1.7, 0], a: 3.2 }, () => {
     b.lathe(
@@ -837,19 +859,25 @@ export function buildBellwarden(def: EnemyDef): THREE.BufferGeometry {
       [-0.42, 1.2, -0.8, 0.4, -0.4],
     ]);
   });
-  // Armoured torso in porcelain plate, a cloak behind, a belt of small bells.
-  b.cyl(0.8, 0.62, 1.0, body, { p: [0, 2.12, 0], glow: glaze }, 8);
-  b.box(0.52, 0.72, 0.12, shade(body, -0.08), {
-    p: [0, 2.14, -0.68],
-    r: [0.12, 0, 0],
-    glow: glaze,
-  });
-  b.octa(0.17, acc, { p: [0, 2.22, -0.76], s: [0.8, 1.3, 0.4], glow: 1 });
-  b.box(0.06, 0.6, 0.05, LEAD, { p: [0, 2.16, -0.77], r: [0.12, 0, 0] });
-  b.torus(0.66, 0.07, BRONZE, { p: [0, 1.66, 0], r: FLAT, glow: 0.1 }, Math.PI * 2, 16);
-  for (let i = 0; i < 7; i++) {
-    const a = Math.PI + 0.3 + (i / 6) * (Math.PI - 0.6);
-    b.cone(0.1, 0.18, BRONZE, { p: [Math.cos(a) * 0.72, 1.54, Math.sin(a) * 0.72] }, 6);
+  // A cloaked torso, a porcelain breastplate with a burning sigil, a belt of small bells.
+  b.cyl(0.78, 0.58, 1.02, cloak, { p: [0, 2.12, 0] }, 7);
+  b.cyl(0.5, 0.36, 0.84, body, { p: [0, 2.14, -0.52], s: [1, 1, 0.55], glow: glaze }, 7);
+  b.octa(0.2, acc, { p: [0, 2.24, -0.84], s: [0.8, 1.4, 0.4], glow: 1 });
+  beam(b, [0, 1.84, -0.76], [0, 2.56, -0.84], 0.06, 0.05, LEAD);
+  beam(b, [-0.3, 2.3, -0.82], [0.3, 2.3, -0.82], 0.06, 0.05, LEAD);
+  b.torus(0.64, 0.08, BRONZE, { p: [0, 1.64, 0], r: FLAT, glow: 0.1 }, Math.PI * 2, 16);
+  for (let i = 0; i < 4; i++) {
+    const a = Math.PI + 0.55 + (i / 3) * (Math.PI - 1.1);
+    b.lathe(
+      [
+        [0.11, 0],
+        [0.08, 0.1],
+        [0, 0.13],
+      ],
+      BRONZE,
+      { p: [Math.cos(a) * 0.72, 1.42, Math.sin(a) * 0.72] },
+      6,
+    );
   }
   b.rigged({ k: CLOTH, at: [0, 2.6, 0.5], a: 2.2 }, () => {
     b.box(1.4, 1.9, 0.08, cloak, { p: [0, 1.7, 0.78], r: [-0.18, 0, 0] });
