@@ -435,7 +435,7 @@ float awFres = pow(1.0 - clamp(abs(dot(normalize(normal), normalize(vViewPositio
 // A negative strength (entities.ts, artFlag.ts HOSTILE_EDGE): the hostile rim kept to the edge,
 // no flat wash. Every other rim (positive) is drawn exactly as before.
 if (vTint.a >= 0.0) totalEmissiveRadiance += vTint.rgb * vTint.a * (0.18 + awFres * 1.9);
-else totalEmissiveRadiance += vTint.rgb * -vTint.a * (0.02 + pow(awFres, 1.4) * 2.8);
+else totalEmissiveRadiance += vTint.rgb * -vTint.a * (0.02 + pow(awFres, 1.6) * 4.0);
 totalEmissiveRadiance += vec3(1.0, 0.97, 0.92) * vFx.x * vFx.x * 1.2;
 totalEmissiveRadiance += vTint.rgb * awEdge * 4.0;
 totalEmissiveRadiance += mix(vec3(1.0, 0.9, 0.6), AW_SILVER, awFrost) * awGhost * 0.9;
