@@ -16,17 +16,20 @@ web of violet cracks. Silhouettes are designed for the fight's camera first (hig
 tall at 1280×720), close-ups second.
 
 ## Where the code is
-- `src/render/models/art/` is the art pass, switched by `ART_PASS` (`src/render/models/artFlag.ts`;
-  build or test with `VITE_ART_PASS=0` to get exactly main).
+- `src/render/models/art/` holds every figure the game draws (Phase 8b: the stained glass is the
+  game; there is no switch and no older figure to fall back to).
   - `kit.ts`: the shared helpers and constants every figure uses (read its doc comment first).
   - One **family file** per group of figures, each exporting `ART`:
     `heroes.ts`, `weaver.ts`, `choir.ts` (Movement I), `legion.ts` (II), `unstitched.ts` (III),
     `unweaver.ts` (III's boss), `finale.ts`, `misc.ts` (summons, the elite crown).
-  - `index.ts`: the registry. It merges every family's `ART`; `library.ts` asks it first and falls
-    back to main's builder for anything not yet redrawn, so a half-redrawn game always renders.
+  - `index.ts`: the registry. It merges every family's `ART`; `library.ts` builds every figure
+    through it. An enemy id with no figure of its own (a content id added before its figure) is
+    drawn as its role's Choir figure until it gets one, and `tests/renderArt.test.ts` fails until then.
 - The model shader (panes, lead, lit glass, cracks, outline, motion): `src/render/models/material.ts`.
   The builder (pane detection, outline shell, body layer): `src/render/models/builder.ts`.
-- The roster of every figure, with its family, size class and status: `/home/user/aw-work/8/roster.md`.
+- `src/render/models/artFlag.ts`: the heroes' and the Weaver's drawn scale (`HERO_DRAWN`, 1.12) and
+  `HOSTILE_EDGE` (see Colour). `src/render/models/artWorld.ts`: the dark worlds' lift.
+- The roster of every figure, with its family, size class and triangles: `docs/art-roster.md`.
 
 ### The registry's contract (what a family file exports, and nothing else)
 1. A family file exports one `ART: ArtFamily` (`kit.ts`) and edits nothing outside itself.
@@ -44,7 +47,11 @@ tall at 1280×720), close-ups second.
   surfaces a player reads: 0.15–0.25 m on a hero's cape, robe, shield; 0.1–0.14 on smaller ones
   (a hood, a hat brim). Never on faces, hands, trims, cords or anything under ~0.15 m.
 - `lead: 0` for parts with no lead (faces, lights, cords, gems). `lead: 2` (gold came) is the
-  **Weaver's only**. `lead: 3` is porcelain: its lead is violet cracks (see below).
+  **Weaver's only**. `lead: 3` is porcelain: its lead is violet cracks (see below). `lead: 4` is bone
+  lead (pale seams along the pane borders: the Unstitched's bone). `LEAD_KIND` names them.
+- `lift: false` on a cut part keeps it dark in the three dark worlds, where the darkest cut glass is
+  otherwise lifted a little in its own hue (`artWorld.ts`): for void cloth and black coats that must
+  stay deep (the Unweaver, the Conductor's coat, the Legion's obsidian).
 
 ### Lit panes and self-light
 - `lit: share` makes that share of a part's panes glow from inside in their own colour. Heroes:
@@ -86,6 +93,15 @@ tall at 1280×720), close-ups second.
 - The hostile rim (rule 5), the aura rims, Mend's rim on the threaded hero, the hover rim and the
   Prism edge are drawn **on the body by the shader**: never cover a foe's silhouette with a bright
   glow that would drown its hostile rim.
+- The hostile rim today adds a faint flat red to the whole body as well as its edge, which turns a
+  near-black body red (the Legion's obsidian, the Unstitched's cloth, the mirror voices' hoods).
+  `HOSTILE_EDGE` (artFlag.ts, off until the owner chooses) keeps it to the silhouette's edge on the
+  stained-glass foes; flipping that one constant is the whole change. Judge dark foes both ways
+  (the studio's `hostile: 'flat' | 'edge' | 'none'`).
+- A glow makes a colour brighter than its hex: measure small lights **as rendered** at the game
+  camera, not only their hex (the Unstitched's teal stitches read near Mend at glow 1.8; at 0.1
+  they clear it). `tests/colorVision.test.ts` checks every colour written in a family file in two
+  tiers (Phase 8b) and names each exception: add yours there with its reason.
 
 ### Silhouette first, from the fight's camera
 - The camera is high (52°) and far (27 m): a figure is ~60–90 px tall and seen mostly from above
@@ -120,6 +136,8 @@ tall at 1280×720), close-ups second.
 Wrap parts in `b.rigged({ k: KIND, at: pivot, a }, () => ...)`:
 - `WEAPON` an attacking arm: anticipation (raised), strike (snaps down and across past rest),
   settle (bounce). `a` scales it (negative pulls back: a bow's draw hand).
+- `THRUST` a lunge (a rapier, a spear, a lance): drawn back, driven out along the figure's forward,
+  recovered (`a` = reach, m). Never a `WEAPON` for a thrusting weapon: it reads as a chop.
 - `BRACE` an off-hand or shield arm (keep `a` small for a shield).
 - `CLOTH` hangs from its pivot, trails as the body moves, flares a beat after a blow (`a` ≈ length).
 - `BELL` a pendulum: draws back in the wind-up, flings through, rings out.
@@ -162,14 +180,18 @@ is the game's own camera; judge every figure there first. The four worlds: `reli
 `spire_gate`, `rift_mouth`, `the_crucible` (any arena id works). `rim: { lyra: { hex, strength } }`
 puts a rim on a subject (e.g. Mend's `#2dd4bf` at 0.5) to check rims still read.
 
-The script (`/home/user/aw-work/8/w0/scripts/`, one browser at a time; set `AW_ROOT` to your
-worktree, `AW_W` to your output folder and `AW_PORT` to a free port so agents don't collide):
+Studio options beyond the layout: `elite: [ids]` (the gold elite rim and the crown, as the game
+draws an elite), `hostile: 'flat' | 'edge' | 'none'`, `look: { robe, thread }` (the Weaver in a robe
+or Thread look), `pose` (a held point of the motion), `rim`, `world: false` (no dark-world lift).
+
+The script `tools/art-shoot/shoot.mjs` (one browser per run; give parallel runs their own `--port`,
+and set `TMPDIR` on a disk with room for the browser's profile):
 
 ```sh
-npx vite build --outDir /tmp/mydist     # in your worktree
-AW_ROOT=$PWD AW_W=/my/out AW_PORT=4481 /home/user/aw-work/8/w0/scripts/run.sh shoot \
-  --dist /tmp/mydist --out /my/out/shots --ids lamenter,glass_lancer,mute \
-  --world spire --views budget,close,field,lineup,pose
+npx vite build --outDir /tmp/art-dist
+node tools/art-shoot/shoot.mjs --dist /tmp/art-dist --out /tmp/art-shots \
+  --ids lamenter,glass_lancer,mute --world spire --views budget,close,field,lineup,pose \
+  --extra '{"elite":["glass_lancer"]}' --tag elite --port 4481
 ```
 
 Views: `close` (`close-<id>.png`), `field` (`field-<world>.png`), `lineup` (`lineup-<world>.png`),
@@ -184,8 +206,11 @@ Views: `close` (`close-<id>.png`), `field` (`field-<world>.png`), `lineup` (`lin
 - **Rings, the Thread, telegraphs, glyphs** and their positions (they stay at content heights).
 - **The sim, content and meta** (`src/sim`, `src/content`, `src/meta`): render side only.
 - **Lighting** (`lightCues.ts`, `arena.ts` moods).
-- **Pinned tests**: never re-record or edit a pin or a test; integration re-records model pins once
-  the look lands. With `VITE_ART_PASS=0` every render and aura test must pass as on main.
+- **`tests/aura` and its pin files**: never edited. Model pins (renderSpireSnapshot,
+  renderRiftSnapshot, renderMovement2, the starters in renderBrann and renderSeren) pin the figures'
+  geometry: re-record a figure's entry only when you change that figure on purpose, and say so.
+  Rule tests (heights, greyscale separation, colour-vision distances, quadruped gait, distinct
+  bodies, parts counts) are never edited: change the figure.
 
 ## Before calling a figure done
 1. It is in your family file's `ART` under its content id, built with `figure(sizeClass, …)`.
@@ -195,6 +220,7 @@ Views: `close` (`close-<id>.png`), `field` (`field-<world>.png`), `lineup` (`lin
 4. Hostile rim (rank-and-file foes) still reads; nothing on it is gold or a semantic colour.
 5. Close-up and line-up: panes on the big surfaces, lead round them, a few lit panes, face/eyes.
 6. `pose` strip: anticipation, strike past rest, settle read; cloth and bells follow.
-7. With the art pass off (`VITE_ART_PASS=0`) the render and aura tests pass as on main; with it on,
-   only the expected pins of the old model fail (list them).
-8. Typecheck, lint and prettier clean; nothing outside your family file changed.
+7. `tests/renderArt.test.ts`, `tests/colorVision.test.ts` and the render and aura tests pass; a
+   model pin that fails is your own figure's (re-record its entry, saying why).
+8. Typecheck, lint and prettier clean; nothing outside your family file changed (except its pin
+   entries).
