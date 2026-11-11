@@ -197,6 +197,9 @@ test('the pad drives the menu screens: Title, Settings and its Controls, the Loo
   const onward = page.getByRole('button', { name: /^Continue/ });
   await expect(onward).toBeVisible();
   await dpadMovesFocus(page, true);
+  // Past the Result's arrival guard (a press as the screen arrives is swallowed, keys and pad
+  // alike: e2e/smoke.spec.ts waits the same).
+  await page.waitForTimeout(700);
   await padPress(page, onward);
   await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('draft');
   await expect(page.getByTestId('draft-skip')).toBeVisible();
