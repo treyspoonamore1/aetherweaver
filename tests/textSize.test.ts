@@ -21,6 +21,11 @@ export const HELD: readonly { file: string; match: string; why: string }[] = [
     match: 'pointer-events-none absolute -top-2 right-2 z-10',
     why: 'the Calling’s tag on a bonus aura or ornament slot card (11 px)',
   },
+  {
+    file: 'src/ui/screens/ChordBuilder.tsx',
+    match: 'absolute -top-0.5 left-1 whitespace-nowrap font-mono',
+    why: 'the Life budget’s cap label, beside the songs’ shares in the auras’ colours (11 px)',
+  },
 ];
 
 function files(dir: string): string[] {
@@ -46,7 +51,7 @@ describe('text sizes: 12 px at least at 100%', () => {
     expect(sources.length).toBeGreaterThan(100);
   });
 
-  it('no class name sets text under 0.75 rem (except the held aura element)', () => {
+  it('no class name sets text under 0.75 rem (except the held aura elements)', () => {
     const found: string[] = [];
     const held: string[] = [];
     for (const { file, lines } of sources)
