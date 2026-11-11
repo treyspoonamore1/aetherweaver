@@ -638,15 +638,7 @@ void main() {
     // The seams, at full strength, then masked by a radial ramp (inner faint, outer stronger).
     ctx.strokeStyle = lit.seam;
     if (look === 'crimson') {
-      for (let g = -R; g <= R; g += 3) {
-        ctx.lineWidth = 0.07 * px;
-        ctx.beginPath();
-        ctx.moveTo(c + g * px, 0);
-        ctx.lineTo(c + g * px, size);
-        ctx.moveTo(0, c + g * px);
-        ctx.lineTo(size, c + g * px);
-        ctx.stroke();
-      }
+      // Only the brass inlay rings warm faintly; the plate grid stays unlit (rule 1).
       for (const r of [3.2, R * 0.55]) ring(r, 0.08);
     } else if (look === 'abyss') {
       for (let r0 = 1.8; r0 < R; r0 += 3.1) ring(Math.min(R, r0 + 3.1), 0.06, [0.35, 0.3]);
@@ -1387,7 +1379,7 @@ void main() {
           ctx.lineTo(c + Math.cos(a1) * r0 * px, c + Math.sin(a1) * r0 * px);
           ctx.closePath();
           ctx.fill();
-          ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+          ctx.strokeStyle = 'rgba(0,0,0,0.12)';
           ctx.lineWidth = 2;
           ctx.stroke();
           // A glint on the pane's leading edge.

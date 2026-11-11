@@ -26,18 +26,18 @@ export interface LitFloor {
 
 export const LIT_FLOOR = {
   crimson: {
-    floor: '#4a3030',
-    seam: '#8a1f22',
-    seamInner: 0.22,
-    seamOuter: 0.75,
+    floor: '#3e3436',
+    seam: '#6a1a1e',
+    seamInner: 0.0,
+    seamOuter: 0.18,
     edge: '#b3262b',
-    edgeGlow: 0.9,
+    edgeGlow: 0.7,
   },
   abyss: {
     floor: '#34306a',
     seam: '#6a62b0',
-    seamInner: 0.25,
-    seamOuter: 0.55,
+    seamInner: 0.12,
+    seamOuter: 0.3,
     // The fray: ABYSS_HEX.fray's dark teal (≥ 20 ΔE from Mend in every vision), outer course only.
     edge: '#176762',
     edgeGlow: 1.2,
@@ -45,8 +45,8 @@ export const LIT_FLOOR = {
   crucible: {
     floor: '#302e5c',
     seam: '#7a70b0',
-    seamInner: 0.22,
-    seamOuter: 0.5,
+    seamInner: 0.14,
+    seamOuter: 0.4,
     edge: '#6c78c8',
     edgeGlow: 0.6,
   },
@@ -55,16 +55,16 @@ export const LIT_FLOOR = {
 /** The light rows (Stage.setMood), with the fog / background colour the camera sees as sky. */
 export const LIT_MOOD = {
   crimson: {
-    sky: '#b0443c',
-    ground: '#4a2020',
-    hemi: 1.05,
+    sky: '#9a5a52',
+    ground: '#3a2a2a',
+    hemi: 0.95,
     key: '#ffb27a',
-    keyIntensity: 2.2,
+    keyIntensity: 2.1,
     rim: '#e0473f',
     rimIntensity: 1.1,
-    fog: '#6a1c1e',
-    fogNear: 30,
-    fogFar: 68,
+    fog: '#7a2022',
+    fogNear: 28,
+    fogFar: 64,
   },
   abyss: {
     sky: '#4a44a0',
@@ -109,9 +109,9 @@ export const LIT_RIM = {
   stallGlow: 0.55,
   pipeGlow: 0.5,
   /** Pillars: lifted toward these. */
-  spirePillar: '#4a3436',
-  riftPillar: '#3e3870',
-  cruciblePillar: '#4a4680',
+  spirePillar: '#6e5456',
+  riftPillar: '#5a54a0',
+  cruciblePillar: '#5e5aa0',
 } as const;
 
 /**
@@ -132,10 +132,10 @@ export const LIT_ORRERY = {
  * enough to stand off the lit floor, its stitches teal frays; the Conductor in white and black.
  */
 export const LIT_MODEL = {
-  riftCloth: '#5a50b0',
+  riftCloth: '#6a62cc',
   // ABYSS_HEX.fray's dark teal (measured ≥ 20 ΔE from Mend in every vision), made to glow.
   riftFray: '#176762',
-  riftFrayGlow: 1.3,
+  riftFrayGlow: 1.8,
   conductorRobe: '#d4d0de',
   conductorDark: '#18161f',
   conductorHaloGlow: 0.75,
