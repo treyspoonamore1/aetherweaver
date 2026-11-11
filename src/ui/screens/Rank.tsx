@@ -10,6 +10,7 @@ import { fmt } from '../kit/format';
 import { Button } from '../kit/Button';
 import { Icon } from '../kit/Icon';
 import { Panel } from '../kit/Panel';
+import { prefersReducedMotion } from '../kit/motion';
 import { playUi } from '../kit/sound';
 import { bumpHint, hintCount } from '../hud/hints';
 import { AstrolabeGlyph } from '../kit/AstrolabeGlyph';
@@ -330,9 +331,7 @@ export function RankUpCard({
     ...(r.atelier ? [r.atelier] : []),
     ...(r.point ? [r.point] : []),
   ]);
-  const reduced =
-    typeof window !== 'undefined' &&
-    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const reduced = prefersReducedMotion();
   const [shown, setShown] = useState(reduced ? unlocks.length : 0);
   useEffect(() => {
     playUi('rankUp');

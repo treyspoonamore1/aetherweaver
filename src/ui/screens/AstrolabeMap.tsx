@@ -9,6 +9,7 @@ import {
   constellationLook,
   type Constellation,
 } from '../kit/astrolabeLook';
+import { prefersReducedMotion } from '../kit/motion';
 import {
   LINKS,
   MAP_BOX,
@@ -528,7 +529,7 @@ function Star({
     const el = inner.current;
     if (!buzz || !el || typeof el.animate !== 'function') return;
     // A refusal still sounds and says why; reduced motion just doesn't shake.
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    if (prefersReducedMotion()) return;
     el.animate(SHAKE, { duration: 360, easing: 'ease-out' });
   }, [buzz]);
   const stroke = node.constellation === 'bridge' ? `url(#lit-${node.id})` : look.color;
