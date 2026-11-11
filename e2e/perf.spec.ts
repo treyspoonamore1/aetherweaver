@@ -27,7 +27,10 @@ const CPU_P95_GROSS_MS = 400;
 /**
  * The ten-minute heap test: the heap after it, collected, may be at most this share above the
  * heap after the first pass. Set from W4's first reading (docs/phase-7.md asks for it to be
- * stated): see the hand-off.
+ * stated), SwiftShader under load: 13.88 MB after the first pass, then 14.28, 14.50 and 14.84 MB
+ * after 4.8, 8.8 and 12.8 minutes (4 passes), so ×1.069. A heap-snapshot diff over three short
+ * passes put most of the rise (0.65 of 0.96 MB) in compiled code. A faster machine plays more
+ * passes in ten minutes, so the share is a bound for this machine's pace.
  */
 const HEAP_SHARE = 0.1;
 const LONG = process.env.AW_PERF_LONG === '1';
@@ -227,17 +230,21 @@ test('perf @sample: heap sampling over each bench scene (the allocation pass)', 
     const { profile } = (await cdp.send('HeapProfiler.stopSampling')) as {
       profile: { head: SamplingNode };
     };
-    // Self bytes by allocation site, over the measured seconds.
+    // Self bytes by allocation site, over the measured seconds. A built-in (no script: `push`,
+    // `Map`, an iterator's `next`) is charged to the nearest script function that called it.
     const sites = new Map<string, number>();
-    const walk = (n: SamplingNode) => {
+    const walk = (n: SamplingNode, owner: string) => {
       const f = n.callFrame;
-      const key = `${f.url}:${f.lineNumber + 1}:${f.columnNumber + 1} ${f.functionName || '(anonymous)'}`;
+      const own = f.url
+        ? `${f.url}:${f.lineNumber + 1}:${f.columnNumber + 1} ${f.functionName || '(anonymous)'}`
+        : null;
+      const key = own ?? `${owner} [${f.functionName || '(native)'}]`;
       if (n.selfSize > 0) sites.set(key, (sites.get(key) ?? 0) + n.selfSize);
-      n.children.forEach(walk);
+      for (const c of n.children) walk(c, own ?? owner);
     };
-    walk(profile.head);
+    walk(profile.head, '(root)');
     const total = [...sites.values()].reduce((a, b) => a + b, 0);
-    const top = [...sites.entries()].sort((a, b) => b[1] - a[1]).slice(0, 80);
+    const top = [...sites.entries()].sort((a, b) => b[1] - a[1]).slice(0, 150);
     writeFileSync(
       `${out}/heap-${scene.id}.json`,
       JSON.stringify(
