@@ -18,7 +18,7 @@ import {
   type RobeColors,
   type ThreadColors,
 } from '../kit/loomLook';
-import { arrowFocus, useGamepadMenu } from '../kit/menuNav';
+import { arrowFocus } from '../kit/menuNav';
 import { useReducedMotion } from '../kit/motion';
 import { Panel } from '../kit/Panel';
 import { playUi, useMood } from '../kit/sound';
@@ -93,7 +93,6 @@ export function AtelierView({
   still: stillProp = false,
 }: AtelierViewProps) {
   useMood('loom');
-  useGamepadMenu();
   const reduced = useReducedMotion();
   // Her ribbons wear the Thread look as the fight draws it, fitted to the colour vision.
   const vision = useSettings((st) => st.settings.colorVision);

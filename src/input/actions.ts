@@ -66,8 +66,8 @@ export const DEFAULT_BINDINGS: Bindings = {
 };
 
 // ── Phase 7 (docs/phase-7.md, *Contracts*): the gamepad's types and default layout. Declared by
-// W0 with no handler; W1 reads them. Nothing here is bound to a key, listed in Controls or read by
-// the InputController yet. ──
+// W0; the InputController plays them (W1), and Settings → Controls rebinds them
+// (`settings.input.padBindings`, input/padBindings.ts). ──
 
 /**
  * The buttons of a standard-mapping gamepad, in the Gamepad API's order (index = `buttons[i]`),
@@ -144,7 +144,7 @@ export function buildCodeIndex(bindings: Bindings): Map<string, Action> {
 }
 
 /** Normalised, quantised movement intent from the held movement actions. */
-export function moveVector(held: ReadonlySet<Action>): { x: number; z: number } {
+export function moveVector(held: { has(action: Action): boolean }): { x: number; z: number } {
   let x = 0;
   let z = 0;
   if (held.has('moveUp')) z -= 1;

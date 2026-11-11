@@ -1,7 +1,11 @@
 import { CONTENT } from '../../content';
-import type { Action } from '../../input/actions';
+import { optionsOf, useSettings } from '../../app/settings';
+import type { Action, PadBindable, PadButton } from '../../input/actions';
 import { liveBindings } from '../../input/bindings';
+import { isModifierToken, isMouseCode, type MouseRole } from '../../input/inputMap';
 import { keyLabel } from '../../input/keyLabel';
+import { livePadBindings } from '../../input/padBindings';
+import { t, type TextKey } from '../text';
 import type { IconName } from '../kit/iconPaths';
 import { VARIANT_STATUS } from '../kit/variantLook';
 import { EMBOLDENED_PCT, doomMax } from './riftLook';
@@ -28,9 +32,47 @@ export function bindingLabel(action: Action): string {
   if (code) return keyLabel(code);
   if (DIRECTIVES.has(action)) {
     const wheel = bindingCode('directiveWheel');
-    return wheel ? keyLabel(wheel) : 'MMB';
+    return wheel ? keyLabel(wheel) : mouseRoleLabel('wheel');
   }
   return '—';
+}
+
+// ── Phase 7 (W1): mouse roles, the Cue modifier and pad buttons, named as the player has them ──
+
+/**
+ * Any input code's short name: a mouse button (`Mouse0` → "LMB"), a modifier (`Control` →
+ * "Ctrl"), or a key (`keyLabel`).
+ */
+export function inputLabel(code: string): string {
+  if (isMouseCode(code)) return t(`input.mouse.${code}` as TextKey);
+  if (isModifierToken(code)) return t(`input.modifier.${code}` as TextKey);
+  return keyLabel(code);
+}
+
+/** The code playing a mouse role right now ('' when unbound). */
+export function mouseRoleCode(role: MouseRole): string {
+  return optionsOf(useSettings.getState().settings).input.mouse[role];
+}
+
+/** A mouse role's label as the player has it ("RMB" by default for Mend ⇄ Empower); "—" unbound. */
+export function mouseRoleLabel(role: MouseRole): string {
+  const code = mouseRoleCode(role);
+  return code ? inputLabel(code) : '—';
+}
+
+/** A pad button's short, brand-free glyph ("LB", "●↓"). */
+export function padLabel(button: PadButton): string {
+  return t(`input.pad.${button}` as TextKey);
+}
+
+/** A pad button's name, said by where it sits ("Bottom face button"). */
+export function padName(button: PadButton): string {
+  return t(`input.pad.long.${button}` as TextKey);
+}
+
+/** The pad button bound first to an action right now, if any. */
+export function padBinding(action: PadBindable): PadButton | undefined {
+  return livePadBindings()[action][0];
 }
 
 export interface StatusLook {
