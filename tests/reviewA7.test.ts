@@ -11,7 +11,10 @@ import { holdPadForCapture, type PadLike } from '../src/input/gamepad';
 import { InputController } from '../src/input/InputController';
 import { writeInput } from '../src/input/inputMap';
 import { useWheel } from '../src/input/wheel';
-import type { Command, Sim } from '../src/sim';
+import type { Command, Sim, SimEvent, SimEventOf } from '../src/sim';
+import type { Telegraph } from '../src/sim/state';
+import { captionFor } from '../src/ui/hud/captions';
+import { sandbox, spawn, worldOf } from './sim/helpers';
 import { CameraRig } from '../src/render/camera';
 import { CombatView } from '../src/render/combatView';
 import { AutoQuality } from '../src/render/stage';
@@ -318,5 +321,79 @@ describe('finding 6: auto quality takes a steady frame interval for a display ca
     expect(feed((i) => (i % 2 === 0 ? 1000 / 20 : 1000 / 30))).toEqual(['low', 0.6, 6]);
     // A steady 20 fps is slower than any display caps a game: a slow machine.
     expect(feed(() => 50)).toEqual(['low', 0.6, 6]);
+  });
+});
+
+describe('finding 7: a wind-up is captioned when its sound plays', () => {
+  /** A telegraph started now in `sim`'s world (as Paradox builds one), and its event. */
+  function cast(sim: Sim, effect: Telegraph['effect'], answers: Telegraph['answers']) {
+    const w = worldOf(sim);
+    const t: Telegraph = {
+      id: w.internal.nextTelegraphId++,
+      owner: -1,
+      target: null,
+      attackId: 'volatile_burst',
+      name: 'Shatter',
+      kind: 'burst',
+      shape: { kind: 'circle', x: 9, z: -2, r: 2 },
+      start: w.time,
+      impact: w.time + 1.5,
+      perfectFrom: w.time + 1.2,
+      damage: 300,
+      pctMaxHp: 0,
+      effect,
+      answers,
+      severity: 'normal',
+    };
+    w.telegraphs.push(t);
+    const { id, ...rest } = t;
+    return {
+      type: 'telegraphStarted',
+      tick: w.tick,
+      telegraph: id,
+      ...rest,
+    } as unknown as SimEventOf<'telegraphStarted'>;
+  }
+
+  it('begun in Stasis: no caption while time stands still, one as it resumes (when it sounds)', () => {
+    const sim = sandbox({
+      chords: [
+        { auras: ['fortissimo'], ornaments: [] },
+        { auras: ['sostenuto'], ornaments: [] },
+      ],
+      calling: { id: 'chronomancer', path: [] },
+    } as never);
+    sim.step([{ t: 'thread', slot: 1 }, spawn('bell_brute', -2.5, -5)]);
+    for (const e of worldOf(sim).entities.list())
+      if (e.enemy && e.health) e.health.hp = e.health.maxHp = 1e6;
+    sim.step([{ t: 'debug', op: { op: 'setResonance', value: 100 } } as Command]);
+    sim.step([{ t: 'crescendo' }]);
+    sim.drainEvents();
+    for (let i = 0; i < 30; i++) sim.step([]);
+    expect(sim.state.field.stasis).toBe(true);
+    const e = cast(sim, 'damage', ['ward']);
+    expect(captionFor(e, sim.state)).toBeNull();
+    // Stasis ends: the effects engine winds it up again (src/audio/sfx.ts resumeWindups).
+    const captions: string[] = [];
+    for (let i = 0; i < 60 * 15 && sim.state.field.stasis; i++) {
+      sim.step([]);
+      for (const ev of sim.drainEvents()) {
+        const c = captionFor(ev as SimEvent, sim.state);
+        if (c) captions.push(c.callout.text);
+      }
+    }
+    expect(sim.state.field.stasis).toBe(false);
+    expect(sim.state.telegraphs.some((t) => t.id === e.telegraph)).toBe(true);
+    expect(captions.filter((c) => /wind-up/.test(c))).toEqual(['[Brass wind-up, right]']);
+  });
+
+  it('a summon, a heal of allies, a suppression and a zone wind up aloud: each is captioned', () => {
+    for (const effect of ['summon', 'healAllies', 'suppress', 'zone'] as const) {
+      const sim = sandbox({});
+      sim.step([]);
+      expect(captionFor(cast(sim, effect, ['chime']), sim.state)?.callout.text, effect).toBe(
+        '[Glass wind-up, right]',
+      );
+    }
   });
 });
