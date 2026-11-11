@@ -2,6 +2,13 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { COLOR_VISIONS, type ColorVision } from '../../app/colorVision';
 import {
+  REDUCED_MOTION,
+  optionsOf,
+  useSettings,
+  type ReducedMotion,
+  type TelegraphSettings,
+} from '../../app/settings';
+import {
   CONTENT,
   arenaDef,
   attackDef,
@@ -5697,6 +5704,89 @@ function Btn({
   );
 }
 
+/**
+ * Phase 7's comfort options (docs/phase-7.md, W2), written to the settings store as the Settings
+ * screen writes them: a key is set only when its control is changed, so absent keys stay absent
+ * at their defaults. The fight reads them from the store every frame.
+ */
+export const labComfort = {
+  reducedMotion: (v: ReducedMotion) =>
+    useSettings.getState().update((d) => ({ ...d, reducedMotion: v })),
+  telegraphs: (patch: Partial<TelegraphSettings>) =>
+    useSettings.getState().update((d) => ({ ...d, telegraphs: { ...d.telegraphs, ...patch } })),
+  answerGlyphs: (v: boolean) => useSettings.getState().update((d) => ({ ...d, answerGlyphs: v })),
+  importantNumbersOnly: (v: boolean) =>
+    useSettings.getState().update((d) => ({ ...d, importantNumbersOnly: v })),
+  slowmoVignette: (v: boolean) =>
+    useSettings.getState().update((d) => ({ ...d, slowmoVignette: v })),
+};
+
+/** The lab's controls for `labComfort`, next to Flashes. */
+export function ComfortControls() {
+  const options = optionsOf(useSettings((s) => s.settings));
+  const tg = options.telegraphs;
+  const range = (
+    label: string,
+    value: number,
+    min: number,
+    max: number,
+    step: number,
+    set: (v: number) => void,
+  ) => (
+    <label className="flex w-full items-center justify-between gap-2">
+      {label} {value.toFixed(2)}
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => set(Number(e.target.value))}
+      />
+    </label>
+  );
+  const check = (label: string, checked: boolean, set: (v: boolean) => void) => (
+    <label className="flex w-full items-center gap-1">
+      <input type="checkbox" checked={checked} onChange={(e) => set(e.target.checked)} /> {label}
+    </label>
+  );
+  return (
+    <>
+      <label className="flex w-full items-center justify-between gap-2">
+        Reduced motion
+        <select
+          className="bg-ink-800"
+          value={options.reducedMotion}
+          onChange={(e) => labComfort.reducedMotion(e.target.value as ReducedMotion)}
+        >
+          {REDUCED_MOTION.map((m) => (
+            <option key={m}>{m}</option>
+          ))}
+        </select>
+      </label>
+      {range('Telegraph opacity', tg.opacity, 0.6, 1, 0.05, (v) =>
+        labComfort.telegraphs({ opacity: v }),
+      )}
+      {range('Telegraph outline ×', tg.outline, 1, 2, 0.25, (v) =>
+        labComfort.telegraphs({ outline: v }),
+      )}
+      {range('Perfect band ×', tg.perfectBand, 1, 2, 0.25, (v) =>
+        labComfort.telegraphs({ perfectBand: v }),
+      )}
+      {check('Telegraph high contrast', tg.highContrast, (v) =>
+        labComfort.telegraphs({ highContrast: v }),
+      )}
+      {check('Answer glyphs', options.answerGlyphs, labComfort.answerGlyphs)}
+      {check(
+        'Important numbers only',
+        options.importantNumbersOnly,
+        labComfort.importantNumbersOnly,
+      )}
+      {check('Slow-mo vignette', options.slowmoVignette, labComfort.slowmoVignette)}
+    </>
+  );
+}
+
 export function VfxLab() {
   const hostRef = useRef<HTMLDivElement>(null);
   const statsRef = useRef<HTMLPreElement>(null);
@@ -5960,6 +6050,7 @@ export function VfxLab() {
               onChange={(e) => setFlashes(Number(e.target.value))}
             />
           </label>
+          <ComfortControls />
           <Btn onClick={() => rt() && (rt()!.paused = !rt()!.paused)}>Pause</Btn>
           <Btn onClick={() => rt() && (rt()!.timeScale = rt()!.timeScale === 1 ? 0.25 : 1)}>
             Slow ×¼

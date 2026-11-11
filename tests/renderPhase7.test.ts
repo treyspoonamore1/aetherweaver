@@ -586,3 +586,76 @@ describe('Reduced motion On holds the new motion still; System and Off draw it a
     });
   });
 });
+
+// ── The VFX lab's comfort controls ────────────────────────────────────────────────────────
+
+describe('the VFX lab: the Phase 7 comfort options next to Flashes', () => {
+  interface LabModule {
+    ComfortControls: FunctionComponent;
+    labComfort: {
+      reducedMotion(v: ReducedMotion): void;
+      telegraphs(patch: Record<string, number | boolean>): void;
+      answerGlyphs(v: boolean): void;
+      importantNumbersOnly(v: boolean): void;
+      slowmoVignette(v: boolean): void;
+    };
+  }
+  // A .tsx module, loaded at run time (the Node tsconfig compiles no JSX).
+  const path = '../src/render/lab/VfxLab';
+  const lab = async () => (await import(/* @vite-ignore */ path)) as unknown as LabModule;
+  afterEach(() => {
+    useSettings.setState({ settings: DEFAULT_SETTINGS });
+  });
+  const KEYS = [
+    'reducedMotion',
+    'telegraphs',
+    'answerGlyphs',
+    'importantNumbersOnly',
+    'slowmoVignette',
+  ] as const;
+
+  it('shows every option at its default and writes nothing by being shown', async () => {
+    const { ComfortControls } = await lab();
+    const html = renderToStaticMarkup(createElement(ComfortControls));
+    for (const label of [
+      'Reduced motion',
+      'Telegraph opacity 1.00',
+      'Telegraph outline × 1.00',
+      'Perfect band × 1.00',
+      'Telegraph high contrast',
+      'Answer glyphs',
+      'Important numbers only',
+      'Slow-mo vignette',
+    ])
+      expect(html).toContain(label);
+    expect(html).toMatch(/<option selected="">system<\/option><option>on<\/option><option>off/);
+    expect(useSettings.getState().settings).toBe(DEFAULT_SETTINGS);
+    for (const k of KEYS) expect(k in useSettings.getState().settings).toBe(false);
+  });
+
+  it('writes each key as Settings does: only the one changed, the rest left absent', async () => {
+    const { labComfort } = await lab();
+    const cases: [() => void, (typeof KEYS)[number], unknown][] = [
+      [() => labComfort.reducedMotion('on'), 'reducedMotion', 'on'],
+      [() => labComfort.telegraphs({ outline: 1.5 }), 'telegraphs', { outline: 1.5 }],
+      [() => labComfort.telegraphs({ highContrast: true }), 'telegraphs', { highContrast: true }],
+      [() => labComfort.answerGlyphs(false), 'answerGlyphs', false],
+      [() => labComfort.importantNumbersOnly(true), 'importantNumbersOnly', true],
+      [() => labComfort.slowmoVignette(false), 'slowmoVignette', false],
+    ];
+    for (const [write, key, value] of cases) {
+      useSettings.setState({ settings: DEFAULT_SETTINGS });
+      write();
+      const s = useSettings.getState().settings;
+      expect(s[key]).toStrictEqual(value);
+      for (const k of KEYS) if (k !== key) expect(k in s).toBe(false);
+      expect({ ...s, [key]: undefined }).toStrictEqual({ ...DEFAULT_SETTINGS, [key]: undefined });
+    }
+    // Reduced motion On from the lab reaches the fight's bodies.
+    labComfort.reducedMotion('on');
+    const sim = sandbox();
+    const h = harness(sim);
+    h.tick();
+    expect(h.entities.still).toBe(true);
+  });
+});
