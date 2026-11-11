@@ -684,6 +684,15 @@ export function buildChorister(def: EnemyDef): THREE.BufferGeometry {
         C[2] + Math.sin(T) * dy + Math.cos(T) * dz,
       ];
     };
+    // The hood's rim framing the mask.
+    b.torus(
+      0.27 * s,
+      0.045 * s,
+      under,
+      { p: up(0, 1.0 * s, -0.11 * s), s: [0.92, 1.2, 1], r: [T, 0, 0] },
+      Math.PI * 2,
+      12,
+    );
     b.sphere(
       0.29 * s,
       body,
@@ -725,24 +734,29 @@ export function buildChorister(def: EnemyDef): THREE.BufferGeometry {
       4,
     );
   });
-  // Thin grasping arms, raised through the swipe, porcelain hands.
+  // Thin grasping arms, raised through the swipe, porcelain hands; the left holds a candle of
+  // violet light before it (a lit mark of the Choir that reads from the fight's camera).
   for (const side of [-1, 1]) {
     b.rigged({ k: WEAPON, at: [side * 0.18 * s, 0.68 * s, 0], a: 0.8 }, () => {
-      limb(
-        b,
-        [side * 0.19 * s, 0.68 * s, 0],
-        [side * 0.31 * s, 0.4 * s, -0.2 * s],
-        0.055 * s,
-        0.045 * s,
-        body,
-        5,
-        0.16,
-      );
-      b.octa(0.07 * s, body, {
-        p: [side * 0.33 * s, 0.35 * s, -0.24 * s],
-        s: [1, 1.4, 1],
-        glow: 0.16,
-      });
+      const hand: V3 = side < 0 ? [-0.2 * s, 0.5 * s, -0.36 * s] : [0.31 * s, 0.4 * s, -0.2 * s];
+      limb(b, [side * 0.19 * s, 0.68 * s, 0], hand, 0.055 * s, 0.045 * s, body, 5, 0.16);
+      b.octa(0.07 * s, body, { p: hand, s: [1, 1.4, 1], glow: 0.16 });
+      if (side < 0) {
+        b.cyl(
+          0.045 * s,
+          0.05 * s,
+          0.22 * s,
+          '#efe9ff',
+          { p: [hand[0], hand[1] + 0.1 * s, hand[2]], glow: 0.3 },
+          6,
+        );
+        b.octa(0.09 * s, CHOIR_DEEP, {
+          p: [hand[0], hand[1] + 0.3 * s, hand[2]],
+          s: [0.8, 1.7, 0.8],
+          glow: 1,
+          lead: 0,
+        });
+      }
     });
   }
   return b.build();
