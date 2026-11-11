@@ -43,7 +43,12 @@ const STEEL = '#4a4858';
 const BONE = '#e8e3c8';
 const VOID = '#07060d';
 const STITCH = LIT_MODEL.riftFray;
-const STITCH_GLOW = LIT_MODEL.riftFrayGlow;
+/**
+ * The stitches' own light (integration, measured): at the lighting's 1.8 the teal fray rendered at
+ * the game camera 8-10 ΔE from Mend (tritanopia's Mend #009e73 is a dark teal-green); at 0.1 every
+ * stitch pixel sampled in all four worlds is ≥ 20 from Mend, heal and shield in every vision.
+ */
+const STITCH_GLOW = 0.1;
 
 /** Void cloth: dark glass in irregular panes, few of them lit (the Unstitched's cloth). */
 function voidCloth(cell: number, lit = 0.07): PartOptions {

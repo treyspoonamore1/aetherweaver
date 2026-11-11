@@ -49,7 +49,12 @@ const SOFT = 0.16;
 const BONE = '#e8e3c8';
 /** The teal fray of a stitch, made to glow (lightCues.ts). */
 const FRAY = LIT_MODEL.riftFray;
-const FRAY_GLOW = LIT_MODEL.riftFrayGlow;
+/**
+ * The stitches' own light (integration, measured): at the lighting's 1.8 the teal fray rendered at
+ * the game camera 8-10 ΔE from Mend (tritanopia's Mend #009e73 is a dark teal-green); at 0.1 every
+ * stitch pixel sampled in all four worlds is ≥ 20 from Mend, heal and shield in every vision.
+ */
+const FRAY_GLOW = 0.1;
 /** A hollow: the inside of a hood, a throat. */
 const VOID = '#121232';
 
