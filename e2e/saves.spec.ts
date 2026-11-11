@@ -510,3 +510,55 @@ test('both demo starts show no kept-save notice', async ({ page }) => {
   }
   expect(errors).toEqual([]);
 });
+
+test('Copy code says what happened, and a download says where to look if no file came', async ({
+  page,
+  context,
+}) => {
+  test.setTimeout(120_000);
+  const errors = trackErrors(page);
+  await page.goto(START_URL);
+  await ready(page);
+  await openSaves(page);
+  // Nothing clicked: no note.
+  await expect(page.getByTestId('saves-download-note')).toHaveCount(0);
+  await expect(page.getByTestId('saves-copy-refused')).toHaveCount(0);
+
+  // A download asked for: the quiet line under the buttons.
+  await Promise.all([page.waitForEvent('download'), page.getByTestId('saves-export-file').click()]);
+  await expect(page.getByTestId('saves-download-note')).toContainText('If no file appeared');
+
+  // The page may not write to the clipboard: the copy is refused, said so, and the code selected.
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: () => Promise.reject(new DOMException('blocked', 'NotAllowedError')) },
+    });
+  });
+  await page.getByTestId('saves-export-code').click();
+  const box = page.getByTestId('saves-code-out');
+  const code = await box.inputValue();
+  expect(code).toMatch(/^AWSAVE1\./);
+  await page.getByRole('button', { name: 'Copy code' }).click();
+  await expect(page.getByTestId('saves-copy-refused')).toContainText('copy it by hand');
+  await expect(page.getByText('Copied.', { exact: true })).toHaveCount(0);
+  const selected = await box.evaluate(
+    (el: HTMLTextAreaElement) =>
+      document.activeElement === el &&
+      el.selectionStart === 0 &&
+      el.selectionEnd === el.value.length,
+  );
+  expect(selected).toBe(true);
+
+  // Allowed: "Copied." and the clipboard holds the code.
+  await page.evaluate(() => {
+    delete (navigator as unknown as { clipboard?: unknown }).clipboard;
+  });
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.getByRole('button', { name: 'Copy code' }).click();
+  await expect(page.getByText('Copied.', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('saves-copy-refused')).toHaveCount(0);
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(code);
+  // The refusal logged nothing as an error of the page's own.
+  expect(errors).toEqual([]);
+});
