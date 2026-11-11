@@ -65,7 +65,6 @@ afterEach(() => {
 
 /** "#rrggbb" of a (linear) three.js colour, as authored. */
 const hexOf = (c: THREE.Color) => `#${c.getHexString()}`;
-const shade = (hex: string, k: number) => hexOf(new THREE.Color(hex).multiplyScalar(1 + k));
 /** ΔE between two colours as `vision` sees them. */
 const seenDE = (a: string, b: string, vision: ColorVision) =>
   deltaE(simulateVision(a, vision), simulateVision(b, vision));

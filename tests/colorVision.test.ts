@@ -1,3 +1,4 @@
+import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   COLOR_VISIONS,
@@ -960,4 +961,122 @@ describe('Phase 8a: the lit dark worlds (lightCues.ts)', () => {
     // The Rift's fray is the shipped dark teal, made to glow.
     expect(LIT_MODEL.riftFray).toBe(ABYSS_HEX.fray);
   });
+});
+
+/**
+ * Phase 8b (docs/phase-8.md, "8b"; docs/art-style.md, Colour): the stained-glass figures. Every
+ * colour written in a family file (src/render/models/art/*.ts, read here so a new colour is covered
+ * the day it is written) stays, in every colour vision:
+ * - A: ≥ 20 ΔE from heal, Mend, Ward's shield and the dome: no body reads as healed or Warded;
+ * - B: ≥ 20 ΔE from the danger, Weaver and status colours (threat, lethal, amp, empower, ailment;
+ *   gold, goldHot, Resonance, the Weaver, discord).
+ * Dark browns and blacks near the Martyr's Bear under protanopia are not counted here (every dark
+ * colour collapses together there); the Bear is a borne-wound rim, never a body.
+ * The exceptions below are named with their reason; each must still be in use.
+ */
+describe('Phase 8b: the stained-glass figures (models/art)', () => {
+  const DIR = 'src/render/models/art';
+  const used = new Map<string, string[]>();
+  for (const file of readdirSync(DIR).filter((f) => f.endsWith('.ts'))) {
+    const src = readFileSync(`${DIR}/${file}`, 'utf8');
+    for (const m of src.matchAll(/'(#[0-9a-fA-F]{6})'/g)) {
+      const hex = m[1]!.toLowerCase();
+      used.set(hex, [...(used.get(hex) ?? []), file]);
+    }
+  }
+  const PALE =
+    'pale glass, steel or skin: no pale colour clears the shield, the dome and Resonance';
+  /** hex → the tiers it is spared and why. */
+  const EXCEPTIONS: Record<string, { tiers: ('A' | 'B')[]; why: string }> = {
+    '#ffffff': { tiers: ['A', 'B'], why: 'kit shade(): the lighten target, never drawn itself' },
+    '#f4f6ff': { tiers: ['A', 'B'], why: "porcelain's cool mix: the Choir's content porcelain" },
+    '#a0f870': {
+      tiers: ['A', 'B'],
+      why: "Oro's seed: shipped (ORO_SEED, Phase 5e's measured trim)",
+    },
+    '#cbd5e1': { tiers: ['A', 'B'], why: "Seren's steel: shipped (SEREN_STEEL, Phase 5e)" },
+    '#a8742e': {
+      tiers: ['B'],
+      why: 'bronze bells and bands: dull, unlit metal (10.6 from lethal, protanopia)',
+    },
+    '#b69cff': {
+      tiers: ['A', 'B'],
+      why: "the Choir's light: the content's crack violet (CRACKS), small lights only",
+    },
+    '#7c5cf0': {
+      tiers: ['B'],
+      why: "the Choir's deep light: the crack violet's shade, small lights only",
+    },
+    '#b9a4ff': {
+      tiers: ['A', 'B'],
+      why: "the Bellwarden's window glass: the crack violet, framed in lead",
+    },
+    '#9cb8f2': {
+      tiers: ['A', 'B'],
+      why: "Kael's steel: his signature blue (red-green Mend is sky blue)",
+    },
+    '#4a5f92': { tiers: ['B'], why: "Kael's dark steel: 19.1 from discord (protanopia)" },
+    '#e4ecfb': { tiers: ['A', 'B'], why: `Kael's silver trim: ${PALE}` },
+    '#eef3fb': { tiers: ['A', 'B'], why: `Kael's blade: ${PALE}` },
+    '#f3e8ff': { tiers: ['A', 'B'], why: `Vexis's stars and focus: ${PALE}` },
+    '#dcd6f0': { tiers: ['A', 'B'], why: `Vexis's silver: ${PALE}` },
+    '#efe1ff': { tiers: ['A', 'B'], why: `Vexis's skin: ${PALE}` },
+    '#efe9ff': { tiers: ['A', 'B'], why: `the Chorister's candle: ${PALE}` },
+    '#f1dcc4': { tiers: ['B'], why: "Lyra's skin: near the Weaver's white under tritanopia" },
+    '#e9cdb4': { tiers: ['B'], why: "a hero's skin: near gold under tritanopia" },
+    '#d9a05b': { tiers: ['B'], why: "Lyra's hair: near threat under tritanopia" },
+    '#e8e3c8': { tiers: ['B'], why: "the Rift's bone (seams, shears, spindles): as main draws it" },
+    '#c9c4b8': {
+      tiers: ['B'],
+      why: "the Stolen Verse's orb: always rimmed in its stolen aura's colour",
+    },
+    '#e8b54a': {
+      tiers: ['B'],
+      why: "the elite crown's gold: the elite's own meaning (main's crown)",
+    },
+    '#ffd27a': { tiers: ['B'], why: "the elite crown's gold glow: the elite's own meaning" },
+  };
+  const A = ['heal', 'mend', 'shield'] as const;
+  const B = ['threat', 'lethal', 'amp', 'empower', 'ailment'] as const;
+  const FIXED_A: Record<string, string> = { dome: PALETTE.dome };
+  const FIXED_B: Record<string, string> = {
+    gold: PALETTE.gold,
+    goldHot: PALETTE.goldHot,
+    resonance: PALETTE.resonance,
+    weaver: PALETTE.weaver,
+    discord: PALETTE.discord,
+  };
+
+  it('reads the families’ colours, and every exception is still in use', () => {
+    expect(used.size).toBeGreaterThan(40);
+    for (const hex of Object.keys(EXCEPTIONS)) expect([...used.keys()], hex).toContain(hex);
+  });
+
+  for (const vision of COLOR_VISIONS) {
+    const palette = VISION_PALETTES[vision];
+    const see = (hex: string) => simulateVision(hex, vision);
+    const check = (
+      tier: 'A' | 'B',
+      roles: readonly (keyof VisionPalette)[],
+      fixed: Record<string, string>,
+    ) => {
+      for (const [hex, files] of used) {
+        if (EXCEPTIONS[hex]?.tiers.includes(tier)) continue;
+        for (const [name, o] of [
+          ...roles.map((r): [string, string] => [r, palette[r]]),
+          ...Object.entries(fixed),
+        ]) {
+          const d = deltaE(see(hex), see(o));
+          expect(
+            d,
+            `${vision}: ${hex} (${files.join(', ')}) vs ${name} ${o}`,
+          ).toBeGreaterThanOrEqual(20);
+        }
+      }
+    };
+    it(`keeps every figure colour ≥ 20 ΔE from heal, Mend, shield and the dome with ${vision}`, () =>
+      check('A', A, FIXED_A));
+    it(`keeps every figure colour ≥ 20 ΔE from the danger, Weaver and status colours with ${vision}`, () =>
+      check('B', B, FIXED_B));
+  }
 });
