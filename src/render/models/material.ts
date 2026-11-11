@@ -27,7 +27,7 @@ function glslColor(hex: string): string {
  */
 /**
  * Secondary motion in the vertex shader (art pass prototype). Each vertex carries `aRig`
- * (kind, pivot xyz in model space) and `aRigA` (amount); each instance carries `aPose`
+ * (kind, pivot xyz in model space) and `aMisc.x` (amount); each instance carries `aPose`
  * (clock, wind-up 0..1, blow 0..1 through a swing, moving 0..1). The clock is the entity's own,
  * so a held or frozen body stops mid-motion. Kinds:
  * 1 weapon arm (raised through a wind-up, then down through the blow), 2 off-hand brace,
@@ -39,7 +39,7 @@ function glslColor(hex: string): string {
  */
 export const RIG_VERTEX_PARS = `
 attribute vec4 aRig;
-attribute float aRigA;
+attribute vec4 aMisc;
 attribute vec4 aPose;
 vec3 awRotX(vec3 v, float a) { float c = cos(a), s = sin(a); return vec3(v.x, c * v.y - s * v.z, s * v.y + c * v.z); }
 vec3 awRotY(vec3 v, float a) { float c = cos(a), s = sin(a); return vec3(c * v.x + s * v.z, v.y, -s * v.x + c * v.z); }
@@ -61,7 +61,7 @@ vec3 awRig(vec3 pos) {
   float p = aPose.z;
   float mv = aPose.w;
   float rest = 1.0 - mv;
-  float A = aRigA;
+  float A = aMisc.x;
   float hit = (p > 0.0 && p < 1.0) ? sin(3.14159 * p) : 0.0;
   if (kind == 1) {
     float lift = max(wind * 1.25, awBlow(p) * 1.0);
@@ -103,6 +103,15 @@ vec3 awRig(vec3 pos) {
   if (kind == 9) {
     return piv + awRotZ(d, c * A);
   }
+  if (kind == 10) {
+    // The whole body: breathes and settles at rest, leans back through a wind-up and drives
+    // forward into the blow, rocks from foot to foot as it walks (a = how heavy it is).
+    float ax = 0.025 * sin(c * 1.1) * rest - A * 0.1 * wind + A * 0.16 * hit + 0.05 * mv;
+    float az = A * 0.05 * sin(c * 3.5) * mv;
+    vec3 q = piv + awRotZ(awRotX(d, ax), az);
+    q.y += (0.012 * sin(c * 2.2) * rest + A * 0.035 * abs(sin(c * 3.5)) * mv) * (1.0 + d.y);
+    return q;
+  }
   return pos;
 }
 `;
@@ -112,11 +121,18 @@ export const RIG_VERTEX = `transformed = awRig(transformed);`;
 
 export interface ModelMaterial {
   material: THREE.MeshStandardMaterial;
-  uniforms: { uTime: { value: number }; uGlow: { value: number } };
+  uniforms: { uTime: { value: number }; uGlow: { value: number }; uOutline: { value: number } };
 }
 
+/** Dark lead between panes and round a stained-glass figure; the Weaver's gold came. */
+const LEAD_HEX = '#15131c';
+const CAME_HEX = '#f0c46a';
+/** The Hollow Choir's violet cracks (docs/plan/04 §1: porcelain with violet cracks). */
+const CRACK_HEX = '#a78bfa';
+
 export function createModelMaterial(): ModelMaterial {
-  const uniforms = { uTime: { value: 0 }, uGlow: { value: 1.6 } };
+  // uOutline: the outline shell's width, as a share of the view depth (~1.6 px at 720 px, 40° fov).
+  const uniforms = { uTime: { value: 0 }, uGlow: { value: 1.6 }, uOutline: { value: 0.0016 } };
   const material = new THREE.MeshStandardMaterial({
     vertexColors: true,
     roughness: 0.62,
@@ -126,25 +142,42 @@ export function createModelMaterial(): ModelMaterial {
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = uniforms.uTime;
     shader.uniforms.uGlow = uniforms.uGlow;
+    shader.uniforms.uOutline = uniforms.uOutline;
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
         `#include <common>
 ${RIG_VERTEX_PARS}
 attribute float aGlow;
+attribute vec3 aBary;
 attribute vec4 aFx;
 attribute vec4 aTint;
 attribute vec4 aShine;
+uniform float uOutline;
 varying float vGlow;
 varying vec4 vFx;
 varying vec4 vTint;
 varying vec4 vShine;
-varying vec3 vObjPos;`,
+varying vec3 vObjPos;
+varying vec3 vBary;
+varying vec3 vLead;`,
       )
       .replace(
         '#include <begin_vertex>',
         `#include <begin_vertex>
 vGlow = aGlow; vFx = aFx; vTint = aTint; vShine = aShine; vObjPos = position;
+vBary = aBary; vLead = aMisc.yzw;
+if (aMisc.z > 0.5) {
+  // The outline shell: pushed out along the smoothed normal by a constant on-screen width.
+#ifdef USE_INSTANCING
+  mat4 awIm = instanceMatrix;
+#else
+  mat4 awIm = mat4(1.0);
+#endif
+  vec4 awMv = modelViewMatrix * awIm * vec4(transformed, 1.0);
+  float awS = max(length(awIm[0].xyz), 0.001);
+  transformed += aBary * uOutline * max(-awMv.z, 1.0) / awS;
+}
 ${RIG_VERTEX}`,
       );
     shader.fragmentShader = shader.fragmentShader
@@ -158,6 +191,52 @@ varying vec4 vFx;
 varying vec4 vTint;
 varying vec4 vShine;
 varying vec3 vObjPos;
+varying vec3 vBary;
+varying vec3 vLead;
+const vec3 AW_CRACK = ${glslColor(CRACK_HEX)};
+float awLit = 0.0;
+float awCrack = 0.0;
+float awH1(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+vec3 awH3(vec3 p) {
+  p = vec3(dot(p, vec3(127.1, 311.7, 74.7)), dot(p, vec3(269.5, 183.3, 246.1)), dot(p, vec3(113.5, 271.9, 124.6)));
+  return fract(sin(p) * 43758.5453);
+}
+// Panes: a 3D Voronoi in the part's own space. Returns (distance to the nearest pane's border,
+// its centre's distance) in cell units; c1 the nearest cell, c2 the one across that border.
+vec2 awPanes(vec3 x, out vec3 c1, out vec3 c2) {
+  vec3 i = floor(x);
+  vec3 f = fract(x);
+  vec3 mr = vec3(0.0);
+  float md = 8.0;
+  c1 = i;
+  for (int k = -1; k <= 1; k++)
+    for (int j = -1; j <= 1; j++)
+      for (int n = -1; n <= 1; n++) {
+        vec3 g = vec3(float(n), float(j), float(k));
+        vec3 r = g + awH3(i + g) * 0.8 + 0.1 - f;
+        float d = dot(r, r);
+        if (d < md) { md = d; mr = r; c1 = i + g; }
+      }
+  float bd = 8.0;
+  c2 = c1;
+  vec3 ci = c1 - i;
+  for (int k = -1; k <= 1; k++)
+    for (int j = -1; j <= 1; j++)
+      for (int n = -1; n <= 1; n++) {
+        vec3 g = ci + vec3(float(n), float(j), float(k));
+        vec3 r = g + awH3(i + g) * 0.8 + 0.1 - f;
+        vec3 dr = r - mr;
+        if (dot(dr, dr) > 1e-5) {
+          float e = dot(0.5 * (mr + r), normalize(dr));
+          if (e < bd) { bd = e; c2 = i + g; }
+        }
+      }
+  return vec2(bd, sqrt(md));
+}
+const vec3 AW_LEAD = ${glslColor(LEAD_HEX)};
+const vec3 AW_CAME = ${glslColor(CAME_HEX)};
+float awLeadMask = 0.0;
+float awHeart = 1.0;
 const vec3 AW_FROST = ${glslColor(CHRONO_HEX.frost)};
 const vec3 AW_SILVER = ${glslColor(CHRONO_HEX.silver)};
 float awHash(vec3 p) {
@@ -195,7 +274,59 @@ float awLum = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
 diffuseColor.rgb = mix(diffuseColor.rgb, vec3(awLum) * 0.55, vFx.z);
 float awFrost = vShine.z;
 // Held in time (Stasis): drained to a cold silver-blue and dimmed, like a figure under glass.
-diffuseColor.rgb = mix(diffuseColor.rgb, awLum * AW_FROST * vec3(0.72, 0.84, 1.0) * 0.62, awFrost * 0.9);`,
+diffuseColor.rgb = mix(diffuseColor.rgb, awLum * AW_FROST * vec3(0.72, 0.84, 1.0) * 0.62, awFrost * 0.9);
+float awKind = floor(vLead.x + 0.001);
+if (awKind > 0.5 && vLead.y < 0.5) {
+  // Stained glass. Facets: a lead line along each flat pane's hard edges, a constant few pixels
+  // wide, fading out when the panes are too small on screen to carry it.
+  float awFade = 0.0;
+  float awD = 99.0;
+  if (awKind < 2.5) {
+    vec3 awBw = max(fwidth(vBary), vec3(1e-6));
+    vec3 awPx = vBary / awBw;
+    awD = min(min(awPx.x, awPx.y), awPx.z);
+    float awAlt = 1.0 / max(awBw.x, max(awBw.y, awBw.z));
+    awFade = smoothstep(5.0, 14.0, awAlt);
+    float awW = clamp(awAlt * 0.045, 0.9, 2.4);
+    awLeadMask = (1.0 - smoothstep(awW - 0.5, awW + 0.6, awD)) * awFade;
+  }
+  // Cut glass: irregular panes across the part (a Voronoi in its own space, vLead.z metres a
+  // pane), each its own tone, a share lit from inside; on porcelain, a share of the borders crack.
+  float awCellPx = 0.0;
+  float awBd = 99.0;
+  if (vLead.z > 0.001) {
+    vec3 awC1;
+    vec3 awC2;
+    vec2 awF = awPanes(vObjPos / vLead.z, awC1, awC2);
+    float awUpp = max(length(fwidth(vObjPos)), 1e-6);
+    awCellPx = vLead.z / awUpp;
+    float awFadeV = smoothstep(9.0, 24.0, awCellPx);
+    awBd = awF.x * vLead.z / awUpp;
+    float awWv = clamp(awCellPx * 0.03, 0.8, 2.2);
+    float awLine = 1.0 - smoothstep(awWv - 0.5, awWv + 0.6, awBd);
+    float awH = awH1(awC1);
+    float awShare = fract(vLead.x + 0.001);
+    if (awKind > 2.5) {
+      awCrack = awLine * step(awH1(awC1 + awC2 + 17.0), awShare) * mix(0.35, 1.0, awFadeV);
+    } else {
+      awLeadMask = max(awLeadMask, awLine * awFadeV);
+      if (awKind > 1.5) {
+        // White-gold glass: each pane between white and pale gold, never darker.
+        diffuseColor.rgb *= mix(vec3(1.0), vec3(1.05, 0.9, 0.66), awH * awH * mix(0.5, 1.0, awFadeV));
+      } else {
+        diffuseColor.rgb *= 1.0 + (awH - 0.5) * 0.26 * mix(0.4, 1.0, awFadeV);
+      }
+      awLit = step(awH1(awC1 + 7.0), awShare);
+      awD = min(awD, mix(99.0, awBd, awFadeV));
+      awFade = max(awFade, awFadeV);
+    }
+  }
+  awHeart = mix(1.0, smoothstep(0.0, 12.0, awD), awFade);
+  if (awKind < 2.5) diffuseColor.rgb *= 0.84 + 0.22 * awHeart;
+  vec3 awLeadCol = awKind > 1.5 ? AW_CAME * 0.8 : AW_LEAD;
+  diffuseColor.rgb = mix(diffuseColor.rgb, awLeadCol, awLeadMask);
+  diffuseColor.rgb = mix(diffuseColor.rgb, AW_CRACK * 0.7, awCrack);
+}`,
       )
       .replace(
         '#include <emissivemap_fragment>',
@@ -203,7 +334,14 @@ diffuseColor.rgb = mix(diffuseColor.rgb, awLum * AW_FROST * vec3(0.72, 0.84, 1.0
 // Frozen accents stop pulsing and fade toward silver.
 float awPulse = mix(0.85 + 0.15 * sin(uTime * 2.3 + vObjPos.y * 2.0), 0.9, awFrost);
 vec3 awAccent = mix(vColor.rgb, AW_SILVER * 0.6, awFrost * 0.75);
-totalEmissiveRadiance += awAccent * vGlow * uGlow * awPulse * (1.0 - vFx.z * 0.85) * (1.0 - awFrost * 0.55);
+totalEmissiveRadiance += awAccent * vGlow * uGlow * awPulse * (1.0 - vFx.z * 0.85) * (1.0 - awFrost * 0.55)
+  * (1.0 - awLeadMask) * (0.78 + 0.32 * awHeart);
+// The Weaver's gold came glows a little (her gold; nobody else's lead is gold).
+float awK = floor(vLead.x + 0.001);
+if (awK > 1.5 && awK < 2.5) totalEmissiveRadiance += AW_CAME * awLeadMask * 0.55 * (1.0 - awFrost);
+// Lit panes glow in their own glass; cracks burn violet.
+totalEmissiveRadiance += vColor.rgb * awLit * (awK > 1.5 ? 0.55 : 0.3) * uGlow * (0.6 + 0.5 * awHeart) * (1.0 - awLeadMask) * (1.0 - awFrost) * (1.0 - vFx.z);
+totalEmissiveRadiance += AW_CRACK * awCrack * 1.5 * (1.0 - awFrost * 0.7) * (1.0 - vFx.z * 0.7);
 float awFres = pow(1.0 - clamp(abs(dot(normalize(normal), normalize(vViewPosition))), 0.0, 1.0), 2.2);
 totalEmissiveRadiance += vTint.rgb * vTint.a * (0.18 + awFres * 1.9);
 totalEmissiveRadiance += vec3(1.0, 0.97, 0.92) * vFx.x * vFx.x * 1.2;
@@ -234,9 +372,17 @@ if (vShine.w > 0.001) {
   vec3 awSpec = clamp(abs(fract(vec3(awHue) + vec3(0.0, 0.6666667, 0.3333333)) * 6.0 - 3.0) - 1.0, 0.0, 1.0);
   totalEmissiveRadiance += awSpec * vShine.w * awSil * 1.25;
 }`,
+      )
+      .replace(
+        '#include <opaque_fragment>',
+        `if (vLead.y > 0.5) {
+  // The outline shell is plain lead (it flashes with a hit and burns with a dissolve's edge).
+  outgoingLight = AW_LEAD * 0.6 + vec3(1.0, 0.97, 0.92) * vFx.x * vFx.x * 0.8 + vTint.rgb * awEdge * 4.0;
+}
+#include <opaque_fragment>`,
       );
   };
-  material.customProgramCacheKey = () => 'aw-model-v5';
+  material.customProgramCacheKey = () => 'aw-model-v6';
   return { material, uniforms };
 }
 

@@ -6,6 +6,7 @@ import { FxKit } from '../fx/kit';
 import { RING } from '../fx/rings';
 import { OWN_LOOK, restRim, ribbonHex, weaverPalette } from '../keepsakeCues';
 import { ModelBatch } from '../models/batch';
+import { buildBellwarden } from '../models/artPass';
 import { buildEnemy, buildHero, buildWeaver } from '../models/library';
 import { createModelMaterial, type ModelMaterial } from '../models/material';
 import { C, applyVision, color } from '../palette';
@@ -23,6 +24,9 @@ import type { QualityTier, Stage } from '../stage';
  * - `close`: the subject alone at the floor's centre, turned 0.6 rad toward the key light, seen
  *   from the front and 15° above, at 2.15 × its height, looking at half its height.
  * - `lineup`: all seven in a row, turned alike, from the front and 12° above, 14.2 m out.
+ * - `field`: the seven placed as in a fight, under the game's own camera (52° pitch, 27 m, 40°
+ *   field of view): the party facing up the screen toward the foes, the foes facing the party
+ *   (`yaw` turns the party instead), to judge the figures at the size the player sees them.
  */
 export type StudioSubject =
   'kael' | 'lyra' | 'vexis' | 'weaver' | 'hollow_chorister' | 'bell_brute' | 'the_bellwarden';
@@ -38,13 +42,17 @@ export const STUDIO_SUBJECTS: readonly StudioSubject[] = [
 ];
 
 export interface StudioSpec {
-  layout: 'close' | 'lineup';
+  layout: 'close' | 'lineup' | 'field';
   /** For `close`: the one subject. */
   subject?: StudioSubject;
   /** The floor (default: First Light's, the Reliquary Hall). */
   arena?: string;
   /** The figures' facing (rad, default π + 0.6: toward the camera, turned to the key light). */
   yaw?: number;
+  /** The heroes' and the Weaver's render scale (default 1; an option picture only). */
+  heroScale?: number;
+  /** For `field`: the Bellwarden drawn as the walking bell (the art pass's second option). */
+  bellOption?: 'keeper' | 'bell';
 }
 
 /** Turned toward the camera (+z) and 0.6 rad toward the key light (+x). */
@@ -64,6 +72,7 @@ interface Figure {
   rim: THREE.Color;
   rimStrength: number;
   hist: Float32Array | null;
+  scale: number;
 }
 
 function sizeOf(s: StudioSubject): { radius: number; height: number } {
@@ -109,6 +118,23 @@ export class ArtStudio {
       const d = 2.15 * h;
       this.target.set(0, 0.5 * h, 0);
       this.eye.set(0, 0.5 * h + d * Math.sin(el), d * Math.cos(el));
+    } else if (spec.layout === 'field') {
+      const party = spec.yaw ?? 0;
+      const foe = Math.PI;
+      const place: [StudioSubject, number, number, number][] = [
+        ['weaver', 0.4, 2.6, party],
+        ['kael', 0.2, -1.4, party],
+        ['lyra', -2.6, 0.4, party + 0.3],
+        ['vexis', 2.8, 0.6, party - 0.3],
+        ['hollow_chorister', -1.6, -4.6, foe + 0.4],
+        ['bell_brute', 1.9, -4.9, foe - 0.3],
+        ['the_bellwarden', 6.4, -3.2, foe - 0.9],
+      ];
+      for (const [s, x, z, y] of place) this.figure(s, x, z, y);
+      const el = (52 * Math.PI) / 180;
+      const d = 27;
+      this.target.set(0.6, 0, -1);
+      this.eye.set(0.6, d * Math.sin(el), -1 + d * Math.cos(el));
     } else {
       const gap = 0.9;
       const sizes = STUDIO_SUBJECTS.map(sizeOf);
@@ -161,7 +187,10 @@ export class ArtStudio {
       ring = color(def.color);
     } else {
       const def = enemyDef(subject);
-      geometry = buildEnemy(def);
+      geometry =
+        subject === 'the_bellwarden' && this.spec.bellOption
+          ? buildBellwarden(def, this.spec.bellOption)
+          : buildEnemy(def);
       kind = 'enemy';
       if (def.role !== 'boss' && def.role !== 'miniboss') {
         rim = this.hostile;
@@ -183,13 +212,15 @@ export class ArtStudio {
       rim: rim.clone(),
       rimStrength,
       hist,
+      scale: kind === 'enemy' ? 1 : (this.spec.heroScale ?? 1),
     });
   }
 
-  private compose(x: number, z: number, yaw: number): THREE.Matrix4 {
+  private compose(x: number, z: number, yaw: number, scale = 1): THREE.Matrix4 {
     this.e.set(0, yaw, 0, 'YXZ');
     this.q.setFromEuler(this.e);
     this.p.set(x, 0, z);
+    this.s.set(scale, scale, scale);
     return this.m.compose(this.p, this.q, this.s);
   }
 
@@ -205,7 +236,7 @@ export class ArtStudio {
       f.batch.begin();
       // At rest, each on its own clock (secondary motion, material.ts).
       f.batch.setPose(time + this.figures.indexOf(f) * 1.37, 0, 0, 0);
-      f.batch.push(this.compose(f.x, f.z, f.yaw), 0, 0, 0, 0, f.rim, f.rimStrength);
+      f.batch.push(this.compose(f.x, f.z, f.yaw, f.scale), 0, 0, 0, 0, f.rim, f.rimStrength);
       this.kit.shadows.push(
         f.x,
         0.015,

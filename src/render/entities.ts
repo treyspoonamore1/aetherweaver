@@ -53,6 +53,7 @@ import {
   buildWeaver,
   recolorModel,
 } from './models/library';
+import { WEAVER_HANDS } from './models/artPass';
 import {
   SEREN_FLASH,
   SEREN_VIOLET,
@@ -440,15 +441,20 @@ export function weaverRibbons(
   const sideX = -fz;
   const sideZ = fx;
   for (let r = 0; r < 3; r++) {
-    const off = (r - 1) * 0.16;
-    const baseY = 1.12 - r * 0.12;
+    // Art pass: the outer two leave her hands (artPass.ts WEAVER_HANDS, as the Loom draws her),
+    // the middle one the knot at her back; `hist` samples a point just behind her.
+    const hand = r !== 1;
+    const off = hand ? (r - 1) * WEAVER_HANDS.side : 0;
+    const reach = hand ? WEAVER_HANDS.forward + 0.18 : 0;
+    const baseY = hand ? WEAVER_HANDS.y : 1.04;
     const c = r === 1 ? inner : outer;
     kit.ribbons.beginStrip();
     const n = Math.min(count, 18 + r * 3);
     for (let k = 0; k < n; k++) {
       const t = k / (n - 1);
-      const px = hist[k * 3] + sideX * off * (1 + t);
-      const pz = hist[k * 3 + 2] + sideZ * off * (1 + t);
+      const lead = reach * (1 - t) * (1 - t);
+      const px = hist[k * 3] + sideX * off * (1 + 0.5 * t) + fx * lead;
+      const pz = hist[k * 3 + 2] + sideZ * off * (1 + 0.5 * t) + fz * lead;
       let flutter = Math.sin(now * 5 + k * 0.55 + r * 2) * 0.09 * t;
       let droop = t * 0.75;
       if (lift > 0) {
@@ -461,7 +467,7 @@ export function weaverRibbons(
         hist[k * 3 + 1] + baseY - droop + Math.sin(now * 3.3 + k * 0.4 + r) * 0.06 * t,
         pz - fz * t * 0.55 + sideZ * flutter,
         // Art pass: wider and brighter, so they read as the threads' origin at the fight's camera.
-        0.11 * (1 - t * 0.6),
+        0.12 * (1 - t * 0.55),
         c,
         (1 - t * 0.85) * 0.95,
         t * 2,
