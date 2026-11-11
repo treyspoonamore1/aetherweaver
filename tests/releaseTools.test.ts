@@ -23,9 +23,11 @@ import {
   type Paths,
 } from '../tools/licenses';
 import {
+  AURA_FILES,
   checkRows,
   exitCode,
   gather,
+  glyphPaths,
   parseFullRun,
   parsePlaywright,
   parseSuite,
@@ -323,6 +325,7 @@ const TESTS = [
   'tests/audioSpireSnapshot.test.ts',
   'tests/audioRiftSnapshot.test.ts',
   'tests/aura/presentationPin.test.ts',
+  'tests/aura/chordCardsPin.test.ts',
 ];
 
 const FULLRUN: FullRun = {
@@ -364,6 +367,7 @@ function greenInputs(): Inputs {
     licenses: { problems: [], rows: [], shipped: 0 },
     pins: pins.map(([name, v]) => ({ name, expected: v, actual: v })),
     auraChanged: [],
+    glyphsChanged: [],
     ran: {
       goldens: { code: 0, tail: 'Goldens are up to date.' },
       'sim-bench': { code: 0, tail: '✔ within budget' },
@@ -414,6 +418,55 @@ describe('tools/release-check.ts', () => {
     expect(byId(rows, '9').parts[0]!.text).toContain('src/render/field.ts');
     expect(byId(rows, '8').parts[0]!.text).toContain('SIM_VERSION 22 -> 23');
     expect(exitCode(rows, false)).toBe(1);
+  });
+
+  it('row 9 (review B, finding 2): the eight files, the glyphs and both aura pins, nothing more', () => {
+    // WeaverBar and ChordBuilder are no longer compared whole: their aura parts are pinned.
+    expect(AURA_FILES).toHaveLength(8);
+    expect(AURA_FILES).not.toContain('src/ui/hud/WeaverBar.tsx');
+    expect(AURA_FILES).not.toContain('src/ui/screens/ChordBuilder.tsx');
+    expect(AURA_FILES).not.toContain('src/ui/kit/iconPaths.ts');
+    const green9 = byId(checkRows(greenInputs()), '9');
+    expect(green9.status).toBe('green');
+    expect(green9.parts.map((p) => p.status)).toEqual(['green', 'green', 'green', 'green']);
+    // A glyph changed: red, by name.
+    const glyph = greenInputs();
+    glyph.glyphsChanged = ['diamond'];
+    expect(byId(checkRows(glyph), '9').status).toBe('red');
+    expect(byId(checkRows(glyph), '9').parts[1]!.text).toContain('diamond');
+    // The cards pin failing, or missing from the log: red.
+    const failing = greenInputs();
+    failing.suite!.files.set('tests/aura/chordCardsPin.test.ts', 'failed');
+    expect(byId(checkRows(failing), '9').status).toBe('red');
+    const missing = greenInputs();
+    missing.suite!.files.delete('tests/aura/chordCardsPin.test.ts');
+    expect(byId(checkRows(missing), '9').status).toBe('red');
+    // git could not say: not run.
+    const unknown = greenInputs();
+    unknown.glyphsChanged = null;
+    expect(byId(checkRows(unknown), '9').status).toBe('not run');
+  });
+
+  it('glyphPaths reads each glyph’s path, on its line or the next', () => {
+    const text = [
+      'export const PATHS = {',
+      "  note: 'M9 17.5V6',",
+      '  scatter:',
+      "    'M4 4h1',",
+      "  notes: 'other',",
+      '};',
+    ].join('\n');
+    expect(glyphPaths(text, ['note', 'scatter', 'pin'])).toEqual({
+      note: "'M9 17.5V6'",
+      scatter: "'M4 4h1'",
+      pin: null,
+    });
+  });
+
+  it('at HEAD, the eight aura files and the aura and ornament glyphs are as at the base', () => {
+    const inputs = gather([], REPO, REPO);
+    expect(inputs.glyphsChanged).toEqual([]);
+    expect(inputs.auraChanged).toEqual([]);
   });
 
   it('a full run that never printed its result, or ended in defeat, or ran without sound, is red', () => {

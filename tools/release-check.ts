@@ -12,8 +12,9 @@
  * A row takes its worst part: red, then not run, then not provable here, then green.
  *
  * With no flag it runs only quick checks (the licence record against `dist/`, the build's sizes,
- * the version pins, the aura files' diff) and reads nothing else, so it never runs the whole
- * vitest suite or the whole e2e suite itself. The long runs are read from their logs:
+ * the version pins, the diff of the aura files and glyphs) and reads nothing else, so it never
+ * runs the whole vitest suite or the whole e2e suite itself. The long runs are read from their
+ * logs:
  *
  *   npx tsx tools/release-check.ts \
  *     --suite full.log.json        the vitest run (full-suite.sh's JSON report, or its log)
@@ -68,7 +69,11 @@ export const RELEASE_PINS = {
 /** The commit Phase 7's pins are read from: main when docs/phase-7.md was written. */
 export const PHASE7_BASE = '6a2b5eb';
 
-/** Files nobody edits in Phase 7 (ground rule 4, and the aura presentation pin). */
+/**
+ * The eight files nobody edits in Phase 7 (ground rule 4). The elements around them that draw an
+ * aura or an ornament live in files others edit (the Weaver bar, the Chord builder), so they are
+ * held by their pins instead (`AURA_PIN_TESTS`), and the glyphs by their paths (`AURA_GLYPHS`).
+ */
 export const AURA_FILES: readonly string[] = [
   'src/content/auras.ts',
   'src/content/ornaments.ts',
@@ -78,13 +83,52 @@ export const AURA_FILES: readonly string[] = [
   'src/render/field.ts',
   'src/render/songs.ts',
   'src/render/fermata.ts',
-  'src/ui/hud/WeaverBar.tsx',
-  'src/ui/screens/ChordBuilder.tsx',
-  'src/ui/kit/iconPaths.ts',
+];
+
+/** Where the game's glyphs are drawn. */
+export const ICON_PATHS = 'src/ui/kit/iconPaths.ts';
+
+/**
+ * The aura and ornament glyphs of `ICON_PATHS` (ground rule 4): an aura (`note`), an ornament
+ * (`diamond`), the beam song and the field song (`thread`, `scatter`), Fermata's hold (`fermata`)
+ * and Pedal Point's plant (`pin`). The rest of the file may change.
+ */
+export const AURA_GLYPHS: readonly string[] = [
+  'note',
+  'diamond',
+  'thread',
+  'scatter',
+  'fermata',
+  'pin',
 ];
 
 /** The aura presentation pin, which must have exactly one commit: the one that recorded it. */
 export const AURA_PIN = 'tests/aura/presentationPin.json';
+
+/**
+ * The Chord builder's aura and ornament cards pin (recorded from 81a12ef, review B finding 2),
+ * which must have exactly one commit too.
+ */
+export const CARDS_PIN = 'tests/aura/chordCardsPin.json';
+
+/** The pin tests row 9 needs passing in the vitest log: the presentation and the cards. */
+export const AURA_PIN_TESTS: readonly { pattern: RegExp; what: string }[] = [
+  { pattern: /aura\/presentationPin\.test/, what: 'the aura presentation pin' },
+  { pattern: /aura\/chordCardsPin\.test/, what: 'the Chord builder’s cards pin' },
+];
+
+/**
+ * Each glyph's path in `iconPaths.ts`'s text, as written (null: not there). Reads the
+ * `name: 'path'` entries of `PATHS`, a path on the same line or the next.
+ */
+export function glyphPaths(text: string, names: readonly string[]): Record<string, string | null> {
+  const out: Record<string, string | null> = {};
+  for (const name of names) {
+    const m = new RegExp(`^\\s*${name}:\\s*('[^']*'|"[^"]*")`, 'm').exec(text);
+    out[name] = m ? m[1]! : null;
+  }
+  return out;
+}
 
 /** The download budget (docs/plan/05 §12). */
 export const DOWNLOAD_BUDGET_BYTES = 25 * 1024 * 1024;
@@ -231,8 +275,13 @@ export interface Inputs {
   build: { titleBytes: number; totalBytes: number } | null;
   licenses: CheckResult | null;
   pins: { name: string; expected: string | number; actual: string | number }[];
-  /** Files changed since the Phase 7 base among the aura files; null if git could not say. */
+  /**
+   * Since the Phase 7 base: the aura files changed, and the aura pins with other than the one
+   * commit that recorded them; null if git could not say.
+   */
   auraChanged: string[] | null;
+  /** The aura and ornament glyphs whose path changed since the base; null if git could not say. */
+  glyphsChanged: string[] | null;
   /** Quick checks run by this tool (`--run`), by name: exit code and the last lines. */
   ran: Record<string, { code: number; tail: string }>;
 }
@@ -428,17 +477,27 @@ export function checkRows(inputs: Inputs): RowResult[] {
     ),
   );
 
-  // 9. Auras.
+  // 9. Auras: ground rule 4's files and glyphs unchanged, and the pins of everything else that
+  // draws an aura or an ornament (the song chips, the Chord builder's cards) passing.
   rows.push(
     row('9', 'No aura or ornament changed in look or sound', [
       inputs.auraChanged === null
         ? notRun(`git diff of the aura files against ${PHASE7_BASE}: git could not say`)
         : inputs.auraChanged.length === 0
           ? green(
-              `git diff ${PHASE7_BASE} is empty on the ${AURA_FILES.length} aura files, and the pin has only the commit that recorded it`,
+              `git diff ${PHASE7_BASE} is empty on ground rule 4's ${AURA_FILES.length} aura files, and each aura pin has only the commit that recorded it`,
             )
           : red(`changed since ${PHASE7_BASE}: ${inputs.auraChanged.join(', ')}`),
-      filesPart(inputs.suite, /aura\/presentationPin/, 'the aura presentation pin'),
+      inputs.glyphsChanged === null
+        ? notRun(`the aura and ornament glyphs of ${ICON_PATHS}: git could not say`)
+        : inputs.glyphsChanged.length === 0
+          ? green(
+              `the ${AURA_GLYPHS.length} aura and ornament glyphs of ${ICON_PATHS} are as at ${PHASE7_BASE} (${AURA_GLYPHS.join(', ')})`,
+            )
+          : red(
+              `aura and ornament glyphs changed since ${PHASE7_BASE} in ${ICON_PATHS}: ${inputs.glyphsChanged.join(', ')}`,
+            ),
+      ...AURA_PIN_TESTS.map((p) => filesPart(inputs.suite, p.pattern, p.what)),
     ]),
   );
 
@@ -546,8 +605,22 @@ export function gather(argv: readonly string[], cwd: string, repo: string): Inpu
   }
 
   const diff = git(root, ['diff', '--name-only', base, '--', ...AURA_FILES]);
-  const pinCommits = git(root, ['log', '--format=%h', '--', AURA_PIN]);
-  const pinMoved = pinCommits !== null && pinCommits.split('\n').filter(Boolean).length > 1;
+  const pinCommits = [AURA_PIN, CARDS_PIN].map(
+    (pin) => [pin, git(root, ['log', '--format=%h', '--', pin])] as const,
+  );
+  const pinsMoved = pinCommits
+    .filter(([, log]) => log !== null && log.split('\n').filter(Boolean).length !== 1)
+    .map(([pin, log]) =>
+      log!.trim() === '' ? `${pin} (never committed)` : `${pin} (re-recorded)`,
+    );
+  const glyphsThen = git(root, ['show', `${base}:${ICON_PATHS}`]);
+  const glyphsNow = readIf(join(root, ICON_PATHS));
+  let glyphsChanged: string[] | null = null;
+  if (glyphsThen !== null && glyphsNow !== null) {
+    const then = glyphPaths(glyphsThen, AURA_GLYPHS);
+    const now = glyphPaths(glyphsNow, AURA_GLYPHS);
+    glyphsChanged = AURA_GLYPHS.filter((g) => then[g] === null || then[g] !== now[g]);
+  }
   const licenses = existsSync(dist)
     ? checkRecord({ root, dist, record: join(root, 'assets', 'licenses') })
     : null;
@@ -572,9 +645,10 @@ export function gather(argv: readonly string[], cwd: string, repo: string): Inpu
       { name: 'run replay', expected: RELEASE_PINS.runReplay, actual: RUN_REPLAY_VERSION },
     ],
     auraChanged:
-      diff === null || pinCommits === null
+      diff === null || pinCommits.some(([, log]) => log === null)
         ? null
-        : [...diff.split('\n').filter(Boolean), ...(pinMoved ? [AURA_PIN] : [])],
+        : [...diff.split('\n').filter(Boolean), ...pinsMoved],
+    glyphsChanged,
     ran,
   };
 }
