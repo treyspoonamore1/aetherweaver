@@ -91,7 +91,7 @@ type Hood = 'cowl' | 'point' | 'none';
 /**
  * The faceted glass chorister every voice is built on: a black under-robe, a pale six-faceted
  * surplice over it set a half-facet round (so its edges stand proud of the robe's), a gem of the
- * voice's tint down the chest, a black capelet, and the Choir's upturned mask cut from pale glass:
+ * voice's tint down the chest, a pale capelet, and the Choir's upturned mask cut from pale glass:
  * dark slits for eyes and a singing mouth lit in the tint. `hem` and `shoulder` (m, at the base
  * size) make the two brutes broad and the two casters slim.
  */
@@ -137,8 +137,14 @@ function voiceBase(
     r: [0.22, 0, 0],
     glow: 0.75,
   });
-  // The black capelet over the shoulders.
-  b.cone(o.shoulder * w, 0.34 * s, SMOKE, { ...BLACK, p: [0, neck + 0.08 * s, 0.02] }, 6);
+  // The capelet over the shoulders: a shade of the same glass, its six facets cut sharp.
+  b.cone(
+    o.shoulder * w,
+    0.34 * s,
+    shade(PALE, -0.14),
+    { ...FACET, p: [0, neck + 0.08 * s, 0.02] },
+    6,
+  );
   // The head: a black hood, the pale mask turned up to sing out of it.
   b.rigged({ k: HEAD, at: [0, neck, 0] }, () => {
     const hy = neck + 0.27 * s;
@@ -162,16 +168,16 @@ function voiceBase(
     const T = 0.45;
     const C: V3 = [0, hy, -0.1 * w];
     const up = tilt(C, T);
-    b.octa(0.21 * w, PALE, {
+    b.ico(0.22 * w, PALE, {
       ...FACET,
       lit: 0.5,
       p: C,
-      s: [0.82, 1.12 * (s / w), 0.55],
+      s: [0.85, 1.12 * (s / w), 0.55],
       r: [T, 0, 0],
     });
     for (const side of [-1, 1])
-      b.box(0.09 * w, 0.03 * w, 0.03 * w, HOLLOW, {
-        p: up(side * 0.065 * w, hy + 0.06 * s, -0.19 * w),
+      b.box(0.11 * w, 0.04 * w, 0.03 * w, HOLLOW, {
+        p: up(side * 0.07 * w, hy + 0.06 * s, -0.215 * w),
         r: [T, 0, side * -0.35],
         lead: 0,
         shell: false,
@@ -181,7 +187,7 @@ function voiceBase(
       o.mouth * w,
       0.022 * w,
       tint,
-      { p: up(0, hy - 0.08 * s, -0.19 * w), r: [T, 0, 0], glow: 1, lead: 0, shell: false },
+      { p: up(0, hy - 0.08 * s, -0.215 * w), r: [T, 0, 0], glow: 1, lead: 0, shell: false },
       Math.PI * 2,
       8,
     );
@@ -189,10 +195,10 @@ function voiceBase(
   return neck;
 }
 
-/** A black sleeve from the shoulder to the hand, a pale glass hand. */
+/** A dark grey sleeve from the shoulder to the hand, a pale glass hand. */
 function sleeve(b: ModelBuilder, from: V3, elbow: V3, hand: V3, w: number): void {
-  limb(b, from, elbow, 0.075 * w, 0.085 * w, SMOKE, 5, 0, BLACK);
-  limb(b, elbow, hand, 0.06 * w, 0.075 * w, SMOKE, 5, 0, BLACK);
+  limb(b, from, elbow, 0.075 * w, 0.085 * w, UNDER, 5, 0, BLACK);
+  limb(b, elbow, hand, 0.06 * w, 0.075 * w, UNDER, 5, 0, BLACK);
   b.octa(0.065 * w, PALE, { p: hand, s: [1, 1.3, 1], glow: 0.3 });
 }
 
@@ -318,16 +324,6 @@ export function buildSoprano(def: EnemyDef): THREE.BufferGeometry {
       { ...BLACK, p: [0, hy + 0.24 * s, 0.12 * w], r: [-0.22, 0, 0] },
       6,
     );
-  });
-  b.rigged({ k: CLOTH, at: [0, neck + 0.7 * s, 0.2 * w], a: 0.35 * s }, () => {
-    b.cone(
-      0.09 * w,
-      0.32 * s,
-      SMOKE,
-      { ...BLACK, p: [0, neck + 0.8 * s, 0.32 * w], r: [-0.9, 0, 0] },
-      5,
-    );
-    b.octa(0.05 * w, tint, { p: [0, neck + 0.9 * s, 0.46 * w], glow: 1, lead: 0 });
   });
   // The raised hand (its right) and the star it turns.
   const top: V3 = [0.48 * w, neck + 0.5 * s, -0.22 * w];
@@ -563,7 +559,7 @@ export function buildConductor(def: EnemyDef): THREE.BufferGeometry {
     }
     return prof[prof.length - 2]![0];
   };
-  b.rigged({ k: CLOTH, at: [0, 2.6 * k, 0], a: 1.6 * k }, () => {
+  b.rigged({ k: CLOTH, at: [0, 2.6 * k, 0], a: 1.1 * k }, () => {
     b.lathe(
       prof.map(([r, y]): [number, number] => [r * w, y * k]),
       ROBE,

@@ -127,15 +127,15 @@ export function buildUnweaver(def: EnemyDef): THREE.BufferGeometry {
     b.lathe(
       prof.map(([r, y]): [number, number] => [r * w, y * k]),
       CLOTH_HEX,
-      voidCloth(0.42 * w),
+      { ...voidCloth(0.42 * w, 0.05), jit: 0.06 },
       10,
     );
     // The torn hem: strips of the cloth hanging off it, longer and shorter, unravelling.
     for (let i = 0; i < 11; i++) {
       const a = (i / 11) * Math.PI * 2 + 0.2;
-      const long = i % 3 === 0 ? 0.66 : i % 3 === 1 ? 0.4 : 0.52;
-      const r = 1.17;
-      b.box(0.24 * w, long * k, 0.04 * w, i % 2 ? DEEP : CLOTH_HEX, {
+      const long = i % 3 === 0 ? 0.6 : i % 3 === 1 ? 0.36 : 0.48;
+      const r = 1.1;
+      b.box(0.22 * w, long * k, 0.04 * w, DEEP, {
         ...voidCloth(0.2 * w),
         p: P(Math.sin(a) * r, 0.5 - long / 2, Math.cos(a) * r),
         r: [0.16 * Math.cos(a), a, -0.16 * Math.sin(a)],
@@ -169,7 +169,7 @@ export function buildUnweaver(def: EnemyDef): THREE.BufferGeometry {
   b.rigged({ k: HEAD, at: P(0, 3.6, 0) }, () => {
     b.sphere(
       0.6 * w,
-      CLOTH_HEX,
+      DEEP,
       { ...voidCloth(0.24 * w), p: P(0, 4.0, 0.08), s: [0.9, 1.08, 1.05] },
       9,
       6,
@@ -177,7 +177,7 @@ export function buildUnweaver(def: EnemyDef): THREE.BufferGeometry {
     b.cone(
       0.34 * w,
       0.62 * k,
-      CLOTH_HEX,
+      DEEP,
       { ...voidCloth(0.2 * w), p: P(0, 4.5, 0.36), r: [-0.6, 0, 0] },
       7,
     );
@@ -191,7 +191,7 @@ export function buildUnweaver(def: EnemyDef): THREE.BufferGeometry {
     b.torus(
       0.42 * w,
       0.06 * w,
-      DEEP,
+      CLOTH_HEX,
       { p: P(0, 3.94, -0.32), s: [0.9, 1.12, 1], r: [0.2, 0, 0] },
       Math.PI * 2,
       12,
@@ -267,7 +267,7 @@ export function buildUnweaver(def: EnemyDef): THREE.BufferGeometry {
       const elbow = P(side * 0.98, 2.6, -0.5);
       const hand = P(side * 0.5, 2.62, -0.98);
       limb(b, shoulder, elbow, 0.2 * w, 0.24 * w, DEEP, 6, 0, voidCloth(0.2 * w));
-      limb(b, elbow, hand, 0.16 * w, 0.2 * w, CLOTH_HEX, 6, 0, voidCloth(0.2 * w));
+      limb(b, elbow, hand, 0.16 * w, 0.2 * w, DEEP, 6, 0, voidCloth(0.2 * w));
       b.torus(
         0.17 * w,
         0.03 * w,
@@ -288,14 +288,20 @@ export function buildUnweaver(def: EnemyDef): THREE.BufferGeometry {
       beam(b, hand, pivot, 0.12 * w, 0.09 * w, STEEL);
       // The blade: past the rivet to the far side, long, broad at the rivet and tapering to a
       // point, bone-pale with a dark steel back (from above, the two cross in a pale X).
-      const mid = P(-side * 0.42, 1.25, -2.0);
-      const tip = P(-side * 0.72, 0.5, -2.42);
-      beam(b, pivot, mid, 0.34 * w, 0.06 * w, BONE, 0.2, { lit: 0.4, litGlow: 0.5 });
-      beam(b, mid, tip, 0.2 * w, 0.05 * w, BONE, 0.2, { lit: 0.4, litGlow: 0.5 });
-      b.octa(0.1 * w, BONE, { p: tip, s: [1, 1.8, 0.4], r: [0.6, 0, side * 0.35], glow: 0.3 });
-      const back = (p: V3, d: number): V3 => [p[0] + side * d * w, p[1] + 0.02 * k, p[2]];
-      beam(b, back(pivot, 0.17), back(mid, 0.1), 0.06 * w, 0.09 * w, STEEL);
-      beam(b, back(mid, 0.1), back(tip, 0.02), 0.05 * w, 0.08 * w, STEEL);
+      // A faceted blade: four facets round a ridge, flattened, broad at the rivet, to a point.
+      const tip = P(-side * 0.74, 0.5, -2.44);
+      limb(b, pivot, tip, 0.015 * w, 0.24 * w, BONE, 4, 0.2, {
+        lit: 0.5,
+        litGlow: 0.5,
+        s: [1, 1, 0.28],
+      });
+      // Its dark steel back, from the rivet most of the way down.
+      const back = (t: number, d: number): V3 => [
+        pivot[0] + (tip[0] - pivot[0]) * t + side * d * w,
+        pivot[1] + (tip[1] - pivot[1]) * t,
+        pivot[2] + (tip[2] - pivot[2]) * t,
+      ];
+      beam(b, back(0.02, 0.2), back(0.7, 0.08), 0.06 * w, 0.08 * w, STEEL);
       // A skeletal hand of bone on the ring.
       b.octa(0.13 * w, BONE, {
         p: [hand[0], hand[1] + 0.05 * k, hand[2] + 0.06 * w],
