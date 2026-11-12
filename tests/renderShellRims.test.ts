@@ -1,7 +1,7 @@
 /**
  * Phase 8b, the review's Part D (docs/phase-8.md, 8b): the outline shell carries every event cue
  * the body carries at its silhouette, but not the two standing rims (the rank-and-file hostile rim
- * and the elite's gold) unless the owner's HOSTILE_OUTLINE says so. As landed (both owner
+ * and the elite's gold, with its crown's glow) unless the owner's HOSTILE_OUTLINE says so. As landed (both owner
  * constants off): a rank-and-file foe's and an elite's outline is dark lead with their rim on the
  * body only, and an aura-covered hero's outline carries the aura tint. Driven through the real
  * EntityLayer and sim; the shader's gate is pinned in its source.
@@ -58,7 +58,7 @@ function harness(sim: Sim) {
     }
     return { batch: rec.batch, i };
   };
-  return { model, run, instance };
+  return { model, entities, run, instance };
 }
 
 describe('the outline shell and the standing rims (as landed)', () => {
@@ -86,6 +86,11 @@ describe('the outline shell and the standing rims (as landed)', () => {
     expect(x.batch.tintOf(x.i, rim)).toBeCloseTo(0.18, 6);
     expect(rim.getHexString()).toBe(C.gold.getHexString());
     expect(x.batch.standingOf(x.i)).toBe(true);
+    // Its crown's gold glow too (the elite's mark, on its body only).
+    const crown = (h.entities as unknown as { crown: typeof x.batch }).crown;
+    expect(crown.pushed).toBe(1);
+    expect(crown.tintOf(0, rim)).toBeCloseTo(0.4, 6);
+    expect(crown.standingOf(0)).toBe(true);
     // An aura-covered hero: its aura tint is an event cue, carried by the outline too.
     const hero = sim.state.entities.get(sim.state.party[0]!)!;
     expect(hero.hero!.auraMask).not.toBe(0);

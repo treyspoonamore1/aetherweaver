@@ -2071,7 +2071,8 @@ export class EntityLayer {
         0,
         Math.max(0.8, rec.radius * 1.2),
       );
-      this.crown.push(cm, 0, dissolve, 0, 0, C.gold, 0.4);
+      // The crown's own gold glow is the elite's standing mark too: on its body, not its outline.
+      this.crown.push(cm, 0, dissolve, 0, 0, C.gold, 0.4, 0, 0, 0, 0, !HOSTILE_OUTLINE);
       // Elite Vanguard: an elite with more than one affix wears a gem for each round its crown.
       const n = rec.affixColors.length;
       if (n > 1 && dissolve < 0.95) {

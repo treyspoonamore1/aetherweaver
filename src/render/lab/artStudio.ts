@@ -309,15 +309,7 @@ export class ArtStudio {
     } else {
       const def = enemyDef(subject);
       geometry = buildEnemy(def);
-      const mode =
-        this.spec.hostile ??
-        (HOSTILE_OUTLINE
-          ? HOSTILE_EDGE
-            ? 'outline-edge'
-            : 'outline'
-          : HOSTILE_EDGE
-            ? 'edge'
-            : 'flat');
+      const mode = this.hostileMode();
       const onOutline = mode === 'outline' || mode === 'outline-edge';
       if (this.spec.elite?.includes(subject)) {
         // As entities.ts draws an elite at rest: its gold rim, and its crown (below).
@@ -365,6 +357,13 @@ export class ArtStudio {
     return this.m.compose(this.p, this.q, this.s);
   }
 
+  /** The standing rims' look: the spec's, else the owner's constants (artFlag.ts). */
+  private hostileMode(): NonNullable<StudioSpec['hostile']> {
+    if (this.spec.hostile) return this.spec.hostile;
+    if (HOSTILE_OUTLINE) return HOSTILE_EDGE ? 'outline-edge' : 'outline';
+    return HOSTILE_EDGE ? 'edge' : 'flat';
+  }
+
   sync(time: number, dt: number, quality: QualityTier): void {
     applyVision('normal');
     const camera = this.stage.camera;
@@ -383,7 +382,20 @@ export class ArtStudio {
         this.q.setFromEuler(this.e);
         this.p.set(f.x, f.height + 0.22, f.z);
         this.s.set(s, s, s);
-        this.crown.push(this.m.compose(this.p, this.q, this.s), 0, 0, 0, 0, C.gold, 0.4);
+        this.crown.push(
+          this.m.compose(this.p, this.q, this.s),
+          0,
+          0,
+          0,
+          0,
+          C.gold,
+          0.4,
+          0,
+          0,
+          0,
+          0,
+          !(this.hostileMode() === 'outline' || this.hostileMode() === 'outline-edge'),
+        );
         this.s.set(1, 1, 1);
       }
       f.batch.begin();
