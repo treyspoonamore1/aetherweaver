@@ -236,7 +236,7 @@ const ARENAS: Record<string, ArenaShot> = {
       fogFar: 70,
     },
     meshes: 7,
-    hash: '8374081b',
+    hash: '226b39b8',
     paint: [
       {
         width: 2048,
@@ -267,7 +267,7 @@ const ARENAS: Record<string, ArenaShot> = {
       fogFar: 70,
     },
     meshes: 7,
-    hash: '3317eff9',
+    hash: '2ef162f8',
     paint: [
       {
         width: 2048,
@@ -298,7 +298,7 @@ const ARENAS: Record<string, ArenaShot> = {
       fogFar: 70,
     },
     meshes: 7,
-    hash: '8533f6ae',
+    hash: 'ec2a2e03',
     paint: [
       {
         width: 2048,

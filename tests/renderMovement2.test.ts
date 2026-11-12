@@ -290,7 +290,7 @@ const M1_MOODS: Record<
       fogFar: 96,
     },
     meshes: 7,
-    hash: 'e701b983',
+    hash: 'c5b92452',
   },
   nave: {
     mood: {
@@ -306,7 +306,7 @@ const M1_MOODS: Record<
       fogFar: 96,
     },
     meshes: 7,
-    hash: '83c50f15',
+    hash: '9474d2',
   },
   cloister: {
     mood: {
@@ -322,7 +322,7 @@ const M1_MOODS: Record<
       fogFar: 96,
     },
     meshes: 7,
-    hash: 'a290b37b',
+    hash: '4bb36706',
   },
   bell_tower: {
     mood: {
@@ -364,14 +364,14 @@ const M1_MOODS: Record<
  * leave them untouched.
  */
 const M1_MODELS: Record<string, string> = {
-  hollow_chorister: 'c4763c9d',
-  bell_brute: 'c7cae524',
-  lamenter: '59f5de5d',
-  glass_lancer: '9e9dac71',
-  mute: '76fa8352',
-  cantor_acolyte: '977b5951',
-  the_bellwarden: '8af37aad',
-  the_hollow_cantor: 'f3850cb0',
+  hollow_chorister: '55d7fb4e',
+  bell_brute: '2f98c33e',
+  lamenter: '7867dee',
+  glass_lancer: '3d8ebcd3',
+  mute: '55b8f016',
+  cantor_acolyte: 'bceac9c8',
+  the_bellwarden: '3a53c9b0',
+  the_hollow_cantor: '614e9344',
 };
 
 function fnv(h: number, s: string): number {

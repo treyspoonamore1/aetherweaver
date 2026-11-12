@@ -251,7 +251,7 @@ const ARENAS: Record<string, ArenaShot> = {
       fogFar: 96,
     },
     meshes: 7,
-    hash: '3a943cdc',
+    hash: '3f51861b',
     paint: [{ width: 2048, height: 2048, ops: 1992, hash: '3fce4f2e' }],
   },
   nave: {
@@ -269,7 +269,7 @@ const ARENAS: Record<string, ArenaShot> = {
       fogFar: 96,
     },
     meshes: 7,
-    hash: 'e88cfe5',
+    hash: 'dfe58a16',
     paint: [{ width: 2048, height: 2048, ops: 2460, hash: 'ed34d90d' }],
   },
   cloister: {
@@ -287,7 +287,7 @@ const ARENAS: Record<string, ArenaShot> = {
       fogFar: 96,
     },
     meshes: 7,
-    hash: '194040f9',
+    hash: '26e84f70',
     paint: [{ width: 2048, height: 2048, ops: 1569, hash: 'b1efb074' }],
   },
   bell_tower: {
@@ -341,7 +341,7 @@ const ARENAS: Record<string, ArenaShot> = {
       fogFar: 64,
     },
     meshes: 7,
-    hash: '65bfc196',
+    hash: '366f2925',
     paint: [
       {
         width: 2048,
@@ -372,7 +372,7 @@ const ARENAS: Record<string, ArenaShot> = {
       fogFar: 64,
     },
     meshes: 7,
-    hash: '1fd2b177',
+    hash: '592252a',
     paint: [
       {
         width: 2048,
@@ -403,7 +403,7 @@ const ARENAS: Record<string, ArenaShot> = {
       fogFar: 64,
     },
     meshes: 7,
-    hash: '29ba9f42',
+    hash: 'f99b5e3d',
     paint: [
       {
         width: 2048,
@@ -492,42 +492,42 @@ const ARENAS: Record<string, ArenaShot> = {
  */
 const MODELS: Record<string, ModelShot> = {
   'enemy:hollow_chorister': {
-    hash: 'c4763c9d',
+    hash: '55d7fb4e',
     quadruped: false,
     material: 'porcelain',
   },
   'enemy:bell_brute': {
-    hash: 'c7cae524',
+    hash: '2f98c33e',
     quadruped: false,
     material: 'porcelain',
   },
   'enemy:lamenter': {
-    hash: '59f5de5d',
+    hash: '7867dee',
     quadruped: false,
     material: 'porcelain',
   },
   'enemy:glass_lancer': {
-    hash: '9e9dac71',
+    hash: '3d8ebcd3',
     quadruped: false,
     material: 'porcelain',
   },
   'enemy:mute': {
-    hash: '76fa8352',
+    hash: '55b8f016',
     quadruped: false,
     material: 'porcelain',
   },
   'enemy:cantor_acolyte': {
-    hash: '977b5951',
+    hash: 'bceac9c8',
     quadruped: false,
     material: 'porcelain',
   },
   'enemy:the_bellwarden': {
-    hash: '8af37aad',
+    hash: '3a53c9b0',
     quadruped: false,
     material: 'porcelain',
   },
   'enemy:the_hollow_cantor': {
-    hash: 'f3850cb0',
+    hash: '614e9344',
     quadruped: false,
     material: 'porcelain',
   },
@@ -567,7 +567,7 @@ const MODELS: Record<string, ModelShot> = {
     material: 'iron',
   },
   'hero:kael': {
-    hash: '31997596',
+    hash: 'e4818cf0',
   },
   'hero:lyra': {
     hash: '409ab5b9',
@@ -586,7 +586,7 @@ const MODELS: Record<string, ModelShot> = {
     hash: '61aecf2b',
   },
   weaver: {
-    hash: 'a7d4ad7c',
+    hash: '209f6c6',
   },
 };
 
