@@ -195,8 +195,9 @@ export function buildAncient(moss: string): THREE.BufferGeometry {
 /**
  * The elite crown (unit size, scaled per wearer, spun and tinted gold by entities.ts). Gold here
  * is the elite's meaning, learned since Movement I, and it stays: main's crown golds (its band
- * #e8b54a, its light #ffd27a), now as glass: a faceted band of gold panes held in dark lead under five points, each
- * tipped with a bead of its own light, and a lead outline so it holds against the bright floors.
+ * #e8b54a, its light #ffd27a; its panes untoned, so none drifts toward amp), now as glass: a
+ * faceted band of gold panes held in dark lead under five points, each tipped with a bead of its
+ * own light, and a lead outline so it holds against the bright floors.
  * Not the Weaver's look (white-gold glass in gold came, her halo): gold glass in dark lead, small.
  */
 const CROWN_GOLD = '#e8b54a';
@@ -206,13 +207,13 @@ export function buildCrown(): THREE.BufferGeometry {
   const b = figure('swarm', { outline: 'full' });
   // The band: an open ring of gold glass (no cap: it is a crown, not a puck), seen from either
   // side, between two rims of dark lead that carry its outline.
-  b.arc(0.32, 0.3, 0.13, 0, Math.PI * 2, CROWN_GOLD, { p: [0, 0.03, 0], glow: 0.35 }, 10);
+  b.arc(0.32, 0.3, 0.13, 0, Math.PI * 2, CROWN_GOLD, { p: [0, 0.03, 0], glow: 0.35, jit: 0 }, 10);
   b.torus(0.3, 0.025, LEAD, { p: [0, -0.035, 0], r: FLAT, glow: 0 }, Math.PI * 2, 10);
   b.torus(0.32, 0.02, LEAD, { p: [0, 0.095, 0], r: FLAT, glow: 0 }, Math.PI * 2, 10);
   for (let i = 0; i < 5; i++) {
     const a = (i / 5) * Math.PI * 2;
     const p: V3 = [Math.cos(a) * 0.32, 0.19, Math.sin(a) * 0.32];
-    b.cone(0.07, 0.2, CROWN_GOLD, { p, glow: 0.45 }, 4);
+    b.cone(0.07, 0.2, CROWN_GOLD, { p, glow: 0.45, jit: 0 }, 4);
     b.octa(0.04, CROWN_LIGHT, {
       p: [p[0], 0.31, p[2]],
       glow: 1,

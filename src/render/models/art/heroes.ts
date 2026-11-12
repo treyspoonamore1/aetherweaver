@@ -35,12 +35,16 @@ export function buildKael(def: HeroDef): THREE.BufferGeometry {
   const col = def.color;
   const deep = shade(col, -0.45);
   const bright = shade(col, 0.18);
-  // Blue steel (a neutral grey turns beige under the Reliquary's warm key), silver trim (gold is
-  // the Weaver's), and his colour's glass at its palest for the light.
-  const steel = '#9cb8f2';
+  // Blued steel (a neutral grey turns beige under the Reliquary's warm key; a pale blue steel read
+  // as red-green vision's sky-blue heal and Mend; an indigo steel read violet under that key:
+  // #3668a1, a true blue, is ≥ 20 ΔE from heal, Mend and Ward's shield in every vision across its
+  // pane tones and 20 from the Unweaver's indigo), silver trim (gold is the Weaver's), and his colour's glass
+  // lightened half way for the light (#adc6f7: no lightness of his #5b8def clears both red-green
+  // heal and Ward's shield by 10 ΔE; half way is the best, 9.7 from heal under protanopia).
+  const steel = '#3668a1';
   const steelDark = '#4a5f92';
   const silver = '#e4ecfb';
-  const glass = shade(col, 0.55);
+  const glass = shade(col, 0.5);
   // Legs: armoured, striding (each swings from the hip).
   for (const side of [-1, 1]) {
     b.rigged({ k: LIMB, at: [side * 0.18, 0.88, 0], a: side }, () => {

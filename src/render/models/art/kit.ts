@@ -84,11 +84,25 @@ export function shade(hex: string, k: number): string {
 
 /** Lead: the dark came between panes, and the iron of a frame. */
 export const LEAD = '#1b1d2b';
-export const BRONZE = '#a8742e';
+/**
+ * Bronze: a dull warm metal (bells, bands, crowns of spires). #967254, at least 25 ΔE from lethal,
+ * threat, amp, empower and gold in every colour vision across every pane tone (the first bronze,
+ * #a8742e, sat 8 from lethal as protanopia sees it).
+ */
+export const BRONZE = '#967254';
 export const BRONZE_DARK = '#5a3814';
-/** The Hollow Choir's light (violet, as its cracks): its bells and eyes burn with it, never amber. */
-export const CHOIR = '#b69cff';
-export const CHOIR_DEEP = '#7c5cf0';
+/**
+ * The Hollow Choir's light: a deep violet that its glow and the key light lift to a mid violet,
+ * the crack violet's family in normal vision. Chosen as rendered: lit, a paler violet read as
+ * red-green vision's sky-blue heal and Mend (the first, #b69cff, sat 8 from them). In the
+ * Reliquary line-up its lit pixels now sit at least 17.7 ΔE (5th percentile; median 35) from heal,
+ * Mend, Ward's shield and the dome in every vision. Its bells, eyes, windows and lights burn with
+ * it, never amber.
+ */
+export const CHOIR = '#5242a0';
+export const CHOIR_DEEP = '#3c2e86';
+/** How brightly the Choir's light burns (eyes, cores, cracks of light): below full, as rendered. */
+export const CHOIR_GLOW = 0.75;
 /** A ring lying flat (a torus's axis turned to y). */
 export const FLAT: V3 = [Math.PI / 2, 0, 0];
 

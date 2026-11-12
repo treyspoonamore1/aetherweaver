@@ -8,6 +8,7 @@ import {
   BRONZE_DARK,
   CHOIR,
   CHOIR_DEEP,
+  CHOIR_GLOW,
   CLOTH,
   FLAT,
   FLOAT,
@@ -127,7 +128,7 @@ export function buildChorister(def: EnemyDef): THREE.BufferGeometry {
         0.018 * s,
         0.01 * s,
         CHOIR,
-        1,
+        CHOIR_GLOW,
         { shell: false, lead: 0 },
       );
     }
@@ -138,7 +139,7 @@ export function buildChorister(def: EnemyDef): THREE.BufferGeometry {
         p: up(0, 0.9 * s, -0.29 * s),
         s: [0.85, 1.3, 0.45],
         r: [T, 0, 0],
-        glow: 1,
+        glow: CHOIR_GLOW,
         lead: 0,
         shell: false,
       },
@@ -165,7 +166,7 @@ export function buildChorister(def: EnemyDef): THREE.BufferGeometry {
         b.octa(0.09 * s, CHOIR_DEEP, {
           p: [hand[0], hand[1] + 0.3 * s, hand[2]],
           s: [0.8, 1.7, 0.8],
-          glow: 1,
+          glow: CHOIR_GLOW,
           lead: 0,
         });
       }
@@ -272,19 +273,19 @@ export function buildBrute(def: EnemyDef): THREE.BufferGeometry {
       Math.PI * 2,
       12,
     );
-    b.sphere(0.22 * s, CHOIR, { p: [0, 1.4 * s, 0.66 * s], glow: 1, lead: 0 }, 7, 5);
+    b.sphere(0.22 * s, CHOIR, { p: [0, 1.4 * s, 0.66 * s], glow: CHOIR_GLOW, lead: 0 }, 7, 5);
   });
   // A small head sunk between the shoulders: a slotted bronze bell-helm, two violet eyes.
   b.rigged({ k: HEAD, at: [0, 1.62 * s, -0.25 * s] }, () => {
     bell(b, [0, 1.52 * s, -0.56 * s], 0.28 * s, 0.4 * s, BRONZE, {}, 8);
     b.box(0.11 * s, 0.06 * s, 0.04 * s, CHOIR, {
       p: [0.09 * s, 1.66 * s, -0.8 * s],
-      glow: 1,
+      glow: CHOIR_GLOW,
       shell: false,
     });
     b.box(0.11 * s, 0.06 * s, 0.04 * s, CHOIR, {
       p: [-0.09 * s, 1.66 * s, -0.8 * s],
-      glow: 1,
+      glow: CHOIR_GLOW,
       shell: false,
     });
   });
@@ -337,7 +338,7 @@ export function buildBrute(def: EnemyDef): THREE.BufferGeometry {
       b.sphere(
         0.12 * s,
         CHOIR,
-        { p: [side * 1.08 * s, 0.36 * s, -0.28 * s], glow: 1, lead: 0 },
+        { p: [side * 1.08 * s, 0.36 * s, -0.28 * s], glow: CHOIR_GLOW, lead: 0 },
         6,
         4,
       );
@@ -359,12 +360,13 @@ function bellWindows(b: ModelBuilder, n: number, r: number, y: number, h: number
     const z = Math.sin(a);
     const rot: V3 = [0, -a + Math.PI / 2, 0];
     b.box(w + 0.1, h + 0.1, 0.07, LEAD, { p: [x * r, y, z * r], r: rot, lead: 0 });
-    b.box(w, h, 0.06, i % 2 ? CHOIR_DEEP : '#b9a4ff', {
+    b.box(w, h, 0.06, i % 2 ? CHOIR_DEEP : CHOIR, {
       p: [x * (r + 0.035), y, z * (r + 0.035)],
       r: rot,
-      glow: 0.9,
+      // Window glass burns low: lit panes add their own light on top (measured as rendered).
+      glow: 0.55,
       cell: w * 0.6,
-      lit: 0.5,
+      lit: 0.4,
       shell: false,
     });
   }
@@ -384,7 +386,7 @@ function buildBellWalker(def: EnemyDef): THREE.BufferGeometry {
   // The clapper: a heavy ball of violet light under the rim, swinging; two stubby bronze feet.
   b.rigged({ k: BELL, at: [0, 1.6, 0], a: 0.8 }, () => {
     b.cyl(0.06, 0.06, 1.3, BRONZE_DARK, { p: [0, 0.95, 0] }, 6);
-    b.sphere(0.36, CHOIR, { p: [0, 0.34, 0], glow: 1, lead: 0 }, 8, 6);
+    b.sphere(0.36, CHOIR, { p: [0, 0.34, 0], glow: CHOIR_GLOW, lead: 0 }, 8, 6);
   });
   for (const side of [-1, 1]) {
     b.rigged({ k: LIMB, at: [side * 0.6, 0.5, 0], a: side * 0.5 }, () => {
@@ -423,7 +425,7 @@ function buildBellWalker(def: EnemyDef): THREE.BufferGeometry {
       [0.02, 1.06, -1.32],
     ];
     for (let i = 0; i < crack.length - 1; i++)
-      beam(b, crack[i]!, crack[i + 1]!, 0.07, 0.05, CHOIR, 1, { lead: 0, shell: false });
+      beam(b, crack[i]!, crack[i + 1]!, 0.07, 0.05, CHOIR, CHOIR_GLOW, { lead: 0, shell: false });
     // The visor: a bronze band with two burning eye slits, under the crown.
     b.cyl(1.0, 1.06, 0.36, BRONZE_DARK, { p: [0, 2.6, 0] }, 14);
     for (const side of [-1, 1]) {
@@ -431,7 +433,7 @@ function buildBellWalker(def: EnemyDef): THREE.BufferGeometry {
       b.box(0.34, 0.12, 0.14, CHOIR, {
         p: [Math.sin(a) * 1.04, 2.62, -Math.cos(a) * 1.04],
         r: [0, -a, side * -0.14],
-        glow: 1,
+        glow: CHOIR_GLOW,
         shell: false,
       });
     }
@@ -478,7 +480,7 @@ function buildBellWalker(def: EnemyDef): THREE.BufferGeometry {
         );
       bell(b, [side * 1.62, 0.66, -0.2], 0.42, 0.62, BRONZE, {}, 10);
       b.torus(0.4, 0.04, BRONZE_DARK, { p: [side * 1.62, 0.7, -0.2], r: FLAT }, Math.PI * 2, 12);
-      b.sphere(0.15, CHOIR, { p: [side * 1.62, 0.7, -0.2], glow: 1, lead: 0 }, 6, 4);
+      b.sphere(0.15, CHOIR, { p: [side * 1.62, 0.7, -0.2], glow: CHOIR_GLOW, lead: 0 }, 6, 4);
     });
   }
   return b.build();
@@ -492,10 +494,10 @@ const HOOD = '#544b74';
 /** The hollow of a mask's eyes and mouth. */
 const HOLLOW = '#120a1e';
 /**
- * The Glass Lancer's lance: deep blue-violet glass (ΔE ≥ 27 from every semantic colour in every
- * colour vision; notes.md), its light the Choir's violet.
+ * The Glass Lancer's lance: deep blue-violet glass, its light the Choir's violet (darkened in
+ * integration: lit, #6059ff rendered near red-green vision's heal and shield).
  */
-const LANCE = '#6059ff';
+const LANCE = '#4a44c4';
 
 /** `n` points round a ring of radius `r` at height `y` in a plane tilted `tilt` about x. */
 function ringAt(c: V3, r: number, tilt: number, n: number, phase = 0): V3[] {
@@ -551,7 +553,7 @@ function openBook(
         d * 0.035,
         w * 0.03,
         CHOIR,
-        1,
+        CHOIR_GLOW,
         {
           lead: 0,
           shell: false,
@@ -656,7 +658,7 @@ export function buildLamenter(def: EnemyDef): THREE.BufferGeometry {
         0.016 * s,
         0.01 * s,
         CHOIR,
-        1,
+        CHOIR_GLOW,
         {
           lead: 0,
           shell: false,
@@ -671,12 +673,18 @@ export function buildLamenter(def: EnemyDef): THREE.BufferGeometry {
       limb(b, P(side * 0.2, 1.4, 0), P(side * 0.16, 1.36, -0.42), 0.095 * s, 0.07 * s, HOOD, 6);
       b.octa(0.055 * s, body, { p: P(side * 0.11, 1.38, -0.53), s: [1, 1.3, 1], glow: 0.16 });
     }
-    b.ico(0.12 * s, CHOIR_DEEP, { p: P(0, 1.51, -0.6), glow: 1, lead: 0 });
+    b.ico(0.12 * s, CHOIR_DEEP, { p: P(0, 1.51, -0.6), glow: CHOIR_GLOW, lead: 0 });
     b.torus(
       0.22 * s,
       0.016 * s,
       CHOIR,
-      { p: P(0, 1.51, -0.6), r: [Math.PI / 2 - 0.55, 0, 0], glow: 1, lead: 0, shell: false },
+      {
+        p: P(0, 1.51, -0.6),
+        r: [Math.PI / 2 - 0.55, 0, 0],
+        glow: CHOIR_GLOW,
+        lead: 0,
+        shell: false,
+      },
       Math.PI * 2,
       14,
     );
@@ -754,7 +762,7 @@ export function buildLancer(def: EnemyDef): THREE.BufferGeometry {
     });
     b.box(0.17 * s, 0.035 * s, 0.03 * s, CHOIR, {
       p: P(0, 1.93, -0.16),
-      glow: 1,
+      glow: CHOIR_GLOW,
       lead: 0,
       shell: false,
     });
@@ -788,11 +796,16 @@ export function buildLancer(def: EnemyDef): THREE.BufferGeometry {
       },
       5,
     );
-    beam(b, P(0.13, 1.31, -0.52), P(0.13, 1.33, -2.25), 0.022 * s, 0.022 * s, CHOIR, 1, {
+    beam(b, P(0.13, 1.31, -0.52), P(0.13, 1.33, -2.25), 0.022 * s, 0.022 * s, CHOIR, CHOIR_GLOW, {
       lead: 0,
       shell: false,
     });
-    b.octa(0.06 * s, CHOIR, { p: P(0.13, 1.33, -2.52), s: [0.6, 0.6, 1.8], glow: 1, lead: 0 });
+    b.octa(0.06 * s, CHOIR, {
+      p: P(0.13, 1.33, -2.52),
+      s: [0.6, 0.6, 1.8],
+      glow: CHOIR_GLOW,
+      lead: 0,
+    });
   });
   return b.build();
 }
@@ -871,7 +884,7 @@ export function buildMute(def: EnemyDef): THREE.BufferGeometry {
       b.box(0.05 * s, 0.018 * s, 0.03 * s, CHOIR, {
         p: P(side * 0.152, 1.7, -0.49),
         r: [0, side * 0.33, 0],
-        glow: 1,
+        glow: CHOIR_GLOW,
         lead: 0,
         shell: false,
       });
@@ -969,7 +982,7 @@ export function buildAcolyte(def: EnemyDef): THREE.BufferGeometry {
       shell: false,
     });
     b.cone(0.07 * s, 0.09 * s, BRONZE, { p: P(0.3, 0.6, -0.14) }, 6);
-    b.octa(0.075 * s, CHOIR, { p: P(0.3, 0.5, -0.14), s: [1, 1.15, 1], glow: 1, lead: 0 });
+    b.octa(0.075 * s, CHOIR, { p: P(0.3, 0.5, -0.14), s: [1, 1.15, 1], glow: CHOIR_GLOW, lead: 0 });
     b.torus(0.07 * s, 0.018 * s, BRONZE, { p: P(0.3, 0.5, -0.14), r: FLAT }, Math.PI * 2, 8);
   });
   // The head under its cowl, and the nimbus behind it.
@@ -987,14 +1000,14 @@ export function buildAcolyte(def: EnemyDef): THREE.BufferGeometry {
       b.box(0.06 * s, 0.014 * s, 0.02 * s, CHOIR, {
         p: P(side * 0.052, 1.65, -0.19),
         r: [0, 0, side * -0.25],
-        glow: 1,
+        glow: CHOIR_GLOW,
         lead: 0,
         shell: false,
       });
     b.sphere(
       0.025 * s,
       CHOIR_DEEP,
-      { p: P(0, 1.545, -0.19), s: [1, 1.3, 0.6], glow: 1, lead: 0, shell: false },
+      { p: P(0, 1.545, -0.19), s: [1, 1.3, 0.6], glow: CHOIR_GLOW, lead: 0, shell: false },
       5,
       4,
     );
@@ -1012,7 +1025,12 @@ export function buildAcolyte(def: EnemyDef): THREE.BufferGeometry {
     );
     b.torus(0.32 * s, 0.022 * s, BRONZE, { p: N, r: [Math.PI / 2 + tilt, 0, 0] }, Math.PI * 2, 14);
     for (const q of ringAt(N, 0.32 * s, tilt, 6, Math.PI / 6))
-      b.ico(0.032 * s, CHOIR, { p: [q[0], q[1] + 0.02 * s, q[2]], glow: 1, lead: 0, shell: false });
+      b.ico(0.032 * s, CHOIR, {
+        p: [q[0], q[1] + 0.02 * s, q[2]],
+        glow: CHOIR_GLOW,
+        lead: 0,
+        shell: false,
+      });
   });
   // The hymnal held open before it, lifted as it sings.
   b.rigged({ k: WEAPON, at: P(0, 1.38, 0), a: 0.5 }, () => {
@@ -1073,9 +1091,9 @@ function skirtWindows(
     b.box(0.06, h, w, i % 2 ? CHOIR_DEEP : pale, {
       p: q,
       r: [0, -a, lean],
-      glow: 0.85,
+      glow: 0.55,
       cell: w * 0.6,
-      lit: 0.5,
+      lit: 0.4,
       shell: false,
     });
   }
@@ -1105,7 +1123,7 @@ export function buildCantor(def: EnemyDef): THREE.BufferGeometry {
     );
     b.torus(1.25 * s, 0.06 * s, BRONZE, { p: P(0, 0.1, 0), r: FLAT }, Math.PI * 2, 24);
   });
-  skirtWindows(b, 10, 1.07 * s, 0.82 * s, 0.62 * s, 0.26 * s, 0.2, '#b9a4ff');
+  skirtWindows(b, 10, 1.07 * s, 0.82 * s, 0.62 * s, 0.26 * s, 0.2, CHOIR);
   // The cope: porcelain, cracked, from the shoulders to the knee, open down the front on the
   // dark cassock, its edges banded in bronze; it trails as it walks.
   const open = 0.72;
@@ -1159,7 +1177,7 @@ export function buildCantor(def: EnemyDef): THREE.BufferGeometry {
   );
   b.rigged({ k: BELL, at: P(0, 2.42, -0.9), a: 0.7 }, () => {
     bell(b, P(0, 1.86, -0.94), 0.2 * s, 0.44 * s, BRONZE, {}, 9);
-    b.sphere(0.1 * s, CHOIR, { p: P(0, 1.9, -0.94), glow: 1, lead: 0 }, 6, 4);
+    b.sphere(0.1 * s, CHOIR, { p: P(0, 1.9, -0.94), glow: CHOIR_GLOW, lead: 0 }, 6, 4);
   });
   // Cracks of violet light running out from the hollow across the chasuble.
   const cracks: [number, number][][] = [
@@ -1200,7 +1218,7 @@ export function buildCantor(def: EnemyDef): THREE.BufferGeometry {
         0.05 * s,
         0.03 * s,
         CHOIR,
-        1,
+        CHOIR_GLOW,
         { lead: 0, shell: false },
       );
   // The mantle over its shoulders, banded in bronze.
@@ -1272,7 +1290,14 @@ export function buildCantor(def: EnemyDef): THREE.BufferGeometry {
     b.sphere(
       0.07 * s,
       CHOIR,
-      { p: up(0, 3.16, -0.33), s: [0.8, 1.6, 0.45], r: [T, 0, 0], glow: 1, lead: 0, shell: false },
+      {
+        p: up(0, 3.16, -0.33),
+        s: [0.8, 1.6, 0.45],
+        r: [T, 0, 0],
+        glow: CHOIR_GLOW,
+        lead: 0,
+        shell: false,
+      },
       6,
       4,
     );
@@ -1303,7 +1328,7 @@ export function buildCantor(def: EnemyDef): THREE.BufferGeometry {
     for (const q of ringAt(R, 0.72 * s, tilt, 8, Math.PI / 8))
       b.ico(0.05 * s, CHOIR, {
         p: [q[0], q[1] + 0.04 * s, q[2] - 0.03 * s],
-        glow: 1,
+        glow: CHOIR_GLOW,
         lead: 0,
         shell: false,
       });
@@ -1352,12 +1377,12 @@ export function buildCantor(def: EnemyDef): THREE.BufferGeometry {
           limb(b, P(1.58, 0.4, -0.62), P(1.58, 3.35, -0.62), 0.045 * s, 0.045 * s, BRONZE_DARK, 6);
           b.torus(0.24 * s, 0.05 * s, BRONZE, { p: P(1.82, 3.35, -0.62) }, Math.PI, 10);
           bell(b, P(2.06, 2.84, -0.62), 0.22 * s, 0.4 * s, BRONZE, {}, 9);
-          b.sphere(0.09 * s, CHOIR, { p: P(2.06, 2.88, -0.62), glow: 1, lead: 0 }, 6, 4);
+          b.sphere(0.09 * s, CHOIR, { p: P(2.06, 2.88, -0.62), glow: CHOIR_GLOW, lead: 0 }, 6, 4);
         } else {
           b.octa(0.09 * s, CHOIR, {
             p: P(-1.8, 3.32, -0.6),
             s: [0.8, 1.6, 0.8],
-            glow: 1,
+            glow: CHOIR_GLOW,
             lead: 0,
           });
         }
