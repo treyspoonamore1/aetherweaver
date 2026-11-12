@@ -308,7 +308,9 @@ draws what the body draws at its silhouette (the body's terms at a fresnel of 1)
 the Stolen Verse), the Save and Rewind ghosts, Stasis's frost, the Prism's edge and the Luminary's
 sun, each in its own colour and strength; the body's terms are unchanged (with `HOSTILE_EDGE` off,
 the hostile rim's line is main's). The two standing rims, the rank-and-file hostile rim and the
-elite's gold (with its crown's glow), are not event cues and stay off the outline as approved
+elite's gold (with its crown's glow), are not event cues and stay off the outline as approved,
+and so does the Weaver's own resting rim (her gold, or her robe's trim: always, it is not a hostile
+rim), her event rims (a borne wound, Conduit, a held rim) staying on it
 (entities.ts marks them where it chooses them; the shader's outline skips a marked rim; look C
 above puts them back; `tests/renderShellRims.test.ts` pins the default). Under Stasis the lead (lines and outline) now frosts with the glass, on the figure's
 side. Measured in the VFX lab's real fight (same staging, seed and tick in every build; 1920×1080;

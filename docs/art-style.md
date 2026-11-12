@@ -91,7 +91,8 @@ tall at 1280×720), close-ups second.
   Luminary's sun. A new on-model cue goes into both the body's terms and the shell's (`material.ts`).
 - Not the two standing rims: the rank-and-file hostile rim and the elite's gold (and its crown's
   glow) are pushed as standing (`ModelBatch.push`'s `standing`) and stay on the body, the outline
-  dark lead, as approved; `HOSTILE_OUTLINE` (artFlag.ts, off) is the owner's alternative.
+  dark lead, as approved; `HOSTILE_OUTLINE` (artFlag.ts, off) is the owner's alternative. The
+  Weaver's resting rim (her gold or her robe's trim) is standing too, always; her event rims are not.
 
 ### Colour
 - **Gold means the Weaver.** No gold trim, gold lead or gold light on anyone else. Heroes' trims are

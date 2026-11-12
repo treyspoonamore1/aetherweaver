@@ -285,6 +285,8 @@ export class ArtStudio {
       const r = restRim(look.robe);
       rim = color(r.hex);
       rimStrength = r.strength;
+      // Her resting rim: on her body only, as entities.ts draws it.
+      standing = true;
       ring = C.gold;
       // Her hand's path, as entities.ts samples it: just behind her, standing still.
       hist = new Float32Array(RIBBON_SAMPLES * 3);

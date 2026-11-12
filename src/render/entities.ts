@@ -1875,8 +1875,9 @@ export class EntityLayer {
     // auras > affix. A possessed hero (Movement III) wears an indigo rim over the Thread's: they
     // are to be saved (Chime), never Focused or Empowered.
     let tintStrength = 0;
-    // The two standing rims (the elite's gold, the rank-and-file hostile rim) are drawn on the body
-    // only, the outline staying lead, unless the owner's HOSTILE_OUTLINE puts them on it too.
+    // The standing rims (the elite's gold, the rank-and-file hostile rim, the Weaver's at rest) are
+    // drawn on the body only, the outline staying lead; the owner's HOSTILE_OUTLINE puts the first
+    // two on it too.
     let standing = false;
     const isHero = e.kind === 'hero';
     const auraMask = e.hero?.auraMask ?? 0;
@@ -1992,6 +1993,11 @@ export class EntityLayer {
         // At rest: her own faint gold, or her robe's trim (stronger on a dark robe).
         this.tint.copy(this.rimAtRest);
         tintStrength = this.rimAtRestStrength;
+        // Her resting rim is a standing rim too (not a hostile one: always, whatever the owner's
+        // HOSTILE_OUTLINE): on her body, her outline dark lead, as approved. Her event rims above
+        // (a borne wound, Conduit, a held rim) stay on the outline. Nothing earlier in the chain
+        // marks her: only an enemy's branches set `standing`.
+        standing = true;
       }
     }
 
