@@ -34,7 +34,9 @@ export function buildKael(def: HeroDef): THREE.BufferGeometry {
   const b = figure('hero', { body: [0.86, 0.7] });
   const col = def.color;
   const deep = shade(col, -0.45);
-  const bright = shade(col, 0.18);
+  // His colour a touch lighter (the tabard, the helm's fin): at 0.18 its paler panes read as
+  // red-green vision's heal; at 0.05 every pane tone is ≥ 15 ΔE from heal and Mend.
+  const bright = shade(col, 0.05);
   // Blued steel (a neutral grey turns beige under the Reliquary's warm key; a pale blue steel read
   // as red-green vision's sky-blue heal and Mend; an indigo steel read violet under that key:
   // #3668a1, a true blue, is ≥ 20 ΔE from heal, Mend and Ward's shield in every vision across its
