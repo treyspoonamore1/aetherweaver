@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createRigDepthMaterial } from './material';
+import { RIM_STANDING, createRigDepthMaterial } from './material';
 import { ownRandom } from './ownRandom';
 
 let rigDepth: THREE.MeshDepthMaterial | null = null;
@@ -89,6 +89,7 @@ export class ModelBatch {
     sunrise = 0,
     frost = 0,
     prism = 0,
+    standing = false,
   ): void {
     if (this.count >= this.capacity) return;
     const i = this.count++;
@@ -105,7 +106,12 @@ export class ModelBatch {
     t[i * 4] = tint.r;
     t[i * 4 + 1] = tint.g;
     t[i * 4 + 2] = tint.b;
-    t[i * 4 + 3] = tintStrength;
+    // A standing rim (the hostile and elite rims at rest) is marked in its strength's size: the
+    // body draws it, the outline shell does not (material.ts RIM_STANDING).
+    t[i * 4 + 3] =
+      standing && tintStrength !== 0
+        ? tintStrength + Math.sign(tintStrength) * RIM_STANDING
+        : tintStrength;
     const s = this.shine.array as Float32Array;
     s[i * 4] = shine;
     s[i * 4 + 1] = sunrise;
@@ -151,7 +157,15 @@ export class ModelBatch {
     if (i >= this.count) return 0;
     const t = this.tint.array as Float32Array;
     out.setRGB(t[i * 4]!, t[i * 4 + 1]!, t[i * 4 + 2]!);
-    return t[i * 4 + 3]!;
+    const s = t[i * 4 + 3]!;
+    return Math.abs(s) > RIM_STANDING / 2 ? s - Math.sign(s) * RIM_STANDING : s;
+  }
+
+  /** Whether instance `i`'s rim as last pushed is a standing rim, drawn on the body only (tests). */
+  standingOf(i: number): boolean {
+    return (
+      i < this.count && Math.abs((this.tint.array as Float32Array)[i * 4 + 3]!) > RIM_STANDING / 2
+    );
   }
 
   end(): void {

@@ -7,7 +7,7 @@ import { FxKit } from '../fx/kit';
 import { RING } from '../fx/rings';
 import { GROVE_HEX } from '../groveCues';
 import { OWN_LOOK, restRim, ribbonHex, weaverPalette, type WeaverLook } from '../keepsakeCues';
-import { HERO_DRAWN, HOSTILE_EDGE } from '../models/artFlag';
+import { HERO_DRAWN, HOSTILE_EDGE, HOSTILE_OUTLINE } from '../models/artFlag';
 import { applyArtWorld } from '../models/artWorld';
 import { ModelBatch } from '../models/batch';
 import {
@@ -80,10 +80,13 @@ export interface StudioSpec {
   /** Subjects staged as elites: the game's gold elite rim and the elite crown over them. */
   elite?: StudioSubject[];
   /**
-   * The hostile rim as an edge only (artFlag.ts HOSTILE_EDGE; default: the constant), or `none`
-   * (no hostile rim, for measuring it).
+   * The standing rims (the hostile rim, the elite's gold) as the owner's alternatives draw them
+   * (artFlag.ts; default: the constants): `flat` (on the body, as approved), `edge` (the hostile
+   * rim on the body's edge only), `outline` (on the body and the outline too: a red or gold
+   * outline), `outline-edge` (the outline and the body's edge, no body wash), or `none` (no
+   * hostile rim, for measuring it).
    */
-  hostile?: 'flat' | 'edge' | 'none';
+  hostile?: 'flat' | 'edge' | 'outline' | 'outline-edge' | 'none';
 }
 
 type Kind = 'hero' | 'weaver' | 'enemy' | 'summon';
@@ -111,6 +114,8 @@ interface Figure {
   ring: THREE.Color | null;
   rim: THREE.Color;
   rimStrength: number;
+  /** A standing rim: drawn on the body only (ModelBatch `standing`). */
+  standing: boolean;
   hist: Float32Array | null;
 }
 
@@ -272,6 +277,7 @@ export class ArtStudio {
     let ring: THREE.Color | null = null;
     let rim = this.black;
     let rimStrength = 0;
+    let standing = false;
     let hist: Float32Array | null = null;
     if (kind === 'weaver') {
       const look = { ...OWN_LOOK, ...this.spec.look };
@@ -303,20 +309,33 @@ export class ArtStudio {
     } else {
       const def = enemyDef(subject);
       geometry = buildEnemy(def);
+      const mode =
+        this.spec.hostile ??
+        (HOSTILE_OUTLINE
+          ? HOSTILE_EDGE
+            ? 'outline-edge'
+            : 'outline'
+          : HOSTILE_EDGE
+            ? 'edge'
+            : 'flat');
+      const onOutline = mode === 'outline' || mode === 'outline-edge';
       if (this.spec.elite?.includes(subject)) {
         // As entities.ts draws an elite at rest: its gold rim, and its crown (below).
         rim = C.gold;
         rimStrength = 0.18;
+        standing = !onOutline;
       } else if (def.role !== 'boss' && def.role !== 'miniboss') {
-        const mode = this.spec.hostile ?? (HOSTILE_EDGE ? 'edge' : 'flat');
         rim = this.hostile;
-        rimStrength = mode === 'none' ? 0 : mode === 'edge' ? -0.18 : 0.18;
+        const edge = mode === 'edge' || mode === 'outline-edge';
+        rimStrength = mode === 'none' ? 0 : edge ? -0.18 : 0.18;
+        standing = !onOutline;
       }
     }
     const own = this.spec.rim?.[subject];
     if (own) {
       rim = color(own.hex);
       rimStrength = own.strength;
+      standing = false;
     }
     const batch = new ModelBatch(geometry, this.model.material, 1, true);
     // Heroes and the Weaver drawn at the art pass's scale (as entities.ts draws them).
@@ -334,6 +353,7 @@ export class ArtStudio {
       ring,
       rim: rim.clone(),
       rimStrength,
+      standing,
       hist,
     });
   }
@@ -375,7 +395,20 @@ export class ArtStudio {
         pose?.blow ?? 0,
         pose?.moving ?? 0,
       );
-      f.batch.push(this.compose(f.x, f.z, f.yaw), 0, 0, 0, 0, f.rim, f.rimStrength);
+      f.batch.push(
+        this.compose(f.x, f.z, f.yaw),
+        0,
+        0,
+        0,
+        0,
+        f.rim,
+        f.rimStrength,
+        0,
+        0,
+        0,
+        0,
+        f.standing,
+      );
       this.kit.shadows.push(
         f.x,
         0.015,

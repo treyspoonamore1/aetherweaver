@@ -12,3 +12,11 @@ export const HERO_DRAWN = 1.12;
  * body red. Only the hostile rim: every aura, effect and elite rim is drawn as before.
  */
 export const HOSTILE_EDGE = false;
+
+/**
+ * Another alternative for the owner, off: on, the outline shell carries the two standing rims too
+ * (the rank-and-file hostile rim and the elite's gold), as it carries every event cue, so a foe's
+ * outline is red and an elite's gold. Off (as approved), those two rims are drawn on the body only
+ * and the outline stays dark lead. With HOSTILE_EDGE as well: a red outline with no body wash.
+ */
+export const HOSTILE_OUTLINE = false;

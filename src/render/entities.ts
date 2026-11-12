@@ -54,7 +54,7 @@ import {
   recolorModel,
 } from './models/library';
 import { WEAVER_HANDS } from './models/art/weaver';
-import { HERO_DRAWN, HOSTILE_EDGE } from './models/artFlag';
+import { HERO_DRAWN, HOSTILE_EDGE, HOSTILE_OUTLINE } from './models/artFlag';
 import {
   SEREN_FLASH,
   SEREN_VIOLET,
@@ -1875,6 +1875,9 @@ export class EntityLayer {
     // auras > affix. A possessed hero (Movement III) wears an indigo rim over the Thread's: they
     // are to be saved (Chime), never Focused or Empowered.
     let tintStrength = 0;
+    // The two standing rims (the elite's gold, the rank-and-file hostile rim) are drawn on the body
+    // only, the outline staying lead, unless the owner's HOSTILE_OUTLINE puts them on it too.
+    let standing = false;
     const isHero = e.kind === 'hero';
     const auraMask = e.hero?.auraMask ?? 0;
     if (fermata) {
@@ -1926,6 +1929,7 @@ export class EntityLayer {
     } else if (rec.tier === 'elite') {
       this.tint.copy(C.gold);
       tintStrength = 0.18;
+      standing = !HOSTILE_OUTLINE;
     } else if (isEnemy && rec.role !== 'boss' && rec.role !== 'miniboss' && dissolve < 0.001) {
       // Rank and file: a faint edge in their life bar's red, so a pale chorister or a dark hound
       // stands out from the floor and the pillars before it is hurt (it has no bar till then).
@@ -1934,6 +1938,7 @@ export class EntityLayer {
       tintStrength = HOSTILE_RIM;
       // The edge-only alternative on a stained-glass foe (artFlag.ts; off): negative = edge only.
       if (HOSTILE_EDGE && rec.batch.geometry.getAttribute('aMisc')) tintStrength = -HOSTILE_RIM;
+      standing = !HOSTILE_OUTLINE;
     } else {
       this.tint.copy(BLACK);
     }
@@ -1947,22 +1952,26 @@ export class EntityLayer {
       // Emboldened (Movement III): a mirror shimmer through its rim (never gold).
       this.tint.lerp(MIRROR, 0.55 + 0.3 * Math.sin(clock * 6 + rec.id));
       tintStrength = Math.max(tintStrength, 0.6);
+      standing = false;
     }
     if (isEnemy && rec.frost > 0.01 && e.id !== state.focusTarget && e.id !== frame.hoveredEnemy) {
       // Held by Stasis: a cold, glassy silver-blue edge.
       this.tint.lerp(CHRONO_SILVER, 0.8 * rec.frost);
       tintStrength = Math.max(tintStrength * (1 - 0.4 * rec.frost), 0.42 * rec.frost);
+      standing = false;
     }
     if (riseGlow > 0.01) {
       // Standing back up out of the ash: a cold grave-light at its edges, brightest where the ash
       // is still eating into it (the dissolve's edge takes the rim's colour).
       this.tint.copy(GRAVE);
       tintStrength = 0.2 + 0.5 * riseGlow;
+      standing = false;
     }
     if (rec.chronoFlash > 0.01) {
       // The Chronomancer's moment on this hero: a silver rim flash.
       this.tint.lerp(CHRONO_SILVER, Math.min(1, rec.chronoFlash));
       tintStrength = Math.max(tintStrength, 0.4 + 1.5 * Math.min(1, rec.chronoFlash));
+      standing = false;
     }
     if (rec.kind === 'weaver') {
       // The Martyr: a borne wound flashes her rim crimson; Vigil and Scarred Hide hold one.
@@ -2033,6 +2042,7 @@ export class EntityLayer {
       // Stasis' frost; Slow Dance only cools them a little (no new clutter).
       Math.max(rec.frost, rec.slow * 0.35),
       rec.prism * (1 - desat),
+      standing,
     );
 
     // Blob shadow (fodder has no shadow-map shadow) and selection rings.

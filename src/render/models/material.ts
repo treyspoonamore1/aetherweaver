@@ -216,6 +216,13 @@ export interface ModelMaterial {
   };
 }
 
+/**
+ * A standing rim (the rank-and-file hostile rim, the elite's gold) is pushed with this added to
+ * the size of its strength (ModelBatch `standing`): the body draws it as any rim, the outline shell
+ * does not (artFlag.ts HOSTILE_OUTLINE). No rim is ever this strong of itself.
+ */
+export const RIM_STANDING = 16;
+
 /** Dark lead between panes and round a stained-glass figure; the Weaver's gold came. */
 const LEAD_HEX = '#15131c';
 const CAME_HEX = '#f0c46a';
@@ -406,6 +413,9 @@ if (awGhost > 0.001 && fract(awCut) < awGhost * 0.5) discard;`,
 float awLum = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
 diffuseColor.rgb = mix(diffuseColor.rgb, vec3(awLum) * 0.55, vFx.z);
 float awFrost = vShine.z;
+// The rim's strength, and whether it is a standing rim (RIM_STANDING, ModelBatch \`standing\`).
+bool awStanding = abs(vTint.a) > ${RIM_STANDING / 2}.0;
+float awTintA = awStanding ? vTint.a - sign(vTint.a) * ${RIM_STANDING}.0 : vTint.a;
 // Held in time (Stasis): drained to a cold silver-blue and dimmed, like a figure under glass.
 diffuseColor.rgb = mix(diffuseColor.rgb, awLum * AW_FROST * vec3(0.72, 0.84, 1.0) * 0.62, awFrost * 0.9);
 float awKind = floor(vLead.x + 0.001);
@@ -497,8 +507,8 @@ totalEmissiveRadiance += AW_CRACK * awCrack * 1.5 * (1.0 - awFrost) * (1.0 - vFx
 float awFres = pow(1.0 - clamp(abs(dot(normalize(normal), normalize(vViewPosition))), 0.0, 1.0), 2.2);
 // A negative strength (entities.ts, artFlag.ts HOSTILE_EDGE): the hostile rim kept to the edge,
 // no flat wash. Every other rim (positive) is drawn exactly as before.
-if (vTint.a >= 0.0) totalEmissiveRadiance += vTint.rgb * vTint.a * (0.18 + awFres * 1.9);
-else totalEmissiveRadiance += vTint.rgb * -vTint.a * (0.02 + pow(awFres, 1.6) * 4.0);
+if (awTintA >= 0.0) totalEmissiveRadiance += vTint.rgb * awTintA * (0.18 + awFres * 1.9);
+else totalEmissiveRadiance += vTint.rgb * -awTintA * (0.02 + pow(awFres, 1.6) * 4.0);
 totalEmissiveRadiance += vec3(1.0, 0.97, 0.92) * vFx.x * vFx.x * 1.2;
 totalEmissiveRadiance += vTint.rgb * awEdge * 4.0;
 totalEmissiveRadiance += mix(vec3(1.0, 0.9, 0.6), AW_SILVER, awFrost) * awGhost * 0.9;
@@ -538,7 +548,9 @@ if (vShine.w > 0.001) {
   // Stasis's frost, the Prism's spectral edge and the Luminary's sun. Same colours, same strengths.
   vec3 awShell = mix(AW_LEAD * 0.6, AW_FROST * 0.3, awFrost * 0.8)
     + vec3(1.0, 0.97, 0.92) * vFx.x * vFx.x * 0.8 + vTint.rgb * awEdge * 4.0;
-  awShell += vTint.a >= 0.0 ? vTint.rgb * vTint.a * (0.18 + 1.9) : vTint.rgb * -vTint.a * (0.02 + 4.0);
+  // Not a standing rim: the outline stays lead under the hostile and elite rims (HOSTILE_OUTLINE).
+  if (!awStanding)
+    awShell += awTintA >= 0.0 ? vTint.rgb * awTintA * (0.18 + 1.9) : vTint.rgb * -awTintA * (0.02 + 4.0);
   awShell += mix(vec3(1.0, 0.9, 0.6), AW_SILVER, awFrost) * awGhost * 0.9;
   awShell += AW_FROST * awFrost * (0.04 + 0.5);
   if (vShine.x > 0.001) {
