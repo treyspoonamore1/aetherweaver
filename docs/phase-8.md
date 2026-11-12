@@ -133,3 +133,143 @@ colours a protanope sees, every world is under 3.1:1 both before (2.73:1 at the 
   exactly as before; whether to retune them is the owner's call, per change.
 - Not seen in stills: torch flicker, the tears breathing and the orrery turning on the beat, the
   boss-phase light shifts, a real GPU's glow, and a real screen.
+
+## 8b: the stained-glass figures
+
+*Built on `p8/art-code`, from a first in-code pass the owner called "a decent start", a pushed pass
+the owner approved ("Yes, I like it"), a foundation (the kit, the registry, the guide) and five
+family redraws, integrated here. The guide for anyone who builds or changes a figure is
+`docs/art-style.md`; the roster of every figure, with its family and triangles, `docs/art-roster.md`.*
+
+### What the look is
+
+Every figure a fight draws (6 heroes, the Weaver, 30 enemies, Oro's Sapling and Ancient, the elite
+crown: 41 in all) is built in code as **stained glass**: flat panes of coloured glass held in dark
+lead, the big surfaces cut into irregular panes of slightly different tones, a share of panes lit
+from inside, a dark lead outline round every figure. Signature colours are saturated and faintly
+self-lit. The Weaver alone is leaded in gold (gold means her). The Hollow Choir is porcelain whose
+lead is a web of violet cracks. Silhouettes were designed for the fight's camera first.
+
+The look lives in the model shader (`src/render/models/material.ts`: panes, lead, lit glass,
+cracks, the outline shell, motion), the builder (`models/builder.ts`: pane detection, the outline
+shell, the body layer) and one family file per group of figures in `src/render/models/art/`
+(`heroes`, `weaver`, `choir`, `legion`, `unstitched`, `unweaver`, `finale`, `misc`), merged by a
+registry (`models/art/index.ts`). `models/library.ts` builds every figure through it; the arenas'
+pillars (not figures) are still built there as before. Every figure is still one instanced batch
+and one draw call: no draw calls were added.
+
+Motion is in the vertex shader: a blow plays as anticipation, a strike past rest and a settle;
+cloth trails and flares a beat late; bells swing and ring out; a thrust (Seren) drives out along
+the figure's forward; every walking figure breathes, carries its weight in the walk and twists into
+the strike. A figure's clock stops while it is held, frozen, down or under Reduced motion.
+
+### The owner's decisions
+
+1. The stained-glass look is the game's look; every figure is redrawn in it (done: all 41).
+2. The Bellwarden is the walking bell (the cloaked keeper was dropped).
+3. Heroes and the Weaver are drawn **1.12×** (`HERO_DRAWN`, `models/artFlag.ts`).
+
+### The 1.12, and what stays at content height
+
+The scale is on the model only (`ModelBatch.drawn`): the live figure, its Save and Rewind ghosts
+and its fall grow. Their rings, the song field, reach, footprints, hit shapes, hover and picking,
+and everything in the sim are unchanged. Moved for it: the allied health bars (over the drawn
+head, today's clearance) and the Weaver's ribbons (they leave her hands at 1.12; they are her
+model). **Left at content height on purpose** (aura, ornament and Thread drawing, which this phase
+does not change): the Thread's and the beam song's attach points, the beam swell, the Fermata
+freeze and rim, the aura coverage marks and every over-head mark. On a 1.12 hero the chest anchors
+sit about 6% of the height lower on the figure and over-head marks clear the head by about 0.18 m
+instead of 0.42 m; they still clear it.
+
+### Other choices made in integration
+
+- **The dark worlds.** The figures look the same in every world (no light edge: a pewter outline
+  greyed every signature colour and weakened the rims). Only the darkest cut glass is lifted a
+  little in its own hue on the Spire, the Rift and the Crucible (`models/artWorld.ts`); a part can
+  refuse it (`lift: false`: the Unweaver's void, the Conductor's coat, the Legion's obsidian).
+- **The Unweaver's robe** is `#3c4494`, replacing the landed `riftCloth` (`#5560c0`) **for the
+  Unweaver only**: the landed cloth read as Kael's blue (14.8 ΔE from `#5b8def` at its closest);
+  the new indigo is 28.4 from him and at least 26.9 from every semantic colour. Its hood rim keeps
+  `riftCloth`.
+- **The Unstitched's teal stitches** burn at 0.1, not the landed fray's 1.8: measured as rendered
+  at the game camera, the glowing stitches sat 8 to 10 ΔE from Mend under tritanopia; at 0.1 every
+  stitch pixel in all four worlds is at least 20 from Mend, heal and shield in every vision.
+- **The hostile rim (rule 5)** is unchanged and awaits the owner: today it adds a faint flat red to
+  the whole body as well as its edge, which turns near-black bodies red (the Legion's obsidian, the
+  Unstitched's cloth, the mirror voices' hoods). `HOSTILE_EDGE` (`models/artFlag.ts`, off) keeps it
+  to the silhouette's edge on the stained-glass foes; measured in every colour vision, the edge keeps
+  76 to 90% of today's strength while the body wash falls from about 10 ΔE to 2 to 3. Flipping the
+  constant is the whole change. The gold elite rim washes dark hoods olive in the same way.
+- An enemy id added to content without a figure of its own is drawn as its role's Choir figure
+  until it gets one (as main's builders fell back by role); `tests/renderArt.test.ts` fails until then.
+
+### Budgets and readings
+
+Triangles per figure, outline included (`models/art/kit.ts`): swarm 1,100 (outline on major parts
+only), standard 2,200, elite 3,600, boss 8,000, hero 2,600, the Weaver 3,400. Every figure is within
+its class (`tests/renderArt.test.ts`; the roster lists each).
+
+Readings (the production build, SwiftShader, 1280×720; draw calls and triangles from the game's
+perf readout or the bench's `renderer.info`; heap from `performance.memory`):
+
+| scene | draw calls (peak) | triangles (peak) | JS heap (peak) |
+|---|---|---|---|
+| bench `crowd`: 150 Movement I enemies (main: 30 / 55.3k) | 30 | 276,934 | 28 MB |
+| bench `unweaver` (the Unweaver, Spindles, choristers) | 31 | 80,402 | 28 MB |
+| bench `hounds` (the Matriarch's pack) | 28 | 37,216 | 27 MB |
+| bench `finale` (the Conductor and its choir) | 26 | 31,466 | 27 MB |
+| Movement I: First Light (skirmish) | 33 | 72,124 | 43 MB |
+| Movement I: the Bellwarden / the Hollow Cantor | 27 / 30 | 62,058 / 37,558 | 41 / 42 MB |
+| Movement II: skirmish / the Matriarch / Vharun | 27 / 29 / 27 | 38,040 / 63,942 / 63,084 | 36 / 37 / 43 MB |
+| Movement III: skirmish / the Seamstress / the Unweaver | 31 / 27 / 28 | 68,594 / 30,180 / 59,378 | 39 / 43 / 37 MB |
+| The Finale: the Silent Conductor | 33 | 35,466 | 38 MB |
+
+Every reading is under half of the 600k-triangle limit, and draw calls are where they were (one
+batch per figure). The real fights were seed 4242 Expeditions with Skip the unlocks, the Skilled
+bot playing, sampled through about the first 45 s of each. The JavaScript bundle is 6,437,410 bytes
+(1,904,171 gzipped) against main's 6,353,457 (1,875,314): 84 KB more (29 KB gzipped), and no asset
+files.
+
+### Colour
+
+Every colour written in a family file is checked in `tests/colorVision.test.ts` in every colour
+vision: at least 20 ΔE from heal, Mend, shield and the dome (no body reads as healed or Warded),
+and from the danger, Weaver and status colours (threat, lethal, amp, empower, ailment, gold,
+goldHot, Resonance, the Weaver, discord). The exceptions are named in the test with their reasons:
+pale glass, steel and skin (no pale colour clears the shield, the dome and Resonance); the
+Choir's violet lights and the Bellwarden's windows (the content's crack violet, small lights only);
+shipped trims (Oro's seed, Seren's steel); bronze (dull metal); Kael's steel blue (his signature
+hue); the Rift's bone; the Stolen Verse's orb (always rimmed in its stolen aura's colour); the
+elite crown's gold (the elite's own meaning). Dark browns and blacks near the Martyr's Bear under
+protanopia are not counted: every dark colour collapses together there, and the Bear is a rim,
+never a body.
+
+### Tests
+
+New: `tests/renderArt.test.ts` (every content id has a figure; every figure within budget; the
+same parts for any colours, so robes recolour in place; building takes nothing from the shared
+`Math.random`; gold came on the Weaver only) and the Phase 8b block of `tests/colorVision.test.ts`.
+Re-recorded or rewritten to the new look, their purpose kept: the model entries of
+`renderSpireSnapshot` and `renderRiftSnapshot`, `renderMovement2`'s Movement I models, the starters
+in `renderBrann` and `renderSeren`, the Weaver's colours in `renderKeepsakes` (now read with a pane
+tolerance) and her ribbons in `renderPhase7`. Unchanged and passing: every rule test (heights,
+greyscale separation, colour-vision distances, quadruped gait, distinct bodies, parts counts) and
+`tests/aura` with both pin files.
+
+Found on the way: model building drew three.js ids from the shared `Math.random`, so a model built
+once per process shifted a seeded test's random stream between runs; building now runs on its own
+fixed-seed generator (`models/ownRandom.ts`).
+
+### Known weak, and what stills cannot show
+
+- The Hollow Cantor stands behind the boss panel for the first half minute of its fight, and the
+  Unweaver and the Conductor stand at the top edge of the frame: camera and HUD, not figures
+  (the audit's change 10).
+- At the game camera (about 70 px tall) the panes show as a faint mottle; the leading belongs to
+  close-ups and the line-up.
+- The hostile rim's flat wash on dark bodies (above) until the owner chooses.
+- Crownless is the weakest robe on the Reliquary's floor; Dusk's violet sits near Vexis's.
+- Motion is rigid-part motion in the shader: cloth rotates about pivots and can pass through a
+  body; there is no blending between poses.
+- Stills cannot show whether the motion's timing reads at game speed, whether the per-figure clock
+  looks mechanical across a crowd of 150 choristers, or how the 1.12 feels in play.
