@@ -268,8 +268,8 @@ from lethal under protanopia; Kael's steel #9cb8f2 sat 2.6 from heal. Fixed in t
 
 - The Choir's light is a deep violet (#5242a0, #3c2e86) burning at 0.75 (its windows at 0.55, the
   Glass Lancer's lance #4a44c4). Measured as rendered in the Reliquary line-up (every violet pixel,
-  its nearest of heal, Mend, shield and the dome over the four visions): 5th percentile 1.7 → 17.7
-  ΔE, median 10.2 → 35.4, pixels under 13: 55% → 1.9% (eyes and the Bellwarden's visor slits). It
+  its nearest of heal, Mend, shield and the dome over the four visions): 5th percentile 1.7 → 17.5
+  ΔE, median 10.2 → 36.2, pixels under 13: 55% → 1.7% (eyes and the Bellwarden's visor slits). It
   still reads as the crack violet in normal vision.
 - Bronze #967254: at least 25 ΔE from lethal, threat, amp, Empower and gold in every vision across
   its pane tones.

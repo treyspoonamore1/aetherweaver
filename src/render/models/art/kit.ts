@@ -95,7 +95,7 @@ export const BRONZE_DARK = '#5a3814';
  * The Hollow Choir's light: a deep violet that its glow and the key light lift to a mid violet,
  * the crack violet's family in normal vision. Chosen as rendered: lit, a paler violet read as
  * red-green vision's sky-blue heal and Mend (the first, #b69cff, sat 8 from them). In the
- * Reliquary line-up its lit pixels now sit at least 17.7 ΔE (5th percentile; median 35) from heal,
+ * Reliquary line-up its lit pixels now sit at least 17.5 ΔE (5th percentile; median 36) from heal,
  * Mend, Ward's shield and the dome in every vision. Its bells, eyes, windows and lights burn with
  * it, never amber.
  */
