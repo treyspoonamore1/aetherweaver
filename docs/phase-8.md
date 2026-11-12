@@ -139,7 +139,8 @@ colours a protanope sees, every world is under 3.1:1 both before (2.73:1 at the 
 *Built on `p8/art-code`, from a first in-code pass the owner called "a decent start", a pushed pass
 the owner approved ("Yes, I like it"), a foundation (the kit, the registry, the guide) and five
 family redraws, integrated here. The guide for anyone who builds or changes a figure is
-`docs/art-style.md`; the roster of every figure, with its family and triangles, `docs/art-roster.md`.*
+`docs/art-style.md`; the roster of every figure, with its family and triangles, `docs/art-roster.md`. Landed on main at `4b3cdaf` on 12 November 2026 and in the playable demo from Version 17
+([docs/demo.md](demo.md)).*
 
 ### What the look is
 
