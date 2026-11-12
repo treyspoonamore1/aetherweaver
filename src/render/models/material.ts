@@ -464,6 +464,8 @@ if (awKind > 0.5 && vLead.y < 0.5) {
   awHeart = mix(1.0, smoothstep(0.0, 12.0, awD), awFade);
   if (awLeads) diffuseColor.rgb *= 0.84 + 0.22 * awHeart;
   vec3 awLeadCol = awKind > 3.5 ? AW_BONE : awKind > 1.5 ? AW_CAME * 0.8 : AW_LEAD;
+  // Held in time, the lead frosts with the glass (the whole figure under glass, Stasis's cue).
+  awLeadCol = mix(awLeadCol, AW_FROST * 0.5, awFrost * 0.8);
   diffuseColor.rgb = mix(diffuseColor.rgb, awLeadCol, awLeadMask);
   diffuseColor.rgb = mix(diffuseColor.rgb, AW_CRACK * 0.7, awCrack);
 }`,
@@ -491,7 +493,7 @@ if (abs(vLead.x) > 0.5 && vLead.z > 0.001) {
   totalEmissiveRadiance += awHue * uLift * (1.0 - smoothstep(0.04, 0.3, awAlb))
     * (1.0 - awLeadMask) * (1.0 - awFrost) * (1.0 - vFx.z);
 }
-totalEmissiveRadiance += AW_CRACK * awCrack * 1.5 * (1.0 - awFrost * 0.7) * (1.0 - vFx.z * 0.7);
+totalEmissiveRadiance += AW_CRACK * awCrack * 1.5 * (1.0 - awFrost) * (1.0 - vFx.z * 0.7);
 float awFres = pow(1.0 - clamp(abs(dot(normalize(normal), normalize(vViewPosition))), 0.0, 1.0), 2.2);
 // A negative strength (entities.ts, artFlag.ts HOSTILE_EDGE): the hostile rim kept to the edge,
 // no flat wash. Every other rim (positive) is drawn exactly as before.
@@ -534,7 +536,8 @@ if (vShine.w > 0.001) {
   // body draws it there (its fresnel at 1): the rim tint (aura coverage, Fermata, the beam's
   // swell, the Thread, focus and hover, the hostile and elite rims), the Save and Rewind ghosts,
   // Stasis's frost, the Prism's spectral edge and the Luminary's sun. Same colours, same strengths.
-  vec3 awShell = AW_LEAD * 0.6 + vec3(1.0, 0.97, 0.92) * vFx.x * vFx.x * 0.8 + vTint.rgb * awEdge * 4.0;
+  vec3 awShell = mix(AW_LEAD * 0.6, AW_FROST * 0.3, awFrost * 0.8)
+    + vec3(1.0, 0.97, 0.92) * vFx.x * vFx.x * 0.8 + vTint.rgb * awEdge * 4.0;
   awShell += vTint.a >= 0.0 ? vTint.rgb * vTint.a * (0.18 + 1.9) : vTint.rgb * -vTint.a * (0.02 + 4.0);
   awShell += mix(vec3(1.0, 0.9, 0.6), AW_SILVER, awFrost) * awGhost * 0.9;
   awShell += AW_FROST * awFrost * (0.04 + 0.5);

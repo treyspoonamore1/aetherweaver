@@ -65,10 +65,15 @@ tall at 1280×720), close-ups second.
 - `glaze(cell, share)`: porcelain (`porcelain(def.color)` for the cool white) whose lead is violet
   cracks along `share` of its pane borders. Plain dark cloth under it (a cassock, a hood) stays
   plain and dark: the hostile rim (rule 5) reads on it.
-- The Choir's light is violet (`CHOIR`, `CHOIR_DEEP`), never the content's amber accent: amber on a
-  foe reads as a threat telegraph. Note: the crack violet is the content's own `CRACKS` (#a78bfa),
-  which is also the ailment colour; keep it to thin crack lines and small lights, never a large
-  violet glow.
+- The Choir's light is a deep violet (`CHOIR` #5242a0, `CHOIR_DEEP` #3c2e86) burning at
+  `CHOIR_GLOW` (0.75; window glass 0.55), never the content's amber accent: amber on a foe reads as a
+  threat telegraph. Its glow and the key light lift it to a mid violet on screen; a paler violet
+  (the first, #b69cff) read as red-green vision's sky-blue heal and Mend once lit. Note: the crack
+  violet is the content's own `CRACKS` (#a78bfa), which is also the ailment colour; keep it to thin
+  crack lines and small lights, never a large violet glow.
+- Bronze (`BRONZE` #967254) is a dull warm metal: at least 25 ΔE from lethal, threat, amp, Empower
+  and gold in every vision across its pane tones (the first, #a8742e, sat 8 from lethal under
+  protanopia).
 
 ### The outline
 - A dark lead shell round every part, a constant ~1.6 px on screen. It is the figure's silhouette
@@ -77,8 +82,13 @@ tall at 1280×720), close-ups second.
   elites, bosses), `major` (only parts ≥ 0.14 m: swarms and crowds; about half the outline's cost),
   `none`. A part may opt out with `shell: false` (lights, thin glowing lines, a face's eyes).
 - Open surfaces (`b.arc`, a train or cloak slice) have no shell by design.
-- The outline is lead everywhere: no light or tinted edge in any world (tried on the dark worlds,
-  it greyed every signature colour and weakened the rims).
+- The outline is lead everywhere: no light or tinted edge of its own in any world (tried on the
+  dark worlds, it greyed every signature colour and weakened the rims).
+- The outline is the figure's silhouette, so it carries every cue the body carries there, in the
+  cue's own colour and strength (the body's terms at a fresnel of 1): the rim tint (aura coverage,
+  Fermata, the beam, the Thread, focus and hover, the hostile and elite rims), the Save and Rewind
+  ghosts, Stasis's frost (the lead frosts with the glass), the Prism's edge and the Luminary's sun.
+  A new on-model cue goes into both the body's terms and the shell's (`material.ts`).
 
 ### Colour
 - **Gold means the Weaver.** No gold trim, gold lead or gold light on anyone else. Heroes' trims are
@@ -102,8 +112,18 @@ tall at 1280×720), close-ups second.
   (the studio's `hostile: 'flat' | 'edge' | 'none'`).
 - A glow makes a colour brighter than its hex: measure small lights **as rendered** at the game
   camera, not only their hex (the Unstitched's teal stitches read near Mend at glow 1.8; at 0.1
-  they clear it). `tests/colorVision.test.ts` checks every colour written in a family file in two
-  tiers (Phase 8b) and names each exception: add yours there with its reason.
+  they clear it; the Choir's first violet read as heal once lit).
+- Pane tones spread a colour: a part's panes vary in lightness and hue round its colour (`jit`,
+  default 0.07), and the spread can carry a colour near a signal its hex clears. Trims, rings and
+  lights that must keep an exact colour take `jit: 0` (the Weaver's trim and halo, the elite crown).
+- `tests/figureColors.test.ts` builds every figure and reads its vertex colours back
+  (`tools/figure-colors.ts`): per colour vision and signal (heal, Mend, shield, threat, lethal, amp,
+  Empower, ailment, the dome, gold, goldHot, Resonance, the Weaver, discord), the share of vertices
+  within 10 ΔE is held to the same figure on main (`tests/fixtures/mainFigureColors.json`): lit
+  vertices (glow over 0.5) to main's share + 2 points, unlit ones to main's + 5, and the pale
+  signals (shield, dome, goldHot, Resonance, the Weaver's white) to main's palest figure + 5 (no
+  pale colour clears them all). Its exceptions carry their measured shares and reasons and fail
+  when no longer needed: add yours there, or better, change the colour.
 
 ### Silhouette first, from the fight's camera
 - The camera is high (52°) and far (27 m): a figure is ~60–90 px tall and seen mostly from above
@@ -147,7 +167,14 @@ Wrap parts in `b.rigged({ k: KIND, at: pivot, a }, () => ...)`:
   `BODY` (a body that walks on its own: the walking bell).
 - `figure(size, { body: [hip, span] })`: everything above the hips breathes, sinks and rolls on each
   step, leans back in the anticipation and twists into the strike. Give every walking figure one.
-- A figure's clock stops while it is held, frozen, down or under Reduced motion (entities.ts).
+- A figure's clock stops while it is held, frozen or down (entities.ts). Under Reduced motion the
+  clock stops too, so the idle (breath, sway, the walk's swing) is still; a blow and a wind-up are
+  not on that clock and still play (the arm raised and brought down, the body's twist), on top of
+  the attack lunge main already played under Reduced motion. Whether blows should be stilled too is
+  the owner's call (docs/phase-8.md).
+- Vertex attributes: a figure's draw uses 15 of the 16 WebGL guarantees (`position`, `normal`,
+  `color`, `aGlow`, `aRig`, `aMisc`, `aBary`; per instance `aPose`, `aFx`, `aTint`, `aShine` and
+  `instanceMatrix`'s four). Pack into an existing one (as `aMisc` packs four values) before adding.
 
 ### Budgets (triangles per figure, outline included)
 | size class | budget | outline | who |
@@ -163,6 +190,11 @@ Why these: the 150-enemy bench (5/8 Choristers, 1/8 each Brute, Lamenter, Glass 
 budgets is ≈ 94 × 1,100 + 19 × 3,600 + 38 × 2,200 + party 3 × 2,600 + 3,400 + arena ~15k ≈ 282k,
 under half the 600k limit with every figure redrawn; draw calls do not move (one batch per model).
 Check yours: `__VFX__.artBudgets()` in the lab, or the studio script's `budget` view.
+
+Fragment cost: every cut-glass pixel runs a 3D Voronoi (27 cells, then 27 more for the border), with
+sin-free hashes. The low quality tier (`setModelQuality`, from the tier the game already has) takes
+one pass of 27 and the border from the two nearest centres: the same panes, the lead a little uneven
+in width (`docs/phase-8.md`, 8b).
 
 ## The studio (photographing your work)
 The lab's art studio stands any roster id on a real arena floor under the arena's own light, with
@@ -198,7 +230,8 @@ node tools/art-shoot/shoot.mjs --dist /tmp/art-dist --out /tmp/art-shots \
 
 Views: `close` (`close-<id>.png`), `field` (`field-<world>.png`), `lineup` (`lineup-<world>.png`),
 `pose` (`pose-<id>.png`: a six-frame held attack: wind-up 0.5 and 1, blow 0.26, 0.31, 0.42, 0.7),
-`budget` (`budgets.json`). Pictures are 2560×1440 (1280×720 at device scale 2).
+`budget` (`budgets.json`). Pictures are 2560×1440 (1280×720 at device scale 2). `--quality low`
+shoots at the low quality tier (one-pass panes). A flag with no value is an error.
 
 ## Never touch
 - **Auras and ornaments**: the song field, the beam song on the Thread, the pour, Fermata, Chorus
@@ -222,7 +255,7 @@ Views: `close` (`close-<id>.png`), `field` (`field-<world>.png`), `lineup` (`lin
 4. Hostile rim (rank-and-file foes) still reads; nothing on it is gold or a semantic colour.
 5. Close-up and line-up: panes on the big surfaces, lead round them, a few lit panes, face/eyes.
 6. `pose` strip: anticipation, strike past rest, settle read; cloth and bells follow.
-7. `tests/renderArt.test.ts`, `tests/colorVision.test.ts` and the render and aura tests pass; a
+7. `tests/renderArt.test.ts`, `tests/figureColors.test.ts` and the render and aura tests pass; a
    model pin that fails is your own figure's (re-record its entry, saying why).
 8. Typecheck, lint and prettier clean; nothing outside your family file changed (except its pin
    entries).

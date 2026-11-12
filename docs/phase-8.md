@@ -161,7 +161,9 @@ and one draw call: no draw calls were added.
 Motion is in the vertex shader: a blow plays as anticipation, a strike past rest and a settle;
 cloth trails and flares a beat late; bells swing and ring out; a thrust (Seren) drives out along
 the figure's forward; every walking figure breathes, carries its weight in the walk and twists into
-the strike. A figure's clock stops while it is held, frozen, down or under Reduced motion.
+the strike. A figure's clock stops while it is held, frozen or down, and under Reduced motion,
+which stills the idle (breath, sway, the walk's swing); a blow and a wind-up are not on that clock
+and still play under Reduced motion (see the review, below).
 
 ### The owner's decisions
 
@@ -210,14 +212,15 @@ only), standard 2,200, elite 3,600, boss 8,000, hero 2,600, the Weaver 3,400. Ev
 its class (`tests/renderArt.test.ts`; the roster lists each).
 
 Readings (the production build, SwiftShader, 1280×720; draw calls and triangles from the game's
-perf readout or the bench's `renderer.info`; heap from `performance.memory`):
+perf readout or the bench's `renderer.info`; heap from `performance.memory`; the four bench rows
+re-measured after the review, the real fights before it):
 
 | scene | draw calls (peak) | triangles (peak) | JS heap (peak) |
 |---|---|---|---|
-| bench `crowd`: 150 Movement I enemies (main: 30 / 55.3k) | 30 | 276,934 | 28 MB |
-| bench `unweaver` (the Unweaver, Spindles, choristers) | 31 | 80,402 | 28 MB |
+| bench `crowd`: 150 Movement I enemies (main: 30 / 55.3k) | 30 | 276,936 | 29 MB |
+| bench `unweaver` (the Unweaver, Spindles, choristers) | 31 | 80,378 | 28 MB |
 | bench `hounds` (the Matriarch's pack) | 28 | 37,216 | 27 MB |
-| bench `finale` (the Conductor and its choir) | 26 | 31,466 | 27 MB |
+| bench `finale` (the Conductor and its choir) | 26 | 31,464 | 27 MB |
 | Movement I: First Light (skirmish) | 33 | 72,124 | 43 MB |
 | Movement I: the Bellwarden / the Hollow Cantor | 27 / 30 | 62,058 / 37,558 | 41 / 42 MB |
 | Movement II: skirmish / the Matriarch / Vharun | 27 / 29 / 27 | 38,040 / 63,942 / 63,084 | 36 / 37 / 43 MB |
@@ -226,35 +229,159 @@ perf readout or the bench's `renderer.info`; heap from `performance.memory`):
 
 Every reading is under half of the 600k-triangle limit, and draw calls are where they were (one
 batch per figure). The real fights were seed 4242 Expeditions with Skip the unlocks, the Skilled
-bot playing, sampled through about the first 45 s of each. The JavaScript bundle is 6,437,410 bytes
+bot playing, sampled through about the first 45 s of each. The JavaScript bundle was 6,437,410 bytes
 (1,904,171 gzipped) against main's 6,353,457 (1,875,314): 84 KB more (29 KB gzipped), and no asset
-files.
+files; after the review it is 6,440,952 bytes (3.5 KB more again).
 
 ### Colour
 
-Every colour written in a family file is checked in `tests/colorVision.test.ts` in every colour
-vision: at least 20 ΔE from heal, Mend, shield and the dome (no body reads as healed or Warded),
-and from the danger, Weaver and status colours (threat, lethal, amp, empower, ailment, gold,
-goldHot, Resonance, the Weaver, discord). The exceptions are named in the test with their reasons:
-pale glass, steel and skin (no pale colour clears the shield, the dome and Resonance); the
-Choir's violet lights and the Bellwarden's windows (the content's crack violet, small lights only);
-shipped trims (Oro's seed, Seren's steel); bronze (dull metal); Kael's steel blue (his signature
-hue); the Rift's bone; the Stolen Verse's orb (always rimmed in its stolen aura's colour); the
-elite crown's gold (the elite's own meaning). Dark browns and blacks near the Martyr's Bear under
-protanopia are not counted: every dark colour collapses together there, and the Bear is a rim,
-never a body.
+`tests/figureColors.test.ts` builds every figure (every hero and enemy, the Weaver in her own
+colours and every robe, Oro's summons, the elite crown) and reads its vertex colours back
+(`tools/figure-colors.ts`). Per colour vision and per signal (heal, Mend, shield, threat, lethal,
+amp, Empower, ailment as each vision's palette draws them; the dome, gold, goldHot, Resonance, the
+Weaver and discord) it counts the share of the figure's vertices within 10 ΔE, lit vertices (the
+figure's own light) apart from unlit ones, and holds each figure to the same figure on main
+(`tests/fixtures/mainFigureColors.json`, recorded from main with the same tool): lit to main's
+share + 2 points, unlit to main's + 5, the pale signals (shield, dome, goldHot, Resonance, the
+Weaver's white) to main's palest figure + 5 (every pale colour, porcelain, silver, bone or skin,
+sits within 10 of one of them in some vision; main's figures carry up to 85%). It replaced a test
+of the hex literals in the family files, which missed what the review found: colours lifted by
+their glow, and pane tones spread round a colour whose hex clears.
+
+Its named exceptions, each with its measured share, fail once no longer needed: Kael's silver and
+blade, Vexis's silver, skin and stars, Seren's shipped steel and the Glass Lancer's porcelain
+(content #dbeafe) near the shield and the dome; Lyra's and Vexis's lit glass (their content colours
+lightened: no lightness of either clears every signal by 10); Vexis's robe glass in her content
+violet near tritanopia's ailment; the Unweaver's two points of bone light near Resonance and the
+Weaver's white; the Weaver's gold (hers) and two robes' trims (content colours, exactly as main
+draws them, on rings with more vertices).
+
+### The review (Part C)
+
+An independent review found two must-fix items and some smaller ones; each was checked first.
+
+**Colours near the signals in red-green vision (M1, confirmed).** The Hollow Choir's light #b69cff
+sat 7.9 ΔE from red-green heal and Mend, and lit it read nearer still; bronze's pane tones sat 8.4
+from lethal under protanopia; Kael's steel #9cb8f2 sat 2.6 from heal. Fixed in the colours:
+
+- The Choir's light is a deep violet (#5242a0, #3c2e86) burning at 0.75 (its windows at 0.55, the
+  Glass Lancer's lance #4a44c4). Measured as rendered in the Reliquary line-up (every violet pixel,
+  its nearest of heal, Mend, shield and the dome over the four visions): 5th percentile 1.7 → 17.7
+  ΔE, median 10.2 → 35.4, pixels under 13: 55% → 1.9% (eyes and the Bellwarden's visor slits). It
+  still reads as the crack violet in normal vision.
+- Bronze #967254: at least 25 ΔE from lethal, threat, amp, Empower and gold in every vision across
+  its pane tones.
+- Kael's steel #3668a1 (a true blue; the first fix, an indigo, read violet under the warm key):
+  at least 20 from heal, Mend and shield and 20 from the Unweaver's indigo; his tabard and helm
+  fin a touch lighter than before (0.05, not 0.18), his lit glass half way to white. His nearest
+  vertex to heal or Mend in any vision: main 6.7 ΔE, before 2.6, now 13.6 (his content blue).
+- The Weaver's trim, halo and lights and the elite crown's gold are untoned (`jit: 0`): their exact
+  colours, as main draws them (toned, they drifted toward threat, amp or discord in some vision).
+
+Per figure, the share of vertices near heal or Mend (any vision) that are lit, before → after:
+Chorister 10.0 → 0%, Bell Brute 9.4 → 0, Lamenter 18.9 → 0, Glass Lancer 5.4 → 0, Mute 2.3 → 0,
+Cantor Acolyte 19.1 → 0, Bellwarden 8.9 → 0, Hollow Cantor 16.5 → 0 (main: 0 for all); near lethal
+(unlit, protanopia, bronze): Bell Brute 17.1 → 0, Mute 19.5 → 0, Acolyte 11.0 → 0, Bellwarden 19.5
+→ 0, Hollow Cantor 16.1 → 0. Pictures: `shots/cvfix/` (the Choir line-up and Kael, in normal
+vision, deuteranopia and protanopia, beside each vision's heal, Mend and lethal).
+
+**The outline shell dropped every on-model cue (M2, confirmed).** The shell drew lead, the hit
+flash and the dissolve's edge only, so the outermost pixels of every figure lost the rims. It now
+draws what the body draws at its silhouette (the body's terms at a fresnel of 1): the rim tint
+(aura coverage, Fermata, the beam, the Thread, focus and hover, the hostile and elite rims), the
+Save and Rewind ghosts, Stasis's frost, the Prism's edge and the Luminary's sun, each in its own
+colour and strength; the body's terms are unchanged (with `HOSTILE_EDGE` off, the hostile rim's line
+is main's). Under Stasis the lead (lines and outline) now frosts with the glass, on the figure's
+side. Measured in the VFX lab's real fight (same staging, seed and tick in every build; 1920×1080;
+the cue on against its shader channel off; eight frames a second apart averaged so the rims'
+breathing evens out), mean ΔE over the target figure's pixels / over its outermost 2 px:
+
+| cue | camera | main | before | now |
+|---|---|---|---|---|
+| aura coverage tint | game | 13.04 / 16.73 | 8.0 / 6.87 | 14.8 / 30.55 |
+| aura coverage tint | close | 12.37 / 16.87 | 9.86 / 6.72 | 15.03 / 35.84 |
+| Fermata rim | game | 13.13 / 16.53 | 8.21 / 9.1 | 13.87 / 24.99 |
+| Fermata rim | close | 12.33 / 16.55 | 10.05 / 8.62 | 14.44 / 29.97 |
+| the beam (Thread rim with the beam song) | game | 24.95 / 30.23 | 15.66 / 13.26 | 24.64 / 35.36 |
+| the beam (Thread rim with the beam song) | close | 23.83 / 29.38 | 19.35 / 14.3 | 24.5 / 38.81 |
+| the Thread rim | game | 27.16 / 28.18 | 24.97 / 31.04 | 26.52 / 41.19 |
+| the Thread rim | close | 26.5 / 31.62 | 16.84 / 15.02 | 26.75 / 41.25 |
+| hover | game | 30.51 / 36.41 | 19.25 / 16.33 | 29.17 / 44.81 |
+| hover | close | 29.74 / 36.49 | 23.83 / 16.48 | 30.64 / 53.9 |
+| focus | game | 13.94 / 25.1 | 13.31 / 16.14 | 28.25 / 54.58 |
+| focus | close | 14.07 / 25.17 | 14.66 / 15.56 | 24.26 / 55.79 |
+| Save ghost | game | 17.08 / 16.89 | 16.57 / 16.19 | 14.54 / 14.08 |
+| Save ghost | close | 36.85 / 37.1 | 16.51 / 15.42 | 36.31 / 37.15 |
+| Rewind ghost | game | 16.82 / 16.82 | 18.78 / 18.78 | 18.57 / 18.57 |
+| Rewind ghost | close | 15.39 / 15.39 | 18.98 / 18.98 | 17.71 / 17.71 |
+| Prism edge | game | 4.47 / 5.45 | 0.86 / 0.38 | 8.89 / 21.74 |
+| Prism edge | close | 4.49 / 5.56 | 0.96 / 0.4 | 5.48 / 19.84 |
+| Stasis frost | game | 16.58 / 15.46 | 14.46 / 10.45 | 14.99 / 13.08 |
+| Stasis frost | close | 16.09 / 12.51 | 15.23 / 9.34 | 15.58 / 12.66 |
+| hostile rim | game | 6.53 / 14.1 | 5.82 / 7.07 | 17.85 / 39.29 |
+| hostile rim | close | 6.39 / 13.54 | 6.57 / 7.73 | 14.01 / 40.95 |
+| elite gold rim | game | 7.32 / 14.5 | 7.74 / 7.76 | 24.64 / 47.99 |
+| elite gold rim | close | 7.75 / 14.54 | 9.0 / 8.88 | 19.62 / 49.74 |
+
+Every cue now reads at least as strongly as on main on the figure's outermost pixels, at both
+cameras, except Save's ghost and Stasis's frost at the game camera. Over all the figure's pixels a
+few read a little weaker at the game camera (hover −1.3, the Thread −0.6, the beam −0.3, Save −2.5,
+frost −1.6; frost −0.5 close up): the rims are a fresnel, strongest at the edge, and the branch's figures are larger
+and flatter-faced (1.12, more front-facing surface), so their mean over the figure is lower while
+every edge pixel is stronger. Frost is weaker over a pale figure because white porcelain is already
+near the frost's silver. Tried on the figure's side and kept: the lead frosts (game 14.1 → 15.0,
+outermost 11.9 → 13.1; close up the outermost pixels now match main). Tried and dropped: the glass's own light yielding under a strong rim, a
+ghost or the frost (no measurable change). Not done: strengthening any cue. Pictures:
+`shots/cues/` (a sheet per cue, main, before and now, both cameras) and `shots/cues-overview.png`.
+
+**Smaller items.**
+- W1: the screen derivatives (`fwidth`) are taken once, before the per-part branches.
+- W2 (not as found): the rig does turn the parts, but the figures are flat-shaded, so their light
+  and fresnel come from the moved faces, not the vertex normals; the vertex normal is used only by
+  the shadow's normal bias, which is 0. The rig now turns the normals too, at no cost; the pose
+  pictures with and without it are pixel-identical (`shots/normals/`), shadows included.
+- W4: pillars carry zero-filled `aRig`, `aMisc`, `aBary` (and a zero pose); the arena's floor and
+  walls still read the material's defaults.
+- W5: renderKeepsakes checks that no pane of a robe is within a pane's tone of her own ivory or
+  gold; `TONE` 0.13 → 0.09 (measured: 0.082 at most).
+- W7: documented, not resized: an unknown miniboss is drawn as the Bellwarden at its own size (the
+  other roles' figures size themselves from the radius). Every content id has its own figure.
+- W11: the studio script stops its preview server when it fails to come up and rejects a flag
+  with no value.
+- W12–W14: stale comments about the removed switch and main's builders and paths outside the
+  repository are gone; `LIT_MODEL.riftFrayGlow` is removed; `OUTLINE_OF`, `OUTLINE_MAJOR_RADIUS`,
+  `buildWeaverArt`, `ART_WORLD`, `ArtWorld` and `RIG_VERTEX` are no longer exported.
+- W3: a figure's draw uses 15 of the 16 guaranteed vertex attributes (`docs/art-style.md`).
+- W10, fragment cost: figure pixels are 13.4% of a 1080p frame in the 150-enemy bench (its start,
+  every foe in view) and 7.7% of the canvas in the lab's busy fight (25 foes); the bench's boss
+  scenes 1.3–1.4% in their first seconds. The hashes no longer use `sin`. The game's quality tier
+  now reaches the material: the low tier cuts the panes in one Voronoi pass of 27 cells instead of
+  two (the border from the two nearest centres): the same panes, the lead a little uneven
+  (`shots/w10/panes-high-low.png`). Not measured on a real graphics card.
+- W8, Reduced motion: main played its attack lunge (a step of up to 0.45 m toward the target and a
+  0.12 rad lean) under Reduced motion and had no blow or wind-up on the figure. The branch keeps
+  the lunge and stills the idle, but the rigged blow (the arm raised to 1.75 × its amount and
+  brought down, the body's twist) and the wind-up still play. Behaviour unchanged; the owner
+  decides. Pictures: `shots/marks/reduced-motion-blow.png` (main above, the branch below).
+- W9: the Calling halo now sits below the 1.12 hero's bar (it sat above it), and the Sunrise
+  beam's end lands inside the drawn head. Not moved (aura and ornament drawing). Pictures:
+  `shots/marks/calling-halo-and-bar.png`, `shots/marks/beam-end.png`.
 
 ### Tests
 
 New: `tests/renderArt.test.ts` (every content id has a figure; every figure within budget; the
 same parts for any colours, so robes recolour in place; building takes nothing from the shared
-`Math.random`; gold came on the Weaver only) and the Phase 8b block of `tests/colorVision.test.ts`.
+`Math.random`; gold came on the Weaver only) and `tests/figureColors.test.ts` (above, Colour; it
+replaced the Phase 8b block of `tests/colorVision.test.ts`).
 Re-recorded or rewritten to the new look, their purpose kept: the model entries of
 `renderSpireSnapshot` and `renderRiftSnapshot`, `renderMovement2`'s Movement I models, the starters
 in `renderBrann` and `renderSeren`, the Weaver's colours in `renderKeepsakes` (now read with a pane
 tolerance) and her ribbons in `renderPhase7`. Unchanged and passing: every rule test (heights,
 greyscale separation, colour-vision distances, quadruped gait, distinct bodies, parts counts) and
-`tests/aura` with both pin files.
+`tests/aura` with both pin files. Re-recorded again after the review, and why: the arena
+fingerprints (the model shader's source and the pillars' zero-filled attributes), the eight Hollow
+Choir figures (their light and bronze), Kael (steel, tabard, lit glass), the Weaver (her untoned
+trim), and Brann's and Seren's starter checks (they pin Kael's model). Nothing else moved.
 
 Found on the way: model building drew three.js ids from the shared `Math.random`, so a model built
 once per process shifted a seeded test's random stream between runs; building now runs on its own
@@ -268,6 +395,13 @@ fixed-seed generator (`models/ownRandom.ts`).
 - At the game camera (about 70 px tall) the panes show as a faint mottle; the leading belongs to
   close-ups and the line-up.
 - The hostile rim's flat wash on dark bodies (above) until the owner chooses.
+- With the outline carrying the rims, every rank-and-file foe now has a thin red outline (the
+  hostile rim at the silhouette) and an elite a gold one: the cue as the body draws it at its edge,
+  stronger than main's at the edge (`shots/cues/cue-hostile.png`). The owner may want to see it.
+- Save's ghost and Stasis's frost at the game camera read a little weaker than on main (the review,
+  above); the fragment cost is unmeasured on a real graphics card.
+- Reduced motion still plays the blow and wind-up (above); the Calling halo and the Sunrise beam's
+  end at 1.12 (above): the owner's calls.
 - Crownless is the weakest robe on the Reliquary's floor; Dusk's violet sits near Vexis's.
 - Motion is rigid-part motion in the shader: cloth rotates about pivots and can pass through a
   body; there is no blending between poses.

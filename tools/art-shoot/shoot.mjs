@@ -16,6 +16,7 @@
 //   --extra   JSON merged into every studio spec, e.g. '{"elite":["mirror_alto"]}',
 //             '{"hostile":"edge"}', '{"look":{"robe":"robe_dusk"}}', '{"pose":{"clock":3}}'
 //   --tag     a suffix for every file name (close-<id>-<tag>.png)
+//   --quality low | medium | high: the lab's quality tier (the low tier's one-pass panes)
 //   --port    the preview server's port (default 4471; give each agent its own)
 // Environment: TMPDIR for the browser's profile (put it on a disk with room: a full disk makes
 // page loads fail silently).
@@ -164,6 +165,7 @@ try {
   page.on('pageerror', (e) => log('pageerror:', e.message));
   await page.goto(`${BASE}/?lab=vfx`);
   await page.waitForFunction(() => window.__VFX__ !== undefined, null, { timeout: 300_000 });
+  if (args.quality) await page.evaluate((q) => window.__VFX__.setQuality(q), args.quality);
   await step(page, 2);
   const r = await fitCanvas(page);
   const clip = { x: r.x, y: r.y, width: 1280, height: 720 };
