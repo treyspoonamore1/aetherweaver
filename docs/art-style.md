@@ -28,8 +28,8 @@ tall at 1280×720), close-ups second.
     except a miniboss: the Bellwarden at its own size), and `tests/renderArt.test.ts` fails until then.
 - The model shader (panes, lead, lit glass, cracks, outline, motion): `src/render/models/material.ts`.
   The builder (pane detection, outline shell, body layer): `src/render/models/builder.ts`.
-- `src/render/models/artFlag.ts`: the heroes' and the Weaver's drawn scale (`HERO_DRAWN`, 1.12) and
-  `HOSTILE_EDGE` (see Colour). `src/render/models/artWorld.ts`: the dark worlds' lift.
+- `src/render/models/artFlag.ts`: the heroes' and the Weaver's drawn scale (`HERO_DRAWN`, 1.12),
+  `HOSTILE_EDGE` and `HOSTILE_OUTLINE` (see Colour). `src/render/models/artWorld.ts`: the dark worlds' lift.
 - The roster of every figure, with its family, size class and triangles: `docs/art-roster.md`.
 
 ### The registry's contract (what a family file exports, and nothing else)
@@ -86,9 +86,12 @@ tall at 1280×720), close-ups second.
   dark worlds, it greyed every signature colour and weakened the rims).
 - The outline is the figure's silhouette, so it carries every cue the body carries there, in the
   cue's own colour and strength (the body's terms at a fresnel of 1): the rim tint (aura coverage,
-  Fermata, the beam, the Thread, focus and hover, the hostile and elite rims), the Save and Rewind
-  ghosts, Stasis's frost (the lead frosts with the glass), the Prism's edge and the Luminary's sun.
-  A new on-model cue goes into both the body's terms and the shell's (`material.ts`).
+  Fermata, the beam, the Thread, focus and hover, possession, affixes, the Stolen Verse), the Save
+  and Rewind ghosts, Stasis's frost (the lead frosts with the glass), the Prism's edge and the
+  Luminary's sun. A new on-model cue goes into both the body's terms and the shell's (`material.ts`).
+- Not the two standing rims: the rank-and-file hostile rim and the elite's gold (and its crown's
+  glow) are pushed as standing (`ModelBatch.push`'s `standing`) and stay on the body, the outline
+  dark lead, as approved; `HOSTILE_OUTLINE` (artFlag.ts, off) is the owner's alternative.
 
 ### Colour
 - **Gold means the Weaver.** No gold trim, gold lead or gold light on anyone else. Heroes' trims are
@@ -105,11 +108,13 @@ tall at 1280×720), close-ups second.
 - The hostile rim (rule 5), the aura rims, Mend's rim on the threaded hero, the hover rim and the
   Prism edge are drawn **on the body by the shader**: never cover a foe's silhouette with a bright
   glow that would drown its hostile rim.
-- The hostile rim today adds a faint flat red to the whole body as well as its edge, which turns a
-  near-black body red (the Legion's obsidian, the Unstitched's cloth, the mirror voices' hoods).
-  `HOSTILE_EDGE` (artFlag.ts, off until the owner chooses) keeps it to the silhouette's edge on the
-  stained-glass foes; flipping that one constant is the whole change. Judge dark foes both ways
-  (the studio's `hostile: 'flat' | 'edge' | 'none'`).
+- The hostile rim has three looks, the owner's choice (docs/phase-8.md, 8b): A, landed, as
+  approved: on the body (a faint flat red over the whole body as well as its edge, which turns a
+  near-black body red: the Legion's obsidian, the Unstitched's cloth, the mirror voices' hoods), a
+  dark outline; B (`HOSTILE_EDGE`): red on the body's edge only, a dark outline; C
+  (`HOSTILE_OUTLINE`, with or without `HOSTILE_EDGE`): the outline itself red, and gold on an elite.
+  Both constants are in artFlag.ts and off; flipping one is the whole change. Judge dark foes in
+  every look (the studio's `hostile: 'flat' | 'edge' | 'outline' | 'outline-edge' | 'none'`).
 - A glow makes a colour brighter than its hex: measure small lights **as rendered** at the game
   camera, not only their hex (the Unstitched's teal stitches read near Mend at glow 1.8; at 0.1
   they clear it; the Choir's first violet read as heal once lit).
@@ -215,7 +220,8 @@ is the game's own camera; judge every figure there first. The four worlds: `reli
 puts a rim on a subject (e.g. Mend's `#2dd4bf` at 0.5) to check rims still read.
 
 Studio options beyond the layout: `elite: [ids]` (the gold elite rim and the crown, as the game
-draws an elite), `hostile: 'flat' | 'edge' | 'none'`, `look: { robe, thread }` (the Weaver in a robe
+draws an elite), `hostile: 'flat' | 'edge' | 'outline' | 'outline-edge' | 'none'` (the hostile
+rim's looks), `look: { robe, thread }` (the Weaver in a robe
 or Thread look), `pose` (a held point of the motion), `rim`, `world: false` (no dark-world lift).
 
 The script `tools/art-shoot/shoot.mjs` (one browser per run; give parallel runs their own `--port`,

@@ -196,12 +196,26 @@ instead of 0.42 m; they still clear it.
 - **The Unstitched's teal stitches** burn at 0.1, not the landed fray's 1.8: measured as rendered
   at the game camera, the glowing stitches sat 8 to 10 ΔE from Mend under tritanopia; at 0.1 every
   stitch pixel in all four worlds is at least 20 from Mend, heal and shield in every vision.
-- **The hostile rim (rule 5)** is unchanged and awaits the owner: today it adds a faint flat red to
-  the whole body as well as its edge, which turns near-black bodies red (the Legion's obsidian, the
-  Unstitched's cloth, the mirror voices' hoods). `HOSTILE_EDGE` (`models/artFlag.ts`, off) keeps it
-  to the silhouette's edge on the stained-glass foes; measured in every colour vision, the edge keeps
-  76 to 90% of today's strength while the body wash falls from about 10 ΔE to 2 to 3. Flipping the
-  constant is the whole change. The gold elite rim washes dark hoods olive in the same way.
+- **The hostile rim (rule 5) and the elite's gold: three looks, the owner's choice.** Landed is
+  look A, as approved: the rim on the body (a faint flat red over the whole body as well as its
+  edge, which turns near-black bodies red: the Legion's obsidian, the Unstitched's cloth, the mirror
+  voices' hoods; the gold elite rim washes dark hoods olive the same way) and a dark lead outline.
+  Two constants in `models/artFlag.ts`, both off, build the others: look B, `HOSTILE_EDGE`, the red
+  on the body's edge only, outline dark; look C, `HOSTILE_OUTLINE`, the outline itself red (gold on
+  an elite and its crown), with or without `HOSTILE_EDGE`'s body wash removed. Flipping a constant
+  is the whole change; the studio draws all of them without a rebuild (`hostile: 'flat' | 'edge' |
+  'outline' | 'outline-edge'`). Measured at the game camera over a rank-and-file group with two
+  elites, in the four worlds (the hostile rim against none, 90th percentile ΔE where it acts / the
+  body's median shift; normal vision, then protanopia, where it reads weakest):
+
+  | look | normal: edge / body | protanopia: edge / body |
+  |---|---|---|
+  | A, as approved (landed): on the body, dark outline | 27.5–28.9 / 11.0–12.0 | 9.6–10.5 / 3.9–4.2 |
+  | B, red on the body's edge only, dark outline | 19.1–20.7 / 2.9–3.3 | 7.0–7.6 / 1.0–1.1 |
+  | C, red outline (and the body's rim) | 72.2–74.7 / 18.5–20.0 | 33.5–34.3 / 5.6–6.4 |
+  | C, red outline, no wash (with B) | 85.0–88.5 / 6.2–7.7 | 47.5–48.0 / 2.0–2.3 |
+
+  Pictures: `shots/rim3/looks-<world>.png` and `shots/rim3/looks-close.png`.
 - An enemy id added to content without a figure of its own is drawn as its role's Choir figure
   until it gets one (as main's builders fell back by role); `tests/renderArt.test.ts` fails until then.
 
@@ -290,10 +304,13 @@ vision, deuteranopia and protanopia, beside each vision's heal, Mend and lethal)
 **The outline shell dropped every on-model cue (M2, confirmed).** The shell drew lead, the hit
 flash and the dissolve's edge only, so the outermost pixels of every figure lost the rims. It now
 draws what the body draws at its silhouette (the body's terms at a fresnel of 1): the rim tint
-(aura coverage, Fermata, the beam, the Thread, focus and hover, the hostile and elite rims), the
-Save and Rewind ghosts, Stasis's frost, the Prism's edge and the Luminary's sun, each in its own
-colour and strength; the body's terms are unchanged (with `HOSTILE_EDGE` off, the hostile rim's line
-is main's). Under Stasis the lead (lines and outline) now frosts with the glass, on the figure's
+(aura coverage, Fermata, the beam, the Thread, focus and hover, possession, an affix, the risen,
+the Stolen Verse), the Save and Rewind ghosts, Stasis's frost, the Prism's edge and the Luminary's
+sun, each in its own colour and strength; the body's terms are unchanged (with `HOSTILE_EDGE` off,
+the hostile rim's line is main's). The two standing rims, the rank-and-file hostile rim and the
+elite's gold (with its crown's glow), are not event cues and stay off the outline as approved
+(entities.ts marks them where it chooses them; the shader's outline skips a marked rim; look C
+above puts them back; `tests/renderShellRims.test.ts` pins the default). Under Stasis the lead (lines and outline) now frosts with the glass, on the figure's
 side. Measured in the VFX lab's real fight (same staging, seed and tick in every build; 1920×1080;
 the cue on against its shader channel off; eight frames a second apart averaged so the rims'
 breathing evens out), mean ΔE over the target figure's pixels / over its outermost 2 px:
@@ -320,13 +337,17 @@ breathing evens out), mean ΔE over the target figure's pixels / over its outerm
 | Prism edge | close | 4.49 / 5.56 | 0.96 / 0.4 | 5.48 / 19.84 |
 | Stasis frost | game | 16.58 / 15.46 | 14.46 / 10.45 | 14.99 / 13.08 |
 | Stasis frost | close | 16.09 / 12.51 | 15.23 / 9.34 | 15.58 / 12.66 |
-| hostile rim | game | 6.53 / 14.1 | 5.82 / 7.07 | 17.85 / 39.29 |
-| hostile rim | close | 6.39 / 13.54 | 6.57 / 7.73 | 14.01 / 40.95 |
-| elite gold rim | game | 7.32 / 14.5 | 7.74 / 7.76 | 24.64 / 47.99 |
-| elite gold rim | close | 7.75 / 14.54 | 9.0 / 8.88 | 19.62 / 49.74 |
+| hostile rim (look A) | game | 6.53 / 14.1 | 5.82 / 7.07 | 6.04 / 7.2 |
+| hostile rim (look A) | close | 6.39 / 13.54 | 6.57 / 7.73 | 6.79 / 7.91 |
+| elite gold rim (look A) | game | 7.31 / 14.55 | 7.74 / 7.76 | 8.19 / 8.25 |
+| elite gold rim (look A) | close | 7.72 / 14.81 | 9.0 / 8.88 | 9.55 / 9.41 |
 
-Every cue now reads at least as strongly as on main on the figure's outermost pixels, at both
-cameras, except Save's ghost and Stasis's frost at the game camera. Over all the figure's pixels a
+Every event cue now reads at least as strongly as on main on the figure's outermost pixels, at both
+cameras, except Save's ghost and Stasis's frost at the game camera; focus reads about twice as
+strong as on main (28.3 against 13.9 at the game camera). The hostile and elite rows are look A,
+landed (above): the standing rims stay off the outline as approved, so at the edge they read as
+they did before the review, weaker than main's, whose figures had no outline; with look C the
+outline carries them (hostile 17.9 / 39.3, elite 24.6 / 48.0 at the game camera). Over all the figure's pixels a
 few read a little weaker at the game camera (hover −1.3, the Thread −0.6, the beam −0.3, Save −2.5,
 frost −1.6; frost −0.5 close up): the rims are a fresnel, strongest at the edge, and the branch's figures are larger
 and flatter-faced (1.12, more front-facing surface), so their mean over the figure is lower while
@@ -396,12 +417,11 @@ fixed-seed generator (`models/ownRandom.ts`).
   (the audit's change 10).
 - At the game camera (about 70 px tall) the panes show as a faint mottle; the leading belongs to
   close-ups and the line-up.
-- The hostile rim's flat wash on dark bodies (above) until the owner chooses.
-- With the outline carrying the rims, every rank-and-file foe now has a thin red outline (the
-  hostile rim at the silhouette) and an elite a gold one: the cue as the body draws it at its edge,
-  stronger than main's at the edge (`shots/cues/cue-hostile.png`). The owner may want to see it.
-- Save's ghost and Stasis's frost at the game camera read a little weaker than on main (the review,
-  above); the fragment cost is unmeasured on a real graphics card.
+- Focus reads about twice as strong as on main (28.3 against 13.9 ΔE over the figure at the game
+  camera), the outline carrying it; Save's ghost and Stasis's frost read a little weaker than on main
+  at the game camera (14.5 against 17.1, and 15.0 against 16.6). The fragment cost is unmeasured on
+  a real graphics card.
+- The hostile rim's look (A, B or C above) is the owner's call; A is landed.
 - Reduced motion still plays the blow and wind-up (above); the Calling halo and the Sunrise beam's
   end at 1.12 (above): the owner's calls.
 - Crownless is the weakest robe on the Reliquary's floor; Dusk's violet sits near Vexis's.
