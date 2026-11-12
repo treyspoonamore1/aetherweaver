@@ -649,7 +649,7 @@ Every new option starts at "not set", which plays exactly as Version 14 did. Ope
 
 ## Version 17: the figures in stained glass
 
-*For testers.* Version 17 is the second piece of the visual pass ([docs/phase-8.md](phase-8.md), section 8b; the style is in [docs/art-style.md](art-style.md) and the figures in [docs/art-roster.md](art-roster.md)). **Every figure in a fight is redrawn**: the six heroes, the Weaver and her five robes, the summons, all 27 enemies and every boss, as leaded stained glass with a dark outline. **No fight, number, reach, ring, aura or ornament is different from Version 16**, and a save or a replay from Version 16 works as it did.
+*For testers.* Version 17 is the second piece of the visual pass ([docs/phase-8.md](phase-8.md), section 8b; the style is in [docs/art-style.md](art-style.md) and the figures in [docs/art-roster.md](art-roster.md)). **Every figure in a fight is redrawn**: the six heroes, the Weaver and her five robes, the two summons and all 30 enemies, bosses included, as leaded stained glass with a dark outline. **No fight, number, reach, ring, aura or ornament is different from Version 16**, and a save or a replay from Version 16 works as it did.
 
 - **Where to look:** any fight. The heroes and the Weaver are drawn 12% larger than before (their rings, reach and hit areas are unchanged; enemies are the size they were). Figures now move: a breathing idle, a stride, a wind-up and a blow.
 - **The families:** the Hollow Choir is cracked porcelain with violet light inside and bronze bells; the Crimson Legion is obsidian plate with red glass; the Unstitched are indigo cloth with teal stitches; the Finale's mirror voices are pale robes under dark hoods. The Bellwarden is a walking bell.
