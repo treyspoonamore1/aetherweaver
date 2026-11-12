@@ -49,16 +49,18 @@ for (const [family, art] of Object.entries(FAMILIES)) {
   }
 }
 
-/** A hero's redrawn model, or null (main's builder then draws it). */
+/** A hero's stained-glass model, or null (an id with none: library.ts throws). */
 export function artHero(def: HeroDef): THREE.BufferGeometry | null {
   return heroes.get(def.id)?.(def) ?? null;
 }
 
 /**
  * Each role's figure for an enemy id with no model of its own (a content id added before its
- * figure): Movement I's, whose roles define the silhouettes (rule 2). Every content id has its own
- * (tests/renderArt.test.ts); the role tests (renderMovement2/3, renderFinale) build an unknown id to
- * check that no figure is merely its role's.
+ * figure): Movement I's, whose roles define the silhouettes (rule 2), in the id's own colours. The
+ * rank-and-file figures and the Hollow Cantor (boss) size themselves from the definition's radius;
+ * the Bellwarden (miniboss) is drawn at its own size whatever the definition says (a stand-in, not
+ * a figure: every content id has its own, tests/renderArt.test.ts). The role tests
+ * (renderMovement2/3, renderFinale) build an unknown id to check that no figure is merely its role's.
  */
 const ROLE_FIGURE: Record<string, string> = {
   swarm: 'hollow_chorister',
@@ -71,7 +73,7 @@ const ROLE_FIGURE: Record<string, string> = {
   boss: 'the_hollow_cantor',
 };
 
-/** An enemy's model: its own by id, else its role's figure (in its own colours and size), or null. */
+/** An enemy's model: its own by id, else its role's figure (ROLE_FIGURE), or null. */
 export function artEnemy(def: EnemyDef): THREE.BufferGeometry | null {
   const own = enemies.get(def.id);
   if (own) return own(def);

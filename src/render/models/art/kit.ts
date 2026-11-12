@@ -221,7 +221,7 @@ export const BUDGET: Record<SizeClass, number> = {
   weaver: 3400,
 };
 /** The outline each size class gets by default (swarms and crowds: the cheaper `major`). */
-export const OUTLINE_OF: Record<SizeClass, Outline> = {
+const OUTLINE_OF: Record<SizeClass, Outline> = {
   swarm: 'major',
   standard: 'full',
   elite: 'full',
@@ -247,7 +247,8 @@ export function figure(
 /**
  * What a family file exports (as `ART`), read by the registry (art/index.ts): builders by hero id,
  * by enemy id, the Weaver's, and the few other figures a fight draws (Oro's summons, the elite
- * crown). Only what a family has redrawn: anything missing falls back to main's builder.
+ * crown). Only what a family draws: a hero or single figure missing from every family is an error
+ * (library.ts); an enemy id with none takes its role's figure (index.ts).
  */
 export interface ArtFamily {
   heroes?: Record<string, (def: HeroDef) => THREE.BufferGeometry>;

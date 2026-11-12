@@ -88,7 +88,20 @@ export function buildCrown(): THREE.BufferGeometry {
   return artCrown() ?? missing('the elite crown');
 }
 
-// ── The arenas' pillars (not figures: main's builders, unchanged) ─────────────────────────
+/**
+ * A pillar is drawn with the figures' material but is no figure: it carries the art pass's
+ * attributes zero-filled (no rig, no lead, no panes; ModelBatch gives it a zero pose), so no draw
+ * depends on the material's defaults for a missing attribute.
+ */
+function plain(g: THREE.BufferGeometry): THREE.BufferGeometry {
+  const n = g.getAttribute('position').count;
+  g.setAttribute('aRig', new THREE.BufferAttribute(new Float32Array(n * 4), 4));
+  g.setAttribute('aMisc', new THREE.BufferAttribute(new Float32Array(n * 4), 4));
+  g.setAttribute('aBary', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  return g;
+}
+
+// ── The arenas' pillars (not figures: main's shapes) ─────────────────────────────────────
 
 /** A large pillar for arena obstacles (unit radius, height 1 — scaled). */
 export function buildPillar(stone: string, trim: string): THREE.BufferGeometry {
@@ -99,7 +112,7 @@ export function buildPillar(stone: string, trim: string): THREE.BufferGeometry {
   b.cyl(0.9, 0.92, 0.5, shade(stone, -0.05), { p: [0.05, 3.05, 0], r: [0.1, 0, 0.08] }, 8);
   b.torus(1.0, 0.05, trim, { p: [0, 0.5, 0], r: [Math.PI / 2, 0, 0], glow: 0.5 }, Math.PI * 2, 16);
   b.box(0.08, 1.2, 0.05, trim, { p: [0, 1.6, -0.95], glow: 0.6 });
-  return b.build();
+  return plain(b.build());
 }
 
 /**
@@ -126,7 +139,7 @@ export function buildSpirePillar(
     );
   }
   b.box(0.1, 1.2, 0.05, inlay, { p: [0, 1.35, -0.92], glow: 0.25 });
-  return b.build();
+  return plain(b.build());
 }
 
 /**
@@ -155,7 +168,7 @@ export function buildRiftPillar(stone: string, bone: string, cloth: string): THR
     });
   }
   b.box(1.46, 0.35, 1.16, cloth, { p: [0, 0.55, 0], r: [0, 0.2, 0] });
-  return b.build();
+  return plain(b.build());
 }
 
 /**
@@ -174,5 +187,5 @@ export function buildCruciblePillar(
   for (const y of [0.6, 1.8, 3.0])
     b.torus(0.78, 0.04, line, { p: [0, y, 0], r: [Math.PI / 2, 0, 0], glow: 0.15 }, Math.PI * 2, 6);
   b.octa(0.55, glass, { p: [0, 3.65, 0], s: [0.8, 1.4, 0.8], glow: 0.2 });
-  return b.build();
+  return plain(b.build());
 }

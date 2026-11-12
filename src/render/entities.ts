@@ -870,7 +870,7 @@ export class EntityLayer {
         () => buildWeaver(weaverPalette(this.look, currentVision())),
         16,
       );
-      // Art pass: drawn 1.12× (the model only; HERO_DRAWN is 1 while it is off).
+      // Drawn 1.12× (the model only; artFlag.ts HERO_DRAWN).
       batch.drawn = HERO_DRAWN;
       this.weaverId = e.id;
     } else if (e.hero) {

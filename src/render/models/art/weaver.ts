@@ -26,7 +26,7 @@ export const WEAVER_HANDS = { side: 0.39, forward: 0.26, y: 0.9 } as const;
  * leaded in gold, wide sleeves, a corded belt, a halo above the hood, the threads leaving her
  * hands. Every palette builds the same parts in the same order (`recolorModel`).
  */
-export function buildWeaverArt(palette: Readonly<WeaverPalette>): THREE.BufferGeometry {
+function buildWeaverArt(palette: Readonly<WeaverPalette>): THREE.BufferGeometry {
   const b = figure('weaver', { body: [0.85, 0.7] });
   const body = palette.body;
   const trim = palette.trim;

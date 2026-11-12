@@ -156,12 +156,16 @@ describe('robes on the Weaver', () => {
     const b = new THREE.Color(hex);
     return Math.hypot(a.r - b.r, a.g - b.g, a.b - b.b);
   };
-  /** A pane's tone stays within this (linear RGB) of its palette colour. */
-  const TONE = 0.13;
-  const nearShare = (g: THREE.BufferGeometry, hex: string) => {
+  /**
+   * A pane's tone stays within this (linear RGB) of its palette colour (measured: 0.082 at most;
+   * her trim, halo and lights are untoned).
+   */
+  const TONE = 0.09;
+  const shareWithin = (g: THREE.BufferGeometry, hex: string, r: number) => {
     const v = glassOf(g);
-    return v.filter((x) => dist(x.c, hex) < 0.08).length / v.length;
+    return v.filter((x) => dist(x.c, hex) < r).length / v.length;
   };
+  const nearShare = (g: THREE.BufferGeometry, hex: string) => shareWithin(g, hex, 0.08);
   const litNearOnly = (g: THREE.BufferGeometry, hexes: string[]) =>
     glassOf(g)
       .filter((x) => x.glow > 0.5)
@@ -200,10 +204,10 @@ describe('robes on the Weaver', () => {
       const c = robe.colors;
       for (const hex of [c.body, c.trim, c.glow])
         expect(nearShare(geometry, hex), `${robe.id} ${hex}`).toBeGreaterThan(0.05);
-      // Nothing of her own ivory and gold is left but her hands (her Thread's).
-      const seen = vertexColors(geometry);
-      expect(seen, robe.id).not.toContain(OWN_PALETTE.body);
-      expect(seen, robe.id).not.toContain(OWN_PALETTE.trim);
+      // Nothing of her own ivory and gold is left but her hands (her Thread's): no pane within a
+      // pane's tone of either.
+      expect(shareWithin(geometry, OWN_PALETTE.body, TONE), robe.id).toBe(0);
+      expect(shareWithin(geometry, OWN_PALETTE.trim, TONE), robe.id).toBe(0);
       expect(nearShare(geometry, OWN_PALETTE.hand), robe.id).toBeGreaterThan(0);
       // The sash and hem glow in the trim, the halo in the glow, her hands in theirs: no other light.
       expect(litNearOnly(geometry, [c.trim, c.glow, OWN_PALETTE.hand]), robe.id).toBe(true);

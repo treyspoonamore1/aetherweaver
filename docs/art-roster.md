@@ -99,8 +99,8 @@ vines and seeds (sprites and rings).
 - **41 figures**: 6 heroes, the Weaver (her 5 robes and 4 Thread looks recolour her model in place),
   30 enemies (4 bosses, 3 minibosses, 23 rank-and-file), 2 summons, the elite crown, the lab's dummy.
 - **All 41 drawn in stained glass** (Phase 8b). An enemy id added to content without a figure of its
-  own falls back to its role's Choir figure (`models/art/index.ts`), and `renderArt` fails until it
-  has one.
+  own is drawn as its role's Choir figure (`models/art/index.ts`: its colours, sized from its
+  radius, except a miniboss's Bellwarden at its own size), and `renderArt` fails until it has one.
 
 ## Who drew what (Phase 8b)
 | family file | figures |

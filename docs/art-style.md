@@ -17,14 +17,15 @@ tall at 1280×720), close-ups second.
 
 ## Where the code is
 - `src/render/models/art/` holds every figure the game draws (Phase 8b: the stained glass is the
-  game; there is no switch and no older figure to fall back to).
+  game; there is no switch and none of main's older figures is left).
   - `kit.ts`: the shared helpers and constants every figure uses (read its doc comment first).
   - One **family file** per group of figures, each exporting `ART`:
     `heroes.ts`, `weaver.ts`, `choir.ts` (Movement I), `legion.ts` (II), `unstitched.ts` (III),
     `unweaver.ts` (III's boss), `finale.ts`, `misc.ts` (summons, the elite crown).
   - `index.ts`: the registry. It merges every family's `ART`; `library.ts` builds every figure
     through it. An enemy id with no figure of its own (a content id added before its figure) is
-    drawn as its role's Choir figure until it gets one, and `tests/renderArt.test.ts` fails until then.
+    drawn as its role's Choir figure until it gets one (in its own colours, sized from its radius,
+    except a miniboss: the Bellwarden at its own size), and `tests/renderArt.test.ts` fails until then.
 - The model shader (panes, lead, lit glass, cracks, outline, motion): `src/render/models/material.ts`.
   The builder (pane detection, outline shell, body layer): `src/render/models/builder.ts`.
 - `src/render/models/artFlag.ts`: the heroes' and the Weaver's drawn scale (`HERO_DRAWN`, 1.12) and
@@ -37,7 +38,8 @@ tall at 1280×720), close-ups second.
 3. `ART.weaver(palette)`, `ART.sapling(moss)`, `ART.ancient(moss)`, `ART.crown()` for those figures.
 4. Each builder starts from `figure(sizeClass, { body })` and returns `b.build()`; it must build the
    same parts in the same order for any colours (the Weaver's robes recolour in place).
-5. An id claimed twice is an error when the registry loads; anything not in an `ART` is main's.
+5. An id claimed twice is an error when the registry loads; a hero or single figure in no `ART` is
+   an error when built, an enemy id in none takes its role's figure (above).
 
 ## Rules for building a figure
 

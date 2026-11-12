@@ -172,7 +172,7 @@ const tmpScale = new THREE.Vector3();
  */
 export type Outline = 'full' | 'major' | 'none';
 /** Under `major`, parts at least this big (bounding radius, m) keep their outline. */
-export const OUTLINE_MAJOR_RADIUS = 0.14;
+const OUTLINE_MAJOR_RADIUS = 0.14;
 
 export class ModelBuilder {
   private readonly parts: Part[] = [];
@@ -410,8 +410,8 @@ export class ModelBuilder {
   }
 
   build(): THREE.BufferGeometry {
-    // A plain model (the arena, every figure the art pass has not redrawn) is built exactly as
-    // main builds it, on or off; only a `glass` builder carries the art pass's attributes.
+    // A plain model (the arena's pieces) carries no art attributes; a `glass` builder (every
+    // figure, models/art) carries them.
     if (!this.glass) return ownRandom(() => this.buildPlain());
     return ownRandom(() => this.buildGlass());
   }

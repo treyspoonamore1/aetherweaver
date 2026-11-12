@@ -28,8 +28,13 @@ import { chromium } from 'playwright';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const args = {};
-for (let i = 2; i < process.argv.length; i += 2)
-  args[process.argv[i].replace(/^--/, '')] = process.argv[i + 1];
+for (let i = 2; i < process.argv.length; i += 2) {
+  const flag = process.argv[i];
+  const value = process.argv[i + 1];
+  if (!flag.startsWith('--')) throw new Error(`expected a --flag, got ${flag}`);
+  if (value === undefined || value.startsWith('--')) throw new Error(`${flag} needs a value`);
+  args[flag.slice(2)] = value;
+}
 const dist = args.dist && resolve(args.dist);
 const out = args.out && resolve(args.out);
 if (!dist || !out)
@@ -81,6 +86,12 @@ async function serve() {
   for (let i = 0; i < 120; i++) {
     if (await up()) return p;
     await wait(500);
+  }
+  // Never leave a server behind: it would hold the port for the next run.
+  try {
+    process.kill(-p.pid, 'SIGTERM');
+  } catch {
+    // already gone
   }
   throw new Error('preview did not come up');
 }

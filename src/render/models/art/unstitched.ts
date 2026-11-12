@@ -27,7 +27,7 @@ import {
  * and the colours (below). Every cloth part is cut glass or carries a faint light of its own: a
  * plain dark part takes the hostile rim's red over its whole face and reads plum. The stitches are
  * the landed teal fray (`LIT_MODEL.riftFray`, ≥ 20 ΔE from Mend in every vision), small and thin,
- * never a field of teal. Colours measured in /home/user/aw-work/8/w4/notes.md.
+ * never a field of teal. Colours measured against the signals: tests/figureColors.test.ts.
  */
 
 // ── The family's base ─────────────────────────────────────────────────────────────────

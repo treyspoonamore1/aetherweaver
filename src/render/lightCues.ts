@@ -139,7 +139,6 @@ export const LIT_MODEL = {
   riftCloth: '#5560c0',
   // ABYSS_HEX.fray's dark teal (measured ≥ 20 ΔE from Mend in every vision), made to glow.
   riftFray: '#176762',
-  riftFrayGlow: 1.8,
   conductorRobe: '#b4b098',
   conductorDark: '#18161f',
   conductorHaloGlow: 0.75,
