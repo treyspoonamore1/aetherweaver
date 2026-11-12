@@ -18,7 +18,7 @@ import {
   buildSapling,
   buildWeaver,
 } from '../models/library';
-import { createModelMaterial, type ModelMaterial } from '../models/material';
+import { createModelMaterial, setModelQuality, type ModelMaterial } from '../models/material';
 import { C, applyVision, color } from '../palette';
 import type { QualityTier, Stage } from '../stage';
 
@@ -352,6 +352,7 @@ export class ArtStudio {
     camera.lookAt(this.target);
     camera.updateMatrixWorld();
     this.model.uniforms.uTime.value = time;
+    setModelQuality(this.model, quality);
     this.kit.begin(time, camera.position);
     this.crown?.begin();
     for (const f of this.figures) {

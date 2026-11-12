@@ -34,7 +34,7 @@ import { MartyrView } from './martyr';
 import { PostludeView } from './postlude';
 import { postludeOf, postludeSky } from './postludeCues';
 import { RING } from './fx/rings';
-import { createModelMaterial, type ModelMaterial } from './models/material';
+import { createModelMaterial, setModelQuality, type ModelMaterial } from './models/material';
 import { Overlay } from './overlay';
 import { C, applyVision } from './palette';
 import { RelicView } from './relics';
@@ -316,6 +316,7 @@ export class CombatView implements WorldView {
     this.quality = quality;
     this.kit.setQuality(quality);
     this.entities.setShadows(quality !== 'low');
+    setModelQuality(this.model, quality);
   }
 
   private offscreen(state: WorldState): void {
