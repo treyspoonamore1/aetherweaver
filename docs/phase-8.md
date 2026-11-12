@@ -258,7 +258,9 @@ draws them, on rings with more vertices).
 
 ### The review (Part C)
 
-An independent review found two must-fix items and some smaller ones; each was checked first.
+An independent review found two must-fix items and some smaller ones; each was checked first. The
+pictures named below (`shots/…`) went with the integration's report; they are not in the
+repository.
 
 **Colours near the signals in red-green vision (M1, confirmed).** The Hollow Choir's light #b69cff
 sat 7.9 ΔE from red-green heal and Mend, and lit it read nearer still; bronze's pane tones sat 8.4
