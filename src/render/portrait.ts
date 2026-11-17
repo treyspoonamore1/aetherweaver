@@ -131,6 +131,8 @@ export function portraitMovement(subject: Pick<PortraitSubject, 'kind' | 'id'>):
 
 /** The camera's distance (m): far enough that the outline's width is even across a boss. */
 const DISTANCE = 60;
+/** The longest `prepare` waits for the shader (ms). */
+const PREPARE_MS = 8000;
 
 /**
  * A small renderer that draws portraits. Open one with `openPortraitStudio` (null where WebGL is
@@ -194,10 +196,40 @@ export class PortraitStudio {
   /** One subject as a PNG data URL (transparent round the figure), or null if the context is lost. */
   draw(subject: PortraitSubject): string | null {
     if (this.contextLost) return null;
-    return ownRandom(() => this.drawOwn(subject));
+    return ownRandom(() => {
+      const batch = this.stage(subject);
+      this.renderer.render(this.scene, this.camera);
+      this.lastCalls = this.renderer.info.render.calls;
+      this.lastTriangles = this.renderer.info.render.triangles;
+      const url = this.contextLost ? null : this.canvas.toDataURL('image/png');
+      batch.dispose();
+      if (url) this.drawn++;
+      return url;
+    });
   }
 
-  private drawOwn(subject: PortraitSubject): string | null {
+  /**
+   * Compiles the figures' shader before the first picture, without holding the page still where
+   * the browser can compile in the background (KHR_parallel_shader_compile); elsewhere, and after
+   * `PREPARE_MS` at most, the first `draw` compiles it as it always would.
+   */
+  async prepare(subject: PortraitSubject): Promise<void> {
+    if (this.contextLost) return;
+    const batch = ownRandom(() => this.stage(subject));
+    try {
+      await Promise.race([
+        this.renderer.compileAsync(this.scene, this.camera),
+        new Promise((resolve) => setTimeout(resolve, PREPARE_MS)),
+      ]);
+    } catch {
+      // The first draw will say what is wrong (a lost context: null).
+    } finally {
+      batch.dispose();
+    }
+  }
+
+  /** Builds the subject, lights it and frames it: the scene as its picture is taken. */
+  private stage(subject: PortraitSubject): ModelBatch {
     let geometry: THREE.BufferGeometry;
     let scale = 1;
     let rimStrength = 0;
@@ -262,13 +294,7 @@ export class PortraitStudio {
       true,
     );
     batch.end();
-    this.renderer.render(this.scene, camera);
-    this.lastCalls = this.renderer.info.render.calls;
-    this.lastTriangles = this.renderer.info.render.triangles;
-    const url = this.contextLost ? null : this.canvas.toDataURL('image/png');
-    batch.dispose();
-    if (url) this.drawn++;
-    return url;
+    return batch;
   }
 
   /** Frees everything and gives the WebGL context back at once. */

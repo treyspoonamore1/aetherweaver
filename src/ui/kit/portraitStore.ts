@@ -43,7 +43,17 @@ const listeners = new Set<() => void>();
 let failed = false;
 let blocked = false;
 let running = false;
-const stats = { drawn: 0, bytes: 0, ms: 0, sessions: 0, calls: 0, triangles: 0, loadMs: 0 };
+const stats = {
+  drawn: 0,
+  bytes: 0,
+  ms: 0,
+  sessions: 0,
+  calls: 0,
+  triangles: 0,
+  loadMs: 0,
+  prepareMs: 0,
+  firstMs: 0,
+};
 
 function notify(): void {
   for (const l of [...listeners]) l();
@@ -108,11 +118,9 @@ export function portraitState(subject: PortraitSubject): PortraitState {
 /** The next picture to draw: what is on screen first, then what was asked for later. */
 function next(): Wanted | null {
   for (const [key, want] of shown) if (!images.has(key)) return { key, subject: want.subject };
-  while (later.length > 0) {
-    const want = later.shift()!;
-    if (!images.has(want.key)) return want;
-  }
-  return null;
+  // (Left in the list until its picture is held: asking twice gives the same answer.)
+  while (later.length > 0 && images.has(later[0]!.key)) later.shift();
+  return later[0] ?? null;
 }
 
 /** Whether a fight is on screen: if so nothing is drawn, and what was asked for is let go. */
@@ -167,7 +175,13 @@ export function showPortrait(subject: PortraitSubject): () => void {
 }
 
 const now = (): number => (typeof performance === 'undefined' ? Date.now() : performance.now());
-const breathe = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+/** The browser's turn: a frame painted where there are frames (none while the page is hidden). */
+const breathe = (): Promise<void> =>
+  new Promise((resolve) => {
+    if (typeof requestAnimationFrame === 'function' && document.visibilityState !== 'hidden')
+      requestAnimationFrame(() => setTimeout(resolve, 0));
+    else setTimeout(resolve, 0);
+  });
 
 async function run(): Promise<void> {
   if (running) return;
@@ -178,6 +192,9 @@ async function run(): Promise<void> {
   try {
     const mod = await import('../../render/portrait');
     stats.loadMs = now() - started;
+    // The page that asked is painted first: the first picture may hold the browser a moment
+    // (the figures' shader, where it cannot be compiled in the background).
+    await breathe();
     let want = standDown() ? null : next();
     if (!want) return;
     studio = mod.openPortraitStudio(PORTRAIT_PX);
@@ -186,10 +203,15 @@ async function run(): Promise<void> {
       return;
     }
     stats.sessions++;
+    const preparing = now();
+    await studio.prepare(want.subject);
+    stats.prepareMs = now() - preparing;
+    want = standDown() ? null : next();
     while (want) {
       const sliceStart = now();
       while (want) {
         const src = studio.draw(want.subject);
+        if (drawnHere === 0) stats.firstMs = now() - sliceStart;
         if (src === null) {
           // The context was lost: keep what is drawn, show the rest as before portraits.
           failed = true;
@@ -200,7 +222,8 @@ async function run(): Promise<void> {
         stats.calls = studio.lastCalls;
         stats.triangles = studio.lastTriangles;
         if (now() - sliceStart >= SLICE_MS) break;
-        want = next();
+        // Before every picture: nothing is drawn once a fight's canvas is on screen.
+        want = standDown() ? null : next();
       }
       stats.ms += now() - sliceStart;
       notify();
@@ -249,7 +272,8 @@ function mark(started: number, drawn: number): void {
 /**
  * The measurements: pictures drawn and held, their size as held (characters of PNG data URL, one
  * byte each), the time spent drawing (ms, building each model included), studios opened, the
- * time the drawing code took to load (ms), and the last picture's draw calls and triangles.
+ * time the drawing code took to load (ms), the last studio's wait for its shader and its first
+ * picture (ms), and the last picture's draw calls and triangles.
  */
 export function portraitStats(): Readonly<typeof stats> & { held: number; open: boolean } {
   return { ...stats, held: images.size, open: running };
@@ -274,6 +298,6 @@ export function resetPortraits(): void {
   failed = false;
   blocked = false;
   stats.drawn = stats.bytes = stats.ms = stats.sessions = stats.calls = stats.triangles = 0;
-  stats.loadMs = 0;
+  stats.loadMs = stats.prepareMs = stats.firstMs = 0;
   notify();
 }

@@ -63,6 +63,7 @@ const studio = {
   /** The draw (1-based) at which the context is lost (0: never). */
   loseAt: 0,
   opened: 0,
+  prepared: 0,
   disposed: 0,
   drawn: [] as string[],
   /** Called before each draw (a test's hook into the middle of the work). */
@@ -78,6 +79,9 @@ vi.mock('../src/render/portrait', async (original) => ({
       size,
       lastCalls: 1,
       lastTriangles: 100,
+      async prepare() {
+        studio.prepared++;
+      },
       draw(subject: PortraitSubject) {
         const n = studio.drawn.length + 1;
         studio.before?.(n);
@@ -115,7 +119,14 @@ async function settled(): Promise<void> {
 
 beforeEach(() => {
   resetPortraits();
-  Object.assign(studio, { refuse: false, loseAt: 0, opened: 0, disposed: 0, before: null });
+  Object.assign(studio, {
+    refuse: false,
+    loseAt: 0,
+    opened: 0,
+    prepared: 0,
+    disposed: 0,
+    before: null,
+  });
   studio.drawn = [];
   page.fight = false;
 });
@@ -297,6 +308,8 @@ describe('the portraits’ cache', () => {
     await settled();
     expect(studio.drawn).toEqual(['kael', 'the_bellwarden', 'leech', 'mute']);
     expect(studio.opened).toBe(1);
+    // The shader is readied once, before the first picture.
+    expect(studio.prepared).toBe(1);
     expect(studio.disposed).toBe(1);
     expect(portraitState(hero('kael'))).toEqual({ src: 'data:image/png;base64,kael' });
     const stats = portraitStats();
@@ -481,7 +494,8 @@ describe('the Codex with portraits', () => {
     expect(heroes).toContain(
       'data-testid="portrait" data-portrait="hero|kael" data-ready="false" aria-hidden="true"',
     );
-    expect(heroes).toContain('width:88px;height:88px');
+    // Sized in rem (88 px at 100%), so the UI scale carries it.
+    expect(heroes).toContain('width:5.5rem;height:5.5rem');
     expect(heroes).not.toContain('<img');
   });
 

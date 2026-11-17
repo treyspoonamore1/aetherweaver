@@ -27,7 +27,7 @@ export function Portrait({
   subject: PortraitSubject;
   /** The entry's name: the picture's alt text. */
   name: string;
-  /** The frame's side in CSS px. */
+  /** The frame's side in CSS px at 100% UI scale (it is set in rem, so it follows the scale). */
   size?: number;
   /** The Movement whose air tints the surround (1 to 4; 0, the default: the page's navy). */
   world?: number;
@@ -44,8 +44,8 @@ export function Portrait({
     <span
       className={`relative block shrink-0 overflow-hidden rounded-xl border border-ink-600/80 ${className}`}
       style={{
-        width: size,
-        height: size,
+        width: `${size / 16}rem`,
+        height: `${size / 16}rem`,
         background: `radial-gradient(circle at 50% 46%, ${glow} 0%, color-mix(in srgb, ${glow} 45%, var(--color-ink-950)) 48%, var(--color-ink-950) 100%)`,
       }}
       data-testid="portrait"
