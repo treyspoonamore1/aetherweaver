@@ -4,6 +4,7 @@ import type { FxKit } from './fx/kit';
 import { PARTICLE } from './fx/particles';
 import { RING } from './fx/rings';
 import { SPRITE } from './fx/sprites';
+import { HERO_DRAWN } from './models/artFlag';
 import type { Overlay } from './overlay';
 import { C, VISION_HEX, clamp01 } from './palette';
 import { flareScale } from './relicCues';
@@ -193,7 +194,8 @@ export class CallView {
       // Hurry: the glyph throbs as the window closes.
       scale *= 1 + 0.07 * Math.sin(time * 24);
     }
-    const y = hr.height + 1.05 + hr.y + lift;
+    // Over the drawn head (heroes are drawn HERO_DRAWN tall): the same lift over it as before.
+    const y = hr.height * HERO_DRAWN + 1.05 + hr.y + lift;
     const label = r.answered ? r.flourish || 'Answered' : LABEL[r.answer];
     overlay.bubble(hr.x, y, hr.z, r.answer, label, hex, remain, scale, alpha, r.answered);
     if (closing && !r.burst) return;
