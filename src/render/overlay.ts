@@ -544,6 +544,8 @@ export class Overlay {
         this.root,
         'position:absolute;left:0;top:0;display:none;align-items:center;gap:6px;padding:3px 6px 3px 6px;border-radius:9px;background:rgba(8,10,20,0.78);border:1.5px solid #fb923c;box-shadow:0 0 10px rgba(0,0,0,0.5);will-change:transform;',
       );
+      // What tools/hud-cover.mjs counts as an interface piece over a figure.
+      el.dataset.cover = 'answer-chip';
       const icons = div(el, 'display:flex;gap:6px;align-items:center;');
       const label = document.createElement('span');
       label.style.cssText =

@@ -49,6 +49,7 @@ export function installTestHook(runtime: GameRuntime): () => void {
       return { id: e.id, status: e.status, wave: e.wave, waves: e.waves };
     },
     markers: () => runtime.sim.state.ledger.markers.map((m) => m.kind),
+    figures: () => runtime.figures(),
     techniques: () => {
       const st = runtime.sim.state;
       const w = st.entities.get(st.weaverId)?.weaver;

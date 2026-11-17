@@ -6,6 +6,7 @@ import { liveBindings } from '../input/bindings';
 import { keyLabel } from '../input/keyLabel';
 import type { CombatOutcome } from '../meta/types';
 import { CameraRig } from '../render/camera';
+import { figureBoxes, type FigureBox } from './figureBoxes';
 import { createWorldView, type WorldView } from '../render';
 import type { FrameInfo } from '../render/types';
 import type { MusicSnapshot } from '../audio/music';
@@ -392,6 +393,16 @@ export class GameRuntime {
   listen(listener: RuntimeListener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  /** Tools: where each boss, hero and the Weaver is drawn on the screen now (figureBoxes.ts). */
+  figures(): FigureBox[] {
+    return figureBoxes(
+      this.sim.state,
+      this.stepper.alpha,
+      this.stage.camera,
+      this.stage.canvas.getBoundingClientRect(),
+    );
   }
 
   /** The whole session so far as a replay, ending at the current tick. */
