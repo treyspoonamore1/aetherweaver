@@ -10,6 +10,7 @@ describe('the answer chips keep off the figures', () => {
   interface Chip {
     used: boolean;
     transform: string;
+    opacity: string;
   }
   /** An overlay with no document: the badge pool is faked, the placing is the real code. */
   function overlay(): { o: Overlay; chips: Chip[] } {
@@ -19,7 +20,7 @@ describe('the answer chips keep off the figures', () => {
     camera.updateMatrixWorld();
     const chips: Chip[] = [];
     const badges = Array.from({ length: 4 }, () => {
-      const chip: Chip = { used: false, transform: '' };
+      const chip: Chip = { used: false, transform: '', opacity: '1' };
       chips.push(chip);
       const style = {
         display: 'none',
@@ -30,6 +31,9 @@ describe('the answer chips keep off the figures', () => {
         set transform(v: string) {
           chip.transform = v;
         },
+        set opacity(v: string) {
+          chip.opacity = v;
+        },
       };
       return {
         el: { style },
@@ -38,6 +42,7 @@ describe('the answer chips keep off the figures', () => {
         key: '',
         border: '',
         tone: 0,
+        faded: false,
         get used() {
           return chip.used;
         },
@@ -89,6 +94,18 @@ describe('the answer chips keep off the figures', () => {
     const side = Math.abs(x - 640) > 20 + 50;
     const under = y - 15 >= feetY;
     expect(side || under).toBe(true);
+  });
+
+  it('a chip with no free place near stays, and is drawn see-through over the figure', () => {
+    const kept = overlay();
+    // Twelve giants shoulder to shoulder: nowhere within reach is clear of them.
+    for (const x of [-9, -3, 3, 9]) for (const z of [-6, 0, 6]) kept.o.keepClear(x, z, 3.2, 6);
+    kept.o.badge(0, 0.1, 0.5, ['ward', 'dome'], 'k', '#fb923c', '1.2');
+    const plain = overlay();
+    plain.o.badge(0, 0.1, 0.5, ['ward', 'dome'], 'k', '#fb923c', '1.2');
+    expect(centre(kept.chips[0]!)).toEqual(centre(plain.chips[0]!));
+    expect(kept.chips[0]!.opacity).toBe('0.45');
+    expect(plain.chips[0]!.opacity).toBe('1');
   });
 
   it('a chip clear of every figure stays exactly on its telegraph’s edge', () => {

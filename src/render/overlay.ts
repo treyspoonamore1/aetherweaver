@@ -256,6 +256,8 @@ interface BadgeItem {
   /** The label's style: 0 plain, 1 the Chronomancer's timer, 2 a timer held by Stasis. */
   tone: number;
   used: boolean;
+  /** Drawn see-through: it sits on a figure and found no free place near (docs/phase-8.md, 8c). */
+  faded: boolean;
 }
 
 /** Badge label tones (the Chronomancer's telegraph timers, docs/phase-3e/vfx.md). */
@@ -305,6 +307,8 @@ function div(parent: HTMLElement, css: string): HTMLDivElement {
 
 /** How many figures the answer chips keep off at once. */
 const CLEAR_MAX = 12;
+/** The opacity of a chip left on a figure. */
+const CHIP_FADED = '0.45';
 /** A chip is never moved further than this off its telegraph's edge (px). */
 const CLEAR_REACH = 120;
 
@@ -562,7 +566,16 @@ export class Overlay {
       label.style.cssText =
         'font:700 12px/1 Inter,sans-serif;color:#fff;font-variant-numeric:tabular-nums;min-width:22px;text-align:center;';
       el.appendChild(label);
-      this.badges.push({ el, icons, label, key: '', border: '', tone: 0, used: false });
+      this.badges.push({
+        el,
+        icons,
+        label,
+        key: '',
+        border: '',
+        tone: 0,
+        used: false,
+        faded: false,
+      });
     }
     for (let i = 0; i < 10; i++) {
       const el = div(
@@ -885,36 +898,32 @@ export class Overlay {
 
   /**
    * Moves a chip off the figures it would cover: to the nearest free place beside, under or over
-   * the figure (written to `badgeAt`). A chip with no free place within reach stays where it was.
+   * one of the figures near it (written to `badgeAt`). A chip with no free place within reach
+   * stays where it was (and is drawn see-through, `badge`).
    */
   private offFigures(x: number, y: number, w: number, h: number): void {
     const at = this.badgeAt;
     at.x = x;
     at.y = y;
+    if (this.overFigure(x, y, w, h) < 0) return;
     const c = this.clear;
-    for (let pass = 0; pass < 2; pass++) {
-      const hit = this.overFigure(at.x, at.y, w, h);
-      if (hit < 0) return;
-      const k = hit * 4;
-      let best = Infinity;
-      let bx = at.x;
-      let by = at.y;
+    let best = Infinity;
+    // Round every figure, not only the one covered: a party stands close together.
+    for (let i = 0; i < this.clearCount; i++) {
+      const k = i * 4;
       for (let side = 0; side < 4; side++) {
         // Under its feet, to its left, to its right, over its head (clear of the bar it wears).
-        const cx = side === 1 ? c[k]! - w / 2 - 3 : side === 2 ? c[k + 2]! + w / 2 + 3 : at.x;
-        const cy = side === 0 ? c[k + 3]! + h / 2 + 3 : side === 3 ? c[k + 1]! - h / 2 - 18 : at.y;
+        const cx = side === 1 ? c[k]! - w / 2 - 3 : side === 2 ? c[k + 2]! + w / 2 + 3 : x;
+        const cy = side === 0 ? c[k + 3]! + h / 2 + 3 : side === 3 ? c[k + 1]! - h / 2 - 18 : y;
         const d = Math.hypot(cx - x, cy - y);
         if (d >= best || d > CLEAR_REACH) continue;
         if (cx < w / 2 || cx > this.width - w / 2 || cy < h / 2 || cy > this.height - h / 2)
           continue;
         if (this.overFigure(cx, cy, w, h) >= 0 || this.overChip(cx, cy)) continue;
         best = d;
-        bx = cx;
-        by = cy;
+        at.x = cx;
+        at.y = cy;
       }
-      if (best === Infinity) return;
-      at.x = bx;
-      at.y = by;
     }
   }
 
@@ -1166,6 +1175,13 @@ export class Overlay {
           : tone === BADGE_TONE.timer
             ? `0 0 6px ${rgba(CHRONO_HEX.silver, 0.6)}`
             : '';
+    }
+    // A chip that found no place off the figures is drawn see-through, so the figure under it
+    // still reads; its answers are on the boss bar's cast row and its telegraph is on the floor.
+    const faded = this.overFigure(bx, by, w, h) >= 0;
+    if (b.faded !== faded) {
+      b.faded = faded;
+      b.el.style.opacity = faded ? CHIP_FADED : '1';
     }
     b.el.style.display = 'flex';
     b.el.style.transform = `translate3d(${bx.toFixed(1)}px,${by.toFixed(1)}px,0) translate(-50%,-50%) scale(${scale.toFixed(3)})`;
