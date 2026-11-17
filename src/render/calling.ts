@@ -283,7 +283,8 @@ export class CallingView {
               sy,
               az,
               r.x,
-              r.y + r.height + 0.15,
+              // Just over the drawn head (heroes are drawn HERO_DRAWN tall), as before.
+              r.y + r.height * HERO_DRAWN + 0.15,
               r.z,
               0.42,
               BEAM.glow,
