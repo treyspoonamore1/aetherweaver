@@ -1875,9 +1875,9 @@ export class EntityLayer {
     // auras > affix. A possessed hero (Movement III) wears an indigo rim over the Thread's: they
     // are to be saved (Chime), never Focused or Empowered.
     let tintStrength = 0;
-    // The standing rims (the elite's gold, the rank-and-file hostile rim, the Weaver's at rest) are
-    // drawn on the body only, the outline staying lead; the owner's HOSTILE_OUTLINE puts the first
-    // two on it too.
+    // The standing rims: the elite's gold and the rank-and-file hostile rim are carried by the
+    // outline (the owner's choice, artFlag.ts HOSTILE_OUTLINE; off, they are drawn on the body only
+    // and the outline stays lead). The Weaver's at rest is always on her body only.
     let standing = false;
     const isHero = e.kind === 'hero';
     const auraMask = e.hero?.auraMask ?? 0;
@@ -1937,7 +1937,8 @@ export class EntityLayer {
       // Not while it is still forming: the dissolve's edge would glow in the rim's colour.
       this.tint.copy(ENEMY_BAR);
       tintStrength = HOSTILE_RIM;
-      // The edge-only alternative on a stained-glass foe (artFlag.ts; off): negative = edge only.
+      // On a stained-glass foe the body takes it at its edge only, no flat wash (artFlag.ts
+      // HOSTILE_EDGE, the owner's choice): negative = edge only.
       if (HOSTILE_EDGE && rec.batch.geometry.getAttribute('aMisc')) tintStrength = -HOSTILE_RIM;
       standing = !HOSTILE_OUTLINE;
     } else {
@@ -1994,9 +1995,9 @@ export class EntityLayer {
         this.tint.copy(this.rimAtRest);
         tintStrength = this.rimAtRestStrength;
         // Her resting rim is a standing rim too (not a hostile one: always, whatever the owner's
-        // HOSTILE_OUTLINE): on her body, her outline dark lead, as approved. Her event rims above
-        // (a borne wound, Conduit, a held rim) stay on the outline. Nothing earlier in the chain
-        // marks her: only an enemy's branches set `standing`.
+        // HOSTILE_OUTLINE says for a foe): on her body, her outline dark lead, as approved. Her
+        // event rims above (a borne wound, Conduit, a held rim) stay on the outline. Nothing
+        // earlier in the chain marks her: only an enemy's branches set `standing`.
         standing = true;
       }
     }
@@ -2077,7 +2078,8 @@ export class EntityLayer {
         0,
         Math.max(0.8, rec.radius * 1.2),
       );
-      // The crown's own gold glow is the elite's standing mark too: on its body, not its outline.
+      // The crown's own gold glow is the elite's standing mark too: it follows the elite's rim
+      // (on its outline as well under HOSTILE_OUTLINE, the owner's choice).
       this.crown.push(cm, 0, dissolve, 0, 0, C.gold, 0.4, 0, 0, 0, 0, !HOSTILE_OUTLINE);
       // Elite Vanguard: an elite with more than one affix wears a gem for each round its crown.
       const n = rec.affixColors.length;

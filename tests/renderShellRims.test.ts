@@ -1,11 +1,17 @@
 /**
- * Phase 8b, the review's Part D (docs/phase-8.md, 8b): the outline shell carries every event cue
- * the body carries at its silhouette, but not the two standing rims (the rank-and-file hostile rim
- * and the elite's gold, with its crown's glow) unless the owner's HOSTILE_OUTLINE says so, nor the
- * Weaver's resting rim (always: her outline stays lead at rest; her event rims are carried). As landed (both owner
- * constants off): a rank-and-file foe's and an elite's outline is dark lead with their rim on the
- * body only, and an aura-covered hero's outline carries the aura tint. Driven through the real
- * EntityLayer and sim; the shader's gate is pinned in its source.
+ * Phase 8b, the review's Part D, and the owner's choice in Phase 8c (docs/phase-8.md, 8b): the
+ * outline shell carries every event cue the body carries at its silhouette. The owner chose the
+ * fourth look for the two standing rims, "Red outline, no wash" (artFlag.ts, both constants on): a
+ * rank-and-file foe's outline carries its hostile red and its body takes the red at its edge only
+ * (a negative strength), and an elite's outline and its crown's carry its gold; neither is marked
+ * standing. The Weaver's resting rim is not a hostile rim: always marked standing (on her body, her
+ * outline dark lead at rest; her event rims are carried). The shader's gate still keeps a marked
+ * rim off the outline, so the earlier looks (a constant off) draw as they did. Driven through the
+ * real EntityLayer and sim; the shader's gate is pinned in its source.
+ *
+ * Re-recorded for Phase 8c: the default (both constants were off), the foe's strength (0.18 on
+ * the body became -0.18, the edge-only rim) and the standing marks of the foe, the elite and the
+ * crown (true became false). The strengths, colours and shader lines are unchanged.
  */
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
@@ -66,13 +72,13 @@ function harness(sim: Sim, look: WeaverLook = { ...OWN_LOOK }) {
   return { model, entities, run, instance };
 }
 
-describe('the outline shell and the standing rims (as landed)', () => {
-  it('lands with both owner constants off', () => {
-    expect(HOSTILE_EDGE).toBe(false);
-    expect(HOSTILE_OUTLINE).toBe(false);
+describe('the outline shell and the standing rims (the owner\'s "Red outline, no wash")', () => {
+  it('has both owner constants on', () => {
+    expect(HOSTILE_EDGE).toBe(true);
+    expect(HOSTILE_OUTLINE).toBe(true);
   });
 
-  it('marks the hostile and elite rims as standing (body only), and an aura tint not', () => {
+  it('puts the hostile and elite rims on the outline (not standing), as an aura tint is', () => {
     const sim = sandbox({ chords: GUARDIAN });
     const h = harness(sim);
     h.run(2, [spawn('hollow_chorister', -4, -9), spawn('hollow_chorister', 4, -9, true)]);
@@ -82,20 +88,22 @@ describe('the outline shell and the standing rims (as landed)', () => {
     const elite = enemies.find((e) => e.enemy!.tier === 'elite')!;
     expect(plain && elite).toBeTruthy();
     const rim = new THREE.Color();
-    // The rank-and-file hostile rim: on the body (0.18), standing, so never on the outline.
+    // The rank-and-file hostile rim: its life bar's red, edge only on the body (a negative
+    // strength: no flat wash), not standing, so the outline carries it: a red outline.
     let x = h.instance(plain.id);
-    expect(x.batch.tintOf(x.i, rim)).toBeCloseTo(0.18, 6);
-    expect(x.batch.standingOf(x.i)).toBe(true);
-    // The elite's gold: the same.
+    expect(x.batch.tintOf(x.i, rim)).toBeCloseTo(-0.18, 6);
+    expect(rim.getHexString()).toBe('ef4444');
+    expect(x.batch.standingOf(x.i)).toBe(false);
+    // The elite's gold: on its body as before (0.18) and on its outline too: a gold outline.
     x = h.instance(elite.id);
     expect(x.batch.tintOf(x.i, rim)).toBeCloseTo(0.18, 6);
     expect(rim.getHexString()).toBe(C.gold.getHexString());
-    expect(x.batch.standingOf(x.i)).toBe(true);
-    // Its crown's gold glow too (the elite's mark, on its body only).
+    expect(x.batch.standingOf(x.i)).toBe(false);
+    // Its crown's gold glow too (the elite's mark: on the crown's outline as well).
     const crown = (h.entities as unknown as { crown: typeof x.batch }).crown;
     expect(crown.pushed).toBe(1);
     expect(crown.tintOf(0, rim)).toBeCloseTo(0.4, 6);
-    expect(crown.standingOf(0)).toBe(true);
+    expect(crown.standingOf(0)).toBe(false);
     // An aura-covered hero: its aura tint is an event cue, carried by the outline too.
     const hero = sim.state.entities.get(sim.state.party[0]!)!;
     expect(hero.hero!.auraMask).not.toBe(0);
@@ -119,11 +127,15 @@ describe('the outline shell and the standing rims (as landed)', () => {
     expect(frag).toContain(
       'float awTintA = awStanding ? vTint.a - sign(vTint.a) * 16.0 : vTint.a;',
     );
-    // The body draws every rim, standing or not (main's line, on the unmarked strength).
+    // The body draws every rim, standing or not (main's line, on the unmarked strength); a
+    // negative strength (the hostile rim) is the edge-only rim: almost no flat wash.
     expect(frag).toContain(
       'if (awTintA >= 0.0) totalEmissiveRadiance += vTint.rgb * awTintA * (0.18 + awFres * 1.9);',
     );
-    // The outline adds the rim only when it is not a standing rim.
+    expect(frag).toContain(
+      'else totalEmissiveRadiance += vTint.rgb * -awTintA * (0.02 + pow(awFres, 1.6) * 4.0);',
+    );
+    // The outline adds the rim only when it is not a standing rim (the Weaver's at rest is).
     const shell = frag.slice(frag.indexOf('if (vLead.y > 0.5) {'));
     expect(shell).toMatch(
       /if \(!awStanding\) awShell \+= awTintA >= 0\.0 \? vTint\.rgb \* awTintA/,

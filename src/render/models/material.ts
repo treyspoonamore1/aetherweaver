@@ -219,7 +219,9 @@ export interface ModelMaterial {
 /**
  * A standing rim (the rank-and-file hostile rim, the elite's gold) is pushed with this added to
  * the size of its strength (ModelBatch `standing`): the body draws it as any rim, the outline shell
- * does not (artFlag.ts HOSTILE_OUTLINE). No rim is ever this strong of itself.
+ * does not. With artFlag.ts HOSTILE_OUTLINE on (the game's look) a foe's two rims are not pushed as
+ * standing, so its outline carries them; the Weaver's resting rim always is. No rim is ever this
+ * strong of itself.
  */
 export const RIM_STANDING = 16;
 
