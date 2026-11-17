@@ -99,7 +99,7 @@ function reach(l: Lens, ndc: number, y: number): number {
   return (ndc * l.t * (l.d - y * l.s) - y * l.c) / (l.s - ndc * l.t * l.c);
 }
 
-/** The focus z a figure allows: [south-most, north-most]... as [lo, hi] in z. */
+/** The focus z a figure allows, written to `out` as [least, most] (north is −z). */
 function zInterval(
   l: Lens,
   f: FrameSubject,
@@ -236,12 +236,10 @@ function solveZ(input: FramingInput, l: Lens, top: number, bottom: number, fx: n
     else later.push(h);
   }
   for (const b of input.bosses) {
+    // All of the boss if it can be had; if not, as much as the Weaver and those heroes allow
+    // (`narrow` goes to the allowed end nearest the boss).
     zInterval(l, b, top, bottomFor(input, l, b, bottom, fx, at), 0, strict);
-    if (strict[0] <= allowed[1] && strict[1] >= allowed[0]) narrow(allowed, strict);
-    else {
-      zInterval(l, b, top, bottomFor(input, l, b, bottom, fx, at), VIEW_SLACK, loose);
-      narrow(allowed, loose);
-    }
+    narrow(allowed, strict);
   }
   for (const h of later) {
     zInterval(l, h, top, bottomFor(input, l, h, bottom, fx, at), VIEW_SLACK, loose);

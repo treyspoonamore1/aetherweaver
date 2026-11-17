@@ -11,7 +11,7 @@ import type { CameraRig, FightFrame } from '../render/camera';
 import type { FrameSubject, SafeArea } from '../render/framing';
 import { HERO_DRAWN } from '../render/models/artFlag';
 import type { ReadonlyEntity, WorldState } from '../sim';
-import { measureHud, safeAreaFrom } from './hudSafeArea';
+import { bossBarTop, measureHud, safeAreaFrom } from './hudSafeArea';
 
 /** How often the HUD's panels are measured (ms). */
 const MEASURE_MS = 250;
@@ -34,9 +34,6 @@ let lastSafe: SafeArea = {
   right: 0.98,
   bottomLeft: { x: 0.26, y: 0.48 },
 };
-
-/** The safe area's top under a boss bar, as last measured: what a fight assumes until its own shows. */
-let lastBossTop = 0.2;
 
 const isBoss = (defId: string): boolean => {
   const role = enemyDef(defId).role;
@@ -76,6 +73,8 @@ export class FightFraming {
   private safe: SafeArea = lastSafe;
   private sinceMeasure = MEASURE_MS;
   private measured = false;
+  /** The boss bar has been on screen in this fight. */
+  private barSeen = false;
   private heldTop = 0;
   private heldFor = 0;
 
@@ -108,6 +107,11 @@ export class FightFraming {
   ): FightFraming | null {
     const boss = bossOf(encounterId);
     return boss ? new FightFraming(rig, canvas, boss, state) : null;
+  }
+
+  /** The safe area the camera is framing in now (tools: `__AW__.framing()`). */
+  get safeArea(): Readonly<SafeArea> {
+    return this.safe;
   }
 
   /** Call once a frame, before the camera's own update. `elapsedMs` is real time. */
@@ -149,13 +153,13 @@ export class FightFraming {
     // Nothing of the HUD drawn yet: keep what the fight opened with.
     if (!panels.weaverBar && !panels.partyFrames) return;
     const safe = safeAreaFrom(panels);
-    // The boss bar arrives with the boss: until it has, leave it the room it took last time.
-    if (!panels.bossBar && this.toCome) safe.top = Math.max(safe.top, lastBossTop);
+    // The boss bar arrives with the boss: until it has, leave it the room it will take.
+    if (!panels.bossBar && !this.barSeen) safe.top = Math.max(safe.top, bossBarTop(r.height));
+    else this.barSeen = true;
     if (safe.top >= this.heldTop - 0.002 || this.heldFor > TOP_HOLD_MS) {
       this.heldTop = safe.top;
       this.heldFor = 0;
     } else safe.top = this.heldTop;
-    if (panels.bossBar) lastBossTop = safe.top;
     this.safe = safe;
     lastSafe = safe;
     if (!this.measured) {

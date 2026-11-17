@@ -17,7 +17,10 @@ export interface FightFrame {
   bosses: readonly FrameSubject[];
 }
 
-/** The lean is never longer than this (metres), however far the camera has pulled back. */
+/**
+ * The lean is never longer than this (metres) north or south, nor east or west, however far the
+ * camera has pulled back.
+ */
 export const MAX_LEAN = 9;
 /** The furthest the framing pulls the camera back, as a factor on the player's zoom. */
 export const MAX_PULL = 1.5;
@@ -179,11 +182,9 @@ export class CameraRig {
       tx = f.leanX;
       tz = f.leanZ;
       pull = f.pull;
-      const m = Math.hypot(tx, tz);
-      if (m > MAX_LEAN) {
-        tx *= MAX_LEAN / m;
-        tz *= MAX_LEAN / m;
-      }
+      // Bounded each way on its own: a long lean east or west takes nothing from the lean north.
+      tx = Math.min(MAX_LEAN, Math.max(-MAX_LEAN, tx));
+      tz = Math.min(MAX_LEAN, Math.max(-MAX_LEAN, tz));
     }
     if (this.settle && boss) {
       this.settle = false;

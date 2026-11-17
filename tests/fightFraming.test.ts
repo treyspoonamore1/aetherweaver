@@ -9,7 +9,7 @@ import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { FightFraming, bossOf } from '../src/app/fightFraming';
 import { screenBox } from '../src/app/figureBoxes';
-import { safeAreaFrom } from '../src/app/hudSafeArea';
+import { BOSS_BAR_REM, CAST_ROW_REM, bossBarTop, safeAreaFrom } from '../src/app/hudSafeArea';
 import { makeBot } from '../src/bots';
 import { CameraRig, MAX_LEAN, MAX_PULL, type FightFrame } from '../src/render/camera';
 import { OPEN_SAFE_AREA, type FrameSubject, type SafeArea } from '../src/render/framing';
@@ -75,6 +75,25 @@ describe('the safe area the HUD leaves free', () => {
     expect(SAFE.bottomNotch!.y).toBeCloseTo(475 / 720 - 0.012, 5);
     expect(SAFE.topLeft!.y).toBeCloseTo(98 / 720, 5);
     expect(SAFE.topRight).toBeUndefined();
+  });
+
+  it('leaves room for the boss bar’s cast row while no cast shows, and for the bar before it arrives', () => {
+    // Between casts the bar is a row shorter: the room is kept, at the UI's own scale.
+    const quiet = { ...HUD_720, bossBar: { left: 352, top: 8, right: 928, bottom: 78 } };
+    const idle = safeAreaFrom({ ...quiet, bossCasting: false });
+    expect(idle.top).toBeCloseTo((78 + CAST_ROW_REM * 16) / 720 + 0.012, 5);
+    const big = safeAreaFrom({ ...quiet, bossCasting: false, rem: 24 });
+    expect(big.top).toBeCloseTo((78 + CAST_ROW_REM * 24) / 720 + 0.012, 5);
+    const casting = { ...HUD_720, bossBar: { left: 352, top: 8, right: 928, bottom: 120 } };
+    expect(safeAreaFrom({ ...casting, bossCasting: true }).top).toBeCloseTo(120 / 720 + 0.012, 5);
+    // The two agree: no nod of the camera when the first cast begins.
+    expect(Math.abs(idle.top - safeAreaFrom({ ...casting, bossCasting: true }).top)).toBeLessThan(
+      0.005,
+    );
+    // Before the boss (and its bar) arrives: the same room, from the scale alone.
+    expect(bossBarTop(720, 16)).toBeCloseTo((BOSS_BAR_REM * 16) / 720 + 0.012, 5);
+    expect(Math.abs(bossBarTop(720, 16) - idle.top)).toBeLessThan(0.005);
+    expect(bossBarTop(1080, 16)).toBeLessThan(bossBarTop(720, 16));
   });
 
   it('follows the panels wherever Edit HUD layout put them', () => {
@@ -175,7 +194,8 @@ describe('the boss-fight lean and pull-back', () => {
     const fight = { weaver: hero(0, 15), heroes: [hero(-25, 15)], bosses: [boss(20, -60)] };
     rig.snapTo(0, 15);
     run(rig, fight, 4);
-    expect(Math.hypot(rig.framed.leanX, rig.framed.leanZ)).toBeLessThanOrEqual(MAX_LEAN + 1e-9);
+    expect(Math.abs(rig.framed.leanX)).toBeLessThanOrEqual(MAX_LEAN + 1e-9);
+    expect(Math.abs(rig.framed.leanZ)).toBeLessThanOrEqual(MAX_LEAN + 1e-9);
     expect(rig.framed.pull).toBeLessThanOrEqual(MAX_PULL);
     expect(rig.framed.pull).toBeGreaterThan(1.4);
   });

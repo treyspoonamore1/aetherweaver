@@ -212,7 +212,7 @@ export function BossBar({
           <SilenceStave silence={boss.silence} blind={blind} rewinds={rewind} reel={reel} />
         )}
         {boss.cast && (
-          <div className="mt-1 rounded-lg bg-ink-950/60 px-3 py-1">
+          <div className="mt-1 rounded-lg bg-ink-950/60 px-3 py-1" data-testid="boss-cast">
             <div className="flex items-center justify-between gap-3">
               <span className="flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider text-threat">
                 <Icon name={bossCastIcon(boss.defId, !!boss.fortissimo)} size={14} />{' '}
