@@ -21,6 +21,8 @@
 //   --shots    take pictures instead of measuring: `tag@seconds,tag@seconds` (1280x720 at device
 //              scale 2, the sim held at that moment), written to <out>/<tag>-t<seconds>s<suffix>.png
 //   --suffix   a suffix for the pictures' file names
+//   --replays  1: also write each fight's replay (<out>/replay-<tag>-<size>.json), to compare
+//              two runs command by command
 //   --port     the preview server's port (default 4520; give each agent its own)
 // Writes <out>/cover-<width>x<height>.json (every sample, with the boss-fight camera's lean and
 // pull-back at it) and prints a table: per fight and kind of figure, the worst and the average
@@ -118,7 +120,7 @@ async function serve() {
 const until = (page, fn, arg, timeout = 180_000) =>
   page.waitForFunction(fn, arg, { timeout, polling: 250 });
 
-/** Title → Expedition (seed 4242) → the fight, begun, with nothing playing yet. */
+/** Title → Expedition (seed 4242) → the fight, begun, with the Skilled bot playing from its first tick. */
 async function enterFight(page, [tag, movement, kind]) {
   await page.goto(`${BASE}/?e2e=1&seed=4242`);
   await until(page, () => window.__AWRUN__ !== undefined);
@@ -393,6 +395,19 @@ for (const signal of ['SIGINT', 'SIGTERM'])
 const open = async (width, height, scale) => {
   const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: scale });
   const page = await ctx.newPage();
+  // The Skilled bot is handed the fight the moment the game installs its test hook, before the
+  // sim's first tick: the same fight, command for command, on every run and every build.
+  await page.addInitScript(() => {
+    let hook;
+    Object.defineProperty(window, '__AW__', {
+      configurable: true,
+      get: () => hook,
+      set: (value) => {
+        hook = value;
+        if (value) value.autoplay('skilled');
+      },
+    });
+  });
   page.setDefaultTimeout(300_000);
   page.on('pageerror', (e) => log('pageerror:', e.message));
   return page;
@@ -405,7 +420,6 @@ try {
       const page = await open(1280, 720, 2);
       try {
         await enterFight(page, fight);
-        await page.evaluate(() => window.__AW__.autoplay('skilled'));
         // Normal speed up to the moment, then the sim held on its tick: the camera is where a
         // player would have it. Until six seconds before, the window is kept small, where
         // software frames come sooner (the fight is the same fight at any size).
@@ -450,7 +464,6 @@ try {
         try {
           const encounter = await enterFight(page, fight);
           await page.evaluate(startSampler, [STEP * 60, SECONDS * 60]);
-          await page.evaluate(() => window.__AW__.autoplay('skilled'));
           await until(page, () => window.__coverDone !== '', null, 1_800_000);
           const samples = await page.evaluate(() => window.__cover);
           const ended = await page.evaluate(() => window.__coverDone);
@@ -458,6 +471,8 @@ try {
           const lastTick = samples[samples.length - 1]?.tick ?? 0;
           const last = Math.floor(lastTick / (STEP * 60)) * STEP * 60;
           const replay = await page.evaluate(() => window.__AW__?.exportReplay() ?? null);
+          if (args.replays && replay)
+            writeFileSync(`${out}/replay-${tag}-${width}x${height}.json`, JSON.stringify(replay));
           result[tag] = {
             encounter,
             ended,
