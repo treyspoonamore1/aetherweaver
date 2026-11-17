@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { getRuntime } from '../../app/runtimeRegistry';
 import { useProfile } from '../../app/profileStore';
 import {
@@ -18,14 +18,14 @@ import { rejectBuzz, rejectCallouts } from './buzz';
 import { callingLook } from '../kit/callingLook';
 import { useRun } from '../../app/runStore';
 import type { ActiveBoon } from '../../meta/types';
-import { BossBar } from './BossBar';
+import { BossBar, BossDecree } from './BossBar';
 import { RelicBar } from './RelicBar';
 import { TriggerChips } from './TriggerChips';
 import type { TriggerChip } from './triggers';
 import { CallingChip } from './CallingChip';
 import { KeystoneChip } from './KeystoneChip';
 import { DissonanceChip } from './DissonanceChip';
-import { BANNER_KINDS, Callouts } from './Callouts';
+import { BANNER_KINDS, CalloutNotes, Callouts } from './Callouts';
 import { CoachHints } from './CoachHints';
 import { DirectiveWheel, DirectiveWheelView } from './DirectiveWheel';
 import { EncounterHeader } from './EncounterHeader';
@@ -39,6 +39,28 @@ import { shownDecreeOf } from './legionLook';
 import { t as txt } from '../text';
 
 const NO_BOONS: readonly ActiveBoon[] = [];
+
+/**
+ * From this width up the HUD has a notes column at the top right (the key reminders, the boss's
+ * decree, the coach's hints), clear of the boss bar at every UI scale; narrower, the decree sits
+ * under the boss bar and the hint over the Weaver bar, as they always did.
+ */
+const NOTES_QUERY = '(min-width: 1180px)';
+
+function subscribeNotes(onChange: () => void): () => void {
+  if (typeof window === 'undefined' || !window.matchMedia) return () => {};
+  const query = window.matchMedia(NOTES_QUERY);
+  query.addEventListener('change', onChange);
+  return () => query.removeEventListener('change', onChange);
+}
+
+const notesFit = (): boolean =>
+  typeof window !== 'undefined' && !!window.matchMedia?.(NOTES_QUERY).matches;
+
+/** Whether the screen is wide enough for the notes column (false outside a browser). */
+function useNotesColumn(): boolean {
+  return useSyncExternalStore(subscribeNotes, notesFit, notesFit);
+}
 
 const NO_RELICS: readonly ReliquaryRelic[] = [];
 
@@ -210,6 +232,17 @@ export function HudView({
   // The Finale (docs/phase-5d.md): the Grand Silence holds (absent in every other fight).
   const silence = hud.boss?.silence;
   const reel = hud.weaver.techniques.find((t) => t.key === 'reel')?.variant?.id ?? null;
+  const notes = useNotesColumn();
+  const shownDecree = decree && shownDecreeOf(decree, hud.party);
+  const decreeBanner = callouts.some((c) => c.kind === 'decree');
+  const coachHints =
+    coach && !sandbox ? (
+      <CoachHints
+        hud={hud}
+        force={forceCoach}
+        banner={callouts.some((c) => BANNER_KINDS.has(c.kind))}
+      />
+    ) : null;
   return (
     <div className="pointer-events-none absolute inset-0" data-testid="hud">
       {stasis && (
@@ -241,7 +274,10 @@ export function HudView({
       )}
       {/* Above the party frames and their barks: the relics', keystones' and Dissonance's tooltips
           are never under them. */}
-      <div className="absolute left-4 top-4 z-20 flex flex-col items-start gap-2">
+      <div
+        className="absolute left-4 top-4 z-20 flex flex-col items-start gap-2"
+        data-testid="hud-top-left"
+      >
         <EncounterHeader encounter={hud.encounter} subtitle={subtitle} clockText={clockText} />
         <RelicBar
           relics={hud.relics}
@@ -281,8 +317,9 @@ export function HudView({
         <BossBar
           boss={hud.boss}
           // As the party should read it (docs/phase-5b.md): no dome without one, Brann condemned.
-          decree={decree && shownDecreeOf(decree, hud.party)}
-          decreeBanner={callouts.some((c) => c.kind === 'decree')}
+          decree={shownDecree}
+          decreeBanner={decreeBanner}
+          decreeAside={notes}
           rewind={hud.weaver.rewind !== null}
           blind={blind}
           reel={reel}
@@ -294,6 +331,7 @@ export function HudView({
         blind={blind}
         party={hud.party}
         waves={hud.encounter.waves}
+        aside={notes}
       />
       <PartyFrames
         party={hud.party}
@@ -316,25 +354,42 @@ export function HudView({
         buzz={rejectBuzz(callouts)}
         tip={techniqueTip}
         rejects={rejectCallouts(callouts)}
-        coach={
-          coach && !sandbox ? (
-            <CoachHints
-              hud={hud}
-              force={forceCoach}
-              banner={callouts.some((c) => BANNER_KINDS.has(c.kind))}
-            />
-          ) : null
-        }
+        coach={notes ? null : coachHints}
         reducedBeat={reducedBeat}
       />
-      {keyHints && (
-        <KeyHints
-          bear={(hud.calling?.bearShare ?? 0) > 0}
-          rewind={hud.weaver.rewind !== null}
-          techniques={hud.weaver.techniques.map((t) => t.name)}
-          crescendoName={hud.conducting ? hud.weaver.crescendoName : undefined}
-          chainWindow={hud.conducting?.chainWindow}
-        />
+      {(keyHints || notes) && (
+        // The notes column: text to read, kept off the arena's middle (docs/phase-8.md, 8c).
+        <div
+          className="absolute right-4 top-4 flex flex-col items-end gap-2"
+          data-testid="hud-notes"
+        >
+          {keyHints && (
+            <KeyHints
+              bear={(hud.calling?.bearShare ?? 0) > 0}
+              rewind={hud.weaver.rewind !== null}
+              techniques={hud.weaver.techniques.map((t) => t.name)}
+              crescendoName={hud.conducting ? hud.weaver.crescendoName : undefined}
+              chainWindow={hud.conducting?.chainWindow}
+            />
+          )}
+          {notes && hud.boss && (
+            <BossDecree
+              boss={hud.boss}
+              decree={shownDecree}
+              decreeBanner={decreeBanner}
+              blind={blind}
+            />
+          )}
+          {notes && (
+            <CalloutNotes
+              callouts={callouts}
+              barkSpeakers={hud.party.map((p) => p.name)}
+              blind={blind}
+              party={hud.party}
+            />
+          )}
+          {notes && coachHints && <div className="w-[17.5rem]">{coachHints}</div>}
+        </div>
       )}
       {wheel && (
         <DirectiveWheelView

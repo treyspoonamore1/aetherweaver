@@ -6,6 +6,9 @@ import { liveBindings } from '../input/bindings';
 import { keyLabel } from '../input/keyLabel';
 import type { CombatOutcome } from '../meta/types';
 import { CameraRig } from '../render/camera';
+import { FightFraming } from './fightFraming';
+import { figureBoxes, type FigureBox } from './figureBoxes';
+import type { FramingView } from './testHookTypes';
 import { createWorldView, type WorldView } from '../render';
 import type { FrameInfo } from '../render/types';
 import type { MusicSnapshot } from '../audio/music';
@@ -156,6 +159,8 @@ export class GameRuntime {
   readonly input: InputController;
   readonly seed: number;
   private readonly camera: CameraRig;
+  /** Boss and miniboss fights: who the camera keeps in view (null in every other fight). */
+  private readonly framing: FightFraming | null;
   private readonly view: WorldView;
   private readonly overlay: HTMLDivElement;
   private readonly stepper = new FixedStepper(60, 5);
@@ -289,6 +294,12 @@ export class GameRuntime {
     };
     const weaver = this.sim.state.entities.get(this.sim.state.weaverId);
     this.camera.snapTo(weaver?.x ?? 0, weaver?.z ?? 0);
+    this.framing = FightFraming.for(
+      this.camera,
+      this.stage.canvas,
+      this.sim.config.encounter,
+      this.sim.state,
+    );
     const kind = this.sim.state.encounter.kind;
     // Phase 5a: the arena's biome voices the fight (the Sunlit Reliquary when it names none).
     getAudio().setBiome?.(arena.biome ?? 'reliquary');
@@ -394,6 +405,27 @@ export class GameRuntime {
     return () => this.listeners.delete(listener);
   }
 
+  /** Tools: where each boss, hero and the Weaver is drawn on the screen now (figureBoxes.ts). */
+  figures(): FigureBox[] {
+    return figureBoxes(
+      this.sim.state,
+      this.stepper.alpha,
+      this.stage.camera,
+      this.stage.canvas.getBoundingClientRect(),
+    );
+  }
+
+  /**
+   * Tools: the boss-fight framing now applied (metres of lean, the pull-back factor) and the
+   * safe area it frames in; null in a fight with no boss or miniboss.
+   */
+  framingNow(): FramingView | null {
+    if (!this.framing) return null;
+    const f = this.camera.framed;
+    const safe = this.framing.safeArea;
+    return { leanX: f.leanX, leanZ: f.leanZ, pull: f.pull, top: safe.top, bottom: safe.bottom };
+  }
+
   /** The whole session so far as a replay, ending at the current tick. */
   exportReplay(): Replay {
     return this.recorder.export(this.sim.tick, this.sim.hash());
@@ -453,6 +485,7 @@ export class GameRuntime {
       const wx = weaver.px + (weaver.x - weaver.px) * alpha;
       const wz = weaver.pz + (weaver.z - weaver.pz) * alpha;
       this.camera.zoomBy(this.input.takeWheel());
+      this.framing?.update(state, alpha, elapsed);
       const aim = this.input.aimPoint;
       this.camera.update(wx, wz, aim?.x ?? wx, aim?.z ?? wz, elapsed / 1000);
     }

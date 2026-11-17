@@ -271,13 +271,65 @@ const BIG = BANNER_KINDS;
  * draws (`rejectCallouts`). Barks with a known speaker are drawn by the party frames, so
  * `barkSpeakers` lists who already has a bubble.
  */
+/** The callouts that are text to read: a decree, a first sighting's card, a line of news. */
+function notesOf(callouts: readonly Callout[], barkSpeakers: readonly string[]) {
+  return {
+    decrees: callouts.filter((c) => c.kind === 'decree'),
+    foes: callouts.filter((c) => c.kind === 'sighting'),
+    mid: callouts.filter(
+      (c) =>
+        c.kind === 'system' ||
+        c.kind === 'solo' ||
+        c.kind === 'hint' ||
+        ((c.kind === 'bark' || c.kind === 'call') &&
+          (!c.speaker || !barkSpeakers.includes(c.speaker))),
+    ),
+  };
+}
+
+/**
+ * The text callouts for the HUD's notes column (docs/phase-8.md, 8c): on a wide screen a decree's
+ * banner, a first sighting's card and the news toasts are drawn there, at the top right, and not
+ * over the arena's middle (`Callouts` with `aside` leaves them out).
+ */
+export function CalloutNotes({
+  callouts,
+  barkSpeakers,
+  blind = false,
+  party,
+}: {
+  callouts: Callout[];
+  barkSpeakers: string[];
+  blind?: boolean;
+  party?: CalloutParty;
+}) {
+  const { decrees, foes, mid } = notesOf(callouts, barkSpeakers);
+  if (decrees.length + foes.length + mid.length === 0) return null;
+  return (
+    <div className="flex w-[17.5rem] flex-col items-end gap-2" aria-live="polite">
+      {decrees.slice(-1).map((c) => (
+        <DecreeBanner key={c.id} c={c} blind={blind} party={party} />
+      ))}
+      {foes.map((c) =>
+        allyDef(c) ? <NewAlly key={c.id} c={c} /> : <NewFoe key={c.id} c={c} blind={blind} />,
+      )}
+      {mid.slice(-2).map((c) => (
+        <Toast key={c.id} c={c} />
+      ))}
+    </div>
+  );
+}
+
 export function Callouts({
   callouts,
   barkSpeakers,
   blind = false,
   party,
   waves,
+  aside = false,
 }: {
+  /** The decree, the sighting cards and the news toasts are drawn by `CalloutNotes` instead. */
+  aside?: boolean;
   callouts: Callout[];
   barkSpeakers: string[];
   /** Phase 4d, Blind Score: a decree doesn't say how to answer it. */
@@ -291,19 +343,12 @@ export function Callouts({
   const holds = callouts.filter((c) => c.kind === 'hold');
   // The Finale: the Grand Silence's notes (no other fight pushes one).
   const notes = callouts.filter((c) => c.kind === 'note');
-  const decrees = callouts.filter((c) => c.kind === 'decree');
   const waveToasts = waves === 1 ? [] : callouts.filter((c) => c.kind === 'wave');
-  const foes = callouts.filter((c) => c.kind === 'sighting');
-  const mid = callouts.filter(
-    (c) =>
-      c.kind === 'system' ||
-      c.kind === 'solo' ||
-      c.kind === 'hint' ||
-      ((c.kind === 'bark' || c.kind === 'call') &&
-        (!c.speaker || !barkSpeakers.includes(c.speaker))),
-  );
+  const { decrees, foes, mid } = aside
+    ? { decrees: [], foes: [], mid: [] }
+    : notesOf(callouts, barkSpeakers);
   return (
-    <div aria-live="polite">
+    <div aria-live="polite" data-testid="callouts">
       <div className="absolute left-1/2 top-[42%] flex -translate-x-1/2 flex-col items-center gap-3">
         {holds.slice(-1).map((c) => (
           <HoldBanner key={c.id} c={c} />

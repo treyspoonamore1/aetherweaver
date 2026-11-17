@@ -11,11 +11,15 @@ import { DevPanel } from '../../debug/DevPanel';
 import { PerfHud } from '../../debug/PerfHud';
 import { Hud } from '../hud/Hud';
 import { HowToPlay, howToSeen, markHowToSeen } from '../hud/HowToPlay';
+import { countKeyReminders, keyRemindersDue } from '../hud/hints';
 import { PauseMenu } from '../hud/PauseMenu';
 import { useUi } from '../store';
 import { useFirstSightings } from '../hud/sighting';
 import { combatSubtitle } from './routeText';
 import { t } from '../text';
+
+/** The fights whose key reminders have been counted (a session is one fight). */
+const remindersCounted = new WeakSet<CombatSession>();
 
 /** A combat node of the run: the 3D view, the HUD and the modal layers. */
 /**
@@ -61,6 +65,16 @@ export function CombatScreen() {
     return { config, onEnd: (outcome) => handOff(outcome) };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the node being played
   }, [pending, encounters]);
+
+  // The key reminders stay for a player's first fights (hints.ts), then leave the HUD; the pause
+  // menu's Controls shows them on demand. Decided as the fight opens, counted once a fight.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- once per fight
+  const keyReminders = useMemo(() => keyRemindersDue(), [session]);
+  useEffect(() => {
+    if (!session || !keyReminders || remindersCounted.has(session)) return;
+    remindersCounted.add(session);
+    countKeyReminders();
+  }, [session, keyReminders]);
 
   // Silent Cues (Phase 4d): the fight's own Cue cost, when it isn't a segment.
   const cueCost = useUi((s) => s.hud?.weaver.cueCost ?? null);
@@ -120,7 +134,7 @@ export function CombatScreen() {
   return (
     <div className="relative h-full w-full select-none overflow-hidden">
       {session && <GameHost session={session} />}
-      <Hud subtitle={subtitle} keyHints={fights < 2} />
+      <Hud subtitle={subtitle} keyHints={keyReminders} />
       {showPerf && <PerfHud />}
       {devOpen && <DevPanel />}
       {howto ? (

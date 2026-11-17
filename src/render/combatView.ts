@@ -45,6 +45,7 @@ import { TyrantView } from './tyrant';
 import type { FrameInfo, RenderContext, WorldView } from './types';
 import { VariantsView } from './variants';
 import { applyArtWorld } from './models/artWorld';
+import { HERO_DRAWN } from './models/artFlag';
 
 /**
  * The Phase 1 combat view (docs/plan/05 §5). Persistent visuals are derived from `WorldState`
@@ -229,6 +230,13 @@ export class CombatView implements WorldView {
     this.entities.sync(state, frame, this.kit, fxDt);
     this.field.sync(state, this.kit, fxDt, frame.time);
     this.groveDisc.sync(state, frame.time);
+    // The answer chips keep off the heroes, the Weaver and a boss (docs/phase-8.md, 8c).
+    for (const r of this.entities.recs.values()) {
+      const party = r.kind === 'weaver' || r.kind === 'hero';
+      if (!party && r.tier !== 'boss' && r.tier !== 'miniboss') continue;
+      const drawn = party ? HERO_DRAWN : 1;
+      this.overlay.keepClear(r.x, r.z, r.radius * drawn, r.height * drawn);
+    }
     this.telegraphs.sync(state, this.kit, this.overlay, fxDt, true);
     this.thread.sync(state, this.kit, fxDt, frame.time, frame.settings.flashes);
     this.calls.sync(state, this.kit, this.overlay, fxDt, frame.settings.flashes, still);

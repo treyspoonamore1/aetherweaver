@@ -106,11 +106,17 @@ export function BossBar({
   boss,
   decree,
   decreeBanner = false,
+  decreeAside = false,
   rewind = false,
   blind = false,
   reel = null,
 }: {
   boss: BossHud;
+  /**
+   * The decree's quiet line is drawn in the HUD's notes column (`BossDecree`), off the arena's
+   * middle, and not under the bar (docs/phase-8.md, 8c). False on a narrow screen.
+   */
+  decreeAside?: boolean;
   /** The Finale (docs/phase-5d.md): the variant Reel's slot plays, for the silence stave's words. */
   reel?: string | null;
   /** The latest decree, worded as it was announced (the store's `lastDecree`). */
@@ -131,10 +137,12 @@ export function BossBar({
   const shown = bossDecreeShown(boss.decree, decree);
   return (
     <div
-      className="absolute left-1/2 top-4 w-[36rem] max-w-[calc(100vw-2rem)] -translate-x-1/2"
+      // Kept slim and close to the top edge (docs/phase-8.md, 8c): every pixel of it is a pixel the
+      // boss cannot stand in.
+      className="absolute left-1/2 top-2 w-[36rem] max-w-[calc(100vw-2rem)] -translate-x-1/2"
       data-testid="boss-bar"
     >
-      <div className="rounded-2xl border border-ink-600/70 bg-ink-900/88 px-4 py-2.5 shadow-lg shadow-black/40 backdrop-blur-sm">
+      <div className="rounded-2xl border border-ink-600/70 bg-ink-900/88 px-4 py-2 shadow-lg shadow-black/40 backdrop-blur-sm">
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="truncate font-display text-lg font-bold tracking-wide text-gold-200">
             {boss.name}
@@ -165,7 +173,7 @@ export function BossBar({
           aria-valuemin={0}
           aria-valuemax={boss.maxHp}
           aria-valuenow={Math.round(boss.hp)}
-          className="relative mt-1.5 h-4 overflow-hidden rounded-full border border-ink-500 bg-ink-800"
+          className="relative mt-1 h-5 overflow-hidden rounded-full border border-ink-500 bg-ink-800"
         >
           <div
             className="absolute inset-y-0 left-0 transition-[width] duration-150 ease-linear"
@@ -186,16 +194,17 @@ export function BossBar({
               aria-hidden
             />
           ))}
-        </div>
-        <div className="mt-0.5 flex justify-between font-mono text-xs text-muted">
-          <span>
-            {fmt(boss.hp)} / {fmt(boss.maxHp)}
-          </span>
-          {boss.shield > 0 && (
-            <span className="text-pink-300">
-              {txt('hud.bossBar.discordShield', { shield: fmt(boss.shield) })}
+          {/* The numbers ride on the bar itself, not on a row of their own under it. */}
+          <div className="absolute inset-0 flex items-center justify-between px-2.5 font-mono text-xs font-semibold text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.95),0_0_3px_rgb(0_0_0/0.8)]">
+            <span>
+              {fmt(boss.hp)} / {fmt(boss.maxHp)}
             </span>
-          )}
+            {boss.shield > 0 && (
+              <span className="text-pink-200">
+                {txt('hud.bossBar.discordShield', { shield: fmt(boss.shield) })}
+              </span>
+            )}
+          </div>
         </div>
         {/* The Finale (docs/phase-5d.md): the Conductor's Discord, then the Grand Silence's stave. */}
         {boss.discord && <DiscordStave discord={boss.discord} blind={blind} />}
@@ -203,7 +212,7 @@ export function BossBar({
           <SilenceStave silence={boss.silence} blind={blind} rewinds={rewind} reel={reel} />
         )}
         {boss.cast && (
-          <div className="mt-1.5 rounded-lg bg-ink-950/60 px-3 py-1.5">
+          <div className="mt-1 rounded-lg bg-ink-950/60 px-3 py-1" data-testid="boss-cast">
             <div className="flex items-center justify-between gap-3">
               <span className="flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider text-threat">
                 <Icon name={bossCastIcon(boss.defId, !!boss.fortissimo)} size={14} />{' '}
@@ -232,7 +241,7 @@ export function BossBar({
                 )}
               </span>
             </div>
-            <div className="mt-1 h-2 overflow-hidden rounded-full bg-ink-700">
+            <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-ink-700">
               <div
                 className="h-full transition-[width] duration-150 ease-linear"
                 style={{
@@ -301,7 +310,7 @@ export function BossBar({
           </p>
         )}
       </div>
-      {shown && !decreeBanner && <DecreeLine decree={shown} blind={blind} />}
+      {shown && !decreeBanner && !decreeAside && <DecreeLine decree={shown} blind={blind} />}
     </div>
   );
 }
@@ -386,20 +395,48 @@ function BlindAnswer() {
   );
 }
 
-function DecreeLine({ decree, blind }: { decree: { name: string; text: string }; blind: boolean }) {
+/**
+ * The boss's standing decree as a note of its own, for the HUD's notes column: the same words as
+ * the line under the bar, wrapped to the column and never cut short.
+ */
+export function BossDecree({
+  boss,
+  decree,
+  decreeBanner = false,
+  blind = false,
+}: {
+  boss: BossHud;
+  decree: { name: string; text: string } | null;
+  decreeBanner?: boolean;
+  blind?: boolean;
+}) {
+  const shown = bossDecreeShown(boss.decree, decree);
+  if (!shown || decreeBanner) return null;
+  return <DecreeLine decree={shown} blind={blind} aside />;
+}
+
+function DecreeLine({
+  decree,
+  blind,
+  aside = false,
+}: {
+  decree: { name: string; text: string };
+  blind: boolean;
+  aside?: boolean;
+}) {
   // The sim's words, shown by their content source (src/ui/text/simText.ts).
   const said = simText(decree.text);
   const text = blind ? blindDecree(said) : said;
   return (
     <p
-      className="mt-1.5 rounded-lg border border-ailment/50 bg-ink-900/85 px-3 py-1.5 text-xs leading-snug text-violet-200 backdrop-blur-sm"
+      className={`rounded-lg border border-ailment/50 bg-ink-900/85 px-3 py-1.5 text-xs leading-snug text-violet-200 backdrop-blur-sm ${aside ? 'w-[17.5rem]' : 'mt-1.5'}`}
       title={text}
       data-testid="decree-line"
     >
       <span className="mr-1.5 font-display text-sm font-bold text-violet-100">
         {txt('hud.bossBar.decree')}
       </span>
-      <span className="line-clamp-2">{text || simText(decree.name)}</span>
+      <span className={aside ? 'block' : 'line-clamp-2'}>{text || simText(decree.name)}</span>
     </p>
   );
 }

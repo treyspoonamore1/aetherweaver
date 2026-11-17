@@ -5,7 +5,8 @@ import { bindingLabel, cueModifierMark, mouseRoleLabel } from './labels';
 import { t as txt } from '../text';
 
 /**
- * A quiet controls reminder (bottom-right). Shown for the first fights and in training. `bear`:
+ * A quiet controls reminder, placed by the HUD's notes column (top right). Shown for the
+ * player's first fights (keyHintsShown.ts), and on demand from the pause menu. `bear`:
  * a Martyr run, where Bear has its own key (Phase 3d). `rewind`: a Chronomancer run, where
  * Reel's key Rewinds (Phase 3e). `techniques` (Phase 4f): what the four keys play this fight, by
  * name (the variants chosen, Rewind in Reel's slot), in key order. Phase 5f: on a Conductor run,
@@ -17,7 +18,10 @@ export function KeyHints({
   techniques,
   crescendoName,
   chainWindow,
+  always = false,
 }: {
+  /** Shown at any width (the pause menu's Controls); otherwise only where the HUD has room. */
+  always?: boolean;
   bear?: boolean;
   rewind?: boolean;
   techniques?: readonly string[];
@@ -78,7 +82,7 @@ export function KeyHints({
   ];
   return (
     <Panel
-      className="absolute right-4 top-4 hidden px-4 py-3 min-[1180px]:block"
+      className={always ? 'px-4 py-3' : 'hidden px-4 py-3 min-[1180px]:block'}
       aria-label={txt('hud.keyHints.controls')}
     >
       <dl className="grid grid-cols-[auto_auto] gap-x-3 gap-y-1 text-xs">

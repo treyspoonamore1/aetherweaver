@@ -18,8 +18,10 @@ const MAX_SHOW_MS = 9000;
 const COOLDOWN_MS = 3500;
 
 /**
- * One contextual hint at a time, shown ≤ 3 times each, respecting settings.hints. The Weaver bar
- * places it, over the Thread dial, so it never covers the dial however tall the bar grows.
+ * One contextual hint at a time, shown ≤ 3 times each, respecting settings.hints. On a wide screen
+ * the HUD's notes column holds it (top right, off the arena's middle; docs/phase-8.md, 8c); on a
+ * narrow one the Weaver bar places it, over the Thread dial, so it never covers the dial however
+ * tall the bar grows.
  */
 export function CoachHints({
   hud,
@@ -73,7 +75,7 @@ export function CoachHints({
 
   if (!shown) return null;
   return (
-    <div className="flex justify-center" role="status">
+    <div className="flex justify-center" role="status" data-testid="coach-hint">
       <p
         key={shown.id}
         className="anim-rise flex max-w-xl items-start gap-2.5 rounded-xl border border-gold-500/60 bg-ink-900/92 px-4 py-2.5 text-sm leading-relaxed shadow-xl shadow-black/60"

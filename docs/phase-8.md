@@ -526,7 +526,7 @@ fixed-seed generator (`models/ownRandom.ts`).
 
 - The Hollow Cantor stands behind the boss panel for the first half minute of its fight, and the
   Unweaver and the Conductor stand at the top edge of the frame: camera and HUD, not figures
-  (the audit's change 10).
+  (the audit's change 10). *Since 8c, below: the camera frames the boss.*
 - At the game camera (about 70 px tall) the panes show as a faint mottle; the leading belongs to
   close-ups and the line-up.
 - Focus reads about twice as strong as on main (28.3 against 13.9 ΔE over the figure at the game
@@ -541,6 +541,222 @@ fixed-seed generator (`models/ownRandom.ts`).
   body; there is no blending between poses.
 - Stills cannot show whether the motion's timing reads at game speed, whether the per-figure clock
   looks mechanical across a crowd of 150 choristers, or how the 1.12 feels in play.
+
+## 8c: the fight out from under the interface
+
+*Built on `p9/hud` from `19fdec5`. The audit's change 10, which the owner approved as "look at the
+panel and the camera next". Nothing in it touches an aura's or ornament's look, the sim, content
+or a replay.*
+
+### What was wrong
+
+The bosses of 8b are worth looking at and were often not on show. Measured (below) on main, with
+the Skilled bot at seed 4242, through the first minute of each fight on a 1280 × 720 screen:
+
+- The Hollow Cantor's box was on average 76% hidden, the Silent Conductor's 73%, the
+  Unweaver's 53%: the party walks north toward a boss that stands some ten metres beyond the
+  Weaver, the camera followed the Weaver alone, and the boss ended up under the boss bar or off the
+  top of the screen. A boss that got behind the party (Vharun, the Matriarch, the Seamstress) went
+  under the Weaver bar instead.
+- The boss bar grew down the screen with every line it carried: the cast, a condition, and under
+  it the decree, to about 250 px of 720. The decree's banner, a new foe's card, the news toasts and
+  the coach's hints were all drawn over the arena's middle.
+- A telegraph's answer chip sits on the telegraph's edge, which is often a hero or the Weaver:
+  the worst sample had 44% of the Weaver under one.
+- The key-reminder panel was not permanent, as the audit took it to be (its pictures were taken
+  by jumping straight to a boss): it showed in the first two fights of every run. That is still
+  every run, for good.
+
+### The measurement
+
+`tools/hud-cover.mjs` (its header has the options) plays each boss and miniboss fight and one
+skirmish per world in the real game, and samples every two seconds through the first minute, at
+1280 × 720 and 1920 × 1080: the box each living boss, hero and the Weaver is drawn in
+(`__AW__.figures()`, `src/app/figureBoxes.ts`: the figure's upright box at its drawn size), and the
+share of that box under an interface piece or off the screen. An interface piece is anything
+painted in the HUD (a background at least half opaque) and the telegraphs' answer chips; the bar
+and marks a figure wears over its own head are not counted, and neither is a chip drawn
+see-through (below). A boss is judged from three seconds in. The bot is handed the fight before
+its first tick, and the tool hashes every command the sim consumed: the hash is the same before
+and after for all twenty runs, so the fights compared are the same fights, tick for tick.
+
+It runs on software rendering at a few frames a second, where the sim runs slower than real time
+and the camera, which eases in real time, has longer to settle than on a player's machine. The
+camera tests (`tests/fightFraming.test.ts`) run the same code at 60 frames a second.
+
+### What changed
+
+**The camera, in a fight that brings a boss or a miniboss** (`src/render/framing.ts`,
+`src/render/camera.ts`, `src/app/fightFraming.ts`, `src/app/hudSafeArea.ts`):
+
+- The part of the screen the interface leaves free is measured four times a second from where the
+  panels really are: under the boss bar, over the Weaver bar (and over the Thread dial for a figure
+  in the dial's columns), right of the party frames, clear of the two top corners' columns. So it
+  follows the resolution, the UI scale and wherever Edit HUD layout put the frames and the bar.
+  Room for the boss bar's cast row is kept between casts, and for the whole bar before the boss
+  has arrived (both from the UI's own scale), and a lower edge that shrinks is held for six
+  seconds, so the camera does not nod with every cast.
+- The camera's focus leans toward the boss, by the least that puts everyone in the free part, and
+  never more than 9 m north or south, nor 9 m east or west. With everyone already in view it does not move at all. It leans whichever
+  way the boss is: north as the fight opens, south for a boss that has got behind the party.
+- When the fight is deeper or wider than the free part shows, the camera also pulls back, by at
+  most half again as far (and never beyond the mouse wheel's own furthest, 42 m). As the party
+  closes with the boss it comes back in.
+- Order of who matters: the Weaver is kept wholly in the free part on every frame, eased or not.
+  A hero who is in view is never pushed more than a fifth out of it to show the boss. Then the
+  boss, then heroes who were out of view anyway.
+- A fight opens already framed on the spot the boss will arrive at (the director's own rule for
+  it), so no fight begins with a camera move, and the boss walks into a view that is waiting.
+- It eases: about a second to settle. Under Reduced motion On it eases sixteen times more slowly
+  (about twenty seconds to settle, 2.5 m a second at its fastest in the test), and the opening
+  framing is taken at once, as it is with motion on. Reduced motion already let the camera follow
+  the Weaver; it still does.
+- Fights with no boss or miniboss get none of this. Their camera is, to the last bit, the camera
+  they had (`tests/fightFraming.test.ts` compares positions and rotations frame by frame, with a
+  shake and a zoom-punch in it).
+- Aiming: the mouse's ground point is read through the camera as the rig last set it
+  (`groundUnder` in `src/render/stage.ts`, which `Stage.pickGround` now calls). The test picks the
+  ground under four pixels on 200 frames of a leaning, pulling-back camera, and each picked point
+  draws back under its pixel to a millionth of a pixel; a hero's feet, drawn then picked, come
+  back as the hero's own place. The pad aims by party slot and never read the camera.
+- The sim is only read: a miniboss fight framed and the same fight unframed end on the same hash.
+
+**The HUD** (`src/ui/hud/Hud.tsx`, `BossBar.tsx`, `Callouts.tsx`, `CoachHints.tsx`, `KeyHints.tsx`,
+`PauseMenu.tsx`, `hints.ts`; `src/render/overlay.ts`):
+
+- **A notes column at the top right**, on a screen at least 1180 px wide. Text to read goes
+  there, off the arena's middle: the key reminders (while they show), the boss's decree (its
+  banner as it is announced, then its standing line, no longer cut to two lines), a new foe's or
+  ally's card, the news toasts and the coach's hints. On a narrower screen all of them stay where
+  they were. The big moment banners (Perfect Ward, Saved), Fermata's hold and the Grand Silence's
+  notes are where they were at every width.
+- **A slimmer boss bar**: 8 px from the top edge instead of 16, its numbers on the health bar
+  itself instead of on a row under it, tighter padding. About 36 px shorter while casting
+  (158 px to 120 px at its lower edge), and far shorter once the decree is out of it.
+- **The key reminders** show in a player's first four fights, counted for good on the device
+  (with the coach hints' own counts), then leave the screen. The pause menu has **Controls**,
+  which shows the same list at any time and any screen width, pad included.
+- **The answer chips** are about a seventh smaller, and a chip that would cover a hero, the Weaver
+  or a boss is drawn beside, under or over a figure near it instead (never more than 120 px from
+  its telegraph's edge). One with no free place that near stays on the edge and is drawn at 45%,
+  so the figure under it reads; its answers are also on the boss bar's cast row. A chip clear of
+  every figure is exactly where it was.
+
+### The numbers
+
+The share of a figure's box that is hidden, as *worst sample* / *average over the samples*, in
+the first minute, Skilled bot, seed 4242. "Before" is main (`19fdec5`) with the tool added.
+
+**1280 × 720**
+
+| Fight | Boss: before | Boss: now | Heroes: before | Heroes: now | Weaver: before | Weaver: now | Furthest lean, pull-back |
+|---|---|---|---|---|---|---|---|
+| First Light (skirmish) | - | - | 53% / 4% | 49% / 1% | 40% / 2% | 9% / 1% | none |
+| The Bellwarden | 92% / 30% | 5% / 0% | 79% / 5% | 33% / 1% | 28% / 3% | 36% / 1% | 6.0 m, ×1.50 |
+| The Hollow Cantor | 90% / 76% | 1% / 0% | 81% / 3% | 7% / 0% | 32% / 1% | 0% / 0% | 6.5 m, ×1.50 |
+| The Crimson Gate (skirmish) | - | - | 100% / 7% | 100% / 4% | 0% / 0% | 0% / 0% | none |
+| The Gorehound Matriarch | 88% / 33% | 15% / 1% | 77% / 3% | 9% / 0% | 36% / 2% | 9% / 0% | 6.0 m, ×1.50 |
+| Vharun | 91% / 42% | 20% / 3% | 98% / 11% | 47% / 2% | 44% / 4% | 0% / 0% | 6.3 m, ×1.50 |
+| The Frayed Threshold (skirmish) | - | - | 77% / 9% | 73% / 4% | 15% / 1% | 0% / 0% | none |
+| The Seamstress | 89% / 35% | 17% / 1% | 100% / 12% | 34% / 1% | 36% / 2% | 36% / 1% | 6.2 m, ×1.50 |
+| The Unweaver | 100% / 53% | 17% / 1% | 100% / 14% | 13% / 0% | 36% / 1% | 0% / 0% | 6.1 m, ×1.50 |
+| The Silent Conductor | 100% / 73% | 52% / 9% | 100% / 33% | 27% / 1% | 33% / 5% | 0% / 0% | 9.5 m, ×1.50 |
+
+**1920 × 1080**
+
+| Fight | Boss: before | Boss: now | Heroes: before | Heroes: now | Weaver: before | Weaver: now | Furthest lean, pull-back |
+|---|---|---|---|---|---|---|---|
+| First Light (skirmish) | - | - | 9% / 0% | 3% / 0% | 18% / 1% | 4% / 0% | none |
+| The Bellwarden | 92% / 13% | 0% / 0% | 21% / 1% | 10% / 0% | 13% / 1% | 24% / 1% | 5.8 m, ×1.24 |
+| The Hollow Cantor | 93% / 51% | 13% / 1% | 20% / 0% | 4% / 0% | 10% / 0% | 0% / 0% | 6.9 m, ×1.40 |
+| The Crimson Gate (skirmish) | - | - | 43% / 1% | 39% / 1% | 0% / 0% | 0% / 0% | none |
+| The Gorehound Matriarch | 93% / 20% | 5% / 0% | 84% / 3% | 4% / 0% | 24% / 1% | 20% / 1% | 5.8 m, ×1.23 |
+| Vharun | 93% / 29% | 37% / 1% | 27% / 2% | 4% / 0% | 15% / 1% | 0% / 0% | 7.3 m, ×1.46 |
+| The Frayed Threshold (skirmish) | - | - | 61% / 4% | 57% / 1% | 0% / 0% | 0% / 0% | none |
+| The Seamstress | 91% / 12% | 0% / 0% | 57% / 3% | 13% / 0% | 27% / 1% | 0% / 0% | 6.1 m, ×1.29 |
+| The Unweaver | 94% / 37% | 2% / 0% | 51% / 3% | 4% / 0% | 24% / 1% | 0% / 0% | 7.5 m, ×1.48 |
+| The Silent Conductor | 94% / 52% | 10% / 1% | 100% / 11% | 33% / 1% | 21% / 1% | 6% / 0% | 9.6 m, ×1.50 |
+
+The targets were: no boss more than a quarter hidden at any sample after the first three
+seconds; no hero and never the Weaver more than a quarter hidden at any sample; the skirmishes no
+worse than before.
+
+Counted over the seven boss and miniboss fights (199 boss samples, 642 hero samples and 217
+of the Weaver at each size), a sample "over" is one with more than a quarter hidden:
+
+| | Bosses: average hidden | Bosses: samples over | Heroes: samples over | Weaver: samples over |
+|---|---|---|---|---|
+| 1280 × 720, before | 48.5% | 140 of 199 | 105 of 642 | 12 of 217 |
+| 1280 × 720, now | 2.1% | 4 of 199 | 9 of 642 | 2 of 217 |
+| 1920 × 1080, before | 30.3% | 93 of 199 | 29 of 642 | 1 of 217 |
+| 1920 × 1080, now | 0.4% | 1 of 199 | 2 of 642 | 0 of 217 |
+
+**Met**: at 1920 × 1080 the Weaver at every sample, and every boss but one sample; at 1280 × 720
+six of the seven bosses at every sample (the Cantor, hidden 76% on average before, is never more
+than 1% hidden). The three skirmishes are no worse for any figure at either size. Their camera
+is untouched; with the toasts and the chips moved, the average hidden share of a figure in them
+fell from 5.3% to 2.4% at 1280 × 720 and from 1.6% to 0.7% at 1920 × 1080.
+
+**Not met**, and why:
+
+- *The Silent Conductor at 1280 × 720*: four samples of 28 between 36% and 52% hidden (9% on
+  average, from 73%). Its boss bar carries the Discord stave and a Cue's line as well as the cast,
+  and reaches 31% of the way down a 720-line screen. With the Weaver bar that leaves 44% of the
+  height for a fight that is at times sixteen metres deep, with the camera already as far back
+  as it goes. At 1920 × 1080 the Conductor is never more than 10% hidden.
+- *Vharun's leap at 1920 × 1080* (one sample, 37%): Impale carries him eighteen metres in one
+  tick, to behind the party, and the sample fell on that tick. A camera that eases cannot be there
+  already; half a second later it is.
+- *The Weaver, twice at 1280 × 720* (36% both times), and four of the nine hero samples: the
+  caption of a moment banner (Saved, Clutch) crossing them for the second or two it shows. Those
+  banners were left where they are: they are the game's applause for the player's own save, some
+  of them announce Fermata's, and they were not on the list the owner approved. Before, the same
+  banners and the toasts beside them accounted for 18 such samples at this size; now 6, and none
+  at 1920 × 1080.
+- *The other five hero samples at 1280 × 720 and two at 1920 × 1080*: Lyra or Kael for a moment
+  under the Weaver bar, the Thread dial, the party frames or a hero's speech bubble beside the
+  frames, when a dash or a leap strings the party out further than the pulled-back camera shows
+  (Kael is eighteen metres from the Weaver in the Conductor's fight at 34 s).
+
+### Tests
+
+New: `tests/fightFraming.test.ts` (the safe area from the panels; the lean both ways; no move
+when all are in view; a boss-less fight's camera bit for bit; the bounds; the Weaver in view on
+every frame of a forty-second scramble; smoothness when a boss leaps twenty metres; a hero in view
+kept in view; the opening framing; Reduced motion; aiming; the sim's hash), `tests/figureBoxes.test.ts`
+(the measured boxes are where the figures are), `tests/hudNotes8c.test.ts`,
+`tests/keyReminders8c.test.ts`, `tests/answerChips8c.test.ts`, and `e2e/framing.spec.ts` (a
+miniboss fight in the real game: the boss under the boss bar's edge, the Weaver over the Weaver
+bar's, the notes column clear of the boss bar, Controls in the pause menu). No pinned picture,
+hash or snapshot was re-recorded.
+
+### Known weak, and for the owner
+
+- The camera pulls back by up to half again as far while a boss walks in (it stands seventeen
+  metres from the Weaver for the first few seconds), and figures are then two thirds their usual
+  size on screen. Every fight reached ×1.50 in its first ten seconds at 1280 × 720, and between
+  ×1.23 and ×1.50 at 1920 × 1080. From twelve seconds in, the camera sat at its usual distance
+  half the time or more in every fight but the Conductor's (median ×1.00 to ×1.08 at
+  1280 × 720, ×1.00 at 1920 × 1080; the Conductor's ×1.50 and ×1.16), with a median lean of
+  0 to 5 m and never more than 6.3 m outside the Conductor's fight (9.6 m there, most of it
+  sideways). The limit (`MAX_PULL` in `src/render/camera.ts`), the longest lean (`MAX_LEAN`,
+  9 m north or south and 9 m east or west) and the easing (`FRAME_RATE`) are one line each: the
+  owner's call. With no pull-back at all, the opening seconds cannot show the boss and the Weaver
+  together on a 720-line screen.
+- A hero in view is never pushed out of view to show the boss. When the party stands far behind
+  the Weaver and the boss far ahead, the boss is the one that loses its head to the boss bar.
+- The moment banners, above. Two cheap answers, for the owner: drop the dark plate behind the
+  caption (a soft shadow instead), or show the caption in the notes column and keep the word.
+- The Conductor's boss bar at 1280 × 720, above: it could carry the Discord stave on one line
+  with the health bar. Not done here: it is the Finale's own interface (docs/phase-5d.md).
+- Under Reduced motion On the framing eases about sixteen times more slowly, so a boss that
+  leaps behind the party stays out of view for several seconds; the Weaver is in view throughout.
+- The key reminders are counted on the device, like the coach hints: a second player on the same
+  device does not get them again, and has Controls in the pause menu.
+- The notes column can grow long in a player's first fights (the key reminders, a decree, a new
+  foe's card and a hint together reach about 530 px on a 720-line screen).
+- Measured on software rendering, at a few frames a second, with one bot at one seed. Nobody has
+  watched the camera move at 60 frames a second on a real graphics card.
 
 ## 8d: portraits and the map's rewards
 

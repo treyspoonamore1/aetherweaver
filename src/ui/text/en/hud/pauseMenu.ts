@@ -12,4 +12,7 @@ export const pauseMenu = {
   'hud.pauseMenu.leaveTrainingGrounds': 'Leave Training Grounds',
   'hud.pauseMenu.abandonThisRun': 'Abandon this run?',
   'hud.pauseMenu.paused': 'Paused',
+  'hud.pauseMenu.controls': 'Controls',
+  'hud.pauseMenu.controlsNote':
+    'The key reminders from your first fights. Rebind any of them in Settings.',
 } satisfies Catalogue;
