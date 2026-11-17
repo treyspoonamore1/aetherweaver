@@ -89,7 +89,7 @@ export class ModelBatch {
     sunrise = 0,
     frost = 0,
     prism = 0,
-    standing = false,
+    standing: boolean | 'outline' = false,
   ): void {
     if (this.count >= this.capacity) return;
     const i = this.count++;
@@ -106,12 +106,13 @@ export class ModelBatch {
     t[i * 4] = tint.r;
     t[i * 4 + 1] = tint.g;
     t[i * 4 + 2] = tint.b;
-    // A standing rim (the hostile and elite rims at rest) is marked in its strength's size: the
-    // body draws it, the outline shell does not (material.ts RIM_STANDING).
+    // A standing rim is marked in its strength's size (material.ts RIM_STANDING). Once (`true`:
+    // the Weaver's at rest; a foe's with artFlag's HOSTILE_OUTLINE off): the body draws it, the
+    // outline shell does not. Twice (`'outline'`: the elite's gold and its crown's): the outline
+    // carries it too, at its own strength (artFlag's ELITE_OUTLINE_STRENGTH).
+    const mark = standing === 'outline' ? 2 * RIM_STANDING : standing ? RIM_STANDING : 0;
     t[i * 4 + 3] =
-      standing && tintStrength !== 0
-        ? tintStrength + Math.sign(tintStrength) * RIM_STANDING
-        : tintStrength;
+      mark > 0 && tintStrength !== 0 ? tintStrength + Math.sign(tintStrength) * mark : tintStrength;
     const s = this.shine.array as Float32Array;
     s[i * 4] = shine;
     s[i * 4 + 1] = sunrise;
@@ -158,14 +159,24 @@ export class ModelBatch {
     const t = this.tint.array as Float32Array;
     out.setRGB(t[i * 4]!, t[i * 4 + 1]!, t[i * 4 + 2]!);
     const s = t[i * 4 + 3]!;
-    return Math.abs(s) > RIM_STANDING / 2 ? s - Math.sign(s) * RIM_STANDING : s;
+    return s - Math.sign(s) * RIM_STANDING * this.markOf(i);
+  }
+
+  /** How instance `i`'s rim was marked: 0 not standing, 1 standing, 2 standing on the outline. */
+  private markOf(i: number): number {
+    if (i >= this.count) return 0;
+    const a = Math.abs((this.tint.array as Float32Array)[i * 4 + 3]!);
+    return a > RIM_STANDING * 1.5 ? 2 : a > RIM_STANDING / 2 ? 1 : 0;
   }
 
   /** Whether instance `i`'s rim as last pushed is a standing rim, drawn on the body only (tests). */
   standingOf(i: number): boolean {
-    return (
-      i < this.count && Math.abs((this.tint.array as Float32Array)[i * 4 + 3]!) > RIM_STANDING / 2
-    );
+    return this.markOf(i) === 1;
+  }
+
+  /** Whether it is a standing rim the outline carries at its own strength (tests). */
+  carriedOf(i: number): boolean {
+    return this.markOf(i) === 2;
   }
 
   end(): void {

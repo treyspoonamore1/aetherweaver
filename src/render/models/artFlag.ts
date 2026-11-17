@@ -35,6 +35,18 @@ export const HOSTILE_OUTLINE = true;
  * on): 1 is the outline as the owner chose it (the body's edge-only rim at a fresnel of 1). Lower
  * it and only a rank-and-file foe's outline dims toward lead; its body's edge, the elite's gold
  * and every event cue are untouched. Kept at 1 after it was measured against the telegraphs at
- * 0.7 and 0.45 (docs/phase-8.md, 8b): a dimmer red sits nearer a lethal telegraph's fill.
+ * 0.7 and 0.45 (docs/phase-8.md, 8b): a dimmer red sits nearer a lethal telegraph's fill, and a
+ * figure standing on one separates from it less.
  */
 export const HOSTILE_OUTLINE_STRENGTH: number = 1;
+
+/**
+ * How strongly the outline carries the elite's gold, and its crown's (with HOSTILE_OUTLINE): 1 is
+ * the body's own rim at a fresnel of 1, the outline as the owner first saw it. Lower it and only
+ * an elite's outline and its crown's dim toward lead: its body's gold, Focus's gold on any foe
+ * and every other cue are untouched. Set to 0.6 after it was measured (docs/phase-8.md, 8b): at 1
+ * an elite's outline and a Focused foe's were the same gold, 14 to 21 ΔE apart (72 to 83 with the
+ * dark outline); at 0.6 they are 27 to 34 apart and the elite's outline is still gold. 1 restores
+ * the outline as first seen.
+ */
+export const ELITE_OUTLINE_STRENGTH: number = 0.6;

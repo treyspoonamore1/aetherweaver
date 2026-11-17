@@ -11,7 +11,10 @@
  *
  * Re-recorded for Phase 8c: the default (both constants were off), the foe's strength (0.18 on
  * the body became -0.18, the edge-only rim) and the standing marks of the foe, the elite and the
- * crown (true became false). The strengths, colours and shader lines are unchanged.
+ * crown (a foe's red is no longer marked; an elite's gold and its crown's are marked twice,
+ * "carried by the outline"). New in the shader, and pinned here: the second mark, and the two
+ * outline strengths (the hostile red's, 1; the elite's gold's, 0.6). The body's lines, the
+ * strengths on the body and the colours are unchanged.
  */
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
@@ -20,6 +23,7 @@ import { EntityLayer } from '../src/render/entities';
 import { FxKit } from '../src/render/fx/kit';
 import { OWN_LOOK, OWN_RIM, restRim, type WeaverLook } from '../src/render/keepsakeCues';
 import {
+  ELITE_OUTLINE_STRENGTH,
   HOSTILE_EDGE,
   HOSTILE_OUTLINE,
   HOSTILE_OUTLINE_STRENGTH,
@@ -83,6 +87,9 @@ describe('the outline shell and the standing rims (the owner\'s "Red outline, no
     // The outline's red at the strength the owner saw (measured against the telegraphs at 0.7
     // and 0.45 too, and kept: docs/phase-8.md, 8b).
     expect(HOSTILE_OUTLINE_STRENGTH).toBe(1);
+    // The elite's gold on the outline: dimmed to 0.6, so it stands apart from Focus's gold
+    // (measured at 1, 0.6 and 0.35: docs/phase-8.md, 8b).
+    expect(ELITE_OUTLINE_STRENGTH).toBe(0.6);
   });
 
   it('puts the hostile and elite rims on the outline (not standing), as an aura tint is', () => {
@@ -101,22 +108,26 @@ describe('the outline shell and the standing rims (the owner\'s "Red outline, no
     expect(x.batch.tintOf(x.i, rim)).toBeCloseTo(-0.18, 6);
     expect(rim.getHexString()).toBe('ef4444');
     expect(x.batch.standingOf(x.i)).toBe(false);
-    // The elite's gold: on its body as before (0.18) and on its outline too: a gold outline.
+    // The elite's gold: on its body as before (0.18) and carried by its outline too, at the
+    // outline's own strength (marked twice, not "body only"): a gold outline.
     x = h.instance(elite.id);
-    expect(x.batch.tintOf(x.i, rim)).toBeCloseTo(0.18, 6);
+    expect(x.batch.tintOf(x.i, rim)).toBeCloseTo(0.18, 5);
     expect(rim.getHexString()).toBe(C.gold.getHexString());
     expect(x.batch.standingOf(x.i)).toBe(false);
+    expect(x.batch.carriedOf(x.i)).toBe(true);
     // Its crown's gold glow too (the elite's mark: on the crown's outline as well).
     const crown = (h.entities as unknown as { crown: typeof x.batch }).crown;
     expect(crown.pushed).toBe(1);
-    expect(crown.tintOf(0, rim)).toBeCloseTo(0.4, 6);
+    expect(crown.tintOf(0, rim)).toBeCloseTo(0.4, 5);
     expect(crown.standingOf(0)).toBe(false);
+    expect(crown.carriedOf(0)).toBe(true);
     // An aura-covered hero: its aura tint is an event cue, carried by the outline too.
     const hero = sim.state.entities.get(sim.state.party[0]!)!;
     expect(hero.hero!.auraMask).not.toBe(0);
     x = h.instance(hero.id);
     expect(x.batch.tintOf(x.i, rim)).toBeCloseTo(0.3, 6);
     expect(x.batch.standingOf(x.i)).toBe(false);
+    expect(x.batch.carriedOf(x.i)).toBe(false);
   });
 
   it('draws no rim tint on the outline for a standing rim, and the rim otherwise (shader)', () => {
@@ -131,8 +142,10 @@ describe('the outline shell and the standing rims (the owner\'s "Red outline, no
     // A standing rim is marked by RIM_STANDING added to its strength's size, and unmarked.
     expect(RIM_STANDING).toBe(16);
     expect(frag).toContain('bool awStanding = abs(vTint.a) > 8.0;');
+    // Marked twice (the elite's gold and its crown's): standing, and carried by the outline.
+    expect(frag).toContain('bool awCarried = abs(vTint.a) > 24.0;');
     expect(frag).toContain(
-      'float awTintA = awStanding ? vTint.a - sign(vTint.a) * 16.0 : vTint.a;',
+      'float awTintA = awStanding ? vTint.a - sign(vTint.a) * (awCarried ? 32.0 : 16.0) : vTint.a;',
     );
     // The body draws every rim, standing or not (main's line, on the unmarked strength); a
     // negative strength (the hostile rim) is the edge-only rim: almost no flat wash.
@@ -147,7 +160,13 @@ describe('the outline shell and the standing rims (the owner\'s "Red outline, no
     expect(shell).toMatch(
       /if \(!awStanding\) awShell \+= awTintA >= 0\.0 \? vTint\.rgb \* awTintA/,
     );
-    expect(shell.match(/awTintA/g)!.length).toBe(3);
+    // A standing rim marked twice is added at its own strength (ELITE_OUTLINE_STRENGTH); one
+    // marked once (the Weaver's at rest) is not added at all.
+    expect(shell).toContain(
+      'else if (awCarried) awShell += vTint.rgb * abs(awTintA) * (0.18 + 1.9) * AW_ELITE_SHELL;',
+    );
+    expect(frag).toContain(`const float AW_ELITE_SHELL = ${ELITE_OUTLINE_STRENGTH.toFixed(3)};`);
+    expect(shell.match(/awTintA/g)!.length).toBe(4);
     // The hostile red (the negative strength) on the outline: the body's edge at a fresnel of 1,
     // times its own constant (HOSTILE_OUTLINE_STRENGTH; nothing else is scaled by it).
     expect(shell).toContain(': vTint.rgb * -awTintA * (0.02 + 4.0) * AW_HOSTILE_SHELL;');
@@ -172,6 +191,7 @@ describe('the outline shell and the standing rims (the owner\'s "Red outline, no
       const rim = new THREE.Color();
       expect(x.batch.tintOf(x.i, rim), look.robe ?? 'own').toBeCloseTo(strength, 5);
       expect(x.batch.standingOf(x.i), look.robe ?? 'own').toBe(true);
+      expect(x.batch.carriedOf(x.i), look.robe ?? 'own').toBe(false);
     }
     // A borne wound's flinch (the Martyr) is an event rim: carried by her outline.
     const sim = sandbox();

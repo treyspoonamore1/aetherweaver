@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CHRONO_HEX } from '../chronoCues';
 import type { QualityTier } from '../stage';
-import { HOSTILE_OUTLINE_STRENGTH } from './artFlag';
+import { ELITE_OUTLINE_STRENGTH, HOSTILE_OUTLINE_STRENGTH } from './artFlag';
 import { ownRandom } from './ownRandom';
 
 /** A hex colour as a GLSL vec3 literal (linear, like THREE.Color). */
@@ -220,9 +220,10 @@ export interface ModelMaterial {
 /**
  * A standing rim (the rank-and-file hostile rim, the elite's gold) is pushed with this added to
  * the size of its strength (ModelBatch `standing`): the body draws it as any rim, the outline shell
- * does not. With artFlag.ts HOSTILE_OUTLINE on (the game's look) a foe's two rims are not pushed as
- * standing, so its outline carries them; the Weaver's resting rim always is. No rim is ever this
- * strong of itself.
+ * does not. With artFlag.ts HOSTILE_OUTLINE on (the game's look) a foe's hostile red is not pushed
+ * as standing, so its outline carries it, and an elite's gold is marked twice (`'outline'`): the
+ * outline carries it at its own strength. The Weaver's resting rim is always marked once. No rim
+ * is ever this strong of itself.
  */
 export const RIM_STANDING = 16;
 
@@ -384,6 +385,8 @@ const vec3 AW_FROST = ${glslColor(CHRONO_HEX.frost)};
 const vec3 AW_SILVER = ${glslColor(CHRONO_HEX.silver)};
 // The hostile red on the outline, against the body's edge (artFlag.ts HOSTILE_OUTLINE_STRENGTH).
 const float AW_HOSTILE_SHELL = ${HOSTILE_OUTLINE_STRENGTH.toFixed(3)};
+// The elite's gold on the outline, against its body's rim (artFlag.ts ELITE_OUTLINE_STRENGTH).
+const float AW_ELITE_SHELL = ${ELITE_OUTLINE_STRENGTH.toFixed(3)};
 float awHash(vec3 p) {
   p = fract(p * 0.3183099 + vec3(0.1, 0.2, 0.3));
   p *= 17.0;
@@ -420,7 +423,9 @@ diffuseColor.rgb = mix(diffuseColor.rgb, vec3(awLum) * 0.55, vFx.z);
 float awFrost = vShine.z;
 // The rim's strength, and whether it is a standing rim (RIM_STANDING, ModelBatch \`standing\`).
 bool awStanding = abs(vTint.a) > ${RIM_STANDING / 2}.0;
-float awTintA = awStanding ? vTint.a - sign(vTint.a) * ${RIM_STANDING}.0 : vTint.a;
+// Marked twice: a standing rim the outline carries too, at its own strength (the elite's gold).
+bool awCarried = abs(vTint.a) > ${RIM_STANDING * 1.5}.0;
+float awTintA = awStanding ? vTint.a - sign(vTint.a) * (awCarried ? ${RIM_STANDING * 2}.0 : ${RIM_STANDING}.0) : vTint.a;
 // Held in time (Stasis): drained to a cold silver-blue and dimmed, like a figure under glass.
 diffuseColor.rgb = mix(diffuseColor.rgb, awLum * AW_FROST * vec3(0.72, 0.84, 1.0) * 0.62, awFrost * 0.9);
 float awKind = floor(vLead.x + 0.001);
@@ -556,6 +561,7 @@ if (vShine.w > 0.001) {
   // Not a standing rim: the outline stays lead under the hostile and elite rims (HOSTILE_OUTLINE).
   if (!awStanding)
     awShell += awTintA >= 0.0 ? vTint.rgb * awTintA * (0.18 + 1.9) : vTint.rgb * -awTintA * (0.02 + 4.0) * AW_HOSTILE_SHELL;
+  else if (awCarried) awShell += vTint.rgb * abs(awTintA) * (0.18 + 1.9) * AW_ELITE_SHELL;
   awShell += mix(vec3(1.0, 0.9, 0.6), AW_SILVER, awFrost) * awGhost * 0.9;
   awShell += AW_FROST * awFrost * (0.04 + 0.5);
   if (vShine.x > 0.001) {

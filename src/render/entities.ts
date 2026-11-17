@@ -1878,7 +1878,7 @@ export class EntityLayer {
     // The standing rims: the elite's gold and the rank-and-file hostile rim are carried by the
     // outline (the owner's choice, artFlag.ts HOSTILE_OUTLINE; off, they are drawn on the body only
     // and the outline stays lead). The Weaver's at rest is always on her body only.
-    let standing = false;
+    let standing: boolean | 'outline' = false;
     const isHero = e.kind === 'hero';
     const auraMask = e.hero?.auraMask ?? 0;
     if (fermata) {
@@ -1930,7 +1930,8 @@ export class EntityLayer {
     } else if (rec.tier === 'elite') {
       this.tint.copy(C.gold);
       tintStrength = 0.18;
-      standing = !HOSTILE_OUTLINE;
+      // On the outline too, at its own strength (artFlag.ts ELITE_OUTLINE_STRENGTH).
+      standing = HOSTILE_OUTLINE ? 'outline' : true;
     } else if (isEnemy && rec.role !== 'boss' && rec.role !== 'miniboss' && dissolve < 0.001) {
       // Rank and file: a faint edge in their life bar's red, so a pale chorister or a dark hound
       // stands out from the floor and the pillars before it is hurt (it has no bar till then).
@@ -2080,7 +2081,8 @@ export class EntityLayer {
       );
       // The crown's own gold glow is the elite's standing mark too: it follows the elite's rim
       // (on its outline as well under HOSTILE_OUTLINE, the owner's choice).
-      this.crown.push(cm, 0, dissolve, 0, 0, C.gold, 0.4, 0, 0, 0, 0, !HOSTILE_OUTLINE);
+      const carried = HOSTILE_OUTLINE ? 'outline' : true;
+      this.crown.push(cm, 0, dissolve, 0, 0, C.gold, 0.4, 0, 0, 0, 0, carried);
       // Elite Vanguard: an elite with more than one affix wears a gem for each round its crown.
       const n = rec.affixColors.length;
       if (n > 1 && dissolve < 0.95) {

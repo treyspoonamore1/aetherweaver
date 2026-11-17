@@ -114,8 +114,8 @@ interface Figure {
   ring: THREE.Color | null;
   rim: THREE.Color;
   rimStrength: number;
-  /** A standing rim: drawn on the body only (ModelBatch `standing`). */
-  standing: boolean;
+  /** A standing rim: on the body only, or (`'outline'`) carried by the outline (ModelBatch). */
+  standing: boolean | 'outline';
   hist: Float32Array | null;
 }
 
@@ -277,7 +277,7 @@ export class ArtStudio {
     let ring: THREE.Color | null = null;
     let rim = this.black;
     let rimStrength = 0;
-    let standing = false;
+    let standing: boolean | 'outline' = false;
     let hist: Float32Array | null = null;
     if (kind === 'weaver') {
       const look = { ...OWN_LOOK, ...this.spec.look };
@@ -317,7 +317,7 @@ export class ArtStudio {
         // As entities.ts draws an elite at rest: its gold rim, and its crown (below).
         rim = C.gold;
         rimStrength = 0.18;
-        standing = !onOutline;
+        standing = onOutline ? 'outline' : true;
       } else if (def.role !== 'boss' && def.role !== 'miniboss') {
         rim = this.hostile;
         const edge = mode === 'edge' || mode === 'outline-edge';
@@ -396,7 +396,9 @@ export class ArtStudio {
           0,
           0,
           0,
-          !(this.hostileMode() === 'outline' || this.hostileMode() === 'outline-edge'),
+          this.hostileMode() === 'outline' || this.hostileMode() === 'outline-edge'
+            ? 'outline'
+            : true,
         );
         this.s.set(1, 1, 1);
       }
