@@ -6,7 +6,7 @@
 import { createElement, type FunctionComponent } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it } from 'vitest';
-import { mockHud } from '../src/ui/lab/mock';
+import { mockCallouts, mockHud } from '../src/ui/lab/mock';
 
 type Props = Record<string, unknown>;
 /** The components are .tsx: loaded as the other UI tests load them. */
@@ -33,12 +33,13 @@ afterEach(() => {
   delete (globalThis as Global).window;
 });
 
-function hud(keyHints: boolean, forceCoach = false): string {
+function hud(keyHints: boolean, forceCoach = false, announced = false): string {
   const snapshot = mockHud('boss');
   return renderToStaticMarkup(
     createElement(HudView, {
       hud: snapshot,
-      callouts: [],
+      // `announced`: the moment the Requiem decree is called out (its banner is up).
+      callouts: announced ? mockCallouts('boss') : [],
       decree: snapshot.boss!.decree ?? null,
       keyHints,
       coach: forceCoach,
@@ -78,6 +79,23 @@ describe('the notes column', () => {
       expect(bar).toContain('data-testid="decree-line"');
       expect(bar).toContain('line-clamp-2');
     }
+  });
+
+  it('a decree is announced there too, not across the arena’s middle', () => {
+    screen(1280);
+    const wide = hud(false, false, true);
+    const notes = from(wide, 'hud-notes');
+    // The banner's own words (the quiet line waits while it is up, as before).
+    expect(notes).toContain('text-violet-300');
+    expect(notes).toContain('Requiem');
+    expect(wide.slice(0, wide.indexOf('data-testid="hud-notes"'))).not.toContain('text-violet-300');
+    expect(notes).not.toContain('data-testid="decree-line"');
+    // Narrow: the banner is where it was, under the boss bar in the middle.
+    screen(1024);
+    const narrow = hud(false, false, true);
+    expect(narrow).not.toContain('data-testid="hud-notes"');
+    expect(narrow).toContain('text-violet-300');
+    expect(narrow).toContain('top-[11.25rem]');
   });
 
   it('holds the key reminders first, then the decree', () => {

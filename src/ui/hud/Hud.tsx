@@ -25,7 +25,7 @@ import type { TriggerChip } from './triggers';
 import { CallingChip } from './CallingChip';
 import { KeystoneChip } from './KeystoneChip';
 import { DissonanceChip } from './DissonanceChip';
-import { BANNER_KINDS, Callouts } from './Callouts';
+import { BANNER_KINDS, CalloutNotes, Callouts } from './Callouts';
 import { CoachHints } from './CoachHints';
 import { DirectiveWheel, DirectiveWheelView } from './DirectiveWheel';
 import { EncounterHeader } from './EncounterHeader';
@@ -331,6 +331,7 @@ export function HudView({
         blind={blind}
         party={hud.party}
         waves={hud.encounter.waves}
+        aside={notes}
       />
       <PartyFrames
         party={hud.party}
@@ -377,6 +378,14 @@ export function HudView({
               decree={shownDecree}
               decreeBanner={decreeBanner}
               blind={blind}
+            />
+          )}
+          {notes && (
+            <CalloutNotes
+              callouts={callouts}
+              barkSpeakers={hud.party.map((p) => p.name)}
+              blind={blind}
+              party={hud.party}
             />
           )}
           {notes && coachHints && <div className="w-[17.5rem]">{coachHints}</div>}

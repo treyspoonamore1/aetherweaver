@@ -353,6 +353,21 @@ const server = await serve();
 const browser = await chromium.launch({
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
 });
+// Stopped from outside: never leave the browser or the server behind.
+for (const signal of ['SIGINT', 'SIGTERM'])
+  process.on(signal, () => {
+    browser
+      .close()
+      .catch(() => {})
+      .finally(() => {
+        try {
+          process.kill(-server.pid, 'SIGTERM');
+        } catch {
+          // already gone
+        }
+        process.exit(1);
+      });
+  });
 const open = async (width, height, scale) => {
   const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: scale });
   const page = await ctx.newPage();
@@ -370,7 +385,18 @@ try {
         await enterFight(page, fight);
         await page.evaluate(() => window.__AW__.autoplay('skilled'));
         // Normal speed up to the moment, then the sim held on its tick: the camera is where a
-        // player would have it.
+        // player would have it. Until six seconds before, the window is kept small, where
+        // software frames come sooner (the fight is the same fight at any size).
+        const reach = (tick) =>
+          page.waitForFunction((t) => !!window.__AW__ && window.__AW__.tick() >= t, tick, {
+            timeout: 1_800_000,
+            polling: 'raf',
+          });
+        if (at > 8) {
+          await page.setViewportSize({ width: 320, height: 180 });
+          await reach(at * 60 - 360);
+          await page.setViewportSize({ width: 1280, height: 720 });
+        }
         await page.waitForFunction(
           (t) => {
             if (!window.__AW__ || window.__AW__.tick() < t) return false;
