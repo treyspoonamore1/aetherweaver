@@ -6,6 +6,7 @@ import { PARTICLE } from './fx/particles';
 import { RING } from './fx/rings';
 import { SHELL } from './fx/shells';
 import { SPRITE } from './fx/sprites';
+import { HERO_DRAWN } from './models/artFlag';
 import type { Overlay } from './overlay';
 import { C, VISION_HEX, clamp01, color } from './palette';
 
@@ -139,7 +140,8 @@ export class FermataView {
         id,
       );
       // 𝄐 over the head, with a glow and the countdown ring around it.
-      const gy = hr.height + 0.95 + hr.y;
+      // (Over the drawn head: heroes are drawn HERO_DRAWN tall; the same lift over it as before.)
+      const gy = hr.height * HERO_DRAWN + 0.95 + hr.y;
       const pop = 1 + r.savedPop * 0.5;
       kit.spritesTop.push(hr.x, gy, hr.z, 0.95 * pop, SPRITE.glow, tone, 0.4 * beat);
       kit.spritesTop.push(hr.x, gy, hr.z, 0.62 * pop, SPRITE.fermata, tone, 0.6 + 0.6 * beat);
