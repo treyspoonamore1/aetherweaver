@@ -3554,9 +3554,10 @@ export class Feedback {
     s.style = SHELL.flare;
     s.color.copy(FERMATA_COLOR);
     this.ring(r.x, r.z, r.radius * 5, r.radius * 2.2, 0.35, FERMATA_COLOR, 0.16, RING.plain, 1);
+    // Over the drawn head (heroes are drawn HERO_DRAWN tall), where the held note's glyph is.
     this.sprite(
       r.x,
-      r.height + 0.95,
+      r.height * HERO_DRAWN + 0.95,
       r.z,
       1.4,
       0.5,
@@ -3569,7 +3570,7 @@ export class Feedback {
     );
     this.d.overlay.callout(
       r.x,
-      r.height + 1.75,
+      r.height * HERO_DRAWN + 1.75,
       r.z,
       'HOLD',
       '#f3edff',
@@ -3584,7 +3585,7 @@ export class Feedback {
   private fermataReleased(e: SimEventOf<'fermataReleased'>): void {
     const r = this.rec(e.hero);
     if (!r) return;
-    const gy = r.height + 0.95 + r.y;
+    const gy = r.height * HERO_DRAWN + 0.95 + r.y;
     if (!e.saved) {
       // The held note breaks: the glyph cracks and falls; downed visuals follow from state.
       this.d.kit.particles.burst(
