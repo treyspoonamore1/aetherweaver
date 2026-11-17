@@ -8,6 +8,7 @@ import type { CombatOutcome } from '../meta/types';
 import { CameraRig } from '../render/camera';
 import { FightFraming } from './fightFraming';
 import { figureBoxes, type FigureBox } from './figureBoxes';
+import type { FramingView } from './testHookTypes';
 import { createWorldView, type WorldView } from '../render';
 import type { FrameInfo } from '../render/types';
 import type { MusicSnapshot } from '../audio/music';
@@ -412,6 +413,17 @@ export class GameRuntime {
       this.stage.camera,
       this.stage.canvas.getBoundingClientRect(),
     );
+  }
+
+  /**
+   * Tools: the boss-fight framing now applied (metres of lean, the pull-back factor) and the
+   * safe area it frames in; null in a fight with no boss or miniboss.
+   */
+  framingNow(): FramingView | null {
+    if (!this.framing) return null;
+    const f = this.camera.framed;
+    const safe = this.framing.safeArea;
+    return { leanX: f.leanX, leanZ: f.leanZ, pull: f.pull, top: safe.top, bottom: safe.bottom };
   }
 
   /** The whole session so far as a replay, ending at the current tick. */

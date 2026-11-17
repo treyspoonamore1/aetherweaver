@@ -31,6 +31,11 @@ export interface TestHook {
    */
   figures(): FigureBox[];
   /**
+   * Phase 8c: the boss-fight camera's framing now (null in a fight with no boss or miniboss):
+   * metres of lean, the pull-back factor, and the safe area's top and bottom as shares of the view.
+   */
+  framing(): FramingView | null;
+  /**
    * Phase 4f: the Weaver's technique variants in this fight (`WeaverComponent.variants`, null:
    * the default), Glide's charges (Skate's two), and the heroes' Ward barriers (a Chorale's
    * marked, and `plain` on the heroes it reached but you didn't Ward) and statuses (the variants'
@@ -50,6 +55,15 @@ export interface TestHook {
    * Grand Silence), burrowed (a Rally re-plant under way) and where it stands.
    */
   summons(): SummonView[];
+}
+
+/** What `__AW__.framing()` returns. */
+export interface FramingView {
+  leanX: number;
+  leanZ: number;
+  pull: number;
+  top: number;
+  bottom: number;
 }
 
 /** One of `__AW__.figures()`: a figure's box on the screen. */

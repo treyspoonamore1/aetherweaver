@@ -21,8 +21,9 @@
 //              scale 2, the sim held at that moment), written to <out>/<tag>-t<seconds>s<suffix>.png
 //   --suffix   a suffix for the pictures' file names
 //   --port     the preview server's port (default 4520; give each agent its own)
-// Writes <out>/cover-<width>x<height>.json (every sample) and prints a table: per fight and kind
-// of figure, the worst and the average hidden share. `inputs` in the JSON is a hash of every
+// Writes <out>/cover-<width>x<height>.json (every sample, with the boss-fight camera's lean and
+// pull-back at it) and prints a table: per fight and kind of figure, the worst and the average
+// hidden share. `inputs` in the JSON is a hash of every
 // command the sim consumed in the sampled time: equal before and after a camera or HUD change
 // means the fight itself did not move.
 import { spawn } from 'node:child_process';
@@ -275,8 +276,16 @@ function startSampler([stepTicks, maxTicks]) {
     const tick = aw.tick();
     if (tick >= next) {
       const rects = pieces();
+      const framing = aw.framing?.() ?? null;
       samples.push({
         tick,
+        framing: framing && {
+          leanX: +framing.leanX.toFixed(2),
+          leanZ: +framing.leanZ.toFixed(2),
+          pull: +framing.pull.toFixed(3),
+          top: +framing.top.toFixed(3),
+          bottom: +framing.bottom.toFixed(3),
+        },
         figures: aw.figures().map((f) => ({
           kind: f.kind,
           name: f.name,
@@ -309,7 +318,13 @@ function inputsHash(replay, ticks) {
 
 function summarise(samples) {
   const kinds = {};
+  // The camera's furthest lean (metres) and pull-back (a factor) at a sample.
+  const camera = { lean: 0, pull: 1 };
   for (const s of samples) {
+    if (s.framing) {
+      camera.lean = Math.max(camera.lean, +Math.hypot(s.framing.leanX, s.framing.leanZ).toFixed(2));
+      camera.pull = Math.max(camera.pull, s.framing.pull);
+    }
     const seconds = s.tick / 60;
     for (const f of s.figures) {
       const kind = f.kind === 'miniboss' ? 'boss' : f.kind;
@@ -330,6 +345,7 @@ function summarise(samples) {
     k.average = +(k.sum / Math.max(1, k.n)).toFixed(4);
     delete k.sum;
   }
+  if (camera.lean > 0 || camera.pull > 1) kinds.camera = camera;
   return kinds;
 }
 
