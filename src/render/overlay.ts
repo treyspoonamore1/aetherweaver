@@ -81,7 +81,7 @@ export function glyphLabel(tag: GlyphIcon): string {
 }
 
 function iconSvg(tag: GlyphIcon): string {
-  return `<span style="display:flex;flex-direction:column;align-items:center;gap:1px;color:${ICON_COLORS[tag]}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${ICONS[tag]}</svg><span style="font:600 8px/1 Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;opacity:.9">${LABELS[tag]}</span></span>`;
+  return `<span style="display:flex;flex-direction:column;align-items:center;gap:1px;color:${ICON_COLORS[tag]}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${ICONS[tag]}</svg><span style="font:600 8px/1 Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;opacity:.9">${LABELS[tag]}</span></span>`;
 }
 
 function setChip(el: HTMLSpanElement, text: string | null): void {
@@ -303,6 +303,11 @@ function div(parent: HTMLElement, css: string): HTMLDivElement {
   return el;
 }
 
+/** How many figures the answer chips keep off at once. */
+const CLEAR_MAX = 12;
+/** A chip is never moved further than this off its telegraph's edge (px). */
+const CLEAR_REACH = 120;
+
 /** A badge with no answer glyph (Settings → Answer glyphs off). */
 const NO_ANSWERS: readonly GlyphIcon[] = [];
 
@@ -324,6 +329,12 @@ export class Overlay {
   private readonly bubbles: BubbleItem[] = [];
   private bubbleCursor = 0;
   private badgeCursor = 0;
+  /**
+   * The screen boxes of the figures the answer chips keep off (docs/phase-8.md, 8c): the heroes,
+   * the Weaver, a boss. Four numbers a box (left, top, right, bottom), set again every frame.
+   */
+  private readonly clear = new Float32Array(CLEAR_MAX * 4);
+  private clearCount = 0;
   private readonly badgeX = new Float32Array(24);
   private readonly badgeY = new Float32Array(24);
   private arrowCursor = 0;
@@ -542,11 +553,11 @@ export class Overlay {
     for (let i = 0; i < 20; i++) {
       const el = div(
         this.root,
-        'position:absolute;left:0;top:0;display:none;align-items:center;gap:6px;padding:3px 6px 3px 6px;border-radius:9px;background:rgba(8,10,20,0.78);border:1.5px solid #fb923c;box-shadow:0 0 10px rgba(0,0,0,0.5);will-change:transform;',
+        'position:absolute;left:0;top:0;display:none;align-items:center;gap:4px;padding:2px 5px 2px 5px;border-radius:8px;background:rgba(8,10,20,0.78);border:1.5px solid #fb923c;box-shadow:0 0 10px rgba(0,0,0,0.5);will-change:transform;',
       );
       // What tools/hud-cover.mjs counts as an interface piece over a figure.
       el.dataset.cover = 'answer-chip';
-      const icons = div(el, 'display:flex;gap:6px;align-items:center;');
+      const icons = div(el, 'display:flex;gap:4px;align-items:center;');
       const label = document.createElement('span');
       label.style.cssText =
         'font:700 12px/1 Inter,sans-serif;color:#fff;font-variant-numeric:tabular-nums;min-width:22px;text-align:center;';
@@ -823,10 +834,83 @@ export class Overlay {
     this.allyCursor = 0;
     this.summonCursor = 0;
     this.badgeCursor = 0;
+    this.clearCount = 0;
     this.bubbleCursor = 0;
     this.arrowCursor = 0;
     this.raidUsed = false;
   }
+
+  /**
+   * A figure the answer chips keep off this frame: its place, and its size as drawn. Call after
+   * `beginFrame` and before the telegraphs are drawn.
+   */
+  keepClear(x: number, z: number, radius: number, height: number): void {
+    if (this.clearCount >= CLEAR_MAX) return;
+    const feet = this.project(x, 0, z, this.p);
+    if (feet.behind) return;
+    const fx = feet.x;
+    const fy = feet.y;
+    const half = Math.abs(this.project(x + radius, 0, z, this.p).x - fx);
+    const top = this.project(x, height, z, this.p).y;
+    const i = this.clearCount++ * 4;
+    this.clear[i] = fx - half;
+    this.clear[i + 1] = top;
+    this.clear[i + 2] = fx + half;
+    this.clear[i + 3] = fy + half * 0.4;
+  }
+
+  /** Whether a chip `w` × `h` centred on (x, y) lies over a kept-clear figure (its index, or −1). */
+  private overFigure(x: number, y: number, w: number, h: number): number {
+    const c = this.clear;
+    for (let i = 0; i < this.clearCount; i++) {
+      const k = i * 4;
+      if (
+        x + w / 2 > c[k]! &&
+        x - w / 2 < c[k + 2]! &&
+        y + h / 2 > c[k + 1]! &&
+        y - h / 2 < c[k + 3]!
+      )
+        return i;
+    }
+    return -1;
+  }
+
+  /**
+   * Moves a chip off the figures it would cover: to the nearest free place beside, under or over
+   * the figure (written to `badgeAt`). A chip with no free place within reach stays where it was.
+   */
+  private offFigures(x: number, y: number, w: number, h: number): void {
+    const at = this.badgeAt;
+    at.x = x;
+    at.y = y;
+    const c = this.clear;
+    for (let pass = 0; pass < 2; pass++) {
+      const hit = this.overFigure(at.x, at.y, w, h);
+      if (hit < 0) return;
+      const k = hit * 4;
+      let best = Infinity;
+      let bx = at.x;
+      let by = at.y;
+      for (let side = 0; side < 4; side++) {
+        // Under its feet, to its left, to its right, over its head (clear of the bar it wears).
+        const cx = side === 1 ? c[k]! - w / 2 - 3 : side === 2 ? c[k + 2]! + w / 2 + 3 : at.x;
+        const cy = side === 0 ? c[k + 3]! + h / 2 + 3 : side === 3 ? c[k + 1]! - h / 2 - 18 : at.y;
+        const d = Math.hypot(cx - x, cy - y);
+        if (d >= best || d > CLEAR_REACH) continue;
+        if (cx < w / 2 || cx > this.width - w / 2 || cy < h / 2 || cy > this.height - h / 2)
+          continue;
+        if (this.overFigure(cx, cy, w, h) >= 0) continue;
+        best = d;
+        bx = cx;
+        by = cy;
+      }
+      if (best === Infinity) return;
+      at.x = bx;
+      at.y = by;
+    }
+  }
+
+  private readonly badgeAt = { x: 0, y: 0 };
 
   /**
    * A hero's bar over their head (immediate mode; docs/health-ui.md): their life coloured by how
@@ -1015,9 +1099,14 @@ export class Overlay {
     if (!b) return;
     const p = this.project(x, y, z, this.p);
     if (p.behind) return;
+    // Off the figures first (docs/phase-8.md, 8c): a chip sits on its telegraph's edge, which is
+    // often where a hero stands. Its size is reckoned from what it holds (it is drawn on the fly).
+    const w = (answers.length * 30 + (label ? 28 : 0) + 12) * scale;
+    const h = (answers.length > 0 ? 30 : 18) * scale;
+    this.offFigures(p.x, p.y, w, h);
     // Nudge overlapping badges apart (simple stacking, newest moves).
-    const bx = p.x;
-    let by = p.y;
+    const bx = this.badgeAt.x;
+    let by = this.badgeAt.y;
     for (let tries = 0; tries < 4; tries++) {
       let hit = false;
       for (let i = 0; i < this.badgeCursor; i++) {
