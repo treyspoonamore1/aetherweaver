@@ -1067,3 +1067,23 @@ function finaleHints(hud: HudSnapshot): Hint[] {
     });
   return out;
 }
+
+// ── The key reminders (docs/phase-8.md, 8c) ──────────────────────────────────────────
+
+/**
+ * The key-reminder panel stays for this many of a player's fights, counted for good on this
+ * device with the coach hints (not for the first fights of every run, as it used to), then
+ * leaves the screen. The pause menu's Controls brings it back at any time.
+ */
+export const KEY_REMINDER_FIGHTS = 4;
+const KEY_REMINDERS = 'keyReminders';
+
+/** Whether the next fight still shows the key reminders. */
+export function keyRemindersDue(): boolean {
+  return hintCount(KEY_REMINDERS) < KEY_REMINDER_FIGHTS;
+}
+
+/** A fight has shown them. */
+export function countKeyReminders(): void {
+  bumpHint(KEY_REMINDERS);
+}
