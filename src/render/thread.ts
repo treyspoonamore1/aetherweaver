@@ -532,7 +532,8 @@ export class ThreadView {
     const ay = this.hand.y;
     const az = this.hand.z;
     const bx = tr.x;
-    const by = tr.height * 0.58 + tr.y;
+    // The chest of the hero as drawn (HERO_DRAWN tall): the same place on the figure as before.
+    const by = tr.height * HERO_DRAWN * 0.58 + tr.y;
     const bz = tr.z;
     const dx = bx - ax;
     const dz = bz - az;
