@@ -29,7 +29,7 @@ tall at 1280×720), close-ups second.
 - The model shader (panes, lead, lit glass, cracks, outline, motion): `src/render/models/material.ts`.
   The builder (pane detection, outline shell, body layer): `src/render/models/builder.ts`.
 - `src/render/models/artFlag.ts`: the heroes' and the Weaver's drawn scale (`HERO_DRAWN`, 1.12),
-  `HOSTILE_EDGE` and `HOSTILE_OUTLINE` (see Colour). `src/render/models/artWorld.ts`: the dark worlds' lift.
+  `HOSTILE_EDGE`, `HOSTILE_OUTLINE` and the two outline strengths (see Colour). `src/render/models/artWorld.ts`: the dark worlds' lift.
 - The roster of every figure, with its family, size class and triangles: `docs/art-roster.md`.
 
 ### The registry's contract (what a family file exports, and nothing else)
@@ -82,17 +82,20 @@ tall at 1280×720), close-ups second.
   elites, bosses), `major` (only parts ≥ 0.14 m: swarms and crowds; about half the outline's cost),
   `none`. A part may opt out with `shell: false` (lights, thin glowing lines, a face's eyes).
 - Open surfaces (`b.arc`, a train or cloak slice) have no shell by design.
-- The outline is lead everywhere: no light or tinted edge of its own in any world (tried on the
-  dark worlds, it greyed every signature colour and weakened the rims).
+- The outline is lead on every hero, summon, boss and miniboss: no light or tinted edge of its own
+  in any world (tried on the dark worlds, it greyed every signature colour and weakened the rims).
+  A rank-and-file foe's outline is the hostile red and an elite's is gold (below).
 - The outline is the figure's silhouette, so it carries every cue the body carries there, in the
   cue's own colour and strength (the body's terms at a fresnel of 1): the rim tint (aura coverage,
   Fermata, the beam, the Thread, focus and hover, possession, affixes, the Stolen Verse), the Save
   and Rewind ghosts, Stasis's frost (the lead frosts with the glass), the Prism's edge and the
   Luminary's sun. A new on-model cue goes into both the body's terms and the shell's (`material.ts`).
-- Not the two standing rims: the rank-and-file hostile rim and the elite's gold (and its crown's
-  glow) are pushed as standing (`ModelBatch.push`'s `standing`) and stay on the body, the outline
-  dark lead, as approved; `HOSTILE_OUTLINE` (artFlag.ts, off) is the owner's alternative. The
-  Weaver's resting rim (her gold or her robe's trim) is standing too, always; her event rims are not.
+- The two standing rims of a foe are on the outline too (the owner's choice, Phase 8c:
+  `HOSTILE_OUTLINE`, artFlag.ts, on): a rank-and-file foe's outline is its life bar's red, an
+  elite's and its crown's are gold, at a strength of their own (pushed with `standing:
+  'outline'`). Off, they are pushed as standing (`ModelBatch.push`'s `standing`) and stay on the
+  body, the outline dark lead. The Weaver's resting rim (her gold or her robe's trim) is always
+  standing: on her body, her outline dark; her event rims are not.
 
 ### Colour
 - **Gold means the Weaver.** No gold trim, gold lead or gold light on anyone else. Heroes' trims are
@@ -109,13 +112,21 @@ tall at 1280×720), close-ups second.
 - The hostile rim (rule 5), the aura rims, Mend's rim on the threaded hero, the hover rim and the
   Prism edge are drawn **on the body by the shader**: never cover a foe's silhouette with a bright
   glow that would drown its hostile rim.
-- The hostile rim has three looks, the owner's choice (docs/phase-8.md, 8b): A, landed, as
-  approved: on the body (a faint flat red over the whole body as well as its edge, which turns a
-  near-black body red: the Legion's obsidian, the Unstitched's cloth, the mirror voices' hoods), a
-  dark outline; B (`HOSTILE_EDGE`): red on the body's edge only, a dark outline; C
-  (`HOSTILE_OUTLINE`, with or without `HOSTILE_EDGE`): the outline itself red, and gold on an elite.
-  Both constants are in artFlag.ts and off; flipping one is the whole change. Judge dark foes in
-  every look (the studio's `hostile: 'flat' | 'edge' | 'outline' | 'outline-edge' | 'none'`).
+- The hostile rim is drawn as the owner chose it, "Red outline, no wash" (docs/phase-8.md, 8b):
+  the outline itself is red (gold on an elite) and a foe's body takes the red at its edge only, so
+  a near-black body (the Legion's obsidian, the Unstitched's cloth, a mirror voice's hood) keeps
+  its own colour. Both constants are in artFlag.ts and on; a constant off builds an earlier look
+  (`HOSTILE_EDGE` off: the body is washed red too; `HOSTILE_OUTLINE` off: the outline is dark
+  lead), and the studio draws all four (`hostile: 'flat' | 'edge' | 'outline' | 'outline-edge' |
+  'none'`). `HOSTILE_OUTLINE_STRENGTH` (1) dims the outline's red alone; it was measured at 0.7
+  and 0.45 and left at 1 (a dimmer red sits nearer a lethal telegraph's fill).
+  `ELITE_OUTLINE_STRENGTH` (0.6) dims the elite's gold on the outline alone: at 1 an elite's
+  outline and a Focused foe's were the same gold (14–21 ΔE apart); at 0.6 they are 27–35 apart.
+  Gold on a foe's outline at full strength means Focus: keep any other standing gold below it.
+- The outline's red is the life bar's red, and that red is near the lethal crimson by nature
+  (14.7 ΔE between the two hexes; as rendered, the outline is 14–17 from a lethal telegraph's
+  bright ring in normal vision). A figure standing on a lethal telegraph still separates from it,
+  less than a dark outline did (docs/phase-8.md, "Phase 8c").
 - A glow makes a colour brighter than its hex: measure small lights **as rendered** at the game
   camera, not only their hex (the Unstitched's teal stitches read near Mend at glow 1.8; at 0.1
   they clear it; the Choir's first violet read as heal once lit).

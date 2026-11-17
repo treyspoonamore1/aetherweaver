@@ -197,25 +197,32 @@ instead of 0.42 m; they still clear it.
 - **The Unstitched's teal stitches** burn at 0.1, not the landed fray's 1.8: measured as rendered
   at the game camera, the glowing stitches sat 8 to 10 ΔE from Mend under tritanopia; at 0.1 every
   stitch pixel in all four worlds is at least 20 from Mend, heal and shield in every vision.
-- **The hostile rim (rule 5) and the elite's gold: three looks, the owner's choice.** Landed is
-  look A, as approved: the rim on the body (a faint flat red over the whole body as well as its
-  edge, which turns near-black bodies red: the Legion's obsidian, the Unstitched's cloth, the mirror
-  voices' hoods; the gold elite rim washes dark hoods olive the same way) and a dark lead outline.
-  Two constants in `models/artFlag.ts`, both off, build the others: look B, `HOSTILE_EDGE`, the red
-  on the body's edge only, outline dark; look C, `HOSTILE_OUTLINE`, the outline itself red (gold on
-  an elite and its crown), with or without `HOSTILE_EDGE`'s body wash removed. Flipping a constant
-  is the whole change; the studio draws all of them without a rebuild (`hostile: 'flat' | 'edge' |
-  'outline' | 'outline-edge'`). Measured at the game camera over a rank-and-file group with two
-  elites, in the four worlds (the hostile rim against none, 90th percentile ΔE where it acts / the
-  body's median shift; normal vision, then protanopia, where it reads weakest):
+- **The hostile rim (rule 5) and the elite's gold: four looks, the owner's choice.** Phase 8b
+  landed look A, as first approved: the rim on the body (a faint flat red over the whole body as
+  well as its edge, which turns near-black bodies red: the Legion's obsidian, the Unstitched's
+  cloth, the mirror voices' hoods; the gold elite rim washes dark hoods olive the same way) and a
+  dark lead outline. Shown the four side by side, **the owner chose the fourth, "Red outline, no
+  wash"** (Phase 8c): the outline itself carries the standing rim, red on a rank-and-file foe and
+  gold on an elite and its crown, and a foe's body takes the red at its edge only. It is the
+  game's look now: `HOSTILE_OUTLINE` and `HOSTILE_EDGE` in `models/artFlag.ts` are both on, with
+  one difference from the pictures the owner chose from: the elite's gold on the outline is at 0.6
+  of its strength (`ELITE_OUTLINE_STRENGTH`), so it does not match Focus's gold (below). The
+  Weaver's own resting rim is not a hostile rim and is unchanged (on her body, her outline dark).
+  Turning a constant off still builds the earlier looks (B: `HOSTILE_EDGE` alone, the red on the
+  body's edge only, outline dark; C: `HOSTILE_OUTLINE` alone, a red outline over the body's wash),
+  and the studio draws all of them without a rebuild (`hostile: 'flat' | 'edge' | 'outline' |
+  'outline-edge'`). Measured at the game camera over a rank-and-file group with two elites, in the
+  four worlds (the hostile rim against none, 90th percentile ΔE where it acts / the body's median
+  shift; normal vision, then protanopia, where it reads weakest):
 
   | look | normal: edge / body | protanopia: edge / body |
   |---|---|---|
-  | A, as approved (landed): on the body, dark outline | 27.5–28.9 / 11.0–12.0 | 9.6–10.5 / 3.9–4.2 |
+  | A, first approved (Phase 8b): on the body, dark outline | 27.5–28.9 / 11.0–12.0 | 9.6–10.5 / 3.9–4.2 |
   | B, red on the body's edge only, dark outline | 19.1–20.7 / 2.9–3.3 | 7.0–7.6 / 1.0–1.1 |
   | C, red outline (and the body's rim) | 72.2–74.7 / 18.5–20.0 | 33.5–34.3 / 5.6–6.4 |
-  | C, red outline, no wash (with B) | 85.0–88.5 / 6.2–7.7 | 47.5–48.0 / 2.0–2.3 |
+  | **the fourth, red outline, no wash: the game's look** | 85.0–88.5 / 6.2–7.7 | 47.5–48.0 / 2.0–2.3 |
 
+  What it was checked against before it landed is in "Phase 8c: the red outline, checked" below.
   Pictures: `shots/rim3/looks-<world>.png` and `shots/rim3/looks-close.png`.
 - An enemy id added to content without a figure of its own is drawn as its role's Choir figure
   until it gets one (as main's builders fell back by role); `tests/renderArt.test.ts` fails until then.
@@ -309,11 +316,12 @@ draws what the body draws at its silhouette (the body's terms at a fresnel of 1)
 the Stolen Verse), the Save and Rewind ghosts, Stasis's frost, the Prism's edge and the Luminary's
 sun, each in its own colour and strength; the body's terms are unchanged (with `HOSTILE_EDGE` off,
 the hostile rim's line is main's). The two standing rims, the rank-and-file hostile rim and the
-elite's gold (with its crown's glow), are not event cues and stay off the outline as approved,
-and so does the Weaver's own resting rim (her gold, or her robe's trim: always, it is not a hostile
-rim), her event rims (a borne wound, Conduit, a held rim) staying on it
-(entities.ts marks them where it chooses them; the shader's outline skips a marked rim; look C
-above puts them back; `tests/renderShellRims.test.ts` pins the default). Under Stasis the lead (lines and outline) now frosts with the glass, on the figure's
+elite's gold (with its crown's glow), are not event cues and at the review stayed off the outline,
+as first approved (look A); since Phase 8c the owner's fourth look puts those two on it (above).
+The Weaver's own resting rim (her gold, or her robe's trim) stays off her outline always (it is
+not a hostile rim), her event rims (a borne wound, Conduit, a held rim) staying on it
+(entities.ts marks a rim as standing where it chooses it; the shader's outline skips a marked rim;
+`tests/renderShellRims.test.ts` pins the default). Under Stasis the lead (lines and outline) now frosts with the glass, on the figure's
 side. Measured in the VFX lab's real fight (same staging, seed and tick in every build; 1920×1080;
 the cue on against its shader channel off; eight frames a second apart averaged so the rims'
 breathing evens out), mean ΔE over the target figure's pixels / over its outermost 2 px:
@@ -344,13 +352,20 @@ breathing evens out), mean ΔE over the target figure's pixels / over its outerm
 | hostile rim (look A) | close | 6.39 / 13.54 | 6.57 / 7.73 | 6.79 / 7.91 |
 | elite gold rim (look A) | game | 7.31 / 14.55 | 7.74 / 7.76 | 8.19 / 8.25 |
 | elite gold rim (look A) | close | 7.72 / 14.81 | 9.0 / 8.88 | 9.55 / 9.41 |
+| hostile rim (the fourth look, Phase 8c) | game | 6.53 / 14.1 | | 17.81 / 42.56 |
+| hostile rim (the fourth look, Phase 8c) | close | 6.39 / 13.54 | | 12.6 / 44.93 |
+| elite gold rim (the fourth look, its outline at 0.6) | game | 7.31 / 14.55 | | 22.27 / 42.81 |
+| elite gold rim (the fourth look, its outline at 0.6) | close | 7.72 / 14.81 | | 18.12 / 44.45 |
 
 Every event cue now reads at least as strongly as on main on the figure's outermost pixels, at both
 cameras, except Save's ghost and Stasis's frost at the game camera; focus reads about twice as
-strong as on main (28.3 against 13.9 at the game camera). The hostile and elite rows are look A,
-landed (above): the standing rims stay off the outline as approved, so at the edge they read as
-they did before the review, weaker than main's, whose figures had no outline; with look C the
-outline carries them (hostile 17.9 / 39.3, elite 24.6 / 48.0 at the game camera). Over all the figure's pixels a
+strong as on main (28.3 against 13.9 at the game camera). The hostile and elite rows marked look A
+are Phase 8b as it landed: the standing rims stayed off the outline, so at the edge they read as
+they did before the review, weaker than main's, whose figures had no outline. The rows marked the
+fourth look are the game since Phase 8c (re-measured, the same staging; its "now" beside look A's
+6.04 / 7.2 and 8.3 / 8.43 on the build before it): the outline carries them, and at the figure's
+outermost pixels the hostile rim reads three times as strongly as on main's figures (42.6 against
+14.1 at the game camera). Over all the figure's pixels a
 few read a little weaker at the game camera (hover −1.3, the Thread −0.6, the beam −0.3, Save −2.5,
 frost −1.6; frost −0.5 close up): the rims are a fresnel, strongest at the edge, and the branch's figures are larger
 and flatter-faced (1.12, more front-facing surface), so their mean over the figure is lower while
@@ -393,6 +408,95 @@ ghost or the frost (no measurable change). Not done: strengthening any cue. Pict
   beam's end lands inside the drawn head. Not moved (aura and ornament drawing). Pictures:
   `shots/marks/calling-halo-and-bar.png`, `shots/marks/beam-end.png`.
 
+### Phase 8c: the red outline, checked
+
+Before the owner's fourth look landed it was measured against the game's signals, as rendered at
+the game camera in the four worlds and under each colour-vision setting (each setting's own
+palette, then that vision simulated), the look on main beside it. Staged in the lab's real fight
+view with the sim waiting, so every build draws the same frame. The pictures named here
+(`shots/…`) went with the stream's report; they are not in the repository.
+
+**Telegraphs.** A lethal and a threat telegraph with six rank-and-file enemies standing in and
+around them. Nothing of a telegraph changes: its ring, its sweep and its hatching are the same
+pixels. What changes is the figures on it. The outline's red is the life bar's red, and that red is
+near the lethal crimson by nature (14.7 ΔE between the two hexes in normal vision and under
+deuteranopia, 22.8 under protanopia, 24.3 under tritanopia), so the outline as rendered sits 14 to
+17 from a lethal telegraph's bright ring in normal vision, where main's faint rim sat 55 to 85 from
+it. A figure standing on a lethal telegraph still separates from it, less than a dark outline did;
+on a threat telegraph it separates better in normal vision and worse under the protanopia setting,
+whose threat is yellow and whose red reads as a dark yellow. Ranges over the four worlds (ΔE; the
+outline's median colour, on main its rim's, against the telegraph's lightest ring / its fill; then
+the figure's outermost 3 px against the telegraph just outside it):
+
+| colour vision setting | look | to the lethal ring / fill | to the threat ring / fill | a figure's edge on the lethal it stands on | on the threat |
+|---|---|---|---|---|---|
+| normal | main | 54.6–84.5 / 22.6–56.1 | 46.3–78.2 / 14.8–56.8 | 51.2–55.0 | 18.1–35.2 |
+| normal | red outline | 13.9–17.1 / 28.9–38.1 | 35.1–43.6 / 54.0–68.8 | 31.7–39.8 | 54.7–61.7 |
+| protanopia | main | 32.3–89.5 / 23.4–75.0 | 69.5–100.6 / 14.2–57.6 | 33.6–38.7 | 19.2–38.9 |
+| protanopia | red outline | 20.0–21.9 / 17.6–20.4 | 43.1–65.7 / 11.9–21.9 | 16.8–20.7 | 13.0–28.5 |
+| deuteranopia | main | 46.0–105.0 / 24.1–79.2 | 60.5–97.3 / 10.6–55.9 | 37.2–49.5 | 19.6–38.5 |
+| deuteranopia | red outline | 13.4–17.1 / 23.3–28.7 | 24.6–37.4 / 29.4–46.1 | 23.5–28.6 | 30.5–51.0 |
+| tritanopia | main | 64.6–98.6 / 32.9–60.3 | 35.2–59.1 / 10.9–23.2 | 53.8–66.8 | 19.1–30.4 |
+| tritanopia | red outline | 19.0–24.4 / 31.9–41.2 | 39.5–62.3 / 71.3–84.9 | 35.1–42.0 | 60.4–72.2 |
+
+On the Spire and the Rift the outlined figures are easier to find on a telegraph than main's dark
+ones, which sank into it. The weakest reading is the protanopia setting in the Reliquary: a
+figure's edge on a threat telegraph 13.0 (main 38.9).
+
+A dimmer outline does not buy the distance back. `HOSTILE_OUTLINE_STRENGTH` (artFlag.ts) dims the
+outline's red alone; at 0.7 and 0.45 the red darkens toward the lethal telegraph's fill, and a
+figure standing on a lethal telegraph separates from it less in every vision (normal: 31.7–39.8 at
+1, 26.6–34.8 at 0.7, 17.3–25.3 at 0.45; protanopia: 16.8–20.7, 12.1–17.6, 7.3–19.4; deuteranopia:
+23.5–28.6, 16.6–20.0, 7.7–14.9; tritanopia: 35.1–42.0, 25.9–31.5, 12.6–20.2), while the distance
+to the bright ring grows only a little (normal: 13.9–17.1, 18.2–18.7, 26.3–27.8). It stays at 1,
+as the owner saw it. Pictures: `shots/tele-<world>.png` (each vision, main beside the new look),
+`shots/outline-strengths-normal.png` and `-protanopia.png`.
+
+**An elite beside Focus.** An elite, a Focused rank-and-file enemy and a Focused elite side by
+side. On main an elite's outline was dark lead and only a Focused foe's was gold: 57 to 85 ΔE
+apart in every vision. With the elite's gold on its outline at the body's own strength the two
+outlines were the same gold, apart only in lightness: 14.3–20.5 in normal vision (18.2–23.1
+protanopia, 16.3–21.3 deuteranopia, 15.5–19.5 tritanopia); the Focus ring on the floor and its
+diamond, and the elite's crown and bar, still told them apart, the outline no longer did. So the
+elite's gold has an outline strength of its own, `ELITE_OUTLINE_STRENGTH` (artFlag.ts; the elite's
+rim and its crown's are marked as carried by the outline, `ModelBatch.push`'s `standing:
+'outline'`), measured at 1, 0.6 and 0.35 and **set to 0.6, which is not the outline the owner
+first saw** (1 restores it): the elite's outline is still gold, dimmer, and stands 27.7–35.1 from
+a Focused foe's in normal vision (27.2–36.1 protanopia, 29.2–32.6 deuteranopia, 28.5–33.3
+tritanopia); at 0.35 it is a dull bronze, 39.5–46.3. Its body's gold, Focus and every other cue
+are untouched. What 0.6 costs: under the red-green settings a dim gold outline is nearer a
+rank-and-file foe's red one (elite to rank-and-file at rest, outline to outline: deuteranopia
+15.8–18.5 at 1, 3.6–14.5 at 0.6; protanopia 22.5–28.6, 9.7–20.7; on main both were dark lead, 0 to
+6, and the crown told them apart, as it still does), and under tritanopia it is nearer the
+Weaver's own outline (20.6–25.7 at 1, 15.1–16.4 at 0.6; normal vision 31.2–35.7, 28.7–30.5).
+Against the gold hexes the elite's outline as rendered is 35.4–38.2 from the Weaver's gold
+(`#f5d78e`) and 44.8–47.4 from Resonance (`#fff4d6`) in normal vision. A gold outline does not
+crowd a telegraph (the Finale's voices staged as elites: 68 from the lethal ring and 32 from the
+threat ring in normal vision; nearest under protanopia, 17 from the lethal ring, the figure's edge
+on it 29 against main's 35). Pictures: `shots/elite-focus-<world>.png`,
+`shots/elite-outline-strengths.png`, `shots/tele-crucible-elite.png`.
+
+**The states that replace or sit beside the standing rim.** Hover, Focus, an affix rim, a risen
+foe's grave-light and its ash rim after, the Stolen Verse, Stasis's frost, a hit flash and the
+dissolve, each on a red-outlined foe beside the same frame on main (`shots/rim-states.png`). Every
+one of them replaces the standing rim's colour, so the outline takes the state's colour exactly as
+it did on main (hover `#dcd9d6` against main's `#e2dde3`; the grave-light, the frost, the Stolen
+Verse and the dissolve's edge identical to main's). What is smaller is the step from the resting
+outline, because that is now red, not near-black (the outline's median colour in the state against
+the same build's at rest, ΔE, normal vision / the weakest vision; main, then now): hover 83.5 /
+83.0, now 49.4 / 43.3; Focus 78.6 / 74.7, now 32.9 / 26.2; the grave-light 86.8 / 86.1, now 54.8 /
+48.1; a risen foe's ash rim 53.4 / 52.8, now 30.0 / 22.2; the Stolen Verse 85.0 / 80.1, now 59.1 /
+41.8; frost 84.8 / 84.1, now 53.2 / 47.6; dissolving 94.2 / 82.1, now 58.3 / 45.3. The weakest is
+the hit flash, which does not replace the rim but whitens the figure over it: on the outline 43.3 /
+42.3 on main, 19.9 / 10.9 (protanopia) now, the flash on the body unchanged. The affix rim
+(Shielded, an elite) is drawn as on main, inside its shield; its crown's outline is the dimmed
+gold. Staging: the lab's real fight, the sim waiting where it can; the rise is staged by setting
+the foe's own state as the sim sets it.
+
+Not checked here: Emboldened's mirror shimmer, which takes the same path as the rims above; a
+real graphics card (all of this is software rendering).
+
+
 ### Tests
 
 New: `tests/renderArt.test.ts` (every content id has a figure; every figure within budget; the
@@ -408,6 +512,11 @@ greyscale separation, colour-vision distances, quadruped gait, distinct bodies, 
 fingerprints (the model shader's source and the pillars' zero-filled attributes), the eight Hollow
 Choir figures (their light and bronze), Kael (steel, tabard, lit glass), the Weaver (her untoned
 trim), and Brann's and Seren's starter checks (they pin Kael's model). Nothing else moved.
+Phase 8c re-recorded one file, `tests/renderShellRims.test.ts`, to the owner's fourth look: both
+constants on, a rank-and-file foe's rim edge-only and not standing, an elite's gold and its
+crown's marked as carried by the outline, the two outline strengths (the hostile red's 1, the
+elite's gold's 0.6) and the shader's lines for them; the Weaver at rest is still standing. No
+snapshot, hash or picture pin moved, and `tests/aura` passes with both pin files untouched.
 
 Found on the way: model building drew three.js ids from the shared `Math.random`, so a model built
 once per process shifted a seeded test's random stream between runs; building now runs on its own
