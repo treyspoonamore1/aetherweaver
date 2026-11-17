@@ -581,13 +581,41 @@ function MapNodeView({
       )}
     </span>
   );
+  // Phase 8d: what the stop gives, as small glyphs at its foot (the tooltip's own icons and
+  // colours, sized with the text). Only on stops still ahead: a stop walked has given what it had.
+  const chips = state === 'option' || state === 'locked' ? rewardChips(node.reward) : [];
+  const stop =
+    chips.length === 0 ? (
+      body
+    ) : (
+      <span className="relative flex flex-col items-center">
+        {body}
+        <span
+          className={`pointer-events-none absolute left-1/2 top-full z-10 flex -translate-x-1/2 -translate-y-[35%] items-center gap-0.5 rounded-full border border-ink-600 bg-ink-950 px-1 py-px ${state === 'locked' ? 'opacity-75' : ''}`}
+          data-testid="node-rewards"
+          aria-hidden
+        >
+          {chips.map((c) => (
+            <Icon
+              key={c.text}
+              name={c.icon}
+              className="h-3.5 w-3.5"
+              style={{ color: CHIP_COLOR[c.tone] }}
+              data-reward={c.tone}
+            />
+          ))}
+        </span>
+      </span>
+    );
   const label = (
     <span
-      className={`pointer-events-none mt-1 block w-[5.4rem] text-center text-xs leading-tight ${state === 'locked' ? 'text-muted/70' : 'text-text'}`}
+      className={`pointer-events-none block w-[5.4rem] text-center text-xs leading-tight ${chips.length > 0 ? 'mt-3' : 'mt-1'} ${state === 'locked' ? 'text-muted/70' : 'text-text'}`}
     >
       {title}
     </span>
   );
+  // Read out as the tooltip's reward lines are ("+40 Aether. Choose 1 of 3 relics.").
+  const rewardsSaid = chips.length > 0 ? ` ${chips.map((c) => c.text).join('. ')}.` : '';
   return (
     <div
       className={`group absolute -translate-x-1/2 -translate-y-1/2 focus-within:z-30 hover:z-30 ${peek ? 'z-30' : ''}`}
@@ -597,25 +625,19 @@ function MapNodeView({
         <button
           type="button"
           onClick={() => onChoose(node.id)}
-          aria-label={`${title}, ${look.label}. ${ev ? ev.teaser : node.reward.text}${
-            rewardChips(node.reward).length
-              ? ` ${rewardChips(node.reward)
-                  .map((c) => c.text)
-                  .join('. ')}.`
-              : ''
-          }${threat ? ` ${threat}.` : ''}${milestone ? ` ${milestone.title}: ${milestone.text}` : ''}`}
+          aria-label={`${title}, ${look.label}. ${ev ? ev.teaser : node.reward.text}${rewardsSaid}${threat ? ` ${threat}.` : ''}${milestone ? ` ${milestone.title}: ${milestone.text}` : ''}`}
           className="flex flex-col items-center focus-visible:outline-offset-4"
         >
-          {body}
+          {stop}
           {label}
         </button>
       ) : (
         <div
           className="flex flex-col items-center"
-          aria-label={`${title}, ${look.label}${state === 'visited' ? txt('screens.mapScreen.visited') : state === 'locked' ? txt('screens.mapScreen.notReachableYet') : txt('screens.mapScreen.youAreHere')}`}
+          aria-label={`${title}, ${look.label}${state === 'visited' ? txt('screens.mapScreen.visited') : state === 'locked' ? txt('screens.mapScreen.notReachableYet') : txt('screens.mapScreen.youAreHere')}${rewardsSaid ? `.${rewardsSaid}` : ''}`}
           role="img"
         >
-          {body}
+          {stop}
           {label}
         </div>
       )}

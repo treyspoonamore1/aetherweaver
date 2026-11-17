@@ -137,6 +137,8 @@ export const codexScreen = {
   'screens.codexScreen.bonds': 'Bonds',
   'screens.codexScreen.enemies': 'Enemies',
   'screens.codexScreen.theWeaver': 'The Weaver',
+  'screens.codexScreen.weaverRobe': 'Robe · {name}',
+  'screens.codexScreen.weaverThread': 'Thread · {name}',
   'screens.codexScreen.techniques': 'Techniques',
   'screens.codexScreen.auras': 'Auras',
   'screens.codexScreen.songsOrnaments': 'Songs & ornaments',

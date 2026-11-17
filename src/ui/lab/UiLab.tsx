@@ -145,6 +145,7 @@ import { SEREN_VIEWS } from './serenLab';
 import { ORO_VIEWS } from './oroLab';
 import { FILL_VIEWS } from './fillLab';
 import { PHASE6_VIEWS } from './phase6Lab';
+import { PORTRAIT_VIEWS } from './portraitLab';
 import {
   conductOfferRun,
   conductResultRun,
@@ -4733,6 +4734,8 @@ const VIEWS: ViewDef[] = [
   ...FILL_VIEWS,
   // ── Phase 6: the Atlas of Echoes, This Week's Song, Tyrant, Mimicry and the Postlude ──
   ...PHASE6_VIEWS,
+  // ── Phase 8d: the portraits ──────────────────────────────────────────────────────────
+  ...PORTRAIT_VIEWS,
   {
     id: 'flow',
     group: 'Flow',
