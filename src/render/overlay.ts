@@ -849,14 +849,15 @@ export class Overlay {
     const feet = this.project(x, 0, z, this.p);
     if (feet.behind) return;
     const fx = feet.x;
-    const fy = feet.y;
-    const half = Math.abs(this.project(x + radius, 0, z, this.p).x - fx);
-    const top = this.project(x, height, z, this.p).y;
+    // Its box as it is drawn: the near edge of its base, the far edge of its head.
+    const bottom = this.project(x, 0, z + radius, this.p).y;
+    const half = Math.abs(this.project(x + radius, 0, z + radius, this.p).x - fx);
+    const top = this.project(x, height, z - radius, this.p).y;
     const i = this.clearCount++ * 4;
     this.clear[i] = fx - half;
     this.clear[i + 1] = top;
     this.clear[i + 2] = fx + half;
-    this.clear[i + 3] = fy + half * 0.4;
+    this.clear[i + 3] = bottom;
   }
 
   /** Whether a chip `w` × `h` centred on (x, y) lies over a kept-clear figure (its index, or −1). */
@@ -873,6 +874,13 @@ export class Overlay {
         return i;
     }
     return -1;
+  }
+
+  /** Whether a chip centred on (x, y) would sit on one already placed this frame. */
+  private overChip(x: number, y: number): boolean {
+    for (let i = 0; i < this.badgeCursor; i++)
+      if (Math.abs(this.badgeX[i]! - x) < 92 && Math.abs(this.badgeY[i]! - y) < 34) return true;
+    return false;
   }
 
   /**
@@ -899,7 +907,7 @@ export class Overlay {
         if (d >= best || d > CLEAR_REACH) continue;
         if (cx < w / 2 || cx > this.width - w / 2 || cy < h / 2 || cy > this.height - h / 2)
           continue;
-        if (this.overFigure(cx, cy, w, h) >= 0) continue;
+        if (this.overFigure(cx, cy, w, h) >= 0 || this.overChip(cx, cy)) continue;
         best = d;
         bx = cx;
         by = cy;
@@ -1101,12 +1109,13 @@ export class Overlay {
     if (p.behind) return;
     // Off the figures first (docs/phase-8.md, 8c): a chip sits on its telegraph's edge, which is
     // often where a hero stands. Its size is reckoned from what it holds (it is drawn on the fly).
-    const w = (answers.length * 30 + (label ? 28 : 0) + 12) * scale;
-    const h = (answers.length > 0 ? 30 : 18) * scale;
+    const w = (answers.length * 34 + (label ? 28 : 0) + 12) * scale;
+    const h = (answers.length > 0 ? 32 : 20) * scale;
     this.offFigures(p.x, p.y, w, h);
     // Nudge overlapping badges apart (simple stacking, newest moves).
-    const bx = this.badgeAt.x;
+    let bx = this.badgeAt.x;
     let by = this.badgeAt.y;
+    let stacked = false;
     for (let tries = 0; tries < 4; tries++) {
       let hit = false;
       for (let i = 0; i < this.badgeCursor; i++) {
@@ -1116,6 +1125,13 @@ export class Overlay {
         }
       }
       if (!hit) break;
+      stacked = true;
+    }
+    if (stacked && this.overFigure(bx, by, w, h) >= 0) {
+      // Stacked onto a figure: off it once more.
+      this.offFigures(bx, by, w, h);
+      bx = this.badgeAt.x;
+      by = this.badgeAt.y;
     }
     this.badgeX[this.badgeCursor] = bx;
     this.badgeY[this.badgeCursor] = by;
