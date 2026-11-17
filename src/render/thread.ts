@@ -10,6 +10,7 @@ import { MODE_MINUS, SPRITE } from './fx/sprites';
 import { threadLookHex } from './keepsakeCues';
 import type { Overlay } from './overlay';
 import { BORNE_TRAVEL, MARTYR_HEX } from './martyrCues';
+import { HERO_DRAWN } from './models/artFlag';
 import { C, approach, auraColor, color, currentVision, rgba } from './palette';
 import { POUR_TRAVEL, SONG_GLYPH, beamSong, focusLabel, focusLevel, isAllIn } from './songs';
 import { RIFT_HEX } from './riftCues';
@@ -241,7 +242,8 @@ export class ThreadView {
     const k = age < GLYPH_POP ? age / GLYPH_POP : 1;
     const pop = Math.sin(k * Math.PI);
     const size = GLYPH_SIZE * (1 + 0.45 * pop) * (0.4 + 0.6 * vis);
-    const y = tr.height + GLYPH_LIFT + tr.y + 0.05 * Math.sin(time * 2.4);
+    // Over the drawn head (heroes are drawn HERO_DRAWN tall): the same lift over it as before.
+    const y = tr.height * HERO_DRAWN + GLYPH_LIFT + tr.y + 0.05 * Math.sin(time * 2.4);
     const turn = (1 - k) * 0.8;
     const B = this.bear;
     const a = 0.95 * vis;
