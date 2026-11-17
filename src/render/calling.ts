@@ -15,6 +15,7 @@ import {
   emptyLook,
   radiantTier,
 } from './callingCues';
+import { HERO_DRAWN } from './models/artFlag';
 import { C, approach, clamp01, color } from './palette';
 import { flareScale } from './relicCues';
 
@@ -453,7 +454,8 @@ export class CallingView {
   /** Haloed: a faint ring of light over the head. */
   private halo(r: CallingRec, time: number): void {
     const bob = Math.sin(time * 2.1 + r.x) * 0.03;
-    const y = r.y + r.height + 0.55 + bob;
+    // Over the drawn head (heroes are drawn HERO_DRAWN tall): the same clearance as before.
+    const y = r.y + r.height * HERO_DRAWN + 0.55 + bob;
     const a = r.lit * (0.5 + 0.2 * this.sun);
     this.d.kit.rings.push(r.x, y, r.z, 0.3, 0.045, 0.12, RING.plain, HALO, a);
     this.drawn.haloes++;
