@@ -4,7 +4,7 @@
  */
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { Overlay } from '../src/render/overlay';
+import { Overlay, chipWidth } from '../src/render/overlay';
 
 describe('the answer chips keep off the figures', () => {
   interface Chip {
@@ -106,6 +106,14 @@ describe('the answer chips keep off the figures', () => {
     expect(centre(kept.chips[0]!)).toEqual(centre(plain.chips[0]!));
     expect(kept.chips[0]!.opacity).toBe('0.45');
     expect(plain.chips[0]!.opacity).toBe('1');
+  });
+
+  it('a chip’s room is reckoned from what it holds: a long label is a wide chip', () => {
+    expect(chipWidth(['ward'], '')).toBeLessThan(45);
+    expect(chipWidth(['ward', 'dome'], '1.2')).toBeGreaterThan(70);
+    // Blood Pact's chip: "Scatter" and "+20% · 0.4".
+    expect(chipWidth(['scatter'], '+20% · 0.4')).toBeGreaterThan(125);
+    expect(chipWidth([], '3.0')).toBeLessThan(45);
   });
 
   it('a chip clear of every figure stays exactly on its telegraph’s edge', () => {

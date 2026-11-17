@@ -305,6 +305,18 @@ function div(parent: HTMLElement, css: string): HTMLDivElement {
   return el;
 }
 
+/**
+ * An answer chip's width in pixels, reckoned from what it holds (reading it back from the page
+ * would cost a layout): each answer as wide as its glyph or the word under it, the label by its
+ * length ("+20% · 0.4" is a long one), the gaps, the padding and the border.
+ */
+export function chipWidth(answers: readonly GlyphIcon[], label: string): number {
+  let w = 14;
+  for (const tag of answers) w += Math.max(16, LABELS[tag].length * 5.8) + 4;
+  if (label) w += Math.max(22, label.length * 7.4) + 4;
+  return w;
+}
+
 /** How many figures the answer chips keep off at once. */
 const CLEAR_MAX = 12;
 /** The opacity of a chip left on a figure. */
@@ -1118,7 +1130,7 @@ export class Overlay {
     if (p.behind) return;
     // Off the figures first (docs/phase-8.md, 8c): a chip sits on its telegraph's edge, which is
     // often where a hero stands. Its size is reckoned from what it holds (it is drawn on the fly).
-    const w = (answers.length * 34 + (label ? 28 : 0) + 12) * scale;
+    const w = chipWidth(answers, label) * scale;
     const h = (answers.length > 0 ? 32 : 20) * scale;
     this.offFigures(p.x, p.y, w, h);
     // Nudge overlapping badges apart (simple stacking, newest moves).
