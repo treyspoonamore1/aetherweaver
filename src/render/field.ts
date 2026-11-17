@@ -9,6 +9,7 @@ import { RING } from './fx/rings';
 import { SHELL } from './fx/shells';
 import { SPRITE } from './fx/sprites';
 import { CALLING_HEX, ECLIPSE_DARK_HEX, callingLook, emptyLook } from './callingCues';
+import { HERO_DRAWN } from './models/artFlag';
 import { C, approach, auraColor, clamp01, color } from './palette';
 import { RIFT_HEX } from './riftCues';
 import {
@@ -1086,10 +1087,11 @@ export class FieldView {
         10 + i * 4,
         dir * time * (0.6 + 0.5 * level),
       );
-      // Crown halo: each aura lights half of a ring over the head.
+      // Crown halo: each aura lights half of a ring over the head (the drawn head: heroes are
+      // drawn HERO_DRAWN tall, the ring keeps its clearance over them).
       kit.rings.push(
         hr.x,
-        hr.height + 0.28 + hr.y,
+        hr.height * HERO_DRAWN + 0.28 + hr.y,
         hr.z,
         0.42 * k,
         0.05 + 0.03 * level,
@@ -1104,7 +1106,7 @@ export class FieldView {
         // All in: a second, wider crown turning the other way, and an outer solid ring.
         kit.rings.push(
           hr.x,
-          hr.height + 0.5 + hr.y,
+          hr.height * HERO_DRAWN + 0.5 + hr.y,
           hr.z,
           0.62 * k,
           0.05,
