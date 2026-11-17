@@ -348,7 +348,7 @@ export function Callouts({
     ? { decrees: [], foes: [], mid: [] }
     : notesOf(callouts, barkSpeakers);
   return (
-    <div aria-live="polite">
+    <div aria-live="polite" data-testid="callouts">
       <div className="absolute left-1/2 top-[42%] flex -translate-x-1/2 flex-col items-center gap-3">
         {holds.slice(-1).map((c) => (
           <HoldBanner key={c.id} c={c} />

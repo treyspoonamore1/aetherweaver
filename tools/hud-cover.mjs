@@ -9,8 +9,9 @@
 // the Skilled bot playing at normal speed, it samples every two seconds through the first minute:
 // the box each living boss, miniboss and hero and the Weaver is drawn in (`__AW__.figures()`), and
 // the share of that box that lies under an interface piece or off the screen. An interface piece
-// is anything painted in the HUD (a background at least half opaque) and the answer chips on the
-// telegraphs; the bars and marks a figure wears over its own head are not counted.
+// is anything painted in the HUD and the answer chips on the telegraphs, where its background is
+// at least half opaque (a chip drawn see-through over a figure is not); the bars and marks a
+// figure wears over its own head are not counted.
 //
 // Options:
 //   --only     a regular expression on the fight's tag (m1-boss-cantor, m2-skirmish, ...)
@@ -219,7 +220,12 @@ function startSampler([stepTicks, maxTicks]) {
     const hud = document.querySelector('[data-testid="hud"]');
     if (hud) for (const child of hud.children) walk(child, 1, '', '');
     for (const chip of document.querySelectorAll('[data-testid="world-overlay"] [data-cover]')) {
-      if (chip.style.display === 'none') continue;
+      // A chip drawn see-through (it found no place off a figure) is under the half-opaque line.
+      if (
+        chip.style.display === 'none' ||
+        alphaOf(chip.style.backgroundColor) * Number(chip.style.opacity || 1) < 0.5
+      )
+        continue;
       const r = chip.getBoundingClientRect();
       if (r.width > 0) rects.push({ l: r.left, t: r.top, r: r.right, b: r.bottom, label: 'chip' });
     }
