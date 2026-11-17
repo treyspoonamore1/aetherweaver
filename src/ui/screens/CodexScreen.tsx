@@ -86,6 +86,10 @@ import { AtlasCodexPage } from './AtlasParts';
 import { atlasInContent, atlasStationOpen } from './atlasModel';
 import type { ProfileAtlas } from '../../meta/profile';
 import { t as txt } from '../text';
+import { Portrait } from '../kit/Portrait';
+import { cancelPortraits, requestPortraits, weaverSubject } from '../kit/portraitStore';
+import { OWN_LOOK, robeDef, threadLookDef, type WeaverLook } from '../../render/keepsakeCues';
+import type { PortraitSubject } from '../../render/portrait';
 
 const TABS = [
   {
@@ -233,6 +237,7 @@ export function CodexView({
   seen,
   roster,
   atlas,
+  look = OWN_LOOK,
 }: {
   onBack(): void;
   initialTab?: TabId;
@@ -272,6 +277,11 @@ export function CodexView({
    * Atlas tab, as before Phase 6 (the UI lab's and tests' older views).
    */
   atlas?: ProfileAtlas | null;
+  /**
+   * Phase 8d: what the Weaver wears (`profile.look`), for her portrait. Omitted: her own robe
+   * and Thread.
+   */
+  look?: Readonly<WeaverLook>;
 }) {
   useMood('title');
   const [tab, setTab] = useState<TabId>(initialTab);
@@ -291,6 +301,25 @@ export function CodexView({
   const dissonant = dissonance ? dissonance.open || allowance.all : allowance.all;
   // Phase 5b: the heroes the player has (the starters until a recruit; all, Skip the unlocks).
   const heroes = roster ?? heroRoster({}, allowance.all);
+  // Phase 8d: the portraits this Codex can show (its heroes, the Weaver as she is dressed, the
+  // enemies met) are drawn in one go, the page on screen first; closing the Codex stops it.
+  const vision = useSettings((s) => s.settings.colorVision);
+  const weaver = useMemo(() => weaverSubject(look, vision), [look, vision]);
+  const heroIds = heroes.join(',');
+  const seenIds = seen ? seen.join(',') : null;
+  const portraits = useMemo(() => {
+    const mine = heroIds.split(',');
+    const known = seenIds === null ? null : new Set(seenIds.split(','));
+    return [
+      ...CONTENT.heroes.filter((h) => mine.includes(h.id)).map((h) => heroSubject(h.id)),
+      weaver,
+      ...CONTENT.enemies.filter((e) => !known || known.has(e.id)).map((e) => enemySubject(e.id)),
+    ];
+  }, [heroIds, seenIds, weaver]);
+  useEffect(() => {
+    requestPortraits(portraits);
+    return cancelPortraits;
+  }, [portraits]);
   const bondHeroes = bondedHeroes().filter((h) => heroes.includes(h));
   // Phase 4e: Bonds' too, until a hero's first Bond rank-up (or Skip the unlocks).
   const bonded = bondsOpen(bonds ?? NO_BONDS, allowance.all, bondHeroes);
@@ -356,7 +385,7 @@ export function CodexView({
             <BondsCodexPage open={bonded} bonds={bonds ?? NO_BONDS} heroes={bondHeroes} />
           )}
           {tab === 'enemies' && <Enemies seen={seen} />}
-          {tab === 'weaver' && <Weaver />}
+          {tab === 'weaver' && <Weaver look={look} portrait={weaver} />}
           {tab === 'techniques' && (
             <TechniquesCodexPage owned={techniques.owned} all={allowance.all} />
           )}
@@ -405,6 +434,7 @@ export function CodexScreen() {
   const techniques = useCodexTechniques();
   const seen = useProfile((s) => s.profile.seen);
   const roster = useCodexRoster();
+  const look = useProfile((s) => s.profile.look);
   return (
     <CodexView
       onBack={back}
@@ -417,6 +447,7 @@ export function CodexScreen() {
       techniques={techniques}
       seen={seen}
       roster={roster}
+      look={look}
     />
   );
 }
@@ -530,6 +561,15 @@ function Callings({ allowance }: { allowance: Allowance }) {
 
 const GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(22rem,1fr))]';
 
+/** Phase 8d: a hero's and an enemy's portrait subject (kit/Portrait.tsx). */
+function heroSubject(id: string): PortraitSubject {
+  return { kind: 'hero', id };
+}
+
+function enemySubject(id: string): PortraitSubject {
+  return { kind: 'enemy', id };
+}
+
 function Heroes({ roster }: { roster: readonly string[] }) {
   // Phase 5e: Seren's and Oro's words, once one of them is in the roster.
   const terms = heroTerms(roster);
@@ -603,7 +643,13 @@ function HeroEntry({ hero: h }: { hero: HeroDef }) {
   return (
     <Panel tone="solid" className="p-5" style={{ borderTopColor: h.color, borderTopWidth: 3 }}>
       <div className="flex items-center gap-3">
-        <HeroDisc heroId={h.id} size={46} />
+        {/* Phase 8d: the hero's portrait; without WebGL, the letter disc as before. */}
+        <Portrait
+          subject={heroSubject(h.id)}
+          name={h.name}
+          size={88}
+          fallback={<HeroDisc heroId={h.id} size={46} />}
+        />
         <div>
           <h2 className="font-display text-xl font-bold leading-tight">{h.name}</h2>
           <p className="text-sm text-muted">
@@ -820,18 +866,32 @@ function EnemyEntry({ enemy: e }: { enemy: EnemyDef }) {
       className={`p-5 ${boss ? 'md:col-span-2' : ''}`}
       style={{ borderTopColor: e.accent, borderTopWidth: 3 }}
     >
-      <div className="flex items-start justify-between gap-3">
-        <h2 className="font-display text-xl font-bold">{e.name}</h2>
-        <Chip color={e.accent} icon={boss ? 'eye' : 'skull'}>
-          {e.role}
-        </Chip>
+      <div className="flex items-start gap-4">
+        {/* Phase 8d: the enemy's portrait, in its own world's light; without WebGL, none. */}
+        <Portrait
+          subject={enemySubject(e.id)}
+          name={e.name}
+          size={boss ? 128 : 96}
+          world={e.movement ?? 1}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="font-display text-xl font-bold">{e.name}</h2>
+            <Chip color={e.accent} icon={boss ? 'eye' : 'skull'}>
+              {e.role}
+            </Chip>
+          </div>
+          <p className="mt-2 text-sm leading-relaxed text-text">{e.codex}</p>
+          {ENEMY_LORE[e.id] && (
+            <p
+              className="mt-1.5 text-sm italic leading-relaxed text-muted"
+              data-testid="codex-lore"
+            >
+              {ENEMY_LORE[e.id]}
+            </p>
+          )}
+        </div>
       </div>
-      <p className="mt-2 text-sm leading-relaxed text-text">{e.codex}</p>
-      {ENEMY_LORE[e.id] && (
-        <p className="mt-1.5 text-sm italic leading-relaxed text-muted" data-testid="codex-lore">
-          {ENEMY_LORE[e.id]}
-        </p>
-      )}
       <div className="mt-3 flex flex-wrap gap-1.5">
         <Chip icon="heart">{txt('screens.codexScreen.life2', { hp: fmt(e.hp) })}</Chip>
         <Chip>
@@ -900,7 +960,7 @@ function EnemyEntry({ enemy: e }: { enemy: EnemyDef }) {
   );
 }
 
-function Weaver() {
+function Weaver({ look, portrait }: { look: Readonly<WeaverLook>; portrait: PortraitSubject }) {
   const t = CONTENT.techniques;
   // The Calling whose Rewind takes Reel's key (Phase 3e), for Reel's entry.
   const rewind = CONTENT.callings.find((c) => (c.values.rewind ?? 0) > 0);
@@ -1062,6 +1122,8 @@ function Weaver() {
   ];
   return (
     <div className={GRID}>
+      {/* Phase 8d: the Weaver herself, in the robe and Thread look she wears. */}
+      <WeaverCard look={look} portrait={portrait} />
       {entries.map((e) => (
         <Panel key={e.name} tone="solid" className="p-5">
           <div className="flex items-center justify-between gap-3">
@@ -1079,6 +1141,50 @@ function Weaver() {
         </Panel>
       ))}
     </div>
+  );
+}
+
+/**
+ * Phase 8d: the Weaver's own card, heading her page: her portrait as she is dressed (her robe,
+ * her hands in her Thread look's colour as the colour vision sees it) and what she wears. Without
+ * WebGL the card is not shown: the page is as it was.
+ */
+function WeaverCard({ look, portrait }: { look: Readonly<WeaverLook>; portrait: PortraitSubject }) {
+  const name = txt('screens.codexScreen.theWeaver');
+  return (
+    <Portrait
+      subject={portrait}
+      name={name}
+      size={112}
+      wrap={(picture) => (
+        <Panel
+          tone="solid"
+          className="p-5"
+          style={{ borderTopColor: 'var(--color-gold-400)', borderTopWidth: 3 }}
+          data-testid="codex-weaver-card"
+        >
+          <div className="flex items-center gap-4">
+            {picture}
+            <div className="min-w-0">
+              <h2 className="font-display text-xl font-bold text-gold-200">{name}</h2>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                <Chip>
+                  {txt('screens.codexScreen.weaverRobe', {
+                    name: robeDef(look.robe)?.name ?? txt('screens.loomModel.theWeaverSOwn'),
+                  })}
+                </Chip>
+                <Chip>
+                  {txt('screens.codexScreen.weaverThread', {
+                    name:
+                      threadLookDef(look.thread)?.name ?? txt('screens.loomModel.theThreadSOwn'),
+                  })}
+                </Chip>
+              </div>
+            </div>
+          </div>
+        </Panel>
+      )}
+    />
   );
 }
 
