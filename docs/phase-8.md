@@ -432,3 +432,161 @@ fixed-seed generator (`models/ownRandom.ts`).
   body; there is no blending between poses.
 - Stills cannot show whether the motion's timing reads at game speed, whether the per-figure clock
   looks mechanical across a crowd of 150 choristers, or how the 1.12 feels in play.
+
+## 8d: portraits and the map's rewards
+
+*Built on `p9/codex`, from the visual audit's two small gaps outside the fight (section 7, "The
+Codex" and "The map"): nothing outside a fight showed the stained-glass figures, and a map stop
+showed what it gives only on hover. No aura or ornament, and nothing in `src/sim`, `src/content`
+or `src/meta`, is touched.*
+
+### Portraits in the Codex
+
+Every hero, the Weaver and every enemy met now has a small picture of its real figure in the
+Codex: the fight's own model (`models/library.ts`) under the fight's own material, drawn offscreen
+to a 256 × 256 picture and kept.
+
+- **Where.** A hero's card shows its portrait (88 px) in place of the letter disc. An enemy's
+  entry shows its portrait beside its name and words (96 px; a boss or miniboss 128 px). An enemy
+  not met yet stays the locked silhouette it was. The Weaver's page opens with a card of her own:
+  her portrait (112 px) and the robe and Thread look she wears. The Auras and Songs pages are
+  untouched.
+- **The view.** One for all (`PORTRAIT_VIEW`, `src/render/portrait.ts`): the figure turned
+  three-quarter toward the light (the art studio's `close` turn), seen from 12° above with no
+  perspective, as the fight's far camera all but sees it. The frame is fitted to the model's own
+  vertices (`framePortrait`), so its longer side always spans 86% of the picture: a Leech and the
+  Bellwarden both fill their frames, and a hound is framed by its length. The outline is 1.5
+  picture pixels whatever the figure's size.
+- **The light.** Each figure stands in its own world's light, the fight's own numbers
+  (`arenaMood`, and `applyArtWorld` for the dark worlds' fit of the glass): a hero and the Weaver
+  in the Reliquary's warm light, an enemy in its Movement's (the Reliquary, the Spire, the Rift,
+  the Crucible). The picture is transparent round the figure; the dark surround is the page's
+  (`Portrait.tsx`): a glow behind the figure in the page's navy for a hero and the Weaver, in the
+  world's own air for an enemy, falling to the page's ink.
+- **As the fight draws them at rest**, with two differences. Heroes and the Weaver are drawn at
+  the art pass's 1.12, and the Weaver wears her resting rim (her robe's trim, which is how a dark
+  robe reads). A foe is drawn **without** the fight's faint red hostile rim: that rim is a cue for
+  telling a foe from the floor, and in a portrait it turned the Rift's indigo violet, the Legion's
+  obsidian red and the Choir's black cassocks maroon
+  (`/home/user/aw-work/9/codex/shots/portraits-hostile-rim-compared.png`: each pair of rows, with
+  the rim above and without below).
+  No ribbons, rings, shadows or crowns: the figure alone.
+- **What she wears.** The Weaver's portrait is built from `weaverPalette(look, vision)` and
+  `restRim`, the very calls the fight makes, so each robe is another picture, and her hands take
+  her Thread look's colour as the colour-vision setting fits it.
+- **Colour vision.** A figure's own colours do not change with the colour-vision setting in a
+  fight (they were chosen to stay clear of every palette, 8b's Colour); only the Weaver's hands in
+  a Thread look do. Portraits follow exactly that: one picture of each hero and enemy for every
+  setting, and the Weaver's redrawn when her look or the setting changes it.
+
+**How it is drawn** (`src/ui/kit/portraitStore.ts`, `src/render/portrait.ts`).
+
+- The drawing code, and three.js with it, is loaded only when a portrait is first wanted; the
+  Codex itself is as light to open as it was.
+- One small studio (one WebGL context, 256 × 256) is opened when pictures are wanted, draws them,
+  and is closed: its context is given back at once (`forceContextLoss`). Nothing is held open
+  while nothing is being drawn, and never beside a fight: while a fight's canvas is on screen no
+  studio opens, and one that is open stops before its next picture and closes.
+- What is on screen is drawn first; then the rest of what this Codex can show (its heroes, the
+  Weaver, the enemies met), so every page is ready when it is turned to. Closing the Codex drops
+  what is not drawn yet. The work is spread: about 8 ms of drawing, then the browser gets its turn.
+- Each model is built, drawn and freed; only the pictures are kept (PNG data, at most 16 of the
+  Weaver). A picture is keyed by what it shows and never drawn twice.
+- **Where WebGL is not to be had** (the unit tests, a refused or lost context) nothing is drawn
+  and the Codex shows exactly what it showed before: the letter discs, no picture on an enemy's
+  entry, no Weaver card. Compared once against main's `CodexScreen.tsx` at `19fdec5`, the pages
+  rendered without WebGL (Heroes at three and six, Enemies all met and one met, The Weaver, Calls)
+  are byte-equal.
+
+**Readings** (the production build, Chromium with software rendering (SwiftShader), a machine
+shared with two other jobs; `measure.mjs`, `lab.mjs` and `labseq.mjs` in
+`/home/user/aw-work/9/codex/scripts/`, the pictures in `/home/user/aw-work/9/codex/shots/`).
+
+| what | reading |
+|---|---|
+| Pictures a veteran's Codex draws (6 heroes, the Weaver, 30 enemies) | 37, in one studio, one draw call each (480 to 5,748 triangles a figure) |
+| Time to draw all 37, the page's backdrop held still | 6.2 to 8.6 s: the first 1.1 to 2.5 s (the figures' shader is compiled for it), then about 130 to 170 ms each |
+| The same with the page's backdrop animating | 26 to 29 s in the UI lab, 77 to 121 s in the game (first picture 13 to 17 s, and 66 to 92 s) |
+| Building the 37 models and framing them, no drawing (Node) | 0.4 to 1.3 s of the above |
+| Loading the drawing code (three.js and the models) | 60 to 200 ms from the local server |
+| Memory held afterwards | the pictures only: 1,642,654 bytes for 37 (about 44 KB each, as PNG data); no canvas in the page, no WebGL context |
+| JS heap at a fight's opening frame, after a Codex visit | 28.7 to 29.4 MB, against 27.2 MB on main after the same visit (1.5 to 2.3 MB more; 34 pictures were held, 1.5 MB) |
+| JS heap at a fight's opening frame, no Codex visit | 23.9 MB, main 23.8 MB |
+| A fight's opening frame (First Light, paused under "How to play") | 21 draw calls, 22,520 triangles: the same on main, on this branch, and on this branch after the Codex drew its pictures |
+| The same fight paused at tick 302 to 304 | 22 draw calls, 29,000 triangles, 10 entities: the same in all three |
+| A fight's load (choosing the stop to its first frame's readout) | 2.1 to 2.2 s on this branch (with and without a Codex visit), 2.1 to 2.2 s on main |
+| Canvases in the page during a fight | 1 (the fight's) |
+| The JavaScript bundle | 6,457,259 bytes (1,898,444 gzipped) against main's 6,441,723 (1,892,181): 15.5 KB more (6.3 KB gzipped) |
+
+Two things the readings say that the table does not. First, software rendering shares the
+processor between the pictures and the page's own moving backdrop: with the backdrop still
+(reduced motion) the Codex's pictures take seconds, with it moving they take many times longer,
+and the first one (the shader's compile) longest. A fight on main's build opened after a Loom and
+Codex visit took 81 s to its first frame in the same conditions, against 2 s without. A graphics
+card composites a backdrop for nothing, so none of this should carry over, but none of it was
+measured on one. Second, the fight needs exactly the code it needed, now in three more files
+(`artWorld`, `crimsonCues`, `keepsakeCues`: the parts the portraits share with it), and a player
+who has opened the Codex has already fetched them.
+
+### Reward glyphs on the map
+
+A stop still ahead that gives something now shows it without a hover: a small dark pill at the
+foot of its disc holding one glyph for each reward (`MapScreen.tsx`).
+
+- **The same icons and colours as the hover detail** (`rewardChips`, `CHIP_COLOR`): Aether (the
+  Aether glyph, gold), a relic to choose (the relic glyph, orange), a motif (a diamond in its
+  rarity's colour: common, rare, epic) and healing (a heart in the live heal colour, so it follows
+  the colour-vision setting). The order is the hover detail's.
+- **Only where there is something ahead.** A stop walked, and the one you stand on, show nothing:
+  they have given what they had. A merchant, a forge and an event have no fixed reward and show no
+  pill, as their hover detail lists none. A stop not yet in reach shows its pill a little dimmed,
+  like its name.
+- **Sized with the text.** The glyphs are 0.875 rem (14 px at 100%, about 11 px at 80%, 21 px at
+  150%), so the UI scale carries them; the discs themselves are sized in pixels, as before.
+- **The hover detail is unchanged**, and so is the Chord panel. The Movement tints are the page's
+  backdrop and are not touched: the pill is the page's ink on every map.
+- **Gamepad and screen readers.** The pill sits inside the stop's own button, so the focus ring
+  and the stick's steps are as they were, and it is hidden from screen readers: the stop's label
+  says the rewards. A stop within reach reads exactly as before (it already named them); a stop
+  not yet in reach now names them too ("The Shattered Choir, Elite, not reachable yet. +… Aether…").
+
+### Tests
+
+`tests/uiPhase8d.test.ts` (portraits): every hero, the Weaver and every enemy framed to the same
+share of its picture, a known box framed exactly; each figure's world; what a picture is kept by
+(a robe is another picture; colour vision moves only her hands in a Thread look); the cache's rules
+against a stand-in studio (what is on screen first, one studio closed when done, a picture never
+drawn twice, closing the screen drops the rest, nothing beside a fight and a stop when one opens,
+a refused and a lost context, the Weaver's pictures bounded); the Codex with pictures (alt text,
+sizes, an unmet enemy still locked, the Weaver's card) and without WebGL (the letter discs, no
+picture, no card). `tests/uiPhase8dMap.test.ts` (the map): a glyph for each reward of every stop
+ahead and none on a stop walked, the tooltip's icons and colours in rem, and the labels read out.
+No pinned picture, hash or snapshot moved, and none was re-recorded. `tests/aura` passes with both
+pin files untouched.
+
+### Known weak, and what was not checked
+
+- **Only software rendering was measured.** The times above are SwiftShader's on a shared machine.
+  On a real graphics card the first picture's shader compile is the part that could be felt; it is
+  compiled in the background where the browser allows (`prepare`), which SwiftShader does not, so
+  that path ran here only as a no-op.
+- **The Legion and the Unweaver are dark figures on a dark surround.** They read by their outline
+  against the world's glow and by their lit glass; the Sanguine Hound and the Unweaver are the
+  weakest. A lighter surround would read better and suit the page less.
+- **No hostile rim** is a choice (above); with it a portrait is closer to the fight and further
+  from the figure's own colours. The comparison picture shows both.
+- **Thin figures are small in a square frame**: Vexis, the Glass Lancer and the Spindle fill
+  their frame's height and little of its width. A bust (the top half only) would show more glass
+  and no longer "the whole figure whatever its size".
+- **A portrait is a still**: the pose at rest, clock 0. Floating parts (the Stolen Verse, the
+  Mimic's shards) are where the model builds them.
+- **Portraits appear a moment after the page** (the frame holds the place, empty, then fills).
+  Nothing fades in; reduced motion has nothing to stop.
+- **A context lost while drawing** leaves the pictures not yet drawn as the old look until the
+  page is reloaded; it is not retried.
+- **On the map every fight shows Aether, a motif and a heart**, so the pills on a row of
+  skirmishes look alike; the relic glyph and the motif's colour are what tell stops apart. The
+  pill covers the foot of the disc's ring, most at 150% (the discs do not grow with the text).
+- Not checked: a real graphics card, a real screen reader, a gamepad in the hand (the map's focus
+  order is untouched), any browser but Chromium, and the Codex opened in the same second a fight's
+  canvas is leaving the page (the rule is tested, the moment is not).
