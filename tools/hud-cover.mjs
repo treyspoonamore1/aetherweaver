@@ -182,8 +182,11 @@ function startSampler([stepTicks, maxTicks]) {
     return 1;
   };
   const nameOf = (el) =>
+    (el.dataset.testid === 'coach-hint' ? 'hint-toast' : '') ||
     el.dataset.testid ||
-    (el.getAttribute('role') === 'status' ? 'hint-toast' : '') ||
+    (el.getAttribute('role') === 'status' && el.closest('[data-testid="weaver-bar-anchor"]')
+      ? 'hint-toast'
+      : '') ||
     (el.getAttribute('aria-label') === 'Controls' ? 'key-hints' : '') ||
     el.getAttribute('aria-label') ||
     '';
