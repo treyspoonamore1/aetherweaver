@@ -100,6 +100,11 @@ function snapshot(key: string): PortraitState {
   return failed || blocked || !portraitsPossible() ? 'none' : 'pending';
 }
 
+/** A portrait's state now (tests; a screen reads it through `usePortrait`). */
+export function portraitState(subject: PortraitSubject): PortraitState {
+  return snapshot(portraitKey(subject));
+}
+
 /** The next picture to draw: what is on screen first, then what was asked for later. */
 function next(): Wanted | null {
   for (const [key, want] of shown) if (!images.has(key)) return { key, subject: want.subject };
@@ -145,8 +150,12 @@ export function cancelPortraits(): void {
   later.length = 0;
 }
 
-/** A frame on screen wants `subject` (drawn before anything asked for later); returns its release. */
-function show(subject: PortraitSubject, key: string): () => void {
+/**
+ * A frame on screen wants `subject` (drawn before anything asked for later). Returns its release:
+ * a frame gone before its picture is drawn no longer asks for it.
+ */
+export function showPortrait(subject: PortraitSubject): () => void {
+  const key = portraitKey(subject);
   const held = shown.get(key);
   if (held) held.count++;
   else shown.set(key, { subject, count: 1 });
@@ -249,13 +258,11 @@ export function portraitStats(): Readonly<typeof stats> & { held: number; open: 
 /** A portrait for a frame on screen: asked for when the frame shows, put in place when drawn. */
 export function usePortrait(subject: PortraitSubject): PortraitState {
   const key = portraitKey(subject);
-  const state = useSyncExternalStore(
-    subscribe,
-    () => snapshot(key),
-    () => 'none' as const,
-  );
+  // The same reading for a page rendered to text (the unit tests: no WebGL there, so `none`).
+  const read = (): PortraitState => snapshot(key);
+  const state = useSyncExternalStore(subscribe, read, read);
   // The key is all a picture depends on: a new object for the same figure asks for nothing new.
-  useEffect(() => show(subject, key), [subject, key]);
+  useEffect(() => showPortrait(subject), [subject, key]);
   return state;
 }
 

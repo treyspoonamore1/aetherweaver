@@ -860,38 +860,43 @@ function LockedEnemy({ enemy: e }: { enemy: EnemyDef }) {
 function EnemyEntry({ enemy: e }: { enemy: EnemyDef }) {
   const attacks = e.specials.map((id) => CONTENT.attacks.find((a) => a.id === id)!).filter(Boolean);
   const boss = e.role === 'boss' || e.role === 'miniboss';
+  const head = (
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <h2 className="font-display text-xl font-bold">{e.name}</h2>
+        <Chip color={e.accent} icon={boss ? 'eye' : 'skull'}>
+          {e.role}
+        </Chip>
+      </div>
+      <p className="mt-2 text-sm leading-relaxed text-text">{e.codex}</p>
+      {ENEMY_LORE[e.id] && (
+        <p className="mt-1.5 text-sm italic leading-relaxed text-muted" data-testid="codex-lore">
+          {ENEMY_LORE[e.id]}
+        </p>
+      )}
+    </>
+  );
   return (
     <Panel
       tone="solid"
       className={`p-5 ${boss ? 'md:col-span-2' : ''}`}
       style={{ borderTopColor: e.accent, borderTopWidth: 3 }}
     >
-      <div className="flex items-start gap-4">
-        {/* Phase 8d: the enemy's portrait, in its own world's light; without WebGL, none. */}
-        <Portrait
-          subject={enemySubject(e.id)}
-          name={e.name}
-          size={boss ? 128 : 96}
-          world={e.movement ?? 1}
-        />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <h2 className="font-display text-xl font-bold">{e.name}</h2>
-            <Chip color={e.accent} icon={boss ? 'eye' : 'skull'}>
-              {e.role}
-            </Chip>
+      {/* Phase 8d: the enemy's portrait, in its own world's light, beside its name and words;
+          without WebGL, the name and words as they were. */}
+      <Portrait
+        subject={enemySubject(e.id)}
+        name={e.name}
+        size={boss ? 128 : 96}
+        world={e.movement ?? 1}
+        fallback={head}
+        wrap={(picture) => (
+          <div className="flex items-start gap-4">
+            {picture}
+            <div className="min-w-0 flex-1">{head}</div>
           </div>
-          <p className="mt-2 text-sm leading-relaxed text-text">{e.codex}</p>
-          {ENEMY_LORE[e.id] && (
-            <p
-              className="mt-1.5 text-sm italic leading-relaxed text-muted"
-              data-testid="codex-lore"
-            >
-              {ENEMY_LORE[e.id]}
-            </p>
-          )}
-        </div>
-      </div>
+        )}
+      />
       <div className="mt-3 flex flex-wrap gap-1.5">
         <Chip icon="heart">{txt('screens.codexScreen.life2', { hp: fmt(e.hp) })}</Chip>
         <Chip>
