@@ -421,16 +421,16 @@ try {
       try {
         await enterFight(page, fight);
         // Normal speed up to the moment, then the sim held on its tick: the camera is where a
-        // player would have it. Until six seconds before, the window is kept small, where
+        // player would have it. Until two and a half seconds before, the window is kept small, where
         // software frames come sooner (the fight is the same fight at any size).
         const reach = (tick) =>
           page.waitForFunction((t) => !!window.__AW__ && window.__AW__.tick() >= t, tick, {
             timeout: 1_800_000,
             polling: 'raf',
           });
-        if (at > 8) {
+        if (at > 4) {
           await page.setViewportSize({ width: 320, height: 180 });
-          await reach(at * 60 - 360);
+          await reach(at * 60 - 150);
           await page.setViewportSize({ width: 1280, height: 720 });
         }
         await page.waitForFunction(
