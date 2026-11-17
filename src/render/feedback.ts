@@ -49,6 +49,7 @@ import {
   signalHex,
 } from './crimsonCues';
 import { MARTYR_HEX, crescendoKind } from './martyrCues';
+import { HERO_DRAWN } from './models/artFlag';
 import { C, VISION_HEX, auraColor, clamp01, color, currentVision, rgba } from './palette';
 import {
   CALLING_HEX,
@@ -3656,7 +3657,9 @@ export class Feedback {
     const r = this.rec(e.hero);
     if (!r) return;
     this.ring(r.x, r.z, r.radius, r.radius * 3.2, 0.45, C.call, 0.12, RING.plain, 1, 0.05, e.hero);
-    this.sprite(r.x, r.height + 1.05, r.z, 0.4, 1.4, 0.3, C.call, SPRITE.star, 1, e.hero, true);
+    // The call's star, where its prompt is (calls.ts: over the drawn head).
+    const top = r.height * HERO_DRAWN + 1.05;
+    this.sprite(r.x, top, r.z, 0.4, 1.4, 0.3, C.call, SPRITE.star, 1, e.hero, true);
   }
 
   private callAnswered(e: SimEventOf<'callAnswered'>, state: WorldState): void {
@@ -3670,7 +3673,8 @@ export class Feedback {
       this.sprite(w.x, 1.1, w.z, 0.3, 1.1, 0.25, C.call, SPRITE.star, 1);
     }
     this.ring(r.x, r.z, 0.4, r.radius * 4.5, 0.45, C.call, 0.2, RING.plain, 1, 0.06, e.hero);
-    this.sprite(r.x, r.height + 1.05, r.z, 0.6, 2.4, 0.32, C.call, SPRITE.star, 1, e.hero, true);
+    const top = r.height * HERO_DRAWN + 1.05;
+    this.sprite(r.x, top, r.z, 0.6, 2.4, 0.32, C.call, SPRITE.star, 1, e.hero, true);
     this.d.kit.particles.burst(
       r.x,
       cy,
