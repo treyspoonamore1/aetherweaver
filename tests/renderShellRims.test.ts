@@ -19,7 +19,11 @@ import type { ChordConfig, Sim } from '../src/sim';
 import { EntityLayer } from '../src/render/entities';
 import { FxKit } from '../src/render/fx/kit';
 import { OWN_LOOK, OWN_RIM, restRim, type WeaverLook } from '../src/render/keepsakeCues';
-import { HOSTILE_EDGE, HOSTILE_OUTLINE } from '../src/render/models/artFlag';
+import {
+  HOSTILE_EDGE,
+  HOSTILE_OUTLINE,
+  HOSTILE_OUTLINE_STRENGTH,
+} from '../src/render/models/artFlag';
 import { RIM_STANDING, createModelMaterial } from '../src/render/models/material';
 import { C } from '../src/render/palette';
 import type { FrameInfo } from '../src/render/types';
@@ -76,6 +80,9 @@ describe('the outline shell and the standing rims (the owner\'s "Red outline, no
   it('has both owner constants on', () => {
     expect(HOSTILE_EDGE).toBe(true);
     expect(HOSTILE_OUTLINE).toBe(true);
+    // The outline's red at the strength the owner saw (measured against the telegraphs at 0.7
+    // and 0.45 too, and kept: docs/phase-8.md, 8b).
+    expect(HOSTILE_OUTLINE_STRENGTH).toBe(1);
   });
 
   it('puts the hostile and elite rims on the outline (not standing), as an aura tint is', () => {
@@ -141,6 +148,11 @@ describe('the outline shell and the standing rims (the owner\'s "Red outline, no
       /if \(!awStanding\) awShell \+= awTintA >= 0\.0 \? vTint\.rgb \* awTintA/,
     );
     expect(shell.match(/awTintA/g)!.length).toBe(3);
+    // The hostile red (the negative strength) on the outline: the body's edge at a fresnel of 1,
+    // times its own constant (HOSTILE_OUTLINE_STRENGTH; nothing else is scaled by it).
+    expect(shell).toContain(': vTint.rgb * -awTintA * (0.02 + 4.0) * AW_HOSTILE_SHELL;');
+    expect(frag).toContain('const float AW_HOSTILE_SHELL = 1.000;');
+    expect(frag.match(/AW_HOSTILE_SHELL/g)!.length).toBe(2);
   });
 
   it("keeps the Weaver's resting rim off her outline, her own and a dark robe's; a flinch is not", () => {

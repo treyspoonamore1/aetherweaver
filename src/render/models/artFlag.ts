@@ -29,3 +29,12 @@ export const HOSTILE_EDGE = true;
  * wash.
  */
 export const HOSTILE_OUTLINE = true;
+
+/**
+ * How strongly the outline carries the hostile red under the game's look (both constants above
+ * on): 1 is the outline as the owner chose it (the body's edge-only rim at a fresnel of 1). Lower
+ * it and only a rank-and-file foe's outline dims toward lead; its body's edge, the elite's gold
+ * and every event cue are untouched. Kept at 1 after it was measured against the telegraphs at
+ * 0.7 and 0.45 (docs/phase-8.md, 8b): a dimmer red sits nearer a lethal telegraph's fill.
+ */
+export const HOSTILE_OUTLINE_STRENGTH: number = 1;

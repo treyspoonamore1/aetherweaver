@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CHRONO_HEX } from '../chronoCues';
 import type { QualityTier } from '../stage';
+import { HOSTILE_OUTLINE_STRENGTH } from './artFlag';
 import { ownRandom } from './ownRandom';
 
 /** A hex colour as a GLSL vec3 literal (linear, like THREE.Color). */
@@ -381,6 +382,8 @@ float awLeadMask = 0.0;
 float awHeart = 1.0;
 const vec3 AW_FROST = ${glslColor(CHRONO_HEX.frost)};
 const vec3 AW_SILVER = ${glslColor(CHRONO_HEX.silver)};
+// The hostile red on the outline, against the body's edge (artFlag.ts HOSTILE_OUTLINE_STRENGTH).
+const float AW_HOSTILE_SHELL = ${HOSTILE_OUTLINE_STRENGTH.toFixed(3)};
 float awHash(vec3 p) {
   p = fract(p * 0.3183099 + vec3(0.1, 0.2, 0.3));
   p *= 17.0;
@@ -552,7 +555,7 @@ if (vShine.w > 0.001) {
     + vec3(1.0, 0.97, 0.92) * vFx.x * vFx.x * 0.8 + vTint.rgb * awEdge * 4.0;
   // Not a standing rim: the outline stays lead under the hostile and elite rims (HOSTILE_OUTLINE).
   if (!awStanding)
-    awShell += awTintA >= 0.0 ? vTint.rgb * awTintA * (0.18 + 1.9) : vTint.rgb * -awTintA * (0.02 + 4.0);
+    awShell += awTintA >= 0.0 ? vTint.rgb * awTintA * (0.18 + 1.9) : vTint.rgb * -awTintA * (0.02 + 4.0) * AW_HOSTILE_SHELL;
   awShell += mix(vec3(1.0, 0.9, 0.6), AW_SILVER, awFrost) * awGhost * 0.9;
   awShell += AW_FROST * awFrost * (0.04 + 0.5);
   if (vShine.x > 0.001) {
