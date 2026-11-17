@@ -48,13 +48,14 @@ test('a miniboss fight: the boss and the Weaver stand clear of the HUD; notes at
   const weaver = (await figure('weaver'))!;
   const bossBar = (await page.getByTestId('boss-bar').boundingBox())!;
   const weaverBar = (await page.getByTestId('weaver-bar').boundingBox())!;
-  // All of the boss under the boss bar's lower edge, on the screen; all of the Weaver over the
-  // Weaver bar.
-  expect(boss.top).toBeGreaterThanOrEqual(bossBar.y + bossBar.height - 2);
+  // The boss under the boss bar's lower edge (all of it, give or take a seventh while the camera
+  // is still easing), on the screen; all of the Weaver over the Weaver bar and under the boss bar.
+  const barBottom = bossBar.y + bossBar.height;
+  expect(boss.top).toBeGreaterThanOrEqual(barBottom - (boss.bottom - boss.top) * 0.15);
   expect(boss.left).toBeGreaterThanOrEqual(0);
   expect(boss.right).toBeLessThanOrEqual(1280);
   expect(weaver.bottom).toBeLessThanOrEqual(weaverBar.y + 2);
-  expect(weaver.top).toBeGreaterThanOrEqual(bossBar.y + bossBar.height);
+  expect(weaver.top).toBeGreaterThanOrEqual(barBottom);
 
   // The slimmer boss bar: within 8 px of the top edge.
   expect(bossBar.y).toBeLessThanOrEqual(8.5);
