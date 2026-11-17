@@ -17,6 +17,36 @@ export function pixelRatioFor(quality: QualityTier, dpr: number, scale = 1): num
   return base * scale;
 }
 
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const hit = new THREE.Vector3();
+
+/**
+ * The ground-plane point under a client-space position, through `camera` as it stands now: how
+ * the mouse aims (`Stage.pickGround`). The camera's place is read as the rig last set it, so
+ * aiming follows every move the rig makes (its follow, its boss-fight lean and pull-back) exactly.
+ */
+export function groundUnder(
+  camera: THREE.Camera,
+  rect: { left: number; top: number; width: number; height: number },
+  clientX: number,
+  clientY: number,
+  out: { x: number; z: number },
+): boolean {
+  if (rect.width === 0 || rect.height === 0) return false;
+  ndc.set(
+    ((clientX - rect.left) / rect.width) * 2 - 1,
+    -((clientY - rect.top) / rect.height) * 2 + 1,
+  );
+  raycaster.setFromCamera(ndc, camera);
+  const p = raycaster.ray.intersectPlane(groundPlane, hit);
+  if (!p) return false;
+  out.x = p.x;
+  out.z = p.z;
+  return true;
+}
+
 /**
  * Owns the WebGL renderer, scene, camera and lights. Knows nothing about the simulation.
  * Quality tiers set the pixel ratio and the shadows (docs/plan/05 §5.1); on `auto` quality the
@@ -33,10 +63,6 @@ export class Stage {
   private readonly hemiLight: THREE.HemisphereLight;
   private readonly rimLight: THREE.DirectionalLight;
   private readonly resizeObserver: ResizeObserver;
-  private readonly raycaster = new THREE.Raycaster();
-  private readonly ndc = new THREE.Vector2();
-  private readonly groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-  private readonly hit = new THREE.Vector3();
 
   constructor(
     private readonly container: HTMLElement,
@@ -164,18 +190,7 @@ export class Stage {
 
   /** Writes the ground-plane point under a client-space position into `out`. */
   pickGround(clientX: number, clientY: number, out: { x: number; z: number }): boolean {
-    const rect = this.canvas.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return false;
-    this.ndc.set(
-      ((clientX - rect.left) / rect.width) * 2 - 1,
-      -((clientY - rect.top) / rect.height) * 2 + 1,
-    );
-    this.raycaster.setFromCamera(this.ndc, this.camera);
-    const p = this.raycaster.ray.intersectPlane(this.groundPlane, this.hit);
-    if (!p) return false;
-    out.x = p.x;
-    out.z = p.z;
-    return true;
+    return groundUnder(this.camera, this.canvas.getBoundingClientRect(), clientX, clientY, out);
   }
 
   /** Draw calls of the last rendered frame (no allocation: read every frame by the bench). */

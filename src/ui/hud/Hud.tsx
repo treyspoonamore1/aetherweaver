@@ -241,7 +241,10 @@ export function HudView({
       )}
       {/* Above the party frames and their barks: the relics', keystones' and Dissonance's tooltips
           are never under them. */}
-      <div className="absolute left-4 top-4 z-20 flex flex-col items-start gap-2">
+      <div
+        className="absolute left-4 top-4 z-20 flex flex-col items-start gap-2"
+        data-testid="hud-top-left"
+      >
         <EncounterHeader encounter={hud.encounter} subtitle={subtitle} clockText={clockText} />
         <RelicBar
           relics={hud.relics}

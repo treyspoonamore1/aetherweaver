@@ -6,6 +6,7 @@ import { liveBindings } from '../input/bindings';
 import { keyLabel } from '../input/keyLabel';
 import type { CombatOutcome } from '../meta/types';
 import { CameraRig } from '../render/camera';
+import { FightFraming } from './fightFraming';
 import { figureBoxes, type FigureBox } from './figureBoxes';
 import { createWorldView, type WorldView } from '../render';
 import type { FrameInfo } from '../render/types';
@@ -157,6 +158,8 @@ export class GameRuntime {
   readonly input: InputController;
   readonly seed: number;
   private readonly camera: CameraRig;
+  /** Boss and miniboss fights: who the camera keeps in view (null in every other fight). */
+  private readonly framing: FightFraming | null;
   private readonly view: WorldView;
   private readonly overlay: HTMLDivElement;
   private readonly stepper = new FixedStepper(60, 5);
@@ -290,6 +293,12 @@ export class GameRuntime {
     };
     const weaver = this.sim.state.entities.get(this.sim.state.weaverId);
     this.camera.snapTo(weaver?.x ?? 0, weaver?.z ?? 0);
+    this.framing = FightFraming.for(
+      this.camera,
+      this.stage.canvas,
+      this.sim.config.encounter,
+      this.sim.state,
+    );
     const kind = this.sim.state.encounter.kind;
     // Phase 5a: the arena's biome voices the fight (the Sunlit Reliquary when it names none).
     getAudio().setBiome?.(arena.biome ?? 'reliquary');
@@ -464,6 +473,7 @@ export class GameRuntime {
       const wx = weaver.px + (weaver.x - weaver.px) * alpha;
       const wz = weaver.pz + (weaver.z - weaver.pz) * alpha;
       this.camera.zoomBy(this.input.takeWheel());
+      this.framing?.update(state, alpha, elapsed);
       const aim = this.input.aimPoint;
       this.camera.update(wx, wz, aim?.x ?? wx, aim?.z ?? wz, elapsed / 1000);
     }
