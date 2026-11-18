@@ -35,9 +35,9 @@ Solo sheets in `handoff/round-11/pictures/`).
   covers it; if the permission system refuses again, do not work around it: tell the owner what
   was refused and ask them to allow it or to make the change), or add the two commits to
   `AURA_APPROVED` with the owner's date. Do not land the Solo work with those tests red.
-- A recorder patch with `--diff` and `--rewrite --only=` was written but not committed; it was in
-  the scratch folder and is lost. The method that worked before is in the summary of `STATE.md`
-  below ("Re-recording aura pin entries").
+- A recorder patch with `--diff` and `--rewrite --only=` was written but not applied; it is kept at
+  `aw-work/11/marks/pending/recorder-diff-and-rewrite.patch`. The method that worked before is
+  below ("Re-recording aura pin entries"). The marks agent's own note is `aw-work/11/marks/INT-A.md`.
 
 ## Solos: where each piece stands
 
