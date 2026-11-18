@@ -6,12 +6,10 @@ export const deedsParts = {
   'screens.deedsParts.notEarnedYet': 'Not earned yet.',
   'screens.deedsParts.deeds': 'Deeds',
   'screens.deedsParts.deedsAreFeatsWithin':
-    'Deeds are feats within a run: things you do in one run or one fight. Each is earned after the fight that meets it (one that needs a win, when the boss falls), once and for good. The Training Grounds earn none; a lost or abandoned run keeps what it earned.',
+    'Deeds are feats within a run. Each is earned once, after the fight that meets it. The Training Grounds earn none.',
   'screens.deedsParts.theOn': 'The {length} on',
-  'screens.deedsParts.giveAnAstrolabePoint':
-    'give an Astrolabe point each: up to {pointsMax} more on top of the Ranks’ {astrolabePoints} ({astrolabePoints2} in all), counted once the Astrolabe opens at Rank {ASTROLABE_RANK}. The {length} ',
-  'screens.deedsParts.areForTheRecord':
-    'are for the record. A Deed that counts something shows your best run so far.',
+  'screens.deedsParts.giveAnAstrolabePoint': 'give an Astrolabe point each. The {length} ',
+  'screens.deedsParts.areForTheRecord': 'are for the record.',
   'screens.deedsParts.theLadder': 'the ladder ({STAR})',
   'screens.deedsParts.badges': 'badges',
   'screens.deedsParts.astrolabePoints': 'Astrolabe points',

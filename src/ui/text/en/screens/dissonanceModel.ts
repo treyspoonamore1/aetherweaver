@@ -56,7 +56,7 @@ export const dissonanceModel = {
     'It opens at Rank {openRank} once you have cleared the Finale (you’re Rank {rank}).',
   'screens.dissonanceModel.settingsSkipTheUnlocks': 'Settings → Skip the unlocks opens it now.',
   'screens.dissonanceModel.optInLevelsEach':
-    'Opt-in levels, each worth points, chosen before a run: the run’s total makes the fight harder and pays more, and the relics it finds craft further.',
+    'Levels you turn on before a run, each worth points. More points make fights harder, pay more and let relics craft further.',
   'screens.dissonanceModel.aRelicWonAt2': 'a relic won at {depth} or more can reach {tierName}',
   'screens.dissonanceModel.chooseItsLevelsIn':
     'Choose its levels in your next Prep: your choice is kept from run to run.',

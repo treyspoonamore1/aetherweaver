@@ -66,31 +66,31 @@ export const loomModel = {
   'screens.loomModel.tryItOpen': 'Try it: open {stationProse}',
   'screens.loomModel.aStarMapOf2': 'A star map of bonuses',
   'screens.loomModel.passiveBonusesChosenBetween':
-    'Passive bonuses, chosen between runs. It opens with {astrolabePoints} points; every Rank after gives one more, and Deeds (feats in a run, kept in the Hall of Deeds) give up to {DEED_POINTS_MAX} more. Spend them on stars for the Thread, the songs, your techniques or the heroes.',
+    'You start with {astrolabePoints} points. Each Rank adds one, and Deeds add up to {DEED_POINTS_MAX}. Spend them on stars for the Thread, the songs, your techniques or the heroes.',
   'screens.loomModel.takeAPath': 'Take a path',
   'screens.loomModel.chooseAStarTo':
-    'Choose a star to take it and the path to it. To give one back, right-click it, or choose a star you’ve taken and press Give back. Respec gives every point back: it’s all free between runs.',
+    'Choose a star to take it and the path to it. Right-click a star to give it back, or use Give back. Respec returns every point, free.',
   'screens.loomModel.itGoesWithYou': 'It goes with you',
   'screens.loomModel.aRunEmbarksWith':
-    'A run embarks with the tree you have, and the Training Grounds use it too, so try a change there first. Open it here, or from Prep.',
+    'A run embarks with the tree you have. The Training Grounds use it too, so try a change there first. Open it here or from Prep.',
   'screens.loomModel.starlight': 'Starlight',
   'screens.loomModel.everyWonFightPays':
-    'Every won fight pays Starlight: a skirmish {skirmish}, an elite {elite}, a mini-boss {miniboss}, a boss {boss}, and a won run {winBonus} more. Each Deed pays it too. A lost fight pays nothing, but what the run earned stays.',
+    'Won fights pay Starlight: skirmish {skirmish}, elite {elite}, mini-boss {miniboss}, boss {boss}. A won run pays {winBonus} more. Deeds pay too. A loss pays nothing.',
   'screens.loomModel.whatItBuys': 'What it buys',
   'screens.loomModel.techniqueVariantsNewWays':
-    'Technique variants, new ways to play one of your four techniques ({variantPrice} each); robes and Thread looks ({looks}); titles ({titles}). A few are earned instead. A Calling (a class for the Weaver, chosen in Prep from Rank {firstCallingRank}) gains mastery as you play it, and its top mastery puts its own variant on sale and earns its title.',
+    'Technique variants cost {variantPrice}, robes and Thread looks {looks}, titles {titles}. A Calling’s top mastery puts its own variant on sale and earns its title.',
   'screens.loomModel.yoursToWear': 'Yours to wear',
   'screens.loomModel.aRobeAndA':
-    'A robe and a Thread look change how the Weaver looks, never how she plays: Mend’s and Empower’s colours stay, so the Thread still says which it is. A variant you buy is chosen in Prep, slot by slot.',
+    'Robes and Thread looks change only how the Weaver looks. Mend and Empower keep their colours. Choose a variant you own in Prep, slot by slot.',
   'screens.loomModel.relicsThatOutliveTheir': 'Relics that outlive their runs',
   'screens.loomModel.aRunFindsRelics':
-    'A run finds relics, each with an effect of its own. Win the run, and its Summary lets you enshrine one it found: it waits here between runs with its first Inscriptions, small bonuses of its own that crafting adds to.',
+    'Win a run and its Summary lets you enshrine one relic it found. The relic waits here with its first Inscriptions: small bonuses that crafting adds to.',
   'screens.loomModel.craftThem': 'Craft them',
   'screens.loomModel.everyRunThatEnds':
-    'Every run that ends pays crafting materials: Tuning Shards for each fight it won, and a Discord Tear for beating its boss with {withArticle} grade. Spend them here to add an Inscription to a relic, roll one again, or raise its tier.',
+    'A run that ends pays Tuning Shards for each fight it won, and a Discord Tear for beating its boss with {withArticle} grade. Spend them to Inscribe, Retune or Ascend.',
   'screens.loomModel.carryThem': 'Carry them',
   'screens.loomModel.chooseRelicsToCarry':
-    'Choose relics to carry into a run: one from Rank {one}, two from {two}, three from {three}. Each lends the run its Inscriptions, and the first, attuned, plays its own effect too.',
+    'Carry relics into a run: one from Rank {one}, two from {two}, three from {three}. Each lends its Inscriptions. The first is attuned and plays its own effect too.',
   'screens.loomModel.bonds': 'Bonds',
   'screens.loomModel.everyFightPaysBond':
     'Every fight pays {bondedNames} Bond XP, more for the support you gave each. Each Bond rank opens something: talents (one of two in each tier), an alternate Solo (a hero’s big move, which they charge as they fight), or a scene by a Respite’s fire.',
@@ -99,13 +99,13 @@ export const loomModel = {
     'On each hero’s page, choose one talent a tier (or neither) and which Solo they bring. Choices change freely between runs; a run keeps what it embarked with.',
   'screens.loomModel.deeds': 'Deeds',
   'screens.loomModel.featsWithinARun2':
-    'Feats within a run, from winning one to a run where no hero ever goes down. Each pays Starlight as you earn it, and {ladder} of them give an Astrolabe point each too.',
+    'Feats within a run, from winning one to a run where no hero goes down. Each pays Starlight, and {ladder} of them give an Astrolabe point too.',
   'screens.loomModel.theHall': 'The Hall',
   'screens.loomModel.everyDeedHangsHere':
     'Every Deed hangs here, earned or not: how each is earned, and your best run so far at the Deeds that keep a count.',
   'screens.loomModel.optionalDifficulty': 'Optional difficulty',
   'screens.loomModel.forTheEndgameLevels':
-    'For the endgame: levels you turn on before a run. Each makes the fight harder in its own way (tougher enemies, shorter wind-ups, Respites that don’t heal) and is worth points. Each point pays +{xpPerPoint}% Weaver XP and +{shardsPerPoint}% Tuning Shards, and relics found in harder runs can be crafted to higher tiers.',
+    'Levels you turn on before a run. Each makes fights harder and is worth points. A point pays +{xpPerPoint}% Weaver XP and +{shardsPerPoint}% Tuning Shards. Relics from harder runs craft further.',
   'screens.loomModel.chosenInPrep': 'Chosen in Prep',
   'screens.loomModel.turnItsLevelsOn':
     'Turn its levels on in Prep, through the Gate. Your choice is kept from run to run, and a run keeps it to the end.',
@@ -115,7 +115,7 @@ export const loomModel = {
   'screens.loomModel.oldSongsPlayedStrangely': 'Old songs, played strangely',
   'screens.loomModel.constellations': 'Constellations',
   'screens.loomModel.echoesMakeAConstellation':
-    '{capital} Echoes make a constellation; light all of one’s stars and it gives a keepsake: {andList}. All {of} stars: {andList2}.',
+    '{capital} Echoes make a constellation. Light all its stars for a keepsake: {andList}. All {of} stars: {andList2}.',
   'screens.loomModel.thisWeekSSong': 'This Week’s Song',
   'screens.loomModel.oneRunTheSame':
     'One run, the same for everyone this week: its seed, route, Calling, heroes and Dissonance are fixed, and your Chords are your own. Share your result as a code and a replay; add a friend’s, and this device plays it through to check it.',
@@ -124,7 +124,7 @@ export const loomModel = {
   'screens.loomModel.xpToRank': '{into} / {span} XP to Rank {value}',
   'screens.loomModel.techniqueVariants': 'Technique variants',
   'screens.loomModel.anotherWayToPlay':
-    'Another way to play one of your four techniques, yours for good. Choose it in Prep, slot by slot.',
+    'Another way to play one of your four techniques. Choose it in Prep.',
   'screens.loomModel.robes': 'Robes',
   'screens.loomModel.theWeaverSColours': 'The Weaver’s colours: her robe, its trim and its glow.',
   'screens.loomModel.threadLooks': 'Thread looks',
@@ -132,11 +132,10 @@ export const loomModel = {
     'The Thread’s filament and glow. Mend’s and Empower’s colours stay.',
   'screens.loomModel.titles': 'Titles',
   'screens.loomModel.wornUnderYourName':
-    'Worn under your name in the Loom. Some are earned, not bought: by a Calling’s top mastery, by a Deed, or in the Atlas of Echoes.',
+    'Worn under your name in the Loom. Some are earned: by a Calling’s top mastery, a Deed or the Atlas of Echoes.',
   'screens.loomModel.wornUnderYourName2':
-    'Worn under your name in the Loom. Some are earned, not bought: by a Calling’s top mastery, or by a Deed.',
-  'screens.loomModel.onSaleWithA':
-    '{value} on sale with a Calling’s top mastery: a Calling is a class for the Weaver, chosen in Prep from Rank {firstCallingRank}, and playing it builds its mastery.',
+    'Worn under your name in the Loom. Some are earned: by a Calling’s top mastery or a Deed.',
+  'screens.loomModel.onSaleWithA': '{value} on sale with a Calling’s top mastery.',
   'screens.loomModel.oneGoes': 'One goes',
   'screens.loomModel.theWeaverSOwn': 'The Weaver’s own',
   'screens.loomModel.theThreadSOwn': 'The Thread’s own',

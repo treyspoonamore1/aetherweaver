@@ -5,7 +5,7 @@ export const atelierScreen = {
   'screens.atelierScreen.theLoomTheStarlight': 'The Loom · The Starlight shop',
   'screens.atelierScreen.theAtelier': 'The Atelier',
   'screens.atelierScreen.spendStarlightOnNew':
-    'Spend Starlight on new ways to play and new looks. Every won fight pays it, and every Deed. A look changes how the Weaver looks, never how she plays.',
+    'Spend Starlight on new ways to play and new looks. Won fights and Deeds pay it.',
   'screens.atelierScreen.tryingOn': 'Trying on ',
   'screens.atelierScreen.notYoursYet': '· not yours yet',
   'screens.atelierScreen.asYouAre': 'As you are',
@@ -13,7 +13,7 @@ export const atelierScreen = {
   'screens.atelierScreen.noTitle': 'No title',
   'screens.atelierScreen.theThread': 'The Thread',
   'screens.atelierScreen.theFilamentAndIts':
-    'The filament and its glow are the look’s. Mend’s and Empower’s colours stay, on the beads that run along it and on the hero, so the Thread still says which it is.',
+    'The look changes the filament and its glow. Mend and Empower keep their colours.',
   'screens.atelierScreen.ofYours': '{length} of {length2} yours',
   'screens.atelierScreen.buy': 'Buy ',
   'screens.atelierScreen.alwaysYours': 'Always yours',
