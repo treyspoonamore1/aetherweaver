@@ -13,7 +13,7 @@ export const masteryModel = {
   'screens.masteryModel.thisRunWillOffer': 'This run will offer',
   'screens.masteryModel.thisRunOffers': 'This run offers',
   'screens.masteryModel.everyTierTheUnlocks':
-    '{offers} every tier: the unlocks are skipped (Settings).',
+    '{offers} every tier.',
   'screens.masteryModel.everyTierOfThe': '{offers} every tier of the path.',
   'screens.masteryModel.withMastery':
     '{offers} {value} {listOf}. {value2} {lockedTiers} {value3} with mastery {levels}.',
