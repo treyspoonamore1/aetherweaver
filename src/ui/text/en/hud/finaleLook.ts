@@ -21,9 +21,9 @@ export const finaleLook = {
   'hud.finaleLook.isStilledByThe':
     '{name} is stilled by the Grand Silence and waits for your song: {notes} of {of} notes{coda}',
   'hud.finaleLook.again': '{names} {value} again',
-  'hud.finaleLook.theCodaYourHeroes': 'The Coda — your heroes wake without the song',
+  'hud.finaleLook.theCodaYourHeroes': 'The Coda: your heroes wake without the song',
   'hud.finaleLook.notes': '{notes}/{NOTES_NEEDED} notes',
-  'hud.finaleLook.cancelled': '{FORTISSIMO_NAME} — cancelled',
+  'hud.finaleLook.cancelled': '{FORTISSIMO_NAME}: cancelled',
   'hud.finaleLook.theMusicStops': 'The music stops',
   'hud.finaleLook.noteOf': 'Note {n} of {of} · {label}',
   'hud.finaleLook.discordRises': 'Discord rises',

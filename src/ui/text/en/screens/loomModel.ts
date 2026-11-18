@@ -120,7 +120,7 @@ export const loomModel = {
   'screens.loomModel.oneRunTheSame':
     'One run, the same for everyone this week: its seed, route, Calling, heroes and Dissonance are fixed, and your Chords are your own. Share your result as a code and a replay; add a friend’s, and this device plays it through to check it.',
   'screens.loomModel.theWeaver': 'The Weaver',
-  'screens.loomModel.xpTheHighestRank': '{xp} XP · the highest Rank for now',
+  'screens.loomModel.xpTheHighestRank': '{xp} XP · the highest Rank',
   'screens.loomModel.xpToRank': '{into} / {span} XP to Rank {value}',
   'screens.loomModel.techniqueVariants': 'Technique variants',
   'screens.loomModel.anotherWayToPlay':

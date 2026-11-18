@@ -221,7 +221,7 @@ function HudStage({
               }
             : null
         }
-        subtitle={scenario === 'sandbox' ? 'Training Grounds' : 'The Prelude · node 3 of 10'}
+        subtitle={scenario === 'sandbox' ? 'Training Grounds' : 'The Prelude · step 3 of 10'}
         coach={coach}
         forceCoach
         boons={boons}
@@ -801,10 +801,10 @@ function LegionStage({ scenario }: { scenario: LegionScenario }) {
         decree={hud.boss?.decree ?? null}
         subtitle={
           hud.encounter.kind === 'boss'
-            ? 'Movement II · node 7 of 7'
+            ? 'Movement II · step 7 of 7'
             : hud.encounter.kind === 'miniboss'
-              ? 'Movement II · node 5 of 7'
-              : 'Movement II · node 3 of 7'
+              ? 'Movement II · step 5 of 7'
+              : 'Movement II · step 3 of 7'
         }
         forceCoach
       />
@@ -823,10 +823,10 @@ function RiftStage({ scenario }: { scenario: RiftScenario }) {
         decree={hud.boss?.decree ?? null}
         subtitle={
           hud.encounter.kind === 'boss'
-            ? 'Movement III · node 6 of 6'
+            ? 'Movement III · step 6 of 6'
             : hud.encounter.kind === 'miniboss'
-              ? 'Movement III · node 4 of 6'
-              : 'Movement III · node 2 of 6'
+              ? 'Movement III · step 4 of 6'
+              : 'Movement III · step 2 of 6'
         }
         forceCoach
       />
@@ -843,7 +843,7 @@ function FinaleStage({ scenario }: { scenario: FinaleScenario }) {
         hud={hud}
         callouts={finaleMockCallouts(scenario)}
         decree={hud.boss?.decree ?? null}
-        subtitle="The Finale · node 1 of 1"
+        subtitle="The Finale · step 1 of 1"
         forceCoach
       />
     </World>
@@ -874,7 +874,7 @@ function HudReliquary() {
         hud={hud}
         callouts={[]}
         decree={null}
-        subtitle="The Prelude · node 3 of 10"
+        subtitle="The Prelude · step 3 of 10"
         carried={carried}
         coach={false}
       />
@@ -998,7 +998,7 @@ function HudDissonance({
               }
             : null
         }
-        subtitle="The Prelude · node 3 of 10"
+        subtitle="The Prelude · step 3 of 10"
         forceCoach
         dissonanceTip={tip}
       />
@@ -1162,7 +1162,7 @@ function HudVariants({
         hud={hud}
         callouts={[]}
         decree={null}
-        subtitle="The Prelude · node 3 of 10"
+        subtitle="The Prelude · step 3 of 10"
         coach={false}
         techniqueTip={tip}
       />
@@ -1208,7 +1208,7 @@ function ConductHudStage({ scenario, reduced }: { scenario: ConductScenario; red
         hud={stage.hud}
         callouts={stage.callouts}
         decree={null}
-        subtitle="The Prelude · node 3 of 10"
+        subtitle="The Prelude · step 3 of 10"
         forceCoach
         reducedBeat={reduced ?? false}
       />
@@ -4230,7 +4230,7 @@ const VIEWS: ViewDef[] = [
             )}
             callouts={[]}
             decree={null}
-            subtitle="The Prelude · node 3 of 10"
+            subtitle="The Prelude · step 3 of 10"
             coach={false}
             bondRanks={bondRanks(bonds)}
             frameTip="vexis"
@@ -4253,7 +4253,7 @@ const VIEWS: ViewDef[] = [
             hud={mockBondsHud('calm', mockRunBonds(bonds))}
             callouts={[]}
             decree={null}
-            subtitle="The Prelude · node 3 of 10"
+            subtitle="The Prelude · step 3 of 10"
             coach={false}
             bondRanks={bondRanks(bonds)}
             frameTip="kael"

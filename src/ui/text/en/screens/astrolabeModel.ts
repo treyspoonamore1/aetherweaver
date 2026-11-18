@@ -27,7 +27,7 @@ export const astrolabeModel = {
   'screens.astrolabeModel.yourTreeHoldsAnd':
     'Your tree holds {pointsWord}, and your Rank and Deeds give {points}. Embarking keeps the {points} nearest the centre. Give some back to choose which.',
   'screens.astrolabeModel.canBeTaken': 'Can be taken. ',
-  'screens.astrolabeModel.outOfReachFor': 'Out of reach for now. ',
+  'screens.astrolabeModel.outOfReachFor': 'Out of reach. ',
   'screens.astrolabeModel.mend': 'Mend +{v}%',
   'screens.astrolabeModel.empower': 'Empower +{v}%',
   'screens.astrolabeModel.theThreadReachesM': 'The Thread reaches {v} m farther',

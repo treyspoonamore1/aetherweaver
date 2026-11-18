@@ -190,6 +190,9 @@ describe('the I-III route strings are unchanged (Phase 5d, W0a)', () => {
     const path = walk(map);
     expect(path).toHaveLength(23);
     const at = (k: number) => ({ map, path: path.slice(0, k), pending: path[k], movements: 3 });
+    // Re-recorded in round 11's second menu text pass: the fight's header said "node 2 of 6"
+    // where the map and the Gate said "step". One noun for how far along a run is: "step"
+    // (docs/voice.md, rule 4). Only that word moved; each number is as it was pinned.
     const read = (k: number) => [mapHeader(at(k)), gateStep(at(k)), combatSubtitle(at(k))];
     expect(read(0)).toEqual([
       {
@@ -198,7 +201,7 @@ describe('the I-III route strings are unchanged (Phase 5d, W0a)', () => {
         movement: 1,
       },
       'Movement I · step 1 of 10',
-      'Movement I · node 1 of 10',
+      'Movement I · step 1 of 10',
     ]);
     expect(read(10)).toEqual([
       {
@@ -207,7 +210,7 @@ describe('the I-III route strings are unchanged (Phase 5d, W0a)', () => {
         movement: 2,
       },
       'Movement II · step 1 of 7',
-      'Movement II · node 1 of 7',
+      'Movement II · step 1 of 7',
     ]);
     expect(read(19)).toEqual([
       {
@@ -216,7 +219,7 @@ describe('the I-III route strings are unchanged (Phase 5d, W0a)', () => {
         movement: 3,
       },
       'Movement III · step 3 of 6',
-      'Movement III · node 2 of 6',
+      'Movement III · step 2 of 6',
     ]);
     expect(read(22)).toEqual([
       {
@@ -225,7 +228,7 @@ describe('the I-III route strings are unchanged (Phase 5d, W0a)', () => {
         movement: 3,
       },
       'Movement III · step 6 of 6',
-      'Movement III · node 5 of 6',
+      'Movement III · step 5 of 6',
     ]);
   });
 

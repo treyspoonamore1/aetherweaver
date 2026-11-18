@@ -2,7 +2,7 @@ import type { Catalogue } from '../../catalogue';
 
 /** The `screens.rankText.*` messages: `src/ui/screens/rankText.ts`. */
 export const rankText = {
-  'screens.rankText.xpTheHighestRank': '{xp} XP · the highest Rank for now',
+  'screens.rankText.xpTheHighestRank': '{xp} XP · the highest Rank',
   'screens.rankText.xpToRank': '{into} / {span} XP to Rank {value}',
   'screens.rankText.noRunsYet': 'No runs yet',
   'screens.rankText.dissonance': 'Dissonance {points} · +{pct}%',

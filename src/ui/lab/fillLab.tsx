@@ -163,7 +163,7 @@ function TriggerHud() {
         hud={hud}
         callouts={mockCallouts('calm')}
         decree={null}
-        subtitle="Movement II · node 4 of 7"
+        subtitle="Movement II · step 4 of 7"
         triggerChips={labTriggerChips(hud.seconds)}
       />
     </World>
@@ -198,7 +198,7 @@ function RingingHud() {
         hud={hud}
         callouts={mockCallouts('calm')}
         decree={null}
-        subtitle="Movement II · node 4 of 7"
+        subtitle="Movement II · step 4 of 7"
         triggerChips={labTriggerChips(hud.seconds)}
       />
     </World>

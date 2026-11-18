@@ -100,7 +100,9 @@ export function DraftView({ run, onPick, onReroll }: DraftViewProps) {
             data-heal={skipHeal(run)}
           >
             {skipHeal(run) > 0
-              ? txt('screens.draftScreen.skipHealTheParty')
+              ? txt('screens.draftScreen.skipHealTheParty', {
+                  pct: Math.round(skipHeal(run) * 100),
+                })
               : unforgivingLine('skip')}
           </Button>
         </div>

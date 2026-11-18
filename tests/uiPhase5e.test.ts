@@ -511,17 +511,17 @@ describe('the per-hero copy', () => {
 
   it('party notes name who holds and who interrupts, and OB’s note (Q8)', () => {
     const text = (p: readonly string[]) => missingStarterNotes(p).map((n) => n.text);
-    expect(text(SEREN_PARTIES.SB)[0]).toMatch(/The bosses will find Seren — Ward her/);
+    expect(text(SEREN_PARTIES.SB)[0]).toMatch(/The bosses will find Seren\. Ward her/);
     expect(text(ORO_PARTIES.OB)).toEqual([
       'No Kael: nothing holds the bosses, and Oro won’t. Keep a Perfect, a Reel or a Chime for each boss blow.',
     ]);
     expect(text(DUO_PARTIES.W)).toEqual([
-      'No Kael: nothing taunts. The bosses will find Seren — Ward her as the blow lands: she parries it whole.',
+      'No Kael: nothing taunts. The bosses will find Seren. Ward her as the blow lands: she parries it whole.',
       'No Lyra: Seren’s Lunge is your interrupter. Break guards with Focus.',
     ]);
     expect(text(DUO_PARTIES.SO)).toEqual([
       'No Lyra: only Kael’s Shield Bash and Seren’s Lunge interrupt. Break guards with Focus.',
-      'No Vexis: no Gravity Well — swarms stay spread out.',
+      'No Vexis: no Gravity Well. Swarms stay spread out.',
     ]);
     expect(text(['kael', 'brann', 'seren'])[0]).toBe(
       'No Lyra: only Kael’s Shield Bash, Brann’s Sunder Leap and Seren’s Lunge interrupt. Break guards with Focus.',

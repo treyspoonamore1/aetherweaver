@@ -39,7 +39,7 @@ export const astrolabeScreen = {
   'screens.astrolabeScreen.price': 'Price',
   'screens.astrolabeScreen.litYours': 'Lit: yours',
   'screens.astrolabeScreen.touchesYourTree': 'Touches your tree',
-  'screens.astrolabeScreen.outOfReachFor': 'Out of reach for now',
+  'screens.astrolabeScreen.outOfReachFor': 'Out of reach',
   'screens.astrolabeScreen.keystoneARuleWith': 'Keystone: a rule, with a price',
   'screens.astrolabeScreen.click': 'Click',
   'screens.astrolabeScreen.enter': 'Enter',
