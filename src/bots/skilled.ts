@@ -427,11 +427,11 @@ const FORTISSIMO_DOME_AT = 1.5;
 const CANCEL_AFTER = 0.3;
 /**
  * `bankCrescendo`: what Resonance a Skilled Weaver earns a second in the Conductor's fight, a
- * planning estimate (2 a second before the gains' scale, docs/solos.md). Discord that will reach
+ * planning estimate (half what it was while a Cue cost Resonance, docs/solos.md). Discord that will reach
  * 100 before the song can fill at this rate holds the Crescendo for the cancel (as does Discord
  * at `FINALE_BANK_AT`).
  */
-const FINALE_RESONANCE_RATE = 2 * CONTENT.resonance.gainScale;
+const FINALE_RESONANCE_RATE = 1;
 /** `silenceReel`: the Reel goes this many seconds before the Final Cadence lands. */
 const SILENCE_REEL_FROM = 0.4;
 const SILENCE_REEL_TO = 0.6;

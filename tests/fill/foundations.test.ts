@@ -118,6 +118,38 @@ describe('the resolver reproduces the frozen pre-5g resolver (ground rule 4)', (
     };
   };
 
+  /**
+   * docs/solos.md: Resonance pays for the Crescendo alone since the Solo rework, so every gain
+   * the content names is half what the frozen resolver recorded. The frozen file keeps its
+   * numbers, as recorded; what each must be now is said here. The Reliquary's two affixes are
+   * the exception (their rolled values are in players' saves, so they are as they were), which
+   * is why a Perfect Ward's and a call's bonus lose only the Astrolabe node's half.
+   */
+  const HALVED: readonly string[] = [
+    'bloodAndSilk',
+    'cutResonance',
+    'penitencePer100',
+    'stasisPerfectResonance',
+    'enGarde',
+  ];
+  const nodeResonance = (effect: string): { id: string; resonance: number } => {
+    const node = CONTENT.astrolabe.nodes.find((n) => n.effect === effect)!;
+    return { id: node.id, resonance: node.values!.resonance! };
+  };
+  const ASTROLABE_HALVED: Record<string, { id: string; resonance: number }> = {
+    perfectResonance: nodeResonance('ringing_parry'),
+    responseBonus: nodeResonance('ready_answer'),
+  };
+  const foldResonance = (
+    want: Record<string, unknown>,
+    input: ResolverFixture['cases'][number]['input'],
+  ): void => {
+    for (const k of HALVED) if (typeof want[k] === 'number') want[k] = want[k] / 2;
+    for (const [k, node] of Object.entries(ASTROLABE_HALVED))
+      if (typeof want[k] === 'number' && input.astrolabe.includes(node.id))
+        want[k] = want[k] - node.resonance;
+  };
+
   it('NO_MODS keeps every frozen default; its other fields are FILL_NO_MODS, DISSONANCE6_NO_MODS and the Solos’', () => {
     const now = encodeMods(NO_MODS as unknown as Record<string, unknown>);
     for (const [k, v] of Object.entries(fixture.noMods)) {
@@ -152,6 +184,7 @@ describe('the resolver reproduces the frozen pre-5g resolver (ground rule 4)', (
         ...soloMods(c.input),
       };
       for (const k of RETIRED) delete want[k];
+      foldResonance(want, c.input);
       for (const k of new Set([...Object.keys(want), ...Object.keys(got)]))
         if (JSON.stringify(got[k]) !== JSON.stringify(want[k]))
           wrong.push(`case ${i} ${k}: ${JSON.stringify(got[k])} ≠ ${JSON.stringify(want[k])}`);

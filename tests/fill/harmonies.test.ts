@@ -482,7 +482,7 @@ describe('Spindle Lullaby: with Lullaby in your songs, enemies on the Thread sle
 
 // ── Tempo Rubato ────────────────────────────────────────────────────────────────────────────
 
-describe('Tempo Rubato: one Cue in every {v} gives a segment of Resonance', () => {
+describe('Tempo Rubato: one Cue in every {v} gives half a segment of Resonance', () => {
   /** Six Cues, the meter emptied before each: what each one added to it. */
   function cues(motifs: Held, config: Partial<SimConfig> = {}) {
     const s = stage(motifs, config);
@@ -501,15 +501,15 @@ describe('Tempo Rubato: one Cue in every {v} gives a segment of Resonance', () =
   }
 
   for (const calling of [null, 'conductor'] as const) {
-    it(`held (${calling ?? 'no Calling'}): the 3rd and 6th Cue give a segment, the others nothing`, () => {
+    it(`held (${calling ?? 'no Calling'}): the 3rd and 6th Cue give half a segment, the others nothing`, () => {
       const config: Partial<SimConfig> = calling ? { calling: { id: calling, path: [] } } : {};
       const r = cues(held('tempo_rubato'), config);
       const without = cues([], config);
       expect(without.gained).toEqual([0, 0, 0, 0, 0, 0]);
       const every = value('tempo_rubato');
-      const segment = CONTENT.resonance.segment * resonanceScale(r.s.w);
+      const half = (CONTENT.resonance.segment / 2) * resonanceScale(r.s.w);
       r.gained.forEach((g, i) =>
-        expect(g, `Cue ${i + 1}`).toBeCloseTo((i + 1) % every === 0 ? segment : 0, 9),
+        expect(g, `Cue ${i + 1}`).toBeCloseTo((i + 1) % every === 0 ? half : 0, 9),
       );
       expect(r.s.w.ledger.cues).toBe(6);
       inert(without.s.w);

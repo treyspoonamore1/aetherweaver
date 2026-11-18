@@ -9,9 +9,10 @@ import type { World } from '../world';
 import { tenutoDelay } from '../fill/finale';
 
 /**
- * What every Resonance gain is multiplied by this fight: the content's `gainScale` (docs/solos.md:
- * the one number tuning moves) times the fight's "more Resonance" (Standing Ovation, the
- * Conductor). For the sim, and for the views and tests that say what a gain adds to the meter.
+ * What every Resonance gain is multiplied by this fight: the fight's "more Resonance" (Standing
+ * Ovation, the Conductor), times the content's `gainScale`, which is 1 (the gains are written as
+ * what they give; the Solo study varies it for a run). For the sim, and for the views and tests
+ * that say what a gain adds to the meter.
  */
 export function resonanceScale(state: WorldState): number {
   return CONTENT.resonance.gainScale * state.mods.resonanceMult;

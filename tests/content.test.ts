@@ -180,7 +180,7 @@ describe('Brann, the Bloodsworn (docs/phase-5b.md)', () => {
     const brannMotifs = preFill(brannAll);
     expect(brannMotifs.map((m) => [m.id, m.rarity, m.values])).toEqual([
       ['blood_tithe', 'rare', [50, 60, 70]],
-      ['blood_and_silk', 'epic', [3]],
+      ['blood_and_silk', 'epic', [1.5]],
     ]);
     const harmony = CONTENT.motifs.find((m) => m.id === 'blood_and_silk')!;
     expect(harmony.requires).toEqual({

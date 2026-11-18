@@ -66,21 +66,23 @@ export const RESONANCE: ContentInput['resonance'] = {
   max: 100,
   segment: 25,
   gains: {
-    perfectWard: 20,
-    save: 25,
-    clutchChime: 15,
-    reelDodge: 15,
-    cleanse: 5,
-    wardAbsorb: 5,
-    empowerPerSec: 1,
-    empoweredKill: 2,
-    response: 10,
+    perfectWard: 10,
+    save: 12.5,
+    clutchChime: 7.5,
+    reelDodge: 7.5,
+    cleanse: 2.5,
+    wardAbsorb: 2.5,
+    empowerPerSec: 0.5,
+    empoweredKill: 1,
+    response: 5,
   },
   decayDelay: 5,
   decayPerSec: 4,
-  // Halved when Cues stopped costing Resonance (docs/solos.md): it lands the Crescendo about as
-  // often as before. Tuning's lever; when it settles, fold it into the gains and their texts.
-  gainScale: 0.5,
+  // Every gain above, and every gain a motif, relic, Bond or Calling names, is half what it was
+  // while a Cue cost Resonance (docs/solos.md): the meter now pays for the Crescendo alone. The
+  // numbers are written as what they give, so this stays 1; the Solo study varies it for a run
+  // (tools/solo-study.ts `--gain-scale`).
+  gainScale: 1,
   crescendoCost: 100,
 };
 

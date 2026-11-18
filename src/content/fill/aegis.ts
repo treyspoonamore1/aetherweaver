@@ -83,7 +83,7 @@ export const FILL_AEGIS: ContentInput['motifs'] = [
     name: 'Clutch Peal',
     category: 'aegis',
     rarity: 'common',
-    values: [5, 8, 10],
+    values: [2.5, 4, 5],
     text: 'A Clutch Cleanse gives {v} more Resonance.',
     requires: { expedition: true },
     tags: ['chime', 'resonance'],

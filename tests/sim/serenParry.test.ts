@@ -5,7 +5,7 @@
  * counter next tick; a Perfect Ward on a blow aimed at her is a kill shot, taken next tick.
  */
 import { describe, expect, it } from 'vitest';
-import { CONTENT, attackDef, heroDef } from '../../src/content';
+import { attackDef, heroDef } from '../../src/content';
 import { parryable, parryArmed, type SimConfig } from '../../src/sim';
 import { addShield, addStatus, dealDamage } from '../../src/sim/combat/health';
 import { duelTick } from '../../src/sim/systems/duel';
@@ -501,9 +501,9 @@ describe('Kill shot (Q5): a Perfect Ward on a blow aimed at her', () => {
       return { s, parry, shot };
     };
     const on = gains(true);
-    expect(on.s.w.mods.enGarde).toBe(8);
-    expect(on.parry.map((e) => e.amount)).toEqual([8 * CONTENT.resonance.gainScale]);
-    expect(on.shot.map((e) => e.amount)).toEqual([8 * CONTENT.resonance.gainScale]);
+    expect(on.s.w.mods.enGarde).toBe(4);
+    expect(on.parry.map((e) => e.amount)).toEqual([4]);
+    expect(on.shot.map((e) => e.amount)).toEqual([4]);
     const off = gains(false);
     expect(off.s.w.mods.enGarde).toBe(0);
     expect([...off.parry, ...off.shot]).toEqual([]);

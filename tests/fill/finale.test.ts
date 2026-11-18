@@ -54,15 +54,15 @@ type Id = (typeof IDS)[number];
 const TABLE: Record<Id, { rarity: 'common' | 'rare'; values: number[] }> = {
   call_and_response: { rarity: 'rare', values: [3, 4, 5] },
   taking_bows: { rarity: 'common', values: [20, 30, 40] },
-  opening_bars: { rarity: 'rare', values: [10, 15, 25] },
+  opening_bars: { rarity: 'rare', values: [5, 7.5, 12.5] },
   ringing_on: { rarity: 'rare', values: [2, 3, 4] },
-  saving_grace: { rarity: 'common', values: [5, 8, 10] },
+  saving_grace: { rarity: 'common', values: [2.5, 4, 5] },
   tenuto: { rarity: 'common', values: [2, 3, 4] },
   laments_answer: { rarity: 'common', values: [15, 22, 30] },
   footlights: { rarity: 'common', values: [8, 12, 16] },
   fanfare: { rarity: 'rare', values: [10, 15, 20] },
-  vigil_song: { rarity: 'rare', values: [1, 1.5, 2] },
-  answering_phrase: { rarity: 'rare', values: [3, 5, 7] },
+  vigil_song: { rarity: 'rare', values: [0.5, 0.75, 1] },
+  answering_phrase: { rarity: 'rare', values: [1.5, 2.5, 3.5] },
   tuning_up: { rarity: 'common', values: [15, 22, 30] },
 };
 
@@ -617,7 +617,7 @@ describe('Tuning Up: heroes start each fight with their Solos v% charged', () =>
 
 // ── Tempo Rubato (N15) and Prompt Book (N15b) ──────────────────────────────────────────────
 
-describe('Tempo Rubato: one Cue in every three gives a segment of Resonance', () => {
+describe('Tempo Rubato: one Cue in every three gives half a segment of Resonance', () => {
   for (const calling of [null, 'conductor'] as const) {
     const label = calling ?? 'no Calling';
     const config: Partial<SimConfig> = calling ? { calling: { id: calling, path: [] } } : {};
@@ -641,9 +641,9 @@ describe('Tempo Rubato: one Cue in every three gives a segment of Resonance', ()
         expect(ofType(events, 'resonanceSpent')).toEqual([]);
         gained.push(weaverOf(w).resonance);
       }
-      const segment = CONTENT.resonance.segment * scale;
+      const half = (CONTENT.resonance.segment / 2) * scale;
       expect(gained.map((g) => Math.round(g * 1e6) / 1e6)).toEqual(
-        [0, 0, segment, 0, 0, segment].map((g) => Math.round(g * 1e6) / 1e6),
+        [0, 0, half, 0, 0, half].map((g) => Math.round(g * 1e6) / 1e6),
       );
       expect(w.ledger.cues).toBe(6);
 

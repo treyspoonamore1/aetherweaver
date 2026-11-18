@@ -223,7 +223,7 @@ describe('the new content (docs/phase-5e.md)', () => {
     const preFill = CONTENT.motifs.filter((m) => !FILL_IDS.includes(m.id));
     expect(CONTENT.motifs.slice(0, preFill.length)).toEqual(preFill);
     expect(preFill.slice(-2).map((m) => [m.id, m.requires.hero, m.values])).toEqual([
-      ['en_garde', 'seren', [8, 10, 12]],
+      ['en_garde', 'seren', [4, 5, 6]],
       ['verdant_choir', 'oro', [30, 40, 50]],
     ]);
     expect(KNOWN_MOTIFS.slice(-2)).toEqual(['en_garde', 'verdant_choir']);

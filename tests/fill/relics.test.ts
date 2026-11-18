@@ -100,12 +100,12 @@ function addEnemy(w: World, defId: string, x: number, z: number, elite = false):
 describe('the 18 relics and 2 boons as content', () => {
   const EMPOWERED: Record<string, Record<string, number> | null> = {
     pilgrims_lamp: { barrier: 35 },
-    tin_whistle: { resonance: 8 },
+    tin_whistle: { resonance: 4 },
     black_ribbon: { heal: 15 },
     pedlars_ledger: { more: 2 },
     spare_strings: null,
     echoing_shell: { pct: 15 },
-    lament_pin: { resonance: 35 },
+    lament_pin: { resonance: 17.5 },
     sand_glass: { seconds: 2 },
     prompt_book: { cost: 20 },
     thornwreath: { pct: 30 },
@@ -116,7 +116,7 @@ describe('the 18 relics and 2 boons as content', () => {
     heartwood_lute: null,
     water_clock: null,
     iron_mask: { pct: 18 },
-    red_ink: { resonance: 15 },
+    red_ink: { resonance: 7.5 },
     hollow_crown: null,
   };
 

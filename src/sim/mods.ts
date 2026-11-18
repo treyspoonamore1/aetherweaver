@@ -246,8 +246,8 @@ export interface Mods extends FillMods, Dissonance6Mods {
   lyraAttackSpeed: number;
   starboltCastMult: number;
   /**
-   * Standing Ovation's and the Conductor's "more Resonance". Every gain is this times the
-   * content's `gainScale` (combat/resonance.ts `resonanceScale`, docs/solos.md).
+   * Standing Ovation's and the Conductor's "more Resonance": every gain is times this
+   * (combat/resonance.ts `resonanceScale`).
    */
   resonanceMult: number;
   soloChargeMult: number;

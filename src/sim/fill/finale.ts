@@ -82,7 +82,7 @@ export function applyFinaleMotif(m: Mods, id: string, v: number): boolean {
  * counted, behind `if (state.mods.firstCueGain > 0 || state.mods.cueGainEvery > 0)`. The Cue is
  * the fight's `ledger.cues`-th:
  * - Opening Bars: the first gives `firstCueGain`;
- * - Tempo Rubato: every `cueGainEvery`-th gives `segment` (the meter's segment).
+ * - Tempo Rubato: every `cueGainEvery`-th gives half of `segment` (the meter's segment).
  * Returns the Resonance to give (the caller gives it, so the gain's scale applies). Pure: reads
  * `state`, writes nothing.
  */
@@ -91,7 +91,7 @@ export function cueGain(state: WorldState, segment: number): number {
   const n = state.ledger.cues;
   let gain = 0;
   if (m.firstCueGain > 0 && n === 1) gain += m.firstCueGain;
-  if (m.cueGainEvery > 0 && n > 0 && n % m.cueGainEvery === 0) gain += segment;
+  if (m.cueGainEvery > 0 && n > 0 && n % m.cueGainEvery === 0) gain += segment / 2;
   return gain;
 }
 

@@ -273,7 +273,7 @@ describe('what changes the rule', () => {
     expect(ofType(second, 'resonanceGained')).toHaveLength(0);
   });
 
-  it('Tempo Rubato: one Cue in every three gives a segment', () => {
+  it('Tempo Rubato: one Cue in every three gives half a segment', () => {
     const sim = fight({
       motifs: [
         { id: 'canon', level: 1 },
@@ -291,7 +291,7 @@ describe('what changes the rule', () => {
     const third = stepFor(sim, 1, [cue(2)]);
     const scale = resonanceScale(sim.state);
     expect(ofType(third, 'resonanceGained').map((e) => e.amount)).toEqual([
-      CONTENT.resonance.segment * scale,
+      (CONTENT.resonance.segment / 2) * scale,
     ]);
   });
 

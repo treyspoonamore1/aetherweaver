@@ -180,18 +180,18 @@ describe('cutThread: an enemy cuts the Thread', () => {
     }
   });
 
-  it('Knotted Cord halves a cut’s lock and gives 10 Resonance a cut', () => {
+  it('Knotted Cord halves a cut’s lock and gives 5 Resonance a cut', () => {
     const sim = rift({ relics: ['knotted_cord'] });
     const w = worldOf(sim);
     expect(w.mods.cutLockMult).toBe(0.5);
-    expect(w.mods.cutResonance).toBe(10);
+    expect(w.mods.cutResonance).toBe(5);
     thread(sim, 0);
     const wv = weaverEntity(w).weaver!;
     const before = wv.resonance;
     sim.drainEvents();
     expect(cutThread(w, 'snip', 3, null)).toBe('cut');
     expect(wv.threadLock).toBe(1.5);
-    expect(wv.resonance - before).toBeCloseTo(10 * resonanceScale(w), 9);
+    expect(wv.resonance - before).toBeCloseTo(5 * resonanceScale(w), 9);
     const events = sim.drainEvents();
     expect(ofType(events, 'threadSnapped')[0]).toMatchObject({ cause: 'snip', lock: 1.5 });
     // It acted, so the view hears it (its sound, W7).
@@ -884,7 +884,7 @@ describe('the Rift relics sleep outside a Movement III fight', () => {
     expect(mods).toMatchObject({
       sacrificialLamb: 1,
       cutLockMult: 0.5,
-      cutResonance: 10,
+      cutResonance: 5,
       chimeCooldownCut: 2,
       stillwaterBell: 1,
       stillwaterRefund: 0.5,

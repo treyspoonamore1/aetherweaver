@@ -178,7 +178,7 @@ export const RELICS: ContentInput['relics'] = [
     rarity: 'rare',
     text: 'Enemy cuts lock your Thread for {pct}% less time, and each cut gives you {resonance} Resonance.',
     flavor: 'Every knot is a place it was cut, and held.',
-    values: { pct: 50, resonance: 10 },
+    values: { pct: 50, resonance: 5 },
     icon: 'cord',
     movement: 3,
   },

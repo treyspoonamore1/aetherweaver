@@ -113,7 +113,7 @@ export const CALLINGS: ContentInput['callings'] = [
             id: 'penitence',
             name: 'Penitence',
             text: 'Damage you Bear fills Resonance: {per} for every 100.',
-            values: { per: 4 },
+            values: { per: 2 },
             icon: 'penitence',
           },
           {
@@ -262,7 +262,7 @@ export const CALLINGS: ContentInput['callings'] = [
             id: 'eternal_moment',
             name: 'Eternal Moment',
             text: 'Stasis lasts {seconds} s longer, and a Ward cast during it that turns out Perfect gives {resonance} Resonance.',
-            values: { seconds: 2, resonance: 10 },
+            values: { seconds: 2, resonance: 5 },
             icon: 'eternal',
           },
         ],
@@ -299,7 +299,7 @@ export const CALLINGS: ContentInput['callings'] = [
             name: 'A Tempo',
             text: 'Your heroes begin their Solos on the downbeat, and each Solo you Cue there gives {resonance} Resonance. Your Resonance meter shows the beat.',
             // beat: how near the downbeat (s, either side) a Solo begins; the views draw it.
-            values: { beat: 0.15, resonance: 10 },
+            values: { beat: 0.15, resonance: 5 },
             icon: 'a_tempo',
           },
         ],

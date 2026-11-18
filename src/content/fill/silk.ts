@@ -108,7 +108,7 @@ export const FILL_SILK: ContentInput['motifs'] = [
     name: 'Gilt Edge',
     category: 'silk',
     rarity: 'common',
-    values: [2, 3, 4],
+    values: [1, 1.5, 2],
     text: 'Kills by an Empowered hero give {v} more Resonance.',
     requires: { expedition: true },
     tags: ['thread', 'resonance'],

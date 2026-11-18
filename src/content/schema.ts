@@ -230,8 +230,8 @@ export const ResonanceDefSchema = z.object({
   decayDelay: Seconds,
   decayPerSec: z.number().nonnegative(),
   /**
-   * A scale on every Resonance gain (docs/solos.md). Resonance once paid for Cues too; now it
-   * pays for the Crescendo alone, so it is earned more slowly. One number, for tuning to move.
+   * A scale on every Resonance gain (docs/solos.md): 1, since the gains are written as what they
+   * give. The Solo study (tools/solo-study.ts) changes it for a run to try another economy.
    */
   gainScale: z.number().positive(),
   crescendoCost: z.number().positive(),
