@@ -67,15 +67,16 @@ export interface RowResult {
 /**
  * What the release pins, as recorded at the start of Phase 7 (docs/phase-7.md, ground rule 1),
  * and moved once since, on purpose, by the Solo rework (docs/solos.md): the sim 22 to 23, the
- * content's version, the fight replay 6 to 7 and the run replay 1 to 2. (Settings moves to 5 when
- * the Hero autonomy setting and the Cue key leave it, in the rework's input step.)
+ * content's version (the `contentVersion` in tests/sim/golden.json), the fight replay 6 to 7, the
+ * run replay 1 to 2, and settings 4 to 5 (the Hero autonomy setting, the Cue key and the Cue
+ * modifier left them). Run saves and profiles did not move.
  */
 export const RELEASE_PINS = {
   simVersion: 23,
-  contentVersion: 'c-82f6ca44f5775748',
+  contentVersion: 'c-0a37a658f5775748',
   runSave: 5,
   profile: 10,
-  settings: 4,
+  settings: 5,
   fightReplay: 7,
   runReplay: 2,
 } as const;
