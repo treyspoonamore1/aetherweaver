@@ -19,6 +19,7 @@
  *   --party-hit S  --root-hold S                 the heroes' judgement (0: off)
  *   --gain-scale X                               every Resonance gain times X
  *   --reaction S  --miss X                       the person's hands (tools/person.ts `PERSON`)
+ *   --set a_tempo.resonance=10,upbeat.resonance=40   a Calling option's own numbers
  *
  * `--label` names the run in the file (default: the numbers changed, or `built`). `--eager`: a
  * full song is sung at once. `--calling ID --path a,b,c,d`, `--party kael,lyra,vexis`, `--fights`,
@@ -106,6 +107,8 @@ export interface StudyKnobs {
   kaelHold?: number;
   gap?: number;
   tell?: number;
+  /** A Calling option's values: `{ 'a_tempo.resonance': 10 }` (option id, then the value's key). */
+  options?: Record<string, number>;
   partyHit?: number;
   rootHold?: number;
   gainScale?: number;
@@ -121,7 +124,20 @@ export function withKnobs<T>(knobs: StudyKnobs, fn: () => T): T {
   const solos = SOLOS as { -readonly [K in keyof typeof SOLOS]: number };
   const resonance = CONTENT.resonance as { gainScale: number };
   const before = { ...solos, gainScale: resonance.gainScale };
+  const optionValues = (key: string): { values: Record<string, number>; name: string } => {
+    const [id, name] = key.split('.') as [string, string];
+    const option = CONTENT.callings
+      .flatMap((c) => c.tiers.flatMap((t) => t.options))
+      .find((o) => o.id === id);
+    if (!option || !(name in option.values)) throw new Error(`--set ${key}: no such number`);
+    return { values: option.values as Record<string, number>, name };
+  };
+  const options = Object.entries(knobs.options ?? {}).map(([key, value]) => {
+    const { values, name } = optionValues(key);
+    return { values, name, value, was: values[name]! };
+  });
   try {
+    for (const o of options) o.values[o.name] = o.value;
     for (const k of SOLO_KNOBS) {
       const v = knobs[k];
       if (v !== undefined) solos[k] = v;
@@ -131,6 +147,7 @@ export function withKnobs<T>(knobs: StudyKnobs, fn: () => T): T {
   } finally {
     for (const k of SOLO_KNOBS) solos[k] = before[k];
     resonance.gainScale = before.gainScale;
+    for (const o of options) o.values[o.name] = o.was;
   }
 }
 
@@ -398,7 +415,7 @@ function main(): void {
   const out = arg('out');
   if (!out) throw new Error('--out <file.jsonl>');
   const knobs: StudyKnobs = {};
-  const set = (k: keyof StudyKnobs, flag: string): void => {
+  const set = (k: Exclude<keyof StudyKnobs, 'options'>, flag: string): void => {
     const v = num(flag);
     if (v !== undefined) knobs[k] = v;
   };
@@ -409,13 +426,22 @@ function main(): void {
   set('partyHit', 'party-hit');
   set('rootHold', 'root-hold');
   set('gainScale', 'gain-scale');
+  const sets = arg('set');
+  if (sets)
+    knobs.options = Object.fromEntries(
+      sets.split(',').map((kv) => {
+        const [k, v] = kv.split('=') as [string, string];
+        return [k, Number(v)];
+      }),
+    );
   const reaction = num('reaction');
   const miss = num('miss');
   const person: Partial<PersonOptions> = {
     ...(reaction !== undefined ? { reaction } : {}),
     ...(miss !== undefined ? { miss } : {}),
   };
-  const changed = Object.entries({ ...knobs, ...person })
+  const { options: optionKnobs, ...solosKnobs } = knobs;
+  const changed = Object.entries({ ...solosKnobs, ...optionKnobs, ...person })
     .map(([k, v]) => `${k}=${v}`)
     .join(',');
   const label = arg('label') ?? (changed || 'built');

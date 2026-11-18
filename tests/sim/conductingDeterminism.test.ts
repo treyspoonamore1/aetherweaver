@@ -239,7 +239,7 @@ describe('the mods', () => {
     expect(mods(['marcato'])).toMatchObject({ marcatoSeconds: 4, marcatoCooldown: 8 });
     expect(mods(['marcato']).marcatoPct).toBeCloseTo(0.1, 12);
     expect(mods(['a_tempo']).beatWindow).toBe(0.15);
-    expect(mods(['a_tempo']).cueResonance).toBe(5);
+    expect(mods(['a_tempo']).cueResonance).toBe(15);
     expect(mods(['reprise']).repriseCharge).toBe(30);
     expect(mods(['upbeat']).startResonance).toBe(50);
     expect(mods(['ensemble']).ensemblePct).toBeCloseTo(0.05, 12);

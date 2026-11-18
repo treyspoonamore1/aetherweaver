@@ -839,7 +839,7 @@ describe('the view and the cost of the Crescendo', () => {
       trio: 1.5,
       finale: { turns: 2, ramp: 1.2, gap: 1, wait: 12 },
       beat: { bar: BAR_SECONDS, within: 0.15 },
-      cueResonance: 5,
+      cueResonance: 15,
       marcato: null,
       reprise: 0,
       ensemble: null,

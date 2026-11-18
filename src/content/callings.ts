@@ -299,7 +299,7 @@ export const CALLINGS: ContentInput['callings'] = [
             name: 'A Tempo',
             text: 'Your heroes begin their Solos on the downbeat, and each Solo you Cue there gives {resonance} Resonance. Your Resonance meter shows the beat.',
             // beat: how near the downbeat (s, either side) a Solo begins; the views draw it.
-            values: { beat: 0.15, resonance: 5 },
+            values: { beat: 0.15, resonance: 15 },
             icon: 'a_tempo',
           },
         ],
