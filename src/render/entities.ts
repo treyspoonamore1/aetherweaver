@@ -56,6 +56,8 @@ import {
 import { WEAVER_HANDS } from './models/art/weaver';
 import { HERO_DRAWN, HOSTILE_EDGE, HOSTILE_OUTLINE, drawnHeight } from './models/artFlag';
 import {
+  GARDE_ASIDE,
+  GARDE_LIFT,
   SEREN_FLASH,
   SEREN_VIOLET,
   cutting,
@@ -87,6 +89,8 @@ import {
   ownerOf,
   rootedLook,
   summonCoverage,
+  TEND_ASIDE,
+  TEND_LIFT,
   tending,
 } from './groveCues';
 import type { ModelMaterial } from './models/material';
@@ -2435,11 +2439,13 @@ export class EntityLayer {
     d5.notched++;
     if (enGarde(e)) {
       // En garde: two blades crossed over her head (a shape, never the Ward's cyan or silver).
-      // Over the drawn head (heroes are drawn HERO_DRAWN tall): the same lift over it as before.
-      const y = rec.y + rec.height * HERO_DRAWN + 0.5 + 0.05 * Math.sin(this.now * 3);
-      kit.spritesTop.push(x, y, z, 0.42, SPRITE.needle, SEREN_FLASH, 0.95, 0.75);
-      kit.spritesTop.push(x, y, z, 0.42, SPRITE.needle, SEREN_FLASH, 0.95, -0.75);
-      kit.sprites.push(x, y, z, 0.6, SPRITE.glow, SEREN_VIOLET, 0.35);
+      // Over the drawn head (heroes are drawn HERO_DRAWN tall): clear of the health bar, and
+      // beside the Thread's mode glyph (serenCues.ts GARDE_LIFT).
+      const gx = x + GARDE_ASIDE;
+      const y = rec.y + rec.height * HERO_DRAWN + GARDE_LIFT + 0.05 * Math.sin(this.now * 3);
+      kit.spritesTop.push(gx, y, z, 0.42, SPRITE.needle, SEREN_FLASH, 0.95, 0.75);
+      kit.spritesTop.push(gx, y, z, 0.42, SPRITE.needle, SEREN_FLASH, 0.95, -0.75);
+      kit.sprites.push(gx, y, z, 0.6, SPRITE.glow, SEREN_VIOLET, 0.35);
       d5.enGarde++;
     }
     const q = quarryOf(state, e);
@@ -2554,10 +2560,12 @@ export class EntityLayer {
       d5.rootTethers++;
     }
     if (tending(state, e)) {
-      // Over the drawn head, as every mark over a hero is.
-      const y = rec.y + rec.height * HERO_DRAWN + 0.45 + 0.04 * Math.sin(this.now * 2);
-      kit.spritesTop.push(rec.x, y, rec.z, 0.26, SPRITE.drop, GROVE_MOSS, 0.95, 0, 1, 0);
-      kit.sprites.push(rec.x, y, rec.z, 0.4, SPRITE.glow, GROVE_SEED, 0.25);
+      // Over the drawn head, as every mark over a hero is: clear of the health bar, and beside
+      // the Thread's mode glyph (groveCues.ts TEND_LIFT).
+      const tx = rec.x + TEND_ASIDE;
+      const y = rec.y + rec.height * HERO_DRAWN + TEND_LIFT + 0.04 * Math.sin(this.now * 2);
+      kit.spritesTop.push(tx, y, rec.z, 0.26, SPRITE.drop, GROVE_MOSS, 0.95, 0, 1, 0);
+      kit.sprites.push(tx, y, rec.z, 0.4, SPRITE.glow, GROVE_SEED, 0.25);
       d5.tending++;
     }
   }

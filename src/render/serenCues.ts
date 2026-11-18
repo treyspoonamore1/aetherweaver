@@ -34,6 +34,15 @@ import { C, clamp01, color } from './palette';
  * never drawn here. `flash` is the parry's white-steel flash: a near-white with her violet in
  * it, never the Ward's cyan.
  */
+/**
+ * Where Seren's en garde blades cross: this far over her drawn head and this far to the right of
+ * it (m). Over the health bar, which sits at 0.42 (partyBars.ts BAR_LIFT) and is about 0.35 m tall
+ * at the game camera (at their first lift, 0.5, the bar lay across them), and beside the Thread's
+ * mode glyph, which stands over the middle of the head at 1.05 when she is the Thread's hero.
+ */
+export const GARDE_LIFT = 0.8;
+export const GARDE_ASIDE = 0.6;
+
 export const SEREN_HEX = {
   violet: '#a018f8',
   flash: '#f5efff',
