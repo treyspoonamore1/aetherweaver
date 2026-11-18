@@ -185,7 +185,13 @@ export interface ProfileStore {
    * so no entry).
    */
   recordWeekly(run: RunState, replay?: RunReplay | null): string | null;
-  /** A weekly entry's verification came in: its status (and its kept replay's key, if any). */
+  /**
+   * A weekly entry's verification came in: its status (and its kept replay's key, if any).
+   * `claimed` means "its replay hasn't been checked", so it never takes the place of a check's
+   * answer: an entry already Verified (or not matched) stays so when a later look at it checked
+   * nothing, as when a replay from before the Solo rework is opened and refused unplayed
+   * (`refusedOldResult`, meta/runReplay.ts).
+   */
   setWeeklyStatus(week: number, code: string, status: WeeklyStatus, replay?: string): void;
   /**
    * Adds a code someone shared (the weekly panel's Add a code), named by the player, Claimed
@@ -651,13 +657,15 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       get().recordProfileDeeds();
       return code;
     },
-    setWeeklyStatus: (week, code, status, replay) => {
+    setWeeklyStatus: (week, code, asked, replay) => {
       const profile = get().profile;
       const held = profile.weekly
         ?.find((w) => w.week === week)
         ?.entries.find((e) => e.code === code);
-      if (!held || (held.status === status && (replay === undefined || held.replay === replay)))
-        return;
+      if (!held) return;
+      // Nothing was checked: what an earlier check found stands.
+      const status = asked === 'claimed' ? held.status : asked;
+      if (held.status === status && (replay === undefined || held.replay === replay)) return;
       commit({
         ...profile,
         weekly: withWeeklyEntry(profile.weekly, week, {

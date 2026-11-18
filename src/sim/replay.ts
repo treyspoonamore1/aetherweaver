@@ -130,11 +130,56 @@ const SimConfigSchema = z
 const configSchemaMatches: Equals<z.infer<typeof SimConfigSchema>, ResolvedSimConfig> = true;
 void configSchemaMatches;
 
+export const REPLAY_FORMAT = 'aetherweaver-replay';
+/** 7 since the Solo rework (docs/solos.md): no `cue` command, no `assists.autonomy`. */
+export const REPLAY_VERSION = 7;
+
+/**
+ * What a player (or a tester with a bug report's file) is told when a replay from before the
+ * Solo rework is opened: a fight replay of format 6 or lower here, a run replay of format 1 in
+ * `src/meta/runReplay.ts`. Such a replay holds `cue` commands and fights played by the old Solo
+ * rules, so it can't be played back; that is a refusal, never a check that failed.
+ *
+ * STAND-IN WORDING (Solo rework, input and saves step). The words are the text step's to settle:
+ * the key proposed for the screens' side is `screens.atlasModel.replayTooOld`, with this
+ * sentence as its English. Until the text files hold it, this constant is the one copy.
+ */
+export const OLD_REPLAY_LINE =
+  'This replay is from an earlier version of the game. Solos work differently now, so it can’t be played back.';
+
+/**
+ * The version of a replay file older than this build's format, or null when the file isn't one
+ * (another format, no whole-number version, this version or a later one). `format` and `current`
+ * name the kind of replay asked about: a fight's by default; `src/meta/runReplay.ts` asks about
+ * a run's.
+ */
+export function oldReplayVersion(
+  json: unknown,
+  format: string = REPLAY_FORMAT,
+  current: number = REPLAY_VERSION,
+): number | null {
+  if (typeof json !== 'object' || json === null || Array.isArray(json)) return null;
+  const file = json as { format?: unknown; version?: unknown };
+  if (file.format !== format) return null;
+  const v = file.version;
+  return typeof v === 'number' && Number.isInteger(v) && v >= 0 && v < current ? v : null;
+}
+
+/** An old replay was opened (`parseReplay`): its message is the plain sentence to show. */
+export class OldReplayError extends Error {
+  /** The version the file says it is. */
+  readonly found: number;
+  constructor(found: number) {
+    super(OLD_REPLAY_LINE);
+    this.name = 'OldReplayError';
+    this.found = found;
+  }
+}
+
 export const ReplaySchema = z
   .object({
-    format: z.literal('aetherweaver-replay'),
-    // 7 since the Solo rework (docs/solos.md): no `cue` command, no `assists.autonomy`.
-    version: z.literal(7),
+    format: z.literal(REPLAY_FORMAT),
+    version: z.literal(REPLAY_VERSION),
     simVersion: z.number().int(),
     contentVersion: z.string(),
     config: SimConfigSchema,
@@ -179,8 +224,8 @@ export class ReplayRecorder {
 
   export(finalTick: number, finalHash: string): Replay {
     return {
-      format: 'aetherweaver-replay',
-      version: 7,
+      format: REPLAY_FORMAT,
+      version: REPLAY_VERSION,
       simVersion: SIM_VERSION,
       contentVersion: CONTENT_VERSION,
       config: JSON.parse(JSON.stringify(this.config)) as ResolvedSimConfig,
@@ -199,8 +244,15 @@ export interface ReplayResult {
   versionMismatch: string | null;
 }
 
-/** Parses untrusted JSON (e.g. a file a player attached to a bug report). */
+/**
+ * Parses untrusted JSON (e.g. a file a player attached to a bug report). A replay from before
+ * this build's format (6 or lower: the Cue command's time) is refused with `OldReplayError`,
+ * whose message is one plain sentence; anything else that isn't a replay throws the schema's
+ * own error, as before.
+ */
 export function parseReplay(json: unknown): Replay {
+  const old = oldReplayVersion(json);
+  if (old !== null) throw new OldReplayError(old);
   return ReplaySchema.parse(json);
 }
 

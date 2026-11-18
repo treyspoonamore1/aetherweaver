@@ -1,9 +1,11 @@
 /**
- * Phase 7 (docs/phase-7.md, W1, decision 5): the mouse roles and the Cue-by-slot modifier are
- * bindable, beside the keys. A code here is a `KeyboardEvent.code` or a mouse button
- * (`Mouse0`-`Mouse4`); each code plays one thing at a time, whichever device it is on, so a
- * conflict between a key action, a mouse role and the modifier is found and resolved here (swap
- * or clear, as `bindings.ts` does between keys).
+ * Phase 7 (docs/phase-7.md, W1, decision 5): the mouse roles are bindable, beside the keys. A
+ * code here is a `KeyboardEvent.code` or a mouse button (`Mouse0`-`Mouse4`); each code plays one
+ * thing at a time, whichever device it is on, so a conflict between a key action and a mouse role
+ * is found and resolved here (swap or clear, as `bindings.ts` does between keys).
+ *
+ * There was a third thing to bind, the Cue modifier (held with a hero's key, it Cued them). It
+ * left with the Cue key (docs/solos.md): a hero's key threads them, whatever is held with it.
  *
  * Settings stay minimal: `writeInput` keeps only what differs from the defaults, so an option the
  * player never changed (or changed back) stays absent.
@@ -34,24 +36,14 @@ export function isMouseCode(code: string): boolean {
   return (MOUSE_CODES as readonly string[]).includes(code);
 }
 
-/** The modifiers matched by the event's own flag (either side's key), as today's Shift. */
-export const MODIFIER_TOKENS = ['Shift', 'Control', 'Alt'] as const;
-
-/** A pressed key as a Cue modifier: either Shift key is `Shift`, and so on; anything else as is. */
-export function modifierOf(code: string): string {
-  if (code.startsWith('Shift')) return 'Shift';
-  if (code.startsWith('Control')) return 'Control';
-  if (code.startsWith('Alt')) return 'Alt';
-  return code;
-}
-
+/**
+ * SOLO-JOIN stand-in (Solo rework, the input step). The Cue modifier could be one of three
+ * tokens (`Shift`, `Control`, `Alt`) instead of a key. No setting holds one any more and nothing
+ * here uses this; it is kept only because `inputLabel` in `src/ui/hud/labels.ts` (the HUD
+ * step's file) still asks it. To remove once that branch is gone.
+ */
 export function isModifierToken(code: string): boolean {
-  return (MODIFIER_TOKENS as readonly string[]).includes(code);
-}
-
-/** Keys the modifier capture refuses: Escape cancels; the OS keys never reach the game. */
-export function modifierCode(code: string): boolean {
-  return code !== '' && code !== 'Escape' && !code.startsWith('Meta') && !code.startsWith('OS');
+  return code === 'Shift' || code === 'Control' || code === 'Alt';
 }
 
 /** A mouse role can take any mouse button or any bindable key. */
@@ -59,30 +51,22 @@ export function roleCode(code: string): boolean {
   return isMouseCode(code) || bindableCode(code);
 }
 
-/** Everything that maps a code to something to do: keys, mouse roles, the Cue modifier. */
+/** Everything that maps a code to something to do: keys and mouse roles. */
 export interface KeyMap {
   bindings: Bindings;
   mouse: MouseRoles;
-  cueModifier: string;
 }
 
-export type Binder =
-  { kind: 'action'; action: Action } | { kind: 'role'; role: MouseRole } | { kind: 'modifier' };
+export type Binder = { kind: 'action'; action: Action } | { kind: 'role'; role: MouseRole };
 
 function sameBinder(a: Binder, b: Binder): boolean {
-  if (a.kind !== b.kind) return false;
-  if (a.kind === 'action') return a.action === (b as { action: Action }).action;
-  if (a.kind === 'role') return a.role === (b as { role: MouseRole }).role;
-  return true;
+  if (a.kind === 'action') return b.kind === 'action' && a.action === b.action;
+  return b.kind === 'role' && a.role === b.role;
 }
 
 /** The key map in force for these settings. */
 export function keyMapOf(settings: Settings, input: InputSettings): KeyMap {
-  return {
-    bindings: effectiveBindings(settings.bindings),
-    mouse: input.mouse,
-    cueModifier: input.cueModifier,
-  };
+  return { bindings: effectiveBindings(settings.bindings), mouse: input.mouse };
 }
 
 /** What uses `code` (other than `except`), if anything. */
@@ -96,21 +80,18 @@ export function userOf(map: KeyMap, code: string, except?: Binder): Binder | nul
     const b: Binder = { kind: 'role', role };
     if (map.mouse[role] === code && !(except && sameBinder(b, except))) return b;
   }
-  if (map.cueModifier === code && !(except?.kind === 'modifier')) return { kind: 'modifier' };
   return null;
 }
 
 /** Whether `binder` can hold `code` (a key action takes keys only; a role anything). */
 function canHold(binder: Binder, code: string): boolean {
-  if (binder.kind === 'modifier') return !isMouseCode(code) && modifierCode(code);
-  if (isModifierToken(code)) return false;
   if (binder.kind === 'action') return !isMouseCode(code) && bindableCode(code);
   return roleCode(code);
 }
 
 function codeAt(map: KeyMap, binder: Binder, slot: number): string | undefined {
   if (binder.kind === 'action') return map.bindings[binder.action][slot];
-  const code = binder.kind === 'role' ? map.mouse[binder.role] : map.cueModifier;
+  const code = map.mouse[binder.role];
   return code === '' ? undefined : code;
 }
 
@@ -123,15 +104,13 @@ function giveUp(map: KeyMap, other: Binder, code: string, instead: string | unde
     else theirs.splice(at, 1);
     return { ...map, bindings: { ...map.bindings, [other.action]: theirs } };
   }
-  if (other.kind === 'role')
-    return { ...map, mouse: { ...map.mouse, [other.role]: instead ?? '' } };
-  return { ...map, cueModifier: instead ?? '' };
+  return { ...map, mouse: { ...map.mouse, [other.role]: instead ?? '' } };
 }
 
 /**
- * Binds `code` to `target` (an action's key slot, a mouse role, or the modifier). Whatever else
- * had the code: `swap` gives it the target's previous code when it can hold one, else it loses it;
- * `clear` takes it away.
+ * Binds `code` to `target` (an action's key slot, or a mouse role). Whatever else had the code:
+ * `swap` gives it the target's previous code when it can hold one, else it loses it; `clear`
+ * takes it away.
  */
 export function bindCode(
   map: KeyMap,
@@ -153,23 +132,19 @@ export function bindCode(
     // Key against key: `assignKey` (swaps or clears, keeps the fixed Escape).
     return { ...next, bindings: assignKey(next.bindings, target.action, slot, code, mode) };
   }
-  if (target.kind === 'role') return { ...next, mouse: { ...next.mouse, [target.role]: code } };
-  return { ...next, cueModifier: code };
+  return { ...next, mouse: { ...next.mouse, [target.role]: code } };
 }
 
-/** Takes the code in `slot` away from `target` (a role or the modifier is then unbound). */
+/** Takes the code in `slot` away from `target` (a role is then unbound). */
 export function unbindCode(map: KeyMap, target: Binder, slot = 0): KeyMap {
   if (target.kind === 'action')
     return { ...map, bindings: clearKey(map.bindings, target.action, slot) };
-  if (target.kind === 'role') return { ...map, mouse: { ...map.mouse, [target.role]: '' } };
-  return { ...map, cueModifier: '' };
+  return { ...map, mouse: { ...map.mouse, [target.role]: '' } };
 }
 
-/** A role or the modifier back to its default; whatever else had that code loses it. */
+/** A role back to its default; whatever else had that code loses it. */
 export function resetBinder(map: KeyMap, target: Exclude<Binder, { kind: 'action' }>): KeyMap {
-  const code =
-    target.kind === 'role' ? DEFAULT_MOUSE_ROLES[target.role] : DEFAULT_INPUT.cueModifier;
-  return bindCode(map, target, 0, code, 'clear');
+  return bindCode(map, target, 0, DEFAULT_MOUSE_ROLES[target.role], 'clear');
 }
 
 // ── Settings, kept minimal ─────────────────────────────────────────────────────────────
@@ -187,7 +162,7 @@ export type InputPatch = Partial<Omit<InputSettings, 'padBindings' | 'mouse'>> &
  */
 export function writeInput(settings: Settings, patch: InputPatch, bindings?: Bindings): Settings {
   const merged: Record<string, unknown> = { ...settings.input };
-  for (const key of ['threadMode', 'wheel', 'mouseoverCast', 'cueModifier'] as const) {
+  for (const key of ['threadMode', 'wheel', 'mouseoverCast'] as const) {
     if (!(key in patch)) continue;
     if (patch[key] === DEFAULT_INPUT[key]) delete merged[key];
     else merged[key] = patch[key];
@@ -211,14 +186,13 @@ export function writeInput(settings: Settings, patch: InputPatch, bindings?: Bin
   return next;
 }
 
-/** Writes a whole key map back (keys into `bindings`, roles and the modifier into `input`). */
+/** Writes a whole key map back (keys into `bindings`, roles into `input`). */
 export function writeKeyMap(settings: Settings, map: KeyMap): Settings {
-  return writeInput(settings, { mouse: map.mouse, cueModifier: map.cueModifier }, map.bindings);
+  return writeInput(settings, { mouse: map.mouse }, map.bindings);
 }
 
-/** The defaults' key map (every key, role and the modifier as shipped). */
+/** The defaults' key map (every key and role as shipped). */
 export const DEFAULT_KEY_MAP: KeyMap = {
   bindings: DEFAULT_BINDINGS,
   mouse: DEFAULT_MOUSE_ROLES,
-  cueModifier: DEFAULT_INPUT.cueModifier,
 };

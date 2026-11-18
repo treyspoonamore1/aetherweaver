@@ -10,6 +10,7 @@ import {
   DEFAULT_PAD_BINDINGS,
   PAD_ACTIONS,
   PAD_BUTTONS,
+  withRetired,
   type Action,
   type PadBindable,
   type PadBindings,
@@ -19,7 +20,7 @@ import {
 /** At most this many buttons an action (the settings schema's limit). */
 export const MAX_PAD_BUTTONS = 3;
 
-/** Every action a pad button can play: the keyboard's 25, then the pad's own. */
+/** Every action a pad button can play: the keyboard's, then the pad's own. */
 export const PAD_BINDABLES: readonly PadBindable[] = [
   ...(Object.keys(DEFAULT_BINDINGS) as Action[]),
   ...PAD_ACTIONS,
@@ -53,7 +54,8 @@ export const DEFAULT_FULL_PAD_BINDINGS: FullPadBindings = fill(DEFAULT_PAD_BINDI
 function fill(partial: PadBindings): FullPadBindings {
   const out = {} as Record<PadBindable, readonly PadButton[]>;
   for (const a of PAD_BINDABLES) out[a] = partial[a] ?? [];
-  return out;
+  // SOLO-JOIN stand-in (actions.ts): the retired `cue`, hidden and with no button.
+  return withRetired(out);
 }
 
 /**
@@ -61,7 +63,11 @@ function fill(partial: PadBindings): FullPadBindings {
  * gave one action leaves any default that had it, as keys do.
  */
 export function effectivePadBindings(overrides: PadOverrides): FullPadBindings {
-  const out = { ...DEFAULT_FULL_PAD_BINDINGS } as Record<PadBindable, readonly PadButton[]>;
+  // `withRetired`: the SOLO-JOIN stand-in (actions.ts).
+  const out = withRetired({ ...DEFAULT_FULL_PAD_BINDINGS }) as Record<
+    PadBindable,
+    readonly PadButton[]
+  >;
   const claimed = new Set<PadButton>();
   for (const [key, buttons] of Object.entries(overrides)) {
     if (!isPadBindable(key)) continue;

@@ -2,6 +2,35 @@
  * Action map keyed on KeyboardEvent.code (physical keys), so bindings work on any layout
  * (AZERTY, QWERTZ, Dvorak). docs/plan/04 §8, 05 §3. Labels come from keyLabel().
  */
+
+/**
+ * SOLO-JOIN stand-in (Solo rework, the input step). There is no Cue action any more
+ * (docs/solos.md): it has no key, no row in Controls, nothing plays it and nothing can be bound
+ * to it. But the HUD's files still ask for its key's label (`bindingLabel('cue')` in
+ * `src/ui/hud/KeyHints.tsx`, `HowToPlay.tsx` and `src/ui/screens/CodexScreen.tsx`), and those
+ * are the HUD step's to change. So the name stays in the `Action` type, and every set of
+ * bindings carries a hidden, empty key list for it (`withRetired`), so that asking reads "no
+ * key" instead of failing. Hidden means not enumerable: `Object.keys`, a spread and JSON never
+ * see it, so no list of actions, no Controls row and no saved setting holds it.
+ *
+ * To remove once the HUD's files no longer name it: this type and `withRetired` (and its four
+ * callers, here and in `bindings.ts` and `padBindings.ts`), and `| RetiredAction` below. Search
+ * for SOLO-JOIN: the other two stand-ins are in `src/app/settings.ts` and `inputMap.ts`.
+ */
+export type RetiredAction = 'cue';
+
+const NO_KEYS: readonly never[] = Object.freeze([]);
+
+/** SOLO-JOIN stand-in: `bindings` with the retired action's hidden, empty list (see above). */
+export function withRetired<T extends object>(bindings: T): T {
+  return Object.defineProperty(bindings, 'cue' satisfies RetiredAction, {
+    value: NO_KEYS,
+    enumerable: false,
+    configurable: true,
+    writable: true,
+  });
+}
+
 export type Action =
   | 'moveUp'
   | 'moveDown'
@@ -17,7 +46,7 @@ export type Action =
   | 'chime'
   | 'reel'
   | 'glide'
-  | 'cue'
+  | RetiredAction // SOLO-JOIN stand-in: no such action (see above)
   | 'crescendo'
   | 'plant'
   | 'directiveWheel'
@@ -31,7 +60,7 @@ export type Action =
 
 export type Bindings = Record<Action, readonly string[]>;
 
-export const DEFAULT_BINDINGS: Bindings = {
+export const DEFAULT_BINDINGS: Bindings = withRetired<Omit<Bindings, RetiredAction>>({
   moveUp: ['KeyW', 'ArrowUp'],
   moveDown: ['KeyS', 'ArrowDown'],
   moveLeft: ['KeyA', 'ArrowLeft'],
@@ -47,8 +76,7 @@ export const DEFAULT_BINDINGS: Bindings = {
   chime: ['KeyE'],
   reel: ['KeyF'],
   glide: ['Space'],
-  // Cue the hovered (else threaded) hero; Shift+1–4 cues a hero by slot.
-  cue: ['KeyT'],
+  // T is free: it was the Cue key until heroes fired their own Solos (docs/solos.md).
   crescendo: ['KeyR'],
   // Pedal Point: plant the planted Chord's field at the cursor.
   plant: ['KeyV'],
@@ -63,7 +91,7 @@ export const DEFAULT_BINDINGS: Bindings = {
   pause: ['Escape', 'KeyP'],
   devPanel: ['Backquote'],
   perfHud: ['F3'],
-};
+}) as Bindings;
 
 // ── Phase 7 (docs/phase-7.md, *Contracts*): the gamepad's types and default layout. Declared by
 // W0; the InputController plays them (W1), and Settings → Controls rebinds them
@@ -97,10 +125,10 @@ export type PadButton = (typeof PAD_BUTTONS)[number];
 
 /**
  * Pad-only actions, appended after the keyboard's (docs/plan/04 §8): the right stick steps a
- * reticle between the heroes, and the reticle's hero is the one threaded or Cued. They are not
+ * reticle between the heroes, and the reticle's hero is the one threaded. They are not
  * `Action`s: they have no key and no row in Settings → Controls.
  */
-export const PAD_ACTIONS = ['reticleNext', 'reticlePrev', 'threadReticle', 'cueReticle'] as const;
+export const PAD_ACTIONS = ['reticleNext', 'reticlePrev', 'threadReticle'] as const;
 export type PadAction = (typeof PAD_ACTIONS)[number];
 
 /** What a pad button can be bound to: any keyboard action, or a pad-only one. */
@@ -113,6 +141,8 @@ export type PadBindings = Partial<Record<PadBindable, readonly PadButton[]>>;
  * 04 §8's layout: the left stick moves (an axis, not a binding); the right stick steps the reticle
  * (its axis, and these buttons too); the triggers Thread the reticle's hero and switch the
  * Thread's mode; the face buttons are the techniques; the d-pad the Directives; Start pauses.
+ * The right bumper is free: it Cued the reticle's hero until heroes fired their own Solos
+ * (docs/solos.md), and now plays nothing until the player gives it something.
  */
 export const DEFAULT_PAD_BINDINGS: PadBindings = {
   threadReticle: ['triggerRight'],
@@ -121,7 +151,6 @@ export const DEFAULT_PAD_BINDINGS: PadBindings = {
   ward: ['faceLeft'],
   chime: ['faceUp'],
   reel: ['faceRight'],
-  cueReticle: ['bumperRight'],
   crescendo: ['bumperLeft'],
   directiveFocus: ['dpadUp'],
   directiveRally: ['dpadRight'],

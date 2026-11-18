@@ -71,14 +71,30 @@ describe('InputController', () => {
     expect(input.collect()).toEqual([{ t: 'tech', id: 'ward', slot: 2 }]);
   });
 
-  it('Shift+number cues; a plain number threads', () => {
+  it('a hero’s number threads them, with Shift held or not: there is no Cue to send', () => {
     win.dispatchEvent(key('keydown', 'Digit2'));
     win.dispatchEvent(key('keyup', 'Digit2'));
     win.dispatchEvent(key('keydown', 'Digit3', { shiftKey: true }));
     expect(input.collect()).toEqual([
       { t: 'thread', slot: 1 },
-      { t: 'cue', slot: 2 },
+      { t: 'thread', slot: 2 },
     ]);
+  });
+
+  it('T, the old Cue key, plays nothing and is left to the browser', () => {
+    let prevented = false;
+    const preventDefault = () => {
+      prevented = true;
+    };
+    win.dispatchEvent(key('keydown', 'KeyT', { preventDefault }));
+    win.dispatchEvent(key('keyup', 'KeyT'));
+    expect(input.collect()).toEqual([]);
+    expect(prevented).toBe(false);
+    expect(actions).toEqual([]);
+    // A bound key, by contrast, is the game's.
+    win.dispatchEvent(key('keydown', 'KeyR', { preventDefault }));
+    expect(prevented).toBe(true);
+    expect(input.collect()).toEqual([{ t: 'crescendo' }]);
   });
 
   it('ignores Ctrl/Alt chords and clears held keys on Meta', () => {

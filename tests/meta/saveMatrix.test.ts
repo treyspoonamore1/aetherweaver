@@ -1,7 +1,8 @@
 /**
  * The save migration matrix (docs/phase-7.md, W5): every fixture written by a real build
- * (`tools/save-fixtures.ts`: each commit that bumped a save version, and the two demo starts of
- * Versions 13 and 14) loads in today's build from its main copy. A profile matches the profile
+ * (`tools/save-fixtures.ts`: each commit that bumped a save version, the last build before the
+ * Solo rework with the Cue key's settings in use, and the two demo starts of Versions 13 and 14)
+ * loads in today's build from its main copy. A profile matches the profile
  * recorded for it (`expected.json`); a run plays its next fight to the hash recorded for it, and
  * to the same hash as a run built fresh today with the same content; settings read as recorded.
  * Then each fixture exports and imports byte for byte, and the fuzzer runs (`tools/save-fuzz.ts`).
@@ -31,7 +32,7 @@ import {
   type Expected,
   type Fixture,
 } from '../../tools/save-fixtures';
-import { fuzzDamage, fuzzProfiles, fuzzRuns } from '../../tools/save-fuzz';
+import { fuzzDamage, fuzzProfiles, fuzzRuns, fuzzSettings } from '../../tools/save-fuzz';
 
 const fixtures = readFixtures();
 const expected = JSON.parse(readFileSync(join(FIXTURE_DIR, 'expected.json'), 'utf8')) as Record<
@@ -70,6 +71,47 @@ describe('the fixtures', () => {
       expect(fixtures.find((f) => f.id === id)?.keys['aetherweaver.demo.start']).toBe(
         id.split('-')[1],
       );
+  });
+
+  it('the last build before the Solo rework: its settings lose the Cue key’s three things and nothing else; its run and profile are untouched', () => {
+    const f = fixtures.find((x) => x.id === 'b16-2a2b91b')!;
+    // As that build wrote them: version 4, Hero autonomy on, the Cue key on Y, the Cue modifier
+    // on Ctrl, the pad's Cue on the top face button.
+    const saved = JSON.parse(f.keys[SETTINGS_KEY]!) as {
+      version: number;
+      bindings: Record<string, string[]>;
+      assists: Record<string, unknown>;
+      input: { cueModifier?: string; padBindings: Record<string, string[]> };
+    } & Record<string, unknown>;
+    expect(saved.version).toBe(4);
+    expect(saved.assists.autonomy).toBe(true);
+    expect(saved.bindings.cue).toEqual(['KeyY']);
+    expect(saved.input.cueModifier).toBe('Control');
+    expect(saved.input.padBindings.cueReticle).toEqual(['faceUp']);
+    // As today's build reads them: version 5, those gone, every other value as saved.
+    const read = migrateSettings(JSON.parse(f.keys[SETTINGS_KEY]!)) as unknown as typeof saved;
+    const { cue: _cue, ...bindings } = saved.bindings;
+    const { autonomy: _autonomy, ...assists } = saved.assists;
+    const { cueModifier: _mod, padBindings: pad, ...input } = saved.input;
+    const { cueReticle: _pad, ...padBindings } = pad;
+    expect(read).toEqual({
+      ...saved,
+      version: 5,
+      bindings,
+      assists,
+      input: { ...input, padBindings },
+    });
+    // What the player had put on the Cue's old key and button stays theirs.
+    expect(read.bindings.directiveScatter).toEqual(['KeyT']);
+    expect(read.input.padBindings.chime).toEqual(['bumperRight']);
+    expect(JSON.stringify(read)).not.toMatch(/autonomy|cueModifier|cueReticle|"cue"/);
+    // Run save 5 and profile 10 did not move: both load from their main copy, as written.
+    expect(f.versions).toEqual({ run: RUN_SAVE_VERSION, profile: PROFILE_VERSION, settings: 4 });
+    const store = storeOf(f);
+    expect(readRun(store).from).toBe('main');
+    expect(readProfile(store, 1).from).toBe('main');
+    expect(store.getItem(SAVE_KEYS.run)).toBe(f.keys[SAVE_KEYS.run]);
+    expect(store.getItem(SAVE_KEYS.profile)).toBe(f.keys[SAVE_KEYS.profile]);
   });
 });
 
@@ -142,5 +184,9 @@ describe('the fuzzer (tools/save-fuzz.ts)', () => {
 
   it('damaged saves, files and codes never throw, and a save that won’t load is kept', () => {
     for (let seed = 1; seed <= 6; seed++) expect(fuzzDamage(seed, 12)).toEqual([]);
+  });
+
+  it('random version 4 settings read as version 5: the Cue key’s things dropped, the rest as saved; damaged, they never throw', () => {
+    for (let seed = 1; seed <= 12; seed++) expect(fuzzSettings(seed, 25)).toEqual([]);
   });
 });

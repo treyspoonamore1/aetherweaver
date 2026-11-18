@@ -11,7 +11,7 @@
       }
     },
     "settings": {
-      "version": 4,
+      "version": 5,
       "volumes": {
         "master": 0.8,
         "music": 0.35,
@@ -27,8 +27,7 @@
       "bindings": {},
       "assists": {
         "perfectWindowBonus": 0,
-        "telegraphLead": 1,
-        "autonomy": false
+        "telegraphLead": 1
       },
       "unlockAll": false,
       "hud": {
@@ -60,6 +59,7 @@
       }
     },
     "settings": {
+      "version": 5,
       "volumes": {
         "master": 0.8,
         "music": 0.35,
@@ -75,11 +75,8 @@
       "bindings": {},
       "assists": {
         "perfectWindowBonus": 0,
-        "telegraphLead": 1,
-        "autonomy": false
+        "telegraphLead": 1
       },
-      "captions": false,
-      "version": 4,
       "unlockAll": false,
       "hud": {
         "frames": {
@@ -94,7 +91,8 @@
         "allyBars": "always",
         "healthText": "missing",
         "lowHealthSound": true
-      }
+      },
+      "captions": false
     }
   },
   "b03-05933c4": {
@@ -162,6 +160,7 @@
       }
     },
     "settings": {
+      "version": 5,
       "volumes": {
         "master": 0.8,
         "music": 0.35,
@@ -177,12 +176,9 @@
       "bindings": {},
       "assists": {
         "perfectWindowBonus": 0,
-        "telegraphLead": 1,
-        "autonomy": false
+        "telegraphLead": 1
       },
       "unlockAll": false,
-      "captions": false,
-      "version": 4,
       "hud": {
         "frames": {
           "at": null,
@@ -196,7 +192,8 @@
         "allyBars": "always",
         "healthText": "missing",
         "lowHealthSound": true
-      }
+      },
+      "captions": false
     }
   },
   "b04-ad36f11": {
@@ -264,6 +261,7 @@
       }
     },
     "settings": {
+      "version": 5,
       "volumes": {
         "master": 0.8,
         "music": 0.35,
@@ -279,12 +277,9 @@
       "bindings": {},
       "assists": {
         "perfectWindowBonus": 0,
-        "telegraphLead": 1,
-        "autonomy": false
+        "telegraphLead": 1
       },
       "unlockAll": false,
-      "captions": false,
-      "version": 4,
       "hud": {
         "frames": {
           "at": null,
@@ -298,7 +293,8 @@
         "allyBars": "always",
         "healthText": "missing",
         "lowHealthSound": true
-      }
+      },
+      "captions": false
     }
   },
   "b05-61a0621": {
@@ -366,6 +362,7 @@
       }
     },
     "settings": {
+      "version": 5,
       "volumes": {
         "master": 0.8,
         "music": 0.35,
@@ -381,12 +378,9 @@
       "bindings": {},
       "assists": {
         "perfectWindowBonus": 0,
-        "telegraphLead": 1,
-        "autonomy": false
+        "telegraphLead": 1
       },
       "unlockAll": false,
-      "captions": false,
-      "version": 4,
       "hud": {
         "frames": {
           "at": null,
@@ -400,7 +394,8 @@
         "allyBars": "always",
         "healthText": "missing",
         "lowHealthSound": true
-      }
+      },
+      "captions": false
     }
   },
   "b06-ee6b25e": {
@@ -468,6 +463,7 @@
       }
     },
     "settings": {
+      "version": 5,
       "volumes": {
         "master": 0.8,
         "music": 0.35,
@@ -483,12 +479,9 @@
       "bindings": {},
       "assists": {
         "perfectWindowBonus": 0,
-        "telegraphLead": 1,
-        "autonomy": false
+        "telegraphLead": 1
       },
       "unlockAll": false,
-      "captions": false,
-      "version": 4,
       "hud": {
         "frames": {
           "at": null,
@@ -502,7 +495,8 @@
         "allyBars": "always",
         "healthText": "missing",
         "lowHealthSound": true
-      }
+      },
+      "captions": false
     }
   },
   "b07-05f4454": {
@@ -580,6 +574,7 @@
       }
     },
     "settings": {
+      "version": 5,
       "volumes": {
         "master": 0.8,
         "music": 0.35,
@@ -595,12 +590,9 @@
       "bindings": {},
       "assists": {
         "perfectWindowBonus": 0,
-        "telegraphLead": 1,
-        "autonomy": false
+        "telegraphLead": 1
       },
       "unlockAll": false,
-      "captions": false,
-      "version": 4,
       "hud": {
         "frames": {
           "at": null,
@@ -614,7 +606,8 @@
         "allyBars": "always",
         "healthText": "missing",
         "lowHealthSound": true
-      }
+      },
+      "captions": false
     }
   },
   "b08-9e21c4d": {
@@ -692,6 +685,7 @@
       }
     },
     "settings": {
+      "version": 5,
       "volumes": {
         "master": 0.8,
         "music": 0.35,
@@ -707,12 +701,9 @@
       "bindings": {},
       "assists": {
         "perfectWindowBonus": 0,
-        "telegraphLead": 1,
-        "autonomy": false
+        "telegraphLead": 1
       },
       "unlockAll": false,
-      "captions": false,
-      "version": 4,
       "hud": {
         "frames": {
           "at": null,
@@ -726,7 +717,8 @@
         "allyBars": "always",
         "healthText": "missing",
         "lowHealthSound": true
-      }
+      },
+      "captions": false
     }
   },
   "b09-29278e2": {
@@ -804,6 +796,7 @@
       }
     },
     "settings": {
+      "version": 5,
       "volumes": {
         "master": 0.8,
         "music": 0.35,
@@ -819,12 +812,9 @@
       "bindings": {},
       "assists": {
         "perfectWindowBonus": 0,
-        "telegraphLead": 1,
-        "autonomy": false
+        "telegraphLead": 1
       },
       "unlockAll": false,
-      "captions": false,
-      "version": 4,
       "hud": {
         "frames": {
           "at": null,
@@ -838,7 +828,8 @@
         "allyBars": "always",
         "healthText": "missing",
         "lowHealthSound": true
-      }
+      },
+      "captions": false
     }
   },
   "b10-21ef501": {
@@ -929,6 +920,7 @@
       }
     },
     "settings": {
+      "version": 5,
       "volumes": {
         "master": 0.8,
         "music": 0.35,
@@ -944,12 +936,9 @@
       "bindings": {},
       "assists": {
         "perfectWindowBonus": 0,
-        "telegraphLead": 1,
-        "autonomy": false
+        "telegraphLead": 1
       },
       "unlockAll": false,
-      "captions": false,
-      "version": 4,
       "hud": {
         "frames": {
           "at": null,
@@ -963,7 +952,8 @@
         "allyBars": "always",
         "healthText": "missing",
         "lowHealthSound": true
-      }
+      },
+      "captions": false
     }
   },
   "b11-7a2bbdd": {
@@ -1054,6 +1044,7 @@
       }
     },
     "settings": {
+      "version": 5,
       "volumes": {
         "master": 0.8,
         "music": 0.35,
@@ -1069,12 +1060,9 @@
       "bindings": {},
       "assists": {
         "perfectWindowBonus": 0,
-        "telegraphLead": 1,
-        "autonomy": false
+        "telegraphLead": 1
       },
       "unlockAll": false,
-      "captions": false,
-      "version": 4,
       "hud": {
         "frames": {
           "at": null,
@@ -1088,7 +1076,8 @@
         "allyBars": "always",
         "healthText": "missing",
         "lowHealthSound": true
-      }
+      },
+      "captions": false
     }
   },
   "b12-237094f": {
@@ -1181,6 +1170,7 @@
       }
     },
     "settings": {
+      "version": 5,
       "volumes": {
         "master": 0.8,
         "music": 0.35,
@@ -1196,12 +1186,9 @@
       "bindings": {},
       "assists": {
         "perfectWindowBonus": 0,
-        "telegraphLead": 1,
-        "autonomy": false
+        "telegraphLead": 1
       },
       "unlockAll": false,
-      "captions": false,
-      "version": 4,
       "hud": {
         "frames": {
           "at": null,
@@ -1215,7 +1202,8 @@
         "allyBars": "always",
         "healthText": "missing",
         "lowHealthSound": true
-      }
+      },
+      "captions": false
     }
   },
   "b13-a5c4ea5": {
@@ -1308,7 +1296,7 @@
       }
     },
     "settings": {
-      "version": 4,
+      "version": 5,
       "volumes": {
         "master": 0.8,
         "music": 0.35,
@@ -1324,8 +1312,7 @@
       "bindings": {},
       "assists": {
         "perfectWindowBonus": 0,
-        "telegraphLead": 1,
-        "autonomy": false
+        "telegraphLead": 1
       },
       "unlockAll": false,
       "hud": {
@@ -1435,7 +1422,7 @@
       }
     },
     "settings": {
-      "version": 4,
+      "version": 5,
       "volumes": {
         "master": 0.8,
         "music": 0.35,
@@ -1451,8 +1438,7 @@
       "bindings": {},
       "assists": {
         "perfectWindowBonus": 0,
-        "telegraphLead": 1,
-        "autonomy": false
+        "telegraphLead": 1
       },
       "unlockAll": false,
       "hud": {
@@ -1563,7 +1549,7 @@
       }
     },
     "settings": {
-      "version": 4,
+      "version": 5,
       "volumes": {
         "master": 0.8,
         "music": 0.35,
@@ -1579,8 +1565,7 @@
       "bindings": {},
       "assists": {
         "perfectWindowBonus": 0,
-        "telegraphLead": 1,
-        "autonomy": false
+        "telegraphLead": 1
       },
       "unlockAll": false,
       "hud": {
@@ -1598,6 +1583,148 @@
         "lowHealthSound": true
       },
       "captions": false
+    }
+  },
+  "b16-2a2b91b": {
+    "profile": {
+      "from": "main",
+      "json": {
+        "version": 10,
+        "xp": 2600,
+        "introduced": [],
+        "lastChords": [],
+        "runs": 2,
+        "wins": 1,
+        "astrolabe": ["silk_t1", "silk_t2"],
+        "deeds": ["through_the_prelude"],
+        "reliquary": {
+          "relics": [],
+          "shards": 30,
+          "tears": 1,
+          "carry": [],
+          "seed": 855027112,
+          "next": 1
+        },
+        "variants": ["chorale"],
+        "techniques": {
+          "ward": null,
+          "chime": null,
+          "reel": null,
+          "glide": null
+        },
+        "starlight": 160,
+        "cosmetics": [],
+        "look": {
+          "robe": null,
+          "thread": null,
+          "title": null
+        },
+        "mastery": {
+          "luminary": 600
+        },
+        "runMode": "expedition",
+        "seen": [
+          "hollow_chorister",
+          "bell_brute",
+          "lamenter",
+          "glass_lancer",
+          "mute",
+          "cantor_acolyte",
+          "the_bellwarden",
+          "the_hollow_cantor"
+        ],
+        "bonds": {
+          "kael": {
+            "xp": 300,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          },
+          "lyra": {
+            "xp": 120,
+            "talents": [null, null, null],
+            "solo": "default",
+            "seen": {}
+          }
+        },
+        "dissonance": {
+          "open": false,
+          "levels": [],
+          "best": {}
+        },
+        "deedBest": {
+          "heard": 8,
+          "steady_hands": 8,
+          "encore": 2,
+          "perfect_pitch": 8,
+          "lifeline": 5,
+          "clutch": 2,
+          "pull": 2,
+          "maestro": 4,
+          "every_way": 3,
+          "absolute_pitch": 8
+        },
+        "recruited": ["brann"]
+      }
+    },
+    "run": {
+      "from": "main",
+      "phase": "combat",
+      "fight": {
+        "hash": "5e140fcec056b87e",
+        "tick": 1800,
+        "encounter": "glass_gallery"
+      }
+    },
+    "settings": {
+      "version": 5,
+      "volumes": {
+        "master": 0.8,
+        "music": 0.35,
+        "sfx": 0.9,
+        "ui": 0.7
+      },
+      "screenShake": 0.5,
+      "flashes": 1,
+      "damageNumbers": true,
+      "hints": false,
+      "uiScale": 1,
+      "colorVision": "normal",
+      "bindings": {
+        "directiveScatter": ["KeyT"]
+      },
+      "assists": {
+        "perfectWindowBonus": 0,
+        "telegraphLead": 1.25
+      },
+      "unlockAll": false,
+      "hud": {
+        "frames": {
+          "at": null,
+          "scale": 1,
+          "orientation": "vertical"
+        },
+        "weaverBar": {
+          "at": null,
+          "scale": 1
+        },
+        "allyBars": "always",
+        "healthText": "missing",
+        "lowHealthSound": true
+      },
+      "captions": false,
+      "input": {
+        "threadMode": "hold",
+        "mouse": {
+          "mode": "KeyM"
+        },
+        "padBindings": {
+          "chime": ["bumperRight"]
+        }
+      },
+      "aids": {
+        "autoThread": true
+      }
     }
   },
   "demo13-fresh": {

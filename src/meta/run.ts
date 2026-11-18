@@ -2807,8 +2807,8 @@ function duelAdvice(
     return calling === 'chronomancer'
       ? 'Rally her, or Rewind as the pack closes.'
       : reelVariant === 'anchor' || reelVariant === 'swap'
-        ? 'Rally her out of the pack, or Cue Thousand Cuts.'
-        : 'Reel or Rally her out of the pack, or Cue Thousand Cuts.';
+        ? 'Rally her out of the pack, or Thread her as Thousand Cuts fires.'
+        : 'Reel or Rally her out of the pack, or Thread her as Thousand Cuts fires.';
   if (d.far) return 'Reel or Ward the beam on her.';
   if (d.parryable && !d.warded) return 'Ward her as the blow lands: a Ward is a parry.';
   return null;

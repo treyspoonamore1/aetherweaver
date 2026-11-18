@@ -24,6 +24,7 @@ import {
   GAME_SPEEDS,
   QUALITY_SETTINGS,
   REDUCED_MOTION,
+  SETTINGS_VERSION,
   SettingsSchema,
   ambienceVolume,
   barksVolume,
@@ -74,7 +75,7 @@ import { SCENARIO_CONDUCTOR } from '../tools/scenarios';
 
 /** Today's DEFAULT_SETTINGS, written out (the Phase 7 keys are absent from it). */
 const TODAY: Settings = {
-  version: 4,
+  version: 5,
   volumes: { master: 0.8, music: 0.6, sfx: 0.9, ui: 0.7 },
   screenShake: 1,
   flashes: 1,
@@ -83,7 +84,7 @@ const TODAY: Settings = {
   uiScale: 1,
   colorVision: 'normal',
   bindings: {},
-  assists: { perfectWindowBonus: 0, telegraphLead: 1, autonomy: false },
+  assists: { perfectWindowBonus: 0, telegraphLead: 1 },
   unlockAll: false,
   hud: {
     frames: { at: null, scale: 1, orientation: 'vertical' },
@@ -108,7 +109,10 @@ const PHASE7_KEYS = [
   'locale',
 ] as const;
 
-/** A player's v4 settings as a build before Phase 7 saved them (nothing at its default). */
+/**
+ * A player's v4 settings as a build before Phase 7 saved them (nothing at its default), Hero
+ * autonomy on: version 5 (docs/solos.md) reads them as `SAVED_V5`.
+ */
 const SAVED_V4 = {
   version: 4,
   volumes: { master: 0.5, music: 0.25, sfx: 0.75, ui: 1 },
@@ -131,9 +135,17 @@ const SAVED_V4 = {
   captions: true,
 };
 
+/** The same settings as version 5 holds them: everything as saved, the autonomy switch gone. */
+const SAVED_V5 = {
+  ...SAVED_V4,
+  version: 5,
+  assists: { perfectWindowBonus: 0.2, telegraphLead: 1.5 },
+};
+
 describe('Phase 7 settings contracts', () => {
-  it('the version stays 4, and DEFAULT_SETTINGS is today’s, with no Phase 7 key', () => {
-    expect(DEFAULT_SETTINGS.version).toBe(4);
+  it('the version is 5 since the Solo rework, and DEFAULT_SETTINGS is today’s, with no Phase 7 key', () => {
+    expect(DEFAULT_SETTINGS.version).toBe(5);
+    expect(SETTINGS_VERSION).toBe(5);
     expect(DEFAULT_SETTINGS).toStrictEqual(TODAY);
     for (const key of PHASE7_KEYS) expect(key in DEFAULT_SETTINGS, key).toBe(false);
     expect('ambience' in DEFAULT_SETTINGS.volumes || 'barks' in DEFAULT_SETTINGS.volumes).toBe(
@@ -154,7 +166,6 @@ describe('Phase 7 settings contracts', () => {
         wheel: 'hold',
         mouseoverCast: true,
         mouse: { thread: 'Mouse0', mode: 'Mouse2', wheel: 'Mouse1' },
-        cueModifier: 'Shift',
         padBindings: {},
       },
       aids: { gameSpeed: 1, autoThread: false },
@@ -195,8 +206,8 @@ describe('Phase 7 settings contracts', () => {
     expect(ambienceVolume(some.volumes)).toBe(0.3);
   });
 
-  it('v4 settings without the new keys parse to exactly what they were, and save back equal', () => {
-    for (const saved of [SAVED_V4, TODAY]) {
+  it('settings without the new keys parse to exactly what they were, and save back equal', () => {
+    for (const saved of [SAVED_V5, TODAY]) {
       const parsed = SettingsSchema.parse(JSON.parse(JSON.stringify(saved)));
       expect(parsed).toStrictEqual(saved);
       expect(JSON.stringify(parsed)).toBe(JSON.stringify(saved));
@@ -205,14 +216,25 @@ describe('Phase 7 settings contracts', () => {
       expect(optionsOf(parsed)).toStrictEqual(DEFAULT_OPTIONS);
     }
     // Saved before captions (v4's first shape): as before, the default is filled in.
-    const { captions: _c, ...early } = SAVED_V4;
+    const { captions: _c, ...early } = SAVED_V5;
     expect(SettingsSchema.parse(early)).toStrictEqual({ ...early, captions: false });
+  });
+
+  it('v4 settings become v5: everything as saved, less the Hero autonomy switch', () => {
+    // The current schema reads only version 5: a v4 file goes through the migration.
+    expect(SettingsSchema.safeParse(SAVED_V4).success).toBe(false);
+    const migrated = migrateSettings(JSON.parse(JSON.stringify(SAVED_V4)));
+    expect(migrated).toStrictEqual(SAVED_V5);
+    expect(JSON.stringify(migrated)).toBe(JSON.stringify(SAVED_V5));
+    // Saved before captions too.
+    const { captions: _c, ...early } = SAVED_V4;
+    expect(migrateSettings(early)).toStrictEqual({ ...SAVED_V5, captions: false });
   });
 
   it('the new keys survive a save once written, and only values in range parse', () => {
     const written = {
-      ...SAVED_V4,
-      volumes: { ...SAVED_V4.volumes, ambience: 0.4, barks: 0 },
+      ...SAVED_V5,
+      volumes: { ...SAVED_V5.volumes, ambience: 0.4, barks: 0 },
       reducedMotion: 'on',
       telegraphs: { opacity: 0.6, outline: 2, perfectBand: 1.5, highContrast: true },
       answerGlyphs: false,
@@ -224,7 +246,6 @@ describe('Phase 7 settings contracts', () => {
         wheel: 'toggle',
         mouseoverCast: false,
         mouse: { thread: 'Mouse2', mode: 'Mouse0', wheel: 'KeyF' },
-        cueModifier: 'Control',
         padBindings: { ward: ['faceDown', 'faceUp'], reticleNext: ['bumperRight'] },
       },
       aids: { gameSpeed: 0.7, autoThread: true },
@@ -233,7 +254,7 @@ describe('Phase 7 settings contracts', () => {
     };
     expect(SettingsSchema.parse(JSON.parse(JSON.stringify(written)))).toStrictEqual(written);
     const bad = (patch: Record<string, unknown>) =>
-      SettingsSchema.safeParse({ ...SAVED_V4, ...patch }).success;
+      SettingsSchema.safeParse({ ...SAVED_V5, ...patch }).success;
     expect(bad({ telegraphs: { opacity: 0.5 } })).toBe(false);
     expect(bad({ telegraphs: { outline: 2.5 } })).toBe(false);
     expect(bad({ telegraphs: { perfectBand: 0.9 } })).toBe(false);
@@ -243,19 +264,22 @@ describe('Phase 7 settings contracts', () => {
     expect(bad({ quality: 'ultra' })).toBe(false);
     expect(bad({ locale: 'fr' })).toBe(false);
     expect(bad({ input: { padBindings: { ward: ['triangle'] } } })).toBe(false);
-    expect(bad({ volumes: { ...SAVED_V4.volumes, barks: 1.5 } })).toBe(false);
+    expect(bad({ volumes: { ...SAVED_V5.volumes, barks: 1.5 } })).toBe(false);
     expect(bad({ telegraphs: { opacity: 0.8 } })).toBe(true);
   });
 
-  it('the new aids live outside the assists: a fight’s assists are still exactly three keys', () => {
+  it('the new aids live outside the assists: a fight’s assists are exactly two keys', () => {
+    // Three until the Solo rework: the Hero autonomy switch left with the Cue key (docs/solos.md).
     expect(Object.keys(DEFAULT_SETTINGS.assists).sort()).toEqual([
-      'autonomy',
       'perfectWindowBonus',
       'telegraphLead',
     ]);
     expect(SettingsSchema.shape.assists.safeParse({ ...TODAY.assists, gameSpeed: 1 }).data).toEqual(
       TODAY.assists,
     );
+    expect(
+      SettingsSchema.shape.assists.safeParse({ ...TODAY.assists, autonomy: true }).data,
+    ).toEqual(TODAY.assists);
   });
 
   it('the assists offer exactly the run verifier’s values (ASSIST_VALUES)', () => {
@@ -274,9 +298,14 @@ describe('Phase 7 settings contracts', () => {
 
 describe('Phase 7 input contracts', () => {
   it('the keyboard’s actions are today’s; the pad-only actions are apart from them', () => {
-    expect(Object.keys(DEFAULT_BINDINGS)).toHaveLength(25);
+    // 25 and four until the Solo rework: the Cue key and the pad's Cue button are gone.
+    expect(Object.keys(DEFAULT_BINDINGS)).toHaveLength(24);
+    expect(Object.keys(DEFAULT_BINDINGS)).not.toContain('cue');
     for (const a of PAD_ACTIONS) expect(a in DEFAULT_BINDINGS, a).toBe(false);
-    expect(PAD_ACTIONS).toEqual(['reticleNext', 'reticlePrev', 'threadReticle', 'cueReticle']);
+    expect(PAD_ACTIONS).toEqual(['reticleNext', 'reticlePrev', 'threadReticle']);
+    // T and the pad's right bumper are free.
+    expect(Object.values(DEFAULT_BINDINGS).flat()).not.toContain('KeyT');
+    expect(Object.values(DEFAULT_PAD_BINDINGS).flat()).not.toContain('bumperRight');
   });
 
   it('the default pad layout uses standard buttons, each once, on known actions', () => {
@@ -513,12 +542,12 @@ describe('Phase 7 save and version contracts', () => {
     return run;
   }
 
-  it('the versions: sim 23 (the Solo rework, docs/solos.md), content as the goldens, run save 5, profile 10, settings 4', () => {
+  it('the versions: sim 23 and settings 5 (the Solo rework, docs/solos.md), content as the goldens, run save 5, profile 10', () => {
     expect(SIM_VERSION).toBe(23);
     expect(CONTENT_VERSION).toBe(golden.contentVersion);
     expect(RUN_SAVE_VERSION).toBe(5);
     expect(PROFILE_VERSION).toBe(10);
-    expect(DEFAULT_SETTINGS.version).toBe(4);
+    expect(DEFAULT_SETTINGS.version).toBe(5);
   });
 
   it('an old run save (no assisted) loads to exactly what it was, and saves back the same', () => {

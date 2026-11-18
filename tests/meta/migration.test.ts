@@ -1,6 +1,13 @@
 /** Older saves and settings are migrated, never thrown away (docs/plan/05 §8). */
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_HUD, DEFAULT_SETTINGS, migrateSettings } from '../../src/app/settings';
+import {
+  DEFAULT_HUD,
+  DEFAULT_SETTINGS,
+  SettingsSchema,
+  migrateSettings,
+} from '../../src/app/settings';
+import { effectiveBindings } from '../../src/input/bindings';
+import { effectivePadBindings } from '../../src/input/padBindings';
 import { newProfile } from '../../src/meta/profile';
 import * as Run from '../../src/meta/run';
 import {
@@ -448,7 +455,7 @@ describe('Phase 6: profile 10 and run save 5 (docs/phase-6.md, ground rule 9)', 
 });
 
 describe('settings migration', () => {
-  it('moves Phase 1 and Phase 2 settings to v4, keeping the player’s choices', () => {
+  it('moves Phase 1 and Phase 2 settings to today’s, keeping the player’s choices', () => {
     const v1 = {
       version: 1,
       volumes: { master: 0.5, music: 0.2, sfx: 0.9, ui: 0.4 },
@@ -460,7 +467,7 @@ describe('settings migration', () => {
     };
     const v2 = migrateSettings(v1)!;
     expect(v2).toMatchObject({
-      version: 4,
+      version: 5,
       unlockAll: false,
       hud: DEFAULT_HUD,
       volumes: v1.volumes,
@@ -470,8 +477,9 @@ describe('settings migration', () => {
       uiScale: 1,
       colorVision: 'normal',
       bindings: {},
-      assists: v1.assists,
     });
+    // The assists as chosen; the Hero autonomy switch, which every version up to 4 had, is gone.
+    expect(v2.assists).toStrictEqual({ perfectWindowBonus: 0.2, telegraphLead: 1.5 });
     expect(migrateSettings({ ...v1, flashes: true })!.flashes).toBe(1);
     expect(migrateSettings(DEFAULT_SETTINGS)).toEqual(DEFAULT_SETTINGS);
     const { unlockAll: _u, ...phase2 } = { ...DEFAULT_SETTINGS, version: 2, uiScale: 1.25 };
@@ -480,10 +488,17 @@ describe('settings migration', () => {
     expect(migrateSettings({ version: 7 })).toBeNull();
   });
 
-  it('moves Phase 4 settings (v3) to v4: the HUD gets its defaults, the rest is kept', () => {
+  it('moves Phase 4 settings (v3) on: the HUD gets its defaults, the rest is kept', () => {
     const { hud: _h, ...rest } = DEFAULT_SETTINGS;
     void _h;
-    const v3 = { ...rest, version: 3, uiScale: 1.25, colorVision: 'tritanopia', unlockAll: true };
+    const v3 = {
+      ...rest,
+      version: 3,
+      uiScale: 1.25,
+      colorVision: 'tritanopia',
+      unlockAll: true,
+      assists: { ...rest.assists, autonomy: false },
+    };
     expect(migrateSettings(v3)).toEqual({
       ...DEFAULT_SETTINGS,
       uiScale: 1.25,
@@ -533,5 +548,115 @@ describe('settings migration', () => {
       hud: { ...DEFAULT_HUD, weaverBar: { at: { x: 0.5, y: 0.03, corner: 'tc' }, scale: 0.85 } },
     };
     expect(migrateSettings(moved)).toEqual(moved);
+  });
+
+  it('version 4 to 5 (the Solo rework): the autonomy switch, the Cue modifier and the Cue bindings are dropped; the rest is as saved', () => {
+    // A version 4 file with nothing at its default, Hero autonomy on, the Cue modifier moved to
+    // Ctrl, the Cue key moved to Y, and the pad's Cue moved to another button.
+    const v4 = {
+      version: 4,
+      volumes: { master: 0.5, music: 0.25, sfx: 0.75, ui: 1, ambience: 0.4, barks: 0.6 },
+      screenShake: 0.4,
+      flashes: 0.5,
+      damageNumbers: false,
+      hints: false,
+      uiScale: 1.25,
+      colorVision: 'deuteranopia',
+      bindings: { ward: ['KeyJ'], cue: ['KeyY'], directiveScatter: ['KeyT'] },
+      assists: { perfectWindowBonus: 0.2, telegraphLead: 1.5, autonomy: true },
+      unlockAll: true,
+      hud: {
+        frames: { at: { x: 0.1, y: 0.9, corner: 'bl' }, scale: 1.2, orientation: 'horizontal' },
+        weaverBar: { at: null, scale: 0.9 },
+        allyBars: 'hurt',
+        healthText: 'percent',
+        lowHealthSound: false,
+      },
+      captions: true,
+      reducedMotion: 'on',
+      telegraphs: { opacity: 0.8, highContrast: true },
+      heroVoices: true,
+      input: {
+        threadMode: 'hold',
+        mouse: { mode: 'KeyM' },
+        cueModifier: 'Control',
+        padBindings: {
+          cueReticle: ['faceUp'],
+          cue: ['select'],
+          chime: ['bumperRight'],
+          reticleNext: ['dpadRight'],
+        },
+      },
+      aids: { gameSpeed: 0.8, autoThread: true },
+      quality: 'low',
+      locale: 'en-XA',
+    };
+    const v5 = migrateSettings(JSON.parse(JSON.stringify(v4)));
+    expect(v5).toStrictEqual({
+      ...v4,
+      version: 5,
+      // T was the Cue key; a player who gave it to something else keeps that.
+      bindings: { ward: ['KeyJ'], directiveScatter: ['KeyT'] },
+      assists: { perfectWindowBonus: 0.2, telegraphLead: 1.5 },
+      input: {
+        threadMode: 'hold',
+        mouse: { mode: 'KeyM' },
+        padBindings: { chime: ['bumperRight'], reticleNext: ['dpadRight'] },
+      },
+    });
+    // What it reads as is what it saves as, and it reads again unchanged.
+    expect(migrateSettings(JSON.parse(JSON.stringify(v5)))).toStrictEqual(v5);
+    expect(SettingsSchema.parse(v5)).toStrictEqual(v5);
+    // The file is not the current version's: only the migration reads it.
+    expect(SettingsSchema.safeParse(v4).success).toBe(false);
+  });
+
+  it('version 4 to 5: an `input` or a pad list that held only the Cue’s things goes with them', () => {
+    const base = {
+      ...DEFAULT_SETTINGS,
+      version: 4,
+      assists: { perfectWindowBonus: 0, telegraphLead: 1, autonomy: false },
+    };
+    // Untouched defaults, as most players have them.
+    expect(migrateSettings(base)).toStrictEqual(DEFAULT_SETTINGS);
+    expect(migrateSettings({ ...base, input: { cueModifier: 'Alt' } })).toStrictEqual(
+      DEFAULT_SETTINGS,
+    );
+    expect(
+      migrateSettings({ ...base, input: { padBindings: { cueReticle: ['faceUp'] } } }),
+    ).toStrictEqual(DEFAULT_SETTINGS);
+    expect(
+      migrateSettings({ ...base, input: { wheel: 'toggle', padBindings: { cueReticle: [] } } }),
+    ).toStrictEqual({ ...DEFAULT_SETTINGS, input: { wheel: 'toggle' } });
+    expect(migrateSettings({ ...base, bindings: { cue: [] } })).toStrictEqual(DEFAULT_SETTINGS);
+    // A version 4 file with a value this build can't read still loads, that value left out.
+    expect(
+      migrateSettings({ ...base, quality: 'ultra', input: { cueModifier: 'KeyM' } }),
+    ).toStrictEqual(DEFAULT_SETTINGS);
+  });
+
+  it('after the migration the old Cue key and the pad’s right bumper are bound to nothing', () => {
+    const v4 = {
+      ...DEFAULT_SETTINGS,
+      version: 4,
+      assists: { perfectWindowBonus: 0, telegraphLead: 1, autonomy: true },
+      bindings: { cue: ['KeyT', 'KeyY'] },
+      input: { padBindings: { cueReticle: ['bumperRight'] } },
+    };
+    const v5 = migrateSettings(v4)!;
+    const keys = effectiveBindings(v5.bindings);
+    expect(Object.values(keys).flat()).not.toContain('KeyT');
+    expect(Object.values(keys).flat()).not.toContain('KeyY');
+    expect(Object.keys(keys)).not.toContain('cue');
+    const pad = effectivePadBindings(v5.input?.padBindings ?? {});
+    expect(Object.values(pad).flat()).not.toContain('bumperRight');
+    expect(Object.keys(pad)).not.toContain('cueReticle');
+    expect(Object.keys(pad)).not.toContain('cue');
+    // A stray Cue binding in a file of today's version is ignored, never played.
+    expect(Object.keys(effectiveBindings({ cue: ['KeyT'] }))).not.toContain('cue');
+    expect(Object.values(effectiveBindings({ cue: ['KeyT'] })).flat()).not.toContain('KeyT');
+    expect(
+      Object.values(effectivePadBindings({ cueReticle: ['bumperRight'] })).flat(),
+    ).not.toContain('bumperRight');
   });
 });

@@ -1,5 +1,13 @@
 import { quantize } from '../sim/core/dmath';
-import type { Command, EntityId, PartySlot, ThreadMode, WorldState } from '../sim';
+import {
+  soloDueIn,
+  threadCues,
+  type Command,
+  type EntityId,
+  type PartySlot,
+  type ThreadMode,
+  type WorldState,
+} from '../sim';
 import { optionsOf, useSettings, type InputSettings } from '../app/settings';
 import {
   DEFAULT_BINDINGS,
@@ -23,7 +31,7 @@ import {
   shapeStickOf,
   type PadSource,
 } from './gamepad';
-import { isModifierToken, modifierOf, mouseCode, type MouseRole } from './inputMap';
+import { mouseCode, type MouseRole } from './inputMap';
 import { buildPadIndex, livePadBindings, type FullPadBindings } from './padBindings';
 import { enemyAt, heroAt } from './smartCast';
 import {
@@ -46,9 +54,28 @@ export const CUT_FALLBACK_SECONDS = 3;
 
 /**
  * Auto-Thread (docs/phase-7.md, decision 15): after this many sim seconds with no input, the
- * Thread goes to the lowest-life hero, as a press of their key would send it.
+ * Thread goes to the lowest-life hero, as a press of their key would send it. And after this
+ * many seconds in which the player has not touched the Thread itself (busy or not with Ward,
+ * Chime and moving), it follows a Solo about to fire (docs/solos.md, `autoSoloTarget`).
  */
 export const AUTO_THREAD_IDLE_SECONDS = 2;
+
+/**
+ * Auto-Thread follows a Solo (docs/solos.md, rule 7) as the Skilled bot does (`soloCue`,
+ * src/bots/skilled.ts): the Thread goes to a hero this many seconds before their Solo is due to
+ * fire (the bot's `SOLO_LEAD`), and longer by Silent Cues' hold when that level is on.
+ */
+export const AUTO_SOLO_LEAD = 0.5;
+/** Nor while a hero is under this share of their life: they need the Thread more (`SOLO_DANGER`). */
+export const AUTO_SOLO_DANGER = 0.3;
+/**
+ * Nor does it leave the hero the Thread is on while that hero is under this share of their life:
+ * a player busy with other keys may be healing them with it. (The bot has no such line: it
+ * weighs every hero each tick. This one is the aid's own.)
+ */
+export const AUTO_SOLO_KEEP = 0.6;
+/** The Thread reaches a hero to follow this far (m) inside its range, as the bot keeps it. */
+const AUTO_SOLO_REACH_MARGIN = 0.5;
 
 /** Inputs entering the sim are quantised so replays are compact and exact. */
 const MOVE_STEP = 1 / 1024;
@@ -115,10 +142,15 @@ export type GroundPicker = (
  * reticle on a hero sends exactly what a mouse hovering that hero would.
  *
  * Phase 7 (docs/phase-7.md, W1): the mouse roles (Thread the hovered hero, Mend ⇄ Empower, the
- * wheel) and the Cue modifier follow `settings.input`; Thread mode and the wheel can be held or
- * toggled; a standard-mapping pad is read once a frame (`updatePointer`) while one is connected;
- * Auto-Thread sends `thread` after AUTO_THREAD_IDLE_SECONDS with no input. Each of them only
- * queues commands a keyboard and mouse could send.
+ * wheel) follow `settings.input`; Thread mode and the wheel can be held or toggled; a
+ * standard-mapping pad is read once a frame (`updatePointer`) while one is connected; Auto-Thread
+ * sends `thread` after AUTO_THREAD_IDLE_SECONDS with no input (`autoThreadTarget`). Each of them
+ * only queues commands a keyboard and mouse could send.
+ *
+ * There is no Cue (docs/solos.md): heroes fire their own Solos, and a Solo is Cued when the
+ * Thread is on its hero as it fires. So no key, modifier or pad button Cues: a hero's key threads
+ * them whatever is held with it, and `T` and the pad's right bumper play nothing unless the
+ * player binds them to something.
  */
 export class InputController {
   private codeIndex: Map<string, Action>;
@@ -189,8 +221,24 @@ export class InputController {
   private lastDevice: 'mouse' | 'pad' = 'mouse';
   // Auto-Thread.
   private touched = false;
+  /** When the player last did anything (sim time): the lowest-life rule waits from here. */
   private lastInputAt = Number.NaN;
+  /**
+   * The player touched the Thread itself since the last frame (a hero's key, the click that
+   * threads the hovered hero, the pad's reticle, a party frame): following a Solo waits from
+   * then (`lastThreadAt`, sim time).
+   */
+  private threadTouched = false;
+  private lastThreadAt = Number.NaN;
+  /** When Auto-Thread last looked for the lowest-life hero (it looks again every idle wait). */
+  private lastLifeAt = Number.NaN;
   private autoSent = false;
+  /**
+   * Following a Solo: the hero Auto-Thread last sent the Thread to for it (sent once a hero, so
+   * a refused command is never repeated every frame), and where the Thread was before, to go
+   * back to. Null while it follows none.
+   */
+  private soloFollow: { asked: PartySlot | null; back: PartySlot | null } | null = null;
 
   /**
    * Without explicit `bindings`, the controller follows the player's bindings live:
@@ -253,6 +301,8 @@ export class InputController {
 
   /** Extra commands from tools (dev panel, test hook, HUD clicks). Recorded like player input. */
   queue(command: Command): void {
+    // A click on a party frame threads its hero: the player's own hand on the Thread.
+    if (command.t === 'thread') this.threadTouched = true;
     this.pending.push(command);
   }
 
@@ -396,26 +446,11 @@ export class InputController {
       this.releaseAll();
       return;
     }
-    const opts = this.input();
-    const mod = opts.cueModifier;
+    // A Ctrl or Alt chord is the browser's or the system's, never the game's.
+    if (event.ctrlKey || event.altKey) return;
     const action = this.codeIndex.get(event.code);
-    if (mod !== '' && !isModifierToken(mod) && modifierOf(event.code) === mod) {
-      // A key chosen as the Cue modifier (unbound otherwise: Controls keeps one use a key). It
-      // does nothing now (docs/solos.md); it leaves with the Controls' rework.
-      if (!action) {
-        event.preventDefault();
-        return;
-      }
-    }
-    if (event.ctrlKey || event.altKey) {
-      // A Ctrl or Alt chord reaches the game only as the Cue modifier on a hero's key.
-      const chord =
-        (mod === 'Control' && event.ctrlKey && !event.altKey) ||
-        (mod === 'Alt' && event.altKey && !event.ctrlKey);
-      if (!chord || !action || focusSlot(action) === null) return;
-    }
     if (!action) {
-      this.roleKeyDown(event, opts);
+      this.roleKeyDown(event, this.input());
       return;
     }
     if (UI_ACTIONS.has(action)) {
@@ -430,14 +465,6 @@ export class InputController {
     this.held.add(action);
     if (event.repeat) return;
     this.touched = true;
-    const slot = focusSlot(action);
-    if (slot !== null) {
-      // A hero's number threads them, with the Cue modifier held or not: heroes fire their own
-      // Solos, and the Thread on them is the Cue (docs/solos.md). The modifier and the Cue key
-      // leave with the Controls' rework.
-      this.pending.push({ t: 'thread', slot });
-      return;
-    }
     this.act(action, 'key', event.code);
   };
 
@@ -451,6 +478,7 @@ export class InputController {
       case 'focus2':
       case 'focus3':
       case 'focus4':
+        this.threadTouched = true;
         this.pending.push({ t: 'thread', slot: focusSlot(action)! });
         break;
       case 'threadMode':
@@ -489,10 +517,6 @@ export class InputController {
         });
         break;
       }
-      case 'cue':
-        // Nothing: heroes fire their own Solos (docs/solos.md). The action leaves with the
-        // Controls' rework.
-        break;
       case 'crescendo':
         this.pending.push({ t: 'crescendo' });
         break;
@@ -569,6 +593,7 @@ export class InputController {
   private rolePress(role: MouseRole, code: string): void {
     if (role === 'thread') {
       // Thread the hovered hero (in the world, or their party frame).
+      this.threadTouched = true;
       if (this.hoveredSlot !== null) this.pending.push({ t: 'thread', slot: this.hoveredSlot });
     } else if (role === 'mode') {
       this.modePress(code);
@@ -978,10 +1003,8 @@ export class InputController {
         this.stepReticle(-1);
         return;
       case 'threadReticle':
+        this.threadTouched = true;
         if (this.reticle !== null) this.pending.push({ t: 'thread', slot: this.reticle });
-        return;
-      case 'cueReticle':
-        // Nothing: heroes fire their own Solos (docs/solos.md).
         return;
       default:
         this.padHeld.add(action);
@@ -1005,29 +1028,77 @@ export class InputController {
   /**
    * Decision 15: with the aid on, after AUTO_THREAD_IDLE_SECONDS of sim time with no input (no
    * key, mouse button, pad button or stick, and nothing held), queue the `thread` a hero's key
-   * would send for `autoThreadTarget`. The clock is the sim's, so it stops while paused and
-   * slows with the game speed.
+   * would send for `autoThreadTarget`, and again every such wait while the hands stay off. The
+   * clock is the sim's, so it stops while paused and slows with the game speed.
+   *
+   * It also follows Solos (docs/solos.md, rule 7), and for that the hands need not be off: the
+   * player may be busy with Ward, Chime and moving. Every frame, once the player has not touched
+   * the Thread itself for AUTO_THREAD_IDLE_SECONDS, the Thread goes to the hero whose Solo is
+   * about to fire (`autoSoloTarget`: nobody in danger, and the hero it would leave not badly
+   * hurt) and stays until it has, so the Solo is Cued. Then it goes back to the hero it left;
+   * with the hands off, the lowest-life rule has its say first. The player's own touch of the
+   * Thread ends a follow at once: the Thread is theirs again for the wait.
    */
   private autoThread(state: WorldState): void {
+    // The player's own hand on the Thread: a follow ends, and none begins for the wait.
+    if (this.threadTouched) {
+      this.threadTouched = false;
+      this.lastThreadAt = state.time;
+      this.soloFollow = null;
+    }
     // Input: a press or a move, anything held (a hold-mode Thread mode too), an open wheel.
-    if (
+    const input =
       this.touched ||
       this.held.size > 0 ||
       this.padHeld.size > 0 ||
       this.stickOn ||
       this.modeHeldBy !== null ||
-      this.wheelState !== null
-    ) {
+      this.wheelState !== null;
+    if (input) {
       this.touched = false;
       this.lastInputAt = state.time;
-      return;
     }
     if (Number.isNaN(this.lastInputAt)) this.lastInputAt = state.time;
-    if (!this.enabled || !optionsOf(useSettings.getState().settings).aids.autoThread) return;
-    if (state.time - this.lastInputAt < AUTO_THREAD_IDLE_SECONDS) return;
-    this.lastInputAt = state.time;
+    if (Number.isNaN(this.lastThreadAt)) this.lastThreadAt = state.time;
+    if (!this.enabled || !optionsOf(useSettings.getState().settings).aids.autoThread) {
+      this.soloFollow = null;
+      return;
+    }
+    const handsOff = !input && state.time - this.lastInputAt >= AUTO_THREAD_IDLE_SECONDS;
+    // A Solo about to fire: the Thread is on that hero as they fire it.
+    if (state.time - this.lastThreadAt >= AUTO_THREAD_IDLE_SECONDS) {
+      const soloist = autoSoloTarget(state);
+      if (soloist !== null) {
+        this.soloFollow ??= { asked: null, back: this.threadedSlot };
+        if (soloist !== this.threadedSlot && soloist !== this.soloFollow.asked) {
+          this.soloFollow.asked = soloist;
+          this.autoSend(soloist);
+        }
+        return;
+      }
+    }
+    const followed = this.soloFollow;
+    this.soloFollow = null;
+    if (followed) {
+      // The Solo has fired (or a hero is in danger): back to the hero the Thread left for it.
+      // With the hands off the lowest-life hero comes first, as that rule would send it anyway.
+      if (handsOff) this.lastLifeAt = state.time;
+      const slot =
+        (handsOff ? autoThreadTarget(state) : null) ?? autoThreadBack(state, followed.back);
+      if (slot !== null) this.autoSend(slot);
+      return;
+    }
+    if (!handsOff) return;
+    // The lowest-life rule looks once the hands have been off for the wait, then every wait.
+    const looked = Number.isNaN(this.lastLifeAt) ? this.lastInputAt : this.lastLifeAt;
+    if (state.time - Math.max(looked, this.lastInputAt) < AUTO_THREAD_IDLE_SECONDS) return;
+    this.lastLifeAt = state.time;
     const slot = autoThreadTarget(state);
-    if (slot === null) return;
+    if (slot !== null) this.autoSend(slot);
+  }
+
+  /** Auto-Thread's own `thread`, as the hero's key would send it. */
+  private autoSend(slot: PartySlot): void {
     this.pending.push({ t: 'thread', slot });
     this.autoSent = true;
   }
@@ -1088,6 +1159,110 @@ export function autoThreadTarget(state: WorldState): PartySlot | null {
   return best;
 }
 
+/**
+ * Is a hero in danger, so that Auto-Thread leaves Solos be and keeps to the lowest-life hero?
+ * The Skilled bot's reasons to keep its Thread (`soloCue`, src/bots/skilled.ts): a hero downed,
+ * on a Fermata hold (a Mend saves them), condemned by an Execution (under its line, or within a
+ * tenth of their life above it), or under `AUTO_SOLO_DANGER` of their life. Brann aside for that
+ * last one, who sits low on purpose (docs/phase-5b.md).
+ */
+export function partyInDanger(state: WorldState): boolean {
+  for (const id of state.party) {
+    const e = state.entities.get(id);
+    const h = e?.health;
+    if (!e?.hero || !h || h.dead || h.maxHp <= 0) continue;
+    if (h.downed || e.hero.hold) return true;
+    if (e.hero.blood === undefined && h.hp < h.maxHp * AUTO_SOLO_DANGER) return true;
+  }
+  for (const t of state.telegraphs) {
+    if (t.executeBelow === undefined || t.target === null) continue;
+    const h = state.entities.get(t.target)?.health;
+    if (h && state.party.includes(t.target) && h.hp < h.maxHp * (t.executeBelow + 0.1)) return true;
+  }
+  return false;
+}
+
+/**
+ * The hero whose Solo Auto-Thread follows now (docs/solos.md, rule 7), or null to leave the
+ * Thread to the lowest-life rule. It is the Skilled bot's rule (`soloCue` and `soloToCue`,
+ * src/bots): with nobody in danger (`partyInDanger`), the hero whose Solo is soonest due within
+ * `AUTO_SOLO_LEAD` seconds (the sim's `soloDueIn`; Silent Cues' hold is added to the lead, so the
+ * Thread has been there long enough), whom the Thread can reach. Kael may raise his wall at any
+ * moment once it is full, so he counts from then on, behind any hero due within the lead: the
+ * wall he raises with the Thread on him is the dome over everyone.
+ *
+ * It never leaves a hero who needs the Thread: null while the hero the Thread is on is under
+ * `AUTO_SOLO_KEEP` of their life (Brann aside, as for the danger line), unless the Solo coming
+ * is their own.
+ *
+ * Null as well when the Thread can't be moved (the Weaver down, the Thread locked), through the
+ * Grand Silence, with Hollow Crown (every Solo is Cued anyway), for a hero stilled or possessed
+ * (they don't fire), and for a hero whose Solo would be Cued as things stand without the Thread
+ * moving (the sim's `threadCues`).
+ */
+export function autoSoloTarget(state: WorldState): PartySlot | null {
+  const weaver = state.entities.get(state.weaverId);
+  const w = weaver?.weaver;
+  if (!weaver || !w || weaver.health?.downed || w.threadLock > 0) return null;
+  // Hollow Crown: every Solo is Cued, Thread or not. Nothing to follow.
+  if (state.mods.alwaysCued) return null;
+  if (state.field.finale?.silence || partyInDanger(state)) return null;
+  const reach = w.threadRange - AUTO_SOLO_REACH_MARGIN;
+  const lead = AUTO_SOLO_LEAD + state.mods.cueHold;
+  let soon: PartySlot | null = null;
+  let soonDue = Infinity;
+  let wall: PartySlot | null = null;
+  for (let slot = 0; slot < state.party.length; slot++) {
+    const e = state.entities.get(state.party[slot]!);
+    const c = e?.hero;
+    if (!e || !c || !e.health) continue;
+    if (e.health.statuses.some((x) => x.id === 'stilled' || x.id === 'possessed')) continue;
+    const dx = e.x - weaver.x;
+    const dz = e.z - weaver.z;
+    if (dx * dx + dz * dz >= reach * reach) continue;
+    const due = soloDueIn(state, e);
+    if (due === null) continue;
+    // A full Solo with no one to fight does not fire (heroes.ts `soloFires`), though the tell
+    // still reads its whole wait: nothing to follow, or the Thread would sit there between
+    // waves. (Oro is the exception: target-less, his wait runs while a Sapling fights.)
+    if (c.solo >= 100 && c.targetId === null && !c.grove) continue;
+    // Cued as things stand, though the Thread is elsewhere (the rule is the sim's, and may be
+    // widened for slower hands): nothing to follow. On the threaded hero it reads true as well;
+    // they stay a candidate, so that the Thread is kept on them until they fire.
+    if (slot !== w.threadSlot && threadCues(state, e)) continue;
+    if (c.soloId === 'aegisWall' && c.solo >= 100 && c.targetId !== null) wall = slot as PartySlot;
+    if (due <= lead && due < soonDue) {
+      soon = slot as PartySlot;
+      soonDue = due;
+    }
+  }
+  const pick = soon ?? wall;
+  if (pick === null || pick === w.threadSlot) return pick;
+  // The hero the Thread would leave is badly hurt: it stays.
+  const on = w.threadSlot === null ? undefined : state.entities.get(state.party[w.threadSlot]!);
+  const h = on?.health;
+  if (on?.hero && h && !h.dead && on.hero.blood === undefined && h.hp < h.maxHp * AUTO_SOLO_KEEP)
+    return null;
+  return pick;
+}
+
+/**
+ * Where Auto-Thread goes back to once the Solo it followed has fired and nobody is lower on
+ * life: the hero the Thread was on before (`back`), if they still live within its reach. Null to
+ * leave the Thread where it is.
+ */
+function autoThreadBack(state: WorldState, back: PartySlot | null): PartySlot | null {
+  const weaver = state.entities.get(state.weaverId);
+  const w = weaver?.weaver;
+  if (back === null || !weaver || !w || weaver.health?.downed || w.threadLock > 0) return null;
+  if (back === w.threadSlot) return null;
+  const e = state.entities.get(state.party[back] ?? -1);
+  if (!e?.health || e.health.dead) return null;
+  const dx = e.x - weaver.x;
+  const dz = e.z - weaver.z;
+  return dx * dx + dz * dz <= w.threadRange * w.threadRange ? back : null;
+}
+
 const NONE: ReadonlySet<WheelSpoke> = new Set();
 const NO_FOCUS: ReadonlySet<WheelSpoke> = new Set<WheelSpoke>(['focus']);
 const ALL_SPOKES: ReadonlySet<WheelSpoke> = new Set<WheelSpoke>(WHEEL_SPOKES.map((s) => s.id));
@@ -1106,12 +1281,7 @@ function isUiAction(action: PadBindable): action is Action {
 }
 
 function isPadOnly(action: PadBindable): action is PadAction {
-  return (
-    action === 'reticleNext' ||
-    action === 'reticlePrev' ||
-    action === 'threadReticle' ||
-    action === 'cueReticle'
-  );
+  return action === 'reticleNext' || action === 'reticlePrev' || action === 'threadReticle';
 }
 
 function withSlot(

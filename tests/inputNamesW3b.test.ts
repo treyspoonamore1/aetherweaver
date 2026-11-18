@@ -1,7 +1,10 @@
 /**
  * Phase 7 W3b (docs/phase-7.md, *W3a and W3b*; W1's requests 1 and 2): HUD text names the
- * player's own Mend ⇄ Empower and wheel mouse roles and Cue modifier, and the Martyr's live Bear
- * key, and is byte-identical to before with the default settings.
+ * player's own Mend ⇄ Empower and wheel mouse roles, and the Martyr's live Bear key, and is
+ * byte-identical to before with the default settings.
+ *
+ * The Cue modifier it also named is gone with the Cue key (docs/solos.md): what the key hints
+ * say in its place is the HUD step's, and is tested there.
  */
 import { createElement, type FunctionComponent } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -11,7 +14,7 @@ import { CONTENT } from '../src/content';
 import { writeInput } from '../src/input/inputMap';
 import { createSim } from '../src/sim';
 import { evaluateHints } from '../src/ui/hud/hints';
-import { cueModifierMark, withLiveKey } from '../src/ui/hud/labels';
+import { withLiveKey } from '../src/ui/hud/labels';
 import { switchKeyLabel } from '../src/ui/hud/threadMode';
 import { buildHudSnapshot } from '../src/ui/hudBridge';
 import type { HudSnapshot } from '../src/ui/store';
@@ -27,7 +30,6 @@ function rebind(): void {
   useSettings.getState().update((d) =>
     writeInput(d, {
       mouse: { thread: 'Mouse0', mode: 'Mouse3', wheel: 'Mouse4' },
-      cueModifier: 'Control',
     }),
   );
 }
@@ -51,23 +53,19 @@ describe('live input names in HUD text', () => {
     // The hint's own words are round 11's (the menu text pass); the key in them is what's held.
     expect(empowerHint()).toBe('Everyone is healthy. Press {RMB} for Empower and add damage');
     expect(switchKeyLabel()).toBe('RMB');
-    expect(cueModifierMark()).toBe('⇧');
   });
 
-  it('a rebound Mend ⇄ Empower role and Cue modifier are named in hints and the key hints', async () => {
+  it('a rebound Mend ⇄ Empower role is named in hints and the key hints', async () => {
     rebind();
     expect(empowerHint()).toBe('Everyone is healthy. Press {Mouse 4} for Empower and add damage');
     expect(switchKeyLabel()).toBe('Mouse 4');
-    expect(cueModifierMark()).toBe('Ctrl+');
     const { KeyHints } = await tsx<{ KeyHints: FunctionComponent<Props> }>(
       '../src/ui/hud/KeyHints',
     );
     const html = renderToStaticMarkup(createElement(KeyHints, {}));
-    expect(html).toContain('Ctrl+1–4');
     expect(html).toContain('/ Mouse 5');
     expect(html).not.toContain('RMB');
     expect(html).not.toContain('MMB');
-    expect(html).not.toContain('⇧');
   });
 
   it('the key hints read as before with the defaults', async () => {
@@ -76,7 +74,6 @@ describe('live input names in HUD text', () => {
     );
     const html = renderToStaticMarkup(createElement(KeyHints, {}));
     expect(html).toContain('>RMB<');
-    expect(html).toContain('⇧1–4');
     expect(html).toContain('/ MMB click');
   });
 

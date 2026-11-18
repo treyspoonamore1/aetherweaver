@@ -1,7 +1,10 @@
 /**
- * Phase 7 W1 (docs/phase-7.md, *Tests*): every key, mouse role and the Cue modifier rebound
- * plays the same command as its default; conflicts across devices; hold-or-toggle for Thread
- * mode and the wheel; mouseover casting off; the input settings stay absent until changed.
+ * Phase 7 W1 (docs/phase-7.md, *Tests*): every key and mouse role rebound plays the same command
+ * as its default; conflicts across devices; hold-or-toggle for Thread mode and the wheel;
+ * mouseover casting off; the input settings stay absent until changed.
+ *
+ * Since the Solo rework (docs/solos.md) there is no Cue to send: no Cue key, no Cue modifier, no
+ * pad Cue button. The tests that played them now check that nothing does.
  */
 import { createElement, type FunctionComponent } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -16,7 +19,6 @@ import { InputController } from '../src/input/InputController';
 import {
   DEFAULT_KEY_MAP,
   bindCode,
-  modifierOf,
   resetBinder,
   unbindCode,
   userOf,
@@ -50,7 +52,7 @@ function setInput(patch: Parameters<typeof writeInput>[1]): void {
   useSettings.getState().update((d) => writeInput(d, patch));
 }
 
-describe('Phase 7 input: remapping every action, role and the modifier', () => {
+describe('Phase 7 input: remapping every action and role', () => {
   let win: EventTarget;
   let canvas: EventTarget;
   let sim: Sim;
@@ -215,48 +217,40 @@ describe('Phase 7 input: remapping every action, role and the modifier', () => {
     expect(wheel(o1!, c1!, true)).toEqual([]);
   });
 
-  it('the Cue modifier: Shift by default; Ctrl, Alt or a key once chosen', () => {
-    let input = make();
+  it('no Cue modifier: a hero’s key threads them with Shift held; Ctrl and Alt chords stay the browser’s', () => {
+    const input = make();
     win.dispatchEvent(key('keydown', 'Digit2', { shiftKey: true }));
     win.dispatchEvent(key('keyup', 'Digit2'));
-    expect(input.collect()).toEqual([{ t: 'cue', slot: 1 }]);
-    input.dispose();
-
-    for (const [mod, flag] of [
-      ['Control', 'ctrlKey'],
-      ['Alt', 'altKey'],
-    ] as const) {
-      setInput({ cueModifier: mod });
-      input = make();
-      win.dispatchEvent(key('keydown', 'Digit2', { [flag]: true }));
-      win.dispatchEvent(key('keyup', 'Digit2'));
-      // Shift is a plain number now; and the chord stays shut to every other key.
-      win.dispatchEvent(key('keydown', 'Digit3', { shiftKey: true }));
+    expect(input.collect()).toEqual([{ t: 'thread', slot: 1 }]);
+    for (const flag of ['ctrlKey', 'altKey'] as const) {
+      win.dispatchEvent(key('keydown', 'Digit3', { [flag]: true }));
       win.dispatchEvent(key('keyup', 'Digit3'));
       win.dispatchEvent(key('keydown', 'KeyR', { [flag]: true }));
-      expect(input.collect(), mod).toEqual([
-        { t: 'cue', slot: 1 },
-        { t: 'thread', slot: 2 },
-      ]);
-      input.dispose();
+      win.dispatchEvent(key('keyup', 'KeyR'));
+      expect(input.collect(), flag).toEqual([]);
     }
-
-    setInput({ cueModifier: 'KeyM' });
-    input = make();
+    // A key that was once chosen as the modifier is a key like any other: it holds nothing back.
     win.dispatchEvent(key('keydown', 'KeyM'));
-    win.dispatchEvent(key('keydown', 'Digit2'));
-    win.dispatchEvent(key('keyup', 'Digit2'));
+    win.dispatchEvent(key('keydown', 'Digit3'));
+    win.dispatchEvent(key('keyup', 'Digit3'));
     win.dispatchEvent(key('keyup', 'KeyM'));
-    win.dispatchEvent(key('keydown', 'Digit2'));
-    expect(input.collect()).toEqual([
-      { t: 'cue', slot: 1 },
-      { t: 'thread', slot: 1 },
-    ]);
-    input.dispose();
-    expect(modifierOf('ShiftRight')).toBe('Shift');
-    expect(modifierOf('ControlLeft')).toBe('Control');
-    expect(modifierOf('AltRight')).toBe('Alt');
-    expect(modifierOf('KeyM')).toBe('KeyM');
+    expect(input.collect()).toEqual([{ t: 'thread', slot: 2 }]);
+  });
+
+  it('no key sends a Cue: the old Cue key T plays nothing, hovered hero or not', () => {
+    const input = make();
+    input.setUiHover(2);
+    input.updatePointer(sim.state);
+    input.collect();
+    win.dispatchEvent(key('keydown', 'KeyT'));
+    win.dispatchEvent(key('keyup', 'KeyT'));
+    win.dispatchEvent(key('keydown', 'KeyT', { shiftKey: true }));
+    win.dispatchEvent(key('keyup', 'KeyT'));
+    expect(input.collect()).toEqual([]);
+    expect(ui).toEqual([]);
+    // Nothing is bound to it, and no action is named for it.
+    expect(Object.values(DEFAULT_BINDINGS).flat()).not.toContain('KeyT');
+    expect(Object.keys(DEFAULT_BINDINGS)).not.toContain('cue');
   });
 
   it('hold-or-toggle Thread mode', () => {
@@ -342,7 +336,7 @@ describe('Phase 7 input: remapping every action, role and the modifier', () => {
     };
     let input = make();
     hovered(input);
-    for (const code of ['KeyQ', 'KeyF', 'KeyT']) {
+    for (const code of ['KeyQ', 'KeyF']) {
       win.dispatchEvent(key('keydown', code));
       win.dispatchEvent(key('keyup', code));
     }
@@ -350,21 +344,19 @@ describe('Phase 7 input: remapping every action, role and the modifier', () => {
     expect(on).toEqual([
       { t: 'tech', id: 'ward', slot: 2 },
       { t: 'tech', id: 'reel', slot: 2 },
-      { t: 'cue', slot: 2 },
     ]);
     input.dispose();
 
     setInput({ mouseoverCast: false });
     input = make();
     hovered(input);
-    for (const code of ['KeyQ', 'KeyF', 'KeyT']) {
+    for (const code of ['KeyQ', 'KeyF']) {
       win.dispatchEvent(key('keydown', code));
       win.dispatchEvent(key('keyup', code));
     }
     expect(input.collect()).toEqual([
       { t: 'tech', id: 'ward', slot: 0 },
       { t: 'tech', id: 'reel', slot: 0 },
-      { t: 'cue', slot: 0 },
     ]);
     // Chime lands at the cursor, not on the hovered hero.
     win.dispatchEvent(key('keydown', 'KeyE'));
@@ -399,14 +391,16 @@ describe('Phase 7 input: conflicts across devices', () => {
     expect(m.mouse).toEqual({ thread: 'Mouse2', mode: 'Mouse0', wheel: 'Mouse1' });
   });
 
-  it('the modifier as a key takes it from an action; a token never lands on an action', () => {
-    const m = bindCode(DEFAULT_KEY_MAP, { kind: 'modifier' }, 0, 'KeyQ', 'swap');
-    expect(m.cueModifier).toBe('KeyQ');
-    // 'Shift' (the old modifier) is no key an action can hold: Ward simply loses Q.
-    expect(m.bindings.ward).toEqual([]);
-    const back = resetBinder(m, { kind: 'modifier' });
-    expect(back.cueModifier).toBe('Shift');
+  it('a role resets to its default button and can be unbound; the key map holds no modifier', () => {
+    const m = bindCode(DEFAULT_KEY_MAP, { kind: 'role', role: 'mode' }, 0, 'KeyQ', 'swap');
+    const back = resetBinder(m, { kind: 'role', role: 'mode' });
+    expect(back.mouse.mode).toBe('Mouse2');
     expect(unbindCode(back, { kind: 'role', role: 'thread' }).mouse.thread).toBe('');
+    expect(Object.keys(DEFAULT_KEY_MAP).sort()).toEqual(['bindings', 'mouse']);
+    // Shift is a key like any other now: free, and a mouse role may take it.
+    expect(userOf(DEFAULT_KEY_MAP, 'ShiftLeft')).toBeNull();
+    const shift = bindCode(DEFAULT_KEY_MAP, { kind: 'role', role: 'mode' }, 0, 'ShiftLeft');
+    expect(shift.mouse.mode).toBe('ShiftLeft');
   });
 
   it('never leaves two things on one code, whatever the order of binds', () => {
@@ -414,7 +408,7 @@ describe('Phase 7 input: conflicts across devices', () => {
     const steps: [Parameters<typeof bindCode>[1], string][] = [
       [{ kind: 'role', role: 'mode' }, 'KeyE'],
       [{ kind: 'action', action: 'chime' }, 'KeyG'],
-      [{ kind: 'modifier' }, 'KeyX'],
+      [{ kind: 'role', role: 'wheel' }, 'KeyX'],
       [{ kind: 'role', role: 'thread' }, 'Mouse1'],
       [{ kind: 'action', action: 'directiveHold' }, 'KeyE'],
     ];
@@ -428,7 +422,6 @@ describe('Phase 7 input: conflicts across devices', () => {
       };
       for (const [a, codes] of Object.entries(m.bindings)) for (const c of codes) note(c, a);
       for (const [r, c] of Object.entries(m.mouse)) note(c, r);
-      note(m.cueModifier, 'modifier');
     }
   });
 });
@@ -496,16 +489,22 @@ describe('Settings → Controls (the lab view: the UI lab renders the same compo
       'Directive wheel',
       'Thread mode',
       'Mouseover casting',
-      'Cue modifier',
       'Auto-Thread',
       'Gamepad',
       'Menu keys (fixed)',
       'Reroll the Draft',
       'Thread the reticle’s hero',
       'Reticle to the next hero',
-      'With Shift: Cue their Solo',
     ])
       expect(html, text).toContain(text);
+    // No Cue to bind anywhere (docs/solos.md): no Cue key, no Cue modifier, no pad Cue button.
+    for (const gone of ['Cue a Solo', 'Cue modifier', 'Cue their Solo', 'Cue the reticle’s hero'])
+      expect(html, gone).not.toContain(gone);
+    // T is on no row (R, the Crescendo's, is: the keys read this way); the right bumper on none.
+    expect(html).toContain('>R</button>');
+    expect(html).not.toContain('>T</button>');
+    expect(html).toContain('data-code="bumperLeft"');
+    expect(html).not.toContain('data-code="bumperRight"');
     // The roles, as shipped: left, right and middle.
     for (const code of ['Mouse0', 'Mouse1', 'Mouse2'])
       expect(html).toContain(`data-code="${code}"`);
@@ -516,7 +515,7 @@ describe('Settings → Controls (the lab view: the UI lab renders the same compo
     expect(html).not.toMatch(/Mouse buttons are fixed/);
   });
 
-  it('follows the player’s settings: a moved role, the modifier, hold and Auto-Thread on', async () => {
+  it('follows the player’s settings: a moved role, hold and Auto-Thread on', async () => {
     const Controls = await component<{ compact?: boolean }>(
       '../src/ui/screens/ControlsSettings',
       'ControlsSettings',
@@ -524,13 +523,11 @@ describe('Settings → Controls (the lab view: the UI lab renders the same compo
     useSettings.getState().update((d) => ({
       ...writeInput(d, {
         threadMode: 'hold',
-        cueModifier: 'Control',
         mouse: { thread: 'Mouse0', mode: 'Mouse4', wheel: 'KeyN' },
       }),
       aids: { autoThread: true },
     }));
     const html = render(createElement(Controls, {}));
-    expect(html).toContain('With Ctrl: Cue their Solo');
     expect(html).toContain('>Mouse 5<');
     expect(html).toContain('N (hold)');
     expect(html).toMatch(/checked=""[^>]*role="switch"|role="switch"[^>]*checked=""/);
@@ -551,14 +548,13 @@ describe('Settings → Controls (the lab view: the UI lab renders the same compo
     expect(cap).toContain('>LB</kbd>');
     expect(cap).toContain('aria-label="Left bumper"');
     expect(mouseRoleLabel('mode')).toBe('RMB');
-    expect(inputLabel('Control')).toBe('Ctrl');
     expect(inputLabel('KeyQ')).toBe('Q');
   });
 });
 
 /** The label of a pad row's first slot (`input.controls.change` / `.none`). */
 function padRowLabel(a: PadBindable): string {
-  return a.startsWith('reticle') || a === 'threadReticle' || a === 'cueReticle'
+  return a.startsWith('reticle') || a === 'threadReticle'
     ? t(`input.padAction.${a}` as TextKey)
     : actionLabel(a as Action);
 }

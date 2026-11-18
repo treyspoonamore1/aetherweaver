@@ -1,6 +1,8 @@
 /**
- * CONTRACT v4 — player settings (docs/plan/04 §9). Persisted per device in localStorage.
- * Version 4 adds the HUD's layout and health read-outs (docs/health-ui.md).
+ * CONTRACT v5 — player settings (docs/plan/04 §9). Persisted per device in localStorage.
+ * Version 4 added the HUD's layout and health read-outs (docs/health-ui.md).
+ * Version 5 (docs/solos.md) drops what the Cue key needed: the Hero autonomy assist, the Cue
+ * modifier, and any key or pad button bound to a Cue. Nothing else moves.
  * Assists feed the sim config (and are stamped into replays); the rest is presentation.
  * Older saved settings are migrated, never thrown away.
  */
@@ -34,8 +36,6 @@ const AssistsSchema = z.object({
   perfectWindowBonus: z.literal(ASSIST_VALUES.perfectWindowBonus),
   /** Telegraph wind-up multiplier (≥ 1 = more time to react). */
   telegraphLead: z.literal(ASSIST_VALUES.telegraphLead),
-  /** Heroes fire their own Solos after a moment's Cue window (docs/hero-autonomy.md). */
-  autonomy: z.boolean(),
 });
 
 /**
@@ -156,12 +156,6 @@ const InputSchema = z.object({
   /** Smart-cast takes the hovered hero (as today); off, the threaded hero only. */
   mouseoverCast: z.boolean().optional(),
   mouse: MouseRolesSchema.optional(),
-  /**
-   * The Cue-by-slot modifier: held with a hero's Thread key, it Cues them. `Shift` (either Shift
-   * key, as today), `Control`, `Alt`, or a `KeyboardEvent.code`. Not in the doc's list: W0 adds it
-   * for W1's "the Cue-by-slot modifier is bindable".
-   */
-  cueModifier: z.string().optional(),
   /** Pad overrides by action (as `bindings` is for keys): at most 3 buttons an action. */
   padBindings: z.record(z.string(), z.array(z.enum(PAD_BUTTONS)).max(3)).optional(),
 });
@@ -170,7 +164,14 @@ export interface InputSettings {
   wheel: 'hold' | 'toggle';
   mouseoverCast: boolean;
   mouse: MouseRoles;
-  cueModifier: string;
+  /**
+   * SOLO-JOIN stand-in (Solo rework, the input step). There is no Cue modifier: the schema does
+   * not read one, nothing writes one, and this is never set. The name is declared only because
+   * the HUD's files still read it (`cueModifierMark` in `src/ui/hud/labels.ts`, and
+   * `src/ui/screens/CodexScreen.tsx`), and those are the HUD step's to change; reading it gives
+   * `undefined`, which they show as Shift. To remove once they no longer read it.
+   */
+  cueModifier?: undefined;
   padBindings: Readonly<Record<string, readonly PadButton[]>>;
 }
 export const DEFAULT_INPUT: Readonly<InputSettings> = {
@@ -178,7 +179,6 @@ export const DEFAULT_INPUT: Readonly<InputSettings> = {
   wheel: 'hold',
   mouseoverCast: true,
   mouse: DEFAULT_MOUSE_ROLES,
-  cueModifier: 'Shift',
   padBindings: {},
 };
 
@@ -235,8 +235,11 @@ export const DEFAULT_OPTIONS: Readonly<Options> = {
   locale: 'en',
 };
 
+/** The settings' version: 5 since the Solo rework (docs/solos.md). */
+export const SETTINGS_VERSION = 5;
+
 export const SettingsSchema = z.object({
-  version: z.literal(4),
+  version: z.literal(SETTINGS_VERSION),
   volumes: VolumesSchema,
   /** 0 = off … 1 = full trauma shake. */
   screenShake: z.number().min(0).max(1),
@@ -331,7 +334,7 @@ export function barksVolume(volumes: Settings['volumes']): number {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  version: 4,
+  version: SETTINGS_VERSION,
   volumes: { master: 0.8, music: 0.6, sfx: 0.9, ui: 0.7 },
   screenShake: 1,
   flashes: 1,
@@ -340,14 +343,52 @@ export const DEFAULT_SETTINGS: Settings = {
   uiScale: 1,
   colorVision: 'normal',
   bindings: {},
-  assists: { perfectWindowBonus: 0, telegraphLead: 1, autonomy: false },
+  assists: { perfectWindowBonus: 0, telegraphLead: 1 },
   unlockAll: false,
   hud: DEFAULT_HUD,
   captions: false,
 };
 
+/**
+ * Settings as they were saved before the Solo rework (version 4): today's, with the Cue key's
+ * three things still in them. `fromV4` drops those; everything else is read as it is.
+ */
+const SettingsV4Schema = SettingsSchema.omit({ version: true }).extend({
+  version: z.literal(4),
+});
+
+/** What the Cue key had in the settings' two binding lists: its action, and the pad's own. */
+const CUE_BINDINGS = ['cue', 'cueReticle'] as const;
+
+/**
+ * Version 4 to 5 (docs/solos.md): heroes fire their own Solos and the Thread is the Cue, so the
+ * Hero autonomy assist (`assists.autonomy`), the Cue modifier (`input.cueModifier`) and whatever
+ * was bound to a Cue (the `cue` key, the pad's `cueReticle`) are dropped. The two fields the
+ * schema no longer names are left out by the parse itself; the bindings are named records, so
+ * they are taken out here. An `input` or a pad list left with nothing in it goes too, as
+ * `writeInput` keeps them. Every other setting is exactly as saved, and the result is read once
+ * more by today's schema, so it is laid out as a file this build wrote.
+ */
+function fromV4(v4: z.infer<typeof SettingsV4Schema>): Settings {
+  const bindings = { ...v4.bindings };
+  for (const key of CUE_BINDINGS) delete bindings[key];
+  const next: Settings = { ...v4, version: SETTINGS_VERSION, bindings };
+  if (v4.input) {
+    const input = { ...v4.input };
+    if (input.padBindings) {
+      const pad = { ...input.padBindings };
+      for (const key of CUE_BINDINGS) delete pad[key];
+      if (Object.keys(pad).length) input.padBindings = pad;
+      else delete input.padBindings;
+    }
+    if (Object.keys(defined(input)).length) next.input = input;
+    else delete next.input;
+  }
+  return SettingsSchema.parse(next);
+}
+
 /** Settings as Phase 4 saved them (no HUD settings yet). */
-const SettingsV3Schema = SettingsSchema.omit({ version: true, hud: true }).extend({
+const SettingsV3Schema = SettingsV4Schema.omit({ version: true, hud: true }).extend({
   version: z.literal(3),
 });
 
@@ -460,10 +501,12 @@ export function migrateSettings(raw: unknown): Settings | null {
 function migrateKnown(raw: unknown): Settings | null {
   const current = SettingsSchema.safeParse(raw);
   if (current.success) return current.data;
+  const v4 = SettingsV4Schema.safeParse(raw);
+  if (v4.success) return fromV4(v4.data);
   const v3 = SettingsV3Schema.safeParse(raw);
-  if (v3.success) return { ...v3.data, version: 4, hud: DEFAULT_HUD };
+  if (v3.success) return fromV4({ ...v3.data, version: 4, hud: DEFAULT_HUD });
   const v2 = SettingsV2Schema.safeParse(raw);
-  if (v2.success) return { ...v2.data, version: 4, unlockAll: false, hud: DEFAULT_HUD };
+  if (v2.success) return fromV4({ ...v2.data, version: 4, unlockAll: false, hud: DEFAULT_HUD });
   const v1 = SettingsV1Schema.safeParse(raw);
   if (v1.success) {
     return {

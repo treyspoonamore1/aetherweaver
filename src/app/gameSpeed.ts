@@ -18,15 +18,16 @@ export function gameSpeed(): number {
 }
 
 /**
- * Whether a fight played now uses an assist (decision 16): one of the three in `assists` away from
- * its default, game speed under 100%, or Auto-Thread on. The run records it (`withAssisted`).
+ * Whether a fight played now uses an assist (decision 16): the Perfect window or the telegraph
+ * lead away from its default, game speed under 100%, or Auto-Thread on. The run records it
+ * (`withAssisted`). The old Hero autonomy switch is not one: heroes fire their own Solos for
+ * everyone now (docs/solos.md), so settings saved with it on mark nothing.
  */
 export function assistsInUse(settings: Settings): boolean {
   const a = settings.assists;
   const d = DEFAULT_SETTINGS.assists;
   const aids = optionsOf(settings).aids;
   return (
-    a.autonomy !== d.autonomy ||
     a.perfectWindowBonus !== d.perfectWindowBonus ||
     a.telegraphLead !== d.telegraphLead ||
     aids.gameSpeed < 1 ||
