@@ -16,6 +16,7 @@
  *
  * Numbers a run may change (the fight is played with them; nothing is written anywhere):
  *   --wait S  --kael-hold S  --gap S  --tell S   `SOLOS` (src/sim/constants.ts)
+ *   --party-hit S  --root-hold S                 the heroes' judgement (0: off)
  *   --gain-scale X                               every Resonance gain times X
  *   --reaction S  --miss X                       the person's hands (tools/person.ts `PERSON`)
  *
@@ -105,8 +106,12 @@ export interface StudyKnobs {
   kaelHold?: number;
   gap?: number;
   tell?: number;
+  partyHit?: number;
+  rootHold?: number;
   gainScale?: number;
 }
+
+const SOLO_KNOBS = ['wait', 'kaelHold', 'gap', 'tell', 'partyHit', 'rootHold'] as const;
 
 /**
  * Plays `fn` with the Solo numbers changed, then puts them back. The constants are the sim's own
@@ -117,14 +122,14 @@ export function withKnobs<T>(knobs: StudyKnobs, fn: () => T): T {
   const resonance = CONTENT.resonance as { gainScale: number };
   const before = { ...solos, gainScale: resonance.gainScale };
   try {
-    for (const k of ['wait', 'kaelHold', 'gap', 'tell'] as const) {
+    for (const k of SOLO_KNOBS) {
       const v = knobs[k];
       if (v !== undefined) solos[k] = v;
     }
     if (knobs.gainScale !== undefined) resonance.gainScale = knobs.gainScale;
     return fn();
   } finally {
-    for (const k of ['wait', 'kaelHold', 'gap', 'tell'] as const) solos[k] = before[k];
+    for (const k of SOLO_KNOBS) solos[k] = before[k];
     resonance.gainScale = before.gainScale;
   }
 }
@@ -401,6 +406,8 @@ function main(): void {
   set('kaelHold', 'kael-hold');
   set('gap', 'gap');
   set('tell', 'tell');
+  set('partyHit', 'party-hit');
+  set('rootHold', 'root-hold');
   set('gainScale', 'gain-scale');
   const reaction = num('reaction');
   const miss = num('miss');

@@ -16,6 +16,7 @@ import {
   type SimEvent,
 } from '../../src/sim';
 import { SIM_HZ, SOLOS } from '../../src/sim/constants';
+import type { Telegraph } from '../../src/sim/state';
 import { hero, ofType, sandbox, spawn, stepFor, stepUntil, weaver, worldOf } from './helpers';
 
 const KAEL = 0;
@@ -36,6 +37,33 @@ function fight(config: Parameters<typeof sandbox>[0] = {}): Sim {
     if (e.enemy && e.health) e.health.hp = e.health.maxHp = 1e6;
   stepUntil(sim, () => [KAEL, LYRA, VEXIS].every((s) => hero(sim, s).hero!.targetId !== null));
   return sim;
+}
+
+let nextTelegraph = 9000;
+/**
+ * A burst on the ground at (x, z), `r` across, landing in `impact` seconds and costing everyone
+ * in it `share` of their life.
+ */
+function burst(sim: Sim, x: number, z: number, r: number, impact: number, share: number): void {
+  const w = worldOf(sim);
+  const t: Telegraph = {
+    id: nextTelegraph++,
+    owner: w.weaverId,
+    target: null,
+    attackId: 'test_burst',
+    name: 'Test Burst',
+    kind: 'burst',
+    shape: { kind: 'circle', x, z, r },
+    start: w.time,
+    impact: w.time + impact,
+    perfectFrom: w.time + impact - 0.35,
+    damage: 0,
+    pctMaxHp: share,
+    effect: 'damage',
+    answers: [],
+    severity: 'normal',
+  };
+  w.telegraphs.push(t);
 }
 
 /** Keeps the party at full life for a tick's step (so Kael never raises his wall for a wound). */
@@ -92,6 +120,71 @@ describe('heroes fire their own Solos', () => {
     expect(
       ofType(events, 'soloStarted').some((e) => e.hero === kael.id && e.solo === 'aegisWall'),
     ).toBe(true);
+  });
+
+  it('with the Thread on him, Kael raises the dome at once for a hit about to land on the party', () => {
+    const stage = (threaded: boolean) => {
+      const sim = fight();
+      const w = worldOf(sim);
+      const kael = hero(sim, KAEL);
+      // Only Kael's wall is full; the Thread on him, or on Lyra.
+      w.entities.get(kael.id)!.hero!.solo = 100;
+      stepFor(sim, 1, [thread(threaded ? KAEL : LYRA)]);
+      // A burst over the whole party, four tenths of each one’s life, landing in a second.
+      burst(sim, kael.x, kael.z, 30, 1, 0.4);
+      topUp(sim);
+      return { sim, kael, events: stepFor(sim, 2) };
+    };
+    const on = stage(true);
+    const wall = ofType(on.events, 'soloStarted').filter((e) => e.hero === on.kael.id);
+    expect(wall).toHaveLength(1);
+    expect(wall[0]!.cued).toBe(true);
+    // The Thread elsewhere: he keeps his own counsel (the hit is not on him alone, he is not hurt).
+    const off = stage(false);
+    expect(ofType(off.events, 'soloStarted').filter((e) => e.hero === off.kael.id)).toEqual([]);
+    // A hit further off than `SOLOS.partyHit`, or on one hero alone, is no reason either.
+    const far = fight();
+    worldOf(far).entities.get(hero(far, KAEL).id)!.hero!.solo = 100;
+    stepFor(far, 1, [thread(KAEL)]);
+    burst(far, hero(far, KAEL).x, hero(far, KAEL).z, 30, SOLOS.partyHit + 1, 0.4);
+    topUp(far);
+    expect(ofType(stepFor(far, 2), 'soloStarted')).toEqual([]);
+  });
+
+  it('a Solo that would root its hero, not about to be Cued, waits out a hit coming at them', () => {
+    const stage = (threaded: boolean) => {
+      const sim = fight();
+      const w = worldOf(sim);
+      const vexis = hero(sim, VEXIS);
+      w.entities.get(vexis.id)!.hero!.solo = 100;
+      stepFor(sim, 1, [thread(threaded ? VEXIS : KAEL)]);
+      // A small hit on Vexis alone, landing after his wait is over.
+      burst(sim, vexis.x, vexis.z, 0.6, SOLOS.wait + 1, 0.05);
+      const { fired } = firstSolos(sim, (SOLOS.wait + 2) * SIM_HZ);
+      return fired.get(VEXIS)!;
+    };
+    // Plain, Starfall would root him in the hit: he fires only once it has landed.
+    const plain = stage(false);
+    expect(plain.cued).toBe(false);
+    expect(plain.tick).toBeGreaterThanOrEqual((SOLOS.wait + 1) * SIM_HZ - 2);
+    // With the Thread on him he fires on time: a Weaver following the Solo is not kept waiting.
+    const cued = stage(true);
+    expect(cued.cued).toBe(true);
+    expect(cued.tick).toBeLessThanOrEqual(WAIT + 2);
+  });
+
+  it('the hold for a hit ends after `SOLOS.rootHold` seconds: hit after hit, he still fires', () => {
+    const sim = fight();
+    const w = worldOf(sim);
+    const vexis = hero(sim, VEXIS);
+    w.entities.get(vexis.id)!.hero!.solo = 100;
+    stepFor(sim, 1, [thread(KAEL)]);
+    // A hit that never seems to land.
+    burst(sim, vexis.x, vexis.z, 0.6, 60, 0.05);
+    const { fired } = firstSolos(sim, (SOLOS.wait + SOLOS.rootHold + 1) * SIM_HZ);
+    const at = fired.get(VEXIS)!.tick;
+    expect(at).toBeGreaterThanOrEqual((SOLOS.wait + SOLOS.rootHold) * SIM_HZ - 2);
+    expect(at).toBeLessThanOrEqual((SOLOS.wait + SOLOS.rootHold) * SIM_HZ + 2);
   });
 
   it('the wait starts over after a gap: a new enemy gets the full wait', () => {

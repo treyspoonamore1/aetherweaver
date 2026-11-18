@@ -19,7 +19,7 @@ import {
   shieldOf,
 } from '../combat/health';
 import { bark } from '../combat/feedback';
-import { contains } from '../combat/telegraphs';
+import { contains, partyHitWithin } from '../combat/telegraphs';
 import { topThreat } from '../combat/threat';
 import type { Entity, Telegraph } from '../state';
 import { weaverOf, type World } from '../world';
@@ -297,10 +297,12 @@ function lowHpCheck(world: World, e: Entity): void {
 
 /**
  * Does this hero fire their full Solo now (docs/solos.md)? Kael raises his Aegis Wall at once
- * when he is hurt, a big hit is coming at him or (Shieldbearer) a friend falls low. Otherwise
- * every hero waits `SOLOS.wait` seconds with someone to fight (Kael holds for a big hit, at most
- * `SOLOS.kaelHold`), then for `SOLOS.gap` since the last hero's Solo began, then, with A Tempo,
- * for the downbeat. A hero with a Grand Finale turn still to come keeps the Solo for it.
+ * when he is hurt, a big hit is coming at him, (Shieldbearer) a friend falls low or, with the
+ * Thread on him, a hit is about to land on the party. Otherwise every hero waits `SOLOS.wait`
+ * seconds with someone to fight (Kael holds for a big hit, at most `SOLOS.kaelHold`), then for
+ * `SOLOS.gap` since the last hero's Solo began, then, with A Tempo, for the downbeat. A hero
+ * with a Grand Finale turn still to come keeps the Solo for it; one whose Solo would be wasted
+ * right now holds it a little longer (`wasted`).
  */
 function soloFires(world: World, e: Entity): boolean {
   const h = e.health!;
@@ -308,6 +310,14 @@ function soloFires(world: World, e: Entity): boolean {
   const wall = hero.soloId === 'aegisWall';
   if (wall && (h.hp < h.maxHp * 0.5 || h.incoming > h.hp * 0.5)) return true;
   if (friendFalling(world, e)) return true;
+  if (
+    wall &&
+    SOLOS.partyHit > 0 &&
+    hero.targetId !== null &&
+    threadCues(world, e) &&
+    partyHitWithin(world, SOLOS.partyHit)
+  )
+    return true;
   // Oro (docs/phase-5e.md): target-less, his wait runs while a Sapling fights.
   if (hero.grove && hero.targetId === null) {
     if (!groveSoloDue(world, e)) return false;
@@ -319,7 +329,23 @@ function soloFires(world: World, e: Entity): boolean {
   // and A Tempo starts every Solo on the downbeat.
   if (world.field.conducting?.finale?.queue.includes(e.id)) return false;
   if (world.mods.beatWindow > 0 && !onBeat(world)) return false;
-  return true;
+  return !wasted(world, e);
+}
+
+/**
+ * The heroes' judgement (docs/solos.md): would this Solo, due now, be wasted? Kael's wall never
+ * is. A Solo that roots its hero in place (Starfall, Gale Barrage, Hawk's Vigil) and is not about
+ * to be Cued is held while a hit is coming at them, at most `SOLOS.rootHold` seconds past the
+ * wait: rooted, they would stand in it. With the Thread on them it fires on time, so a Weaver
+ * following the Solo is never kept waiting.
+ */
+function wasted(world: World, e: Entity): boolean {
+  const hero = e.hero!;
+  if (!(SOLOS.rootHold > 0) || hero.targetId === null) return false;
+  const id = hero.soloId;
+  if (id !== 'starfall' && id !== 'galeBarrage' && id !== 'hawks_vigil') return false;
+  if (hero.soloHeld - SOLOS.wait >= SOLOS.rootHold) return false;
+  return e.health!.incoming > 0 && !threadCues(world, e);
 }
 
 /**

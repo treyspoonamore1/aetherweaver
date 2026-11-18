@@ -281,6 +281,28 @@ export function updateIncoming(world: World): void {
   }
 }
 
+/** `partyHitWithin`: a hit counts for a member it would cost this share of their life. */
+const PARTY_HIT_SHARE = 0.15;
+
+/**
+ * A hit on the party about to land (docs/solos.md, Kael's judgement): a telegraph due within
+ * `seconds` that will cost at least two of the party (the Weaver counts) a real share of their
+ * life each. Read after `updateIncoming`'s pass, never during it.
+ */
+export function partyHitWithin(world: World, seconds: number): boolean {
+  for (const t of world.telegraphs) {
+    const due = t.impact - world.time;
+    if (due < 0 || due > seconds) continue;
+    let struck = 0;
+    for (const e of candidates(world, t, scratch)) {
+      if (!contains(world, t, e) || spared(world, t.id, e.id)) continue;
+      if (telegraphDamage(t, e) >= e.health!.maxHp * PARTY_HIT_SHARE) struck++;
+    }
+    if (struck >= 2) return true;
+  }
+  return false;
+}
+
 /** Resolves every telegraph whose impact time has come. */
 export function resolveTelegraphs(world: World): void {
   if (world.telegraphs.length === 0) return;

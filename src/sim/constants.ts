@@ -27,8 +27,23 @@ export function pastSamples(seconds: number): number {
  * come due together can be followed one at a time with the Thread. `tell` is how long before a
  * Solo is full the views (and the bots) treat it as coming: the tell is its last `tell` seconds
  * of charge plus the wait. Tuning levers: change them here and nowhere else.
+ *
+ * The heroes' judgement (heroes.ts `soloFires`), each 0 to leave it off:
+ * - `partyHit`: with the Thread on him, Kael raises his wall at once for a hit about to land on
+ *   two or more of the party within this many seconds (his Cued wall is a dome over everyone);
+ * - `rootHold`: a hero whose Solo would root them in place and is not about to be Cued holds it
+ *   while a hit is coming at them, for at most this many seconds past the wait.
+ * (Measured and left out, docs/solos.md: holding a Solo on a wave's last, nearly dead enemy, and
+ * while its target cannot be hurt. Neither changed one fight in 780.)
  */
-export const SOLOS = { wait: 1, kaelHold: 3, gap: 1, tell: 3 } as const;
+export const SOLOS = {
+  wait: 1,
+  kaelHold: 3,
+  gap: 1,
+  tell: 3,
+  partyHit: 1.5,
+  rootHold: 2,
+} as const;
 
 /**
  * The music's tempo, owned by the sim (docs/phase-5f.md, A Tempo): 88 BPM in four, so a bar is
