@@ -669,10 +669,9 @@ function memoAdvance<S extends { time: number }>(state: S): S {
 // ── The assist badge (decision 16) ───────────────────────────────────────────────────────
 
 describe('W2: the assist badge from the run’s own record', () => {
-  it('assistsInUse: the three assists, game speed under 100%, Auto-Thread; nothing at the defaults', () => {
+  it('assistsInUse: the two assists, game speed under 100%, Auto-Thread; nothing at the defaults', () => {
     expect(assistsInUse(DEFAULT_SETTINGS)).toBe(false);
     const a = DEFAULT_SETTINGS.assists;
-    expect(assistsInUse({ ...DEFAULT_SETTINGS, assists: { ...a, autonomy: true } })).toBe(true);
     expect(assistsInUse({ ...DEFAULT_SETTINGS, assists: { ...a, perfectWindowBonus: 0.1 } })).toBe(
       true,
     );
@@ -682,6 +681,19 @@ describe('W2: the assist badge from the run’s own record', () => {
     expect(assistsInUse({ ...DEFAULT_SETTINGS, aids: { gameSpeed: 1, autoThread: false } })).toBe(
       false,
     );
+  });
+
+  it('the old Hero autonomy switch is no assist: a player who had it on is not marked', () => {
+    // Heroes fire their own Solos for everyone now (docs/solos.md). Settings saved with the old
+    // switch on, read as they were (before the migration drops it), mark nothing.
+    const old = {
+      ...DEFAULT_SETTINGS,
+      assists: { ...DEFAULT_SETTINGS.assists, autonomy: true },
+    } as Settings;
+    expect(assistsInUse(old)).toBe(false);
+    const run = Run.embark(Run.newRun(7));
+    expect(withAssisted(run, old)).toBe(run);
+    expect('assisted' in withAssisted(run, old)).toBe(false);
   });
 
   it('withAssisted: absent until true, then kept through the run’s steps and its save', () => {
