@@ -12,7 +12,13 @@ import { FILL_HARMONIES } from '../../src/content/fill/harmonies';
 import { MotifDefSchema } from '../../src/content/schema';
 import * as Run from '../../src/meta/run';
 import type { RunState } from '../../src/meta/types';
-import type { Command, PartySlot, SimConfig, SimEvent } from '../../src/sim';
+import {
+  resonanceScale,
+  type Command,
+  type PartySlot,
+  type SimConfig,
+  type SimEvent,
+} from '../../src/sim';
 import { dealDamage, hasStatus, shieldOf } from '../../src/sim/combat/health';
 import { SIM_DT } from '../../src/sim/constants';
 import { Rng } from '../../src/sim/core/rng';
@@ -33,7 +39,6 @@ import { soloSpec } from '../../src/sim/systems/solos';
 import { RAZOR_TICK } from '../../src/sim/fill/silk';
 import { KNOWN_MOTIFS, NO_MODS, resolveMods, type Mods } from '../../src/sim/mods';
 import type { Entity } from '../../src/sim/state';
-import { cueCostNow } from '../../src/sim/systems/conducting';
 import { empowerBonus, updateThread } from '../../src/sim/systems/thread';
 import { resolveConfig, type World } from '../../src/sim/world';
 import { ofType, sandbox, stepFor, stepUntil, worldOf } from '../sim/helpers';
@@ -73,7 +78,7 @@ const FIELDS: Record<string, (keyof Mods)[]> = {
   cutting_chorus: ['razorMult', 'razorCrit'],
   guardians_cadence: ['triggers'],
   spindle_lullaby: ['razorSleep'],
-  tempo_rubato: ['freeCueEvery'],
+  tempo_rubato: ['cueGainEvery'],
   concert_pitch: ['ringingPct', 'ringingSeconds'],
   grand_staff: ['staffMult'],
   crossed_steel: ['triggers'],
@@ -118,7 +123,10 @@ function inert(w: World): void {
   expect('ringing' in w.field).toBe(false);
 }
 
-const cue = (slot: number): Command => ({ t: 'debug', op: { op: 'fireSolo', slot: slot as PartySlot, cued: true } });
+const cue = (slot: number): Command => ({
+  t: 'debug',
+  op: { op: 'fireSolo', slot: slot as PartySlot, cued: true },
+});
 const ward = (slot: number): Command => ({ t: 'tech', id: 'ward', slot: slot as PartySlot });
 
 // ── Content and resolver ────────────────────────────────────────────────────────────────────
@@ -203,7 +211,7 @@ describe('the Harmonies fill: content and resolver', () => {
     expect(r('cutting_chorus').razorMult).toBe(2);
     expect(r('cutting_chorus').razorCrit).toBe(true);
     expect(r('spindle_lullaby').razorSleep).toBe(1);
-    expect(r('tempo_rubato').freeCueEvery).toBe(3);
+    expect(r('tempo_rubato').cueGainEvery).toBe(3);
     expect(r('concert_pitch').ringingPct).toBeCloseTo(0.15, 12);
     expect(r('concert_pitch').ringingSeconds).toBe(RINGING_SECONDS);
     expect(r('grand_staff').staffMult).toBe(2);
@@ -474,34 +482,35 @@ describe('Spindle Lullaby: with Lullaby in your songs, enemies on the Thread sle
 
 // ── Tempo Rubato ────────────────────────────────────────────────────────────────────────────
 
-describe('Tempo Rubato: one Cue in every {v} costs no Resonance', () => {
+describe('Tempo Rubato: one Cue in every {v} gives a segment of Resonance', () => {
+  /** Six Cues, the meter emptied before each: what each one added to it. */
   function cues(motifs: Held, config: Partial<SimConfig> = {}) {
     const s = stage(motifs, config);
-    const paid: number[] = [];
-    const shown: number[] = [];
+    const gained: number[] = [];
     for (let i = 0; i < 6; i++) {
       for (const slot of [0, 1, 2]) s.hero(slot).hero!.soloActive = 0;
-      s.ww.resonance = 100;
+      s.ww.resonance = 0;
       const slot = i % 3;
       s.hero(slot).hero!.solo = 100;
-      shown.push(cueCostNow(s.w));
       const events = stepFor(s.sim, 1, [cue(slot)]);
       expect(ofType(events, 'cued')).toHaveLength(1);
-      paid.push(ofType(events, 'resonanceSpent').reduce((n, e) => n + e.amount, 0));
+      expect(ofType(events, 'resonanceSpent')).toEqual([]);
+      gained.push(s.ww.resonance);
     }
-    return { s, paid, shown, base: s.w.dissonance.cueCost };
+    return { s, gained };
   }
 
   for (const calling of [null, 'conductor'] as const) {
-    it(`held (${calling ?? 'no Calling'}): the 3rd and 6th Cue are free, the price shown is the price paid`, () => {
+    it(`held (${calling ?? 'no Calling'}): the 3rd and 6th Cue give a segment, the others nothing`, () => {
       const config: Partial<SimConfig> = calling ? { calling: { id: calling, path: [] } } : {};
       const r = cues(held('tempo_rubato'), config);
       const without = cues([], config);
-      expect(without.paid.every((p) => p > 0)).toBe(true);
+      expect(without.gained).toEqual([0, 0, 0, 0, 0, 0]);
       const every = value('tempo_rubato');
-      const expected = without.paid.map((p, i) => ((i + 1) % every === 0 ? 0 : p));
-      expect(r.paid).toEqual(expected);
-      expect(r.shown).toEqual(expected);
+      const segment = CONTENT.resonance.segment * resonanceScale(r.s.w);
+      r.gained.forEach((g, i) =>
+        expect(g, `Cue ${i + 1}`).toBeCloseTo((i + 1) % every === 0 ? segment : 0, 9),
+      );
       expect(r.s.w.ledger.cues).toBe(6);
       inert(without.s.w);
     });

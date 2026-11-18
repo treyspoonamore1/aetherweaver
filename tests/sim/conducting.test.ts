@@ -10,6 +10,7 @@ import {
   beatAt,
   crescendoCostOf,
   nextCue,
+  resonanceScale,
   onBeat,
   type Command,
   type Sim,
@@ -55,10 +56,9 @@ function setResonance(w: World, value: number): void {
   weaverOf(w).weaver!.resonance = value;
 }
 
-/** A full Solo and a full meter, then the Cue; the tick's events. */
+/** A full Solo, then the Cue (staged: as if the Thread were on them as they fired); the tick's events. */
 function cueNow(sim: Sim, w: World, slot: number): SimEvent[] {
   heroAt(w, slot).hero!.solo = 100;
-  setResonance(w, 100);
   return stepFor(sim, 1, [cue(slot)]);
 }
 
@@ -136,17 +136,17 @@ describe('Duets and Trios', () => {
   it('a third 2.9 s after the second (5.8 s after the first) is a Trio (×1.5)', () => {
     const { sim, w } = stage();
     const first = ofType(cueNow(sim, w, 0), 'cueChained')[0]!;
-    expect(first).toMatchObject({ link: 1, power: 1, cost: 20, onBeat: false });
+    expect(first).toMatchObject({ link: 1, power: 1, cost: 0, onBeat: false });
     expect(first.until).toBeCloseTo(w.time - 1 / 60 + passive('chain'), 9);
     stepFor(sim, 173);
     expect(ofType(cueNow(sim, w, 1), 'cueChained')[0]!.link).toBe(2);
     stepFor(sim, 173);
     // What the HUD would show for the third, before it is given.
-    expect(nextCue(w, w.party[2]!)).toMatchObject({ link: 3, power: 1.5, cost: 20 });
+    expect(nextCue(w, w.party[2]!)).toMatchObject({ link: 3, power: 1.5 });
     expect(nextCue(w, w.party[0]!)).toMatchObject({ link: 1, power: 1 });
     const third = ofType(cueNow(sim, w, 2), 'cueChained')[0]!;
     expect(third).toMatchObject({ link: 3, power: 1.5 });
-    expect(w.ledger.conducting).toMatchObject({ duets: 1, trios: 1, saved: 15 });
+    expect(w.ledger.conducting).toMatchObject({ duets: 1, trios: 1, freeCues: 0, saved: 0 });
     // The running Solos carry their power.
     const powers = Object.fromEntries(w.field.conducting!.solos.map((s) => [s.hero, s.power]));
     expect(powers).toEqual({ [w.party[1]!]: 1.25, [w.party[2]!]: 1.5 });
@@ -176,18 +176,24 @@ describe('Duets and Trios', () => {
     expect(ofType(cueNow(sim, w, 2), 'cueChained')[0]!.link).toBe(2);
   });
 
-  it('a free Cue (A Tempo) joins a chain and counts as free', () => {
+  it('a Cue on the beat (A Tempo) joins a chain, and A Tempo pays for it', () => {
     const { sim, w } = stage(['a_tempo']);
-    // Off the beat, then on the next downbeat, 2 s later.
+    setResonance(w, 0);
+    // Off the beat (staged), then on the next downbeat, 2 s later.
     w.time = 5 * BAR_SECONDS - 2;
     expect(onBeat(w)).toBe(false);
     cueNow(sim, w, 0);
+    expect(w.ledger.conducting).toMatchObject({ freeCues: 0, saved: 0 });
     stepFor(sim, 119);
     expect(Math.abs(w.time - 5 * BAR_SECONDS)).toBeLessThan(0.15);
-    const free = cueNow(sim, w, 1);
-    expect(ofType(free, 'cueChained')[0]).toMatchObject({ link: 2, cost: 0, onBeat: true });
-    expect(ofType(free, 'resonanceSpent')).toEqual([]);
-    expect(w.ledger.conducting).toMatchObject({ duets: 1, freeCues: 1, saved: 5 + 25 });
+    const before = weaverOf(w).weaver!.resonance;
+    const paid = cueNow(sim, w, 1);
+    expect(ofType(paid, 'cueChained')[0]).toMatchObject({ link: 2, cost: 0, onBeat: true });
+    expect(ofType(paid, 'resonanceSpent')).toEqual([]);
+    const gain = weaverOf(w).weaver!.resonance - before;
+    expect(gain).toBeCloseTo(value('a_tempo', 'resonance') * resonanceScale(w), 9);
+    expect(w.ledger.conducting).toMatchObject({ duets: 1, freeCues: 1 });
+    expect(w.ledger.conducting!.saved).toBeCloseTo(gain, 9);
   });
 
   it('the chain is deleted once its window has passed', () => {
@@ -555,34 +561,47 @@ describe('Marcato', () => {
 });
 
 describe('A Tempo', () => {
-  it('a Cue at k·bar ± 0.149 s is free; at ± 0.151 s it costs 20', () => {
+  it('the downbeat’s window is k·bar ± 0.15 s: a Cue inside it is paid for, outside it is not', () => {
     expect(value('a_tempo', 'beat')).toBe(0.15);
-    for (const [offset, cost] of [
-      [0.149, 0],
-      [-0.149, 0],
-      [0.151, 20],
-      [-0.151, 20],
+    for (const [offset, on] of [
+      [0.149, true],
+      [-0.149, true],
+      [0.151, false],
+      [-0.151, false],
     ] as const) {
       const { sim, w } = stage(['a_tempo']);
       w.time = 4 * BAR_SECONDS + offset;
-      expect(nextCue(w, w.party[0]!)!.onBeat, `${offset}`).toBe(cost === 0);
+      expect(nextCue(w, w.party[0]!)!.onBeat, `${offset}`).toBe(on);
       heroAt(w, 0).hero!.solo = 100;
       setResonance(w, 50);
       const chained = ofType(stepFor(sim, 1, [cue(0)]), 'cueChained')[0]!;
-      expect(chained.cost, `${offset}`).toBe(cost);
-      expect(weaverOf(w).weaver!.resonance).toBeCloseTo(50 - cost, 9);
+      expect(chained.onBeat, `${offset}`).toBe(on);
+      expect(weaverOf(w).weaver!.resonance > 50, `${offset}`).toBe(on);
+      expect(w.ledger.conducting!.freeCues, `${offset}`).toBe(on ? 1 : 0);
     }
   });
 
-  it('with 0 Resonance a Cue on the beat is accepted, and counts as free', () => {
+  it('the heroes begin their Solos on the downbeat, one a bar', () => {
     const { sim, w } = stage(['a_tempo']);
-    w.time = 7 * BAR_SECONDS;
-    heroAt(w, 2).hero!.solo = 100;
-    setResonance(w, 0);
-    const events = stepFor(sim, 1, [cue(2)]);
-    expect(ofType(events, 'cued')).toHaveLength(1);
-    expect(ofType(events, 'techniqueRejected')).toEqual([]);
-    expect(w.ledger.conducting!.freeCues).toBe(1);
+    foe(w, 'bell_brute', 0, -4);
+    stepFor(sim, 90);
+    expect(w.party.every((id) => w.entities.get(id)!.hero!.targetId !== null)).toBe(true);
+    for (const id of w.party) w.entities.get(id)!.hero!.solo = 100;
+    const starts: number[] = [];
+    for (let t = 0; t < 60 * 12 && starts.length < 3; t++) {
+      // Kept whole, so Kael never raises his wall for a wound (that ignores the beat).
+      for (const id of w.party) w.entities.get(id)!.health!.hp = w.entities.get(id)!.health!.maxHp;
+      for (const e of ofType(stepFor(sim, 1), 'soloStarted')) {
+        void e;
+        starts.push(w.time);
+      }
+    }
+    expect(starts).toHaveLength(3);
+    for (const at of starts)
+      expect(Math.abs(at - beatAt(at, BAR_SECONDS).nearest)).toBeLessThan(0.15 + 2 / 60);
+    // A second apart is the rule; with A Tempo that is the next bar.
+    expect(starts[1]! - starts[0]!).toBeGreaterThan(BAR_SECONDS - 0.4);
+    expect(starts[2]! - starts[1]!).toBeGreaterThan(BAR_SECONDS - 0.4);
   });
 
   it('the beat: downbeats at whole bars of 240 / 88 s', () => {
@@ -755,7 +774,8 @@ describe('Triad', () => {
     stepFor(sim, 60 * 4);
     expect(weaverOf(w).weaver!.resonance).toBe(45);
     stepFor(sim, 60 * 3);
-    expect(weaverOf(w).weaver!.resonance).toBeCloseTo(40, 9);
+    // 2 s of fading at 4 a second, towards the whole segment below (25).
+    expect(weaverOf(w).weaver!.resonance).toBeCloseTo(45 - 2 * 4, 0);
   });
 
   it('the `triad` event marks the edge it starts on', () => {
@@ -813,13 +833,13 @@ describe('the view and the cost of the Crescendo', () => {
     const { w } = stage(['a_tempo', 'upbeat', 'spotlight', 'maestro']);
     expect(w.calling!.crescendo).toBe('finale');
     expect(w.calling!.conducting).toEqual({
-      cueCost: 20,
       crescendoCost: 75,
       chainWindow: 4,
       duet: 1.25,
       trio: 1.5,
       finale: { turns: 2, ramp: 1.2, gap: 1, wait: 12 },
       beat: { bar: BAR_SECONDS, within: 0.15 },
+      cueResonance: 10,
       marcato: null,
       reprise: 0,
       ensemble: null,

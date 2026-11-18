@@ -106,26 +106,19 @@ describe('Spotlight counts as Empower for an Empowered kill', () => {
   });
 });
 
-describe('freeCues counts only Cues that cost nothing', () => {
-  it('A Tempo with Silent Cues: an on-beat Cue costs 10 and isn’t free', () => {
-    const { sim, w } = stage(['a_tempo'], { dissonance: [{ id: 'silent_cues', rank: 1 }] });
-    w.time = 3 * BAR_SECONDS;
-    heroAt(w, 0).hero!.solo = 100;
-    weaverOf(w).weaver!.resonance = 50;
-    const chained = ofType(stepFor(sim, 1, [cue(0)]), 'cueChained')[0]!;
-    expect(chained).toMatchObject({ cost: 10, onBeat: true });
-    // `saved`: the content's 25 plus the surcharge, less what was paid.
-    expect(w.ledger.conducting).toMatchObject({ freeCues: 0, saved: 25 + 10 - 10 });
-  });
-
-  it('A Tempo alone: the on-beat Cue is free and counted', () => {
-    const { sim, w } = stage(['a_tempo']);
-    w.time = 3 * BAR_SECONDS;
-    heroAt(w, 0).hero!.solo = 100;
-    weaverOf(w).weaver!.resonance = 50;
-    const chained = ofType(stepFor(sim, 1, [cue(0)]), 'cueChained')[0]!;
-    expect(chained).toMatchObject({ cost: 0, onBeat: true });
-    expect(w.ledger.conducting).toMatchObject({ freeCues: 1, saved: 25 });
+describe('A Tempo’s tallies (`freeCues`, `saved`)', () => {
+  it('a Cue on the beat is counted, with the Resonance it gave; Silent Cues changes neither', () => {
+    for (const config of [{}, { dissonance: [{ id: 'silent_cues', rank: 1 }] }]) {
+      const { sim, w } = stage(['a_tempo'], config);
+      w.time = 3 * BAR_SECONDS;
+      heroAt(w, 0).hero!.solo = 100;
+      weaverOf(w).weaver!.resonance = 50;
+      const chained = ofType(stepFor(sim, 1, [cue(0)]), 'cueChained')[0]!;
+      expect(chained).toMatchObject({ cost: 0, onBeat: true });
+      expect(w.ledger.conducting!.freeCues).toBe(1);
+      expect(w.ledger.conducting!.saved).toBeCloseTo(weaverOf(w).weaver!.resonance - 50, 9);
+      expect(w.ledger.conducting!.saved).toBeGreaterThan(0);
+    }
   });
 });
 

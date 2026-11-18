@@ -17,10 +17,10 @@ import { decayResonance } from '../../src/sim/combat/resonance';
 import { SIM_DT } from '../../src/sim/constants';
 import type { Mods } from '../../src/sim/mods';
 import type { Entity } from '../../src/sim/state';
-import { crescendoCostOf, cueCostNow } from '../../src/sim/systems/conducting';
+import { crescendoCostOf } from '../../src/sim/systems/conducting';
 import { rootbond } from '../../src/sim/systems/grove';
 import { recordPast } from '../../src/sim/systems/rewind';
-import { castChime, castWard, crescendo } from '../../src/sim/systems/techniques';
+import { castChime, castWard, crescendo, cueSolo } from '../../src/sim/systems/techniques';
 import {
   attachThread,
   empowerBonus,
@@ -316,11 +316,10 @@ describe('every call site N1-N30 reaches its stub, behind its guard', () => {
     );
   });
 
-  it('N15 Opening Bars / Tempo Rubato and N29 Hollow Crown, in cueCostNow', () => {
-    guarded(
-      [finale.cueCostCut, relics.cueCostFloor],
-      { firstCueCut: 10, freeCueEvery: 3, cueCostFloor: true },
-      (w) => void cueCostNow(w),
+  it('N15 Opening Bars / Tempo Rubato, as a Solo is Cued', () => {
+    // (N29 Hollow Crown has no hook now: `mods.alwaysCued` is read by solos.ts `threadCues`.)
+    guarded([finale.cueGain], { firstCueGain: 10, cueGainEvery: 3 }, (w) =>
+      cueSolo(w, heroAt(w, 0)),
     );
   });
 

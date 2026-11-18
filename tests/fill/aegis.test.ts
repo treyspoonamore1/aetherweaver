@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../../src/content';
 import { FILL_AEGIS } from '../../src/content/fill/aegis';
 import { FILL_IDS } from '../../src/content/fill';
-import type { Sim, SimConfig } from '../../src/sim';
+import { resonanceScale, type Sim, type SimConfig } from '../../src/sim';
 import { addStatus, dealDamage, shieldOf } from '../../src/sim/combat/health';
 import { aegisMotifIds, LAST_BASTION_BELOW, lastBastionMult } from '../../src/sim/fill/aegis';
 import { KNOWN_MOTIFS, NO_MODS, resolveMods } from '../../src/sim/mods';
@@ -355,7 +355,7 @@ describe('Clutch Peal: a Clutch Cleanse gives more Resonance', () => {
     for (const level of LEVELS) {
       const got = run(level, 1.1);
       expect(got.resonance - plain.resonance, `L${level}`).toBeCloseTo(
-        value('clutch_peal', level),
+        value('clutch_peal', level) * resonanceScale(got.s.state),
         6,
       );
       expect(tally(got.s, 'clutch_peal')).toBe(1);

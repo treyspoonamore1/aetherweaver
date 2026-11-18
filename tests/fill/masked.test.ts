@@ -14,8 +14,14 @@
  * - `generateMap(seed, route)` for seeds 1-40 on routes 2, 3 and 4, against fingerprints taken
  *   on the pre-W0 tree (`maps.json`);
  * - the first Novice and the first Skilled run of every Expedition baseline file, as frozen.
+ *
+ * The frozen copies are re-frozen when a rule every fight plays by changes (so far once: the Solo
+ * rework, docs/solos.md, which changed every seeded run and the base content's version). To
+ * re-freeze, with the reason in the commit: `AW_REFREEZE_PRE5G=1 npx vitest run
+ * tests/fill/masked.test.ts`. It rewrites `pre5g/golden.json`'s `contentVersion` and the two runs
+ * this file reads of each `pre5g/expedition*-baseline*.json`, from the masked content as it is.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import { CONTENT, CONTENT_VERSION, contentVersionOf } from '../../src/content';
@@ -72,8 +78,11 @@ vi.mock('../../src/content', async (importOriginal) => {
   return { ...real, CONTENT: masked, CONTENT_VERSION: real.contentVersionOf(masked) };
 });
 
-const pre5g = (name: string): string =>
-  readFileSync(fileURLToPath(new URL(`./pre5g/${name}`, import.meta.url)), 'utf8');
+const pre5gPath = (name: string): string =>
+  fileURLToPath(new URL(`./pre5g/${name}`, import.meta.url));
+const pre5g = (name: string): string => readFileSync(pre5gPath(name), 'utf8');
+/** Re-freeze the copies this file reads instead of comparing with them (see the header). */
+const REFREEZE = process.env.AW_REFREEZE_PRE5G === '1';
 const frozen = <T>(name: string): T => JSON.parse(pre5g(name)) as T;
 
 describe('the masked replay (docs/phase-5g.md, ground rule 5)', () => {
@@ -91,6 +100,14 @@ describe('the masked replay (docs/phase-5g.md, ground rule 5)', () => {
   });
 
   it('the recomputed contentVersion equals the pre-W0 one', () => {
+    if (REFREEZE) {
+      const text = pre5g('golden.json');
+      const next = text.replace(
+        /"contentVersion": "[^"]*"/,
+        `"contentVersion": "${contentVersionOf(CONTENT)}"`,
+      );
+      writeFileSync(pre5gPath('golden.json'), next);
+    }
     const { contentVersion } = frozen<{ contentVersion: string }>('golden.json');
     expect(contentVersionOf(CONTENT)).toBe(contentVersion);
     expect(CONTENT_VERSION).toBe(contentVersion);
@@ -168,10 +185,16 @@ describe('the masked replay (docs/phase-5g.md, ground rule 5)', () => {
       const novice = kept.runs[0]!;
       const skilled = kept.runs[EXPEDITION_SEEDS]!;
       expect([novice.bot, skilled.bot]).toEqual(['novice', 'skilled']);
-      expect(projectRun(expeditionRun('novice', 0, b.movements, b.party), novice)).toEqual(novice);
-      expect(projectRun(expeditionRun('skilled', 0, b.movements, b.party), skilled)).toEqual(
-        skilled,
-      );
+      const noviceNow = projectRun(expeditionRun('novice', 0, b.movements, b.party), novice);
+      const skilledNow = projectRun(expeditionRun('skilled', 0, b.movements, b.party), skilled);
+      if (REFREEZE) {
+        kept.runs[0] = noviceNow;
+        kept.runs[EXPEDITION_SEEDS] = skilledNow;
+        writeFileSync(pre5gPath(b.file), JSON.stringify(kept, null, 1) + '\n');
+        return;
+      }
+      expect(noviceNow).toEqual(novice);
+      expect(skilledNow).toEqual(skilled);
       // Two whole Expeditions: far past vitest's default on a loaded machine.
     }, 600_000);
 });

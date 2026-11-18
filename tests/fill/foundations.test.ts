@@ -60,7 +60,7 @@ import { empowerBonus } from '../../src/sim/systems/thread';
 import { updateTriggers } from '../../src/sim/systems/triggers';
 import { createWorld, emptyLedger, type ResolvedSimConfig, type World } from '../../src/sim/world';
 import type { Entity } from '../../src/sim/state';
-import type { SimConfig } from '../../src/sim';
+import { resonanceScale, type SimConfig } from '../../src/sim';
 import * as aegis from '../../src/sim/fill/aegis';
 import * as bond from '../../src/sim/fill/bond';
 import * as choir from '../../src/sim/fill/choir';
@@ -97,13 +97,42 @@ describe('the resolver reproduces the frozen pre-5g resolver (ground rule 4)', (
     expect(builds.filter((c) => c.input.astrolabe.length > 0).length).toBeGreaterThan(150);
   });
 
-  it('NO_MODS keeps every frozen default; its other fields are FILL_NO_MODS and DISSONANCE6_NO_MODS', () => {
+  /**
+   * docs/solos.md: a Cue costs nothing since the Solo rework, so the frozen resolver's three
+   * Cue-price fields are retired (the frozen file keeps them, as recorded; they are left out of
+   * the comparison), and two fields are new: Silent Cues' hold and A Tempo's Resonance. What
+   * each frozen case must now resolve them to is said here, from the case's own input.
+   */
+  const RETIRED: ReadonlySet<string> = new Set(['cueCostBonus', 'cueCostBase', 'cueKeepsWhole']);
+  const SOLO_NO_MODS: Record<string, unknown> = { cueHold: 0, cueResonance: 0 };
+  const soloMods = (input: ResolverFixture['cases'][number]['input']): Record<string, unknown> => {
+    const silent = input.dissonance.find((l) => l.id === 'silent_cues');
+    const calling = input.calling;
+    const level = CONTENT.dissonance.find((d) => d.id === 'silent_cues')!;
+    const aTempo = CONTENT.callings
+      .flatMap((c) => c.tiers.flatMap((t) => t.options))
+      .find((o) => o.id === 'a_tempo')!;
+    return {
+      cueHold: silent ? level.values.seconds! * silent.rank : 0,
+      cueResonance: calling?.path.includes('a_tempo') ? aTempo.values.resonance! : 0,
+    };
+  };
+
+  it('NO_MODS keeps every frozen default; its other fields are FILL_NO_MODS, DISSONANCE6_NO_MODS and the Solos’', () => {
     const now = encodeMods(NO_MODS as unknown as Record<string, unknown>);
-    for (const [k, v] of Object.entries(fixture.noMods)) expect(now[k], k).toEqual(v);
+    for (const [k, v] of Object.entries(fixture.noMods)) {
+      if (RETIRED.has(k)) expect(k in now, k).toBe(false);
+      else expect(now[k], k).toEqual(v);
+    }
     const added = Object.keys(now).filter((k) => !(k in fixture.noMods));
     // Phase 6's levels (docs/phase-6.md, ground rule 3) group their defaults the same way.
-    expect(added.sort()).toEqual([...Object.keys(FILL_NO_MODS), ...Object.keys(phase6)].sort());
-    for (const k of added) expect(now[k], k).toEqual(k in phase6 ? phase6[k] : fill[k]);
+    expect(added.sort()).toEqual(
+      [...Object.keys(FILL_NO_MODS), ...Object.keys(phase6), ...Object.keys(SOLO_NO_MODS)].sort(),
+    );
+    for (const k of added)
+      expect(now[k], k).toEqual(
+        k in SOLO_NO_MODS ? SOLO_NO_MODS[k] : k in phase6 ? phase6[k] : fill[k],
+      );
   });
 
   it('every frozen case resolves to exactly the frozen mods, and every new field to its default', () => {
@@ -115,7 +144,14 @@ describe('the resolver reproduces the frozen pre-5g resolver (ground rule 4)', (
           unknown
         >,
       );
-      const want: Record<string, unknown> = { ...fixture.noMods, ...c.mods, ...fill, ...phase6 };
+      const want: Record<string, unknown> = {
+        ...fixture.noMods,
+        ...c.mods,
+        ...fill,
+        ...phase6,
+        ...soloMods(c.input),
+      };
+      for (const k of RETIRED) delete want[k];
       for (const k of new Set([...Object.keys(want), ...Object.keys(got)]))
         if (JSON.stringify(got[k]) !== JSON.stringify(want[k]))
           wrong.push(`case ${i} ${k}: ${JSON.stringify(got[k])} ≠ ${JSON.stringify(want[k])}`);
@@ -179,8 +215,8 @@ describe('every new Mods field has a default that does nothing (ground rule 3)',
       redEdge: 0,
       counterBonus: 0,
       graftMult: 1,
-      firstCueCut: 0,
-      freeCueEvery: 0,
+      firstCueGain: 0,
+      cueGainEvery: 0,
       firstCrescendoCut: 0,
       fadeDelay: 0,
       startSoloCharge: 0,
@@ -196,7 +232,7 @@ describe('every new Mods field has a default that does nothing (ground rule 3)',
       waterClock: 0,
       maskGuard: 0,
       noEmpower: false,
-      cueCostFloor: false,
+      alwaysCued: false,
       thornPct: 0,
       thornBelow: 0,
     });
@@ -220,7 +256,7 @@ describe('every new Mods field has a default that does nothing (ground rule 3)',
     expect(choir.restCost(world, 7)).toBe(7);
     expect(choir.fullChordGuard(world, hero, 30, opts)).toBe(0);
     expect(aegis.lastBastionMult(world, hero)).toBe(1);
-    expect(finale.cueCostCut(world, 25)).toBe(25);
+    expect(finale.cueGain(world, 25)).toBe(0);
     expect(finale.crescendoCostCut(world, 100)).toBe(100);
     expect(finale.tenutoDelay(world)).toBe(0);
     expect(bond.innerOrbitCast(world, hero)).toBe(1);
@@ -234,7 +270,6 @@ describe('every new Mods field has a default that does nothing (ground rule 3)',
     expect(relics.shopRelicBonus([], CONTENT)).toBe(0);
     expect(relics.ironMaskRefuses(world, undefined)).toBe(false);
     expect(relics.ironMaskGuard(world, hero, 30, opts)).toBe(0);
-    expect(relics.cueCostFloor(world, -10)).toBe(-10);
     expect(relics.thornwreathMult(world, hero)).toBe(1);
   });
 
@@ -822,7 +857,7 @@ describe('the trigger interpreter: every event it reacts to', () => {
       const w = motifWorld([{ on: on as TriggerIn['on'], effects: RES }]);
       const w0 = weaverOf(w).weaver!.resonance;
       expect(fired(tick(w, [make(w)]))).toHaveLength(1);
-      expect(weaverOf(w).weaver!.resonance).toBe(w0 + 20);
+      expect(weaverOf(w).weaver!.resonance).toBe(w0 + 20 * resonanceScale(w));
       // Another event type never fires it.
       const other = on === 'cued' ? 'revived' : 'cued';
       expect(fired(tick(w, [ev(w, other, { hero: hero(w) })]))).toHaveLength(0);

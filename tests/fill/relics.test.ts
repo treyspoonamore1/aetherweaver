@@ -17,7 +17,6 @@ import { dealDamage, reviveHero, shieldOf } from '../../src/sim/combat/health';
 import { pastSamples, SIM_DT } from '../../src/sim/constants';
 import type { SimEvent } from '../../src/sim/events';
 import {
-  cueCostFloor,
   everbellTick,
   fillBoonIds,
   fillRelicIds,
@@ -27,14 +26,13 @@ import {
 import { KNOWN_BOONS, KNOWN_RELICS, NO_MODS } from '../../src/sim/mods';
 import type { Entity } from '../../src/sim/state';
 import { answerCall, canCall, startCall } from '../../src/sim/systems/calls';
-import { cueCostNow } from '../../src/sim/systems/conducting';
 import { spawnEnemy } from '../../src/sim/systems/enemies';
 import { pastOf } from '../../src/sim/systems/rewind';
 import { castChime, crescendo, wardCooldown } from '../../src/sim/systems/techniques';
 import { attachThread, toggleThreadMode, updateThread } from '../../src/sim/systems/thread';
 import { updateTriggers } from '../../src/sim/systems/triggers';
 import { createWorld, type World } from '../../src/sim/world';
-import type { SimConfig } from '../../src/sim';
+import { threadCues, type SimConfig } from '../../src/sim';
 import {
   hero,
   hurt,
@@ -780,21 +778,18 @@ describe('cursed relics', () => {
     expect(wv.resonance).toBeCloseTo(val('red_ink', 'resonance'), 9);
   });
 
-  it('Hollow Crown: Cues cost less, never below 0; Solos charge slower until cleansed', () => {
+  it('Hollow Crown: every Solo plays Cued, Thread or not; Solos charge slower until cleansed', () => {
     const w = world([plain('hollow_crown')]);
-    const cut = val('hollow_crown', 'cut');
-    expect(w.mods.cueCostBonus).toBe(-cut);
-    expect(w.mods.cueCostFloor).toBe(true);
-    expect(cueCostNow(w)).toBe(CONTENT.resonance.cueCost - cut);
-    expect(cueCostNow(world())).toBe(CONTENT.resonance.cueCost);
-    // On the downbeat with A Tempo a Cue costs `cueCostBonus` alone: the floor holds it at 0.
-    expect(cueCostFloor(w, -cut)).toBe(0);
-    expect(cueCostFloor(w, 7)).toBe(7);
+    expect(w.mods.alwaysCued).toBe(true);
+    expect(world().mods.alwaysCued).toBe(false);
+    // No Thread on anyone: Cued all the same (the rule the heroes fire by, solos.ts).
+    expect(weaverEntity(w).weaver!.threadSlot).toBeNull();
+    expect(threadCues(w, heroAt(w, 0))).toBe(true);
+    expect(threadCues(world(), heroAt(world(), 0))).toBe(false);
     expect(w.mods.soloChargeMult).toBeCloseTo(1 - val('hollow_crown', 'pct') / 100, 12);
     const clean = world([cleansed('hollow_crown')]);
     expect(clean.mods.soloChargeMult).toBe(1);
-    expect(clean.mods.cueCostBonus).toBe(-cut);
-    expect(cueCostNow(clean)).toBe(CONTENT.resonance.cueCost - cut);
+    expect(clean.mods.alwaysCued).toBe(true);
   });
 });
 

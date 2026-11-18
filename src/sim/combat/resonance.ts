@@ -3,9 +3,19 @@
  * song) and on nothing else (a Cue costs nothing: docs/solos.md). Partial segments decay when
  * idle; filled segments are kept. Nothing is gained or lost during a Crescendo.
  */
+import { CONTENT } from '../../content';
 import type { WorldState } from '../state';
 import type { World } from '../world';
 import { tenutoDelay } from '../fill/finale';
+
+/**
+ * What every Resonance gain is multiplied by this fight: the content's `gainScale` (docs/solos.md:
+ * the one number tuning moves) times the fight's "more Resonance" (Standing Ovation, the
+ * Conductor). For the sim, and for the views and tests that say what a gain adds to the meter.
+ */
+export function resonanceScale(state: WorldState): number {
+  return CONTENT.resonance.gainScale * state.mods.resonanceMult;
+}
 
 /** `silent` skips the event (passive trickles like Empower would otherwise fire every tick). */
 export function gainResonance(world: World, amount: number, reason: string, silent = false): void {
@@ -13,7 +23,6 @@ export function gainResonance(world: World, amount: number, reason: string, sile
   if (!w || amount <= 0 || w.crescendo > 0) return;
   const max = world.content.resonance.max;
   const before = w.resonance;
-  // `gainScale` (docs/solos.md): every gain is scaled by the one number tuning moves.
   const scale = world.content.resonance.gainScale * world.mods.resonanceMult;
   w.resonance = Math.min(max, w.resonance + amount * scale);
   w.resonanceIdle = 0;

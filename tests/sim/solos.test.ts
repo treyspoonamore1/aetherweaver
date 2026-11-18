@@ -7,7 +7,14 @@
  */
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../../src/content';
-import { soloDueIn, threadCues, type Command, type Sim, type SimEvent } from '../../src/sim';
+import {
+  resonanceScale,
+  soloDueIn,
+  threadCues,
+  type Command,
+  type Sim,
+  type SimEvent,
+} from '../../src/sim';
 import { SIM_HZ, SOLOS } from '../../src/sim/constants';
 import { hero, ofType, sandbox, spawn, stepFor, stepUntil, weaver, worldOf } from './helpers';
 
@@ -252,8 +259,8 @@ describe('what changes the rule', () => {
 
   it('Opening Bars: the first Cue of a fight gives Resonance, and only the first', () => {
     const v = CONTENT.motifs.find((m) => m.id === 'opening_bars')!.values[0]!;
-    const scale = CONTENT.resonance.gainScale;
     const sim = fight({ motifs: [{ id: 'opening_bars', level: 1 }] });
+    const scale = resonanceScale(sim.state);
     const cue = (slot: 0 | 1 | 2): Command => ({
       t: 'debug',
       op: { op: 'fireSolo', slot, cued: true },
@@ -282,7 +289,7 @@ describe('what changes the rule', () => {
     stepFor(sim, 1, [cue(0)]);
     stepFor(sim, 1, [cue(1)]);
     const third = stepFor(sim, 1, [cue(2)]);
-    const scale = CONTENT.resonance.gainScale * sim.state.mods.resonanceMult;
+    const scale = resonanceScale(sim.state);
     expect(ofType(third, 'resonanceGained').map((e) => e.amount)).toEqual([
       CONTENT.resonance.segment * scale,
     ]);

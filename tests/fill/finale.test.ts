@@ -1,15 +1,13 @@
 /**
  * Phase 5g, W3: the Finale motifs (docs/phase-5g.md, "Finale: Resonance, Cues and the
  * Crescendo"). For each of the twelve, at each level, from a staged sandbox: its effect, its
- * credit in the ledger (a trigger's fires in `ledger.triggers`; Opening Bars' Resonance in the
- * Conductor's `ledger.conducting.saved`), and nothing without it. Then the Cue price the HUD and
- * the bots read (`cueCostNow`) with Opening Bars and Tempo Rubato, and the Crescendo's with
- * Prompt Book (N15b).
+ * credit in the ledger (a trigger's fires in `ledger.triggers`), and nothing without it. Then
+ * the Resonance Opening Bars and Tempo Rubato give for a Cue (a Cue costs nothing, docs/solos.md:
+ * what once cut its price now gives Resonance), and the Crescendo's price with Prompt Book (N15b).
  *
  * Every number is content's or the world's: no Conductor number is written here.
  */
 import { describe, expect, it } from 'vitest';
-import { cueCostNow as botCueCost } from '../../src/bots/common';
 import { CONTENT } from '../../src/content';
 import { FILL_FINALE } from '../../src/content/fill/finale';
 import { FILL_IDS, FILL_MOTIFS } from '../../src/content/fill';
@@ -17,8 +15,7 @@ import { ContentSchema, MotifDefSchema } from '../../src/content/schema';
 import {
   createSim,
   crescendoCostOf,
-  cueCostNow,
-  nextCue,
+  resonanceScale,
   type Command,
   type PartySlot,
   type Sim,
@@ -35,7 +32,6 @@ import type { Entity } from '../../src/sim/state';
 import { empowerBonus } from '../../src/sim/systems/thread';
 import { updateTriggers } from '../../src/sim/systems/triggers';
 import { createWorld, resolveConfig, type World } from '../../src/sim/world';
-import { beatNow, cueBadge } from '../../src/ui/hud/conducting';
 import { ofType, stepFor, worldOf } from '../sim/helpers';
 
 const IDS = [
@@ -79,7 +75,10 @@ const motif = (id: Id) => CONTENT.motifs.find((m) => m.id === id)!;
 const valueAt = (id: Id, level: number) => motif(id).values[level - 1]!;
 const heroAt = (w: World, slot: number): Entity => w.entities.get(w.party[slot]!)!;
 const weaverOf = (w: World) => w.entities.get(w.weaverId)!.weaver!;
-const cue = (slot: number): Command => ({ t: 'debug', op: { op: 'fireSolo', slot: slot as PartySlot, cued: true } });
+const cue = (slot: number): Command => ({
+  t: 'debug',
+  op: { op: 'fireSolo', slot: slot as PartySlot, cued: true },
+});
 const CRESCENDO: Command = { t: 'crescendo' };
 
 /**
@@ -131,7 +130,7 @@ function inert(w: World): void {
   expect('triggers' in w.internal).toBe(false);
   expect('triggers' in w.ledger).toBe(false);
   expect(w.mods.triggers).toBe(NO_MODS.triggers);
-  expect(w.mods.firstCueCut).toBe(0);
+  expect(w.mods.firstCueGain).toBe(0);
   expect(w.mods.fadeDelay).toBe(0);
   expect(w.mods.startSoloCharge).toBe(0);
   expect(w.mods.vigilResonance).toBe(0);
@@ -176,7 +175,7 @@ describe('the Finale fill: content', () => {
     expect([...finaleMotifIds()]).toEqual([...IDS]);
     for (const id of IDS) expect(KNOWN_MOTIFS).toContain(id);
     const fields: Partial<Record<Id, keyof typeof NO_MODS>> = {
-      opening_bars: 'firstCueCut',
+      opening_bars: 'firstCueGain',
       tenuto: 'fadeDelay',
       tuning_up: 'startSoloCharge',
       vigil_song: 'vigilResonance',
@@ -261,58 +260,43 @@ describe('Taking Bows: when the Crescendo ends, every hero’s Solo charges v%',
   });
 });
 
-describe('Opening Bars: the fight’s first Cue costs v less Resonance', () => {
+describe('Opening Bars: the fight’s first Cue gives v Resonance', () => {
+  /** What a gain of `amount` adds to the meter this fight (the gains' scale, the Calling's more). */
+  const gain = (w: World, amount: number) => amount * resonanceScale(w);
+
   it.each(LEVELS)('level %i', (level) => {
     const v = valueAt('opening_bars', level);
     const { sim, w } = stage('opening_bars', level);
-    const base = w.dissonance.cueCost;
-    expect(cueCostNow(w)).toBe(Math.max(0, base - v));
-    weaverOf(w).resonance = 100;
+    weaverOf(w).resonance = 0;
     const first = cueNow(sim, w, KAEL);
     expect(ofType(first, 'cued')).toHaveLength(1);
-    const spent = ofType(first, 'resonanceSpent').filter((e) => e.on === 'cue');
-    if (base - v > 0) expect(spent.map((e) => e.amount)).toEqual([base - v]);
-    else expect(spent).toEqual([]);
-    expect(weaverOf(w).resonance).toBeCloseTo(100 - Math.max(0, base - v), 9);
+    expect(ofType(first, 'resonanceSpent')).toEqual([]);
+    expect(ofType(first, 'resonanceGained').map((e) => e.amount)).toEqual([gain(w, v)]);
+    expect(weaverOf(w).resonance).toBeCloseTo(gain(w, v), 9);
     // Only the first.
-    expect(cueCostNow(w)).toBe(base);
     const second = cueNow(sim, w, LYRA);
-    expect(ofType(second, 'resonanceSpent').map((e) => e.amount)).toEqual([base]);
-    // A fight's: the next fight's first Cue is cut again.
-    expect(cueCostNow(stage('opening_bars', level).w)).toBe(Math.max(0, base - v));
+    expect(ofType(second, 'resonanceGained')).toEqual([]);
+    expect(weaverOf(w).resonance).toBeCloseTo(gain(w, v), 9);
   });
 
-  it.each(LEVELS)(
-    'level %i on the Conductor: the cheaper first Cue is credited in ledger.conducting.saved',
-    (level) => {
-      const v = valueAt('opening_bars', level);
-      const run = (lv: number | null) => {
-        const { sim, w } = stage(lv === null ? null : 'opening_bars', lv, {
-          calling: { id: 'conductor', path: [] },
-        });
-        const cost = cueCostNow(w);
-        weaverOf(w).resonance = 100;
-        const chained = ofType(cueNow(sim, w, KAEL), 'cueChained')[0]!;
-        return { w, cost, chained };
-      };
-      const with_ = run(level);
-      const without = run(null);
-      const base = without.cost;
-      expect(base).toBe(without.w.dissonance.cueCost);
-      expect(with_.cost).toBe(Math.max(0, base - v));
-      expect(with_.chained.cost).toBe(with_.cost);
-      expect(with_.w.ledger.conducting!.saved - without.w.ledger.conducting!.saved).toBe(
-        base - with_.cost,
-      );
-    },
-  );
+  it.each(LEVELS)('level %i on the Conductor: the same, with his tenth more', (level) => {
+    const v = valueAt('opening_bars', level);
+    const { sim, w } = stage('opening_bars', level, { calling: { id: 'conductor', path: [] } });
+    weaverOf(w).resonance = 0;
+    cueNow(sim, w, KAEL);
+    expect(w.mods.resonanceMult).toBeGreaterThan(1);
+    expect(weaverOf(w).resonance).toBeCloseTo(gain(w, v), 9);
+    // A Tempo's tallies are A Tempo's alone.
+    expect(w.ledger.conducting).toMatchObject({ freeCues: 0, saved: 0 });
+  });
 
-  it('without it the first Cue costs the fight’s price', () => {
+  it('without it a Cue gives nothing and costs nothing', () => {
     const { sim, w } = stage(null, null);
-    const base = w.dissonance.cueCost;
-    expect(cueCostNow(w)).toBe(base);
-    weaverOf(w).resonance = 100;
-    expect(ofType(cueNow(sim, w, KAEL), 'resonanceSpent').map((e) => e.amount)).toEqual([base]);
+    weaverOf(w).resonance = 40;
+    const events = cueNow(sim, w, KAEL);
+    expect(ofType(events, 'resonanceSpent')).toEqual([]);
+    expect(ofType(events, 'resonanceGained')).toEqual([]);
+    expect(weaverOf(w).resonance).toBe(40);
     inert(w);
   });
 });
@@ -389,8 +373,11 @@ describe('Saving Grace: each Save gives v more Resonance', () => {
     const v = valueAt('saving_grace', level);
     const with_ = save(level);
     const without = save(null);
-    expect(without.resonance).toBeCloseTo(CONTENT.resonance.gains.save, 9);
-    expect(with_.resonance - without.resonance).toBeCloseTo(v * with_.w.mods.resonanceMult, 9);
+    expect(without.resonance).toBeCloseTo(
+      CONTENT.resonance.gains.save * resonanceScale(without.w),
+      9,
+    );
+    expect(with_.resonance - without.resonance).toBeCloseTo(v * resonanceScale(with_.w), 9);
     expect(fires(with_.events, 'saving_grace')).toHaveLength(1);
     expect(with_.w.ledger.triggers).toEqual({ saving_grace: 1 });
     inert(without.w);
@@ -537,7 +524,7 @@ describe('Vigil Song: Mending a hero below 30% makes v Resonance a second', () =
   it.each(LEVELS)('level %i', (level) => {
     const v = valueAt('vigil_song', level);
     const low = vigil(level, 0.1);
-    expect(low.resonance).toBeCloseTo(v * low.seconds * low.w.mods.resonanceMult, 6);
+    expect(low.resonance).toBeCloseTo(v * low.seconds * resonanceScale(low.w), 6);
     expect(low.resonance).toBeGreaterThan(0);
     // At or above 30% it pays nothing.
     expect(vigil(level, 0.31).resonance).toBe(0);
@@ -556,7 +543,7 @@ describe('Answering Phrase: Cueing a hero within 4 s of Cueing another gives bac
   /** Cues Kael, waits `gap` s, Cues `slot`; the second Cue's events and the Resonance after. */
   function answer(level: number | null, gap: number, slot = LYRA) {
     const { sim, w } = stage(level === null ? null : 'answering_phrase', level);
-    weaverOf(w).resonance = 100;
+    weaverOf(w).resonance = 0;
     cueNow(sim, w, KAEL);
     const at = w.time;
     while (w.time < at + gap) sim.step([]);
@@ -572,7 +559,7 @@ describe('Answering Phrase: Cueing a hero within 4 s of Cueing another gives bac
     const v = valueAt('answering_phrase', level);
     const with_ = answer(level, 2);
     const without = answer(null, 2);
-    expect(with_.resonance - without.resonance).toBeCloseTo(v * with_.w.mods.resonanceMult, 9);
+    expect(with_.resonance - without.resonance).toBeCloseTo(v * resonanceScale(with_.w), 9);
     expect(fires(with_.events, 'answering_phrase')).toHaveLength(1);
     expect(with_.w.ledger.triggers).toEqual({ answering_phrase: 1 });
     inert(without.w);
@@ -628,45 +615,19 @@ describe('Tuning Up: heroes start each fight with their Solos v% charged', () =>
   });
 });
 
-// ── The price the HUD and the bots read (N15, N15b) ────────────────────────────────────────
+// ── Tempo Rubato (N15) and Prompt Book (N15b) ──────────────────────────────────────────────
 
-describe('the Cue price the HUD and the bots read (`cueCostNow`): Opening Bars and Tempo Rubato', () => {
-  /** Every reader of the Cue's price, for `slot`'s hero: the sim's, the bots', the HUD's. */
-  function prices(w: World, slot: number) {
-    const id = heroAt(w, slot).id;
-    const conducting = w.field.conducting !== undefined;
-    return {
-      sim: cueCostNow(w),
-      bots: botCueCost(w),
-      next: conducting ? nextCue(w, id)!.cost : cueCostNow(w),
-      badge: conducting ? cueBadge(w, id)!.cost : cueCostNow(w),
-      beat: beatNow(w).cost,
-    };
-  }
-  const all = (n: number) => ({ sim: n, bots: n, next: n, badge: n, beat: n });
-
+describe('Tempo Rubato: one Cue in every three gives a segment of Resonance', () => {
   for (const calling of [null, 'conductor'] as const) {
     const label = calling ?? 'no Calling';
     const config: Partial<SimConfig> = calling ? { calling: { id: calling, path: [] } } : {};
 
-    it.each(LEVELS)(`${label}: Opening Bars at level %i, every reader the same`, (level) => {
-      const v = valueAt('opening_bars', level);
-      const { sim, w } = stage('opening_bars', level, config);
-      const base = w.dissonance.cueCost;
-      expect(prices(w, KAEL)).toEqual(all(Math.max(0, base - v)));
-      weaverOf(w).resonance = 100;
-      const paid = ofType(cueNow(sim, w, KAEL), 'resonanceSpent').reduce((n, e) => n + e.amount, 0);
-      expect(paid).toBe(Math.max(0, base - v));
-      expect(prices(w, LYRA)).toEqual(all(base));
-    });
-
-    it(`${label}: Tempo Rubato makes every third Cue free; with Opening Bars the first is cut`, () => {
+    it(`${label}: the third and the sixth; with Opening Bars the first gives too`, () => {
       const { sim, w } = stage(null, null, config);
-      const base = w.dissonance.cueCost;
-      // W5 resolves Tempo Rubato (`freeCueEvery`); staged here on the world's mods.
-      w.mods.freeCueEvery = 3;
-      const paid: number[] = [];
-      const shown: number[] = [];
+      // The Harmonies' resolver sets `cueGainEvery`; staged here on the world's mods.
+      w.mods.cueGainEvery = 3;
+      const scale = resonanceScale(w);
+      const gained: number[] = [];
       for (let i = 0; i < 6; i++) {
         const slot = i % 3;
         if (i > 0) {
@@ -674,28 +635,25 @@ describe('the Cue price the HUD and the bots read (`cueCostNow`): Opening Bars a
           // tested here.
           for (const s of [KAEL, LYRA, VEXIS]) heroAt(w, s).hero!.soloActive = 0;
         }
-        weaverOf(w).resonance = 100;
-        shown.push(prices(w, slot).sim);
-        expect(prices(w, slot)).toEqual(all(shown.at(-1)!));
+        weaverOf(w).resonance = 0;
         const events = cueNow(sim, w, slot);
         expect(ofType(events, 'cued')).toHaveLength(1);
-        paid.push(ofType(events, 'resonanceSpent').reduce((n, e) => n + e.amount, 0));
+        expect(ofType(events, 'resonanceSpent')).toEqual([]);
+        gained.push(weaverOf(w).resonance);
       }
-      expect(shown).toEqual([base, base, 0, base, base, 0]);
-      expect(paid).toEqual(shown);
+      const segment = CONTENT.resonance.segment * scale;
+      expect(gained.map((g) => Math.round(g * 1e6) / 1e6)).toEqual(
+        [0, 0, segment, 0, 0, segment].map((g) => Math.round(g * 1e6) / 1e6),
+      );
       expect(w.ledger.cues).toBe(6);
 
-      const both = stage('opening_bars', 1, config).w;
-      both.mods.freeCueEvery = 3;
-      expect(cueCostNow(both)).toBe(Math.max(0, base - valueAt('opening_bars', 1)));
+      const both = stage('opening_bars', 1, config);
+      both.w.mods.cueGainEvery = 3;
+      weaverOf(both.w).resonance = 0;
+      cueNow(both.sim, both.w, KAEL);
+      expect(weaverOf(both.w).resonance).toBeCloseTo(valueAt('opening_bars', 1) * scale, 9);
     });
   }
-
-  it('without either, every reader shows the fight’s price', () => {
-    const { w } = stage(null, null);
-    expect(prices(w, KAEL)).toEqual(all(w.dissonance.cueCost));
-    inert(w);
-  });
 });
 
 describe('N15b: Prompt Book’s first Crescendo, as `crescendoCostOf` shows and the Crescendo spends', () => {

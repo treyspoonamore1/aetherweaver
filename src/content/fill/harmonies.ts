@@ -69,7 +69,7 @@ export const FILL_HARMONIES: ContentInput['motifs'] = [
     category: 'finale',
     rarity: 'epic',
     values: [3],
-    text: 'One Cue in every {v} gives 25 Resonance.',
+    text: 'One Cue in every {v} gives a whole segment of Resonance.',
     requires: { motifs: ['canon', 'opening_bars'], expedition: true },
     tags: ['harmony', 'cue', 'resonance'],
   },

@@ -245,6 +245,10 @@ export interface Mods extends FillMods, Dissonance6Mods {
   bulwarksEchoPct: number;
   lyraAttackSpeed: number;
   starboltCastMult: number;
+  /**
+   * Standing Ovation's and the Conductor's "more Resonance". Every gain is this times the
+   * content's `gainScale` (combat/resonance.ts `resonanceScale`, docs/solos.md).
+   */
   resonanceMult: number;
   soloChargeMult: number;
   canon: number;
