@@ -298,11 +298,12 @@ describe('the bench scenarios (tools/scenarios.ts)', () => {
 
 describe('whole runs (playRun)', () => {
   it('plays an Expedition into Movement II, and a Prelude stays in Movement I', () => {
-    const expedition = playRun(1, 'skilled', undefined, { movements: 2 });
+    // Seed 3 since the Solo rework (docs/solos.md): seed 1's Skilled run now falls in Movement I.
+    const expedition = playRun(3, 'skilled', undefined, { movements: 2 });
     expect(expedition.movementReached).toBe(2);
     expect(expedition.minutesByMovement.length).toBe(2);
     expect(expedition.minutesByMovement[1]!).toBeGreaterThan(0);
-    const prelude = playRun(1, 'skilled');
+    const prelude = playRun(3, 'skilled');
     expect(prelude.movementReached).toBe(1);
     expect(prelude.minutesByMovement.length).toBe(1);
     // Two whole runs: about 3 s alone, past vitest's 5 s default on a loaded machine.
@@ -315,10 +316,11 @@ describe('whole runs through Movement III (playRun)', () => {
   /** Skilled seed 2000 wins its I-II Expedition (tools/expedition-baseline.ts's first run). */
   const SEED = 2000;
   /**
-   * The harness's second run seed, whose Skilled I-III Expedition reaches the Unweaver (seed
-   * 2000's falls at `frayed_threshold` since its hand-off fix, docs/phase-5c.md).
+   * The harness's third run seed, whose Skilled I-III Expedition reaches the Unweaver (seed
+   * 2000's falls at `frayed_threshold` since its hand-off fix, docs/phase-5c.md; the second
+   * seed's falls in Movement I since the Solo rework, docs/solos.md).
    */
-  const UNWEAVER_SEED = SEED + 104729;
+  const UNWEAVER_SEED = SEED + 2 * 104729;
 
   it('plays a I-III Expedition to the Unweaver, its minutes in 3 Movements, well inside MAX_PHASES', () => {
     let phases = 0;
@@ -493,8 +495,9 @@ describe('the Decree gate (tools/decrees.ts)', () => {
     expect(f.answered.Unpicking).toBe(judged.length);
     expect(f.occurrences.Unpicking).toBe(f.unpicks!.length);
     // A Weaver who never threads again after the first cut fails the Unpicks that cut.
-    // (Seed 8919 since W9's tuning: at 1000 the lazy Weaver's cut Unpicks all came with a down.)
-    const skilled = makeBot('skilled', 8919);
+    // (Seed 16838 since the Solo rework, docs/solos.md; 8919 from W9's tuning until then. At the
+    // others the lazy Weaver's cut Unpicks all came with a down.)
+    const skilled = makeBot('skilled', 16838);
     let cut = false;
     const lazy: Bot = {
       name: 'lazy',
@@ -504,7 +507,7 @@ describe('the Decree gate (tools/decrees.ts)', () => {
         return cut ? out.filter((c) => c.t !== 'thread') : out;
       },
     };
-    const g = decreeFight('the_seamstress', 8919, 'skilled', lazy);
+    const g = decreeFight('the_seamstress', 16838, 'skilled', lazy);
     expect(g.unpicks!.some((u) => u.lockEnd !== null && !u.rethreaded)).toBe(true);
     expect(g.answered.Unpicking).toBeLessThan(g.occurrences.Unpicking!);
   }, 60_000);
@@ -552,8 +555,9 @@ describe('verb ablation (tools/verbs.ts)', () => {
   it('meets the mawHold rule on a Brann party with Swap, never on the default setup', () => {
     // mawHold fires only for a Bloodlusting Brann whom no plain Reel takes out of an Inhale:
     // with the default party and techniques every row read 'no change (not met here)'. Seed
-    // 80190 (1000 + 10 × 7919) meets it on the tuned waves.
-    const seed = 80190;
+    // 96028 (1000 + 12 × 7919) meets it on the tuned waves (80190 did until the Solo rework,
+    // docs/solos.md: about one seed in ten meets it, before and since).
+    const seed = 96028;
     const holds = (setup: Parameters<typeof verbConfig>[3]) => {
       const sim = createSim(verbConfig('maw_hollow', seed, 3, setup));
       const bot = new SkilledBot(seed, { every: 4, attention: 1, callReaction: 0.4 });
@@ -774,11 +778,11 @@ describe('the Bands tool (tools/brann-bands.ts)', () => {
 
 describe('the Finale route (playRun --movements 4)', () => {
   /**
-   * Skilled seed 2003's Finale-route Expedition reaches the Silent Conductor. It was 2000 until
-   * Phase 5g's pools changed that run (it now dies in Movement III, as 2001 does in II and 2002
-   * in III); 2003 is the lowest seed from 2000 up that reaches and plays the Conductor.
+   * Skilled seed 2000's Finale-route Expedition reaches the Silent Conductor. Which seed does is
+   * the pools' and the rules' business: it was 2003 from Phase 5g's pools until the Solo rework
+   * (docs/solos.md), since when 2003's dies in Movement III and 2000's plays the Conductor.
    */
-  const SEED = 2003;
+  const SEED = 2000;
 
   it('reaches the Conductor, its minutes in 4 Movements, well inside MAX_PHASES', () => {
     let phases = 0;
@@ -1882,13 +1886,9 @@ describe('the Conductor Calling (docs/phase-5f.md, "Harness")', () => {
     // No Conductor, no change.
     expect(rulesFor(3)).toBe(M3_RULES);
     expect(rulesFor(4, 'skilled', null, callingArg('luminary', undefined))).toBe(FINALE_RULES);
-    expect(CONDUCTING_RULES).toEqual([
-      'conductChain',
-      'conductHold',
-      'conductBeat',
-      'conductFinale',
-      'conductMarcato',
-    ]);
+    // The rules that timed a Cue for a Duet, a Trio or the beat went with the Cue (docs/solos.md):
+    // the chain is made by the Thread following Solos now, which is every Calling's rule.
+    expect(CONDUCTING_RULES).toEqual(['conductFinale', 'conductMarcato']);
     // A fight's counts show the rule: no Finale rule, fewer Finales.
     const setup = { calling: conductor };
     const on = Array.from({ length: 4 }, (_, i) =>
@@ -1933,7 +1933,9 @@ describe('the Conductor Calling (docs/phase-5f.md, "Harness")', () => {
 });
 
 describe('playRun’s draftPrefer and relicPrefer (docs/phase-5g.md, W10)', () => {
-  const SEED = 1;
+  // Seed 4 since the Solo rework (docs/solos.md): seed 1's run now ends before its first relic.
+  // (A seed whose run gets no motif outside a draft, so skipping every draft leaves it none.)
+  const SEED = 4;
   const route = { movements: 2 } as const;
 
   it('leaves a run as it was when no preference is given, or an empty or unmatched one', () => {

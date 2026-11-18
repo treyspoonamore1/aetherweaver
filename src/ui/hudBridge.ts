@@ -152,8 +152,11 @@ function crescendoTotal(calling: { id: string; path: string[]; crescendo: string
   return CONTENT.crescendo.duration;
 }
 
-/** No Cue can be bought (docs/solos.md): the stand-in price the HUD's Cue pieces read until they go. */
-const NO_CUE_PRICE = Number.POSITIVE_INFINITY;
+/**
+ * No Cue can be bought (docs/solos.md): the stand-in price the HUD's Cue pieces read until they
+ * go. Out of any meter's reach, and a plain number, so the snapshot still survives JSON.
+ */
+const NO_CUE_PRICE = Number.MAX_SAFE_INTEGER;
 
 /**
  * Builds the HUD snapshot from sim state: plain numbers and strings only, so React never

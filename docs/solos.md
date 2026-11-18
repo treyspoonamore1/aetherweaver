@@ -69,6 +69,8 @@ The Conductor (Marcato, Reprise, Ensemble, Triad), Skilled, bosses: 99% in 96 s 
 
 The Novice wins more boss fights than before (65% against 46%), because her heroes now use their Solos. The fights are left as they are; her bands are re-set in tuning.
 
+Whole runs hold. Two-Movement Expeditions as the baselines play them, 150 seeds: the Skilled bot wins 70% (73% before), the Novice 21% (13%). The Finale route, 80 seeds: Skilled 65% (65%), Novice 4% (1%).
+
 ## Versions
 
 - `SIM_VERSION` 22 → 23. The content's version moved.
