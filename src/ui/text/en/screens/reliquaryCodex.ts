@@ -5,7 +5,7 @@ export const reliquaryCodex = {
   'screens.reliquaryCodex.theReliquary': 'The Reliquary',
   'screens.reliquaryCodex.rank': 'Rank {openRank}',
   'screens.reliquaryCodex.itOpensAtWeaver':
-    'It opens at Weaver Rank {openRank} (you’re Rank {rank}). Its rules wait here until then, or turn on Settings → Skip the unlocks.',
+    'It opens at Weaver Rank {openRank}. You are Rank {rank}.',
   'screens.reliquaryCodex.relicsThatOutliveTheir': 'Relics that outlive their runs.',
   'screens.reliquaryCodex.aWonRunS':
     'a won run’s Summary lets you keep one relic it found (not one it carried in). It arrives with its first Inscriptions: {common} for a common, {rare} for a rare, {legendary} for a legendary and {cursed} for a cursed relic, rolled as Inscribe rolls them but adding no Instability. A cursed relic a Forge cleansed comes cleansed. The Reliquary holds {capacity}; a full one must release a relic before it takes another. The same relic can be enshrined more than once: each is its own.',

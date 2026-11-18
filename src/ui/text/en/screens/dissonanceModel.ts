@@ -54,9 +54,8 @@ export const dissonanceModel = {
     'It opens with your first Finale clear at Rank {openRank} or above: you’re Rank {rank}, so your next Finale clear does it.',
   'screens.dissonanceModel.itOpensAtRank':
     'It opens at Rank {openRank} once you have cleared the Finale (you’re Rank {rank}).',
-  'screens.dissonanceModel.settingsSkipTheUnlocks': 'Settings → Skip the unlocks opens it now.',
   'screens.dissonanceModel.optInLevelsEach':
-    'Opt-in levels, each worth points, chosen before a run: the run’s total makes the fight harder and pays more, and the relics it finds craft further.',
+    'Levels you turn on before a run, each worth points. More points make fights harder, pay more and let relics craft further.',
   'screens.dissonanceModel.aRelicWonAt2': 'a relic won at {depth} or more can reach {tierName}',
   'screens.dissonanceModel.chooseItsLevelsIn':
     'Choose its levels in your next Prep: your choice is kept from run to run.',
@@ -64,7 +63,7 @@ export const dissonanceModel = {
     'Each point pays +{xpPerPoint}% Weaver XP and +{shardsPerPoint}% Tuning Shards. From {pointsText} a boss beaten with {withArticle} pays a Discord Tear too; from {tearOnWin}, every won run pays one more.',
   'screens.dissonanceModel.relicsRemember': 'Relics remember: {bandsSentence}.',
   'screens.dissonanceModel.onceYourFinaleClear':
-    'Once your Finale clear at Rank {openRank} or above opens it, choose its levels in Prep: each point pays +{xpPerPoint}% Weaver XP and +{shardsPerPoint}% Tuning Shards. Settings → Skip the unlocks opens it now.',
+    'Once your Finale clear at Rank {openRank} or above opens it, choose its levels in Prep: each point pays +{xpPerPoint}% Weaver XP and +{shardsPerPoint}% Tuning Shards.',
   'screens.dissonanceModel.aNewBest': 'A new best {asCalling}: {points}.',
   'screens.dissonanceModel.rank': '{name} (rank {rank})',
   'screens.dissonanceModel.dissonance': 'Dissonance {points}: {levelsLine}.{value}',

@@ -432,7 +432,7 @@ describe('Rank 8', () => {
     const top = rankPanel({ xp: 99_999, runs: 1, wins: 0 });
     expect(top.rank).toBe(MAX_RANK);
     expect(top.span).toBeNull();
-    expect(top.progressText).toMatch(/the highest Rank for now/);
+    expect(top.progressText).toMatch(/the highest Rank$/);
     expect(runRank({ xp: 40 }, 99_999).line).toMatch(
       new RegExp(`Rank ${MAX_RANK} is the highest for now`),
     );

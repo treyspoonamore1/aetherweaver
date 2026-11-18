@@ -35,7 +35,7 @@ export const atlasParts = {
   'screens.atlasParts.anEchoSOwn':
     'An Echo’s own levels count for nothing toward its stars. An Echo run pays as any run does, but sets no Dissonance best and earns no run-wide Deed.',
   'screens.atlasParts.oneRunTheSame':
-    'One run, the same for everyone from Monday to Monday (UTC): its seed, route, Calling, heroes and Dissonance are fixed, and your Chords and technique variants are your own. Its score counts each fight won and its grade, and a won run. Share it as a code and a replay file; a code you add is Claimed until its replay plays through on this device.',
+    'One run, the same for everyone from Monday to Monday (UTC). Only your Chords and technique variants are your own. It scores each fight won, its grade, and a won run. Share it as a code and a replay file.',
   'screens.atlasParts.yourReplayIsKept':
     'Your replay is kept on this device, so a friend’s code can be checked against yours.',
   'screens.atlasParts.keep': 'Keep',

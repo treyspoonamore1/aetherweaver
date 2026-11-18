@@ -322,7 +322,7 @@ export function runMovementCard(
   };
 }
 
-/** The combat HUD's line: "The Prelude · node 3 of 10", or "Movement II · node 2 of 7". */
+/** The combat HUD's line: "The Prelude · step 3 of 10", or "Movement II · step 2 of 7". */
 export function combatSubtitle(
   run: Pick<RunState, 'map' | 'path' | 'pending' | 'movements'> & Partial<Pick<RunState, 'echo'>>,
 ): string {

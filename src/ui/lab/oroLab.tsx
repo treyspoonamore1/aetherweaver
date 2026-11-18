@@ -35,7 +35,7 @@ function OroStage({ scenario, ally = false }: { scenario: OroScenario; ally?: bo
         hud={oroHud(scenario)}
         callouts={ally ? recruitAllyCallouts('oro') : []}
         decree={null}
-        subtitle="Movement I · node 3 of 7"
+        subtitle="Movement I · step 3 of 7"
         forceCoach
       />
     </LabWorld>

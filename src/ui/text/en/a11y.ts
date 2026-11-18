@@ -131,6 +131,7 @@ export const a11y = {
   'a11y.settings.accessibility': 'Accessibility',
   'a11y.settings.progress': 'Progress',
   'a11y.settings.controls': 'Controls',
+  'a11y.settings.general': 'General',
   'a11y.settings.barsOverTheHeroes': 'Bars over the heroes',
   'a11y.settings.theirLifeOverTheir': 'Life bars over their heads.',
   'a11y.settings.always': 'Always',

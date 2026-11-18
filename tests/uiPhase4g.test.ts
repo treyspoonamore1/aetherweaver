@@ -580,7 +580,7 @@ describe('Calling mastery on the run’s screens', () => {
     );
     expect(tiersLine('luminary', 4)).toBe('This run offers every tier of the path.');
     expect(tiersLine('luminary', 1, { all: true, prep: true })).toBe(
-      'This run will offer every tier: the unlocks are skipped (Settings).',
+      'This run will offer every tier.',
     );
   });
 

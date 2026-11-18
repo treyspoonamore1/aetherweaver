@@ -6,7 +6,7 @@ export const bondsParts = {
   'screens.bondsParts.choose': 'Choose',
   'screens.bondsParts.tier': 'Tier {numeral}: {value}',
   'screens.bondsParts.rank': 'Rank {rank}',
-  'screens.bondsParts.skipTheUnlocks': '(Skip the unlocks)',
+  'screens.bondsParts.skipTheUnlocks': '(open now)',
   'screens.bondsParts.bringsIt': 'Brings it',
   'screens.bondsParts.rank2': 'rank {rank}',
   'screens.bondsParts.readItAgain': 'Read it again',

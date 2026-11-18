@@ -18,7 +18,7 @@ export const draftScreen = {
   'screens.draftScreen.yourMotifs': 'Your motifs',
   'screens.draftScreen.aMotifToWeave': 'A motif to weave',
   'screens.draftScreen.r': 'R',
-  'screens.draftScreen.skipHealTheParty': 'Skip: heal the party a little',
+  'screens.draftScreen.skipHealTheParty': 'Skip: every hero heals {pct}%',
   'screens.draftScreen.needs2': ' Needs: {needs}.',
   'screens.draftScreen.motif': '{name}, {label} {label2} motif{value}. {motifLine}{needsSentence}',
   'screens.draftScreen.aHarmonyOfferedOnce': 'A Harmony: offered once you own {harmonyNeeds}',

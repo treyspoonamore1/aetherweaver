@@ -13,7 +13,7 @@ export const astrolabeScreen = {
   'screens.astrolabeScreen.giveEverythingBack': 'Give everything back',
   'screens.astrolabeScreen.planAPath': 'Plan a path',
   'screens.astrolabeScreen.pointAtAStar':
-    'Point at a star: the path to it lights up, with what it costs. Take it and every star on the way; give one back if nothing you’ve taken hangs on it.',
+    'Point at a star to see its path and cost. Taking it takes every star on the way. Give one back if nothing you took hangs on it.',
   'screens.astrolabeScreen.take': 'Take · {pointsWord}',
   'screens.astrolabeScreen.giveBack': 'Give back',
   'screens.astrolabeScreen.or': 'or',
@@ -39,7 +39,7 @@ export const astrolabeScreen = {
   'screens.astrolabeScreen.price': 'Price',
   'screens.astrolabeScreen.litYours': 'Lit: yours',
   'screens.astrolabeScreen.touchesYourTree': 'Touches your tree',
-  'screens.astrolabeScreen.outOfReachFor': 'Out of reach for now',
+  'screens.astrolabeScreen.outOfReachFor': 'Out of reach',
   'screens.astrolabeScreen.keystoneARuleWith': 'Keystone: a rule, with a price',
   'screens.astrolabeScreen.click': 'Click',
   'screens.astrolabeScreen.enter': 'Enter',

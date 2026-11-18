@@ -4,14 +4,14 @@ import type { Catalogue } from '../../catalogue';
 export const rosterModel = {
   'screens.rosterModel.pickMore': 'Pick {more} more {value}',
   'screens.rosterModel.noKaelNothingTaunts':
-    'No Kael: nothing taunts. Twin Cleave and Execution will find Brann — keep a Reel and a Ward for him.',
+    'No Kael: nothing taunts. Twin Cleave and Execution will find Brann. Keep a Reel and a Ward for him.',
   'screens.rosterModel.noLyraOnlyKael':
     'No Lyra: only Kael’s Shield Bash and Brann’s Sunder Leap interrupt. Break guards with Focus.',
-  'screens.rosterModel.noVexisNoGravity': 'No Vexis: no Gravity Well — swarms stay spread out.',
+  'screens.rosterModel.noVexisNoGravity': 'No Vexis: no Gravity Well. Swarms stay spread out.',
   'screens.rosterModel.noThisRun': 'No {name} this run.',
   'screens.rosterModel.noKaelNoAegis': 'No Kael: no Aegis Wall this run.',
   'screens.rosterModel.noKaelNothingTaunts2':
-    'No Kael: nothing taunts. The bosses will find Seren — Ward her as the blow lands: she parries it whole.',
+    'No Kael: nothing taunts. The bosses will find Seren. Ward her as the blow lands: she parries it whole.',
   'screens.rosterModel.noKaelNothingHolds':
     'No Kael: nothing holds the bosses, and Oro won’t. Keep a Perfect, a Reel or a Chime for each boss blow.',
   'screens.rosterModel.noKaelNothingHolds2': 'No Kael: nothing holds the bosses.',

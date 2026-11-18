@@ -194,16 +194,16 @@ describe('the aura-silence hint names a Silencing elite only while one stands', 
       { ...mockHud('calm'), foes: undefined },
     ]) {
       const text = hint(silenced(hud), 'silenced')!.text;
-      expect(text).toMatch(/mark the Mute/);
+      expect(text).toMatch(/Mark the Mute/);
       expect(text).not.toMatch(/Silencing elite/);
     }
   });
 
   it('a Silencing elite with no Mute: named; a Mute standing: the Mute', () => {
     const rift = { ...riftHud('rift-cut'), rift: { silencer: true as const } };
-    expect(hint(silenced(rift), 'silenced')!.text).toMatch(/mark the Silencing elite/);
+    expect(hint(silenced(rift), 'silenced')!.text).toMatch(/Mark the Silencing elite/);
     const both = { ...rift, foes: [...(rift.foes ?? []), 'mute'] };
-    expect(hint(silenced(both), 'silenced')!.text).toMatch(/mark the Mute/);
+    expect(hint(silenced(both), 'silenced')!.text).toMatch(/Mark the Mute/);
   });
 
   it('the bridge sets rift.silencer for a Silencing elite, and never for a Mute', () => {

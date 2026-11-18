@@ -1,3 +1,4 @@
+import { Fold } from '../kit/Fold';
 import { noVariants } from '../../meta/variants';
 import { Icon } from '../kit/Icon';
 import { KeyCap } from '../kit/KeyCap';
@@ -38,18 +39,21 @@ export function TechniquesCodexPage({
           </p>
         ))}
       </Panel>
-      {slots.map((view) => (
-        <section
+      {/* One slot open, the others a fold away (the second menu text pass, round 11). */}
+      {slots.map((view, i) => (
+        <Fold
           key={view.slot}
-          aria-labelledby={`codex-slot-${view.slot}`}
-          data-testid={`codex-technique-slot-${view.slot}`}
+          label={view.name}
+          open={i === 0}
+          count={view.options.length}
+          headingClass="text-gold-300"
+          testId={`codex-technique-slot-${view.slot}`}
+          heading={
+            <span id={`codex-slot-${view.slot}`} className="flex items-center gap-2">
+              <KeyCap label={view.key} accent /> {view.name}
+            </span>
+          }
         >
-          <h2
-            id={`codex-slot-${view.slot}`}
-            className="mb-2 flex items-center gap-2 font-display text-lg font-bold text-gold-300"
-          >
-            <KeyCap label={view.key} accent /> {view.name}
-          </h2>
           <div className="grid gap-3 md:grid-cols-3">
             {view.options.map((o) => (
               <TechniqueCard
@@ -60,7 +64,7 @@ export function TechniquesCodexPage({
               />
             ))}
           </div>
-        </section>
+        </Fold>
       ))}
     </div>
   );

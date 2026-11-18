@@ -239,7 +239,7 @@ describe('the map in Movement II', () => {
   it('an Expedition’s combat line names its Movement and node', () => {
     const run = expeditionRun('climb');
     const pending = run.path.at(-1)!;
-    expect(combatSubtitle({ ...run, pending })).toBe('Movement II · node 2 of 7');
+    expect(combatSubtitle({ ...run, pending })).toBe('Movement II · step 2 of 7');
   });
 });
 
@@ -252,7 +252,7 @@ describe('Prelude strings render as today', () => {
     });
     const played = victoryRun(7);
     const midway = { ...played, path: played.path.slice(0, 3), pending: played.path[2]! };
-    expect(combatSubtitle(midway)).toBe(`The Prelude · node 3 of ${played.map.rows.length}`);
+    expect(combatSubtitle(midway)).toBe(`The Prelude · step 3 of ${played.map.rows.length}`);
     expect(prepEyebrow(run)).toBe('The Prelude · Movement I');
     expect(abandonLine(run)).toBe(
       'The Prelude ends here and you go to the summary. This cannot be undone.',

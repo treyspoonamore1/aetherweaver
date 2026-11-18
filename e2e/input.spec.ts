@@ -133,7 +133,7 @@ test('the pad drives the menu screens: Title, Settings and its Controls, the Loo
   // The Title: the d-pad finds its controls; the bottom button opens Settings.
   await dpadMovesFocus(page);
   await padPress(page, page.getByRole('button', { name: /^Settings$/ }).first());
-  await expect(page.getByTestId('controls-settings')).toBeVisible();
+  await expect(page.getByTestId('settings-tabs')).toBeVisible();
 
   // Settings: the d-pad moves through its controls; a slider steps with left and right.
   await dpadMovesFocus(page);
@@ -142,6 +142,11 @@ test('the pad drives the menu screens: Title, Settings and its Controls, the Loo
   await master.focus();
   await tap(page, 'dpadLeft');
   expect(Number(await master.inputValue())).toBeLessThan(Number(before));
+  // The key, mouse and gamepad tables are on their own tab (the menu text pass, round 11): the
+  // pad opens it like any button.
+  await expect(page.getByTestId('controls-settings')).toHaveCount(0);
+  await padPress(page, page.getByTestId('settings-tab-controls'));
+  await expect(page.getByTestId('controls-settings')).toBeVisible();
   // Controls, by pad: Glide's pad slot, then the left bumper (Crescendo's): swap them.
   const glide = page.getByTestId('controls-pad').getByRole('button', { name: /^Glide \(dash\):/ });
   await padPress(page, glide.first());

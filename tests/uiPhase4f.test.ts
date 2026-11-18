@@ -653,7 +653,9 @@ describe('the songs’ budget, the Training Grounds, the Codex, the looks', () =
     for (const v of VARIANTS.filter((x) => variantSource(x.id).kind === 'mastery'))
       expect(lines).toContain(v.name);
     expect(lines).toContain(`Weaver Rank ${atelierRank()}`);
-    expect(lines).toContain('Skip the unlocks');
+    // The Codex no longer names the setting (round 11, second pass); the Grounds stay.
+    expect(lines).not.toContain('Skip the unlocks');
+    expect(lines).toContain('Training Grounds');
     expect(lines).toContain(REWIND_NAME);
   });
 

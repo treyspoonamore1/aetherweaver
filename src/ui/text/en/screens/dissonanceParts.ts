@@ -7,7 +7,7 @@ export const dissonanceParts = {
   'screens.dissonanceParts.reaches': '{depthLabel} · reaches {tierName}',
   'screens.dissonanceParts.dissonance': 'Dissonance',
   'screens.dissonanceParts.optInLevelsFor':
-    'Opt-in levels for this run: each makes the fight harder and pays more. Prep keeps your choice for the next run; embarking keeps it for this one.',
+    'Each level makes this run harder and pays more. Your choice carries to the next run.',
   'screens.dissonanceParts.thisRun': 'This run',
   'screens.dissonanceParts.clear': 'Clear',
   'screens.dissonanceParts.points': '/ {max} points',

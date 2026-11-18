@@ -361,7 +361,8 @@ describe('open and closed', () => {
     const below = closedLines(RULES.openRank - 3);
     expect(below.lead).toContain(`Rank ${RULES.openRank}`);
     expect(below.lead).toContain(`Rank ${RULES.openRank - 3}`);
-    expect(below.skip).toContain('Skip the unlocks');
+    // Closed, it says how it opens and no longer names the setting (round 11, second pass).
+    expect(JSON.stringify(below)).not.toContain('Skip the unlocks');
     // A Finale cleared below the Rank opens it on reaching the Rank: no 'first clear' to come.
     expect(below.lead).toContain('once you have cleared the Finale');
     expect(below.lead).not.toContain('first Finale clear');

@@ -511,17 +511,17 @@ describe('the per-hero copy', () => {
 
   it('party notes name who holds and who interrupts, and OB’s note (Q8)', () => {
     const text = (p: readonly string[]) => missingStarterNotes(p).map((n) => n.text);
-    expect(text(SEREN_PARTIES.SB)[0]).toMatch(/The bosses will find Seren — Ward her/);
+    expect(text(SEREN_PARTIES.SB)[0]).toMatch(/The bosses will find Seren\. Ward her/);
     expect(text(ORO_PARTIES.OB)).toEqual([
       'No Kael: nothing holds the bosses, and Oro won’t. Keep a Perfect, a Reel or a Chime for each boss blow.',
     ]);
     expect(text(DUO_PARTIES.W)).toEqual([
-      'No Kael: nothing taunts. The bosses will find Seren — Ward her as the blow lands: she parries it whole.',
+      'No Kael: nothing taunts. The bosses will find Seren. Ward her as the blow lands: she parries it whole.',
       'No Lyra: Seren’s Lunge is your interrupter. Break guards with Focus.',
     ]);
     expect(text(DUO_PARTIES.SO)).toEqual([
       'No Lyra: only Kael’s Shield Bash and Seren’s Lunge interrupt. Break guards with Focus.',
-      'No Vexis: no Gravity Well — swarms stay spread out.',
+      'No Vexis: no Gravity Well. Swarms stay spread out.',
     ]);
     expect(text(['kael', 'brann', 'seren'])[0]).toBe(
       'No Lyra: only Kael’s Shield Bash, Brann’s Sunder Leap and Seren’s Lunge interrupt. Break guards with Focus.',
@@ -762,8 +762,11 @@ describe('review fixes: the Mirror Choir decree, and Brann’s Codex entry', () 
     let stripped = html;
     for (const id of ['seren', 'oro'])
       stripped = stripped.replace(heroDef(id).recruit!.lockedText!, '');
+    // Re-recorded in round 11's second menu text pass: each hero's abilities now sit in a fold
+    // ("What they do"), so the page shows a hero in a line until it is opened. The page's text
+    // was compared with main's: the same words in the same order, plus that heading four times.
     expect(createHash('sha256').update(stripped).digest('hex')).toBe(
-      'b9f17d814045a040d1d1861fab7b40bca854a29cb20cb1c9d2287727a6c6421c',
+      '343a728b8b5a077b74469b5a6731a5b6816940be05a933a867ceb10663f5460a',
     );
   });
 });
@@ -776,6 +779,17 @@ describe('Brann’s and the default party’s UI are byte-equal to before', () =
   // line by line before the hashes were replaced: 42 changed lines, all of them those 21
   // sentences, none about Fermata, a Solo, a Cue or Resonance. The frames, the picker, the notes
   // and every other key are as recorded at W3's head.
+  // Re-recorded a second time in the same round's second pass, for 22 keys: the 11 `notes:*` that
+  // hold one of two roster notes ("No Vexis: no Gravity Well. Swarms stay spread out." and the
+  // Brann note, each with a full stop where a dash was) and the 11 `frames:brann-*`, whose Blood
+  // Rage bar carries four tooltips reworded the same way ("40%: Bloodlust. Below it he won’t
+  // Rally, and Blood Rage runs hot"). Compared with main's first: those six sentences and
+  // nothing else.
+  // A third time, when the owner lifted the rule that aura lines are left alone (round 11's
+  // AURAS-UNLOCKED note): five `hints:*` keys (`brann-rally`, `brann-held`, `crisis`, `calls`,
+  // `fermata`), for the hints about Fermata, the field and silenced auras, each with a full stop
+  // where a dash was ("Fermata holds Brann at 1 life. One touch of the Thread saves him, …").
+  // Compared with the recorded values first: six sentences, nothing else.
   it('every pinned text and frame hashes as recorded at W3’s head', async () => {
     const want = JSON.parse(
       readFileSync(join(__dirname, 'uiPhase5e.brann.json'), 'utf8'),
