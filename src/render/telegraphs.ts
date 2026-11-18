@@ -38,6 +38,7 @@ import { BEAM } from './fx/beams';
 import type { FxKit } from './fx/kit';
 import { PARTICLE } from './fx/particles';
 import { TG } from './fx/telegraphBatch';
+import { HERO_DRAWN } from './models/artFlag';
 import { BADGE_TONE, type GlyphIcon, type Overlay } from './overlay';
 import { C, VISION_HEX, approach, clamp01, color } from './palette';
 import type { TelegraphSettings } from '../app/settings';
@@ -343,7 +344,8 @@ export class TelegraphLayer {
         if (ra && r) {
           overlay.badge(
             r.x,
-            r.height + STATUS_BADGE_LIFT + r.y,
+            // Over the drawn head (heroes are drawn HERO_DRAWN tall), over the pips and the bar.
+            r.height * HERO_DRAWN + STATUS_BADGE_LIFT + r.y,
             r.z,
             ra,
             ra.join(','),
@@ -363,7 +365,7 @@ export class TelegraphLayer {
       const label = pinned ? 'Pinned' : look.latchedBy >= 0 ? 'Latched' : `×${look.bleed}`;
       overlay.badge(
         r.x,
-        r.height + STATUS_BADGE_LIFT + r.y,
+        r.height * HERO_DRAWN + STATUS_BADGE_LIFT + r.y,
         r.z,
         answers,
         answers.join(','),

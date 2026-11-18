@@ -17,6 +17,7 @@ import type { FxKit } from './fx/kit';
 import { PARTICLE } from './fx/particles';
 import { RING } from './fx/rings';
 import { SPRITE } from './fx/sprites';
+import { HERO_DRAWN } from './models/artFlag';
 import { C, clamp01, color } from './palette';
 
 /**
@@ -379,7 +380,7 @@ export class SerenFx {
     if (r)
       this.d.overlay?.callout(
         r.x,
-        r.y + r.height + 1.1,
+        r.y + r.height * HERO_DRAWN + 1.1,
         r.z,
         PARRIED_TEXT,
         SEREN_HEX.flash,
@@ -417,7 +418,8 @@ export class SerenFx {
     if (at)
       this.d.overlay?.callout(
         at.x,
-        at.y + at.height + 1.3,
+        // Over her quarry as it was; over Seren herself (no quarry drawn), her drawn head.
+        at.y + at.height * (t ? 1 : HERO_DRAWN) + 1.3,
         at.z,
         e.executed ? EXECUTED_TEXT : KILL_SHOT_TEXT,
         SEREN_HEX.flash,

@@ -49,7 +49,7 @@ import {
   signalHex,
 } from './crimsonCues';
 import { MARTYR_HEX, crescendoKind } from './martyrCues';
-import { HERO_DRAWN } from './models/artFlag';
+import { HERO_DRAWN, drawnHeight } from './models/artFlag';
 import { C, VISION_HEX, auraColor, clamp01, color, currentVision, rgba } from './palette';
 import {
   CALLING_HEX,
@@ -859,7 +859,7 @@ export class Feedback {
           if (r)
             this.d.overlay.callout(
               r.x,
-              r.height + 1.1,
+              r.height * HERO_DRAWN + 1.1,
               r.z,
               'SNAPPED',
               '#e2e8f0',
@@ -1700,7 +1700,9 @@ export class Feedback {
       b.handle = -1;
       return;
     }
-    if (fresh) b.handle = this.d.overlay.spawnNumber(r.x, r.height + 0.35, r.z, colorHex, size);
+    // From the drawn head: a hero's is HERO_DRAWN tall, an enemy's as it was.
+    if (fresh)
+      b.handle = this.d.overlay.spawnNumber(r.x, drawnHeight(r) + 0.35, r.z, colorHex, size);
     const text =
       b.amount > 0 ? `${Math.round(b.amount)}${b.crit ? '!' : ''}` : `(${Math.round(b.absorbed)})`;
     // Chips: gold = Empower and Flourishes, ♪ song = the auras' work, ☀ = the Luminary's light
@@ -1823,7 +1825,7 @@ export class Feedback {
     if (fresh || b.handle < 0)
       b.handle = this.d.overlay.spawnNumber(
         r.x + 0.35,
-        r.height + 0.2,
+        drawnHeight(r) + 0.2,
         r.z,
         cut ? dimHex(VISION_HEX.heal, CUT_HEAL_ALPHA) : VISION_HEX.heal,
         size,
@@ -2183,7 +2185,7 @@ export class Feedback {
         r.radius,
       );
     } else if (e.status === 'stun') {
-      this.sprite(r.x, r.height + 0.2, r.z, 0.3, 1.2, 0.25, C.goldHot, SPRITE.star, 1);
+      this.sprite(r.x, drawnHeight(r) + 0.2, r.z, 0.3, 1.2, 0.25, C.goldHot, SPRITE.star, 1);
     }
   }
 
@@ -2337,7 +2339,8 @@ export class Feedback {
     this.d.rig.punch(-1.1, 5);
     this.d.overlay.spotlight(r.x, cy, r.z, 0.4);
     this.d.overlay.flash(0.28, 0.12);
-    this.d.overlay.callout(r.x, r.height + 1.25, r.z, 'PERFECT', '#fff1c4', 28, 1.2);
+    // Over the drawn head (heroes and the Weaver are drawn HERO_DRAWN tall).
+    this.d.overlay.callout(r.x, drawnHeight(r) + 1.25, r.z, 'PERFECT', '#fff1c4', 28, 1.2);
   }
 
   /**
@@ -2386,7 +2389,7 @@ export class Feedback {
       1,
       r.radius * 1.4,
     );
-    this.d.overlay.callout(x, r.height + 1.7, z, 'SAVED', '#fcd98a', 32, 1.5);
+    this.d.overlay.callout(x, r.height * HERO_DRAWN + 1.7, z, 'SAVED', '#fcd98a', 32, 1.5);
     this.d.overlay.spotlight(x, cy, z, 0.45);
     this.d.rig.punch(-1.8, 2.6);
     this.d.overlay.flash(0.2, 0.18);
@@ -2576,7 +2579,7 @@ export class Feedback {
     );
     this.d.overlay.callout(
       r.x,
-      r.height + 1.1,
+      r.height * HERO_DRAWN + 1.1,
       r.z,
       'REVIVED',
       VISION_HEX.heal,
@@ -2684,20 +2687,10 @@ export class Feedback {
     // (EntityLayer); here, the burst of brass it starts with.
     if (e.solo === 'redFrenzy') this.fired5b.frenzies++;
     if (e.cued) {
-      this.sprite(r.x, r.height + 1.1, r.z, 1.3, 1.6, 1.5, C.amp, SPRITE.sigil, 1, e.hero, true);
-      this.sprite(
-        r.x,
-        r.height + 1.1,
-        r.z,
-        1.0,
-        2.6,
-        0.5,
-        C.goldHot,
-        SPRITE.glow,
-        0.8,
-        e.hero,
-        true,
-      );
+      // The Cue's sigil over the drawn head (heroes are drawn HERO_DRAWN tall).
+      const top = r.height * HERO_DRAWN + 1.1;
+      this.sprite(r.x, top, r.z, 1.3, 1.6, 1.5, C.amp, SPRITE.sigil, 1, e.hero, true);
+      this.sprite(r.x, top, r.z, 1.0, 2.6, 0.5, C.goldHot, SPRITE.glow, 0.8, e.hero, true);
       this.d.kit.particles.burst(
         r.x,
         r.height * 0.6,
@@ -3102,7 +3095,7 @@ export class Feedback {
     if (!r) return;
     this.d.overlay.callout(
       r.x,
-      r.height + 1.1,
+      r.height * HERO_DRAWN + 1.1,
       r.z,
       cutLabel(cause),
       RIFT_HEX.fray,
@@ -3173,7 +3166,7 @@ export class Feedback {
     );
     this.d.overlay.callout(
       r.x,
-      r.height + 1.2,
+      r.height * HERO_DRAWN + 1.2,
       r.z,
       'POSSESSED',
       RIFT_HEX.possess,
@@ -3330,7 +3323,7 @@ export class Feedback {
     if (!w) return;
     this.d.overlay.callout(
       w.x,
-      w.height + 1.3,
+      w.height * HERO_DRAWN + 1.3,
       w.z,
       'UNRAVEL',
       VISION_HEX.lethal,
@@ -3736,7 +3729,7 @@ export class Feedback {
     }
     const cx = r ? r.x : e.x;
     const cz = r ? r.z : e.z;
-    const top = r ? r.height + 1.4 : 2.6;
+    const top = r ? r.height * HERO_DRAWN + 1.4 : 2.6;
     this.d.overlay.callout(
       cx,
       top,
@@ -3912,7 +3905,8 @@ export class Feedback {
         this.drawn5b.refusedAck++;
       } else if (ack > 0) this.refusedAckUntil.delete(id);
       const k = clamp01((until - this.now) / 0.3);
-      const y = r.height + r.y + 1.05;
+      // Over his drawn head, where a call's prompt is (calls.ts).
+      const y = r.height * HERO_DRAWN + r.y + 1.05;
       const R = 0.26;
       this.d.kit.spritesTop.push(r.x, y, r.z, R * 2.2, SPRITE.ring, brass, 0.95 * k);
       this.d.kit.beams.push(

@@ -791,12 +791,61 @@ of placement each.
 **Not taken** (no strong case; still built on `p9/marks`): M3, where the Sunrise beam ends, and
 M4c, where the Thread meets the hero (it would move 80 `beam` entries).
 
-Still placed from the old height and not proposed: the pour's label, the Luminary's Dawn callout,
-Radiance shaft and circlet, the Tyrant's crown and edict, the Martyr's seals and ember, the
-Chronomancer's mastery mark and Stasis callout, the Conductor's sigil, marcato mark and solo light
-(all aura, ornament or Calling drawing); and, outside it, Seren's and Oro's glyphs, stun stars and
-status badges, bond and relic marks, damage and heal numbers, and the PERFECT, SAVED and HOLD
-callouts.
+**The rest of the marks that are not aura, ornament or Calling drawing** were raised the same way
+afterwards (`p11/marks`), one line of placement each and nothing else: a mark over a hero or the
+Weaver is lifted from the drawn height (`height * HERO_DRAWN`, or `drawnHeight(rec)` where the same
+mark is also drawn over enemies, which are not drawn larger and keep theirs).
+
+- Seren's crossed blades and her parry glyph, Oro's tending drop and his closed leaf.
+- Stun stars; the Legion's bleed pips and Wound's heart and the Rift's mask, Doom pips and rune
+  lock, with the answer badge over them (the bar, the pips and the badge are stacked as
+  `crimsonCues.ts` lays them out again: at the game camera the pips had come to touch the bar).
+- Bond marks: Oathkeeper's diamond in a ring, Hawk's Vigil's timer, and each talent's name over
+  its hero. Relic marks: the Glass Halo, the Cracked Metronome over the Weaver, the Heavy Score's
+  weight, and each relic's name over the hero or the Weaver. The Aegis Link's seconds over a lone
+  hero, a trigger's mark over its target, the Water Clock's dial, a Grand Silence note's start.
+- Damage and heal numbers where they start from a hero's head; the PERFECT, SAVED, REVIVED,
+  SNAPPED, CUT, POSSESSED, UNRAVEL, PARRIED and Flourish callouts; the Cue's sigil and Brann's
+  refusal glyph.
+
+`tests/renderMarksDrawn.test.ts` holds a sample of them (a hero's from the drawn height, an
+enemy's where it was). Neither aura pin moves and none of the eight aura files is touched. One
+sheet, Kael and a second figure at the game camera and close: `part1-before-after.png`.
+
+Three things seen while checking them:
+
+- Seren's blades (0.5 m over the head) and Oro's drop (0.45 m) were laid out at the health bar's
+  own height (0.42 m), so the bar crosses them, as it did on the old figures. Raised, their upper
+  half shows over the bar; before, they sat under it on the head.
+- At the player's closest zoom a hero standing up the screen from the Weaver has about 3 m of
+  view over his head, and less while the aim pulls the camera down the screen. The status badge
+  (2.6 m over the head) was at that edge already and is cut there now; with the aim at the
+  bottom of the screen the bleed pips and a heal number over such a hero reach the edge too
+  (`part1-closest-zoom.png`). At the default zoom and in a boss fight's pulled-back view
+  everything is inside. Not changed: the cure, if one is wanted, is in the camera or the overlay,
+  for every mark at once.
+- Not moved, because they are not marks over a head: a beam's or a pillar's far end, shells, the
+  Lantern rising from a fallen hero, and everything placed part of the way up the body (the chest
+  anchors).
+
+**Proposed, not landed** (`p11/marks-proposals`, one commit and one "Now / Proposed" sheet each,
+the owner's to approve one by one; the aura pin's tests fail on that branch on purpose):
+
+| | Mark | Entries of `tests/aura/presentationPin.json` it would move (of 627) |
+|---|---|---|
+| P1 | the pour's label | 80 (`beam`, all 8 samples of the ten beam-song cases) |
+| P2 | the Luminary's Dawn callout, Radiance shaft and Sovereign circlet | none |
+| P3 | the Martyr's seals and ember | none |
+| P4 | the Chronomancer's mastery mark and Stasis clock | none |
+| P5 | the Conductor's sigil, Marcato mark and Spotlight | none |
+| P6 | the target mark over a hero, with Foresight's outline of it | none |
+| P7 | Fermata's shell round the held hero | 10 (`fermata`, samples 4 to 8 of the two Fermata cases) |
+
+P6 is held back from the set above because the Chronomancer draws that mark too (Foresight's
+outline, Paradox's mark flying back) and the two must move together. P7 is the only chest anchor
+whose move shows; the song's glow, the pour's splash, the Vow's tethers and a call's answer beam
+were built and compared and show no difference (`chest-anchors-compared.png`). The Tyrant's crown
+and edict are over the boss, which is not drawn larger: nothing to raise.
 
 ## 8d: portraits and the map's rewards
 
