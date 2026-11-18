@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { CONTENT, deedText, inscriptionDef, relicText } from '../src/content';
 import { FILL_BOONS, FILL_EVENTS, FILL_MOTIFS, FILL_RELICS } from '../src/content/fill';
 import { DEED_POINTS_MAX, deedPoints } from '../src/meta/deeds';
@@ -2065,6 +2065,16 @@ async function openLabView(page: Page, view: string): Promise<void> {
 }
 
 /** A content name, by id: a motif's, a relic's, an event's or a boon's. */
+/**
+ * Opens every folded group in sight (the Codex folds its long pages, round 11's second text pass):
+ * each heading is a button, and a fold inside a closed one shows once its parent is open.
+ */
+async function openFolds(scope: Page | Locator): Promise<void> {
+  const closed = scope.locator('[data-fold][aria-expanded="false"]:visible');
+  for (let i = 0; i < 80 && (await closed.count()) > 0; i++) await closed.first().click();
+  await expect(closed).toHaveCount(0);
+}
+
 function nameOf(id: string): string {
   const def =
     CONTENT.motifs.find((m) => m.id === id) ??
@@ -2202,6 +2212,9 @@ test('Phase 5g: the UI lab’s Fill group — each view renders without an error
   );
   await openLabView(page, 'fill-codex-events');
   await expect(stage.locator('[data-event]')).toHaveCount(CONTENT.events.length);
+  // The page shows Movement I's events and folds the rest and the boons: open them to see each.
+  await expect(stage.getByTestId('codex-boons')).toHaveAttribute('data-open', 'false');
+  await openFolds(stage);
   for (const e of FILL_EVENTS) await expect(stage.locator(`[data-event="${e.id}"]`)).toBeVisible();
   for (const b of FILL_BOONS) await expect(stage.locator(`[data-boon="${b.id}"]`)).toBeVisible();
 
@@ -2294,6 +2307,10 @@ test('Phase 5g: the Codex in the app — the 18 relics each with their own glyph
   await page.getByRole('tab', { name: 'Events' }).click();
   for (const e of FILL_EVENTS) await expect(page.locator(`[data-event="${e.id}"]`)).toHaveCount(0);
   await expect(page.getByTestId('codex-events-locked')).toHaveCount(2);
+  // The boons are a fold at the foot of the page, closed at first.
+  const boons = page.getByTestId('codex-boons');
+  await expect(boons).toHaveAttribute('data-open', 'false');
+  await boons.locator('[data-fold]').click();
   for (const b of FILL_BOONS) await expect(page.locator(`[data-boon="${b.id}"]`)).toBeVisible();
   expect(errors).toEqual([]);
 });
