@@ -25,6 +25,7 @@ import {
 } from '../src/input/gamepad';
 import {
   AUTO_SOLO_DANGER,
+  AUTO_SOLO_KEEP,
   AUTO_SOLO_LEAD,
   AUTO_THREAD_IDLE_SECONDS,
   InputController,
@@ -751,7 +752,8 @@ describe('Auto-Thread follows a Solo about to fire (docs/solos.md, rule 7)', () 
   /**
    * Hands off for `lull` seconds, then every Solo is charged at once (or `charge` stages them),
    * then `seconds` more with the controller's own commands and nothing else (or `act` on given
-   * frames after the charge).
+   * frames after the charge). `busy`: the player presses Ward every third of a second from the
+   * first frame to the last, as someone does who is playing but leaves the Thread alone.
    */
   const play = (
     sim: Sim,
@@ -762,12 +764,18 @@ describe('Auto-Thread follows a Solo about to fire (docs/solos.md, rule 7)', () 
       shares?: Partial<Record<number, number>>;
       act?(frame: number): void;
       charge?(sim: Sim): void;
+      busy?: boolean;
     } = {},
   ): Played => {
     const out: Played = { threads: [], solos: new Map(), events: [] };
     const lull = Math.round((opts.lull ?? AUTO_THREAD_IDLE_SECONDS + 0.5) * SIM_HZ);
     for (let f = -lull; f < seconds * SIM_HZ; f++) {
       life(sim, opts.shares);
+      if (opts.busy) {
+        const beat = ((f % 20) + 20) % 20;
+        if (beat === 0) win.dispatchEvent(key('keydown', 'KeyQ'));
+        if (beat === 2) win.dispatchEvent(key('keyup', 'KeyQ'));
+      }
       if (f >= 0) opts.act?.(f);
       if (f === 0) opts.charge?.(sim);
       input.updatePointer(sim.state);
@@ -832,46 +840,142 @@ describe('Auto-Thread follows a Solo about to fire (docs/solos.md, rule 7)', () 
     expect(solos.get(LYRA)!.cued).toBe(true);
   });
 
-  it('hurt, but not in danger: the Solos are followed, and the Thread goes back to the hurt hero between them', () => {
+  it('hands off, a hero hurt but over 60%: the Solos are followed, and the Thread goes back to the hurt hero between them', () => {
     useSettings.getState().update((d) => ({ ...d, aids: { autoThread: true } }));
     const sim = fight(VEXIS);
-    const { threads, solos } = play(sim, controller(), 6, { shares: { [LYRA]: 0.6 } });
+    const { threads, solos } = play(sim, controller(), 6, {
+      shares: { [LYRA]: AUTO_SOLO_KEEP + 0.1 },
+    });
     for (const [slot, s] of solos) expect(s.cued, `slot ${slot}`).toBe(true);
     // After the last Solo the Thread is on Lyra, the lowest on life, not where it started.
     expect(sim.state.entities.get(sim.state.weaverId)!.weaver!.threadSlot).toBe(LYRA);
     expect(threads[threads.length - 1]!.slot).toBe(LYRA);
   });
 
-  it('only with the hands off: an input every second, and it follows nothing', () => {
+  it('hands off, a hero under 60%: the lowest-life rule puts the Thread on them, and it does not leave for a Solo', () => {
     useSettings.getState().update((d) => ({ ...d, aids: { autoThread: true } }));
     const sim = fight(VEXIS);
-    const { threads, solos } = play(sim, controller(), 5, {
-      lull: 0.5,
-      act: (f) => {
-        if (f % SIM_HZ === 0) win.dispatchEvent(key('keydown', 'KeyZ'));
-        if (f % SIM_HZ === 1) win.dispatchEvent(key('keyup', 'KeyZ'));
-      },
+    const { threads, solos } = play(sim, controller(), 6, {
+      shares: { [LYRA]: AUTO_SOLO_KEEP - 0.1 },
     });
-    expect(threads).toEqual([]);
-    expect(solos.get(LYRA)!.cued).toBe(false);
+    expect(threads.map((t) => t.slot)).toEqual([LYRA]);
+    expect(threads[0]!.at).toBeLessThan(0);
+    expect(solos.get(VEXIS)!.cued).toBe(false);
+    expect(solos.get(KAEL)!.cued).toBe(false);
+    expect(solos.get(LYRA)!.cued).toBe(true);
   });
 
-  it('a press takes the Thread back: the follow ends, and starts again only after the idle wait', () => {
+  it('busy with other keys the whole time: every Solo is still followed, and the Thread goes back to where the player left it', () => {
     useSettings.getState().update((d) => ({ ...d, aids: { autoThread: true } }));
     const sim = fight(VEXIS);
-    // Just before Lyra's Solo (due a second after the charge) the player threads Vexis herself.
+    // Lyra is hurt (over the 60% line, and the Thread is not on her): hands off, the lowest-life
+    // rule would take the Thread to her. Busy, that rule never runs; the Solos are followed.
+    const { threads, solos, events } = play(sim, controller(), 6, {
+      busy: true,
+      shares: { [LYRA]: AUTO_SOLO_KEEP + 0.1 },
+    });
+    // The player really was playing: a Ward asked for three times a second, all the way through
+    // (cast when its cooldown and the Spirit allowed, refused otherwise).
+    const wards = events.filter(
+      (e) => e.type === 'techniqueCast' || e.type === 'techniqueRejected',
+    );
+    expect(wards.length).toBeGreaterThan(20);
+    expect(events.some((e) => e.type === 'techniqueCast')).toBe(true);
+    expect([...solos.keys()].sort()).toEqual([KAEL, LYRA, VEXIS]);
+    for (const [slot, s] of solos) expect(s.cued, `slot ${slot}`).toBe(true);
+    expect(threads.map((t) => t.slot)).toEqual([KAEL, LYRA, KAEL, VEXIS, KAEL, VEXIS]);
+    // Nothing moved the Thread before a Solo was coming, and it ends where the player had it.
+    expect(threads[0]!.at).toBeGreaterThanOrEqual(0);
+    expect(sim.state.entities.get(sim.state.weaverId)!.weaver!.threadSlot).toBe(VEXIS);
+  });
+
+  it('busy, and the hero the Thread is on is under 60% of their life: it does not leave them', () => {
+    useSettings.getState().update((d) => ({ ...d, aids: { autoThread: true } }));
+    // The player has the Thread on Lyra, who is badly hurt, and is busy Warding.
+    let sim = fight(LYRA);
+    let played = play(sim, controller(), 6, {
+      busy: true,
+      shares: { [LYRA]: AUTO_SOLO_KEEP - 0.05 },
+    });
+    expect(played.threads).toEqual([]);
+    expect(sim.state.entities.get(sim.state.weaverId)!.weaver!.threadSlot).toBe(LYRA);
+    expect(played.solos.get(VEXIS)!.cued).toBe(false);
+    expect(played.solos.get(KAEL)!.cued).toBe(false);
+    // Her own Solo is Cued: the Thread is on her as it fires.
+    expect(played.solos.get(LYRA)!.cued).toBe(true);
+    // Just over the line, it leaves her for each Solo and comes back to her after.
+    sim = fight(LYRA);
+    played = play(sim, controller(), 6, { busy: true, shares: { [LYRA]: AUTO_SOLO_KEEP + 0.05 } });
+    for (const [slot, s] of played.solos) expect(s.cued, `slot ${slot}`).toBe(true);
+    expect(played.threads.map((t) => t.slot)).toEqual([KAEL, LYRA, KAEL, VEXIS, KAEL, LYRA]);
+    expect(sim.state.entities.get(sim.state.weaverId)!.weaver!.threadSlot).toBe(LYRA);
+  });
+
+  it('busy, and any hero is under the danger line: no Solo is followed, and the Thread stays the player’s', () => {
+    useSettings.getState().update((d) => ({ ...d, aids: { autoThread: true } }));
+    const sim = fight(VEXIS);
+    // Lyra is in danger; the Thread is on Vexis, where the player left it. Busy, the
+    // lowest-life rule does not run either: Auto-Thread sends nothing at all.
+    const { threads, solos } = play(sim, controller(), 6, {
+      busy: true,
+      shares: { [LYRA]: AUTO_SOLO_DANGER - 0.05 },
+    });
+    expect(threads).toEqual([]);
+    expect(sim.state.entities.get(sim.state.weaverId)!.weaver!.threadSlot).toBe(VEXIS);
+    expect(solos.get(LYRA)!.cued).toBe(false);
+    expect(solos.get(KAEL)!.cued).toBe(false);
+    expect(solos.get(VEXIS)!.cued).toBe(true);
+  });
+
+  it('the player’s own touch of the Thread takes it back: the follow ends, and starts again 2 s later', () => {
+    useSettings.getState().update((d) => ({ ...d, aids: { autoThread: true } }));
+    // Just before Lyra's Solo (due a second after the charge) the player threads Vexis herself:
+    // by her key, or by a click on her party frame (which reaches the controller as a command).
     const at = Math.round((SOLOS.wait - 0.2) * SIM_HZ);
-    const { threads, solos } = play(sim, controller(), 2.5, {
+    for (const how of ['key', 'frame'] as const) {
+      const sim = fight(VEXIS);
+      const input = controller();
+      const { threads, solos } = play(sim, input, 6, {
+        busy: true,
+        act: (f) => {
+          if (f !== at) return;
+          if (how === 'frame') return input.queue({ t: 'thread', slot: VEXIS });
+          win.dispatchEvent(key('keydown', 'Digit3'));
+          win.dispatchEvent(key('keyup', 'Digit3'));
+        },
+      });
+      // Her touch is the last word for 2 s: Lyra's and Vexis's Solos fire as she left it.
+      const after = threads.filter((t) => t.at > at / SIM_HZ);
+      expect(solos.get(LYRA)!.cued, how).toBe(false);
+      expect(solos.get(VEXIS)!.cued, how).toBe(true);
+      expect(after[0]!.at - at / SIM_HZ, how).toBeGreaterThanOrEqual(AUTO_THREAD_IDLE_SECONDS);
+      expect(after[0]!.at - at / SIM_HZ, how).toBeLessThan(AUTO_THREAD_IDLE_SECONDS + 0.1);
+      // Then it follows again: Kael's wall, due at his hold's end, is Cued; and back to Vexis.
+      expect(
+        after.map((t) => t.slot),
+        how,
+      ).toEqual([KAEL, VEXIS]);
+      expect(solos.get(KAEL)!.cued, how).toBe(true);
+    }
+  });
+
+  it('pressing other keys is no touch of the Thread: Ward, Chime, a move and Mend ⇄ Empower leave a follow be', () => {
+    useSettings.getState().update((d) => ({ ...d, aids: { autoThread: true } }));
+    const sim = fight(VEXIS);
+    const at = Math.round((SOLOS.wait - 0.2) * SIM_HZ);
+    const { solos } = play(sim, controller(), 4, {
       act: (f) => {
-        if (f === at) win.dispatchEvent(key('keydown', 'Digit3'));
-        if (f === at + 1) win.dispatchEvent(key('keyup', 'Digit3'));
+        const press = (code: string) => {
+          win.dispatchEvent(key('keydown', code));
+          win.dispatchEvent(key('keyup', code));
+        };
+        if (f === at) press('KeyQ');
+        if (f === at + 2) press('KeyE');
+        if (f === at + 4) press('KeyA');
+        if (f === at + 6) canvas.dispatchEvent(pointer('pointerdown', 0, 0, 2));
       },
     });
-    // Her press is the last word for the idle wait: Lyra's and Vexis's Solos fire as she left it.
-    const after = threads.filter((t) => t.at > at / SIM_HZ);
-    expect(after).toEqual([]);
-    expect(solos.get(LYRA)!.cued).toBe(false);
-    expect(solos.get(VEXIS)!.cued).toBe(true);
+    for (const [slot, s] of solos) expect(s.cued, `slot ${slot}`).toBe(true);
   });
 
   it('its target: the soonest Solo within the lead, in reach; Kael’s full wall behind it', () => {
@@ -913,6 +1017,24 @@ describe('Auto-Thread follows a Solo about to fire (docs/solos.md, rule 7)', () 
     expect(partyInDanger(s)).toBe(false);
     expect(autoSoloTarget(s)).toBe(LYRA);
     const vexis = w.entities.get(s.party[VEXIS]!)!;
+    // The hero the Thread is on (Vexis) under 60% of her life: it does not leave her. At the
+    // line, it does. Brann aside, who sits low on purpose (here: Vexis marked as he is).
+    lyra.health!.hp = lyra.health!.maxHp;
+    vexis.health!.hp = vexis.health!.maxHp * (AUTO_SOLO_KEEP - 0.01);
+    expect(partyInDanger(s)).toBe(false);
+    expect(autoSoloTarget(s)).toBeNull();
+    (vexis.hero as { blood?: unknown }).blood = {};
+    expect(autoSoloTarget(s)).toBe(LYRA);
+    delete (vexis.hero as { blood?: unknown }).blood;
+    vexis.health!.hp = vexis.health!.maxHp * AUTO_SOLO_KEEP;
+    expect(autoSoloTarget(s)).toBe(LYRA);
+    // Her own Solo coming is no leaving: with the Thread on Lyra, hurt, Lyra is still the answer.
+    weaver.weaver!.threadSlot = LYRA;
+    lyra.health!.hp = lyra.health!.maxHp * (AUTO_SOLO_KEEP - 0.01);
+    expect(autoSoloTarget(s)).toBe(LYRA);
+    weaver.weaver!.threadSlot = VEXIS;
+    lyra.health!.hp = lyra.health!.maxHp;
+    vexis.health!.hp = vexis.health!.maxHp;
     vexis.health!.downed = true;
     expect(partyInDanger(s)).toBe(true);
     expect(autoSoloTarget(s)).toBeNull();
