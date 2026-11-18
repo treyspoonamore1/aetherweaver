@@ -30,9 +30,9 @@ export const hints = {
   'hud.hints.bearingStopsYourOn':
     'Bearing stops your {value} on {name}. Press {B} again to go back',
   'hud.hints.yourHeroesCanT':
-    '{crescendoName}: your heroes can’t fall below 1 life — what gets past them comes to you, softened',
+    '{crescendoName}: no hero falls below 1 life. The rest comes to you, softened',
   'hud.hints.everyEnemyWaitsYour':
-    '{crescendoName}: every enemy waits — your techniques have no cooldowns{value} while it lasts. Ward {Q}, Chime {E} and Rewind {F} freely',
+    '{crescendoName}: every enemy waits. Your techniques have no cooldowns{value}',
   'hud.hints.andCostLess': ' and cost {less}% less',
   'hud.hints.isOutsideYourField':
     '{name} is outside your field — move closer so your auras reach them',
@@ -42,7 +42,6 @@ export const hints = {
     'Your beam song pours into whoever you thread: {mult} on {name}. Everyone else near you hears an echo',
   'hud.hints.yourBeamSongPours2':
     'Your beam song pours into whoever you thread: {mult} on {name}, and nobody else',
-  'hud.hints.oneResonanceSegment': 'one Resonance segment',
   'hud.hints.foresightIsComingFor':
     'Foresight: {name} is coming for {name2} ({value}). Be ready before it begins',
   'hud.hints.anyMoment': 'any moment',
@@ -55,10 +54,10 @@ export const hints = {
     '{B} Bear: take part of a big hit on your threaded hero. Your songs hold your Life, not your Spirit',
   'hud.hints.bearHasNoKey':
     'Bear has no key. Bind one in Settings → Controls to take part of a big hit on your threaded hero',
-  'hud.hints.cueOnTheDownbeat':
-    'Cue on the downbeat: it costs only {downbeatCost} Resonance. The light under your Resonance shows the beat',
-  'hud.hints.cueOnTheDownbeat2':
-    'Cue on the downbeat: it’s free. The light under your Resonance shows the beat',
+  'hud.hints.solosBeginOnThe':
+    'Solos begin on the downbeat. Each one you Cue gives {gift} Resonance',
+  'hud.hints.solosBeginOnThe2':
+    'Solos begin on the downbeat. The light under your Resonance shows it',
   'hud.hints.isInALethal2': '{name} is in a lethal zone. {variantName} {F} on them',
   'hud.hints.isInALethal3': '{name} is in a lethal zone. Reel them out {F}',
   'hud.hints.isCondemnedWardYour':
@@ -139,9 +138,9 @@ export const hints = {
   'hud.hints.theGrandSilenceOnly':
     'The Grand Silence: only your {noteSources} are heard. Eight notes bring your heroes back, even the fallen',
   'hud.hints.yourCrescendoCancelsIt':
-    '{FORTISSIMO_NAME} — your Crescendo {crescendo} cancels it: press it now',
+    '{FORTISSIMO_NAME}. Press {crescendo}: your Crescendo cancels it',
   'hud.hints.holdResonanceYourCrescendo':
-    '{FORTISSIMO_NAME}: hold {crescendoCost} Resonance — your Crescendo {crescendo} cancels it',
+    'Save {crescendoCost} Resonance: your Crescendo {crescendo} cancels {FORTISSIMO_NAME}',
   'hud.hints.thread': 'Thread {him} {{value}}',
   'hud.hints.fermataIsHoldingAt2':
     'Fermata is holding {name} at 1 life — Thread them {{value}} or Chime {E} on them before it ends',
@@ -158,12 +157,9 @@ export const hints = {
     'Your auras are silenced — bring the party into a hymn circle with Rally {{bindingLabel}}',
   'hud.hints.yourAurasAreSilenced2':
     'Your auras are silenced — mark the {silencerName} with {{bindingLabel}} so the party breaks its dome',
-  'hud.hints.sIsReadyPress':
-    "{name}'s {soloName} is ready — press {{mod}{value}} now to Cue the stronger form, or it fires on its own",
-  'hud.hints.sIsReadyPress2':
-    "{name}'s {soloName} is ready — press {{mod}{value}} to Cue it (costs {value2})",
-  'hud.hints.resonanceIsFullPress':
-    'Resonance is full — press {{bindingLabel}} for {crescendoName}',
+  'hud.hints.soloIsComing':
+    '{name}’s {soloName} is coming. Thread them {{key}} to Cue it: the stronger form',
+  'hud.hints.resonanceIsFullPress': 'Resonance is full. Press {{bindingLabel}} for {crescendoName}',
   'hud.hints.yourPartyIsSpread':
     'Your party is spread out. Hold {{bindingLabel}} and flick to Rally to call them in',
   'hud.hints.holdOrTheMiddle':
@@ -173,10 +169,9 @@ export const hints = {
   'hud.hints.clickAPartyFrame':
     'Click a frame or press {1} to Thread a hero. Mend heals, Empower adds damage',
   'hud.hints.everyoneIsHealthyPress': 'Everyone is healthy. Press {RMB} for Empower and add damage',
-  'hud.hints.cueAnotherWithinS':
-    'Cue another within {Number} s for a {linkName}: {name}, {{mod}{value}}',
+  'hud.hints.threadForALink': '{linkName} next. Thread {name} {{key}} as their Solo fires',
   'hud.hints.playsEverySoloRising':
-    '{crescendoName} {{bindingLabel}} plays every Solo, rising, then fills them all',
+    '{crescendoName} {{bindingLabel}} plays every Solo in turn, then fills them',
   'hud.hints.aBloodPactScatter':
     '{pact} {value} a Blood Pact. Scatter {{bindingLabel}}: Chime can’t break it',
   'hud.hints.aCrimsonSentinelS':
@@ -196,10 +191,9 @@ export const hints = {
   'hud.hints.aMimicIsCopying3':
     'A Mimic is copying your Empower. Switch the Thread to Mend {RMB} to crack the mirror',
   'hud.hints.everySoloYouLet':
-    'Every Solo you let through feeds the Conductor’s Discord: answer it, or interrupt the soloist (Focus {{bindingLabel}})',
+    'An unanswered Solo feeds Discord. Answer it, or Focus {{bindingLabel}} the soloist to interrupt',
   'hud.hints.mend': 'Mend',
   'hud.hints.empower': 'Empower',
-  'hud.hints.resonance': '{cueCost} Resonance',
   'hud.hints.in': 'in {secondsLabel}',
   'hud.hints.share': 'share',
   'hud.hints.carries': 'carries',

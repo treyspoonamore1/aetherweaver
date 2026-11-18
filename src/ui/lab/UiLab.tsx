@@ -2696,17 +2696,7 @@ const VIEWS: ViewDef[] = [
       const c = h.conducting!;
       return (
         <World>
-          <HowToPlay
-            onClose={noop}
-            conduct={{
-              cueCost: c.cueCost,
-              chainWindow: c.chainWindow,
-              duet: c.duet,
-              trio: c.trio,
-              crescendoName: h.weaver.crescendoName,
-              crescendoCost: h.weaver.crescendoCost,
-            }}
-          />
+          <HowToPlay onClose={noop} conduct={{ chainWindow: c.chainWindow }} />
         </World>
       );
     },

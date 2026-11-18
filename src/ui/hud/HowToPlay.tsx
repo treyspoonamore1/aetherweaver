@@ -38,57 +38,45 @@ export interface RewindPrimer {
 }
 
 /**
- * Phase 4d: what a Cue costs this fight, when Dissonance (Silent Cues) makes it more than a
- * segment of Resonance (null: a segment, as content has it).
+ * Silent Cues (Dissonance, docs/solos.md): how long your Thread must have been on a hero as their
+ * Solo fires for it to be Cued (null: no hold).
  */
 export interface CuePrimer {
-  cost: number;
+  hold: number;
 }
 
 /**
- * Phase 5f: the Conductor's Cues, as this fight has them (`HudSnapshot.conducting`): what a Cue
- * costs, the chain's window, a Duet's and a Trio's power, and the Crescendo's name and cost.
+ * Phase 5f: the Conductor's chain, as this fight has it (`HudSnapshot.conducting`): the window a
+ * second Cued Solo must fall in to make a Duet.
  */
 export interface ConductPrimer {
-  cueCost: number;
   chainWindow: number;
-  duet: number;
-  trio: number;
-  crescendoName: string;
-  crescendoCost: number;
 }
 
-/** "+25%" from a power of 1.25. */
-function morePct(power: number): string {
-  return `${Math.round((power - 1) * 100)}%`;
-}
-
-function cueRow(cue: CuePrimer | null, conduct: ConductPrimer | null): Row {
+/**
+ * The Solo row (docs/solos.md): heroes fire their own, and a Solo fired with your Thread on them
+ * is Cued. The Conductor's row adds how a Duet and a Trio are made.
+ */
+function soloRow(cue: CuePrimer | null, conduct: ConductPrimer | null): Row {
   if (conduct)
     return {
       icon: 'chain',
-      keys: [bindingLabel('cue'), bindingLabel('crescendo')],
+      keys: [],
       title: t('hud.howToPlay.leadThemDuetsAnd'),
-      body: t('hud.howToPlay.goodSupportFillsResonance', {
-        cueCost: conduct.cueCost,
-        value: cue ? t('hud.howToPlay.raisesItThisRun', { levelName: levelName('cue_hold') }) : '',
+      body: t('hud.howToPlay.aSoloFiredDuet', {
         Number: Number(conduct.chainWindow.toFixed(1)),
-        morePct: morePct(conduct.duet),
-        morePct2: morePct(conduct.trio),
-        crescendoName: conduct.crescendoName,
-        crescendoCost: conduct.crescendoCost,
       }),
     };
   return {
     icon: 'note',
-    keys: [bindingLabel('cue'), bindingLabel('crescendo')],
-    title: t('hud.howToPlay.buildResonance'),
+    keys: [],
+    title: t('hud.howToPlay.cueTheirSolos'),
     body: cue
-      ? t('hud.howToPlay.goodSupportFillsResonance2', {
-          cost: cue.cost,
+      ? t('hud.howToPlay.heroesFireHold', {
+          hold: Number(cue.hold.toFixed(1)),
           levelName: levelName('cue_hold'),
         })
-      : t('hud.howToPlay.goodSupportFillsResonance3'),
+      : t('hud.howToPlay.heroesFire'),
   };
 }
 
@@ -150,15 +138,15 @@ function rows(
           title: t('hud.howToPlay.chimeAndReel'),
           body: t('hud.howToPlay.chimeCleansesMarksIn2'),
         },
-    cueRow(cue, conduct),
+    soloRow(cue, conduct),
   ];
 }
 
 /**
  * First-fight primer. The sim is paused while it is open (docs/plan/04 §7). `bear`: a Martyr
  * run, where Bear has its own key (Phase 3d). `rewind`: a Chronomancer run, where Reel's key
- * Rewinds (Phase 3e). `cue`: a Cue costs more than a segment this fight (Phase 4d). `conduct`:
- * a Conductor run, whose Cue row teaches Duets, Trios and the Grand Finale (Phase 5f).
+ * Rewinds (Phase 3e). `cue`: Silent Cues asks the Thread to hold (Phase 4d). `conduct`: a
+ * Conductor run, whose Solo row teaches Duets and Trios (Phase 5f).
  */
 export function HowToPlay({
   onClose,
@@ -171,7 +159,7 @@ export function HowToPlay({
   bear?: boolean;
   rewind?: RewindPrimer | null;
   cue?: CuePrimer | null;
-  /** Phase 5f: a Conductor run (his Cues, Duets, Trios and Grand Finale). */
+  /** Phase 5f: a Conductor run (his Duets and Trios). */
   conduct?: ConductPrimer | null;
 }) {
   return (

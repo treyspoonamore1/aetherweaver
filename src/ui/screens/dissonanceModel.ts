@@ -651,35 +651,22 @@ export interface HudDissonanceView {
   levels: LevelRow[];
   /** Blind Score is in force. */
   blind: boolean;
-  /** A Cue costs more than it would without Dissonance (Silent Cues). */
-  cueRaised: boolean;
   /** "Dissonance 14: Hardened (rank 2), Brisk Foes. Blind Score: …". */
   label: string;
 }
 
-/**
- * `cueBase`: what a Cue costs this fight without Dissonance (`WeaverHud.cueBase`): the content's,
- * or the Conductor's own cheaper Cue (docs/phase-5f.md), which is his Calling's, not Dissonance.
- */
-export function hudDissonanceView(
-  levels: readonly DissonanceChoice[],
-  cueCost: number,
-  cueBase: number = CONTENT.resonance.segment,
-): HudDissonanceView {
+export function hudDissonanceView(levels: readonly DissonanceChoice[]): HudDissonanceView {
   const points = dissonancePoints(levels);
   const rows = takenRows(levels);
   const blind = rows.some((r) => r.effect === 'blind_score');
-  const cueRaised = cueCost !== cueBase;
-  const notes = [blind ? blindLine() : null, cueRaised ? cueLine(cueCost) : null].filter(Boolean);
   return {
     points,
     levels: rows,
     blind,
-    cueRaised,
     label: t('screens.dissonanceModel.dissonance', {
       points,
       levelsLine: levelsLine(rows),
-      value: notes.length ? ` ${notes.join(' ')}` : '',
+      value: blind ? ` ${blindLine()}` : '',
     }),
   };
 }
@@ -713,23 +700,6 @@ export function unforgivingLine(what: 'rest' | 'skip' | 'party'): string {
   if (what === 'rest') return t('screens.dissonanceModel.dissonanceNoHealingRest', { name });
   if (what === 'skip') return t('screens.dissonanceModel.skipNoHealingHere', { name });
   return t('screens.dissonanceModel.dissonanceRestRestoresNo', { name });
-}
-
-/** "A Cue costs 35 Resonance this fight." */
-export function cueLine(cueCost: number): string {
-  return t('screens.dissonanceModel.aCueCostsResonance', { cueCost });
-}
-
-/**
- * The Cue's price on the Resonance arc when it isn't one segment (Silent Cues): the Resonance at
- * each multiple of the fight's Cue cost, where one more Cue becomes affordable. None when a Cue
- * costs a segment (the segments' gaps already mark it).
- */
-export function cueTicks(w: { cueCost: number; segment: number; resonanceMax: number }): number[] {
-  if (w.cueCost <= 0 || Math.abs(w.cueCost - w.segment) < 1e-9) return [];
-  const out: number[] = [];
-  for (let at = w.cueCost; at <= w.resonanceMax + 1e-9; at += w.cueCost) out.push(at);
-  return out;
 }
 
 /**

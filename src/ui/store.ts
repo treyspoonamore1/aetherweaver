@@ -78,8 +78,18 @@ export interface HeroHud {
   solo: number;
   soloReady: boolean;
   soloActive: boolean;
-  /** Hero autonomy, in a fight: a ready Solo fires on its own in a moment unless Cued first. */
-  soloAuto?: boolean;
+  /**
+   * The tell (docs/solos.md): seconds until they fire their Solo, as near as can be said (the
+   * sim's `soloDueIn`). Null or absent: none is coming.
+   */
+  soloIn?: number | null;
+  /** Their Solo would be Cued if it fired now (the sim's `threadCues`): your Thread is on them. */
+  willCue?: boolean;
+  /**
+   * Silent Cues: your Thread is on them, and must stay this many seconds more before it Cues
+   * (absent: no hold, or it is met).
+   */
+  cueHold?: number;
   /**
    * The Solo they brought (Phase 4e: their own, or the alternate their Bond opened, the fight's
    * `HeroComponent.soloId`): its id, name and lines, uncued and cued.
@@ -248,8 +258,8 @@ export interface HeroHud {
   reignite?: 'relit' | 'risen';
   // ── The Conductor (docs/phase-5f.md). Absent on every other run: the frame draws as before. ──
   /**
-   * A ready hero's Cue badge: what a Cue of them now would be, from the sim's `nextCue` (its place
-   * in the chain, its power, on the downbeat or not). Absent when they can't be Cued.
+   * A hero whose Solo is coming: what it would be if Cued now, from the sim's `nextCue`: a Duet or
+   * a Trio and its power. Absent for a plain Cue, and when no Solo is coming.
    */
   cue?: CueBadgeHud;
   /** Spotlight: Empowered at this strength while their Cued Solo lasts (`spotlit`). */
@@ -260,17 +270,13 @@ export interface HeroHud {
   finale?: FinaleTurnHud;
 }
 
-/** What a Cue of a ready hero would be now (`HeroHud.cue`, from the sim's `nextCue`). */
+/** What a coming Solo would be if Cued now (`HeroHud.cue`, from the sim's `nextCue`). */
 export interface CueBadgeHud {
-  /** 1 starts a chain (a plain Cue), 2 a Duet, 3 a Trio. */
-  link: 1 | 2 | 3;
+  /** 2 a Duet, 3 a Trio. */
+  link: 2 | 3;
   power: number;
-  /** On the downbeat (A Tempo) and costing no Resonance (not so under Silent Cues). */
-  free: boolean;
-  /** What it costs now. */
-  cost: number;
-  /** "Duet ×1.25", "Trio ×1.5", "Free", "Duet ×1.25 · Free"; null: a plain Cue. */
-  label: string | null;
+  /** "Duet", "Trio". */
+  label: string;
 }
 
 /**
@@ -296,8 +302,6 @@ export interface FinaleTurnHud {
  * other run). Every number is the sim's: `calling.conducting`, `field.conducting` and its helpers.
  */
 export interface ConductingHud {
-  /** What a Cue costs off the beat (Silent Cues included). */
-  cueCost: number;
   /** A Cue within this many seconds of the last joins its chain (`chainWindow`). */
   chainWindow: number;
   /** A Duet's and a Trio's power. */
@@ -310,17 +314,17 @@ export interface ConductingHud {
   chain: { heroes: string[]; link: 2 | 3; power: number; left: number; total: number } | null;
   /**
    * A Tempo (null without it): the sim's time, the bar and the window either side of each
-   * downbeat, whether a Cue now falls on it (`onBeat`) and what it costs.
+   * downbeat, whether the window is open now (`onBeat`), what a Solo Cued in it gives
+   * (`gift`, Resonance), and the next Solo to begin: whose, and in how many seconds (the sim's
+   * `soloDueIn`, which holds a ready Solo for the downbeat). `next` null: none is coming.
    */
   beat: {
     time: number;
     bar: number;
     within: number;
     on: boolean;
-    /** What a Cue costs now (`cueCostNow`): 0 on the beat, or Silent Cues' surcharge alone. */
-    cost: number;
-    /** What a Cue on the downbeat costs: 0, or Silent Cues' surcharge alone. */
-    downbeatCost: number;
+    gift: number;
+    next: { name: string; color: string; in: number; willCue: boolean } | null;
   } | null;
   /** The Grand Finale while it plays (null otherwise). */
   finale: FinaleHud | null;
@@ -492,18 +496,13 @@ export interface WeaverHud {
   reserved: number;
   resonance: number;
   resonanceMax: number;
-  /** Size of one Resonance segment (a Cue costs one, unless Dissonance raises it). */
+  /** Size of one Resonance segment (the meter's gaps). */
   segment: number;
   /**
-   * Phase 4d: what a Cue costs this fight (`WorldState.dissonance.cueCost`): the content's, or
-   * more with Silent Cues.
+   * Silent Cues (docs/solos.md): seconds your Thread must have been on a hero as their Solo fires
+   * for it to be Cued (the sim's `mods.cueHold`). 0 without the level.
    */
-  cueCost: number;
-  /**
-   * Phase 5f: what a Cue costs this fight without Dissonance (the content's, or the Conductor's
-   * 15), so the Dissonance chip names only what Silent Cues adds.
-   */
-  cueBase: number;
+  cueHold: number;
   /** What the Crescendo costs (the sim's `crescendoCostOf`: Maestro's 75 on his path). */
   crescendoCost: number;
   /** Seconds left in an active Crescendo (0 = none). */
@@ -840,19 +839,18 @@ export interface UiState {
 }
 
 /**
- * A Tempo's beat as of the frame being drawn (`hud/conducting.ts` `beatNow`): the sim's time,
- * whether a Cue now falls on the downbeat (`onBeat`) and what it costs (`cueCostNow`).
+ * A Tempo's beat as of the frame being drawn (`hud/conducting.ts` `beatNow`): the sim's time and
+ * whether the downbeat's window is open (`onBeat`).
  */
 export interface BeatNow {
   time: number;
   on: boolean;
-  cost: number;
 }
 
 /**
- * The beat strip's and the Cue badge's live beat (null: no A Tempo, or no fight). Apart from
- * `useUi`, as the runtime writes it every frame on A Tempo runs and only those two read it; the
- * rest of the HUD keeps the 15 Hz snapshot.
+ * The beat strip's live beat (null: no A Tempo, or no fight). Apart from `useUi`, as the runtime
+ * writes it every frame on A Tempo runs and only the strip reads it; the rest of the HUD keeps
+ * the 15 Hz snapshot.
  */
 export const useBeatNow = create<{ beat: BeatNow | null }>()(() => ({ beat: null }));
 

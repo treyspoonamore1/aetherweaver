@@ -61,7 +61,6 @@ export function PauseMenu({
             rewind={!!hud && hud.weaver.rewind !== null}
             techniques={hud?.weaver.techniques.map((x) => x.name)}
             crescendoName={hud?.conducting ? hud.weaver.crescendoName : undefined}
-            chainWindow={hud?.conducting?.chainWindow}
           />
         </div>
         <div className="mt-5 flex justify-end">

@@ -1,13 +1,15 @@
 /**
- * The Conductor in the fight (docs/phase-5f.md), without React so the tests read it: the Cue
- * badge on a ready hero's frame, the chain ring, the A Tempo beat strip, the Grand Finale's pips
- * and each hero's turn, the Calling chip's states, and the call-outs. Every rule is the sim's own:
- * `nextCue` (what a Cue would be now), `onBeat` and `beatAt` (the downbeat),
+ * The Conductor in the fight (docs/phase-5f.md, docs/solos.md), without React so the tests read
+ * it: the Duet or Trio badge on a hero whose Solo is coming, the chain ring, the A Tempo beat
+ * strip, the Grand Finale's pips and each hero's turn, the Calling chip's states, and the
+ * call-outs. Every rule is the sim's own: `nextCue` (what a Cued Solo would be now), `onBeat` and
+ * `beatAt` (the downbeat), `soloDueIn` (when the next Solo begins),
  * `openChain`, `finaleView` (who plays next and at what power), `finaleTurnBlock` (what stops a
  * hero's turn), `marcatoOn`, `marcatoReadyIn`, `ensembleBonus`; every number is
  * `calling.conducting` (from content, through the mods) or `field.conducting`. Nothing here
  * decides a rule.
  */
+import { heroDef } from '../../content';
 import {
   beatAt,
   ensembleBonus,
@@ -18,7 +20,10 @@ import {
   nextCue,
   onBeat,
   openChain,
+  resonanceScale,
+  soloDueIn,
   spotlit,
+  threadCues,
   type EntityId,
   type SimEvent,
   type WorldState,
@@ -41,43 +46,24 @@ const EPS = 1e-9;
 
 /** The Weaver's gold: Duets, Trios and the Finale are her acts (docs/phase-5f.md, Callouts). */
 export const CONDUCT_GOLD = '#f5d78e';
-/** The downbeat's white-gold: the beat strip's band and the "Free" badge. */
+/** The downbeat's white-gold: the beat strip's band when a Solo begins on it. */
 export const BEAT_LIGHT = '#fff4d6';
 
 // ── The Cue badge ──────────────────────────────────────────────────────────────────────
 
-/**
- * "Duet ×1.25", "Trio ×1.5", "Free", "Duet ×1.25 · Free"; on the beat under Silent Cues, where
- * only the surcharge is paid, "On the beat · 10". Null for a plain Cue off the beat.
- */
-export function cueBadgeLabel(next: {
-  link: 1 | 2 | 3;
-  power: number;
-  onBeat: boolean;
-  cost: number;
-}): string | null {
-  const chained = next.link > 1 ? `${linkName(next.link)} ${powerLabel(next.power)}` : null;
-  const beat = next.onBeat
-    ? next.cost <= 0
-      ? txt('hud.conducting.free')
-      : txt('hud.conducting.onTheBeat', { cost: next.cost })
-    : null;
-  return [chained, beat].filter(Boolean).join(' · ') || null;
+/** "Duet", "Trio": what a coming Solo would be if your Thread is on the hero as it fires. */
+export function cueBadgeLabel(link: 2 | 3): string {
+  return linkName(link);
 }
 
-/** A ready hero's badge from the sim's `nextCue` (null without the Conductor). */
+/**
+ * The badge of a hero whose Solo is coming, from the sim's `nextCue`: a Duet or a Trio (null for
+ * a plain Cue, and without the Conductor).
+ */
 export function cueBadge(state: WorldState, heroId: EntityId): CueBadgeHud | null {
-  const chained = nextCue(state, heroId);
-  if (!chained) return null;
-  // A Cue costs nothing (docs/solos.md); `cost` stays 0 until the badge is reworked.
-  const next = { ...chained, cost: 0 };
-  return {
-    link: next.link,
-    power: next.power,
-    free: next.onBeat && next.cost <= 0,
-    cost: next.cost,
-    label: cueBadgeLabel(next),
-  };
+  const next = nextCue(state, heroId);
+  if (!next || next.link === 1) return null;
+  return { link: next.link, power: next.power, label: cueBadgeLabel(next.link) };
 }
 
 // ── The beat strip (A Tempo) ───────────────────────────────────────────────────────────
@@ -96,61 +82,66 @@ export interface BeatStripView {
   band: { from: number; to: number };
   /** The light, where the sim's time is in the bar (0 … 1 along the strip). */
   light: number;
-  /** The light is inside the band: a Cue now is free (the sim's `onBeat`). */
+  /** The light is inside the band: the heroes begin their Solos now (the sim's `onBeat`). */
   inside: boolean;
+  /**
+   * A Solo begins on the downbeat the light is running to (or is inside): the band is lit for it.
+   * From the sim's `soloDueIn` (`beat.next`).
+   */
+  armed: boolean;
 }
 
 /**
  * The beat strip's geometry from the sim's `beatAt` (the phase through the bar) and `onBeat`
  * (`beat.on`). `stepped` (reduced motion): the light jumps from mark to mark instead of sliding.
- * It sits on the downbeat's mark exactly while `beat.on` (the window is open), so the light, the
- * band's glow and "Free" agree; it steps there as the window opens, and on to the next beat's
- * mark as it shuts. Otherwise it sits on the beat just struck.
+ * It sits on the downbeat's mark exactly while `beat.on` (the window is open), so the light and
+ * the band's glow agree; it steps there as the window opens, and on to the next beat's mark as it
+ * shuts. Otherwise it sits on the beat just struck.
  */
 export function beatStrip(
   beat: NonNullable<ConductingHud['beat']>,
   stepped = false,
 ): BeatStripView {
-  const { phase } = beatAt(beat.time, beat.bar);
+  const at = beatAt(beat.time, beat.bar);
+  const { phase } = at;
   const half = beat.within / beat.bar;
   const light = stepped
     ? LEAD +
       (beat.on ? 0 : Math.max(1, Math.min(BEATS - 1, Math.floor(phase * BEATS + EPS)))) / BEATS
     : (phase + LEAD) % 1;
+  // The window the light is in, or the next one, shuts at this many seconds from now.
+  const shuts = (beat.on ? at.nearest : at.next) + beat.within - beat.time;
   return {
     marks: Array.from({ length: BEATS }, (_, k) => ({ x: LEAD + k / BEATS, down: k === 0 })),
     band: { from: LEAD - half, to: LEAD + half },
     light,
     inside: beat.on,
+    armed: beat.next !== null && beat.next.in <= shuts + EPS,
   };
 }
 
 /**
  * A Tempo's beat as the sim stands now (`useBeatNow`): its time and whether it is inside the
- * downbeat's window (`onBeat`). `cost` is 0: a Cue costs nothing (docs/solos.md), and the field
- * goes when the strip is reworked. The runtime writes it every frame on A Tempo runs, so the
- * strip and the badge never wait for the HUD snapshot.
+ * downbeat's window (`onBeat`). The runtime writes it every frame on A Tempo runs, so the strip
+ * never waits for the HUD snapshot.
  */
 export function beatNow(state: WorldState): BeatNow {
-  return { time: state.time, on: onBeat(state), cost: 0 };
+  return { time: state.time, on: onBeat(state) };
 }
 
-/** The strip's beat with the frame's live time, window and cost over the snapshot's. */
+/**
+ * The strip's beat with the frame's live time and window over the snapshot's. The next Solo's
+ * seconds run down with it.
+ */
 export function liveBeat(
   beat: NonNullable<ConductingHud['beat']>,
   now: BeatNow | null,
 ): NonNullable<ConductingHud['beat']> {
-  return now ? { ...beat, time: now.time, on: now.on, cost: now.cost } : beat;
-}
-
-/** A hero's Cue badge with the frame's live window and cost over the snapshot's. */
-export function liveCueBadge(
-  badge: CueBadgeHud,
-  now: Pick<BeatNow, 'on' | 'cost'> | null,
-): CueBadgeHud {
-  if (!now) return badge;
-  const next = { link: badge.link, power: badge.power, onBeat: now.on, cost: now.cost };
-  return { ...badge, free: now.on && now.cost <= 0, cost: now.cost, label: cueBadgeLabel(next) };
+  if (!now) return beat;
+  const next = beat.next
+    ? { ...beat.next, in: Math.max(0, beat.next.in - (now.time - beat.time)) }
+    : null;
+  return { ...beat, time: now.time, on: now.on, next };
 }
 
 // ── The fight's state for the HUD ──────────────────────────────────────────────────────
@@ -168,8 +159,6 @@ export function conductingHud(
   const field = state.field.conducting;
   if (!view || !field) return null;
   return {
-    // A Cue costs nothing (docs/solos.md): 0 here and on the beat until the strip is reworked.
-    cueCost: 0,
     chainWindow: view.chainWindow,
     duet: view.duet,
     trio: view.trio,
@@ -180,8 +169,8 @@ export function conductingHud(
           bar: view.beat.bar,
           within: view.beat.within,
           on: onBeat(state),
-          cost: 0,
-          downbeatCost: 0,
+          gift: Math.round(view.cueResonance * resonanceScale(state)),
+          next: nextSolo(state, nameOf),
         }
       : null,
     finale: finaleHudOf(state, nameOf),
@@ -195,6 +184,32 @@ export function conductingHud(
       : null,
     triad: view.triad > 0 ? { holding: field.triad === true, count: view.triad } : null,
   };
+}
+
+/**
+ * The next Solo to begin (A Tempo's strip): the party hero whose `soloDueIn` is least, with
+ * their colour and whether it would be Cued now (`threadCues`). Null: none is coming.
+ */
+function nextSolo(
+  state: WorldState,
+  nameOf: (id: EntityId) => string | null,
+): NonNullable<ConductingHud['beat']>['next'] {
+  let best: NonNullable<ConductingHud['beat']>['next'] = null;
+  for (const id of state.party) {
+    const e = state.entities.get(id);
+    if (!e?.hero || !e.health) continue;
+    // Full with no one to fight: the wait has not begun (as the frames read it, `soloTell`).
+    if (e.hero.solo >= 100 && e.hero.targetId === null && !e.hero.grove) continue;
+    const due = soloDueIn(state, e);
+    if (due === null || (best && best.in <= due)) continue;
+    best = {
+      name: nameOf(id) ?? NAME_FALLBACK,
+      color: heroDef(e.hero.defId).color,
+      in: due,
+      willCue: threadCues(state, e),
+    };
+  }
+  return best;
 }
 
 /** The chip's Marcato from the sim's `marcatoReadyIn` (0: ready) and its bonus and seconds. */
@@ -336,14 +351,15 @@ export function finaleTurnOf(
 export function heroConducting(
   state: WorldState,
   heroId: EntityId,
-  hero: Pick<HeroHud, 'soloReady' | 'downed' | 'dead' | 'possessed' | 'stilled'>,
+  hero: Pick<HeroHud, 'soloIn' | 'downed' | 'dead' | 'possessed' | 'stilled'>,
   heard: FinaleHeard | null = null,
 ): Pick<HeroHud, 'cue' | 'spotlight' | 'marcato' | 'finale'> {
   const field = state.field.conducting;
   const view = state.calling?.conducting;
   if (!field || !view) return {};
   const up = !hero.dead && !hero.downed;
-  const badge = hero.soloReady && up && !hero.possessed ? cueBadge(state, heroId) : null;
+  const coming = hero.soloIn !== null && hero.soloIn !== undefined;
+  const badge = coming && up && !hero.possessed ? cueBadge(state, heroId) : null;
   const light = up ? spotlit(state, heroId) : 0;
   const held = field.marcato;
   const marcato =
@@ -502,6 +518,8 @@ export function conductingCallouts(
     crescendoName?: string;
     /** Marcato's bonus and seconds this fight (`calling.conducting.marcato`). */
     marcato?: { pct: number; seconds: number } | null;
+    /** A Tempo: the Resonance a Solo Cued on the downbeat adds to the meter (0 without it). */
+    gift?: number;
   },
 ): ConductingCallout[] {
   const gold = CONDUCT_GOLD;
@@ -529,10 +547,14 @@ export function conductingCallouts(
           },
           ttl: 1600,
         });
-      // Free only when it cost nothing (under Silent Cues a Cue on the beat pays the surcharge).
-      if (event.onBeat && event.cost <= 0)
+      // A Tempo: a Solo Cued on the downbeat gives its Resonance (`ctx.gift`, as the meter gains it).
+      if (event.onBeat && (ctx.gift ?? 0) > 0)
         out.push({
-          callout: { kind: 'system', text: txt('hud.conducting.freeCueOnThe'), color: gold },
+          callout: {
+            kind: 'system',
+            text: txt('hud.conducting.onTheBeat', { gift: ctx.gift }),
+            color: gold,
+          },
           ttl: 1300,
         });
       return out;

@@ -1,7 +1,7 @@
 import { CONTENT } from '../../content';
 import { Panel } from '../kit/Panel';
 import { REWIND_NAME } from '../screens/callingText';
-import { bindingLabel, cueModifierMark, mouseRoleLabel } from './labels';
+import { bindingLabel, mouseRoleLabel } from './labels';
 import { t as txt } from '../text';
 
 /**
@@ -10,14 +10,13 @@ import { t as txt } from '../text';
  * a Martyr run, where Bear has its own key (Phase 3d). `rewind`: a Chronomancer run, where
  * Reel's key Rewinds (Phase 3e). `techniques` (Phase 4f): what the four keys play this fight, by
  * name (the variants chosen, Rewind in Reel's slot), in key order. Phase 5f: on a Conductor run,
- * the Cue row says how a Duet is made and the Crescendo row names the Grand Finale.
+ * the Crescendo row names the Grand Finale. No key Cues a Solo (docs/solos.md): the Thread does.
  */
 export function KeyHints({
   bear = false,
   rewind = false,
   techniques,
   crescendoName,
-  chainWindow,
   always = false,
 }: {
   /** Shown at any width (the pause menu's Controls); otherwise only where the HUD has room. */
@@ -27,8 +26,6 @@ export function KeyHints({
   techniques?: readonly string[];
   /** Phase 5f: the Crescendo by its name when it isn't Sunrise (the Grand Finale). */
   crescendoName?: string;
-  /** Phase 5f: the Conductor's chain window (s): a second Cue inside it is a Duet. */
-  chainWindow?: number;
 }) {
   const t = CONTENT.techniques;
   const names = techniques ?? [
@@ -50,12 +47,6 @@ export function KeyHints({
     [
       `${bindingLabel('ward')} ${bindingLabel('chime')} ${bindingLabel('reel')} ${bindingLabel('glide')}`,
       names.join(' · '),
-    ],
-    [
-      txt('hud.keyHints.cueKeys', { cue: bindingLabel('cue'), mod: cueModifierMark() }),
-      chainWindow !== undefined
-        ? txt('hud.keyHints.cueASoloAnother', { Number: Number(chainWindow.toFixed(1)) })
-        : txt('hud.keyHints.cueASolo'),
     ],
     [
       bindingLabel('crescendo'),

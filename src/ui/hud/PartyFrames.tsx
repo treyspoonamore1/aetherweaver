@@ -21,7 +21,7 @@ import { StatusBadge } from './StatusBadge';
 import { ConductMarks, CueBadge } from './ConductParts';
 import { POSSESSED_COLOR, PossessedStrip, StitchChip } from './RiftMarks';
 import { healCutTitle } from './legionLook';
-import { ROLE_LABEL, bindingLabel, cueModifierMark, mouseRoleLabel } from './labels';
+import { ROLE_LABEL, bindingLabel, mouseRoleLabel } from './labels';
 import { beamSong, heroSongs, type HeroSongs } from './songs';
 import { bearLabel, shineLabel } from './calling';
 import { CallingGlyph, callingLook } from '../kit/CallingGlyph';
@@ -1050,6 +1050,7 @@ export function HeroFrame({
               {relit && !h.stilled && <ReigniteStrip hero={h} />}
               {h.held && <HeldStrip hero={h} />}
               {h.call && <CallStrip hero={h} threadMode={threadMode} named={named} />}
+              {soloComing(h) && <SoloStrip hero={h} />}
               {h.possessed && <PossessedStrip possessed={h.possessed} blind={blind} />}
               <div className="mt-1 flex min-h-5 flex-wrap items-center gap-1">
                 {(h.rewind || h.foreseen.length > 0 || h.lands) && (
@@ -1335,13 +1336,21 @@ function InFieldPip({ inField, out }: { inField: boolean; out: boolean }) {
   );
 }
 
+/** A hero's Solo is coming: the tell is on (`HeroHud.soloIn`), and they stand. */
+function soloComing(h: HeroHud): boolean {
+  return h.soloIn !== null && h.soloIn !== undefined && !h.dead && !h.downed;
+}
+
 /**
- * Portrait disc ringed by the Solo charge; blazes with the Cue key when ready. Phase 4e: their
- * Bond rank on its corner, once Bonds are open.
+ * Portrait disc ringed by the Solo charge (docs/solos.md). While their Solo is coming the ring
+ * is gold and the line under it counts the seconds down; with your Thread on them (it will be
+ * Cued) the ring doubles. Phase 4e: their Bond rank on its corner, once Bonds are open.
  */
 function Portrait({ hero: h, bondRank = null }: { hero: HeroHud; bondRank?: number | null }) {
-  // A stilled hero cannot be Cued until the song returns.
+  // A stilled hero does not fire until the song returns.
   const ready = h.soloReady && !h.dead && !h.downed && !h.stilled;
+  const coming = soloComing(h);
+  const cued = coming && h.willCue === true;
   return (
     <div className="relative flex shrink-0 flex-col items-center gap-0.5">
       {bondRank !== null && (
@@ -1362,49 +1371,104 @@ function Portrait({ hero: h, bondRank = null }: { hero: HeroHud; bondRank?: numb
           <Icon name="leaf" size={10} />
         </span>
       )}
-      <Ring
-        value={h.soloActive ? 1 : h.solo / 100}
-        size={46}
-        stroke={4}
-        color={ready || h.soloActive ? GOLD : 'rgb(252 217 138 / 0.65)'}
-        className={ready ? 'anim-glow' : ''}
-      >
-        <span
-          className="flex h-8 w-8 items-center justify-center rounded-full font-display text-base font-bold text-ink-950"
-          style={{ background: h.color }}
-          aria-hidden
-        >
-          {h.name.slice(0, 1)}
-        </span>
-      </Ring>
       <span
-        className={`font-mono text-xs leading-none ${ready ? 'font-bold text-gold-300' : 'text-muted'}`}
+        className="rounded-full"
+        style={
+          cued ? { boxShadow: `0 0 0 2px var(--color-ink-950), 0 0 0 4px ${GOLD}` } : undefined
+        }
+        data-testid="solo-ring"
+        data-coming={coming || undefined}
+        data-cued={cued || undefined}
+      >
+        <Ring
+          value={h.soloActive ? 1 : h.solo / 100}
+          size={46}
+          stroke={4}
+          color={ready || coming || h.soloActive ? GOLD : 'rgb(252 217 138 / 0.65)'}
+          className={coming ? 'anim-glow' : ''}
+        >
+          <span
+            className="flex h-8 w-8 items-center justify-center rounded-full font-display text-base font-bold text-ink-950"
+            style={{ background: h.color }}
+            aria-hidden
+          >
+            {h.name.slice(0, 1)}
+          </span>
+        </Ring>
+      </span>
+      <span
+        className={`font-mono text-xs leading-none ${ready || coming ? 'font-bold text-gold-300' : 'text-muted'}`}
         title={txt('hud.partyFrames.charged', { soloName: h.soloName, solo: Math.floor(h.solo) })}
+        data-testid="solo-count"
       >
         {h.dead
           ? ''
           : h.soloActive
             ? txt('hud.partyFrames.solo2')
-            : ready
-              ? h.soloAuto
-                ? txt('hud.partyFrames.auto')
-                : txt('hud.partyFrames.ready')
-              : `${Math.floor(h.solo)}%`}
+            : coming
+              ? txt('hud.partyFrames.soloIn', { in: h.soloIn!.toFixed(1) })
+              : ready
+                ? txt('hud.partyFrames.ready')
+                : `${Math.floor(h.solo)}%`}
       </span>
-      {ready && (
-        <span
-          className="mt-0.5 flex items-center gap-0.5"
-          title={
-            h.soloAuto
-              ? txt('hud.partyFrames.firesOnItsOwn', { soloName: h.soloName })
-              : txt('hud.partyFrames.cue', { soloName: h.soloName })
-          }
-        >
-          <KeyCap label={`${cueModifierMark()}${h.slot + 1}`} accent />
-        </span>
-      )}
-      {/* The Conductor (docs/phase-5f.md): what a Cue now would be, "Duet ×1.25", "Free". */}
-      {ready && h.cue && <CueBadge hero={h} />}
+    </div>
+  );
+}
+
+/**
+ * The Solo strip (docs/solos.md): while a hero's Solo is coming, its name, the seconds until it
+ * fires, and what your Thread makes of it. Thread elsewhere: an outlined strip that says
+ * "Thread to Cue". Thread on them: a filled gold strip, "Cued", with a tick. Under Silent Cues,
+ * with the Thread on them but not yet long enough: "Hold" and the seconds still to hold. Shape
+ * and words carry it, not colour alone. On a Conductor run the Duet or Trio it would be sits
+ * beside the name.
+ */
+function SoloStrip({ hero: h }: { hero: HeroHud }) {
+  const cued = h.willCue === true;
+  const hold = !cued && (h.cueHold ?? 0) > 0;
+  const seconds = h.soloIn!.toFixed(1);
+  return (
+    <div
+      className={`mt-1.5 flex items-center gap-1.5 rounded-md px-2 py-1 text-xs ${cued ? 'border-2 font-bold' : 'border border-dashed'}`}
+      style={
+        cued
+          ? { borderColor: GOLD, background: GOLD, color: 'var(--color-ink-950)' }
+          : {
+              borderColor: GOLD,
+              background: 'rgb(245 184 61 / 0.08)',
+              color: 'var(--color-gold-200)',
+            }
+      }
+      role="status"
+      aria-label={
+        cued
+          ? txt('hud.partyFrames.soloCuedIn', { name: h.name, soloName: h.soloName, seconds })
+          : hold
+            ? txt('hud.partyFrames.soloHoldIn', {
+                name: h.name,
+                soloName: h.soloName,
+                seconds,
+                hold: h.cueHold!.toFixed(1),
+              })
+            : txt('hud.partyFrames.soloThreadIn', { name: h.name, soloName: h.soloName, seconds })
+      }
+      title={txt('hud.partyFrames.cuedMeans')}
+      data-testid="solo-strip"
+      data-state={cued ? 'cued' : hold ? 'hold' : 'plain'}
+    >
+      <Icon name={cued ? 'check' : 'note'} size={13} />
+      <span className="truncate font-semibold">{h.soloName}</span>
+      {h.cue && <CueBadge hero={h} />}
+      <span className="ml-auto" />
+      <span className="flex shrink-0 items-center gap-1 whitespace-nowrap font-bold">
+        {!cued && <Icon name="thread" size={12} />}
+        {cued
+          ? txt('hud.partyFrames.cued')
+          : hold
+            ? txt('hud.partyFrames.hold', { hold: h.cueHold!.toFixed(1) })
+            : txt('hud.partyFrames.threadToCue')}
+      </span>
+      <span className="w-7 shrink-0 text-right font-mono font-semibold">{seconds}</span>
     </div>
   );
 }

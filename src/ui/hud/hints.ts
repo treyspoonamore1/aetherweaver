@@ -3,14 +3,7 @@ import type { Action } from '../../input/actions';
 import type { HeroHud, HudSnapshot } from '../store';
 import { keyLabel } from '../../input/keyLabel';
 import { fmt } from '../kit/format';
-import {
-  ANSWER,
-  bindingCode,
-  bindingLabel,
-  cueModifierMark,
-  mouseRoleDefault,
-  mouseRoleLabel,
-} from './labels';
+import { ANSWER, bindingCode, bindingLabel, mouseRoleDefault, mouseRoleLabel } from './labels';
 import { mult } from '../screens/chordModel';
 import { beamSong } from './songs';
 import { stasisCostMult } from './calling';
@@ -342,9 +335,6 @@ function allHints(hud: HudSnapshot): Hint[] {
       text: txt('hud.hints.everyEnemyWaitsYour', {
         crescendoName: w.crescendoName,
         value: less > 0 ? txt('hud.hints.andCostLess', { less }) : '',
-        Q,
-        E,
-        F,
       }),
     });
   }
@@ -414,32 +404,20 @@ function allHints(hud: HudSnapshot): Hint[] {
           : txt('hud.hints.yourBeamSongPours2', { mult: mult(beam.focus), name: focused.name }),
     });
   }
-  // The Conductor (docs/phase-5f.md): chain a Duet, Cue on the downbeat, the Grand Finale.
-  // Before the plain Cue's hint: a chain's window is the more urgent.
+  // The Conductor (docs/phase-5f.md): chain a Duet, the downbeat, the Grand Finale. Before the
+  // plain Solo's hint: a chain's window is the more urgent.
   out.push(...conductingHints(hud));
-  // What a Cue costs is the fight's (Silent Cues, Phase 4d, raises it past a segment).
-  const cueHero = party.find((h) => h.soloReady && alive(h));
-  // During the Grand Finale a Cue only makes that hero's turn wait: say nothing then.
-  if (cueHero && w.resonance + 1e-9 >= w.cueCost && !hud.conducting?.finale) {
+  // A Solo is coming and your Thread is elsewhere (docs/solos.md): say what the Thread does.
+  // During the Grand Finale the heroes keep their Solos for their turns: say nothing then.
+  const soloHero = party.find((h) => alive(h) && soloComing(h) && !h.willCue && !h.cueHold);
+  if (soloHero && !hud.conducting?.finale) {
     out.push({
-      id: 'cue',
-      text: cueHero.soloAuto
-        ? txt('hud.hints.sIsReadyPress', {
-            name: cueHero.name,
-            soloName: cueHero.soloName,
-            mod: cueModifierMark(),
-            value: cueHero.slot + 1,
-          })
-        : txt('hud.hints.sIsReadyPress2', {
-            name: cueHero.name,
-            soloName: cueHero.soloName,
-            mod: cueModifierMark(),
-            value: cueHero.slot + 1,
-            value2:
-              w.cueCost === w.segment
-                ? txt('hud.hints.oneResonanceSegment')
-                : txt('hud.hints.resonance', { cueCost: w.cueCost }),
-          }),
+      id: 'solo',
+      text: txt('hud.hints.soloIsComing', {
+        name: soloHero.name,
+        soloName: soloHero.soloName,
+        key: bindingLabel(`focus${soloHero.slot + 1}` as Action),
+      }),
     });
   }
   if (w.resonance >= w.crescendoCost && w.crescendo <= 0 && !hud.conducting) {
@@ -542,38 +520,40 @@ function allHints(hud: HudSnapshot): Hint[] {
   return out;
 }
 
+/** A hero's Solo is coming (the tell, `HeroHud.soloIn`). */
+function soloComing(h: HeroHud): boolean {
+  return h.soloIn !== null && h.soloIn !== undefined;
+}
+
 /**
- * The Conductor's three lessons (docs/phase-5f.md "Hints"): `chain` while a chain is open and
- * another ready hero would join it, `beat` (A Tempo) while a hero is ready to Cue, and `finale`
- * when the Grand Finale can be sung. Its window, cost and link are the sim's (`hud.conducting`).
+ * The Conductor's three lessons (docs/phase-5f.md "Hints", docs/solos.md): `chain` while a chain
+ * is open and a hero whose Solo is coming would join it, `beat` (A Tempo) while a Solo is coming,
+ * and `finale` when the Grand Finale can be sung. Its window and link are the sim's
+ * (`hud.conducting`).
  */
 function conductingHints(hud: HudSnapshot): Hint[] {
   const c = hud.conducting;
   if (!c) return [];
   const out: Hint[] = [];
   const w = hud.weaver;
-  const ready = hud.party.filter((h) => alive(h) && h.soloReady && h.cue);
-  const chained = c.chain
-    ? ready.find((h) => h.cue!.link > 1 && w.resonance + 1e-9 >= h.cue!.cost)
-    : undefined;
+  const coming = hud.party.filter((h) => alive(h) && soloComing(h));
+  const chained = c.chain ? coming.find((h) => h.cue && !h.willCue) : undefined;
   if (c.chain && chained)
     out.push({
       id: 'chain',
-      text: txt('hud.hints.cueAnotherWithinS', {
-        Number: Number(c.chain.total.toFixed(1)),
+      text: txt('hud.hints.threadForALink', {
         linkName: linkName(chained.cue!.link),
         name: chained.name,
-        mod: cueModifierMark(),
-        value: chained.slot + 1,
+        key: bindingLabel(`focus${chained.slot + 1}` as Action),
       }),
     });
-  if (c.beat && ready.length > 0)
+  if (c.beat && coming.length > 0)
     out.push({
       id: 'beat',
       text:
-        c.beat.downbeatCost > 0
-          ? txt('hud.hints.cueOnTheDownbeat', { downbeatCost: c.beat.downbeatCost })
-          : txt('hud.hints.cueOnTheDownbeat2'),
+        c.beat.gift > 0
+          ? txt('hud.hints.solosBeginOnThe', { gift: c.beat.gift })
+          : txt('hud.hints.solosBeginOnThe2'),
     });
   if (c.finale === null && w.crescendo <= 0 && w.resonance + 1e-9 >= w.crescendoCost)
     out.push({

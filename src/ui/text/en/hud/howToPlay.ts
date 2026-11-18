@@ -5,14 +5,13 @@ export const howToPlay = {
   'hud.howToPlay.pausesAtAnyTime': 'pauses.',
   'hud.howToPlay.beginTheFight': 'Begin the fight',
   'hud.howToPlay.leadThemDuetsAnd': 'Lead them: Duets and Trios',
-  'hud.howToPlay.goodSupportFillsResonance':
-    'Good support fills Resonance. As the Conductor a Cue costs {cueCost}{value}. Cue a second hero within {Number} s of the first and their Solo plays as a Duet, {morePct} stronger; a third in a row is a Trio, {morePct2} stronger. {crescendoName} costs {crescendoCost}: every hero plays their Solo in turn, rising, then every Solo is full again.',
-  'hud.howToPlay.raisesItThisRun': ' ({levelName} raises it this run)',
-  'hud.howToPlay.buildResonance': 'Build Resonance',
-  'hud.howToPlay.goodSupportFillsResonance2':
-    'Good support fills Resonance. Spend {cost} Resonance to Cue a charged hero’s Solo ({levelName} raises it this run), or a full song on your Crescendo.',
-  'hud.howToPlay.goodSupportFillsResonance3':
-    'Good support fills Resonance. Spend a segment to Cue a charged hero’s Solo, or a full song on your Crescendo.',
+  'hud.howToPlay.aSoloFiredDuet':
+    'A Solo fired with your Thread on them is Cued. Cue two within {Number} s for a Duet, three for a Trio.',
+  'hud.howToPlay.cueTheirSolos': 'Cue their Solos',
+  'hud.howToPlay.heroesFire':
+    'Heroes fire their own Solos. A Solo fired with your Thread on them is Cued: the stronger form.',
+  'hud.howToPlay.heroesFireHold':
+    'Heroes fire their own Solos. {levelName}: a Solo is Cued, the stronger form, if your Thread was on them {hold} s before it fires.',
   'hud.howToPlay.youAreTheWeaver': 'You are the Weaver',
   'hud.howToPlay.walkWithTheKeys':
     'Walk with the keys. Your party follows, fights on its own, and fights better inside your aura field.',

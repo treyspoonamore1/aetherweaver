@@ -352,8 +352,7 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
       resonance: 38,
       resonanceMax: 100,
       segment: 25,
-      cueCost: CONTENT.resonance.segment,
-      cueBase: CONTENT.resonance.segment,
+      cueHold: 0,
       crescendoCost: 100,
       crescendo: 0,
       crescendoName: CONTENT.crescendo.name,
@@ -455,6 +454,9 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
             statuses: [{ id: 'shaken', remaining: 0, duration: 0 }],
             solo: 100,
             soloReady: true,
+            // His wall is coming and the Thread is on Lyra: "Thread to Cue".
+            soloIn: 0.8,
+            willCue: false,
           }),
           hero(1, 'lyra', {
             hp: 210,
@@ -503,6 +505,10 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
             shields: [{ kind: 'dome', amount: 400, max: 640 }],
             solo: 100,
             soloReady: true,
+            // The Thread is on him (slot 0): his wall will be Cued.
+            threaded: true,
+            soloIn: 1.9,
+            willCue: true,
           }),
           hero(1, 'lyra', { hp: 700, incoming: 740, lethal: true }),
           hero(2, 'vexis', {
@@ -779,8 +785,17 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
           techniques: techniques({ ward: { charges: 2, maxCharges: 2 } }),
         },
         party: [
-          hero(0, 'kael', { hp: 1560, solo: 100, soloReady: true, threaded: true }),
-          hero(1, 'lyra', { hp: 820, solo: 100, soloReady: true }),
+          // The three Solo states (docs/solos.md): coming with the Thread on them (Cued), coming
+          // with the Thread elsewhere, and playing.
+          hero(0, 'kael', {
+            hp: 1560,
+            solo: 100,
+            soloReady: true,
+            threaded: true,
+            soloIn: 0.6,
+            willCue: true,
+          }),
+          hero(1, 'lyra', { hp: 820, solo: 92, soloIn: 2.4, willCue: false }),
           hero(2, 'vexis', { hp: 740, solo: 100, soloActive: true }),
         ],
         encounter: { ...base.encounter, elapsed: 40, enemies: 5 },
@@ -2788,7 +2803,7 @@ export function mockDissonance(target: number): DissonanceChoice[] {
 
 /**
  * The HUD with Dissonance in force: a scenario's HUD, with what the bridge reads of a real fight
- * at these levels (its points, Blind Score, the Cue's cost).
+ * at these levels (its points, Blind Score, Silent Cues' hold).
  */
 export function mockDissonanceHud(
   scenario: HudScenario,
@@ -2801,7 +2816,7 @@ export function mockDissonanceHud(
   const hud = mockHud(scenario);
   return {
     ...hud,
-    weaver: { ...hud.weaver, cueCost: real.weaver.cueCost },
+    weaver: { ...hud.weaver, cueHold: real.weaver.cueHold },
     dissonance: real.dissonance,
   };
 }
