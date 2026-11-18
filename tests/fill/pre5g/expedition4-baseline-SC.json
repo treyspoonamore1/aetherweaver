@@ -8,7 +8,7 @@
    "outcome": "defeat",
    "lastEncounter": "hollow_cantor",
    "fights": 4,
-   "minutes": 6.059083333334004,
+   "minutes": 5.142680555555578,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1",
@@ -22,13 +22,13 @@
    "aetherEarned": 114,
    "aetherLeft": 114,
    "bondXp": {
-    "kael": 163,
-    "lyra": 113,
-    "seren": 87
+    "kael": 164,
+    "lyra": 111,
+    "seren": 88
    },
    "movementReached": 1,
    "minutesByMovement": [
-    6.059083333334004
+    5.142680555555578
    ]
   },
   {
@@ -151,7 +151,7 @@
    "outcome": "defeat",
    "lastEncounter": "frayed_threshold",
    "fights": 10,
-   "minutes": 14.328138888890825,
+   "minutes": 14.317375000001935,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1",
@@ -179,15 +179,15 @@
    "aetherEarned": 490,
    "aetherLeft": 190,
    "bondXp": {
-    "kael": 311,
+    "kael": 312,
     "lyra": 456,
     "seren": 255
    },
    "movementReached": 3,
    "minutesByMovement": [
     5.769069444445184,
-    7.96256944444565,
-    0.5964999999999877
+    7.973736111112316,
+    0.5745694444444329
    ]
   },
   {

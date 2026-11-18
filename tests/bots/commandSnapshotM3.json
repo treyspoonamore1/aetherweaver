@@ -45,9 +45,9 @@
   "final": "0f3b409b06d2f661"
  },
  "skilled:frayed_threshold:8919": {
-  "commands": "f6f46d95bd4bc5fa",
-  "count": 667,
-  "final": "6c66d1a5933e69d3"
+  "commands": "4cb6628b67237e07",
+  "count": 674,
+  "final": "ff00634b89b18833"
  },
  "skilled:maw_hollow:8919": {
   "commands": "aa3d720561851f48",
@@ -120,14 +120,14 @@
   "final": "1f333be3893ecaed"
  },
  "skilled:the_seamstress:16838": {
-  "commands": "4a8d2d80a767e13a",
-  "count": 560,
-  "final": "a46d7d1bdea90164"
+  "commands": "f2207c90f0563905",
+  "count": 612,
+  "final": "f927336a2b9f5788"
  },
  "skilled:the_unweaver:16838": {
-  "commands": "7448d7f706bdd2b1",
-  "count": 472,
-  "final": "fed0d3ce0c5294ef"
+  "commands": "dc1502794812e06d",
+  "count": 473,
+  "final": "3a19086e14348b1f"
  },
  "skilled:unstitched_vanguard:16838": {
   "commands": "b166d4e7322eca1c",
@@ -195,9 +195,9 @@
   "final": "64f548def8a8bc3d"
  },
  "novice:null_chapel:8919": {
-  "commands": "22606a32be291038",
-  "count": 99,
-  "final": "9c7a3f72f78d84c9"
+  "commands": "ce6926f83f962766",
+  "count": 98,
+  "final": "a53dba0479b9af73"
  },
  "novice:mirror_hall:8919": {
   "commands": "a105ae1ab8a3428c",
@@ -232,7 +232,7 @@
  "novice:maw_hollow:16838": {
   "commands": "61175aec44293ccc",
   "count": 73,
-  "final": "09bbbd97bb1c1f97"
+  "final": "80abc5e7c33df3b5"
  },
  "novice:wraith_vigil:16838": {
   "commands": "91b98b9b56dbc38a",

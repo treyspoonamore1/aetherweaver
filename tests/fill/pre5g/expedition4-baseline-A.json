@@ -179,7 +179,7 @@
    "outcome": "victory",
    "lastEncounter": "the_silent_conductor",
    "fights": 15,
-   "minutes": 29.158875000002414,
+   "minutes": 29.852555555557867,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1",
@@ -212,19 +212,19 @@
     "prism_loom"
    ],
    "path": [],
-   "aetherEarned": 824,
-   "aetherLeft": 179,
+   "aetherEarned": 829,
+   "aetherLeft": 209,
    "bondXp": {
-    "kael": 567,
-    "vexis": 715,
-    "brann": 469
+    "kael": 570,
+    "vexis": 709,
+    "brann": 471
    },
    "movementReached": 4,
    "minutesByMovement": [
     6.202305555556389,
-    9.495597222222784,
-    10.029430555555654,
-    3.4315416666675893
+    9.960777777777924,
+    9.957347222222397,
+    3.7321250000011603
    ],
    "harmony": {
     "silkOffered": 0,
