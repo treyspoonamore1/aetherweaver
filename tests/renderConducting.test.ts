@@ -421,7 +421,7 @@ describe('A Tempo: the downbeat', () => {
     expect(h.view.fired.beat).toBe(0);
   });
 
-  it('the window glows only inside it; a free Cue sparks on its sigil', () => {
+  it('the window glows only inside it; a Solo Cued on the beat sparks on its sigil', () => {
     const { sim, h } = setup(['a_tempo']);
     const b = emptyBeat();
     let inside = 0;
@@ -438,22 +438,23 @@ describe('A Tempo: the downbeat', () => {
     const ev = h.run(1, [cue(1)]);
     const chained = ofType(ev, 'cueChained')[0]!;
     expect(chained.onBeat).toBe(true);
-    expect(chained.cost).toBe(0);
-    expect(h.view.fired.freeCue).toBe(1);
+    expect(h.view.fired.beatCue).toBe(1);
     expect(h.view.activeCount('spark')).toBe(1);
   });
 
-  it('under Silent Cues a Cue on the beat still costs: no free spark', () => {
-    const { sim, h } = setup(['a_tempo'], { dissonance: [{ id: 'silent_cues', rank: 1 }] });
+  // docs/solos.md: a Cue costs nothing, so Silent Cues no longer prices the beat. What it asks
+  // is that the Thread has been on the hero for its hold; a Solo that began on the beat without
+  // it is plain, chains nothing and has no spark.
+  it('a plain Solo on the beat has no spark: only a Cued one gives A Tempo’s Resonance', () => {
+    const { sim, h } = setup(['a_tempo']);
     const b = emptyBeat();
     h.run(1, [debug({ op: 'chargeSolos' })]);
-    h.run(1, [debug({ op: 'setResonance', value: 100 })]);
     while (!beatOf(sim.state, b).inWindow || b.to < 0.05) h.tick();
-    const ev = h.run(1, [cue(1)]);
-    const chained = ofType(ev, 'cueChained')[0]!;
-    expect(chained.onBeat).toBe(true);
-    expect(chained.cost).toBeGreaterThan(0);
-    expect(h.view.fired.freeCue).toBe(0);
+    const plain: Command = { t: 'debug', op: { op: 'fireSolo', slot: 1, cued: false } };
+    const ev = h.run(1, [plain]);
+    expect(ofType(ev, 'soloStarted')[0]!.cued).toBe(false);
+    expect(ofType(ev, 'cueChained')).toEqual([]);
+    expect(h.view.fired.beatCue).toBe(0);
     expect(h.view.activeCount('spark')).toBe(0);
   });
 });

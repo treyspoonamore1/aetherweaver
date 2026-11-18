@@ -31,8 +31,8 @@ import { flareScale } from './relicCues';
  *   open (the sim's `openChain`: a Trio closes it).
  * - **The beat** (A Tempo, `calling.conducting.beat`): a faint white-gold ring pulses out from
  *   the Weaver on each downbeat of the sim's clock (`beatAt`), brighter while the clock is inside
- *   the downbeat's window; a free Cue (`cueChained.onBeat` at cost 0) gives a small gold spark
- *   on its sigil.
+ *   the downbeat's window; a Solo Cued on the downbeat (`cueChained.onBeat`), which gives its
+ *   Resonance, has a small gold spark on its sigil.
  * - **Marcato** (`field.conducting.marcato`): a small gold accent mark (>) beside each hero
  *   holding it, until it ends.
  * - **Ensemble** (`field.conducting.streak`): one to three gold motes circling the Weaver.
@@ -113,7 +113,7 @@ export class ConductView {
   readonly fired = {
     duet: 0,
     trio: 0,
-    freeCue: 0,
+    beatCue: 0,
     beat: 0,
     marcato: 0,
     ensemble: 0,
@@ -206,9 +206,9 @@ export class ConductView {
               for (let k = 0; k < 3; k++) m.heroes[k] = chain.heroes[k] ?? -1;
             }
           }
-          // Free only when it cost nothing: under Silent Cues a Cue on the beat still costs.
-          if (e.onBeat && e.cost <= 0) {
-            this.fired.freeCue++;
+          // A Tempo: a Solo Cued on the downbeat gives its Resonance (docs/solos.md).
+          if (e.onBeat) {
+            this.fired.beatCue++;
             this.alloc('spark', e.hero);
           }
           break;

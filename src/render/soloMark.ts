@@ -22,6 +22,10 @@ import { flareScale } from './relicCues';
  *   with eight rays, white-gold and a third larger, round the Thread's glyph. It pops once as the
  *   Thread arrives.
  *
+ * Under Silent Cues (Dissonance) the Thread must have been on the hero for a second. While it is on
+ * them and that second is running, the plain look gains a second ring outside the first that fills
+ * as the Thread holds; full, the mark turns to the Cued look.
+ *
  * Every rule is the sim's: when the tell shows and how long is left (`soloDueIn`), and whether it
  * would be Cued now (`threadCues`: Silent Cues' hold and Hollow Crown included). Nothing here
  * decides one.
@@ -32,7 +36,7 @@ import { flareScale } from './relicCues';
  * the enemies' red outline and from Mend's teal, and the two looks differ in shape (dashed against
  * solid, a note against rays), so neither rests on hue (tests/renderSoloMark.test.ts).
  *
- * Cost: two sprites a hero at most, through the overhead batch every other mark uses
+ * Cost: two sprites a hero at most (three under Silent Cues' hold), through the overhead batch every other mark uses
  * (`kit.spritesTop`): no new draw call, no allocation per frame.
  */
 
@@ -53,6 +57,8 @@ export const SOLO_MARK_SIZE = 0.5;
 export const SOLO_MARK_CUED_SIZE = 0.68;
 /** The plain look through the last seconds of charge, before the Solo is full: this much smaller. */
 export const SOLO_MARK_QUIET = 0.82;
+/** Silent Cues' hold ring, round the plain look: this much larger. */
+export const SOLO_MARK_HOLD = 1.22;
 /** How long the Cued look's pop lasts as the Thread arrives (seconds; none with Reduced motion). */
 const POP = 0.3;
 
@@ -68,6 +74,11 @@ export interface SoloMark {
   cued: boolean;
   /** A call's bubble is open over them: the mark stands above it. */
   raised: boolean;
+  /**
+   * Silent Cues (Dissonance): your Thread is on them but has not been long enough to Cue. How far
+   * through the hold it is, 0..1; -1 when no hold is running.
+   */
+  hold: number;
 }
 
 /**
@@ -95,12 +106,17 @@ export function soloMarkOf(state: WorldState, hero: ReadonlyEntity): SoloMark | 
   if (h.solo >= 100 && h.targetId === null && !h.grove) return null;
   const due = soloDueIn(state, hero);
   if (due === null) return null;
+  const cued = threadCues(state, hero);
+  const need = state.mods.cueHold;
+  const w = state.entities.get(state.weaverId)?.weaver;
+  const holding = !cued && need > 0 && w?.threadSlot === h.slot;
   return {
     due,
     fill: clamp01(1 - due / soloTellSeconds(hero)),
     now: h.solo >= 100,
-    cued: threadCues(state, hero),
+    cued,
     raised: !!h.call && !h.call.answered,
+    hold: holding ? clamp01((state.time - w.threadSince) / need) : -1,
   };
 }
 
@@ -159,6 +175,21 @@ export class SoloMarkView {
         const alpha = (mark.now ? 0.86 + 0.14 * breath : 0.6) * flare;
         const tint = mark.now ? C.goldHot : C.gold;
         kit.spritesTop.push(r.x, y, r.z, size, SPRITE.solo, tint, alpha, 0, 1, mark.fill);
+        // Silent Cues: the Thread is on them and must stay. A second ring outside the first
+        // fills as it holds; full, the mark turns to the Cued look.
+        if (mark.hold >= 0)
+          kit.spritesTop.push(
+            r.x,
+            y,
+            r.z,
+            size * SOLO_MARK_HOLD,
+            SPRITE.timer,
+            C.goldHot,
+            0.95 * flare,
+            0,
+            1,
+            mark.hold,
+          );
       }
     }
     if (this.marks.size > 8) {

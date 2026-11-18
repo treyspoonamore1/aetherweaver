@@ -41,12 +41,7 @@ export interface DissonanceLook {
   risePct: number;
   /** Elite Vanguard: elites carry more affixes. */
   vanguard: boolean;
-  /**
-   * One Resonance segment. (Once what a Cue cost; a Cue costs nothing now, docs/solos.md. At one
-   * segment the orbit carries no ticks; the field goes when Silent Cues' look is reworked.)
-   */
-  cueCost: number;
-  /** The Resonance segment and the most Resonance (content). */
+  /** The Resonance segment and the most Resonance (content): the Weaver's orbit draws by them. */
   segment: number;
   max: number;
   /** The levels array this look was built from (rebuilt when it changes). */
@@ -60,7 +55,6 @@ export function emptyDissonanceLook(): DissonanceLook {
     restless: false,
     risePct: 0,
     vanguard: false,
-    cueCost: CONTENT.resonance.segment,
     segment: CONTENT.resonance.segment,
     max: CONTENT.resonance.max,
     from: null,
@@ -85,7 +79,6 @@ export function dissonanceLook(state: WorldState, out: DissonanceLook): Dissonan
   const d = (state as { dissonance?: WorldState['dissonance'] }).dissonance;
   const levels = d?.levels ?? null;
   out.blindScore = !!d?.blindScore;
-  out.cueCost = CONTENT.resonance.segment;
   if (levels === out.from) return out;
   out.from = levels;
   const list = levels ?? [];
@@ -153,28 +146,3 @@ export function emptyRiseShape(): RiseShape {
 /** Blind Score's badge: the one glyph shown in place of a telegraph's answers. */
 export const BLIND_ANSWERS = ['unknown'] as const;
 export const BLIND_KEY = 'unknown';
-
-/**
- * Silent Cues: where the Cue's cost falls on the Weaver's Resonance orbit, in segments (the orbit
- * draws one star per segment, lit when it is full). Every multiple of the cost up to the most
- * Resonance that doesn't land on a star's own full point is a tick there; at the content's cost
- * (one segment) there is none and the orbit looks as it always has. Fills `out`, returns how many.
- */
-export function cueTicks(look: DissonanceLook, out: Float32Array): number {
-  const seg = look.segment;
-  const cost = look.cueCost;
-  if (!(seg > 0) || !(cost > 0)) return 0;
-  let n = 0;
-  for (let k = 1; k * cost <= look.max + 1e-9 && n < out.length; k++) {
-    const at = (k * cost) / seg;
-    if (Math.abs(at - Math.round(at)) < 1e-6) continue;
-    out[n++] = at;
-  }
-  return n;
-}
-
-/** A Cue could be paid for now (the Weaver's Resonance against this fight's cost). */
-export function cueReady(state: WorldState): boolean {
-  const w = state.entities.get(state.weaverId)?.weaver;
-  return !!w && w.resonance + 1e-9 >= CONTENT.resonance.segment;
-}
