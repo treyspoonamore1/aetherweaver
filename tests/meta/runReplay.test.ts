@@ -424,7 +424,7 @@ describe('a replay from before the Solo rework is refused in a plain sentence (d
 
   it('the sentence is one plain line: no code word, no version number, no "didn’t match"', () => {
     expect(OLD_REPLAY_LINE).toBe(
-      'This replay is from an earlier version of the game. Solos work differently now, so it can’t be played back.',
+      'This replay is from an earlier version. It can’t be played back.',
     );
     expect(OLD_REPLAY_LINE).not.toMatch(/\d|format|schema|invalid|match|verif|fail|error/i);
     expect(OLD_REPLAY_LINE.split(/\s+/).length).toBeLessThanOrEqual(25);

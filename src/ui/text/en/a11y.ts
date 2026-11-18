@@ -121,9 +121,6 @@ export const a11y = {
   'a11y.settings.standard': 'Standard',
   'a11y.settings.telegraphLead': 'Telegraph lead',
   'a11y.settings.enemyAttacksWindUp': 'Enemy attacks wind up for longer.',
-  'a11y.settings.heroAutonomy': 'Hero autonomy',
-  'a11y.settings.heroesFireTheirOwn':
-    'Heroes fire their own Solos a moment after they charge, unless you Cue them first. Kael saves his wall for a big hit, but never for more than 3 seconds.',
   'a11y.settings.assistChangesApplyFrom': 'Assist changes apply from your next fight.',
   'a11y.settings.assistChangesRestartThe':
     'Assist changes restart the Training Grounds when you resume.',

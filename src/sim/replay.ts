@@ -140,12 +140,11 @@ export const REPLAY_VERSION = 7;
  * `src/meta/runReplay.ts`. Such a replay holds `cue` commands and fights played by the old Solo
  * rules, so it can't be played back; that is a refusal, never a check that failed.
  *
- * STAND-IN WORDING (Solo rework, input and saves step). The words are the text step's to settle:
- * the key proposed for the screens' side is `screens.atlasModel.replayTooOld`, with this
- * sentence as its English. Until the text files hold it, this constant is the one copy.
+ * This is the sentence's one home. The sim can't read the screens' text files, and the tools
+ * print it too (`tools/replay-verify.ts`, `tools/run-verify.ts`), so it lives here; the Atlas
+ * shows it as it shows every answer of a replay check, as the check's own message.
  */
-export const OLD_REPLAY_LINE =
-  'This replay is from an earlier version of the game. Solos work differently now, so it can’t be played back.';
+export const OLD_REPLAY_LINE = 'This replay is from an earlier version. It can’t be played back.';
 
 /**
  * The version of a replay file older than this build's format, or null when the file isn't one

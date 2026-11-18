@@ -16,10 +16,6 @@ export const input = {
   'input.mouse.long.Mouse2': 'Right mouse button',
   'input.mouse.long.Mouse3': 'Mouse button 4 (back)',
   'input.mouse.long.Mouse4': 'Mouse button 5 (forward)',
-  // The Cue modifier's three flags.
-  'input.modifier.Shift': 'Shift',
-  'input.modifier.Control': 'Ctrl',
-  'input.modifier.Alt': 'Alt',
   // Pad buttons, by position, never by brand: a short glyph and a long name.
   'input.pad.faceDown': '●↓',
   'input.pad.faceRight': '●→',
@@ -59,7 +55,6 @@ export const input = {
   'input.padAction.reticleNext': 'Reticle to the next hero',
   'input.padAction.reticlePrev': 'Reticle to the previous hero',
   'input.padAction.threadReticle': 'Thread the reticle’s hero',
-  'input.padAction.cueReticle': 'Cue the reticle’s hero',
   // Settings → Controls.
   'input.controls.unbound': 'Unbound',
   'input.controls.add': '+',
@@ -71,8 +66,6 @@ export const input = {
   'input.controls.removeTitle': 'Remove this',
   'input.controls.pressKeyOrButton': 'Press a key or mouse button…',
   'input.controls.pressKeyOrButtonAria': 'Press a key or mouse button for {label} (Escape cancels)',
-  'input.controls.pressModifier': 'Press Shift, Ctrl, Alt or a key…',
-  'input.controls.pressModifierAria': 'Press the Cue modifier (Escape cancels)',
   'input.controls.pressPad': 'Press a pad button…',
   'input.controls.pressPadAria': 'Press a pad button for {label} (Escape cancels)',
   'input.controls.mouseOnAction': 'Also {key}, set under Mouse',
@@ -81,8 +74,6 @@ export const input = {
   'input.controls.useHere': 'Use it here, unbind it from {other}',
   'input.controls.cancel': 'Cancel',
   'input.controls.inUseAria': '{key} is already bound',
-  'input.controls.modifierName': 'the Cue modifier',
-  'input.controls.cueHint': 'With {mod}: Cue their Solo',
   'input.mouse.title': 'Mouse',
   'input.mouse.intro':
     'Each works on any mouse button or key. Click one, then press it (Esc cancels).',
@@ -105,11 +96,9 @@ export const input = {
   'input.options.mouseover': 'Mouseover casting',
   'input.options.mouseover.hint':
     'Ward, Reel and Chime go to the hero under the cursor. Off: the threaded hero.',
-  'input.options.cueModifier': 'Cue modifier',
-  'input.options.cueModifier.hint': 'Held with a hero’s Thread key, Cues their Solo',
   'input.options.autoThread': 'Auto-Thread',
   'input.options.autoThread.hint':
-    'After 2 s with no input, the Thread follows a Solo about to fire, or goes to the hero lowest on life. Counts as an assist.',
+    'Left alone for 2 s, the Thread follows each Solo. With no input, it goes to the hero lowest on life. Counts as an assist.',
   'input.pad.title': 'Gamepad',
   'input.pad.intro':
     'Any standard gamepad works. Click a slot, then press a pad button (Esc cancels). Buttons are named by position.',
@@ -277,7 +266,5 @@ export const input = {
   'input.labels.kind.miniboss': 'Mini-boss',
   'input.labels.kind.boss': 'Boss',
   'input.directiveWheel.frozenHint': 'Frozen · the silence holds',
-  'input.labels.cueShiftMark': '⇧',
-  'input.labels.cueModifierMark': '{mod}+',
   'input.liveKeyAfter': '{text} · Your key: {key}',
 } satisfies Catalogue;

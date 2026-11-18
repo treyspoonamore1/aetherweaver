@@ -46,9 +46,6 @@ export const prepScreen = {
   'screens.prepScreen.enemyAttacksWindUp': 'Enemy attacks wind up longer.',
   'screens.prepScreen.standard': 'Standard',
   'screens.prepScreen.perfectWardWindow': 'Perfect Ward window',
-  'screens.prepScreen.heroAutonomy': 'Hero autonomy',
-  'screens.prepScreen.heroesFireTheirOwn':
-    'Heroes fire their own Solos a moment after they charge, unless you Cue them first. Kael saves his wall for a big hit, but never for more than 3 seconds.',
   'screens.prepScreen.chooseYourPartyThree': 'Choose your party: three heroes',
   'screens.prepScreen.key': ': key {keyLabel}',
   'screens.prepScreen.dropAHeroFirst': ': drop a hero first',

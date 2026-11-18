@@ -164,14 +164,6 @@ export interface InputSettings {
   wheel: 'hold' | 'toggle';
   mouseoverCast: boolean;
   mouse: MouseRoles;
-  /**
-   * SOLO-JOIN stand-in (Solo rework, the input step). There is no Cue modifier: the schema does
-   * not read one, nothing writes one, and this is never set. The name is declared only because
-   * the HUD's files still read it (`cueModifierMark` in `src/ui/hud/labels.ts`, and
-   * `src/ui/screens/CodexScreen.tsx`), and those are the HUD step's to change; reading it gives
-   * `undefined`, which they show as Shift. To remove once they no longer read it.
-   */
-  cueModifier?: undefined;
   padBindings: Readonly<Record<string, readonly PadButton[]>>;
 }
 export const DEFAULT_INPUT: Readonly<InputSettings> = {

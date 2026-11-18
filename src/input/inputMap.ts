@@ -36,16 +36,6 @@ export function isMouseCode(code: string): boolean {
   return (MOUSE_CODES as readonly string[]).includes(code);
 }
 
-/**
- * SOLO-JOIN stand-in (Solo rework, the input step). The Cue modifier could be one of three
- * tokens (`Shift`, `Control`, `Alt`) instead of a key. No setting holds one any more and nothing
- * here uses this; it is kept only because `inputLabel` in `src/ui/hud/labels.ts` (the HUD
- * step's file) still asks it. To remove once that branch is gone.
- */
-export function isModifierToken(code: string): boolean {
-  return code === 'Shift' || code === 'Control' || code === 'Alt';
-}
-
 /** A mouse role can take any mouse button or any bindable key. */
 export function roleCode(code: string): boolean {
   return isMouseCode(code) || bindableCode(code);

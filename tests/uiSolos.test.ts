@@ -230,13 +230,8 @@ describe('nothing on the HUD names a Cue key or a Cue’s price', () => {
   it('no HUD or screen message speaks of a Cue key, a Cue’s cost or hero autonomy', () => {
     const bad =
       /Cue key|Cue modifier|to Cue it \(costs|A Cue costs|Cues? cost|free Cue|Free Cue|autonomy/i;
-    // The keys the input step still reads until it lands (W2): Prep's toggle and its hint.
-    const held = new Set([
-      'screens.prepScreen.heroAutonomy',
-      'screens.prepScreen.heroesFireTheirOwn',
-    ]);
     const hits = Object.entries(EN)
-      .filter(([k]) => /^(hud|screens|common)\./.test(k) && !held.has(k))
+      .filter(([k]) => /^(hud|screens|common)\./.test(k))
       .filter(([, v]) => bad.test(v as string))
       .map(([k]) => k);
     expect(hits).toEqual([]);
@@ -359,15 +354,32 @@ describe('the Codex states Resonance as the meter gains it', () => {
 });
 
 describe('an old replay is refused in one plain sentence', () => {
-  it('a refused old replay shows the sentence, any other result its own message', async () => {
-    const { replayMessage } = await tsx<{
-      replayMessage: (r: { message: string; refused?: unknown }) => string;
+  it('the weekly panel shows the check’s own sentence under a Claimed flag, never a mismatch', async () => {
+    const { verifyRunReplay, RUN_REPLAY_FORMAT } = await tsx<{
+      verifyRunReplay: (file: unknown) => { status: string; message: string; refused?: string };
+      RUN_REPLAY_FORMAT: string;
+    }>('../src/meta/runReplay');
+    const { OLD_REPLAY_LINE } = await tsx<{ OLD_REPLAY_LINE: string }>('../src/sim/replay');
+    const { weeklyPanelFrom, weeklyPanelView } = await tsx<{
+      weeklyPanelFrom: (weeks: undefined, now: number, opts: Props) => unknown;
+      weeklyPanelView: (input: unknown) => { result: { word: string; message: string } | null };
     }>('../src/ui/screens/atlasModel');
-    const line = EN['screens.atlasModel.replayTooOld'];
-    expect(replayMessage({ message: 'whatever the check said', refused: 'oldReplay' })).toBe(line);
-    expect(replayMessage({ message: 'Its replay played through.' })).toBe(
-      'Its replay played through.',
+    // The sentence has one home (src/sim/replay.ts): the check answers with it, and the panel
+    // shows a check's message as it is.
+    const result = verifyRunReplay({ format: RUN_REPLAY_FORMAT, version: 1 });
+    expect(result).toMatchObject({ status: 'claimed', refused: 'oldReplay' });
+    expect(result.message).toBe(OLD_REPLAY_LINE);
+    expect(OLD_REPLAY_LINE).toBe(
+      'This replay is from an earlier version. It can’t be played back.',
     );
-    expect(line).toBe('This replay is from an earlier version. It can’t be played back.');
+    const shown = weeklyPanelView(
+      weeklyPanelFrom(undefined, Date.UTC(2026, 10, 18), {
+        result: { status: result.status, message: result.message },
+        canBegin: true,
+      }),
+    ).result;
+    expect(shown).toMatchObject({ word: 'Claimed', message: OLD_REPLAY_LINE });
+    // No screen text holds a second copy of it.
+    expect(Object.values(EN).filter((v) => v.includes('earlier version'))).toEqual([]);
   });
 });

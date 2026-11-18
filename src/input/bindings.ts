@@ -4,7 +4,7 @@
  * the Settings screen (rebinding, conflicts, resets) and by the InputController (live).
  */
 import { useSettings } from '../app/settings';
-import { DEFAULT_BINDINGS, withRetired, type Action, type Bindings } from './actions';
+import { DEFAULT_BINDINGS, type Action, type Bindings } from './actions';
 
 /** At most this many keys per action (matches the settings schema). */
 export const MAX_KEYS = 3;
@@ -15,7 +15,7 @@ const ACTIONS = Object.keys(DEFAULT_BINDINGS) as Action[];
 
 /** An action a key can be bound to (never a name the game has retired, such as the old `cue`). */
 function isAction(key: string): key is Action {
-  return Object.prototype.propertyIsEnumerable.call(DEFAULT_BINDINGS, key);
+  return Object.hasOwn(DEFAULT_BINDINGS, key);
 }
 
 /**
@@ -26,8 +26,7 @@ export const FIXED_KEYS: Readonly<Partial<Record<Action, string>>> = { pause: 'E
 
 /** Defaults with the overrides applied. Unknown actions in the overrides are ignored. */
 export function effectiveBindings(overrides: Overrides): Bindings {
-  // `withRetired`: the SOLO-JOIN stand-in (actions.ts), until the HUD stops asking for `cue`.
-  const out = withRetired({ ...DEFAULT_BINDINGS }) as Record<Action, readonly string[]>;
+  const out = { ...DEFAULT_BINDINGS } as Record<Action, readonly string[]>;
   const claimed = new Set<string>();
   for (const [key, codes] of Object.entries(overrides)) {
     if (!isAction(key)) continue;

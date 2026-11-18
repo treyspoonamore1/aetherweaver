@@ -2,7 +2,7 @@ import { CONTENT } from '../../content';
 import { DEFAULT_MOUSE_ROLES, optionsOf, useSettings } from '../../app/settings';
 import type { Action, PadBindable, PadButton } from '../../input/actions';
 import { liveBindings } from '../../input/bindings';
-import { isModifierToken, isMouseCode, type MouseRole } from '../../input/inputMap';
+import { isMouseCode, type MouseRole } from '../../input/inputMap';
 import { keyLabel } from '../../input/keyLabel';
 import { livePadBindings } from '../../input/padBindings';
 import { t, type TextKey } from '../text';
@@ -37,15 +37,11 @@ export function bindingLabel(action: Action): string {
   return '—';
 }
 
-// ── Phase 7 (W1): mouse roles, the Cue modifier and pad buttons, named as the player has them ──
+// ── Phase 7 (W1): mouse roles and pad buttons, named as the player has them ──
 
-/**
- * Any input code's short name: a mouse button (`Mouse0` → "LMB"), a modifier (`Control` →
- * "Ctrl"), or a key (`keyLabel`).
- */
+/** Any input code's short name: a mouse button (`Mouse0` → "LMB"), or a key (`keyLabel`). */
 export function inputLabel(code: string): string {
   if (isMouseCode(code)) return t(`input.mouse.${code}` as TextKey);
-  if (isModifierToken(code)) return t(`input.modifier.${code}` as TextKey);
   return keyLabel(code);
 }
 
@@ -63,18 +59,6 @@ export function mouseRoleLabel(role: MouseRole): string {
 /** True while a mouse role is on its default button (the words that name that button still hold). */
 export function mouseRoleDefault(role: MouseRole): boolean {
   return mouseRoleCode(role) === DEFAULT_MOUSE_ROLES[role];
-}
-
-/**
- * The Cue modifier as the hero keys' prefix: "⇧" for Shift, otherwise its name and a plus
- * ("Ctrl+"). No key Cues a Solo any more (docs/solos.md) and nothing on the HUD shows this; it
- * goes with the setting it reads (the input step's).
- */
-export function cueModifierMark(): string {
-  const mod = optionsOf(useSettings.getState().settings).input.cueModifier || 'Shift';
-  return mod === 'Shift'
-    ? t('input.labels.cueShiftMark')
-    : t('input.labels.cueModifierMark', { mod: inputLabel(mod) });
 }
 
 /**

@@ -3,34 +3,6 @@
  * (AZERTY, QWERTZ, Dvorak). docs/plan/04 §8, 05 §3. Labels come from keyLabel().
  */
 
-/**
- * SOLO-JOIN stand-in (Solo rework, the input step). There is no Cue action any more
- * (docs/solos.md): it has no key, no row in Controls, nothing plays it and nothing can be bound
- * to it. But the HUD's files still ask for its key's label (`bindingLabel('cue')` in
- * `src/ui/hud/KeyHints.tsx`, `HowToPlay.tsx` and `src/ui/screens/CodexScreen.tsx`), and those
- * are the HUD step's to change. So the name stays in the `Action` type, and every set of
- * bindings carries a hidden, empty key list for it (`withRetired`), so that asking reads "no
- * key" instead of failing. Hidden means not enumerable: `Object.keys`, a spread and JSON never
- * see it, so no list of actions, no Controls row and no saved setting holds it.
- *
- * To remove once the HUD's files no longer name it: this type and `withRetired` (and its four
- * callers, here and in `bindings.ts` and `padBindings.ts`), and `| RetiredAction` below. Search
- * for SOLO-JOIN: the other two stand-ins are in `src/app/settings.ts` and `inputMap.ts`.
- */
-export type RetiredAction = 'cue';
-
-const NO_KEYS: readonly never[] = Object.freeze([]);
-
-/** SOLO-JOIN stand-in: `bindings` with the retired action's hidden, empty list (see above). */
-export function withRetired<T extends object>(bindings: T): T {
-  return Object.defineProperty(bindings, 'cue' satisfies RetiredAction, {
-    value: NO_KEYS,
-    enumerable: false,
-    configurable: true,
-    writable: true,
-  });
-}
-
 export type Action =
   | 'moveUp'
   | 'moveDown'
@@ -46,7 +18,6 @@ export type Action =
   | 'chime'
   | 'reel'
   | 'glide'
-  | RetiredAction // SOLO-JOIN stand-in: no such action (see above)
   | 'crescendo'
   | 'plant'
   | 'directiveWheel'
@@ -60,7 +31,7 @@ export type Action =
 
 export type Bindings = Record<Action, readonly string[]>;
 
-export const DEFAULT_BINDINGS: Bindings = withRetired<Omit<Bindings, RetiredAction>>({
+export const DEFAULT_BINDINGS: Bindings = {
   moveUp: ['KeyW', 'ArrowUp'],
   moveDown: ['KeyS', 'ArrowDown'],
   moveLeft: ['KeyA', 'ArrowLeft'],
@@ -91,7 +62,7 @@ export const DEFAULT_BINDINGS: Bindings = withRetired<Omit<Bindings, RetiredActi
   pause: ['Escape', 'KeyP'],
   devPanel: ['Backquote'],
   perfHud: ['F3'],
-}) as Bindings;
+};
 
 // ── Phase 7 (docs/phase-7.md, *Contracts*): the gamepad's types and default layout. Declared by
 // W0; the InputController plays them (W1), and Settings → Controls rebinds them
