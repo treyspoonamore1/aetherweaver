@@ -508,7 +508,7 @@ const NODES: Node[] = [
     y: -8.16,
     effect: 'ensemble',
     values: { pct: 5 },
-    text: 'When you Cue a Solo, the other heroes’ Solos charge {pct}%',
+    text: 'A Cued Solo charges the other heroes’ Solos {pct}%',
   },
 
   // ── Bridges ─────────────────────────────────────────────────────────────────────────

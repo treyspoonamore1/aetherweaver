@@ -52,7 +52,7 @@
 import { CONTENT, attackDef, enemyDef, heroDef, partyHasDome } from '../content';
 import { Rng } from '../sim/core/rng';
 import { bloodRageBonus, gentle, segmentDistSq, specialsOf, weaverSilenced } from '../sim';
-import { finaleTurnBlock } from '../sim';
+import { finaleTurnBlock, SOLOS } from '../sim';
 import { HEAVY_LIFE } from '../content/rosterIds';
 import { contains } from '../sim/combat/telegraphs';
 import { dcos, dsin } from '../sim/core/dmath';
@@ -314,9 +314,9 @@ export type FillRule = (typeof FILL_RULES)[number];
  */
 export const SOLO_RULES = [
   /**
-   * A Solo about to fire: the Thread goes to that hero (within `SOLO_LEAD` s of it; Kael, whose
+   * A Solo about to fire: the Thread goes to that hero (within `SOLOS.lead` s of it; Kael, whose
    * wall may go up at any moment, from when it is full), so the Solo is Cued. Not while a hero
-   * is held, condemned, down or in danger (`SOLO_DANGER`), nor through the Grand Silence.
+   * is held, condemned, down or in danger (`SOLOS.danger`), nor through the Grand Silence.
    */
   'soloCue',
 ] as const;
@@ -486,12 +486,6 @@ const BANK_WITH_FINALE = false;
 
 /** Focus a guarded Sentinel once no more than this many enemies stand (the pack first). */
 const SENTINEL_FOCUS_AT = 3;
-
-// ── Solos (docs/solos.md, `SOLO_RULES`). Starting values: tuning moves them. ──
-/** `soloCue`: the Thread goes to a hero this long (s) before their Solo is due to fire. */
-const SOLO_LEAD = 0.5;
-/** `soloCue`: not while a hero is below this share of their life (they need the Thread more). */
-const SOLO_DANGER = 0.3;
 
 /** While Brann refuses Rallies (Bloodlust), the bot calls one at most this often, in seconds. */
 const LUSTING_RALLY_GAP = 8;
@@ -1118,10 +1112,10 @@ export class SkilledBot implements Bot {
       !guardFortissimo &&
       // Brann sits low on purpose (docs/phase-5b.md): he is no reason to keep the Thread.
       !party.some(
-        (h) => h.slot !== blood?.hero.slot && h.e.health!.hp < h.e.health!.maxHp * SOLO_DANGER,
+        (h) => h.slot !== blood?.hero.slot && h.e.health!.hp < h.e.health!.maxHp * SOLOS.danger,
       )
     ) {
-      const soloist = soloToCue(state, party, w, SOLO_LEAD + state.dissonance.cueHold);
+      const soloist = soloToCue(state, party, w, SOLOS.lead + state.dissonance.cueHold);
       if (soloist) threadTo = soloist;
     }
     // Fortissimo Silence with no Crescendo (`fortissimoGuard`): its first pulse near and Kael's

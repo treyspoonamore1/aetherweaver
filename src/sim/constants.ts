@@ -28,6 +28,10 @@ export function pastSamples(seconds: number): number {
  * Solo is full the views (and the bots) treat it as coming: the tell is its last `tell` seconds
  * of charge plus the wait. Tuning levers: change them here and nowhere else.
  *
+ * `lead` and `danger` are for whoever follows Solos with the Thread on a player's behalf (the
+ * Skilled bot, Auto-Thread): the Thread goes to a hero `lead` seconds before their Solo is due,
+ * and not while any hero is below `danger` of their life.
+ *
  * The heroes' judgement (heroes.ts `soloFires`), each 0 to leave it off:
  * - `partyHit`: with the Thread on him, Kael raises his wall at once for a hit about to land on
  *   two or more of the party within this many seconds (his Cued wall is a dome over everyone);
@@ -41,6 +45,8 @@ export const SOLOS = {
   kaelHold: 3,
   gap: 1,
   tell: 3,
+  lead: 0.5,
+  danger: 0.3,
   partyHit: 1.5,
   rootHold: 2,
 } as const;

@@ -966,6 +966,11 @@ export interface CueChained extends At {
   power: number;
   cost: number;
   onBeat: boolean;
+  /**
+   * A Tempo paid Resonance for this Cue (on the beat, with A Tempo on the path). The sim always
+   * sets it; optional only so that an event built by hand elsewhere need not.
+   */
+  paid?: boolean;
   until: number;
 }
 /** Reprise: a Trio landed, and these heroes' Solos charged by `charge`. */

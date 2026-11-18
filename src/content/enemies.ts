@@ -232,7 +232,8 @@ export const ATTACKS: ContentInput['attacks'] = [
     range: 40,
     targeting: 'allHeroes',
     answers: ['dome', 'ward'],
-    decree: 'Requiem — every hero will lose 90% of their life. Cue Kael’s dome, or Ward and heal.',
+    decree:
+      'Requiem: every hero will lose 90% of their life. Thread Kael for his dome, or Ward and heal.',
     // Without a dome in the party (docs/phase-5b.md): the HUD shows this instead.
     decreeNoDome: 'Requiem — every hero will lose 90% of their life. Ward and heal.',
   },

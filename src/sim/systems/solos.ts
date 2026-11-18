@@ -58,7 +58,7 @@ function chargeTimeOf(h: { defId: string; soloId: string }): number {
 /**
  * The tell (docs/solos.md): seconds until this hero fires their Solo, as near as can be said
  * now, or null when none is coming: down, mid-Solo, not charging, kept for a Grand Finale turn,
- * or further off than `SOLOS.tell` seconds of charge plus the wait. Kael may raise his wall
+ * full with no one to fight, or further off than `SOLOS.tell` seconds of charge plus the wait. Kael may raise his wall
  * sooner than this says (hurt, a big hit coming); a gap in the fight (no one to fight, a stun)
  * starts the wait over. For the HUD and the bots; the sim's own rule is heroes.ts `soloFires`.
  */
@@ -75,6 +75,10 @@ export function soloDueIn(state: WorldState, hero: ReadonlyEntity): number | nul
     if (!(rate > 0)) return null;
     full = (100 - h.solo) / rate;
     if (full > SOLOS.tell) return null;
+  } else if (h.targetId === null && !h.grove) {
+    // Full, with no one to fight: it waits, and its wait has not begun (Oro's runs while a
+    // Sapling fights, grove.ts).
+    return null;
   }
   const wait = h.soloId === 'aegisWall' ? SOLOS.kaelHold : SOLOS.wait;
   let due = full + Math.max(0, wait - h.soloHeld);

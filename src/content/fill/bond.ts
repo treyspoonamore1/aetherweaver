@@ -67,7 +67,7 @@ export const FILL_BOND: ContentInput['motifs'] = [
     category: 'bond',
     rarity: 'common',
     values: [2, 3, 4],
-    text: 'Cueing Lyra brings her Piercing Shot {v} s closer.',
+    text: 'Lyra’s Cued Solo brings her Piercing Shot {v} s closer.',
     requires: { hero: 'lyra', expedition: true },
     tags: ['cue'],
     triggers: [

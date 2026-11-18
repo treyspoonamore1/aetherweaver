@@ -275,9 +275,9 @@ export const CALLINGS: ContentInput['callings'] = [
     name: 'Conductor',
     title: 'the one who makes them great',
     summary: 'You lead the heroes: Solos chained into Duets and Trios, and a Grand Finale.',
-    text: 'You gain {gain}% more Resonance. A Solo you Cue within {chain} s of your last Cue plays as a Duet, {duet}% stronger; a third in a row is a Trio, {trio}% stronger.',
+    text: 'You gain {gain}% more Resonance. A Solo Cued within {chain} s of the last is a Duet, {duet}% stronger. A third is a Trio, {trio}% stronger.',
     crescendo:
-      'Grand Finale replaces Sunrise: every hero plays their Solo in turn, as if Cued, each {ramp}% stronger than the one before; when it ends, every Solo is full again.',
+      'Grand Finale replaces Sunrise: every hero plays their Solo in turn, Cued, each {ramp}% stronger than the last. Then every Solo is full again.',
     crescendoName: 'Grand Finale',
     flavor: 'On my count. All of you.',
     // gap: seconds between the Finale's turns; wait: the longest it waits for a hero mid-Solo.
@@ -297,7 +297,7 @@ export const CALLINGS: ContentInput['callings'] = [
           {
             id: 'a_tempo',
             name: 'A Tempo',
-            text: 'Your heroes begin their Solos on the downbeat, and each Solo you Cue there gives {resonance} Resonance. Your Resonance meter shows the beat.',
+            text: 'Your heroes begin their Solos on the downbeat. Each one you Cue gives {resonance} Resonance. The strip under your Resonance shows the beat.',
             // beat: how near the downbeat (s, either side) a Solo begins; the views draw it.
             values: { beat: 0.15, resonance: 15 },
             icon: 'a_tempo',
@@ -334,7 +334,7 @@ export const CALLINGS: ContentInput['callings'] = [
           {
             id: 'spotlight',
             name: 'Spotlight',
-            text: 'A hero you Cue is Empowered at ×{mult} strength while their Solo lasts, Thread or not.',
+            text: 'A hero whose Solo is Cued stays Empowered at ×{mult} while it lasts, wherever your Thread goes.',
             values: { mult: 2 },
             icon: 'spotlight',
           },

@@ -289,7 +289,8 @@ export function conductCue(world: World, hero: Entity): void {
   if (next.link === 3) l.trios++;
   // A Tempo: a Cued Solo that began on the downbeat gives its Resonance (an urgent wall, off the
   // beat, gives none). `freeCues` and `saved` are its tallies (state.ts `LedgerConducting`).
-  if (next.onBeat && m.cueResonance > 0) {
+  const paid = next.onBeat && m.cueResonance > 0;
+  if (paid) {
     const w = world.entities.get(world.weaverId)?.weaver;
     const before = w?.resonance ?? 0;
     gainResonance(world, m.cueResonance, 'a_tempo');
@@ -304,6 +305,7 @@ export function conductCue(world: World, hero: Entity): void {
     power: next.power,
     cost: 0,
     onBeat: next.onBeat,
+    paid,
     // A Trio closes the chain: no Cue can join it, so its time to join ends now.
     until: next.link === 3 ? world.time : world.time + m.chainWindow,
   });

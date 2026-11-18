@@ -62,7 +62,7 @@ export const RELICS: ContentInput['relics'] = [
     id: 'choirmasters_baton',
     name: 'Choirmaster’s Baton',
     rarity: 'rare',
-    text: 'Solos you Cue last {pct}% longer.',
+    text: 'Cued Solos last {pct}% longer.',
     flavor: 'Hold the note. Hold it. Now.',
     values: { pct: 50 },
     icon: 'baton',

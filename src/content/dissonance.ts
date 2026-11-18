@@ -80,7 +80,7 @@ export const DISSONANCE: ContentInput['dissonance'] = [
     ranks: 1,
     points: 1,
     values: { seconds: 1 },
-    text: 'Your Thread must be on a hero for {seconds} s before their Solo fires for it to be Cued.',
+    text: 'A Solo is Cued only if your Thread was on the hero for {seconds} s.',
   },
   {
     id: 'restless_dead',

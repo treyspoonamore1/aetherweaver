@@ -193,7 +193,7 @@ const CADENCE_EVERY = 20;
 /** The phase Decrees (the PHASES row announces them; the script again on a phase's first Cue). */
 export const CONDUCTOR_DECREES = {
   overture:
-    'The Overture — the Conductor Cues its choir. Interrupt the soloist, or answer its Solo. Every blow you leave unanswered feeds its Discord.',
+    'The Overture: the Conductor Cues its choir. Interrupt the soloist, or answer its Solo. Unanswered blows feed its Discord.',
   mirrorChoir:
     'Mirror Choir — every voice of your party, sung back at you. Discord swells: hold your Crescendo before it fills.',
   grandSilence:

@@ -356,7 +356,7 @@ export const HEROES: ContentInput['heroes'] = [
       name: 'Red Frenzy',
       description: 'Brann spins into a whirlwind for 5 s, cutting everything around him.',
       cuedDescription:
-        'Cued: his axe drinks three times as deep — it heals him where your healing can’t.',
+        'Cued: his axe drinks three times as deep. It heals him where your healing can’t.',
       chargeTime: 25,
       duration: 5,
       power: 0.6,
@@ -390,7 +390,7 @@ export const HEROES: ContentInput['heroes'] = [
       weaverHealMult: 0.5,
     },
     needs:
-      'Kept low but alive: Wards and barriers, not heals · Ward the blows aimed at him and the room: he steps out of those swung at the others · Fermata holds him: one Mend tick saves him · Reel him when he won’t Rally · Cue Red Frenzy to heal him.',
+      'Kept low but alive: Wards and barriers, not heals · Ward the blows aimed at him and the room: he steps out of those swung at the others · Fermata holds him: one Mend tick saves him · Reel him when he won’t Rally · Thread him as Red Frenzy fires: Cued, it heals him.',
     recruit: {
       event: 'bloodsworn_cell',
       fallback: 'vharun',

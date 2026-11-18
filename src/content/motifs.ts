@@ -240,7 +240,7 @@ export const MOTIFS: ContentInput['motifs'] = [
     category: 'finale',
     rarity: 'rare',
     values: [15, 22, 30],
-    text: 'Cueing a Solo charges the other heroes’ Solos by {v}%.',
+    text: 'A Cued Solo charges the other heroes’ Solos by {v}%.',
     tags: ['solo', 'cue'],
   },
   {

@@ -250,6 +250,8 @@ function main(): void {
   console.log(
     `status ${result.status} · checked in ${(ms / 1000).toFixed(1)} s · ${(statSync(file).size / 1024).toFixed(1)} KB file`,
   );
+  // A replay recorded before the Solo rework is refused, not failed (docs/solos.md): its own code.
+  if ((result as { refused?: string }).refused) process.exit(3);
   const good = ['verified', 'otherVersion', 'playsBack'];
   process.exit(good.includes(result.status) ? 0 : 1);
 }
