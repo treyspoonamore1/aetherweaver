@@ -86,14 +86,24 @@ describe('Prep’s Calling copy follows the road', () => {
       ),
     );
 
-  it('the Finale route’s Prep gives its tiers; the Prelude’s and I-III’s keep theirs', async () => {
+  // The menu text pass (round 11) took the list of when the picks come out of Prep's standing
+  // line: it says how many, and each Calling's path dialog says when, tier by tier, on the run's
+  // own road (the tests below). `tierWhenList` itself still follows the road (the test above).
+  it('Prep’s line says how many picks, on every route; when they come is the path’s to say', async () => {
     const tiers = CONTENT.callings[0]!.tiers.length;
     expect(tiers).toBe(4);
-    expect(await picker({ movements: EXPEDITION_MOVEMENTS })).toContain(
-      `${tiers} picks, one of two each, ${FINALE_TIERS}.`,
-    );
-    for (const at of [undefined, { movements: 1 }, { movements: undefined }, { movements: 3 }])
-      expect(await picker(at)).toContain(`${tiers} picks, one of two each, ${PRELUDE_TIERS}.`);
+    for (const at of [
+      { movements: EXPEDITION_MOVEMENTS },
+      undefined,
+      { movements: 1 },
+      { movements: undefined },
+      { movements: 3 },
+    ]) {
+      const html = await picker(at);
+      expect(html).toContain(`${tiers} picks, one of two each.`);
+      expect(html).not.toContain(FINALE_TIERS);
+      expect(html).not.toContain(PRELUDE_TIERS);
+    }
   });
 });
 
@@ -142,7 +152,6 @@ describe('Prep’s Calling path dialog follows the road (review fix)', () => {
 
   it('the dialog beside the Finale route’s cards gives the same tiers as the cards', async () => {
     const html = await dialog({ movements: EXPEDITION_MOVEMENTS });
-    expect(html).toContain(`picks, one of two each, ${FINALE_TIERS}.`);
     for (const [i, w] of FINALE_WHEN.entries())
       expect(html).toContain(`Tier ${['I', 'II', 'III', 'IV'][i]} ${label(w)}`);
     expect(html).not.toContain('After your fight at step 4');
