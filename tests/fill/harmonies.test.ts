@@ -118,7 +118,7 @@ function inert(w: World): void {
   expect('ringing' in w.field).toBe(false);
 }
 
-const cue = (slot: number): Command => ({ t: 'cue', slot: slot as PartySlot });
+const cue = (slot: number): Command => ({ t: 'debug', op: { op: 'fireSolo', slot: slot as PartySlot, cued: true } });
 const ward = (slot: number): Command => ({ t: 'tech', id: 'ward', slot: slot as PartySlot });
 
 // ── Content and resolver ────────────────────────────────────────────────────────────────────

@@ -493,7 +493,7 @@ describe('Lyra’s and Vexis’s talents', () => {
       { t: 'debug', op: { op: 'chargeSolos' } },
       { t: 'debug', op: { op: 'setResonance', value: 100 } },
     ]);
-    h.run(1, [{ t: 'cue', slot: KAEL }]);
+    h.run(1, [{ t: 'debug', op: { op: 'fireSolo', slot: KAEL, cued: true } }]);
     h.run(1);
     expect(h.view.fired.constellation).toBe(1);
     expect(h.view.drawn.stars).toBe(1);
@@ -501,7 +501,7 @@ describe('Lyra’s and Vexis’s talents', () => {
     const star = h.view.starsOf(sim.state)[0]!;
     expect(star.left).toBeCloseTo(starSeconds(), 1);
     // A second Cue: two stars, joined.
-    h.run(1, [{ t: 'cue', slot: LYRA }]);
+    h.run(1, [{ t: 'debug', op: { op: 'fireSolo', slot: LYRA, cued: true } }]);
     h.run(1);
     expect(h.view.drawn.stars).toBe(2);
     expect(h.view.drawn.starLinks).toBe(1);
@@ -523,7 +523,7 @@ describe('Lyra’s and Vexis’s talents', () => {
       { t: 'debug', op: { op: 'chargeSolos' } },
       { t: 'debug', op: { op: 'setResonance', value: 100 } },
     ]);
-    h.run(2, [{ t: 'cue', slot: KAEL }]);
+    h.run(2, [{ t: 'debug', op: { op: 'fireSolo', slot: KAEL, cued: true } }]);
     expect(h.view.drawn.stars).toBe(1);
     Object.assign(of(VEXIS).health!, { hp: 0, downed: true });
     h.run(30);

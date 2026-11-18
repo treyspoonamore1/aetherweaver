@@ -204,19 +204,15 @@ describe('Resonance, Cues and the Crescendo', () => {
     expect(weaver(sim).weaver!.resonance).toBe(50);
   });
 
-  it('a Cue needs a charged Solo and a segment of Resonance', () => {
+  it('a Cued Solo costs no Resonance (docs/solos.md)', () => {
     const sim = sandbox();
-    let events = stepFor(sim, 1, [{ t: 'cue', slot: 0 }]);
-    expect(ofType(events, 'techniqueRejected')[0]?.reason).toBe('not-ready');
-    worldOf(sim).entities.get(sim.state.party[0]!)!.hero!.solo = 100;
-    events = stepFor(sim, 1, [{ t: 'cue', slot: 0 }]);
-    expect(ofType(events, 'techniqueRejected')[0]?.reason).toBe('resonance');
     stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: 50 } }]);
-    events = stepFor(sim, 1, [{ t: 'cue', slot: 0 }]);
+    const events = stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: 0, cued: true } }]);
     const started = ofType(events, 'soloStarted')[0]!;
     expect(started.cued).toBe(true);
     expect(started.solo).toBe('aegisWall');
-    expect(weaver(sim).weaver!.resonance).toBeCloseTo(25, 6);
+    expect(ofType(events, 'resonanceSpent')).toHaveLength(0);
+    expect(weaver(sim).weaver!.resonance).toBeCloseTo(50, 6);
     // Cued Aegis Wall: a dome on every hero.
     for (let s = 0; s < 3; s++)
       expect(hero(sim, s).health!.shields.some((x) => x.kind === 'dome')).toBe(true);

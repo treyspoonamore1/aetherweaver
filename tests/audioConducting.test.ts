@@ -429,7 +429,7 @@ function fight(path: string[], config: Partial<SimConfig> = {}) {
   const cue = (slot: number) => {
     run(1, [debug({ op: 'chargeSolos' })]);
     run(1, [debug({ op: 'setResonance', value: 100 })]);
-    return run(1, [{ t: 'cue', slot: slot as 0 | 1 | 2 }])[0]!;
+    return run(1, [{ t: 'debug', op: { op: 'fireSolo', slot: slot as 0 | 1 | 2, cued: true } }])[0]!;
   };
   return {
     ctx,
@@ -535,7 +535,7 @@ describe('his sounds in the fight (real sim)', () => {
     // Wait for the downbeat's window, then Cue inside it.
     while (Math.abs(((t.sim.state.time + 0.05) % BAR_SECONDS) - 0.05) > 0.1) t.run(1);
     t.run(1, [debug({ op: 'chargeSolos' })]);
-    const free = t.run(1, [{ t: 'cue', slot: 1 }])[0]!;
+    const free = t.run(1, [{ t: 'debug', op: { op: 'fireSolo', slot: 1, cued: true } }])[0]!;
     const chained = ofType(free.events, 'cueChained')[0]!;
     expect(chained.onBeat).toBe(true);
     expect(free.groups).toContain(CONDUCT_SOUND_GROUPS.free);
@@ -561,7 +561,7 @@ describe('his sounds in the fight (real sim)', () => {
     // Wait for the downbeat's window, then Cue inside it.
     while (Math.abs(((t.sim.state.time + 0.05) % BAR_SECONDS) - 0.05) > 0.1) t.run(1);
     t.run(1, [debug({ op: 'chargeSolos' })]);
-    const paid = t.run(1, [{ t: 'cue', slot: 1 }])[0]!;
+    const paid = t.run(1, [{ t: 'debug', op: { op: 'fireSolo', slot: 1, cued: true } }])[0]!;
     const chained = ofType(paid.events, 'cueChained')[0]!;
     expect(chained.onBeat).toBe(true);
     expect(chained.cost).toBeGreaterThan(0);

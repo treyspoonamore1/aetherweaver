@@ -109,7 +109,7 @@ function conductSim(
   step(1, [{ t: 'debug', op: { op: 'setResonance', value: 100 } }]);
   return { sim, step, events };
 }
-const cue = (slot: number): Command => ({ t: 'cue', slot: slot as PartySlot });
+const cue = (slot: number): Command => ({ t: 'debug', op: { op: 'fireSolo', slot: slot as PartySlot, cued: true } });
 const hud = (sim: Sim) => buildHudSnapshot(sim.state, { seed: 7, hovered: null });
 /** Steps until the sim's time is off the beat (no A Tempo needs none). */
 function offBeat(sim: Sim, step: (n: number) => void) {

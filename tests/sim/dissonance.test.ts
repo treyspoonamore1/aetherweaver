@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { CONTENT, DISSONANCE_EFFECTS, attackDef, dissonanceLevel } from '../../src/content';
-import { createSim, type SimConfig } from '../../src/sim';
+import { createSim, threadCues, type SimConfig } from '../../src/sim';
 import { addStatus, dealDamage, heal, rising } from '../../src/sim/combat/health';
 import { updateField } from '../../src/sim/systems/field';
 import { resolveMods } from '../../src/sim/mods';
@@ -50,7 +50,7 @@ describe('Dissonance in the fight', () => {
     expect(m.fieldRadiusMult).toBe(1);
     expect(m.threadRangeBonus).toBe(-v('fragile_threads', 'metres'));
     expect(m.heroHealMult).toBeCloseTo(1 - (2 * v('wounding_strikes', 'pct')) / 100, 9);
-    expect(m.cueCostBonus).toBe(v('silent_cues', 'resonance'));
+    expect(m.cueHold).toBe(v('silent_cues', 'seconds'));
     expect(m.restlessPct).toBe(v('restless_dead', 'pct'));
     expect([m.vanguardElites, m.vanguardAffixes]).toEqual([1, 1]);
   });
@@ -167,17 +167,20 @@ describe('Dissonance in the fight', () => {
     ]);
   });
 
-  it('Silent Cues: a Cue costs more', () => {
+  it('Silent Cues: the Thread must have been on a hero a while before their Solo for a Cue', () => {
     const sim = sandbox({ dissonance: [level('silent_cues')] });
-    const cost = CONTENT.resonance.cueCost + v('silent_cues', 'resonance');
-    expect(sim.state.dissonance.cueCost).toBe(cost);
-    stepFor(sim, 2, [
-      { t: 'debug', op: { op: 'chargeSolos' } },
-      { t: 'debug', op: { op: 'setResonance', value: CONTENT.resonance.cueCost } },
-    ]);
-    expect(ofType(stepFor(sim, 1, [{ t: 'cue', slot: 0 }]), 'cued')).toHaveLength(0);
-    stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: cost } }]);
-    expect(ofType(stepFor(sim, 1, [{ t: 'cue', slot: 0 }]), 'cued')).toHaveLength(1);
+    const hold = v('silent_cues', 'seconds');
+    expect(sim.state.dissonance.cueHold).toBe(hold);
+    const kael = sim.state.entities.get(sim.state.party[0]!)!;
+    // Just arrived: on him, but not for long enough.
+    stepFor(sim, 1, [{ t: 'thread', slot: 0 }]);
+    expect(threadCues(sim.state, kael)).toBe(false);
+    stepFor(sim, Math.ceil(hold * 60));
+    expect(threadCues(sim.state, kael)).toBe(true);
+    // Without the level, on him is enough.
+    const plain = sandbox();
+    stepFor(plain, 1, [{ t: 'thread', slot: 0 }]);
+    expect(threadCues(plain.state, plain.state.entities.get(plain.state.party[0]!)!)).toBe(true);
   });
 });
 

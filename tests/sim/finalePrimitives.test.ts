@@ -469,10 +469,11 @@ describe('stilled', () => {
     cleanseAilments(w, lyra);
     expect(hasStatus(lyra, 'stilled')).toBe(true);
     const events = stepFor(sim, 2, [RESONANCE(100)]);
-    events.push(...stepFor(sim, 2, [{ t: 'cue', slot: LYRA }]));
-    expect(ofType(events, 'techniqueRejected')).toEqual([
-      expect.objectContaining({ technique: 'cue', reason: 'target' }),
-    ]);
+    events.push(
+      ...stepFor(sim, 2, [{ t: 'debug', op: { op: 'fireSolo', slot: LYRA, cued: true } }]),
+    );
+    // Stilled, she fires no Solo: not her own, and not a staged one.
+    expect(ofType(events, 'soloStarted')).toHaveLength(0);
     expect(lyra.hero!.soloActive).toBe(0);
     // Frozen: she doesn't move or act.
     const x = lyra.x;

@@ -22,7 +22,7 @@ import { beginAttack } from '../../src/sim/systems/enemies';
 import { underMuteDome } from '../../src/sim/systems/field';
 import { startSolo } from '../../src/sim/systems/solos';
 import { updatePendingHits } from '../../src/sim/systems/hits';
-import { castReel, cue } from '../../src/sim/systems/techniques';
+import { castReel } from '../../src/sim/systems/techniques';
 import { hashWorld } from '../../src/sim/hashing';
 import { cutThread, severingHit } from '../../src/sim/systems/thread';
 import type { PendingHit, World } from '../../src/sim/world';
@@ -394,7 +394,7 @@ describe('the Null rune silences the Weaver', () => {
       { t: 'debug', op: { op: 'chargeSolos' } },
       { t: 'debug', op: { op: 'setResonance', value: 100 } },
     ]);
-    ok([{ t: 'cue', slot: 1 }], 'cued');
+    ok([{ t: 'debug', op: { op: 'fireSolo', slot: 1, cued: true } }], 'cued');
     stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: 100 } }]);
     ok([{ t: 'crescendo' }], 'crescendoStart');
     ok([{ t: 'glide', x: 1, z: 0 }], 'glided');
@@ -456,15 +456,12 @@ describe('a possessed hero', () => {
     const w = worldOf(sim);
     addStatus(w, heroAt(w, 0), 'possessed', 5, null);
     sim.drainEvents();
-    cue(w, 0);
-    const events = sim.drainEvents();
-    expect(ofType(events, 'techniqueRejected')).toEqual([
-      expect.objectContaining({ technique: 'cue', reason: 'target' }),
-    ]);
+    // Possessed, a hero fires no Solo (their own or a staged one); another hero can.
+    const events = stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: 0, cued: true } }]);
+    expect(ofType(events, 'soloStarted').filter((e) => e.hero === heroAt(w, 0).id)).toHaveLength(0);
     expect(ofType(events, 'cued')).toHaveLength(0);
-    // Another hero can.
-    cue(w, 1);
-    expect(ofType(sim.drainEvents(), 'cued')).toHaveLength(1);
+    const other = stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: 1, cued: true } }]);
+    expect(ofType(other, 'cued')).toHaveLength(1);
   });
 
   it('loses the Solo pulses it misses: freed, they aren’t all fired at once', () => {
@@ -737,7 +734,7 @@ describe('Steal Verse: a stolen aura sings for nothing', () => {
         { t: 'debug', op: { op: 'chargeSolos' } },
         { t: 'debug', op: { op: 'setResonance', value: 50 } },
       ]);
-      const events = stepFor(sim, 1, [{ t: 'cue', slot: 0 }]);
+      const events = stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: 0, cued: true } }]);
       expect(ofType(events, 'chorusPulse')[0]).toMatchObject({ auras });
     }
   });

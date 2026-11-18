@@ -55,7 +55,7 @@ import { ofType, sandbox, spawn, stepFor, worldOf } from './sim/helpers';
 
 const conductor = (...path: string[]) => ({ calling: { id: 'conductor', path } });
 const debug = (op: DebugOp): Command => ({ t: 'debug', op });
-const cue = (slot: number): Command => ({ t: 'cue', slot: slot as 0 | 1 | 2 });
+const cue = (slot: number): Command => ({ t: 'debug', op: { op: 'fireSolo', slot: slot as 0 | 1 | 2, cued: true } });
 /** Guardian: Fortissimo on the beam, Sostenuto in the field. */
 const GUARDIAN = [
   { auras: ['fortissimo'], ornaments: [] },

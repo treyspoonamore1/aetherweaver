@@ -307,7 +307,7 @@ describe('the chorus pulse', () => {
     ]);
     hurt(sim, 1, 400);
     const before = hero(sim, 1).health!.hp;
-    const events = stepFor(sim, 1, [{ t: 'cue', slot: 0 }]);
+    const events = stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: 0, cued: true } }]);
     expect(ofType(events, 'chorusPulse')[0]).toMatchObject({ auras: 3, reached: 3 });
     expect(hero(sim, 1).health!.hp).toBeGreaterThan(before);
     expect(hero(sim, 1).health!.shields.some((s) => s.kind === 'overshield')).toBe(true);
@@ -317,7 +317,12 @@ describe('the chorus pulse', () => {
       { t: 'debug', op: { op: 'chargeSolos' } },
       { t: 'debug', op: { op: 'setResonance', value: 50 } },
     ]);
-    expect(ofType(stepFor(two, 1, [{ t: 'cue', slot: 0 }]), 'chorusPulse')).toHaveLength(0);
+    expect(
+      ofType(
+        stepFor(two, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: 0, cued: true } }]),
+        'chorusPulse',
+      ),
+    ).toHaveLength(0);
   });
 });
 

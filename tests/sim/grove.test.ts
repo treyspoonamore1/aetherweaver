@@ -19,7 +19,7 @@ import {
 } from '../../src/sim/combat/health';
 import { startTelegraph } from '../../src/sim/combat/telegraphs';
 import { WEAVER_THREAT_INDEX } from '../../src/sim/combat/threat';
-import { AUTONOMY } from '../../src/sim/constants';
+import { SOLOS } from '../../src/sim/constants';
 import type { Entity } from '../../src/sim/state';
 import { ensureM4, spawnEnemy } from '../../src/sim/systems/enemies';
 import {
@@ -324,8 +324,8 @@ describe('Gentle (docs/phase-5e.md)', () => {
     expect(summonDamage(w, s!, 26).amount).toBeCloseTo(26, 9);
   });
 
-  it('his Solo charges and its Cue window runs while a Sapling fights; uncued on autonomy', () => {
-    const { sim, w, oro } = grove({ assists: { autonomy: true } });
+  it('his Solo charges and its wait runs while a Sapling fights; plain with no Thread on him', () => {
+    const { sim, w, oro } = grove();
     freeze(w, [0, 1]);
     const [s] = saplings(w, oro);
     const foe = enemy(w, 'hollow_chorister', s!.x + 1.2, s!.z);
@@ -695,8 +695,8 @@ describe('summons by construction (docs/phase-5e.md, "The summon model")', () =>
 });
 
 describe('review fixes (docs/phase-5e.md)', () => {
-  it('a stun starts his Cue window over: uncued only a full window after it ends', () => {
-    const { sim, w, oro } = grove({ assists: { autonomy: true } });
+  it('a stun starts his wait over: he fires only a full wait after it ends', () => {
+    const { sim, w, oro } = grove();
     freeze(w, [0, 1]);
     const [s] = saplings(w, oro);
     const foe = enemy(w, 'hollow_chorister', s!.x + 1.2, s!.z);
@@ -715,7 +715,7 @@ describe('review fixes (docs/phase-5e.md)', () => {
     // have fired), nothing; a full second on, it fires uncued.
     const soon = stepFor(sim, 50);
     expect(ofType(soon, 'soloStarted').filter((e) => e.hero === oro.id)).toHaveLength(0);
-    expect(oro.hero!.grove!.held ?? 0).toBeLessThan(AUTONOMY.cueGrace);
+    expect(oro.hero!.grove!.held ?? 0).toBeLessThan(SOLOS.wait);
     const later = stepFor(sim, 30);
     const started = ofType(later, 'soloStarted').filter((e) => e.hero === oro.id);
     expect(started).toHaveLength(1);

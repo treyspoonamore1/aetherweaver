@@ -79,7 +79,7 @@ const motif = (id: Id) => CONTENT.motifs.find((m) => m.id === id)!;
 const valueAt = (id: Id, level: number) => motif(id).values[level - 1]!;
 const heroAt = (w: World, slot: number): Entity => w.entities.get(w.party[slot]!)!;
 const weaverOf = (w: World) => w.entities.get(w.weaverId)!.weaver!;
-const cue = (slot: number): Command => ({ t: 'cue', slot: slot as PartySlot });
+const cue = (slot: number): Command => ({ t: 'debug', op: { op: 'fireSolo', slot: slot as PartySlot, cued: true } });
 const CRESCENDO: Command = { t: 'crescendo' };
 
 /**

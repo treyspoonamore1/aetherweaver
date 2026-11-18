@@ -874,7 +874,7 @@ describe('the Skilled bot with Brann (staged)', () => {
     brann.hero!.solo = 100;
     w.entities.get(w.weaverId)!.weaver!.resonance = 50;
     const out = makeBot('skilled', 1).decide(sim.state);
-    expect(out).toContainEqual({ t: 'cue', slot: brannSlot(sim) });
+    expect(out).toContainEqual({ t: 'debug', op: { op: 'fireSolo', slot: brannSlot(sim), cued: true } });
   });
 
   it('with an explicit default party issues what it does with none', () => {
@@ -2610,7 +2610,7 @@ describe('the Skilled bot reads the Finale (staged)', () => {
       return makeBot('skilled', 1).decide(sim.state);
     };
     expect(decide(false).some((c) => c.t === 'cue')).toBe(false);
-    expect(decide(true)).toContainEqual({ t: 'cue', slot: 1 });
+    expect(decide(true)).toContainEqual({ t: 'debug', op: { op: 'fireSolo', slot: 1, cued: true } });
   });
 
   it('without a Crescendo, guards Fortissimo Silence: the dome, the lowest Warded, Mend, a Rally', () => {
@@ -2619,7 +2619,7 @@ describe('the Skilled bot reads the Finale (staged)', () => {
     weaverE(dome).weaver!.resonance = 50;
     heroE(dome, 0).hero!.solo = 100;
     fortissimoOn(dome, 1, 2, 1);
-    expect(makeBot('skilled', 1).decide(dome.state)).toContainEqual({ t: 'cue', slot: 0 });
+    expect(makeBot('skilled', 1).decide(dome.state)).toContainEqual({ t: 'debug', op: { op: 'fireSolo', slot: 0, cued: true } });
 
     // In each pulse's Perfect window, the lowest hero's Ward, over a bigger hit on a healthier one.
     for (const [name, party] of Object.entries(FINALE_PARTIES))
@@ -3081,7 +3081,7 @@ describe('the Skilled bot in the Grand Silence (staged)', () => {
       return bot.decide(sim.state);
     };
     // Lyra's Gale Barrage before Kael's dome (the Requiem reserve would have held both).
-    expect(burn('over')).toContainEqual({ t: 'cue', slot: 1 });
+    expect(burn('over')).toContainEqual({ t: 'debug', op: { op: 'fireSolo', slot: 1, cued: true } });
     expect(burn('holding').some((c) => c.t === 'cue')).toBe(false);
     // Phase 3 entered, the silence not yet begun (the phase shift): no Solo is Cued to freeze.
     expect(burn('shift').some((c) => c.t === 'cue')).toBe(false);

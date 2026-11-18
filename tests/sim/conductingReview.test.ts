@@ -15,7 +15,6 @@ import {
   type SimEvent,
 } from '../../src/sim';
 import { addStatus, dealDamage, startHold } from '../../src/sim/combat/health';
-import { wholeCues } from '../../src/sim/combat/resonance';
 import type { Entity } from '../../src/sim/state';
 import { spawnEnemy } from '../../src/sim/systems/enemies';
 import { empowerBonus } from '../../src/sim/systems/thread';
@@ -25,7 +24,10 @@ import { ofType, sandbox, stepFor, worldOf } from './helpers';
 const CRESCENDO: Command = { t: 'crescendo' };
 const weaverOf = (w: World) => w.entities.get(w.weaverId)!;
 const heroAt = (w: World, slot: number) => w.entities.get(w.party[slot]!)!;
-const cue = (slot: number): Command => ({ t: 'cue', slot: slot as 0 | 1 | 2 });
+const cue = (slot: number): Command => ({
+  t: 'debug',
+  op: { op: 'fireSolo', slot: slot as 0 | 1 | 2, cued: true },
+});
 const GUARDIAN = [
   { auras: ['fortissimo'], ornaments: [] },
   { auras: ['sostenuto'], ornaments: [] },
@@ -357,27 +359,6 @@ describe('Grand Finale: when it stops', () => {
     expect(lyraTurn.time - start.time).toBeGreaterThanOrEqual(1.5);
     expect(lyra.hero!.hold).toBeNull();
     expect(finaleView(w)).toBeNull();
-  });
-});
-
-describe('the fade with Silent Cues', () => {
-  it('the whole-Cue floor is 30: 40 fades to 30, 70 to 60, 50 stays', () => {
-    for (const [start, want] of [
-      [40, 30],
-      [70, 60],
-      [50, 50],
-    ] as const) {
-      const sim = sandbox({
-        calling: { id: 'conductor', path: [] },
-        dissonance: [{ id: 'silent_cues', rank: 1 }],
-      });
-      const w = worldOf(sim);
-      expect(w.dissonance.cueCost).toBe(30);
-      expect(wholeCues(w, 40)).toBe(30);
-      weaverOf(w).weaver!.resonance = start;
-      stepFor(sim, 60 * 12);
-      expect(weaverOf(w).weaver!.resonance, `${start}`).toBeCloseTo(want, 9);
-    }
   });
 });
 

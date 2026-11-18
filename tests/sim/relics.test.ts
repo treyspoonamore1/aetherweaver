@@ -173,7 +173,7 @@ describe('rare relics', () => {
     const sim = sandbox(relics('choirmasters_baton', 'cantors_hymnal'));
     expect(weaver(sim).weaver!.resonance).toBe(value('cantors_hymnal', 'resonance'));
     stepFor(sim, 1, [{ t: 'debug', op: { op: 'chargeSolos' } }]);
-    const events = stepFor(sim, 1, [{ t: 'cue', slot: 1 }]);
+    const events = stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: 1, cued: true } }]);
     const started = ofType(events, 'soloStarted')[0]!;
     const def = heroDef(hero(sim, 1).hero!.defId);
     expect(started.cued).toBe(true);

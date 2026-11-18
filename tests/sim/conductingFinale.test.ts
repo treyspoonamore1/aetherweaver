@@ -152,7 +152,7 @@ describe('Grand Finale', () => {
     const { sim, w } = stage();
     heroAt(w, 1).hero!.solo = 100;
     weaverOf(w).weaver!.resonance = 100;
-    stepFor(sim, 1, [{ t: 'cue', slot: 1 }]);
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: 1, cued: true } }]);
     const timed = finale(sim, w);
     const t = turns(timed);
     expect(t.map((x) => x.hero)).toEqual([w.party[0], w.party[2], w.party[1]]);
@@ -204,7 +204,7 @@ describe('Grand Finale', () => {
     // Staged: a Solo that outlasts the Finale.
     lyra.hero!.solo = 100;
     weaverOf(w).weaver!.resonance = 100;
-    stepFor(sim, 1, [{ t: 'cue', slot: 1 }]);
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: 1, cued: true } }]);
     lyra.hero!.soloActive = 30;
     const timed = finale(sim, w, 60 * 14);
     expect(turns(timed).map((x) => x.hero)).toEqual([w.party[0], w.party[2]]);
@@ -241,7 +241,7 @@ describe('Grand Finale', () => {
     // A Solo that keeps the Finale playing a while.
     heroAt(w, 1).hero!.solo = 100;
     weaverOf(w).weaver!.resonance = 100;
-    stepFor(sim, 1, [{ t: 'cue', slot: 1 }]);
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: 1, cued: true } }]);
     weaverOf(w).weaver!.resonance = 100;
     stepFor(sim, 1, [CRESCENDO]);
     expect(weaverOf(w).weaver!.resonance).toBeCloseTo(0, 9);
@@ -285,7 +285,7 @@ describe('Grand Finale', () => {
     // The same set-up does sing on a Cue.
     heroAt(w, 0).hero!.solo = 100;
     weaverOf(w).weaver!.resonance = 100;
-    const cued = stepFor(sim, 1, [{ t: 'cue', slot: 0 }]);
+    const cued = stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: 0, cued: true } }]);
     expect(ofType(cued, 'chorusPulse')).toHaveLength(1);
     expect(
       ofType(cued, 'talentFired').filter((t) => 'talent' in t && t.talent === 'constellation'),
@@ -316,7 +316,7 @@ describe('Grand Finale', () => {
     stepFor(sim, 1, [CRESCENDO]);
     heroAt(w, 2).hero!.solo = 100;
     weaverOf(w).weaver!.resonance = 20;
-    const cued = stepFor(sim, 1, [{ t: 'cue', slot: 2 }]);
+    const cued = stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: 2, cued: true } }]);
     expect(ofType(cued, 'cued')).toHaveLength(1);
     expect(finaleView(w)!.next).toBe(w.party[1]);
     const rest = stepUntil(sim, (ev) => ev.some((e) => e.type === 'finaleEnded'), 60 * 14);

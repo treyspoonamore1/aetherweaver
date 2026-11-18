@@ -473,7 +473,7 @@ describe('Vexis', () => {
       { t: 'debug', op: { op: 'setResonance', value: 100 } },
     ]);
     const kael = of(KAEL);
-    let events = stepFor(sim, 1, [{ t: 'cue', slot: KAEL }]);
+    let events = stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: KAEL, cued: true } }]);
     expect(ofType(events, 'talentFired').some((e) => e.talent === 'constellation')).toBe(true);
     expect(w.internal.stars).toHaveLength(1);
     const star = { ...w.internal.stars[0]! };
@@ -743,7 +743,7 @@ describe('the review’s fixes', () => {
       { t: 'debug', op: { op: 'chargeSolos' } },
       { t: 'debug', op: { op: 'setResonance', value: 100 } },
     ]);
-    stepFor(sim, 1, [{ t: 'cue', slot: KAEL }]);
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: KAEL, cued: true } }]);
     expect(w.internal.stars).toHaveLength(1);
     Object.assign(of(VEXIS).health!, { hp: 0, downed: true, bleedOut: 99 });
     const events = stepFor(sim, 60 * 3);

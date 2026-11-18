@@ -9,7 +9,6 @@ import {
   BAR_SECONDS,
   beatAt,
   crescendoCostOf,
-  cueCostNow,
   nextCue,
   onBeat,
   type Command,
@@ -35,7 +34,10 @@ const passive = (key: string) => CONTENT.callings.find((c) => c.id === 'conducto
 const value = (option: string, key: string) => callingOption(option).values[key]!;
 const weaverOf = (w: World) => w.entities.get(w.weaverId)!;
 const heroAt = (w: World, slot: number) => w.entities.get(w.party[slot]!)!;
-const cue = (slot: number): Command => ({ t: 'cue', slot: slot as 0 | 1 | 2 });
+const cue = (slot: number): Command => ({
+  t: 'debug',
+  op: { op: 'fireSolo', slot: slot as 0 | 1 | 2, cued: true },
+});
 /** Guardian: Fortissimo on the beam, Sostenuto in the field. */
 const GUARDIAN = [
   { auras: ['fortissimo'], ornaments: [] },
@@ -70,40 +72,24 @@ function foe(w: World, defId: string, x: number, z: number, hp = 1e6): Entity {
 }
 
 describe('the passive', () => {
-  it('a Cue costs 20; with Silent Cues 30; on the beat with it, 10', () => {
+  it('a Cue costs nothing, with the Conductor as without (docs/solos.md)', () => {
     const { sim, w } = stage();
-    expect(passive('cue')).toBe(20);
-    expect(w.dissonance.cueCost).toBe(20);
-    expect(w.calling!.conducting!.cueCost).toBe(20);
     heroAt(w, 1).hero!.solo = 100;
     setResonance(w, 50);
-    stepFor(sim, 1, [cue(1)]);
-    expect(weaverOf(w).weaver!.resonance).toBeCloseTo(30, 9);
-
-    const silent = stage(['a_tempo'], { dissonance: [{ id: 'silent_cues', rank: 1 }] });
-    expect(silent.w.dissonance.cueCost).toBe(30);
-    silent.w.time = 2 * BAR_SECONDS + 0.5;
-    expect(cueCostNow(silent.w)).toBe(30);
-    silent.w.time = 2 * BAR_SECONDS + 0.1;
-    expect(cueCostNow(silent.w)).toBe(10);
-    heroAt(silent.w, 0).hero!.solo = 100;
-    setResonance(silent.w, 40);
-    stepFor(silent.sim, 1, [cue(0)]);
-    expect(weaverOf(silent.w).weaver!.resonance).toBeCloseTo(30, 9);
+    const events = stepFor(sim, 1, [cue(1)]);
+    expect(ofType(events, 'cueChained')).toEqual([
+      expect.objectContaining({ link: 1, power: 1, cost: 0, onBeat: false }),
+    ]);
+    expect(ofType(events, 'resonanceSpent')).toHaveLength(0);
+    expect(weaverOf(w).weaver!.resonance).toBeCloseTo(50, 9);
+    expect(crescendoCostOf(w)).toBe(CONTENT.resonance.crescendoCost);
   });
 
-  it('without the Conductor a Cue still costs the content’s 25 (and 35 with Silent Cues)', () => {
-    expect(worldOf(sandbox()).dissonance.cueCost).toBe(CONTENT.resonance.cueCost);
-    const silent = worldOf(sandbox({ dissonance: [{ id: 'silent_cues', rank: 1 }] }));
-    expect(silent.dissonance.cueCost).toBe(CONTENT.resonance.cueCost + 10);
-    expect(cueCostNow(silent)).toBe(CONTENT.resonance.cueCost + 10);
-    expect(crescendoCostOf(silent)).toBe(CONTENT.resonance.crescendoCost);
-  });
-
-  it('a Perfect Ward gives 22, and 26.4 with Standing Ovation III', () => {
+  it('a Perfect Ward gives a tenth more, and a fifth more again with Standing Ovation III', () => {
+    const base = CONTENT.resonance.gains.perfectWard * CONTENT.resonance.gainScale;
     for (const [motifs, want] of [
-      [[], 22],
-      [[{ id: 'standing_ovation', level: 3 }], 26.4],
+      [[], base * (1 + passive('gain') / 100)],
+      [[{ id: 'standing_ovation', level: 3 }], base * (1 + passive('gain') / 100) * 1.2],
     ] as const) {
       const { w } = stage([], { motifs: [...motifs] });
       setResonance(w, 0);
@@ -112,11 +98,10 @@ describe('the passive', () => {
     }
   });
 
-  it('the fade keeps whole Cues: 45 → 40, 65 → 60, 35 → 25, 100 stays; without him 45 → 25', () => {
+  it('the fade keeps whole segments, as for every Calling: 45 → 25, 65 → 50, 100 stays', () => {
     for (const [start, want, calling] of [
-      [45, 40, true],
-      [65, 60, true],
-      [35, 25, true],
+      [45, 25, true],
+      [65, 50, true],
       [100, 100, true],
       [45, 25, false],
     ] as const) {
