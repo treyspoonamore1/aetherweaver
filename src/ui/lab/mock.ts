@@ -462,6 +462,8 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
             soloNow: true,
             soloLoose: true,
             willCue: false,
+            // A hit is about to land on him and Lyra: the coach's dome lesson.
+            wallWanted: true,
           }),
           hero(1, 'lyra', {
             hp: 210,

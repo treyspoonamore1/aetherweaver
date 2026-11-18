@@ -409,16 +409,12 @@ function allHints(hud: HudSnapshot): Hint[] {
   // The Conductor (docs/phase-5f.md): chain a Duet, the downbeat, the Grand Finale. Before the
   // plain Solo's hint: a chain's window is the more urgent.
   out.push(...conductingHints(hud));
-  // Kael's wall is full and a hit is coming for more than one hero: with your Thread on him he
-  // raises it for everyone (Cued, it is a dome). An answer, so Blind Score hides it.
-  const wall = party.find(
-    (h) => alive(h) && h.soloId === 'aegisWall' && h.soloReady && !h.willCue && !h.threaded,
-  );
-  if (
-    wall &&
-    !hud.conducting?.finale &&
-    party.filter((h) => alive(h) && h.incoming > 0).length > 1
-  ) {
+  // Kael's wall is full and a hit is about to land on the party: with your Thread on him he
+  // raises it at once for everyone (Cued, it is a dome). When that is so is the sim's to say
+  // (`wallWanted`, the rule he fires by), never a looser copy here: the lesson shows only when
+  // threading him would do it. An answer, so Blind Score hides it.
+  const wall = party.find((h) => alive(h) && h.wallWanted && !h.willCue && !h.threaded);
+  if (wall && !hud.conducting?.finale) {
     out.push({
       id: 'dome',
       text: txt('hud.hints.aHitIsComingFor', {

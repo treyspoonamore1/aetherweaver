@@ -16,6 +16,7 @@ import {
   shieldOf,
 } from '../combat/health';
 import { bark } from '../combat/feedback';
+import { partyHitWithin } from '../combat/telegraphs';
 import { SOLOS } from '../constants';
 import type { Entity, ReadonlyEntity, WorldState } from '../state';
 import type { World } from '../world';
@@ -649,4 +650,18 @@ function nearestTo(world: World, x: number, z: number, radius: number): Entity |
     }
   }
   return best;
+}
+
+/**
+ * Kael's dome on demand (docs/solos.md, rule 8), as a view: his Aegis Wall is full and coming
+ * (`soloDueIn`: he can fire and has someone to fight), and a hit is about to land on two or more
+ * of the party within `SOLOS.partyHit` seconds (`partyHitWithin`). With the Thread on him he
+ * raises it at once, Cued, a dome over everyone (heroes.ts `soloFires`); the coach reads this to
+ * say "thread Kael" (src/ui/hud/hints.ts). False for any other Solo.
+ */
+export function wallWanted(state: WorldState, hero: ReadonlyEntity): boolean {
+  const h = hero.hero;
+  if (!h || h.soloId !== 'aegisWall' || h.solo < 100 || !(SOLOS.partyHit > 0)) return false;
+  if (soloDueIn(state, hero) === null) return false;
+  return partyHitWithin(state as World, SOLOS.partyHit);
 }

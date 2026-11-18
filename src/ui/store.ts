@@ -93,6 +93,11 @@ export interface HeroHud {
    * frame shows no seconds for it.
    */
   soloLoose?: boolean;
+  /**
+   * Kael's dome on demand: his wall is full and a hit is about to land on the party, so with
+   * your Thread on him he raises it at once (the sim's `wallWanted`). The coach's dome lesson.
+   */
+  wallWanted?: boolean;
   /** Their Solo would be Cued if it fired now (the sim's `threadCues`): your Thread is on them. */
   willCue?: boolean;
   /**

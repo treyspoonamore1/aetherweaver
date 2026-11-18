@@ -115,5 +115,5 @@ export {
 } from './systems/conducting';
 export type { FinaleTurnBlock } from './systems/conducting';
 // Solos (docs/solos.md): whether the Thread would Cue a hero's Solo now, and when it is due.
-export { soloDueIn, threadCues } from './systems/solos';
+export { soloDueIn, threadCues, wallWanted } from './systems/solos';
 export { resonanceScale } from './combat/resonance';

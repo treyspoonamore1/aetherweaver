@@ -9,7 +9,14 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../src/content';
 import { SOLOS } from '../src/sim/constants';
-import { soloDueIn, threadCues, type Command, type PartySlot, type Sim } from '../src/sim';
+import {
+  soloDueIn,
+  threadCues,
+  wallWanted,
+  type Command,
+  type PartySlot,
+  type Sim,
+} from '../src/sim';
 import { buildHudSnapshot } from '../src/ui/hudBridge';
 import { ANSWER_HINTS, evaluateHints } from '../src/ui/hud/hints';
 import { mockHud } from '../src/ui/lab/mock';
@@ -335,29 +342,92 @@ describe('the coach says what the Thread does', () => {
 
   it('a hit coming for the party with Kael’s wall full: Thread him for the dome', () => {
     const base = mockHud('calm');
-    const stage = (kael: Partial<HeroHud>, hits: number) => ({
+    const stage = (kael: Partial<HeroHud>) => ({
       ...base,
-      party: base.party.map((h, i) =>
+      party: base.party.map((h) =>
         h.defId === 'kael'
-          ? { ...h, solo: 100, soloReady: true, threaded: false, incoming: 300, ...kael }
-          : { ...h, threaded: false, incoming: i <= hits ? 300 : 0 },
+          ? { ...h, solo: 100, soloReady: true, threaded: false, wallWanted: true, ...kael }
+          : { ...h, threaded: false, incoming: 300 },
       ),
     });
-    const hint = fighting(stage({}, 2)).find((x) => x.id === 'dome')!;
+    const hint = fighting(stage({})).find((x) => x.id === 'dome')!;
     expect(hint.text).toBe(
       'A hit is coming for the party. Thread Kael {1}: Cued, his wall shields everyone',
     );
     expect(words(hint.text)).toBeLessThanOrEqual(18);
-    // One hero's hit is not the party's; a wall not full, or the Thread already on him, says nothing.
-    expect(fighting(stage({ incoming: 300 }, 0)).map((x) => x.id)).not.toContain('dome');
-    expect(fighting(stage({ soloReady: false, solo: 60 }, 2)).map((x) => x.id)).not.toContain(
+    // The sim says when (`wallWanted`); damage on its way to two heroes is not enough by itself.
+    expect(fighting(stage({ wallWanted: false })).map((x) => x.id)).not.toContain('dome');
+    // The Thread already on him says nothing.
+    expect(fighting(stage({ threaded: true, willCue: true })).map((x) => x.id)).not.toContain(
       'dome',
     );
-    expect(fighting(stage({ threaded: true, willCue: true }, 2)).map((x) => x.id)).not.toContain(
-      'dome',
-    );
+  });
+
+  it('the dome lesson shows exactly when threading Kael would raise his wall: the sim’s own rule', () => {
+    const hinted = (sim: Sim) =>
+      fighting(hud(sim))
+        .map((x) => x.id)
+        .includes('dome');
+    /** Kael's wall alone full, the Thread on Lyra, then a burst over the party. */
+    const stage = (impact: number, r: number, share: number) => {
+      const { sim, st, hero, setSolo } = fight();
+      setSolo(0, 100);
+      sim.step([{ t: 'thread', slot: 1 }]);
+      const kael = hero(0);
+      const w = st as unknown as { telegraphs: unknown[]; time: number; weaverId: number };
+      w.telegraphs.push({
+        id: 9100,
+        owner: w.weaverId,
+        target: null,
+        attackId: 'test_burst',
+        name: 'Test Burst',
+        kind: 'burst',
+        shape: { kind: 'circle', x: kael.x, z: kael.z, r },
+        start: w.time,
+        impact: w.time + impact,
+        perfectFrom: w.time + impact - 0.35,
+        damage: 0,
+        pctMaxHp: share,
+        effect: 'damage',
+        answers: [],
+        severity: 'normal',
+      });
+      for (const id of st.party) {
+        const h = st.entities.get(id)!.health! as { hp: number; maxHp: number };
+        h.hp = h.maxHp;
+      }
+      sim.step([]);
+      sim.drainEvents();
+      return { sim, st, kael };
+    };
+    // A burst over everyone, four tenths of their life, a second off: the lesson shows, and
+    // doing what it says raises the wall on the next tick, Cued.
+    const due = stage(1, 30, 0.4);
+    expect(wallWanted(due.st, due.kael)).toBe(true);
+    expect(hud(due.sim).party[0]!.wallWanted).toBe(true);
+    expect(hinted(due.sim)).toBe(true);
+    due.sim.step([{ t: 'thread', slot: 0 }]);
+    due.sim.step([]);
+    const raised = due.sim.drainEvents().filter((e) => e.type === 'soloStarted');
+    expect(raised).toHaveLength(1);
+    expect(raised[0]).toMatchObject({ hero: due.kael.id, solo: 'aegisWall', cued: true });
+    // The same hit further off than the rule's 1.5 s: damage is on its way to all three, which
+    // the coach's old copy of the rule took for enough. He would not raise it: no lesson.
+    const far = stage(SOLOS.partyHit + 1.5, 30, 0.4);
+    expect(hud(far.sim).party.filter((h) => h.incoming > 0).length).toBeGreaterThan(1);
+    expect(wallWanted(far.st, far.kael)).toBe(false);
+    expect(hinted(far.sim)).toBe(false);
+    far.sim.step([{ t: 'thread', slot: 0 }]);
+    far.sim.step([]);
+    expect(far.sim.drainEvents().filter((e) => e.type === 'soloStarted')).toEqual([]);
+    // A scratch on everyone (a twentieth of their life) is no hit on the party either.
+    const scratch = stage(1, 30, 0.05);
+    expect(hinted(scratch.sim)).toBe(false);
     // His alternate Solo raises no dome.
-    expect(fighting(stage({ soloId: 'oathkeeper' }, 2)).map((x) => x.id)).not.toContain('dome');
+    const other = stage(1, 30, 0.4);
+    (other.kael.hero as { soloId: string }).soloId = 'oathkeeper';
+    expect(wallWanted(other.st, other.kael)).toBe(false);
+    expect(hinted(other.sim)).toBe(false);
     // It names an answer, so Blind Score hides it.
     expect(ANSWER_HINTS.has('dome')).toBe(true);
   });

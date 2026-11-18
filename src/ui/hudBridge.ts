@@ -34,6 +34,7 @@ import {
   songReserveOf,
   techniqueCost,
   threadCues,
+  wallWanted,
   vowHoldsAt,
   weaverHealCut,
   weaverSilenced,
@@ -165,7 +166,7 @@ function crescendoTotal(calling: { id: string; path: string[]; crescendo: string
 export function soloTell(
   state: WorldState,
   e: ReadonlyEntity,
-): Pick<HeroHud, 'soloIn' | 'soloNow' | 'soloLoose' | 'willCue' | 'cueHold'> {
+): Pick<HeroHud, 'soloIn' | 'soloNow' | 'soloLoose' | 'willCue' | 'cueHold' | 'wallWanted'> {
   const h = e.health;
   if (!e.hero || !h || isStilled(h) || h.statuses.some((s) => s.id === 'possessed'))
     return { soloIn: null, willCue: false };
@@ -183,6 +184,7 @@ export function soloTell(
     soloNow: e.hero.solo >= 100,
     willCue,
     ...(e.hero.soloId === 'aegisWall' ? { soloLoose: true } : {}),
+    ...(wallWanted(state, e) ? { wallWanted: true } : {}),
     ...(hold > 0 ? { cueHold: hold } : {}),
   };
 }
