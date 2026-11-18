@@ -5,6 +5,7 @@
 import {
   SIM_DT,
   createSim,
+  soloDueIn,
   type Command,
   type PartySlot,
   type Sim,
@@ -101,7 +102,17 @@ export class Fight {
     const s = this.sim.state;
     const cmds: Command[] = [];
     const heroes = s.party.map((id) => s.entities.get(id)).filter((e) => e?.hero && e.health);
-    if (s.tick - this.lastThreadTick >= 40) {
+    // Solos (docs/solos.md): a hero whose Solo is about to fire has the Thread, so it is Cued
+    // (no Resonance asked: a Cue costs nothing); until it fires, the Thread is not moved for life.
+    const due = heroes.find((h) => {
+      if (!h?.hero || h.health?.downed) return false;
+      const at = soloDueIn(s, h);
+      return at !== null && at <= 0.5;
+    });
+    const threadSlot = s.entities.get(s.weaverId)?.weaver?.threadSlot;
+    if (due?.hero) {
+      if (threadSlot !== due.hero.slot) cmds.push({ t: 'thread', slot: due.hero.slot });
+    } else if (s.tick - this.lastThreadTick >= 40) {
       this.lastThreadTick = s.tick;
       let best: PartySlot = 0;
       let bestFrac = 2;
@@ -129,10 +140,6 @@ export class Fight {
     const w = s.entities.get(s.weaverId)?.weaver;
     if (w) {
       if (w.resonance >= 100 && w.crescendo <= 0 && s.tick % 7 === 0) cmds.push({ t: 'crescendo' });
-      else if (w.resonance >= 25 && s.tick % 90 === 0) {
-        const ready = heroes.find((h) => h?.hero && h.hero.solo >= 100 && !h.health?.downed);
-        if (ready?.hero) cmds.push({ t: 'thread', slot: ready.hero.slot });
-      }
       if (s.tick % 240 === 120) {
         const target = heroes.find((h) => h?.health && h.health.hp / h.health.maxHp < 0.6);
         if (target) cmds.push({ t: 'tech', id: 'chime', point: { x: target.x, z: target.z } });
