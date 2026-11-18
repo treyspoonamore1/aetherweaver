@@ -324,7 +324,8 @@ export class CallingView {
     const L = r.shine;
     const S = this.sun;
     const pulse = 0.5 + 0.5 * Math.sin(time * 2.6 + slot * 1.7);
-    const top = r.y + r.height;
+    // The drawn head (heroes are drawn HERO_DRAWN tall): the shaft starts as far over it as before.
+    const top = r.y + r.height * HERO_DRAWN;
     const col = S > 0.5 ? SUN_HOT : SUN;
     this.drawn.shining++;
     // A shaft of light falling on them (it fades out toward the top).
@@ -509,7 +510,8 @@ export class CallingView {
   private circlet(w: CallingRec, time: number): void {
     const kit = this.d.kit;
     const k = this.sovereign * (1 + 0.3 * this.sun);
-    const y = w.y + w.height + 0.32;
+    // Over her drawn head (the Weaver is drawn HERO_DRAWN tall): the same clearance as before.
+    const y = w.y + w.height * HERO_DRAWN + 0.32;
     kit.rings.push(w.x, y, w.z, 0.38, 0.05, 0.12, RING.plain, C.goldHot, 0.75 * k);
     for (let i = 0; i < 5; i++) {
       const a = time * 0.5 + (i / 5) * Math.PI * 2;
@@ -729,7 +731,7 @@ export class CallingView {
       );
       this.d.overlay?.callout(
         r.x,
-        r.y + r.height + 0.75,
+        r.y + r.height * HERO_DRAWN + 0.75,
         r.z,
         `${SUN_GLYPH} +${Math.round(m.value)}`,
         CALLING_HEX.dawn,
