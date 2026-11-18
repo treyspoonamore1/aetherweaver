@@ -3617,7 +3617,7 @@ const VIEWS: ViewDef[] = [
   {
     id: 'prep-dissonance-closed',
     group: 'Dissonance',
-    label: 'Prep: closed (Rank 12): how it opens',
+    label: 'Prep: closed and Ranks away (Rank 12): nothing shown',
     w: 1280,
     h: 860,
     render: () => <PrepDissonance rank={12} open={false} />,
