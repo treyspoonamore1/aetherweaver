@@ -587,7 +587,7 @@ describe('in a fight: the Weaver bar from a real sim', () => {
               : {},
         ),
       ).find((x) => x.id === 'lethal-reel')!;
-      expect(h.text).toBe(`${base.party[0]!.name} is in a lethal zone — ${reel.name} {F} on them`);
+      expect(h.text).toBe(`${base.party[0]!.name} is in a lethal zone. ${reel.name} {F} on them`);
     }
     const plain = evaluateHints(lethal((t) => (t.key === 'ward' ? { affordable: false } : {})));
     expect(plain.find((x) => x.id === 'lethal-reel')!.text).toContain('Reel them out {F}');
