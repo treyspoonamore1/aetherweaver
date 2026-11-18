@@ -79,6 +79,23 @@ export const RELEASE_PINS = {
 export const PHASE7_BASE = '6a2b5eb';
 
 /**
+ * Changes to an aura's or an ornament's look that the owner approved, in person, each from its own
+ * before-and-after picture (docs/phase-8.md, "The marks on the larger heroes"). Oldest first. The
+ * aura files are compared with the newest of these commits instead of `PHASE7_BASE`, and an aura
+ * pin may carry these commits beside the one that recorded it. Nothing else belongs in this list.
+ */
+export const AURA_APPROVED: readonly { commit: string; approved: string; what: string }[] = [
+  {
+    commit: '9ed4ee6f2837a11be56d08b2cc9de33f237d5c14',
+    approved: '2026-11-18',
+    what: "M1 the beam song's ring and M5 Fermata's glyph placed from the hero's drawn height (with M2, M4a and M4b, which move no aura file); 90 of the aura pin's 627 entries re-recorded",
+  },
+];
+
+/** The commit the aura files are compared with: the newest approved change, else Phase 7's base. */
+export const AURA_BASE = AURA_APPROVED.at(-1)?.commit ?? PHASE7_BASE;
+
+/**
  * The eight files nobody edits in Phase 7 (ground rule 4). The elements around them that draw an
  * aura or an ornament live in files others edit (the Weaver bar, the Chord builder), so they are
  * held by their pins instead (`AURA_PIN_TESTS`), and the glyphs by their paths (`AURA_GLYPHS`).
@@ -354,8 +371,8 @@ export interface Inputs {
   licenses: CheckResult | null;
   pins: { name: string; expected: string | number; actual: string | number }[];
   /**
-   * Since the Phase 7 base: the aura files changed, and the aura pins with other than the one
-   * commit that recorded them; null if git could not say.
+   * Since the aura base (`AURA_BASE`): the aura files changed, and the aura pins with a commit
+   * other than the one that recorded them and the owner-approved ones; null if git could not say.
    */
   auraChanged: string[] | null;
   /** The aura and ornament glyphs whose path changed since the base; null if git could not say. */
@@ -600,12 +617,12 @@ export function checkRows(inputs: Inputs): RowResult[] {
   rows.push(
     row('9', 'No aura or ornament changed in look or sound', [
       inputs.auraChanged === null
-        ? notRun(`git diff of the aura files against ${PHASE7_BASE}: git could not say`)
+        ? notRun(`git diff of the aura files against ${AURA_BASE.slice(0, 7)}: git could not say`)
         : inputs.auraChanged.length === 0
           ? green(
-              `git diff ${PHASE7_BASE} is empty on ground rule 4's ${AURA_FILES.length} aura files, and each aura pin has only the commit that recorded it`,
+              `git diff ${AURA_BASE.slice(0, 7)} is empty on ground rule 4's ${AURA_FILES.length} aura files, and each aura pin has only the commit that recorded it${AURA_APPROVED.length > 0 ? ` and the ${AURA_APPROVED.length} the owner approved (latest ${AURA_APPROVED.at(-1)!.approved})` : ''}`,
             )
-          : red(`changed since ${PHASE7_BASE}: ${inputs.auraChanged.join(', ')}`),
+          : red(`changed since ${AURA_BASE.slice(0, 7)}: ${inputs.auraChanged.join(', ')}`),
       inputs.glyphsChanged === null
         ? notRun(`the aura and ornament glyphs of ${ICON_PATHS}: git could not say`)
         : inputs.glyphsChanged.length === 0
@@ -698,6 +715,7 @@ export function gather(argv: readonly string[], cwd: string, repo: string): Inpu
   const root = resolve(cwd, flag('--root') ?? repo);
   const dist = resolve(cwd, flag('--dist') ?? join(root, 'dist'));
   const base = flag('--base') ?? PHASE7_BASE;
+  const auraBase = flag('--base') ?? AURA_BASE;
   const at = (p: string | undefined) => (p ? resolve(cwd, p) : undefined);
 
   const suiteText = readIf(at(flag('--suite')));
@@ -728,12 +746,19 @@ export function gather(argv: readonly string[], cwd: string, repo: string): Inpu
   const status = git(root, ['status', '--porcelain']);
   const tree: Tree | null =
     head === null || status === null ? null : { commit: head.trim(), dirty: status.trim() !== '' };
-  const diff = git(root, ['diff', '--name-only', base, '--', ...AURA_FILES]);
+  const diff = git(root, ['diff', '--name-only', auraBase, '--', ...AURA_FILES]);
   const pinCommits = [AURA_PIN, CARDS_PIN].map(
-    (pin) => [pin, git(root, ['log', '--format=%h', '--', pin])] as const,
+    (pin) => [pin, git(root, ['log', '--format=%H', '--', pin])] as const,
   );
+  // Newest first: the last line is the commit that recorded the pin. Any other must be approved.
+  const unapproved = (log: string): boolean =>
+    log
+      .split('\n')
+      .filter(Boolean)
+      .slice(0, -1)
+      .some((sha) => !AURA_APPROVED.some((a) => a.commit === sha));
   const pinsMoved = pinCommits
-    .filter(([, log]) => log !== null && log.split('\n').filter(Boolean).length !== 1)
+    .filter(([, log]) => log !== null && (log.trim() === '' || unapproved(log)))
     .map(([pin, log]) =>
       log!.trim() === '' ? `${pin} (never committed)` : `${pin} (re-recorded)`,
     );

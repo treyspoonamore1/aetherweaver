@@ -761,32 +761,42 @@ hash or snapshot was re-recorded.
 - Measured on software rendering, at a few frames a second, with one bot at one seed. Nobody has
   watched the camera move at 60 frames a second on a real graphics card.
 
-### The marks on the larger heroes: proposed, not landed
+### The marks on the larger heroes
 
 Heroes are drawn 12% larger since 8b, and the marks placed from a hero's height stayed where they
 were (aura and ornament drawing changes only when the owner approves that change). Seven proposals
-are built, each as its own commit on top of `cedfbd1` and none on main. Each places one mark from
+were built, each as its own commit and its own before-and-after sheet. Each places one mark from
 the hero's drawn height instead and changes nothing else: +0.24 m on Kael and +0.22 m on Lyra for a
 mark over the head.
 
-| | Mark | Branch | Entries of `tests/aura/presentationPin.json` it would move (of 627) |
-|---|---|---|---|
-| M1 | the beam song's ring and its "All in" ring | `p9/marks-m1` | 80 (`field`, the ten beam-song cases) |
-| M2 | the Calling halo | `p9/marks-m2` | none |
-| M3 | where the Sunrise beam ends | `p9/marks-m3` | none |
-| M4a | the Mend / Empower glyph | `p9/marks-m4a` | none |
-| M4b | call prompts, with their glow and stars | `p9/marks-m4b` | none |
-| M4c | where the Thread meets the hero (+0.14 m, +0.13 m) | `p9/marks-m4c` | 80 (`beam`, the same ten cases) |
-| M5 | Fermata's glyph, with its flare, callout and shards | `p9/marks-m5` | 10 (`fermata`, the two Fermata cases) |
+**The owner approved five on 18 November 2026** ("Approve the five you recommend"), and they are
+on main and in the demo from Version 19:
 
-`p9/marks` has all seven stacked. The pin file is not edited on any of them, so the aura pin's two
-tests fail there on purpose until the owner approves a proposal and its entries are re-recorded.
-Still placed from the old height and not proposed yet: the pour's label, the Luminary's Dawn
-callout, Radiance shaft and circlet, the Tyrant's crown and edict, the Martyr's seals and ember,
-the Chronomancer's mastery mark and Stasis callout, the Conductor's sigil, marcato mark and solo
-light (all aura, ornament or Calling drawing); and, outside it, Seren's and Oro's glyphs, stun
-stars and status badges, bond and relic marks, damage and heal numbers, and the PERFECT, SAVED and
-HOLD callouts.
+| | Mark | Entries of `tests/aura/presentationPin.json` re-recorded (of 627) |
+|---|---|---|
+| M1 | the beam song's ring and its "All in" ring | 80 (`field`, all 8 samples of the ten beam-song cases) |
+| M2 | the Calling halo | none |
+| M4a | the Mend / Empower glyph | none |
+| M4b | call prompts, with their glow and stars | none |
+| M5 | Fermata's glyph, with its flare, callout and shards | 10 (`fermata`, samples 4 to 8 of the two Fermata cases) |
+
+The pin was computed on the approved tree and compared with the recorded file: exactly those 90
+entries differ, and the other 537, the field shader's hash and the markup are byte for byte as
+recorded. The re-record is one commit (`9ed4ee6`), named in `AURA_APPROVED` in
+`tools/release-check.ts`: the release check now compares the eight aura files with that commit
+and accepts it in the pin's history, and a test holds the list to commits that touched the pin.
+M1 and M5 edit two of the eight files (`src/render/field.ts`, `src/render/fermata.ts`), one line
+of placement each.
+
+**Not taken** (no strong case; still built on `p9/marks`): M3, where the Sunrise beam ends, and
+M4c, where the Thread meets the hero (it would move 80 `beam` entries).
+
+Still placed from the old height and not proposed: the pour's label, the Luminary's Dawn callout,
+Radiance shaft and circlet, the Tyrant's crown and edict, the Martyr's seals and ember, the
+Chronomancer's mastery mark and Stasis callout, the Conductor's sigil, marcato mark and solo light
+(all aura, ornament or Calling drawing); and, outside it, Seren's and Oro's glyphs, stun stars and
+status badges, bond and relic marks, damage and heal numbers, and the PERFECT, SAVED and HOLD
+callouts.
 
 ## 8d: portraits and the map's rewards
 

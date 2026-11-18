@@ -9,6 +9,10 @@
  * proves nothing. `presentationPin.test.ts` computes the pin again, with default settings and with
  * every comfort option at its strongest, and compares both with the file. Only the owner, in
  * person, may approve a change to an aura's or an ornament's look or sound (docs/phase-7.md).
+ *
+ * Since then the owner has approved changes that move recorded entries, and only those entries
+ * were re-recorded, each time by computing the pin on the approved tree and checking that nothing
+ * else differs. They are listed in `AURA_APPROVED` (tools/release-check.ts) and docs/phase-8.md.
  */
 import { existsSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

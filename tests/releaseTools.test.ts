@@ -23,7 +23,10 @@ import {
   type Paths,
 } from '../tools/licenses';
 import {
+  AURA_APPROVED,
+  AURA_BASE,
   AURA_FILES,
+  AURA_PIN,
   checkRows,
   exitCode,
   gather,
@@ -491,6 +494,24 @@ describe('tools/release-check.ts', () => {
     const inputs = gather([], REPO, REPO);
     expect(inputs.glyphsChanged).toEqual([]);
     expect(inputs.auraChanged).toEqual([]);
+  });
+
+  it('the owner-approved aura changes are whole commits in this history that touched the aura pin', () => {
+    expect(AURA_APPROVED.length).toBeGreaterThan(0);
+    expect(AURA_BASE).toBe(AURA_APPROVED.at(-1)!.commit);
+    const pinLog = execFileSync('git', ['log', '--format=%H', '--', AURA_PIN], {
+      cwd: REPO,
+      encoding: 'utf8',
+    })
+      .split('\n')
+      .filter(Boolean);
+    for (const a of AURA_APPROVED) {
+      expect(a.commit, a.what).toMatch(/^[0-9a-f]{40}$/);
+      expect(a.approved, a.what).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(pinLog, a.what).toContain(a.commit);
+    }
+    // The pin has the commit that recorded it and the approved ones, nothing else.
+    expect(pinLog).toHaveLength(1 + AURA_APPROVED.length);
   });
 
   it('evidence from another commit, a dirty tree or an unstamped log is red (review B, finding 3)', () => {
