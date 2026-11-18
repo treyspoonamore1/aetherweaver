@@ -27,6 +27,7 @@ import { RING } from './fx/rings';
 import { SHELL } from './fx/shells';
 import { SPRITE } from './fx/sprites';
 import { TG } from './fx/telegraphBatch';
+import { HERO_DRAWN } from './models/artFlag';
 import { C, approach, clamp01, color } from './palette';
 import { flareScale } from './relicCues';
 import type { TelegraphGeometry } from './telegraphs';
@@ -1734,7 +1735,8 @@ export class ChronoView {
     const kit = this.d.kit;
     const t = m.age / m.life;
     const flick = easeOut(seg(m.age, 0.05, 0.35));
-    const y = w.y + w.height + 0.75;
+    // Over her drawn head (the Weaver is drawn HERO_DRAWN tall): the same lift over it as before.
+    const y = w.y + w.height * HERO_DRAWN + 0.75;
     const a = 1 - seg(m.age, m.life * 0.6, m.life);
     kit.sprites.push(w.x, y, w.z, 0.95, SPRITE.clock, SILVER, 0.95 * a, 0, 1, (1 - flick) * TAU);
     kit.sprites.push(w.x, y, w.z, 1.5 * this.flare, SPRITE.glow, BRASS, 0.35 * a);
@@ -1995,7 +1997,7 @@ export class ChronoView {
     const over = 1 - seg(m.age, 0.35, 0.75);
     kit.sprites.push(
       w.x,
-      w.y + w.height + 1.7,
+      w.y + w.height * HERO_DRAWN + 1.7,
       w.z,
       0.8,
       SPRITE.clock,
