@@ -10,13 +10,16 @@ import { CONTENT } from '../../src/content';
 import {
   resonanceScale,
   soloDueIn,
+  soloQueue,
   threadCues,
+  threadOn,
   type Command,
   type Sim,
   type SimEvent,
 } from '../../src/sim';
 import { SIM_HZ, SOLOS } from '../../src/sim/constants';
 import type { Telegraph } from '../../src/sim/state';
+import { addStatus } from '../../src/sim/combat/health';
 import { hero, ofType, sandbox, spawn, stepFor, stepUntil, weaver, worldOf } from './helpers';
 
 const KAEL = 0;
@@ -151,40 +154,90 @@ describe('heroes fire their own Solos', () => {
     expect(ofType(stepFor(far, 2), 'soloStarted')).toEqual([]);
   });
 
-  it('a Solo that would root its hero, not about to be Cued, waits out a hit coming at them', () => {
-    const stage = (threaded: boolean) => {
+  it('no plain Solo roots its hero; a Cued Starfall still does', () => {
+    const plays = (slot: 0 | 1 | 2, cued: boolean) => {
       const sim = fight();
-      const w = worldOf(sim);
-      const vexis = hero(sim, VEXIS);
-      w.entities.get(vexis.id)!.hero!.solo = 100;
-      stepFor(sim, 1, [thread(threaded ? VEXIS : KAEL)]);
-      // A small hit on Vexis alone, landing after his wait is over.
-      burst(sim, vexis.x, vexis.z, 0.6, SOLOS.wait + 1, 0.05);
-      const { fired } = firstSolos(sim, (SOLOS.wait + 2) * SIM_HZ);
-      return fired.get(VEXIS)!;
+      stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot, cued } }]);
+      // A few ticks into the Solo: rooted, the hero channels where they stand.
+      stepFor(sim, 10);
+      const h = hero(sim, slot).hero!;
+      expect(h.soloActive).toBeGreaterThan(0);
+      return h.action;
     };
-    // Plain, Starfall would root him in the hit: he fires only once it has landed.
-    const plain = stage(false);
-    expect(plain.cued).toBe(false);
-    expect(plain.tick).toBeGreaterThanOrEqual((SOLOS.wait + 1) * SIM_HZ - 2);
-    // With the Thread on him he fires on time: a Weaver following the Solo is not kept waiting.
-    const cued = stage(true);
-    expect(cued.cued).toBe(true);
-    expect(cued.tick).toBeLessThanOrEqual(WAIT + 2);
+    expect(plays(LYRA, false)).not.toBe('channeling');
+    expect(plays(LYRA, true)).not.toBe('channeling');
+    expect(plays(VEXIS, false)).not.toBe('channeling');
+    expect(plays(VEXIS, true)).toBe('channeling');
   });
 
-  it('the hold for a hit ends after `SOLOS.rootHold` seconds: hit after hit, he still fires', () => {
+  it('a hero finishes what they are casting before their Solo begins', () => {
+    const sim = fight();
+    let checked = 0;
+    for (let round = 0; round < 4; round++) {
+      stepFor(sim, 1, [CHARGE]);
+      for (let t = 0; t < 5 * SIM_HZ; t++) {
+        topUp(sim);
+        const casting = new Set(
+          [KAEL, LYRA, VEXIS]
+            .filter((s) => hero(sim, s).hero!.cast !== null)
+            .map((s) => hero(sim, s).id),
+        );
+        for (const e of ofType(stepFor(sim, 1), 'soloStarted')) {
+          expect(casting.has(e.hero), `a Solo cut a cast at tick ${t}`).toBe(false);
+          checked++;
+        }
+      }
+    }
+    expect(checked).toBeGreaterThanOrEqual(9);
+  });
+
+  it('Kael does not raise his wall for a wound with nobody to fight', () => {
     const sim = fight();
     const w = worldOf(sim);
-    const vexis = hero(sim, VEXIS);
-    w.entities.get(vexis.id)!.hero!.solo = 100;
-    stepFor(sim, 1, [thread(KAEL)]);
-    // A hit that never seems to land.
-    burst(sim, vexis.x, vexis.z, 0.6, 60, 0.05);
-    const { fired } = firstSolos(sim, (SOLOS.wait + SOLOS.rootHold + 1) * SIM_HZ);
-    const at = fired.get(VEXIS)!.tick;
-    expect(at).toBeGreaterThanOrEqual((SOLOS.wait + SOLOS.rootHold) * SIM_HZ - 2);
-    expect(at).toBeLessThanOrEqual((SOLOS.wait + SOLOS.rootHold) * SIM_HZ + 2);
+    const kael = w.entities.get(hero(sim, KAEL).id)!;
+    kael.hero!.solo = 100;
+    for (const e of w.entities.list()) if (e.enemy) w.entities.despawn(e.id);
+    stepFor(sim, 5);
+    kael.health!.hp = kael.health!.maxHp * 0.25;
+    expect(ofType(stepFor(sim, 2 * SIM_HZ), 'soloStarted')).toEqual([]);
+  });
+
+  it('the tell is silent for a hero who cannot fire: stunned, or with no one to fight', () => {
+    const sim = fight();
+    const w = worldOf(sim);
+    stepFor(sim, 1, [CHARGE]);
+    stepFor(sim, 5);
+    const lyra = w.entities.get(hero(sim, LYRA).id)!;
+    expect(soloDueIn(sim.state, lyra)).not.toBeNull();
+    addStatus(w, lyra, 'stun', 2, null);
+    expect(soloDueIn(sim.state, lyra)).toBeNull();
+    // Nobody to fight: a full Solo is not coming.
+    const idle = fight();
+    stepFor(idle, 1, [CHARGE]);
+    for (const e of worldOf(idle).entities.list())
+      if (e.enemy) worldOf(idle).entities.despawn(e.id);
+    stepFor(idle, 10);
+    for (const slot of [KAEL, LYRA, VEXIS])
+      expect(soloDueIn(idle.state, hero(idle, slot))).toBeNull();
+  });
+
+  it('the queue for the frames: Solos due together read a gap apart, in the order they fire', () => {
+    const sim = fight();
+    stepFor(sim, 1, [CHARGE, thread(LYRA)]);
+    stepFor(sim, 5);
+    const queue = soloQueue(sim.state);
+    // Lyra and Vexis after the wait, a gap apart; Kael at his hold's end.
+    expect(queue.map((t) => t.slot)).toEqual([LYRA, VEXIS, KAEL]);
+    expect(queue[1]!.due - queue[0]!.due).toBeCloseTo(SOLOS.gap, 6);
+    expect(queue[2]!.due - queue[1]!.due).toBeGreaterThanOrEqual(SOLOS.gap - 1e-9);
+    expect(queue.map((t) => t.cued)).toEqual([true, false, false]);
+    // Each hero's own tell knows nothing of the others still waiting: the queue does.
+    expect(soloDueIn(sim.state, hero(sim, VEXIS))).toBeCloseTo(queue[0]!.due, 6);
+    // And they fire in that order, at about those times.
+    const { fired } = firstSolos(sim, HOLD + 3 * SIM_HZ);
+    const order = [...fired.entries()].sort((a, b) => a[1].tick - b[1].tick).map(([slot]) => slot);
+    expect(order).toEqual([LYRA, VEXIS, KAEL]);
+    expect(fired.get(VEXIS)!.tick - fired.get(LYRA)!.tick).toBeGreaterThanOrEqual(GAP - 1);
   });
 
   it('the wait starts over after a gap: a new enemy gets the full wait', () => {
@@ -323,8 +376,9 @@ describe('the Thread on a hero as their Solo fires makes it Cued', () => {
 });
 
 describe('what changes the rule', () => {
-  it('Silent Cues: the Thread must have been on the hero for its hold', () => {
+  it('Silent Cues: the Thread must have been on the hero for its hold, half the wait', () => {
     const hold = CONTENT.dissonance.find((d) => d.id === 'silent_cues')!.values.seconds!;
+    expect(hold).toBeLessThan(SOLOS.wait);
     const config = { dissonance: [{ id: 'silent_cues', rank: 1 }] };
     expect(fight(config).state.dissonance.cueHold).toBe(hold);
     const twin = fight(config);
@@ -337,17 +391,54 @@ describe('what changes the rule', () => {
         t === 0 ? [CHARGE] : t === lateAt ? [thread(1)] : [],
       ).fired.get(LYRA)!.cued,
     ).toBe(false);
-    // On her from the start (the wait is as long as the hold): in time.
-    const early = fight(config);
-    expect(
-      firstSolos(early, at + 2, (t) => (t === 0 ? [thread(1), CHARGE] : [])).fired.get(LYRA)!.cued,
-    ).toBe(true);
+    // Sent as the Solo fills, and even a third of a second after: in time.
+    for (const sent of [1, Math.floor(0.35 * SIM_HZ)]) {
+      const early = fight(config);
+      expect(
+        firstSolos(early, at + 2, (t) =>
+          t === 0 ? [CHARGE] : t === sent ? [thread(1)] : [],
+        ).fired.get(LYRA)!.cued,
+        `sent at tick ${sent}`,
+      ).toBe(true);
+    }
   });
 
-  it('Hollow Crown: every Solo is Cued, Thread or not', () => {
+  it('Hollow Crown: every Solo plays in its Cued form, but only the Thread makes a Cue', () => {
     const sim = fight({ relics: ['hollow_crown'] });
-    const { fired } = firstSolos(sim, HOLD + 5, (t) => (t === 0 ? [CHARGE] : []));
+    // The Thread on Lyra: hers is a Cue; the other two play Cued and are no Cues.
+    const { fired, events } = firstSolos(sim, HOLD + 5, (t) =>
+      t === 0 ? [CHARGE, thread(1)] : [],
+    );
     expect([KAEL, LYRA, VEXIS].map((s) => fired.get(s)!.cued)).toEqual([true, true, true]);
+    expect(ofType(events, 'cued').map((e) => e.hero)).toEqual([hero(sim, LYRA).id]);
+    expect(sim.state.ledger.cues).toBe(1);
+    expect(sim.state.ledger.plainSolos).toBe(0);
+    for (const slot of [KAEL, LYRA, VEXIS])
+      expect(threadCues(sim.state, hero(sim, slot))).toBe(true);
+    expect(threadOn(sim.state, hero(sim, LYRA))).toBe(true);
+    expect(threadOn(sim.state, hero(sim, VEXIS))).toBe(false);
+    // With the Conductor it makes no chain by itself: the Thread on nobody's Solo, no Duet.
+    const conductor = fight({ relics: ['hollow_crown'], calling: { id: 'conductor', path: [] } });
+    stepFor(conductor, 1, [thread(KAEL)]);
+    const kael = worldOf(conductor).entities.get(hero(conductor, KAEL).id)!;
+    kael.hero!.solo = 0;
+    const lone = firstSolos(conductor, WAIT + GAP + 10, (t) => {
+      // Kael has no Solo to fire: the Thread sits on him while the other two fire.
+      kael.hero!.solo = 0;
+      return t === 0 ? [CHARGE] : [];
+    });
+    expect(lone.fired.get(LYRA)!.cued).toBe(true);
+    expect(lone.fired.get(VEXIS)!.cued).toBe(true);
+    expect(ofType(lone.events, 'cueChained')).toEqual([]);
+    expect(conductor.state.ledger.conducting!.duets).toBe(0);
+    expect(conductor.state.ledger.cues).toBe(0);
+  });
+
+  it('the fight counts its plain Solos beside its Cues', () => {
+    const sim = fight();
+    firstSolos(sim, HOLD + 5, (t) => (t === 0 ? [CHARGE, thread(1)] : []));
+    expect(sim.state.ledger.cues).toBe(1);
+    expect(sim.state.ledger.plainSolos).toBe(2);
   });
 
   it('Opening Bars: the first Cue of a fight gives Resonance, and only the first', () => {

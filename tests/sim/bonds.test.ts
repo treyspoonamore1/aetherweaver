@@ -635,6 +635,10 @@ describe('the review’s fixes', () => {
     enemies(sim, ['bell_brute', 0, 0]);
     for (const e of w.entities.list()) if (e.enemy) e.x = 18;
     vexis.x = -15;
+    // Held where he stands (a plain Starfall no longer roots him, docs/solos.md).
+    vexis.hero!.follow = 'hold';
+    vexis.hero!.holdX = vexis.x;
+    vexis.hero!.holdZ = vexis.z;
     startSolo(w, vexis, false);
     const events = stepUntil(sim, (ev) => ev.some((e) => e.type === 'soloEnded'), 600);
     expect(ofType(events, 'talentFired').some((e) => e.talent === 'supernova')).toBe(false);

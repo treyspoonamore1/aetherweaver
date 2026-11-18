@@ -1325,6 +1325,7 @@ export function fakeOutcome(
     // Rewind out of a hit's shape is a dodge, as Reel's is (the ledger counts both as reels).
     reels: markers.filter((m) => m.kind === (chrono ? 'rewind' : 'reel')).length,
     cues: markers.filter((m) => m.kind === 'cue').length,
+    plainSolos: 0,
     crescendos: node?.kind === 'boss' || node?.kind === 'miniboss' ? 1 : 0,
     downs: dead.size + (victory ? 1 : 0),
     deaths,

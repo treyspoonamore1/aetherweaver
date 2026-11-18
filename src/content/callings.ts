@@ -327,7 +327,7 @@ export const CALLINGS: ContentInput['callings'] = [
           {
             id: 'ensemble',
             name: 'Ensemble',
-            text: 'Each different hero you Cue in a row makes your heroes deal {pct}% more damage, up to {max}%, until you Cue one of them again.',
+            text: 'Each different hero whose Solo is Cued in a row adds {pct}% to your heroes’ damage, up to {max}%. A repeat starts the count again.',
             values: { pct: 5, max: 15 },
             icon: 'ensemble',
           },

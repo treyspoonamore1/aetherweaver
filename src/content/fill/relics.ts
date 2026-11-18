@@ -234,7 +234,7 @@ export const FILL_RELICS: ContentInput['relics'] = [
     id: 'hollow_crown',
     name: 'Hollow Crown',
     rarity: 'cursed',
-    text: 'Every Solo plays Cued, your Thread on the hero or not.',
+    text: 'Every Solo plays in its Cued form, wherever your Thread is. Only one your Thread is on counts as a Cue.',
     curse: 'Solos charge {pct}% slower.',
     flavor: 'A conductor’s crown, light as air. Everyone follows it, and nobody hurries.',
     values: { pct: 25 },

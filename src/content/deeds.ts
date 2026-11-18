@@ -177,8 +177,10 @@ export const DEEDS: DeedDef[] = [
     points: 0,
     test: 'runCount',
     stat: 'cues',
-    values: { n: 25 },
-    text: 'Cue {n} Solos in one run.',
+    // 75: past what the Thread happens to be on (a Weaver who never follows a Solo gets about 45
+    // Cues on the longest route, 55 at most), within a full run's reach for one who does (about 110).
+    values: { n: 75 },
+    text: 'Have {n} Solos Cued in one run.',
   },
   {
     id: 'every_way',

@@ -1807,7 +1807,7 @@ describe('the Conductor Calling (docs/phase-5f.md, "Harness")', () => {
     // The beat's Cues are the ones the ledger says A Tempo paid for, and what it gave is theirs.
     expect(t.onBeat).toBe(ledger!.conducting!.freeCues);
     expect(t.given).toBe(ledger!.conducting!.saved);
-    expect(t.plain).toBeGreaterThanOrEqual(0);
+    expect(t.plain).toBe(ledger!.plainSolos);
     expect(t.cues).toBeGreaterThan(0);
     // Reading it never moves the fight: the same run with no watch is the same.
     const again = playEncounter(cfg, 'skilled');

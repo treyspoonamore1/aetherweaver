@@ -98,7 +98,7 @@ export const FILL_FINALE: ContentInput['motifs'] = [
     category: 'finale',
     rarity: 'common',
     values: [8, 12, 16],
-    text: 'A hero you Cue gains a barrier of {v}% of their life for 4 s.',
+    text: 'A hero whose Solo is Cued gains a barrier of {v}% of their life for 4 s.',
     requires: { expedition: true },
     tags: ['cue', 'shield'],
     triggers: [{ on: 'cued', effects: [{ kind: 'barrier', pct: 'v', seconds: 4 }] }],

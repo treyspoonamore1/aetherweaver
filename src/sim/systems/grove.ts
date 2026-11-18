@@ -23,6 +23,7 @@ import {
   hasStatus,
   heal,
   isActive,
+  isDisabled,
   rising,
   type DamageOpts,
 } from '../combat/health';
@@ -474,8 +475,10 @@ export function groveCharge(world: World, e: Entity, dt: number): void {
 }
 
 /**
- * heroes.ts `updateHeroes`: his full Solo's wait runs while a Sapling fights, though he has no
- * target (the shared line has just zeroed `soloHeld` for him; `grove.held` keeps the count).
+ * heroes.ts `updateHeroes`: his full Solo's wait runs while the party fights (a Sapling or
+ * another hero has someone to fight), though he has no target himself (the shared line has just
+ * zeroed `soloHeld` for him; `grove.held` keeps the count). It used to run only while a Sapling
+ * fought, so with every Sapling felled his Solo, Homecoming most of all, sat unfired.
  */
 export function groveHeld(world: World, e: Entity, dt: number): void {
   const hero = e.hero!;
@@ -484,15 +487,26 @@ export function groveHeld(world: World, e: Entity, dt: number): void {
     if (grove.held !== undefined) delete grove.held;
     return;
   }
-  if (hero.soloActive <= 0 && hero.solo >= 100 && saplingFighting(world, grove)) {
+  if (hero.soloActive <= 0 && hero.solo >= 100 && partyFighting(world, e, grove)) {
     grove.held = (grove.held ?? 0) + dt;
     hero.soloHeld = grove.held;
   } else if (grove.held !== undefined) delete grove.held;
 }
 
+/** A Sapling, or another standing hero, has someone to fight. */
+function partyFighting(world: World, oro: Entity, grove: GroveState): boolean {
+  if (saplingFighting(world, grove)) return true;
+  for (const id of world.party) {
+    if (id === oro.id) continue;
+    const ally = world.entities.get(id);
+    if (isActive(ally) && (ally.hero?.targetId ?? null) !== null && !isDisabled(ally)) return true;
+  }
+  return false;
+}
+
 /** heroes.ts `soloFires` (target-less Oro): once his Solo's wait has passed. */
 export function groveSoloDue(_world: World, e: Entity): boolean {
-  return (e.hero!.grove?.held ?? 0) >= SOLOS.wait;
+  return (e.hero!.grove?.held ?? 0) >= SOLOS.wait - 1e-9;
 }
 
 /**

@@ -176,7 +176,10 @@ function applyDebug(world: World, op: DebugOp): void {
       if (!isActive(hero) || !hero.hero || hero.hero.soloActive > 0 || isDisabled(hero)) break;
       world.field.lastSoloAt = world.time;
       if (op.cued) cueSolo(world, hero);
-      else startSolo(world, hero, false);
+      else {
+        world.ledger.plainSolos++;
+        startSolo(world, hero, false);
+      }
       break;
     }
     case 'setBossHp': {
