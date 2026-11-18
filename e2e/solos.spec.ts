@@ -318,11 +318,13 @@ test('Auto-Thread on, hands off: the Thread follows each Solo, and all three fir
   test.setTimeout(420_000);
   const errors = trackErrors(page);
   await page.goto(START_URL);
-  // The aid is turned on where a player turns it on: Settings, under how the controls behave.
+  // The aid is turned on where a player turns it on: Settings, on the Controls tab, under how the
+  // controls behave.
   await page
     .getByRole('button', { name: /^Settings$/ })
     .first()
     .click();
+  await page.getByTestId('settings-tab-controls').click();
   const aid = page.getByRole('switch', { name: /Auto-Thread/ });
   await aid.evaluate((el) => (el as HTMLElement).click());
   await expect(aid).toBeChecked();
@@ -363,8 +365,13 @@ test('a settings file from before the rework opens: no Cue rows in Settings, its
     .getByRole('button', { name: /^Settings$/ })
     .first()
     .click();
+  // Settings has two tabs: General (the assists among them) and Controls (keys, pad, aids).
+  // Neither may name a Cue; between them they keep everything else.
+  await expect(page.getByTestId('settings-tabs')).toBeVisible();
+  const general = await page.locator('body').innerText();
+  await page.getByTestId('settings-tab-controls').click();
   await expect(page.getByTestId('controls-settings')).toBeVisible();
-  const text = await page.locator('body').innerText();
+  const text = `${general}\n${await page.locator('body').innerText()}`;
   for (const gone of [
     'Cue modifier',
     'Hero autonomy',
@@ -378,6 +385,7 @@ test('a settings file from before the rework opens: no Cue rows in Settings, its
   // Auto-Thread's hint says the rule as built.
   expect(text).toContain('Left alone for 2 s, the Thread follows each Solo.');
   // A change writes the file back: version 5, without the three things, the rest as it was.
+  await page.getByTestId('settings-tab-general').click();
   await page
     .getByRole('switch', { name: /Captions/ })
     .first()
