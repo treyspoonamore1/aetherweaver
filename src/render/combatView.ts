@@ -11,6 +11,7 @@ import { ArenaView } from './arena';
 import { AstrolabeView } from './astrolabe';
 import { BondsView } from './bonds';
 import { CallView } from './calls';
+import { SoloMarkView } from './soloMark';
 import { PartyBarsView, vowCoversAll } from './partyBars';
 import { healthLevel } from '../app/healthLevels';
 import { optionsOf, useSettings } from '../app/settings';
@@ -63,6 +64,7 @@ export class CombatView implements WorldView {
   readonly thread: ThreadView;
   readonly overlay: Overlay;
   readonly calls: CallView;
+  readonly soloMark: SoloMarkView;
   /** The bars over the heroes (docs/health-ui.md). */
   readonly partyBars: PartyBarsView;
   readonly fermata: FermataView;
@@ -121,6 +123,7 @@ export class CombatView implements WorldView {
     this.calls = new CallView(this.entities);
     this.partyBars = new PartyBarsView(this.entities);
     this.fermata = new FermataView(this.entities);
+    this.soloMark = new SoloMarkView(this.entities.recs);
     this.feedback = new Feedback({
       calls: this.calls,
       fermata: this.fermata,
@@ -249,6 +252,8 @@ export class CombatView implements WorldView {
       frame.settings.slotKeys,
     );
     this.fermata.sync(state, this.kit, this.overlay, fxDt, frame.time);
+    // A Solo coming (docs/solos.md): the ring over the hero, in the Thread glyph's slot.
+    this.soloMark.sync(state, this.kit, fxDt, frame.time, frame.settings.flashes, still);
     this.feedback.sunWarmth = this.calling.warmth;
     this.feedback.stasisCool = this.chrono.cool;
     this.feedback.sync(state, frame, fxDt);
