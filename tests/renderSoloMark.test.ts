@@ -130,7 +130,7 @@ describe('what the mark shows is the sim’s', () => {
     expect(soloTellSeconds(hero(0))).toBe(SOLOS.tell + SOLOS.kaelHold);
   });
 
-  it('none for a downed, possessed or stilled hero, or one full with nobody to fight', () => {
+  it('none for a downed, possessed, stilled or held hero, or one full with nobody to fight', () => {
     const idle = sandbox();
     idle.step([{ t: 'debug', op: { op: 'chargeSolos' } }]);
     idle.step([]);
@@ -148,6 +148,11 @@ describe('what the mark shows is the sim’s', () => {
       expect(soloMarkOf(st, hero(1)), id).toBeNull();
       statuses.pop();
     }
+    // A Fermata hold has the slot over the head: the mark stands down while it lasts.
+    (hero(1).hero as { hold: unknown }).hold = { until: st.time + 1.5, damage: 900, attack: 'x' };
+    expect(soloMarkOf(st, hero(1))).toBeNull();
+    (hero(1).hero as { hold: unknown }).hold = null;
+    expect(soloMarkOf(st, hero(1))).not.toBeNull();
     (hero(1).health as { downed: boolean }).downed = true;
     expect(soloMarkOf(st, hero(1))).toBeNull();
   });
