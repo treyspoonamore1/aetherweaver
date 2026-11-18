@@ -4,7 +4,7 @@ import type { Catalogue } from '../../catalogue';
 export const howToPlay = {
   'hud.howToPlay.pausesAtAnyTime': 'pauses.',
   'hud.howToPlay.beginTheFight': 'Begin the fight',
-  'hud.howToPlay.leadThemDuetsAnd': 'Lead them: Duets and Trios',
+  'hud.howToPlay.leadThemDuetsAnd': 'Duets and Trios',
   'hud.howToPlay.aSoloFiredDuet':
     'A Solo fired with your Thread on them is Cued. Cue two within {Number} s for a Duet, three for a Trio.',
   'hud.howToPlay.cueTheirSolos': 'Cue their Solos',

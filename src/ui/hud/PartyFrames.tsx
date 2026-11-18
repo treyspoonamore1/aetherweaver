@@ -1434,11 +1434,7 @@ function SoloStrip({ hero: h }: { hero: HeroHud }) {
   return (
     <div
       className={`mt-1.5 flex items-center gap-1.5 rounded-md px-2 py-1 text-xs ${
-        cued
-          ? 'border-2 font-bold'
-          : now
-            ? 'anim-glow border-2'
-            : 'border border-dashed'
+        cued ? 'border-2 font-bold' : now ? 'anim-glow border-2' : 'border border-dashed'
       }`}
       style={
         cued

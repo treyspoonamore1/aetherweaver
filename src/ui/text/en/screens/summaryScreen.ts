@@ -82,9 +82,9 @@ export const summaryScreen = {
   'screens.summaryScreen.cleanses': 'Cleanses',
   'screens.summaryScreen.cleansedAtTheLast':
     '{cleanses} {cleansesWord} cleansed, {clutchCleanses} at the last moment.{value}',
-  'screens.summaryScreen.cues': 'Cues',
+  'screens.summaryScreen.cues': 'Cued Solos',
   'screens.summaryScreen.cuedSungToSafety':
-    '{cues} {cuesWord} cued, {crescendos} {crescendosWord} sung, {reels} {reelsWord} to safety.',
+    '{cues} {cuesWord} Cued, {crescendos} {crescendosWord} sung, {reels} {reelsWord} to safety.',
   'screens.summaryScreen.callsAnswered': 'Calls answered',
   'screens.summaryScreen.yourPartyCalledFor':
     'Your party called for help {calls} {callsWord}; you answered {responses}, and each became a Flourish.',
