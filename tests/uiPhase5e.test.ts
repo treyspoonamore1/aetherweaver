@@ -798,6 +798,13 @@ describe('Brann’s and the default party’s UI are byte-equal to before', () =
   // and his Solo's Cued line, which every one of his frames carries as its tooltip, reads
   // "…three times as deep. It heals him where your healing can’t." The other 64 keys are as
   // they were.
+  //
+  // Re-recorded a fourth time, for 2 keys (`frames:crisis`, `frames:boss`, the two scenes whose
+  // Kael has a Solo coming), when the Solo strip stopped being a live region that counts seconds
+  // (the Solo rework's review). Compared piece by piece with the tree before: the strip's `role`
+  // and `aria-label` left its outer element, a hidden `role="status"` line with the state's
+  // sentence came in ("Kael’s Aegis Wall is full. Thread them to Cue it."), and what is drawn
+  // sits in one `aria-hidden` wrapper. Nothing drawn changed.
   it('every pinned text and frame hashes as recorded at W3’s head', async () => {
     const want = JSON.parse(
       readFileSync(join(__dirname, 'uiPhase5e.brann.json'), 'utf8'),

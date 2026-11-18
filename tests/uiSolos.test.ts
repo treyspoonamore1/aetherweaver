@@ -150,6 +150,59 @@ describe('the frames read the sim’s tell (soloDueIn) and Cue (threadCues)', ()
     expect(html).toContain('Hold 0.6 s');
   });
 
+  it('a screen reader hears each state once, in a sentence, and never the seconds', () => {
+    const lyra = mockHud('resonance').party.find((h) => h.defId === 'lyra')!;
+    /** The strip's one live region: its text, and everything else the strip draws. */
+    const read = (h: HeroHud) => {
+      const html = frames([h]);
+      const strip = /<div[^>]*data-testid="solo-strip".*?<\/span><\/div>/.exec(html)![0];
+      const live = [...strip.matchAll(/role="status"[^>]*>([^<]*)</g)].map((m) => m[1]!);
+      return { strip, live };
+    };
+    const coming = { ...lyra, soloNow: false, willCue: false, soloIn: 2.4 };
+    const states: [string, HeroHud, string][] = [
+      ['coming', coming, `Lyra’s ${lyra.soloName} is coming.`],
+      [
+        'now',
+        { ...coming, soloNow: true, soloIn: 0.8 },
+        `Lyra’s ${lyra.soloName} is full. Thread them to Cue it.`,
+      ],
+      [
+        'hold',
+        { ...coming, soloNow: true, soloIn: 0.8, cueHold: 0.6 },
+        `Lyra’s ${lyra.soloName} is coming. Hold your Thread on them to Cue it.`,
+      ],
+      [
+        'cued',
+        { ...coming, soloNow: true, soloIn: 0.8, willCue: true },
+        `Lyra’s ${lyra.soloName} is coming, Cued. Your Thread is on them.`,
+      ],
+    ];
+    const heard = new Set<string>();
+    for (const [state, h, sentence] of states) {
+      const { strip, live } = read(h);
+      expect(strip, state).toContain(`data-state="${state}"`);
+      // One live region, holding the sentence and no number.
+      expect(live, state).toEqual([sentence]);
+      expect(sentence, state).not.toMatch(/\d/);
+      // The strip itself is no live region and carries no label that counts.
+      expect(strip.slice(0, strip.indexOf('>')), state).not.toMatch(/role=|aria-label=/);
+      // The seconds are drawn, inside the part hidden from a screen reader.
+      const drawn = strip.slice(strip.indexOf('aria-hidden'));
+      expect(strip, state).toContain('<span class="contents" aria-hidden="true">');
+      expect(drawn, state).toContain(`data-testid="solo-in">${h.soloIn!.toFixed(1)}<`);
+      // Half a second later, in the same state: the same words, so nothing is said again.
+      const later = { ...h, soloIn: h.soloIn! - 0.5, ...(h.cueHold ? { cueHold: 0.1 } : {}) };
+      expect(read(later).live, state).toEqual([sentence]);
+      heard.add(sentence);
+    }
+    // Each state is its own sentence: a change of state is a change of words.
+    expect(heard.size).toBe(states.length);
+    // On a Conductor run the Duet or Trio is said with it.
+    const duet = { ...coming, cue: { link: 2 as const, power: 1.25, label: 'Duet' } };
+    expect(read(duet).live).toEqual([`Lyra’s ${lyra.soloName} is coming. Cued, it is a Duet.`]);
+  });
+
   it('a count that has run out shows no seconds: a standing 0.0 says nothing', () => {
     const lyra = mockHud('resonance').party.find((h) => h.defId === 'lyra')!;
     expect(frames([{ ...lyra, soloIn: 0.6 }])).toContain('data-testid="solo-in"');

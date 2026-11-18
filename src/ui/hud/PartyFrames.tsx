@@ -1423,6 +1423,10 @@ function Portrait({ hero: h, bondRank = null }: { hero: HeroHud; bondRank?: numb
  * yet long enough: "Hold" and the seconds still to hold. Shape and words carry it, not colour
  * alone; with Reduced motion nothing pulses. Kael may raise his wall sooner than the count, so
  * his strip shows no seconds. On a Conductor run the Duet or Trio it would be sits by the name.
+ *
+ * A screen reader is told when the state changes (coming, Thread to Cue, Hold, Cued) in a whole
+ * sentence, and never the seconds: they change many times a second, and a live region that
+ * counts them down would talk over everything else. What is drawn is hidden from it.
  */
 function SoloStrip({ hero: h }: { hero: HeroHud }) {
   const cued = h.willCue === true;
@@ -1433,6 +1437,14 @@ function SoloStrip({ hero: h }: { hero: HeroHud }) {
   // hero is holding the Solo for a moment (a hit about to land): a standing "0.0" says nothing.
   const count = !h.soloLoose && h.soloIn! > 0.05;
   const state = cued ? 'cued' : hold ? 'hold' : now ? 'now' : 'coming';
+  const names = { name: h.name, soloName: h.soloName };
+  const said = cued
+    ? txt('hud.partyFrames.soloCued', names)
+    : hold
+      ? txt('hud.partyFrames.soloHold', names)
+      : now
+        ? txt('hud.partyFrames.soloThread', names)
+        : txt('hud.partyFrames.soloComing', names);
   return (
     <div
       className={`mt-1.5 flex items-center gap-1.5 rounded-md px-2 py-1 text-xs ${
@@ -1447,43 +1459,36 @@ function SoloStrip({ hero: h }: { hero: HeroHud }) {
               color: now ? 'var(--color-gold-200)' : 'var(--color-muted)',
             }
       }
-      role="status"
-      aria-label={
-        cued
-          ? txt('hud.partyFrames.soloCued', { name: h.name, soloName: h.soloName })
-          : hold
-            ? txt('hud.partyFrames.soloHold', {
-                name: h.name,
-                soloName: h.soloName,
-                hold: h.cueHold!.toFixed(1),
-              })
-            : txt('hud.partyFrames.soloThread', { name: h.name, soloName: h.soloName })
-      }
       title={txt('hud.partyFrames.cuedMeans')}
       data-testid="solo-strip"
       data-state={state}
     >
-      {/* What to do leads: the Solo's name gives way to it once the Solo is full. */}
-      <Icon name={cued ? 'check' : hold || now ? 'thread' : 'note'} size={13} />
-      {(cued || hold || now) && (
-        <span className="shrink-0 whitespace-nowrap font-bold" data-testid="solo-say">
-          {cued
-            ? txt('hud.partyFrames.cued')
-            : hold
-              ? txt('hud.partyFrames.hold', { hold: h.cueHold!.toFixed(1) })
-              : txt('hud.partyFrames.threadToCue')}
-        </span>
-      )}
-      {(cued || !(hold || now)) && (
-        <span className={`truncate ${cued ? 'font-normal' : 'font-semibold'}`}>{h.soloName}</span>
-      )}
-      {h.cue && <CueBadge hero={h} />}
-      <span className="ml-auto" />
-      {count && (
-        <span className="w-7 shrink-0 text-right font-mono font-semibold" data-testid="solo-in">
-          {seconds}
-        </span>
-      )}
+      <span className="sr-only" role="status" data-testid="solo-said">
+        {h.cue ? txt('hud.partyFrames.soloLink', { said, label: h.cue.label }) : said}
+      </span>
+      <span className="contents" aria-hidden>
+        {/* What to do leads: the Solo's name gives way to it once the Solo is full. */}
+        <Icon name={cued ? 'check' : hold || now ? 'thread' : 'note'} size={13} />
+        {(cued || hold || now) && (
+          <span className="shrink-0 whitespace-nowrap font-bold" data-testid="solo-say">
+            {cued
+              ? txt('hud.partyFrames.cued')
+              : hold
+                ? txt('hud.partyFrames.hold', { hold: h.cueHold!.toFixed(1) })
+                : txt('hud.partyFrames.threadToCue')}
+          </span>
+        )}
+        {(cued || !(hold || now)) && (
+          <span className={`truncate ${cued ? 'font-normal' : 'font-semibold'}`}>{h.soloName}</span>
+        )}
+        {h.cue && <CueBadge hero={h} />}
+        <span className="ml-auto" />
+        {count && (
+          <span className="w-7 shrink-0 text-right font-mono font-semibold" data-testid="solo-in">
+            {seconds}
+          </span>
+        )}
+      </span>
     </div>
   );
 }

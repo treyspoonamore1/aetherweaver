@@ -68,10 +68,12 @@ export const partyFrames = {
   'hud.partyFrames.cued': 'Cued',
   'hud.partyFrames.hold': 'Hold {hold} s',
   'hud.partyFrames.cuedMeans': 'Cued: fired with your Thread on them. The stronger form.',
-  'hud.partyFrames.soloThread': '{name}’s {soloName} is coming. Thread them to Cue it',
-  'hud.partyFrames.soloCued': '{name}’s {soloName} is coming, Cued: your Thread is on them',
-  'hud.partyFrames.soloHold':
-    '{name}’s {soloName} is coming. Hold your Thread on them {hold} more seconds to Cue it',
+  // What a screen reader hears as the strip changes state. No seconds: they would never stop.
+  'hud.partyFrames.soloComing': '{name}’s {soloName} is coming.',
+  'hud.partyFrames.soloThread': '{name}’s {soloName} is full. Thread them to Cue it.',
+  'hud.partyFrames.soloCued': '{name}’s {soloName} is coming, Cued. Your Thread is on them.',
+  'hud.partyFrames.soloHold': '{name}’s {soloName} is coming. Hold your Thread on them to Cue it.',
+  'hud.partyFrames.soloLink': '{said} Cued, it is a {label}.',
   'hud.partyFrames.health': '{name} health',
   'hud.partyFrames.of': '{hp} of {maxHp}{value}{value2}{value3}{value4}',
   'hud.partyFrames.bloodlettingLifeHeSpent': 'Bloodletting: life he spent, not a hit',
