@@ -130,7 +130,7 @@ export const codexScreen = {
   'screens.codexScreen.aetherAtAMerchant': '{value} Aether at a merchant',
   'screens.codexScreen.betweenFights': 'Between fights',
   'screens.codexScreen.eventsWaitOnThe':
-    'Events wait on the map between fights: a scene and a few choices, each with a price, a risk or nothing at all. Walking away is always allowed. The map names the event before you go. Gambles are seeded by the run: the same seed and node always roll the same.',
+    'Events wait on the map between fights: a scene and a few choices, each with a price, a risk or nothing at all. Walking away is always allowed. The map names the event before you go. Gambles are seeded by the run: the same seed and stop always roll the same.',
   'screens.codexScreen.inTheyOpenOnce':
     '{length} {value} in {movementInSentence}: they open once you reach it.',
   'screens.codexScreen.boonsAndBanes': 'Boons and banes',
