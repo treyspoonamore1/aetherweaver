@@ -255,7 +255,7 @@ export interface TechniqueCast extends At {
 /** A command the player issued couldn't happen: give feedback (a buzz, a flash). */
 export interface TechniqueRejected extends At {
   type: 'techniqueRejected';
-  technique: TechniqueKey | 'rewind' | 'thread' | 'cue' | 'crescendo' | 'plant';
+  technique: TechniqueKey | 'rewind' | 'thread' | 'crescendo' | 'plant';
   reason:
     | 'cooldown'
     | 'spirit'
@@ -365,7 +365,8 @@ export interface ResonanceSpent extends At {
   type: 'resonanceSpent';
   amount: number;
   total: number;
-  on: 'cue' | 'crescendo';
+  /** What it bought. Only the Crescendo spends Resonance (a Cue costs nothing, docs/solos.md). */
+  on: 'crescendo';
 }
 export interface CrescendoStart extends At {
   type: 'crescendoStart';
@@ -954,8 +955,9 @@ export interface SilenceBroken extends At {
 // ── The Conductor (docs/phase-5f.md) ──────────────────────────────────────────────────
 /**
  * Every Cue on a Conductor run, after `cued`: its place in the chain (1 starts one, 2 is a Duet,
- * 3 a Trio), its power, what it cost, whether it fell on the downbeat (A Tempo), and when the
- * chain's window closes.
+ * 3 a Trio), its power, whether A Tempo paid Resonance for it (`onBeat`: the Solo began on the
+ * downbeat), and when the chain's window closes. `cost` is always 0 (a Cue costs nothing); it is
+ * kept until the views that read it are reworked (docs/solos.md).
  */
 export interface CueChained extends At {
   type: 'cueChained';

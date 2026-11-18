@@ -5,7 +5,7 @@
  */
 import { enemyDef, heroDef } from '../../content';
 import type { HeroDef } from '../../content/schema';
-import { AUTONOMY, TUNING } from '../constants';
+import { SOLOS, TUNING } from '../constants';
 import { datan2, dcos, distSq, dsin, len } from '../core/dmath';
 import {
   addShield,
@@ -28,7 +28,9 @@ import { canCall, flourishing, settleCall, startCall, tendCall } from './calls';
 import { formationSlot } from './formation';
 import { attackRange, flourishHit, heroAttackSpeed, heroDamage } from './heroDamage';
 import { hasTalent, ricochet, talentFired, talentValue } from '../bonds';
-import { nearestEnemy, soloSpec, startSolo, tickSoloClock, updateSolo } from './solos';
+import { nearestEnemy, soloSpec, startSolo, threadCues, tickSoloClock, updateSolo } from './solos';
+import { cueSolo } from './techniques';
+import { onBeat } from './conducting';
 import { approachVelocity, arrive } from './steering';
 import { clampPointToArena, pushPointOutOfObstacles } from './physics';
 import { empowerBonus } from './thread';
@@ -51,7 +53,7 @@ import {
   groveCharge,
   groveChooseTarget,
   groveExecute,
-  groveFireUncued,
+  groveSoloDue,
   groveHeld,
   groveMove,
   groveRetreat,
@@ -163,7 +165,7 @@ export function updateHeroes(world: World, dt: number): void {
       continue;
     }
 
-    // Solo charge (by fighting), and Solos that fire without a Cue.
+    // Solo charge (by fighting), and the hero firing it (docs/solos.md).
     if (hero.soloActive <= 0 && hero.engaged && hero.solo < 100) {
       // Phase 5g (N21): Grand Staff's extra charge while Empowered (fill/harmonies.ts).
       if (world.mods.staffMult !== 1) grandStaffCharge(world, e, dt);
@@ -175,14 +177,13 @@ export function updateHeroes(world: World, dt: number): void {
     }
     // Oro (docs/phase-5e.md): his Solo charges while a Sapling fights, though he doesn't.
     if (hero.grove) groveCharge(world, e, dt);
-    // How long a full Solo has waited with someone to fight (hero autonomy's Cue window): the
-    // window starts over after any gap (between waves, downed, stunned, Reeled).
+    // How long a full Solo has waited with someone to fight: the wait starts over after any gap
+    // (between waves, downed, stunned, Reeled).
     if (hero.soloActive <= 0 && hero.solo >= 100 && hero.targetId !== null) hero.soloHeld += dt;
     else hero.soloHeld = 0;
-    // …and its Cue window runs while a Sapling fights.
+    // …and his wait runs while a Sapling fights.
     if (hero.grove) groveHeld(world, e, dt);
-    if (hero.soloActive <= 0 && hero.solo >= 100 && shouldFireUncued(world, e))
-      startSolo(world, e, false);
+    if (hero.soloActive <= 0 && hero.solo >= 100 && soloFires(world, e)) fireSolo(world, e);
 
     // Wind Step (Bonds): her step out of an attack beats a rooted Solo, and doesn't break a cast.
     const stepping =
@@ -294,19 +295,41 @@ function lowHpCheck(world: World, e: Entity): void {
   }
 }
 
-function shouldFireUncued(world: World, e: Entity): boolean {
+/**
+ * Does this hero fire their full Solo now (docs/solos.md)? Kael raises his Aegis Wall at once
+ * when he is hurt, a big hit is coming at him or (Shieldbearer) a friend falls low. Otherwise
+ * every hero waits `SOLOS.wait` seconds with someone to fight (Kael holds for a big hit, at most
+ * `SOLOS.kaelHold`), then for `SOLOS.gap` since the last hero's Solo began, then, with A Tempo,
+ * for the downbeat. A hero with a Grand Finale turn still to come keeps the Solo for it.
+ */
+function soloFires(world: World, e: Entity): boolean {
   const h = e.health!;
-  const solo = e.hero!.soloId;
-  if (solo === 'aegisWall' && h.hp < h.maxHp * 0.3) return true; // Kael braces when desperate.
+  const hero = e.hero!;
+  const wall = hero.soloId === 'aegisWall';
+  if (wall && (h.hp < h.maxHp * 0.5 || h.incoming > h.hp * 0.5)) return true;
   if (friendFalling(world, e)) return true;
-  if (!world.config.assists.autonomy) return false;
-  // Hero autonomy: Kael raises his wall at once when hurt or a big hit is coming at him...
-  if (solo === 'aegisWall' && (h.hp < h.maxHp * 0.5 || h.incoming > h.hp * 0.5)) return true;
-  // ...and every hero fires once the Cue window (Kael: his hold) has passed in a fight.
-  // Oro (docs/phase-5e.md): target-less, he fires while a Sapling fights.
-  if (e.hero!.grove && e.hero!.targetId === null) return groveFireUncued(world, e);
-  if (e.hero!.targetId === null) return false;
-  return e.hero!.soloHeld >= (solo === 'aegisWall' ? AUTONOMY.kaelHold : AUTONOMY.cueGrace);
+  // Oro (docs/phase-5e.md): target-less, his wait runs while a Sapling fights.
+  if (hero.grove && hero.targetId === null) {
+    if (!groveSoloDue(world, e)) return false;
+  } else if (hero.targetId === null) return false;
+  else if (hero.soloHeld < (wall ? SOLOS.kaelHold : SOLOS.wait)) return false;
+  const last = world.field.lastSoloAt;
+  if (last !== null && world.time - last < SOLOS.gap - 1e-9) return false;
+  // The Conductor (docs/phase-5f.md): the Grand Finale will play this hero's Solo in its turn,
+  // and A Tempo starts every Solo on the downbeat.
+  if (world.field.conducting?.finale?.queue.includes(e.id)) return false;
+  if (world.mods.beatWindow > 0 && !onBeat(world)) return false;
+  return true;
+}
+
+/**
+ * The hero fires their own Solo: Cued if the Thread is on them at this moment (`threadCues`),
+ * with everything a Cue brings (techniques.ts `cueSolo`); plain if not.
+ */
+function fireSolo(world: World, e: Entity): void {
+  world.field.lastSoloAt = world.time;
+  if (threadCues(world, e)) cueSolo(world, e);
+  else startSolo(world, e, false);
 }
 
 /**

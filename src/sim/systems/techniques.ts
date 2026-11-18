@@ -33,15 +33,15 @@ import { weaverOf } from '../world';
 import { glideDistance, slotCooldown, slotCost, variantValue } from '../variants';
 import { answerCall } from './calls';
 import { placeStar, startSolo } from './solos';
-import { conductCue, cueCostNow, reprise, startFinale } from './conducting';
+import { conductCue, reprise, startFinale } from './conducting';
 import { bloodLine } from './blood';
 import { lastBastionMult } from '../fill/aegis';
 import { restCast, restCost, rested } from '../fill/choir';
-import { crescendoCostCut } from '../fill/finale';
+import { crescendoCostCut, cueGain } from '../fill/finale';
 import { woundedWardMult } from '../fill/harmonies';
 import { everbellCast } from '../fill/relics';
 
-type Rejectable = TechniqueKey | 'rewind' | 'thread' | 'cue' | 'crescendo' | 'plant';
+type Rejectable = TechniqueKey | 'rewind' | 'thread' | 'crescendo' | 'plant';
 type Reason =
   | 'cooldown'
   | 'spirit'
@@ -893,31 +893,28 @@ function phaseStep(world: World, weaver: Entity): void {
   world.events.push({ type: 'phaseStep', tick: world.tick, fromX, fromZ, toX, toZ, until });
 }
 
-export function cue(world: World, slot: PartySlot): void {
-  const weaver = weaverReady(world, 'cue');
-  if (!weaver) return;
-  const hero = slotHero(world, slot);
-  if (!isActive(hero) || !hero.hero) return reject(world, 'cue', 'target');
-  // A possessed hero (docs/phase-5c.md) can't take a Cue.
-  if (hasStatus(hero, 'possessed')) return reject(world, 'cue', 'target');
-  // Nor a hero the Grand Silence stilled (the Finale, docs/phase-5d.md Q3).
-  if (hasStatus(hero, 'stilled')) return reject(world, 'cue', 'target');
-  const h = hero.hero;
-  if (h.soloActive > 0 || h.solo < 100) return reject(world, 'cue', 'not-ready');
-  // Silent Cues (Dissonance) raises it; the Conductor's is 15, and free on the beat with A Tempo.
-  const cost = cueCostNow(world);
-  if (weaver.weaver!.resonance + 1e-9 < cost) return reject(world, 'cue', 'resonance');
-  // A free Cue (A Tempo, docs/phase-5f.md) spends nothing and says so with no `resonanceSpent`.
-  if (cost > 0) spendResonance(world, cost, 'cue');
+/**
+ * A hero's Solo begins Cued (docs/solos.md): the Thread was on them as they fired it
+ * (heroes.ts, by solos.ts `threadCues`). It costs nothing. Everything that answers a Cue answers
+ * here: the tally, the `cued` event and its triggers, the Conductor's chain, the Solo in its
+ * stronger form, Constellation, the chorus pulse, Opening Bars and Tempo Rubato, Canon, Reprise.
+ */
+export function cueSolo(world: World, hero: Entity): void {
+  const h = hero.hero!;
   world.ledger.cues++;
   pushMarker(world, 'cue', h.slot);
   world.events.push({ type: 'cued', tick: world.tick, hero: hero.id });
   // The Conductor (docs/phase-5f.md): the chain and the Solo's power, before the Solo is built.
-  if (world.field.conducting) conductCue(world, hero, cost);
+  if (world.field.conducting) conductCue(world, hero);
   startSolo(world, hero, true);
   // Constellation (Bonds): a Cue leaves a star where the hero stands.
   placeStar(world, hero);
   chorusPulse(world, hero);
+  // Phase 5g (N15): Opening Bars' and Tempo Rubato's Resonance (fill/finale.ts).
+  if (world.mods.firstCueGain > 0 || world.mods.cueGainEvery > 0) {
+    const gain = cueGain(world, world.content.resonance.segment);
+    if (gain > 0) gainResonance(world, gain, 'cue');
+  }
   if (world.mods.canon > 0) {
     for (const id of world.party) {
       const other = world.entities.get(id);
@@ -945,7 +942,7 @@ export function crescendo(world: World): void {
   // `crescendoCostOf` shows it).
   if (world.mods.firstCrescendoCut > 0) cost = crescendoCostCut(world, cost);
   if (w.resonance + 1e-9 < cost) return reject(world, 'crescendo', 'resonance');
-  spendResonance(world, cost, 'crescendo');
+  spendResonance(world, cost);
   world.ledger.crescendos++;
   pushMarker(world, 'crescendo', null);
   // The Martyr's Vow and the Chronomancer's Stasis replace Sunrise (docs/phase-3d.md,
@@ -1045,7 +1042,7 @@ export function updateEchoWards(world: World): void {
 }
 
 /**
- * With enough auras singing, every Cue also releases a chorus pulse (docs/plan/02 §4.7): a
+ * With enough auras singing, every Cued Solo also releases a chorus pulse (docs/plan/02 §4.7): a
  * heal and a barrier for every hero in a field, scaled by the number of active auras.
  */
 function chorusPulse(world: World, cued: Entity): void {

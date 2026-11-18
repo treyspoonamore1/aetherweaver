@@ -40,16 +40,17 @@ export function finaleMotifIds(): readonly string[] {
 }
 
 /**
- * The resolver's cases for the Finale motifs (see `applySilkMotif`). Fields: `firstCueCut`
+ * The resolver's cases for the Finale motifs (see `applySilkMotif`). Fields: `firstCueGain`
  * (Opening Bars, Resonance), `fadeDelay` (Tenuto, seconds), `startSoloCharge` (Tuning Up, 0–100),
  * `vigilResonance` (Vigil Song, a second); each accumulates from 0. The trigger entries set
  * nothing here: their rules are resolved from content (`triggers`). Tempo Rubato's
- * `freeCueEvery` is set by W5's resolver and Prompt Book's `firstCrescendoCut` by W6's.
+ * `cueGainEvery` is set by the Harmonies' resolver and Prompt Book's `firstCrescendoCut` by the
+ * relics'.
  */
 export function applyFinaleMotif(m: Mods, id: string, v: number): boolean {
   switch (id) {
     case 'opening_bars':
-      m.firstCueCut += v;
+      m.firstCueGain += v;
       return true;
     case 'tenuto':
       m.fadeDelay += v;
@@ -76,22 +77,22 @@ export function applyFinaleMotif(m: Mods, id: string, v: number): boolean {
 }
 
 /**
- * N15, Opening Bars and Tempo Rubato: called in `cueCostNow` (systems/conducting.ts), the one
- * Cue price the sim (`cue`, systems/techniques.ts), the HUD and the bots all read, behind
- * `if (state.mods.firstCueCut > 0 || state.mods.freeCueEvery > 0)`; `cost` is the price before
- * (the beat's or the fight's). The Cue it prices is the fight's `ledger.cues + 1`-th:
- * - Tempo Rubato: every `freeCueEvery`-th Cue costs 0;
- * - Opening Bars: the first costs `firstCueCut` less, never below 0.
- * A Cue that already costs nothing (A Tempo on the beat) is left as it is. Hollow Crown's clamp
- * at 0 (N29) is applied after this. Pure: reads `state`, writes nothing.
+ * N15, Opening Bars and Tempo Rubato (docs/solos.md: a Cue costs nothing, so what once cut its
+ * price now gives Resonance): called in `cueSolo` (systems/techniques.ts) once the Cue is
+ * counted, behind `if (state.mods.firstCueGain > 0 || state.mods.cueGainEvery > 0)`. The Cue is
+ * the fight's `ledger.cues`-th:
+ * - Opening Bars: the first gives `firstCueGain`;
+ * - Tempo Rubato: every `cueGainEvery`-th gives `segment` (the meter's segment).
+ * Returns the Resonance to give (the caller gives it, so the gain's scale applies). Pure: reads
+ * `state`, writes nothing.
  */
-export function cueCostCut(state: WorldState, cost: number): number {
-  if (!(cost > 0)) return cost;
+export function cueGain(state: WorldState, segment: number): number {
   const m = state.mods;
-  const next = state.ledger.cues + 1;
-  if (m.freeCueEvery > 0 && next % m.freeCueEvery === 0) return 0;
-  if (m.firstCueCut > 0 && next === 1) return Math.max(0, cost - m.firstCueCut);
-  return cost;
+  const n = state.ledger.cues;
+  let gain = 0;
+  if (m.firstCueGain > 0 && n === 1) gain += m.firstCueGain;
+  if (m.cueGainEvery > 0 && n > 0 && n % m.cueGainEvery === 0) gain += segment;
+  return gain;
 }
 
 /**

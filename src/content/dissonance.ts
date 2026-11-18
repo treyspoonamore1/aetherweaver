@@ -76,11 +76,11 @@ export const DISSONANCE: ContentInput['dissonance'] = [
   {
     id: 'silent_cues',
     name: 'Silent Cues',
-    effect: 'cue_cost',
+    effect: 'cue_hold',
     ranks: 1,
     points: 1,
-    values: { resonance: 10 },
-    text: 'A Cue costs {resonance} more Resonance.',
+    values: { seconds: 1 },
+    text: 'Your Thread must be on a hero for {seconds} s before their Solo fires for it to be Cued.',
   },
   {
     id: 'restless_dead',

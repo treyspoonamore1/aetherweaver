@@ -1,7 +1,7 @@
 /**
- * Resonance (docs/plan/02 §4): earned by answering threats well, spent on Cues (one
- * segment) and the Crescendo (a full song). Partial segments decay when idle; filled
- * segments are kept. Nothing is gained or lost during a Crescendo.
+ * Resonance (docs/plan/02 §4): earned by answering threats well, spent on the Crescendo (a full
+ * song) and on nothing else (a Cue costs nothing: docs/solos.md). Partial segments decay when
+ * idle; filled segments are kept. Nothing is gained or lost during a Crescendo.
  */
 import type { WorldState } from '../state';
 import type { World } from '../world';
@@ -13,7 +13,9 @@ export function gainResonance(world: World, amount: number, reason: string, sile
   if (!w || amount <= 0 || w.crescendo > 0) return;
   const max = world.content.resonance.max;
   const before = w.resonance;
-  w.resonance = Math.min(max, w.resonance + amount * world.mods.resonanceMult);
+  // `gainScale` (docs/solos.md): every gain is scaled by the one number tuning moves.
+  const scale = world.content.resonance.gainScale * world.mods.resonanceMult;
+  w.resonance = Math.min(max, w.resonance + amount * scale);
   w.resonanceIdle = 0;
   const gained = w.resonance - before;
   if (gained > 0 && !silent) {
@@ -27,11 +29,18 @@ export function gainResonance(world: World, amount: number, reason: string, sile
   }
 }
 
-export function spendResonance(world: World, amount: number, on: 'cue' | 'crescendo'): boolean {
+/** The Crescendo's price: the only thing Resonance is spent on. */
+export function spendResonance(world: World, amount: number): boolean {
   const w = world.entities.get(world.weaverId)?.weaver;
   if (!w || w.resonance + 1e-9 < amount) return false;
   w.resonance = Math.max(0, w.resonance - amount);
-  world.events.push({ type: 'resonanceSpent', tick: world.tick, amount, total: w.resonance, on });
+  world.events.push({
+    type: 'resonanceSpent',
+    tick: world.tick,
+    amount,
+    total: w.resonance,
+    on: 'crescendo',
+  });
   return true;
 }
 
@@ -48,20 +57,8 @@ export function decayResonance(world: World, dt: number): void {
   if (w.resonanceIdle < def.decayDelay) return;
   // Phase 5g (N16): Tenuto holds the fade back longer (fill/finale.ts).
   if (world.mods.fadeDelay > 0 && w.resonanceIdle < def.decayDelay + tenutoDelay(world)) return;
-  const floor = Math.floor(w.resonance / def.segment + 1e-9) * def.segment;
-  // The Conductor keeps whole Cues too (docs/phase-5f.md, decision 7).
-  const keep = world.mods.cueKeepsWhole ? Math.max(floor, wholeCues(world, w.resonance)) : floor;
+  const keep = Math.floor(w.resonance / def.segment + 1e-9) * def.segment;
   if (w.resonance > keep) w.resonance = Math.max(keep, w.resonance - def.decayPerSec * dt);
-}
-
-/**
- * The Conductor's fade floor (docs/phase-5f.md): `resonance` rounded down to whole off-beat Cues
- * (the fight's `dissonance.cueCost`: 15, or 25 with Silent Cues).
- */
-export function wholeCues(world: World, resonance: number): number {
-  const cue = world.dissonance.cueCost;
-  if (!(cue > 0)) return 0;
-  return Math.floor(resonance / cue + 1e-9) * cue;
 }
 
 /**

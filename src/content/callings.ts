@@ -274,15 +274,14 @@ export const CALLINGS: ContentInput['callings'] = [
     id: 'conductor',
     name: 'Conductor',
     title: 'the one who makes them great',
-    summary:
-      'You lead the heroes: cheap Cues, Solos chained into Duets and Trios, and a Grand Finale.',
-    text: 'Your Cues cost {cue} Resonance, and you gain {gain}% more Resonance. A Solo you Cue within {chain} s of your last Cue plays as a Duet, {duet}% stronger; a third in a row is a Trio, {trio}% stronger.',
+    summary: 'You lead the heroes: Solos chained into Duets and Trios, and a Grand Finale.',
+    text: 'You gain {gain}% more Resonance. A Solo you Cue within {chain} s of your last Cue plays as a Duet, {duet}% stronger; a third in a row is a Trio, {trio}% stronger.',
     crescendo:
       'Grand Finale replaces Sunrise: every hero plays their Solo in turn, as if Cued, each {ramp}% stronger than the one before; when it ends, every Solo is full again.',
     crescendoName: 'Grand Finale',
     flavor: 'On my count. All of you.',
     // gap: seconds between the Finale's turns; wait: the longest it waits for a hero mid-Solo.
-    values: { cue: 20, gain: 10, chain: 4, duet: 25, trio: 50, ramp: 20, gap: 1, wait: 12 },
+    values: { gain: 10, chain: 4, duet: 25, trio: 50, ramp: 20, gap: 1, wait: 12 },
     unlockRank: 12,
     icon: 'conductor',
     tiers: [
@@ -298,8 +297,9 @@ export const CALLINGS: ContentInput['callings'] = [
           {
             id: 'a_tempo',
             name: 'A Tempo',
-            text: 'A Cue given on the downbeat, within {beat} s either side, costs no Resonance. Your Resonance meter shows the beat.',
-            values: { beat: 0.15 },
+            text: 'Your heroes begin their Solos on the downbeat, and each Solo you Cue there gives {resonance} Resonance. Your Resonance meter shows the beat.',
+            // beat: how near the downbeat (s, either side) a Solo begins; the views draw it.
+            values: { beat: 0.15, resonance: 10 },
             icon: 'a_tempo',
           },
         ],

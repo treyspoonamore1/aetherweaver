@@ -26,7 +26,7 @@ import {
   rising,
   type DamageOpts,
 } from '../combat/health';
-import { AUTONOMY, SIM_DT } from '../constants';
+import { SIM_DT, SOLOS } from '../constants';
 import { distSq, len } from '../core/dmath';
 import type {
   DeathRecord,
@@ -412,7 +412,7 @@ function choirHeal(world: World, t: Entity | undefined, share: number): void {
 export function groveTick(world: World, e: Entity, def: HeroDef, _dt: number): void {
   const hero = e.hero!;
   const grove = hero.grove!;
-  // A gap starts the Cue window over (heroes.ts:171-172): `groveHeld` leaves `soloHeld` equal to
+  // A gap starts the Solo's wait over (heroes.ts `updateHeroes`): `groveHeld` leaves `soloHeld` equal to
   // `grove.held`, so a stun, stagger, sleep, possession, Reel or down (whose branches zero
   // `soloHeld` and skip `groveHeld`) shows here as a mismatch.
   if (grove.held !== undefined && hero.soloHeld !== grove.held) delete grove.held;
@@ -474,8 +474,8 @@ export function groveCharge(world: World, e: Entity, dt: number): void {
 }
 
 /**
- * heroes.ts:140: his full Solo's Cue window runs while a Sapling fights, though he has no target
- * (the shared line has just zeroed `soloHeld` for him; `grove.held` keeps the count).
+ * heroes.ts `updateHeroes`: his full Solo's wait runs while a Sapling fights, though he has no
+ * target (the shared line has just zeroed `soloHeld` for him; `grove.held` keeps the count).
  */
 export function groveHeld(world: World, e: Entity, dt: number): void {
   const hero = e.hero!;
@@ -490,9 +490,9 @@ export function groveHeld(world: World, e: Entity, dt: number): void {
   } else if (grove.held !== undefined) delete grove.held;
 }
 
-/** heroes.ts:262 (`shouldFireUncued`, target-less Oro): once the Cue window has passed. */
-export function groveFireUncued(_world: World, e: Entity): boolean {
-  return (e.hero!.grove?.held ?? 0) >= AUTONOMY.cueGrace;
+/** heroes.ts `soloFires` (target-less Oro): once his Solo's wait has passed. */
+export function groveSoloDue(_world: World, e: Entity): boolean {
+  return (e.hero!.grove?.held ?? 0) >= SOLOS.wait;
 }
 
 /**

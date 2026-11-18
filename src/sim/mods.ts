@@ -95,10 +95,10 @@ export interface FillMods {
   counterBonus: number;
   /** N14 Graft (W4): Rootbond's Mend on the Saplings × this. */
   graftMult: number;
-  /** N15 Opening Bars (W3): Resonance off the fight's first Cue. */
-  firstCueCut: number;
-  /** N15 Tempo Rubato (W5's Harmony, W3's hook body): one Cue in every this many is free (0 = none). */
-  freeCueEvery: number;
+  /** N15 Opening Bars: Resonance the fight's first Cue gives. */
+  firstCueGain: number;
+  /** N15 Tempo Rubato: one Cue in every this many gives a segment of Resonance (0 = none). */
+  cueGainEvery: number;
   /** N15b Prompt Book (W6's relic, W3's hook body): Resonance off the fight's first Crescendo. */
   firstCrescendoCut: number;
   /** N16 Tenuto (W3): seconds more before Resonance fades. */
@@ -127,8 +127,8 @@ export interface FillMods {
   /** N28 Iron Mask (W6): damage taken off every hero; and its curse, the Thread can't Empower. */
   maskGuard: number;
   noEmpower: boolean;
-  /** N29 Hollow Crown (W6): a Cue's cost is clamped at 0 (a negative `cueCostBonus` can make it less). */
-  cueCostFloor: boolean;
+  /** N29 Hollow Crown: every Solo plays Cued, Thread or not. */
+  alwaysCued: boolean;
   /** N30 Thornwreath (W6): heroes below `thornBelow` of their life deal `thornPct` more. */
   thornPct: number;
   thornBelow: number;
@@ -156,8 +156,8 @@ export const FILL_NO_MODS: FillMods = {
   redEdge: 0,
   counterBonus: 0,
   graftMult: 1,
-  firstCueCut: 0,
-  freeCueEvery: 0,
+  firstCueGain: 0,
+  cueGainEvery: 0,
   firstCrescendoCut: 0,
   fadeDelay: 0,
   startSoloCharge: 0,
@@ -173,7 +173,7 @@ export const FILL_NO_MODS: FillMods = {
   waterClock: 0,
   maskGuard: 0,
   noEmpower: false,
-  cueCostFloor: false,
+  alwaysCued: false,
   thornPct: 0,
   thornBelow: 0,
 };
@@ -216,8 +216,8 @@ export interface Mods extends FillMods, Dissonance6Mods {
   dissonanceRadiusMult: number;
   /** Wounding Strikes: healing heroes receive. */
   heroHealMult: number;
-  /** Silent Cues: Resonance a Cue costs on top. */
-  cueCostBonus: number;
+  /** Silent Cues: seconds the Thread must have been on a hero as their Solo fires to Cue it. */
+  cueHold: number;
   /** Restless Dead: the share of its life (percent) an enemy rises at, once (0: none). */
   restlessPct: number;
   /** Elite Vanguard: more elites in an elite fight, and more affixes on every elite. */
@@ -371,15 +371,11 @@ export interface Mods extends FillMods, Dissonance6Mods {
   /** Telegraphs show their timers (a view flag: the Chronomancer's passive). */
   telegraphTimers: boolean;
   // ── The Conductor (docs/phase-5f.md). Each default does nothing. ──
-  /** A Cue's base cost (null = the content's); Silent Cues' `cueCostBonus` is added at use. */
-  cueCostBase: number | null;
   /** Duets and Trios: a Cue within this many s of the last joins its chain (0 = no chains). */
   chainWindow: number;
   /** A Duet's and a Trio's power (1 = none). */
   duetPower: number;
   trioPower: number;
-  /** The meter fades no lower than its whole Cues as well as its whole segments. */
-  cueKeepsWhole: boolean;
   /** Grand Finale replaces Sunrise: passes of its queue (0 = no Finale; Maestro 2). */
   finaleTurns: number;
   /** Each Finale Solo × this on the last (1 = none). */
@@ -393,8 +389,12 @@ export interface Mods extends FillMods, Dissonance6Mods {
   marcatoPct: number;
   marcatoSeconds: number;
   marcatoCooldown: number;
-  /** A Tempo: a Cue within this many s of a downbeat is free (0 = none). */
+  /**
+   * A Tempo: the heroes begin their Solos within this many s of a downbeat (0 = any time), and
+   * each Cued Solo gives `cueResonance`.
+   */
   beatWindow: number;
+  cueResonance: number;
   /** Reprise: Solo charge (0–100) every hero gains when a Trio lands. */
   repriseCharge: number;
   /** Ensemble: more damage for each different hero Cued in a row, up to a cap (0 = none). */
@@ -497,7 +497,7 @@ export const NO_MODS: Mods = {
   dissonanceWindupMult: 1,
   dissonanceRadiusMult: 1,
   heroHealMult: 1,
-  cueCostBonus: 0,
+  cueHold: 0,
   restlessPct: 0,
   vanguardElites: 0,
   vanguardAffixes: 0,
@@ -597,11 +597,9 @@ export const NO_MODS: Mods = {
   paradox: false,
   stasisPerfectResonance: 0,
   telegraphTimers: false,
-  cueCostBase: null,
   chainWindow: 0,
   duetPower: 1,
   trioPower: 1,
-  cueKeepsWhole: false,
   finaleTurns: 0,
   finaleRamp: 1,
   finaleGap: 0,
@@ -611,6 +609,7 @@ export const NO_MODS: Mods = {
   marcatoSeconds: 0,
   marcatoCooldown: 0,
   beatWindow: 0,
+  cueResonance: 0,
   repriseCharge: 0,
   ensemblePct: 0,
   ensembleMax: 0,
@@ -861,8 +860,8 @@ function applyDissonance(
         m.vanguardElites += num(v, 'elites') * rank;
         m.vanguardAffixes += num(v, 'affixes') * rank;
         break;
-      case 'cue_cost':
-        m.cueCostBonus += num(v, 'resonance') * rank;
+      case 'cue_hold':
+        m.cueHold += num(v, 'seconds') * rank;
         break;
       case 'restless_dead':
         m.restlessPct = Math.max(m.restlessPct, num(v, 'pct'));
@@ -912,12 +911,10 @@ function applyCalling(m: Mods, id: string, v: Values): void {
       m.telegraphTimers = true;
       break;
     case 'conductor':
-      m.cueCostBase = num(v, 'cue');
       m.resonanceMult *= 1 + num(v, 'gain') / 100;
       m.chainWindow = num(v, 'chain');
       m.duetPower = 1 + num(v, 'duet') / 100;
       m.trioPower = 1 + num(v, 'trio') / 100;
-      m.cueKeepsWhole = true;
       m.finaleTurns = 1;
       m.finaleRamp = 1 + num(v, 'ramp') / 100;
       m.finaleGap = num(v, 'gap');
@@ -1020,6 +1017,7 @@ function applyCallingOption(m: Mods, id: string, v: Values): void {
       break;
     case 'a_tempo':
       m.beatWindow = num(v, 'beat');
+      m.cueResonance = num(v, 'resonance');
       break;
     case 'reprise':
       m.repriseCharge = num(v, 'pct');

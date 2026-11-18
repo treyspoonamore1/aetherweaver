@@ -28,7 +28,6 @@ const CommandSchemaRaw = z.discriminatedUnion('t', [
     })
     .strict(),
   z.object({ t: z.literal('glide'), x: z.number(), z: z.number() }).strict(),
-  z.object({ t: z.literal('cue'), slot: SlotSchema }).strict(),
   z.object({ t: z.literal('crescendo') }).strict(),
   z.object({ t: z.literal('plant'), point: Vec2Schema }).strict(),
   z
@@ -122,9 +121,7 @@ const SimConfigSchema = z
       })
       .strict()
       .default({ ward: null, chime: null, reel: null, glide: null }),
-    assists: z
-      .object({ perfectWindowBonus: z.number(), telegraphLead: z.number(), autonomy: z.boolean() })
-      .strict(),
+    assists: z.object({ perfectWindowBonus: z.number(), telegraphLead: z.number() }).strict(),
     debug: z.boolean(),
     absent: z.boolean(),
   })

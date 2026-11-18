@@ -31,7 +31,7 @@ export type DebugOp =
   | { op: 'killEnemies' }
   | { op: 'setResonance'; value: number }
   | { op: 'healParty' }
-  /** Fill every hero's Solo charge (stage Cues). */
+  /** Fill every hero's Solo charge (stage Solos: each fires after its wait). */
   | { op: 'chargeSolos' }
   /** Set the boss's HP to a fraction of its max (stage boss phases). */
   | { op: 'setBossHp'; pct: number }
@@ -66,8 +66,6 @@ export type Command =
   | { t: 'tech'; id: TechniqueId; slot?: PartySlot; point?: Vec2 }
   /** Glide (dash) in a direction. */
   | { t: 'glide'; x: number; z: number }
-  /** Fire a hero's Solo (costs one Resonance segment). */
-  | { t: 'cue'; slot: PartySlot }
   /** Spend 100 Resonance on the Crescendo. */
   | { t: 'crescendo' }
   /** Party command. `target` is an enemy entity id (Focus), `point` a location. */

@@ -53,6 +53,8 @@ export function attachThread(world: World, slot: PartySlot): void {
     if (left?.hero) left.hero.afterglowUntil = world.time + world.mods.empowerLinger;
   }
   w.threadSlot = slot;
+  // When it reached them: Silent Cues asks how long it has been there (solos.ts `threadCues`).
+  w.threadSince = world.time;
   w.threadTension = 0;
   restartUnravel(world);
   world.events.push({ type: 'threadAttached', tick: world.tick, hero: hero.id, slot });

@@ -78,7 +78,9 @@ export const RESONANCE: ContentInput['resonance'] = {
   },
   decayDelay: 5,
   decayPerSec: 4,
-  cueCost: 25,
+  // Halved when Cues stopped costing Resonance (docs/solos.md): it lands the Crescendo about as
+  // often as before. Tuning's lever; when it settles, fold it into the gains and their texts.
+  gainScale: 0.5,
   crescendoCost: 100,
 };
 

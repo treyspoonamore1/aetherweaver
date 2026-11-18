@@ -229,11 +229,15 @@ export const ResonanceDefSchema = z.object({
   }),
   decayDelay: Seconds,
   decayPerSec: z.number().nonnegative(),
-  cueCost: z.number().positive(),
+  /**
+   * A scale on every Resonance gain (docs/solos.md). Resonance once paid for Cues too; now it
+   * pays for the Crescendo alone, so it is earned more slowly. One number, for tuning to move.
+   */
+  gainScale: z.number().positive(),
   crescendoCost: z.number().positive(),
 });
 
-/** With enough auras active, every Cue also releases a chorus pulse (docs/plan/02 §4.7). */
+/** With enough auras active, every Cued Solo also releases a chorus pulse (docs/plan/02 §4.7). */
 export const ChorusDefSchema = z.object({
   minAuras: z.number().int().positive(),
   /** Per active aura, as a fraction of each reached hero's max HP. */
@@ -1629,7 +1633,7 @@ export const DISSONANCE_EFFECTS = [
   'thread_range',
   'heal_received',
   'elite_vanguard',
-  'cue_cost',
+  'cue_hold',
   'restless_dead',
   'no_respite_heal',
   'blind_score',

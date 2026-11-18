@@ -66,8 +66,6 @@ export interface AssistConfig {
   perfectWindowBonus?: number;
   /** Telegraph wind-up multiplier (≥ 1). */
   telegraphLead?: number;
-  /** Heroes fire their Solos on their own. */
-  autonomy?: boolean;
 }
 
 export interface CallingConfig {
@@ -347,7 +345,6 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
     assists: {
       perfectWindowBonus: Math.max(0, Math.min(0.3, a.perfectWindowBonus ?? 0)),
       telegraphLead: Math.max(1, Math.min(2, a.telegraphLead ?? 1)),
-      autonomy: a.autonomy ?? false,
     },
     debug: config.debug ?? false,
     absent,
@@ -790,7 +787,6 @@ function conductingView(mods: Mods, path: readonly string[], content: Content): 
         .find((o) => o.id === 'upbeat')?.values.resonance ?? 0)
     : 0;
   return {
-    cueCost: (mods.cueCostBase ?? content.resonance.cueCost) + mods.cueCostBonus,
     crescendoCost: mods.crescendoCostBase ?? content.resonance.crescendoCost,
     chainWindow: mods.chainWindow,
     duet: mods.duetPower,
@@ -802,6 +798,7 @@ function conductingView(mods: Mods, path: readonly string[], content: Content): 
       wait: mods.finaleWait,
     },
     beat: mods.beatWindow > 0 ? { bar: BAR_SECONDS, within: mods.beatWindow } : null,
+    cueResonance: mods.cueResonance,
     marcato:
       mods.marcatoPct > 0
         ? { pct: mods.marcatoPct, seconds: mods.marcatoSeconds, cooldown: mods.marcatoCooldown }
@@ -875,6 +872,7 @@ export function createWorld(config: SimConfig): World {
         threadHero: null,
       })),
       suppressed: false,
+      lastSoloAt: null,
       crescendo: false,
       vow: false,
       stasis: false,
@@ -939,8 +937,7 @@ export function createWorld(config: SimConfig): World {
       blindScore: resolved.dissonance.some(
         (l) => content.dissonance.find((d) => d.id === l.id)?.effect === 'blind_score',
       ),
-      // Off the beat (the Conductor's 15 with his Calling, else the content's), Silent Cues on top.
-      cueCost: (mods.cueCostBase ?? content.resonance.cueCost) + mods.cueCostBonus,
+      cueHold: mods.cueHold,
     },
     astrolabe: {
       nodes: [...resolved.astrolabe],
@@ -1038,6 +1035,7 @@ export function createWorld(config: SimConfig): World {
       headingX: 0,
       headingZ: -1,
       threadSlot: null,
+      threadSince: 0,
       threadMode: 'mend',
       lastMode: 'mend',
       threadTension: 0,

@@ -14,13 +14,13 @@
  * Bell Clapper, Heartwood Lute and Red Ink's blessing are triggers (their content's `triggers`,
  * sim/systems/triggers.ts), so their case here only marks them known; Spare Strings (N24),
  * Pedlar's Ledger (N25, run layer), Everbell (N26), Water Clock (N27), Iron Mask (N28), Hollow
- * Crown's floor (N29), Thornwreath (N30) and Prompt Book (W3's N15b reads its field) are hooks.
+ * Crown (N29: `alwaysCued`, read by systems/solos.ts `threadCues`), Thornwreath (N30) and Prompt Book (W3's N15b reads its field) are hooks.
  */
 import type { Content } from '../../content/schema';
 import { PAST_SAMPLE_SECONDS, pastSamples } from '../constants';
 import { reviveHero, type DamageOpts } from '../combat/health';
 import type { Mods } from '../mods';
-import type { Entity, PastSample, ThreadMode, WorldState } from '../state';
+import type { Entity, PastSample, ThreadMode } from '../state';
 import type { World } from '../world';
 
 // Only these sim modules are imported at runtime: `systems/rewind.ts` and `world.ts` (and the
@@ -122,8 +122,7 @@ export function applyFillRelic(
       if (!cleansed) m.wardCooldownCut -= num(v, 'slower');
       return true;
     case 'hollow_crown':
-      m.cueCostBonus -= num(v, 'cut');
-      m.cueCostFloor = true;
+      m.alwaysCued = true;
       if (!cleansed) m.soloChargeMult *= 1 - num(v, 'pct') / 100;
       return true;
     default:
@@ -331,16 +330,6 @@ export function ironMaskGuard(
   _opts: DamageOpts,
 ): number {
   return amount * Math.min(1, world.mods.maskGuard);
-}
-
-/**
- * N29, Hollow Crown: called in `cueCostNow` (systems/conducting.ts) after N15, behind
- * `if (state.mods.cueCostFloor)`; the Cue's price, never below 0 (on the beat with A Tempo a Cue
- * costs `cueCostBonus` alone, which Hollow Crown makes negative). Pure.
- */
-export function cueCostFloor(state: WorldState, cost: number): number {
-  if (!state.mods.cueCostFloor) return cost;
-  return Math.max(0, cost);
 }
 
 /**

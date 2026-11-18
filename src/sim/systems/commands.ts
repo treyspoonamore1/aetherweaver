@@ -8,7 +8,7 @@ import { clearDummies, drill, spawnDummies } from './dummies';
 import { startCall } from './calls';
 import { spawnEnemy } from './enemies';
 import { plantField } from './field';
-import { castChime, castGlide, castReel, castWard, crescendo, cue } from './techniques';
+import { castChime, castGlide, castReel, castWard, crescendo } from './techniques';
 import { castRewind } from './rewind';
 import { attachThread, toggleThreadMode } from './thread';
 import { groveRally } from './grove';
@@ -45,9 +45,6 @@ export function applyCommands(world: World, commands: readonly Command[]): void 
         break;
       case 'glide':
         castGlide(world, c.x, c.z);
-        break;
-      case 'cue':
-        cue(world, c.slot);
         break;
       case 'crescendo':
         crescendo(world);

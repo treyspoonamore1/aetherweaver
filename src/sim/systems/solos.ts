@@ -1,8 +1,9 @@
 /**
- * Solos (docs/plan/03 §5): each hero's signature move. They charge by fighting and, at 100,
- * wait for the Weaver's Cue, which fires them in their stronger *cued* form.
+ * Solos (docs/plan/03 §5, docs/solos.md): each hero's signature move. They charge by fighting
+ * and, at 100, the hero fires it after a moment's wait (heroes.ts). If the Weaver's Thread is on
+ * the hero as it fires it is the stronger *cued* form (`threadCues`), and it costs nothing.
  */
-import { heroDef } from '../../content';
+import { CONTENT, heroDef } from '../../content';
 import type { HeroDef } from '../../content/schema';
 import { distSq } from '../core/dmath';
 import {
@@ -15,14 +16,72 @@ import {
   shieldOf,
 } from '../combat/health';
 import { bark } from '../combat/feedback';
-import type { Entity } from '../state';
+import { SOLOS } from '../constants';
+import type { Entity, ReadonlyEntity, WorldState } from '../state';
 import type { World } from '../world';
 import { hasTalent, ricochet, soloValue, talentFired, talentHolder, talentValue } from '../bonds';
 import { inAnyField } from './field';
 import { duelCastProgress, duelSolo, duelSoloClock, duelSoloEnd, duelSoloStart } from './duel';
 import { groveSolo, groveSoloEnd, groveSoloStart } from './grove';
-import { cueHit, cuePowerOf, soloDone } from './conducting';
+import { beatWait, cueHit, cuePowerOf, soloDone } from './conducting';
 import { attackRange, heroDamage } from './heroDamage';
+
+/** Float slack for sim-time comparisons (sim time is a sum of tick lengths). */
+const EPS = 1e-9;
+
+/**
+ * Would this hero's Solo be Cued if it fired now (docs/solos.md)? The Thread is on them and the
+ * Weaver stands. Silent Cues asks that it has been on them for `cueHold` seconds; with Hollow
+ * Crown every Solo is Cued, Thread or not.
+ *
+ * This is the one place the rule lives: the sim (heroes.ts `fireSolo`), the HUD and the bots all
+ * read it. To widen it for slower hands (say, "on them at any time in the last half second"),
+ * change it here, and keep what it needs on the Weaver beside `threadSince`.
+ */
+export function threadCues(state: WorldState, hero: ReadonlyEntity): boolean {
+  if (!hero.hero) return false;
+  if (state.mods.alwaysCued) return true;
+  const weaver = state.entities.get(state.weaverId);
+  const w = weaver?.weaver;
+  if (!w || !weaver.health || weaver.health.downed || weaver.health.dead) return false;
+  if (w.threadSlot !== hero.hero.slot) return false;
+  return state.time - w.threadSince >= state.mods.cueHold - EPS;
+}
+
+/** How long this hero's Solo takes to charge from empty (their own, or their Bond's alternate). */
+function chargeTimeOf(h: { defId: string; soloId: string }): number {
+  const own = heroDef(h.defId).solo;
+  if (h.soloId === own.id) return own.chargeTime;
+  return CONTENT.altSolos.find((a) => a.id === h.soloId)?.chargeTime ?? own.chargeTime;
+}
+
+/**
+ * The tell (docs/solos.md): seconds until this hero fires their Solo, as near as can be said
+ * now, or null when none is coming: down, mid-Solo, not charging, kept for a Grand Finale turn,
+ * or further off than `SOLOS.tell` seconds of charge plus the wait. Kael may raise his wall
+ * sooner than this says (hurt, a big hit coming); a gap in the fight (no one to fight, a stun)
+ * starts the wait over. For the HUD and the bots; the sim's own rule is heroes.ts `soloFires`.
+ */
+export function soloDueIn(state: WorldState, hero: ReadonlyEntity): number | null {
+  const h = hero.hero;
+  const health = hero.health;
+  if (!h || !health || health.dead || health.downed || h.soloActive > 0) return null;
+  if (state.encounter.status !== 'fighting') return null;
+  if (state.field.conducting?.finale?.queue.includes(hero.id)) return null;
+  let full = 0;
+  if (h.solo < 100) {
+    if (!h.engaged) return null;
+    const rate = (100 / chargeTimeOf(h)) * state.mods.soloChargeMult;
+    if (!(rate > 0)) return null;
+    full = (100 - h.solo) / rate;
+    if (full > SOLOS.tell) return null;
+  }
+  const wait = h.soloId === 'aegisWall' ? SOLOS.kaelHold : SOLOS.wait;
+  let due = full + Math.max(0, wait - h.soloHeld);
+  const last = state.field.lastSoloAt;
+  if (last !== null) due = Math.max(due, last + SOLOS.gap - state.time);
+  return due + beatWait(state, state.time + due);
+}
 
 /** The Solo a hero brings this fight: their own, or the alternate their Bond opened. */
 export function soloSpec(

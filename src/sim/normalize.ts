@@ -63,7 +63,6 @@ export function normalizeCommand(c: Command): Command | null {
     case 'glide':
       return ok(c.x, c.z) ? { t: c.t, x: z0(c.x), z: z0(c.z) } : null;
     case 'thread':
-    case 'cue':
       return isSlot(c.slot) ? { t: c.t, slot: c.slot } : null;
     case 'mode':
       return c.mode === 'bear' ? { t: 'mode', mode: 'bear' } : { t: 'mode' };

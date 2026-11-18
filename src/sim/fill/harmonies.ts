@@ -7,8 +7,8 @@
  * Harmony's aura condition ("with Fortissimo in your songs") is checked here, at the time of
  * use, from `world.field.chords` (read, never written): never an aura's numbers, reach,
  * reservation or who it reaches. Guardian's Cadence and Crossed Steel are triggers (their rules
- * are in content, run by sim/systems/triggers.ts); Tempo Rubato sets `freeCueEvery`, which W3's
- * N15 body (`cueCostCut`, src/sim/fill/finale.ts) reads.
+ * are in content, run by sim/systems/triggers.ts); Tempo Rubato sets `cueGainEvery`, which
+ * N15's body (`cueGain`, src/sim/fill/finale.ts) reads.
  *
  * The rules of `src/sim/fill/silk.ts`'s header hold here too: state only in W0's optional keys
  * (never `undefined`), `harmonyMotifIds` returns an array literal, no edits to shared files, and
@@ -62,7 +62,7 @@ export function harmonyMotifIds(): readonly string[] {
  * The resolver's cases for the Harmonies (see `applySilkMotif`). `v` is the value in display
  * units (30 = 30%, 1 = 1 s). Every case accumulates (`+=` from 0, `*=` from 1, `Math.max` for
  * "the larger"). Fields: `razorMult` and `razorCrit` (Cutting Chorus), `razorSleep` (Spindle
- * Lullaby, seconds, the larger), `freeCueEvery` (Tempo Rubato: the shorter period, 0 is none),
+ * Lullaby, seconds, the larger), `cueGainEvery` (Tempo Rubato: the shorter period, 0 is none),
  * `wovenRefill` (Woven Aegis, a share 0..1), `ringingPct` and `ringingSeconds` (Concert Pitch;
  * the seconds the larger), `staffMult` (Grand Staff, × the charge), `woundedBonus` (Wounded
  * Healer, a share 0..1), `circleGuard` (Closed Circle, a share 0..1). Guardian's Cadence and
@@ -82,7 +82,7 @@ export function applyHarmonyMotif(m: Mods, id: string, v: number): boolean {
       m.razorSleep = Math.max(m.razorSleep, v);
       return true;
     case 'tempo_rubato':
-      m.freeCueEvery = m.freeCueEvery > 0 ? Math.min(m.freeCueEvery, v) : v;
+      m.cueGainEvery = m.cueGainEvery > 0 ? Math.min(m.cueGainEvery, v) : v;
       return true;
     case 'concert_pitch':
       m.ringingPct += pct;

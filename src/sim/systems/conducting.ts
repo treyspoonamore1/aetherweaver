@@ -8,7 +8,7 @@
  */
 import { CONTENT } from '../../content';
 import { BAR_SECONDS } from '../constants';
-import { triadHolds } from '../combat/resonance';
+import { gainResonance, triadHolds } from '../combat/resonance';
 import type {
   ConductingField,
   Entity,
@@ -20,8 +20,7 @@ import type {
 import type { World } from '../world';
 import { startSolo } from './solos';
 import { endCrescendo } from './weaver';
-import { crescendoCostCut, cueCostCut } from '../fill/finale';
-import { cueCostFloor } from '../fill/relics';
+import { crescendoCostCut } from '../fill/finale';
 
 export { triadHolds };
 
@@ -47,7 +46,10 @@ export function beatAt(
   return { prev, next, nearest, phase };
 }
 
-/** A Tempo is on the path and the sim's time is within its window of a downbeat. */
+/**
+ * A Tempo is on the path and the sim's time is within its window of a downbeat: the moment the
+ * heroes begin their Solos (heroes.ts `soloFires`), and the band the views draw.
+ */
 export function onBeat(state: WorldState): boolean {
   const within = state.mods.beatWindow;
   if (!(within > 0)) return false;
@@ -55,16 +57,15 @@ export function onBeat(state: WorldState): boolean {
 }
 
 /**
- * What a Cue costs now: Silent Cues' surcharge alone on the downbeat (A Tempo), else the
- * fight's off-beat cost (`dissonance.cueCost`: the content's 25, or the Conductor's 15, plus the
- * surcharge). Without the Conductor that is exactly today's `cueCost + cueCostBonus`.
+ * Seconds from `time` until the heroes may begin a Solo by A Tempo's rule: 0 inside a downbeat's
+ * window (or without A Tempo), else until the next window opens. For the views and the bots.
  */
-export function cueCostNow(state: WorldState): number {
-  let cost = onBeat(state) ? state.mods.cueCostBonus : state.dissonance.cueCost;
-  // Phase 5g (N15, N29): Opening Bars and Tempo Rubato (fill/finale.ts), Hollow Crown's floor.
-  if (state.mods.firstCueCut > 0 || state.mods.freeCueEvery > 0) cost = cueCostCut(state, cost);
-  if (state.mods.cueCostFloor) cost = cueCostFloor(state, cost);
-  return cost;
+export function beatWait(state: WorldState, time: number): number {
+  const within = state.mods.beatWindow;
+  if (!(within > 0)) return 0;
+  const beat = beatAt(time, BAR_SECONDS);
+  if (Math.abs(time - beat.nearest) <= within + EPS) return 0;
+  return Math.max(0, beat.next - within - time);
 }
 
 /** What the Crescendo costs this fight: 100, or Maestro's 75. */
@@ -88,20 +89,21 @@ export function openChain(state: WorldState): { heroes: readonly EntityId[]; at:
 
 /**
  * What a Cue of this hero would be now (null without the Conductor): its place in the chain
- * (1 starts one, 2 a Duet, 3 a Trio), its power, its cost and whether it falls on the beat. A
- * hero already in the chain starts a new one. `cue()` uses it, so the HUD's preview is the rule.
+ * (1 starts one, 2 a Duet, 3 a Trio), its power and whether it falls on the beat (A Tempo). A
+ * hero already in the chain starts a new one. `conductCue` uses it, so the HUD's preview is the
+ * rule.
  */
 export function nextCue(
   state: WorldState,
   heroId: EntityId,
-): { link: 1 | 2 | 3; power: number; cost: number; onBeat: boolean } | null {
+): { link: 1 | 2 | 3; power: number; onBeat: boolean } | null {
   if (!state.field.conducting) return null;
   const chain = openChain(state);
   const link: 1 | 2 | 3 =
     chain && !chain.heroes.includes(heroId) ? (chain.heroes.length === 1 ? 2 : 3) : 1;
   const m = state.mods;
   const power = link === 3 ? m.trioPower : link === 2 ? m.duetPower : 1;
-  return { link, power, cost: cueCostNow(state), onBeat: onBeat(state) };
+  return { link, power, onBeat: onBeat(state) };
 }
 
 /** The power of this hero's running Solo (a Duet's, a Trio's, a Finale turn's); exactly 1 without. */
@@ -251,11 +253,11 @@ function setEntry(
 }
 
 /**
- * techniques.ts `cue()`, after `cued` and before `startSolo`: the Cue joins or starts the chain,
- * the Solo's power (and Spotlight) is recorded for its sites, Ensemble's streak moves, and the
- * fight's tallies grow. `cost` is what the Cue was paid.
+ * techniques.ts `cueSolo()`, after `cued` and before `startSolo`: the Cue joins or starts the
+ * chain, the Solo's power (and Spotlight) is recorded for its sites, Ensemble's streak moves,
+ * A Tempo gives its Resonance for a Cue on the beat, and the fight's tallies grow.
  */
-export function conductCue(world: World, hero: Entity, cost: number): void {
+export function conductCue(world: World, hero: Entity): void {
   const c = world.field.conducting!;
   const next = nextCue(world, hero.id)!;
   const m = world.mods;
@@ -285,16 +287,22 @@ export function conductCue(world: World, hero: Entity, cost: number): void {
   const l = world.ledger.conducting!;
   if (next.link === 2) l.duets++;
   if (next.link === 3) l.trios++;
-  // Free only if it cost nothing: Silent Cues' surcharge still applies on the beat.
-  if (next.onBeat && cost === 0) l.freeCues++;
-  l.saved += world.content.resonance.cueCost + m.cueCostBonus - cost;
+  // A Tempo: a Cued Solo that began on the downbeat gives its Resonance (an urgent wall, off the
+  // beat, gives none). `freeCues` and `saved` are its tallies (state.ts `LedgerConducting`).
+  if (next.onBeat && m.cueResonance > 0) {
+    const w = world.entities.get(world.weaverId)?.weaver;
+    const before = w?.resonance ?? 0;
+    gainResonance(world, m.cueResonance, 'a_tempo');
+    l.freeCues++;
+    l.saved += (w?.resonance ?? 0) - before;
+  }
   world.events.push({
     type: 'cueChained',
     tick: world.tick,
     hero: hero.id,
     link: next.link,
     power: next.power,
-    cost,
+    cost: 0,
     onBeat: next.onBeat,
     // A Trio closes the chain: no Cue can join it, so its time to join ends now.
     until: next.link === 3 ? world.time : world.time + m.chainWindow,
@@ -302,7 +310,7 @@ export function conductCue(world: World, hero: Entity, cost: number): void {
 }
 
 /**
- * techniques.ts `cue()`, after Canon: the tick a Trio's Cue lands, Reprise charges every hero
+ * techniques.ts `cueSolo()`, after Canon: the tick a Trio's Cue lands, Reprise charges every hero
  * standing (a hero mid-Solo banks it), once a chain.
  */
 export function reprise(world: World): void {

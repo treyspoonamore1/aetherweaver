@@ -6,7 +6,7 @@ export const SIM_DT = 1 / SIM_HZ;
  * Bump whenever sim behaviour changes in a way that changes results for the same inputs.
  * Stamped into replays and golden hashes; update goldens deliberately (`npm run golden:update`).
  */
-export const SIM_VERSION = 22;
+export const SIM_VERSION = 23;
 
 /**
  * Rewind's memory (the Chronomancer, docs/phase-3e.md): one sample of each hero every 0.1 s of
@@ -21,11 +21,14 @@ export function pastSamples(seconds: number): number {
 }
 
 /**
- * Hero autonomy (an assist): a charged Solo waits `cueGrace` seconds for the player's Cue (the
- * stronger form) before the hero fires it; Kael holds his Aegis Wall for a big hit, but never
- * longer than `kaelHold` seconds while he has someone to fight.
+ * Solos (docs/solos.md): heroes fire their own. A full Solo waits `wait` seconds with someone to
+ * fight, then fires; Kael holds his Aegis Wall for a big hit, but never longer than `kaelHold`
+ * seconds. No hero starts a Solo within `gap` seconds of another hero's starting, so Solos that
+ * come due together can be followed one at a time with the Thread. `tell` is how long before a
+ * Solo is full the views (and the bots) treat it as coming: the tell is its last `tell` seconds
+ * of charge plus the wait. Tuning levers: change them here and nowhere else.
  */
-export const AUTONOMY = { cueGrace: 1, kaelHold: 3 } as const;
+export const SOLOS = { wait: 1, kaelHold: 3, gap: 1, tell: 3 } as const;
 
 /**
  * The music's tempo, owned by the sim (docs/phase-5f.md, A Tempo): 88 BPM in four, so a bar is

@@ -159,6 +159,11 @@ export interface WeaverComponent {
   headingX: number;
   headingZ: number;
   threadSlot: PartySlot | null;
+  /**
+   * The sim time the Thread reached the hero it is on (0 with no Thread): Silent Cues asks that
+   * it has been there a while before a Solo fires for the Solo to be Cued (`threadCues`).
+   */
+  threadSince: number;
   threadMode: ThreadMode;
   /** The mode Bear returns to (the Martyr). */
   lastMode: 'mend' | 'empower';
@@ -280,7 +285,7 @@ export interface HeroComponent {
   /** Position held while `follow === 'hold'`. */
   holdX: number;
   holdZ: number;
-  /** Solo charge 0..100. At 100 the hero waits for a Cue (unless Autonomy is on). */
+  /** Solo charge 0..100. At 100 the hero waits a moment (`SOLOS.wait`), then fires it. */
   solo: number;
   /** Seconds left in an active Solo. */
   soloActive: number;
@@ -329,8 +334,8 @@ export interface HeroComponent {
   /** Next Solo pulse (arrow, meteor) time. */
   soloPulseAt: number;
   /**
-   * Hero autonomy: seconds a full, idle Solo has waited with a target in reach of the hero's
-   * fight (the Cue window before it fires on its own; Kael's longest hold). 0 when not full.
+   * Seconds a full, idle Solo has waited with a target in reach of the hero's fight (the wait
+   * before the hero fires it; Kael's longest hold). 0 when not full.
    */
   soloHeld: number;
   /** Highest telegraph id this hero has reacted to. */
@@ -821,6 +826,11 @@ export interface FieldState {
   chords: ChordField[];
   /** The Weaver can't sing: downed, or standing in a Mute's dome. Every Chord is silent. */
   suppressed: boolean;
+  /**
+   * When a hero last started a Solo of their own (null before the first): the next waits
+   * `SOLOS.gap` seconds after it, so Solos come one at a time. Grand Finale turns don't count.
+   */
+  lastSoloAt: number | null;
   crescendo: boolean;
   /**
    * Martyr's Vow is up (the Martyr's Crescendo, instead of Sunrise): heroes can't drop below 1
@@ -1102,9 +1112,12 @@ export interface Ledger {
 export interface LedgerConducting {
   duets: number;
   trios: number;
-  /** Cues given on the downbeat (A Tempo). */
+  /**
+   * Cued Solos A Tempo paid Resonance for. (Named for the free Cues A Tempo once gave; the name
+   * is renamed with the save's and the recap's rework, docs/solos.md.)
+   */
   freeCues: number;
-  /** Resonance the Calling's cheaper and free Cues kept (25 + surcharge, minus what each cost). */
+  /** Resonance A Tempo gave for them. (Named for what the cheaper Cues once kept; as above.) */
   saved: number;
   finales: number;
   finaleSolos: number;
@@ -1189,8 +1202,6 @@ export interface CallingState {
 
 /** CallingState.conducting? — the Conductor's numbers for the views (derived, not hashed). */
 export interface ConductingView {
-  /** What a Cue costs off the beat, Silent Cues included (15). */
-  cueCost: number;
   /** What the Crescendo costs (100; Maestro 75). */
   crescendoCost: number;
   /** A Cue within this many s of the last joins its chain (3). */
@@ -1200,8 +1211,13 @@ export interface ConductingView {
   trio: number;
   /** The Grand Finale: passes of its queue, the ramp, seconds between turns, its longest wait. */
   finale: { turns: number; ramp: number; gap: number; wait: number };
-  /** A Tempo: the bar's length and the window either side of its downbeat; null without it. */
+  /**
+   * A Tempo: the bar's length, and how near its downbeat (either side) the heroes begin their
+   * Solos; null without it.
+   */
   beat: { bar: number; within: number } | null;
+  /** A Tempo: Resonance each Cued Solo gives (0 without it). */
+  cueResonance: number;
   /** Marcato's bonus (0.1), its seconds and its cooldown; null without it. */
   marcato: { pct: number; seconds: number; cooldown: number } | null;
   /** Reprise's Solo charge (0 without it). */
@@ -1226,10 +1242,10 @@ export interface DissonanceState {
   /** Blind Score: the views don't show which answer a telegraph wants. */
   blindScore: boolean;
   /**
-   * What a Cue costs off the beat this fight: the content's (or the Conductor's), plus Silent
-   * Cues' surcharge. On the downbeat with A Tempo it costs the surcharge alone (`cueCostNow`).
+   * Silent Cues: how long (s) the Thread must have been on a hero as their Solo fires for it to
+   * be Cued (0 without the level: on them at that moment is enough).
    */
-  cueCost: number;
+  cueHold: number;
 }
 
 export interface AstrolabeState {
