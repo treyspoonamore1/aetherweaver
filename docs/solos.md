@@ -204,4 +204,5 @@ Not measured, or not checked:
 1. Whole numbers or exact halves on the cards.
 2. The Reliquary's Ringing and Attentive affixes: keep them at twice their old worth, or halve them with a save migration.
 3. The Frayed Threshold: leave it harder, or let a plain Gale Barrage not root Lyra.
-4. Whether Brann counts for Auto-Thread's 60% line. He is left out today.
+
+Decided while it was built: Brann stays out of Auto-Thread's 60% line, as he is out of the danger line.
