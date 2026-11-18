@@ -10,7 +10,7 @@ export const codexScreen = {
   'screens.codexScreen.tiersOfTwoOptions':
     ': {length} tiers of two options each, picked during the run {tierWhenList} (the first fight you win at that step), before the fight’s relic and motif.',
   'screens.codexScreen.eachPickLastsThe':
-    'Each pick lasts the rest of the run. The map marks the fights that bring one. Runs without a Calling play as before. The auras themselves never change: a Calling adds to your songs’ reach, strength or slots, or (the Martyr) changes what they reserve: your Life instead of your Spirit. Some bring a key of their own: the Martyr’s Bear ({bindingLabel}), and the Chronomancer’s Rewind, which takes Reel’s ({bindingLabel2}).',
+    'Each pick lasts the run. The map marks the fights that bring one. The auras never change: a Calling adds to your songs’ reach, strength or slots, and the Martyr’s reserve Life instead of Spirit. Some bring a key: the Martyr’s Bear ({bindingLabel}), and the Chronomancer’s Rewind on Reel’s ({bindingLabel2}).',
   'screens.codexScreen.calling': 'Calling',
   'screens.codexScreen.path': 'path',
   'screens.codexScreen.onAnExpeditionS': ' On an Expedition’s shorter road, {expeditionTiers}.',
@@ -47,20 +47,18 @@ export const codexScreen = {
   'screens.codexScreen.reservesOfSpirit': 'reserves {reserve} of Spirit',
   'screens.codexScreen.rank2': 'Rank {unlockRank}',
   'screens.codexScreen.theBeamSong': 'The beam song',
+  'screens.codexScreen.aurasReserveSpirit':
+    'Auras reserve Spirit. What they leave free powers Ward ({cost}), Chime ({cost2}) and Reel ({cost3}). Change your songs in Prep, or Retune at a Respite.',
   'screens.codexScreen.yourFirstChordRides':
     'Your first Chord rides the Thread. The hero you thread hears it at ',
   'screens.codexScreen.whereverTheyAreAnd':
-    ', wherever they are, and its hexes hit whatever attacks them. Everyone else in its field hears an echo at',
-  'screens.codexScreen.whoYouThreadDecides':
-    '. Who you thread decides who becomes the monster; right-click (Mend ⇄ Empower) doesn’t change it.',
-  'screens.codexScreen.with': ' With',
-  'screens.codexScreen.itGoesAllIn':
-    'it goes all in: {mult} on your threaded hero, and nobody hears an echo.',
+    ', wherever they are. Its hexes hit whatever attacks them. Everyone else in its field hears an echo at',
+  'screens.codexScreen.whoYouThreadDecides': '. Mend or Empower, it plays the same.',
   'screens.codexScreen.onYourThreadedHero': '{mult} on your threaded hero',
   'screens.codexScreen.echoWithinM': 'echo {mult} within {fieldRadius} m',
   'screens.codexScreen.theFieldSong': 'The field song',
   'screens.codexScreen.yourSecondChordSurrounds':
-    'Your second Chord surrounds you: everyone within {fieldRadius} m hears it at full strength. Make one ally a monster with the beam, and the whole party stronger just by being near you with the field. Each song holds {auraSlots} auras and up to {ornamentSlots} ornaments, and an ornament changes both auras in its song. You own one copy of each aura and each ornament. Auras reserve Spirit; what they leave free powers Ward ({cost}), Chime ({cost2}) and Reel ({cost3}). Change your songs in Prep, or Retune at a Respite.',
+    'Your second Chord surrounds you: everyone within {fieldRadius} m hears it at full strength. Each song holds {auraSlots} auras and up to {ornamentSlots} ornaments. An ornament changes both auras in its song. You own one copy of each.',
   'screens.codexScreen.n1WithinM': '×1 within {fieldRadius} m',
   'screens.codexScreen.mAtMost': '{fieldRadiusCap} m at most',
   'screens.codexScreen.chorusPulse': 'Chorus pulse',
@@ -70,9 +68,8 @@ export const codexScreen = {
   'screens.codexScreen.barrierPerAura': '{barrierPctPerAura} barrier per aura',
   'screens.codexScreen.fermataHold': 'Fermata hold',
   'screens.codexScreen.withTheFermataAura':
-    'With the Fermata aura sung, once per fight per hero, a hit that would down them holds them at 1 life for {value} s instead. Their frame shows ',
-  'screens.codexScreen.withACountdownHeal':
-    'with a countdown: heal them in time (Mend on the Thread, or a Chime on them) and it counts as a Save. Let it run out and they go down.',
+    'Sing Fermata and, once a fight for each hero, a hit that would down them holds them at 1 life for {value} s. Their frame shows ',
+  'screens.codexScreen.withACountdownHeal': 'Mend or Chime them in time for a Save.',
   'screens.codexScreen.heldHeal': 'HELD · Heal!',
   'screens.codexScreen.ornaments': 'Ornaments',
   'screens.codexScreen.reserve': 'reserve {mult}',
@@ -94,7 +91,7 @@ export const codexScreen = {
     'Between each pair of constellations sits a bridge notable, so a build can reach into a neighbour without walking its trunk.',
   'screens.codexScreen.weaverRank': 'Weaver Rank',
   'screens.codexScreen.everyFightEarnsWeaver':
-    'Every fight earns Weaver XP, won or lost, and XP raises your Rank. Each Rank opens one more piece of the build layer, so you meet the beam song first and the rest as you learn. XP is kept as each fight ends: quitting a run never loses it. ',
+    'Every fight earns Weaver XP, won or lost. Each Rank opens one more piece of your build: the beam song first, the rest as you learn. Quitting a run never loses XP. ',
   'screens.codexScreen.opensEverythingAtOnce': 'The Training Grounds always have everything.',
   'screens.codexScreen.weaverXp': 'Weaver XP',
   'screens.codexScreen.won': '{label} won',
@@ -158,7 +155,7 @@ export const codexScreen = {
   'screens.codexScreen.openUnlocksSkipped': 'Open',
   'screens.codexScreen.unlockedAtRank': 'Unlocked at Rank {rank}',
   'screens.codexScreen.tieYourThreadTo':
-    'Tie your Thread to a hero. Mend heals them; Empower adds damage and attack speed. Your beam song rides it in every mode. Stray too far and it snaps. On a Martyr run, Bear ({bindingLabel}) is a third mode: you take part of the life they would lose.',
+    'Tie your Thread to a hero. Mend heals them. Empower adds damage and attack speed. Your beam song rides it. Stray too far and it snaps. As the Martyr, Bear ({bindingLabel}) takes part of the life they would lose.',
   'screens.codexScreen.mendS': 'Mend {mendPerSec}/s',
   'screens.codexScreen.empowerDamage': 'Empower +{empowerMore} damage',
   'screens.codexScreen.fullStrengthToM': 'Full strength to {comfortRange} m',
@@ -190,7 +187,7 @@ export const codexScreen = {
   'screens.codexScreen.withoutYou': 'Without you',
   'screens.codexScreen.afterEachFight': 'after each fight',
   'screens.codexScreen.whenAFightEnds':
-    'When a fight ends, the Loom replays it with the same enemies and the same seed, but with you absent: no Thread, no auras, no techniques. The result screen shows the two side by side ("Without you, the party falls at 0:41 in wave 2"), and the run summary counts the fights they would have lost alone. The re-run is capped at {round} minutes.',
+    'After a fight, the Loom replays it without you: no Thread, no auras, no techniques. Same enemies, same seed. The Result shows both side by side, and the Summary counts the fights they would have lost. Capped at {round} minutes.',
   'screens.codexScreen.sameSeedSameEnemies': 'Same seed, same enemies',
   'screens.codexScreen.shownOnResultAnd': 'Shown on Result and Summary',
   'screens.codexScreen.aroundYou': 'Around you',

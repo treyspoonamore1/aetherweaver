@@ -669,8 +669,8 @@ describe('in a fight', () => {
 describe('the Codex', () => {
   it('Bond XP’s rules and the ranks come from content', () => {
     const lines = bondRulesLines();
-    expect(lines.fight).toContain(`earns ${R.base} Bond XP`);
-    expect(lines.fight).toContain(`a share of ${R.pool} more`);
+    expect(lines.fight).toContain(`pays each hero in it ${R.base} Bond XP`);
+    expect(lines.fight).toContain(`They share ${R.pool} more`);
     for (const m of Object.values(R.kinds)) expect(lines.weights).toContain(`×${m}`);
     expect(lines.weights).toContain(`${Math.round(R.loss * 100)}%`);
     expect(lines.scene).toContain(`${Math.round(R.scene * 100)}%`);

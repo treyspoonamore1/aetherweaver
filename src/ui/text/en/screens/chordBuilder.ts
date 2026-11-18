@@ -43,7 +43,7 @@ export const chordBuilder = {
   'screens.chordBuilder.unlocksAtRank2': '{name}: unlocks at Rank {lock}',
   'screens.chordBuilder.unlocksAtRank3': 'Unlocks at Rank {rank}',
   'screens.chordBuilder.strength': '{name} strength',
-  'screens.chordBuilder.ofSpiritFree': '{free} of {max} Spirit free; {value}',
+  'screens.chordBuilder.ofSpiritFree': '{free} of {max} Spirit free. {value}.',
   'screens.chordBuilder.reserved2': '{name}: {spirit} reserved',
   'screens.chordBuilder.overBudget': 'Over budget',
   'screens.chordBuilder.roomForAllThree': 'Room for all three back to back',
@@ -53,7 +53,7 @@ export const chordBuilder = {
   'screens.chordBuilder.withAurasEveryCue':
     'With {minAuras}+ auras, every Cue also releases a chorus pulse (heal + barrier).',
   'screens.chordBuilder.ofLifeToFight':
-    '{free} of {max} Life to fight with; {value}. Your songs may hold at most {capPct}%.',
+    '{free} of {max} Life to fight with. {value}. Your songs may hold at most {capPct}%.',
   'screens.chordBuilder.holdsLife': '{name}: holds {spirit} Life',
   'screens.chordBuilder.moreThanYourSongs': 'More than your songs may hold',
   'screens.chordBuilder.prismCovenantYouFight2':

@@ -27,6 +27,7 @@ function prepWeeklyInput(week: number): PrepWeeklyInput | null {
 }
 import { Button } from '../kit/Button';
 import { Chip } from '../kit/Chip';
+import { Fold } from '../kit/Fold';
 import { Icon } from '../kit/Icon';
 import { Panel } from '../kit/Panel';
 import { Segmented, Toggle } from '../kit/Slider';
@@ -263,16 +264,27 @@ export function FreshStrip({ fresh }: { fresh: readonly Pick<Unlock, 'id' | 'nam
       <p className="flex items-center gap-2 font-display text-sm font-bold uppercase tracking-[0.2em] text-gold-300">
         <Icon name="sparkle" size={15} /> {txt('screens.prepScreen.newlyUnlocked')}
       </p>
-      <ul className="mt-2 grid gap-x-6 gap-y-2 md:grid-cols-2">
-        {fresh.map((u) => (
-          <li key={u.id} className="flex items-start gap-2 text-sm leading-relaxed">
-            <NewTag />
-            <span>
-              <b className="text-gold-100">{u.name}</b> <span className="text-muted">{u.text}</span>
-            </span>
-          </li>
-        ))}
-      </ul>
+      {/* The names show; each one's sentence is a fold away (the second menu text pass, round 11):
+          the builder below marks the same things New and says what each does. */}
+      <Fold
+        small
+        className="mt-2"
+        count={fresh.length}
+        testId="prep-fresh"
+        heading={<span className="text-gold-100">{fresh.map((u) => u.name).join(' · ')}</span>}
+      >
+        <ul className="grid gap-x-6 gap-y-2 md:grid-cols-2">
+          {fresh.map((u) => (
+            <li key={u.id} className="flex items-start gap-2 text-sm leading-relaxed">
+              <NewTag />
+              <span>
+                <b className="text-gold-100">{u.name}</b>{' '}
+                <span className="text-muted">{u.text}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </Fold>
     </Panel>
   );
 }

@@ -1297,10 +1297,18 @@ function Chords() {
   const w = CONTENT.weaver;
   const c = CONTENT.chorus;
   const fermata = CONTENT.auras.find((a) => a.id === 'fermata');
-  const unison = CONTENT.ornaments.find((o) => o.id === 'unison');
   const mult = (v: number) => `×${Number(v.toFixed(2))}`;
   return (
     <div className="flex flex-col gap-8">
+      <Panel tone="gold" className="p-5">
+        <p className="max-w-4xl text-sm leading-relaxed text-text">
+          {txt('screens.codexScreen.aurasReserveSpirit', {
+            cost: CONTENT.techniques.ward.cost,
+            cost2: CONTENT.techniques.chime.cost,
+            cost3: CONTENT.techniques.reel.cost,
+          })}
+        </p>
+      </Panel>
       <div className={GRID}>
         <Panel tone="gold" className="p-5">
           <h2 className="flex items-center gap-2 font-display text-xl font-bold text-gold-200">
@@ -1311,15 +1319,6 @@ function Chords() {
             <b>{mult(w.beamFocus)}</b>
             {txt('screens.codexScreen.whereverTheyAreAnd')} <b>{mult(w.beamEcho)}</b>
             {txt('screens.codexScreen.whoYouThreadDecides')}
-            {unison && (
-              <>
-                {txt('screens.codexScreen.with')}{' '}
-                <b style={{ color: unison.color }}>{unison.name}</b>{' '}
-                {txt('screens.codexScreen.itGoesAllIn', {
-                  mult: mult(w.beamFocus * unison.focusMult),
-                })}
-              </>
-            )}
           </p>
           <div className="mt-3 flex flex-wrap gap-1.5">
             <Chip icon="thread">
@@ -1352,9 +1351,6 @@ function Chords() {
               fieldRadius: w.fieldRadius,
               auraSlots: w.auraSlots,
               ornamentSlots: w.ornamentSlots,
-              cost: CONTENT.techniques.ward.cost,
-              cost2: CONTENT.techniques.chime.cost,
-              cost3: CONTENT.techniques.reel.cost,
             })}
           </p>
           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -1410,10 +1406,17 @@ function Chords() {
           </Panel>
         )}
       </div>
-      <section aria-label={txt('screens.codexScreen.ornaments')}>
-        <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-gold-300">
-          <Icon name="diamond" size={20} /> {txt('screens.codexScreen.ornaments')}
-        </h2>
+      <Fold
+        label={txt('screens.codexScreen.ornaments')}
+        count={CONTENT.ornaments.length}
+        headingClass="text-gold-300"
+        testId="codex-ornaments"
+        heading={
+          <>
+            <Icon name="diamond" size={20} /> {txt('screens.codexScreen.ornaments')}
+          </>
+        }
+      >
         <div className={GRID}>
           {CONTENT.ornaments.map((o) => (
             <Panel
@@ -1478,7 +1481,7 @@ function Chords() {
             </Panel>
           ))}
         </div>
-      </section>
+      </Fold>
     </div>
   );
 }

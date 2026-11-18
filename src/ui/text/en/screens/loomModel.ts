@@ -57,7 +57,7 @@ export const loomModel = {
   'screens.loomModel.betweenRunsYouCome':
     'You come back here after every run. Lit stations are open. Dark ones open as you play, and each shows you around on your first visit.',
   'screens.loomModel.everyRunStartsHere':
-    'Every run starts here. Through the Gate is Prep, where you choose your songs (the auras you sing to your heroes as they fight: healing them, or making them hit harder), then set out on the road. A run you leave waits at the Gate to be continued.',
+    'Every run starts here. In Prep you choose your songs: the auras that heal your heroes or make them hit harder. A run you leave waits here.',
   'screens.loomModel.theTrainingGroundsAnd': 'The Training Grounds and the Codex',
   'screens.loomModel.theTrainingGroundsAre':
     'The Training Grounds are a sandbox: spawn enemies and try your build, with nothing at stake. The Codex explains every enemy, song and system.',
@@ -118,7 +118,7 @@ export const loomModel = {
     '{capital} Echoes make a constellation. Light all its stars for a keepsake: {andList}. All {of} stars: {andList2}.',
   'screens.loomModel.thisWeekSSong': 'This Week’s Song',
   'screens.loomModel.oneRunTheSame':
-    'One run, the same for everyone this week: its seed, route, Calling, heroes and Dissonance are fixed, and your Chords are your own. Share your result as a code and a replay; add a friend’s, and this device plays it through to check it.',
+    'One run, the same for everyone this week. Its seed, route, Calling, heroes and Dissonance are fixed. Your Chords are your own. Share your result as a code and replay.',
   'screens.loomModel.theWeaver': 'The Weaver',
   'screens.loomModel.xpTheHighestRank': '{xp} XP · the highest Rank',
   'screens.loomModel.xpToRank': '{into} / {span} XP to Rank {value}',

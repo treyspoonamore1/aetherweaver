@@ -76,4 +76,5 @@ Each of these was in the game. The round 11 menu audit quotes them and counts th
 - Check every number against the code before the line ships.
 - A long page folds. One group is open and the rest are a heading each (`src/ui/kit/Fold.tsx`). Content's own words stay as they are.
 - The setting that skips the unlocks is named in Settings and nowhere else.
-- Auras, ornaments and the songs' rules are the owner's words. So are the lines about Solos, Cues, hero autonomy and Resonance while that mechanic is being redesigned. Leave them as they are.
+- Lines about auras, ornaments and the songs' rules follow this guide like any other. An aura's or an ornament's own description lives in content and waits for a content pass.
+- The lines about Solos, Cues, hero autonomy and Resonance wait while that mechanic is being redesigned. Leave them as they are.

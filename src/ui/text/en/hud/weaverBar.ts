@@ -39,7 +39,7 @@ export const weaverBar = {
   'hud.weaverBar.crescendoCosts': 'Crescendo: {crescendoName}. Costs {value}.',
   'hud.weaverBar.thisFightAurasThread': 'This fight: auras {compact}, Thread {compact2}',
   'hud.weaverBar.thisFightYourAuras':
-    'This fight: your auras healed {compact}, shielded {compact2} and added {compact3} damage; your Thread healed {compact4} and added {compact5}.',
+    'This fight, your auras healed {compact}, shielded {compact2} and added {compact3} damage. Your Thread healed {compact4} and added {compact5}.',
   'hud.weaverBar.bearYouTakeOf':
     'Bear: you take {round}% of what your threaded hero would lose. No {value} while it’s on.',
   'hud.weaverBar.yourBeamSongPours': 'Your beam song pours into {targetName} at {mult}',

@@ -321,7 +321,7 @@ describe('first contact', () => {
       .panels.map((p) => p.body)
       .join(' ');
     expect(welcome).toMatch(/a sandbox: spawn enemies and try your build/);
-    expect(welcome).toMatch(/Prep, where you choose your songs \(the auras you sing/);
+    expect(welcome).toMatch(/In Prep you choose your songs: the auras that heal your heroes/);
     // The Astrolabe: Deeds' points, and how a star is given back (right-click, or Give back).
     expect(text('astrolabe')).toContain(`Deeds add up to ${DEED_POINTS_MAX}`);
     expect(text('astrolabe')).toContain('Right-click a star to give it back, or use Give back');
@@ -351,11 +351,12 @@ describe('first contact', () => {
     );
     // The Atelier: what a Calling's top mastery does there.
     expect(text('atelier')).toContain('A Calling’s top mastery puts its own variant on sale');
-    // The ceiling: 30 words a panel. Three panels are over it and are not this pass's to cut: the
-    // welcome's Gate (it describes the songs), Bonds' two (they describe Solos) and the Atlas's
-    // weekly (it names Chords). The Atlas's constellations panel lists keepsakes by name.
+    // The ceiling: 30 words a panel. Bonds' two panels are over it and are not this pass's to cut
+    // (they describe Solos). The Atlas's constellations panel lists keepsakes by name. The
+    // welcome's Gate and the Atlas's weekly were held too while aura lines were the owner's; that
+    // rule was lifted in round 11 and both are under the ceiling now.
     const words = (s: string) => s.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
-    const held = new Set(['gate:1', 'bonds:0', 'bonds:1', 'atlas:1', 'atlas:2']);
+    const held = new Set(['bonds:0', 'bonds:1', 'atlas:1']);
     for (const id of STATIONS)
       stationIntro(id).panels.forEach((p, i) => {
         if (WELCOME.includes(id) ? id !== 'gate' || held.has(`gate:${i}`) : held.has(`${id}:${i}`))

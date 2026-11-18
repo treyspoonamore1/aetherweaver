@@ -50,7 +50,7 @@ export const bondsModel = {
   'screens.bondsModel.aMiniBoss': 'a mini-boss',
   'screens.bondsModel.theBoss': 'the boss',
   'screens.bondsModel.afterEveryFightEach':
-    'After every fight, each hero in it earns {base} Bond XP, and a share of {pool} more by your support of them that fight: your healing and shields on them, the damage your songs and Thread added to theirs, and the life your saves kept. Without any support, the share isn’t paid.',
+    'Every fight pays each hero in it {base} Bond XP. They share {pool} more by your support: healing and shields on them, damage your songs and Thread added, and life your saves kept.',
   'screens.bondsModel.bothScaleWithThe':
     'Both scale with the fight: {listAnd}. A lost fight pays {loss} of that.',
   'screens.bondsModel.aScenePaysOf':

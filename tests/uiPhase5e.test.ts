@@ -785,6 +785,11 @@ describe('Brann’s and the default party’s UI are byte-equal to before', () =
   // Rage bar carries four tooltips reworded the same way ("40%: Bloodlust. Below it he won’t
   // Rally, and Blood Rage runs hot"). Compared with main's first: those six sentences and
   // nothing else.
+  // A third time, when the owner lifted the rule that aura lines are left alone (round 11's
+  // AURAS-UNLOCKED note): five `hints:*` keys (`brann-rally`, `brann-held`, `crisis`, `calls`,
+  // `fermata`), for the hints about Fermata, the field and silenced auras, each with a full stop
+  // where a dash was ("Fermata holds Brann at 1 life. One touch of the Thread saves him, …").
+  // Compared with the recorded values first: six sentences, nothing else.
   it('every pinned text and frame hashes as recorded at W3’s head', async () => {
     const want = JSON.parse(
       readFileSync(join(__dirname, 'uiPhase5e.brann.json'), 'utf8'),

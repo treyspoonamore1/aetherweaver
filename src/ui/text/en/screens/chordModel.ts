@@ -5,13 +5,13 @@ export const chordModel = {
   'screens.chordModel.asTheMartyrYour': 'As the Martyr, your auras',
   'screens.chordModel.withSanguineFontYour': 'With Sanguine Font, your auras',
   'screens.chordModel.reserveLifeInsteadAnd':
-    '{who} reserve Life instead, and with Eldritch Conduit your techniques cost Life too: you fight with the Life your songs leave you.',
+    '{who} reserve Life. With Eldritch Conduit your techniques cost Life too.',
   'screens.chordModel.reserveLifeInsteadEvery':
-    '{who} reserve Life instead: every point of Spirit powers Ward, Chime and {reel}, and you fight with the Life your songs leave you.',
+    '{who} reserve Life. All your Spirit powers Ward, Chime and {reel}.',
   'screens.chordModel.withEldritchConduitWard':
     'With Eldritch Conduit, Ward, Chime and {reel} cost Life instead: your Spirit is your songs’ alone.',
   'screens.chordModel.whateverSpiritYourAuras':
-    'Whatever Spirit your auras leave free powers Ward, Chime and {reel}.',
+    'Spirit your auras leave free powers Ward, Chime and {reel}.',
   'screens.chordModel.aroundYou': 'Around you',
   'screens.chordModel.withinOfWhereYou': 'within {radius} of where you plant it',
   'screens.chordModel.ridesYourThreadThe':
