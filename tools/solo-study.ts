@@ -99,6 +99,8 @@ export interface StudyRow {
   duets: number;
   trios: number;
   onBeat: number;
+  /** Duets and Trios formed with a plain Solo fired since the chain's last Cue. */
+  overPlain: number;
 }
 
 /** The numbers a run may change. */
@@ -239,8 +241,10 @@ export function studyFight(
     duets: 0,
     trios: 0,
     onBeat: 0,
+    overPlain: 0,
   };
   const finaleTurns = new Set<number>();
+  let plainSinceCue = false;
   for (let t = 0; t < MAX_SECONDS * 60; t++) {
     let commands = bot.decide(sim.state);
     if (setup.eager) commands = eager(sim.state, commands);
@@ -256,9 +260,15 @@ export function studyFight(
           continue;
         }
         if (e.cued) row.cued++;
-        else row.plain++;
+        else {
+          row.plain++;
+          plainSinceCue = true;
+        }
         const s = (row.solos[e.solo] ??= [0, 0]);
         s[e.cued ? 0 : 1]++;
+      } else if (e.type === 'cueChained') {
+        if (e.link > 1 && plainSinceCue) row.overPlain++;
+        plainSinceCue = false;
       } else if (e.type === 'resonanceGained') {
         row.gained += e.amount;
         row.gains[e.reason] = (row.gains[e.reason] ?? 0) + e.amount;
@@ -352,6 +362,7 @@ export function studyReport(rows: readonly StudyRow[], by: StudyGroup): string[]
       'duets',
       'trios',
       'on beat',
+      'over plain',
       'finale solos',
       'dmg/s',
     ],
@@ -378,6 +389,7 @@ export function studyReport(rows: readonly StudyRow[], by: StudyGroup): string[]
       fmt(mean(g.map((r) => r.duets))),
       fmt(mean(g.map((r) => r.trios))),
       fmt(mean(g.map((r) => r.onBeat))),
+      fmt(mean(g.map((r) => r.overPlain ?? 0)), 2),
       fmt(mean(g.map((r) => r.finaleSolos))),
       fmt(mean(g.map((r) => r.partyDamage / Math.max(1, r.duration))), 0),
     ]);
