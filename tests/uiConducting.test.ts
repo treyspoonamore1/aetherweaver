@@ -13,6 +13,7 @@ import { EVERYTHING, UNLOCKS, allowanceFor, unlockRank } from '../src/meta/profi
 import {
   BAR_SECONDS,
   beatAt,
+  beatWait,
   createSim,
   crescendoCostOf,
   ensembleBonus,
@@ -21,6 +22,8 @@ import {
   marcatoOn,
   marcatoReadyIn,
   onBeat,
+  resonanceScale,
+  soloDueIn,
   type Command,
   type PartySlot,
   type Sim,
@@ -38,7 +41,6 @@ import {
   finaleTurnOf,
   finaleTurnSentence,
   liveBeat,
-  liveCueBadge,
   marcatoHud,
   heardFinale,
   conductingCallouts,
@@ -112,6 +114,28 @@ const cue = (slot: number): Command => ({
   op: { op: 'fireSolo', slot: slot as PartySlot, cued: true },
 });
 const hud = (sim: Sim) => buildHudSnapshot(sim.state, { seed: 7, hovered: null });
+/**
+ * Brutes by the party, and stepped until every hero has one to fight: only then do their full
+ * Solos count as coming (docs/solos.md). They fire a second apart from here, Lyra first.
+ */
+function engage(sim: Sim, step: (n: number, commands?: Command[]) => void) {
+  const st = sim.state;
+  step(
+    1,
+    [-3, 0, 3].map((x) => ({
+      t: 'debug' as const,
+      op: { op: 'spawnEnemy' as const, defId: 'bell_brute', x, z: -5 },
+    })),
+  );
+  const fighting = () => st.party.every((id) => st.entities.get(id)!.hero!.targetId !== null);
+  for (let i = 0; i < 240 && !fighting(); i++) step(1);
+  expect(fighting()).toBe(true);
+}
+/** Steps until `pred`, at most `max` ticks; says whether it came. */
+function stepUntil(step: (n: number) => void, pred: () => boolean, max = 600): boolean {
+  for (let i = 0; i < max && !pred(); i++) step(1);
+  return pred();
+}
 /** Steps until the sim's time is off the beat (no A Tempo needs none). */
 function offBeat(sim: Sim, step: (n: number) => void) {
   for (let i = 0; i < 400 && onBeat(sim.state); i++) step(1);
@@ -161,7 +185,7 @@ describe('the Conductor’s look, glyphs and axes', () => {
   });
 
   it('the passive’s name, the Crescendo line, and Rank 12 from content', () => {
-    expect(passiveName('conductor')).toBe('Cheap Cues, Duets and Trios');
+    expect(passiveName('conductor')).toBe('Duets and Trios');
     const c = crescendoLine(DEF);
     expect(c.name).toBe(DEF.crescendoName);
     expect(c.rest.startsWith(' replaces Sunrise')).toBe(true);
@@ -176,56 +200,70 @@ describe('the Conductor’s look, glyphs and axes', () => {
   });
 });
 
-describe('the Cue badge, from the sim’s nextCue', () => {
-  it('link 1 (no badge), 2 (Duet) and 3 (Trio), with the view’s powers', () => {
-    const { sim, step } = conductSim();
+describe('the Duet and Trio badge, from the sim’s nextCue', () => {
+  it('no badge for a plain Cue; Duet and Trio on a hero whose Solo is coming', () => {
+    const { sim, step, events } = conductSim();
     const st = sim.state;
     const view = st.calling!.conducting!;
     const id = (slot: number) => st.party[slot]!;
-    // No chain: a plain Cue, no badge words.
-    const first = cueBadge(st, id(0))!;
-    expect(first).toMatchObject({ link: 1, power: 1, label: null });
-    expect(first).toMatchObject({ cost: 0 });
+    // No chain: a Cued Solo would be a plain Cue, which has no badge.
+    expect(cueBadge(st, id(0))).toBeNull();
     step(30, [cue(0)]);
     for (const slot of [1, 2]) {
       const b = cueBadge(st, id(slot))!;
-      expect(b.link).toBe(2);
-      expect(b.power).toBe(view.duet);
-      expect(b.label).toBe(`Duet ${powerLabel(view.duet)}`);
-      expect(b.label).toBe('Duet ×1.25');
+      expect(b).toEqual({ link: 2, power: view.duet, label: 'Duet' });
     }
+    expect(cueBadgeLabel(2)).toBe('Duet');
+    expect(cueBadgeLabel(3)).toBe('Trio');
+    // Nobody to fight: no Solo is coming, so no frame carries the badge yet.
     let h = hud(sim);
-    expect(h.party[1]!.cue?.label).toBe('Duet ×1.25');
+    expect(h.party.every((p) => p.soloIn === null && p.cue === undefined)).toBe(true);
     expect(h.conducting!.chain).toMatchObject({ link: 2, power: view.duet, heroes: ['Kael'] });
     expect(h.conducting!.chain!.total).toBe(view.chainWindow);
-    // Within the window: Lyra's Cue makes the Duet, Vexis's would be the Trio.
-    step(30, [cue(1)]);
-    const trio = cueBadge(st, id(2))!;
-    expect(trio).toMatchObject({ link: 3, power: view.trio, label: 'Trio ×1.5' });
+    // With someone to fight, Lyra's Solo is coming: her frame reads "Duet" (and Vexis's).
+    engage(sim, step);
     h = hud(sim);
-    expect(h.party[2]!.cue?.label).toBe('Trio ×1.5');
+    expect(h.party[1]!.soloIn).toBeCloseTo(soloDueIn(st, st.entities.get(id(1))!)!, 9);
+    expect(h.party[1]!.cue).toEqual({ link: 2, power: view.duet, label: 'Duet' });
+    expect(h.party[1]!.willCue).toBe(false);
+    // The Thread on her as it fires: the Duet. Vexis's would be the Trio.
+    step(1, [{ t: 'thread', slot: 1 }]);
+    expect(hud(sim).party[1]!.willCue).toBe(true);
+    expect(stepUntil(step, () => events.some((e) => e.type === 'cueChained' && e.link === 2))).toBe(
+      true,
+    );
+    expect(cueBadge(st, id(2))).toEqual({ link: 3, power: view.trio, label: 'Trio' });
+    h = hud(sim);
+    expect(h.party[2]!.cue?.label).toBe('Trio');
+    expect(h.party[1]!.cue).toBeUndefined();
     expect(h.conducting!.chain!.link).toBe(3);
-    // The window passes: the chain is gone, a Cue starts a new one.
+    // The window passes: the chain is gone, a Cued Solo starts a new one (no badge).
     step(Math.ceil((view.chainWindow + 0.2) * 60));
-    expect(cueBadge(st, id(2))!.link).toBe(1);
+    expect(cueBadge(st, id(2))).toBeNull();
     expect(hud(sim).conducting!.chain).toBeNull();
   });
 
-  it('on the downbeat (A Tempo) the badge reads Free and costs the surcharge alone', () => {
+  it('on the downbeat (A Tempo) the badge names no price and nothing is called free', async () => {
     const { sim, step } = conductSim(['a_tempo']);
     const st = sim.state;
     for (let i = 0; i < 400 && !(st.time > 0.5 && onBeat(st)); i++) step(1);
     expect(onBeat(st)).toBe(true);
-    const b = cueBadge(st, st.party[0]!)!;
-    expect(b).toMatchObject({ free: true, cost: 0, label: 'Free' });
-    expect(hud(sim).party.every((p) => p.cue?.label === 'Free')).toBe(true);
-    expect(cueBadgeLabel({ link: 2, power: 1.25, onBeat: true, cost: 0 })).toBe(
-      'Duet ×1.25 · Free',
+    expect(cueBadge(st, st.party[0]!)).toBeNull();
+    expect(hud(sim).party.every((p) => p.cue === undefined)).toBe(true);
+    // The badge's markup: the word and the chain glyph, gold outline or gold fill, no number.
+    const CueBadge = await component<{ hero: unknown }>('CueBadge');
+    const frame = { soloName: 'Starfall', cue: { link: 2, power: 1.25, label: 'Duet' } };
+    const off = renderToStaticMarkup(
+      createElement(CueBadge, { hero: { ...frame, willCue: false } }),
     );
-    // Under Silent Cues a Cue on the beat still pays the surcharge: not called free.
-    expect(cueBadgeLabel({ link: 1, power: 1, onBeat: true, cost: 10 })).toBe('On the beat · 10');
-    offBeat(sim, step);
-    expect(cueBadge(st, st.party[0]!)!.label).toBeNull();
+    const on = renderToStaticMarkup(createElement(CueBadge, { hero: { ...frame, willCue: true } }));
+    expect(off).toContain('>Duet<');
+    expect(off).not.toContain('data-on');
+    expect(on).toContain('data-on="true"');
+    for (const html of [off, on]) {
+      expect(html).not.toMatch(/Free|Resonance|\d+ ?(s|%)/);
+      expect(html).toContain('Starfall, Cued, is a Duet: ×1.25');
+    }
   });
 
   it('a hero who can’t be Cued has no badge; no Conductor, no keys at all', () => {
@@ -249,18 +287,22 @@ describe('the Cue badge, from the sim’s nextCue', () => {
       expect('marcato' in p).toBe(false);
     }
     expect(h.weaver.crescendoCost).toBe(CONTENT.resonance.crescendoCost);
-    expect(h.weaver.cueBase).toBe(CONTENT.resonance.segment);
+    // No Cue has a price (docs/solos.md): the meter carries none, and no hold without Silent Cues.
+    expect('cueCost' in h.weaver).toBe(false);
+    expect('cueBase' in h.weaver).toBe(false);
+    expect(h.weaver.cueHold).toBe(0);
   });
 });
 
 describe('the beat strip, from beatAt and onBeat', () => {
-  const beat = (time: number, on = false) => ({
+  type Next = NonNullable<ReturnType<typeof hud>['conducting']>['beat'] & object;
+  const beat = (time: number, on = false, next: Next['next'] = null): Next => ({
     time,
     bar: BAR_SECONDS,
     within: 0.15,
     on,
-    cost: on ? 0 : 15,
-    downbeatCost: 0,
+    gift: 5.5,
+    next,
   });
 
   it('four marks, the downbeat first; the band its window; the light the bar’s phase', () => {
@@ -301,9 +343,7 @@ describe('the beat strip, from beatAt and onBeat', () => {
   });
 
   it('reduced motion: the light is on the downbeat’s mark exactly while the window is open', async () => {
-    const BeatStrip = await component<{ beat: ReturnType<typeof beat>; reduced?: boolean }>(
-      'BeatStrip',
-    );
+    const BeatStrip = await component<{ beat: Next; reduced?: boolean }>('BeatStrip');
     const marks = beatStrip(beat(0)).marks.map((m) => m.x);
     const within = 0.15;
     const inWindow = (t: number) => Math.abs(t - beatAt(t, BAR_SECONDS).nearest) <= within + 1e-9;
@@ -337,37 +377,79 @@ describe('the beat strip, from beatAt and onBeat', () => {
     expect(on).toContain('data-stepped="true"');
     expect(on).toContain('data-inside="true"');
     expect(on).toContain(`data-light="${marks[0]!.toFixed(3)}"`);
-    expect(on).toMatch(/visibility:visible[^>]*>Free</);
+    // Nothing on the strip names a price or calls a Cue free.
+    expect(on).not.toContain('Free');
     const off = renderToStaticMarkup(createElement(BeatStrip, { beat: beat(1.3), reduced: true }));
     expect(off).not.toContain('data-inside');
-    expect(off).toMatch(/visibility:hidden[^>]*>Free</);
+    expect(off).not.toContain('Free');
   });
 
-  it('the strip and the badge read the frame’s beat, not the snapshot’s (A Tempo)', () => {
+  it('shows when the next Solo begins: the band lit and the hero’s initial, from soloDueIn', async () => {
+    const BeatStrip = await component<{ beat: Next; reduced?: boolean }>('BeatStrip');
+    const lyra = (inS: number, willCue = false) => ({
+      name: 'Lyra',
+      color: '#34d399',
+      in: inS,
+      willCue,
+    });
+    // Mid-bar at 1.3 s: the next window shuts at one bar plus its half-width.
+    const shuts = BAR_SECONDS + 0.15 - 1.3;
+    expect(beatStrip(beat(1.3)).armed).toBe(false);
+    expect(beatStrip(beat(1.3, false, lyra(shuts - 0.1))).armed).toBe(true);
+    // A Solo due only on the downbeat after is not this one's.
+    expect(beatStrip(beat(1.3, false, lyra(shuts + 0.2))).armed).toBe(false);
+    const plain = renderToStaticMarkup(
+      createElement(BeatStrip, { beat: beat(1.3, false, lyra(1.4)), reduced: true }),
+    );
+    expect(plain).toContain('data-armed="true"');
+    expect(plain).toMatch(/data-testid="beat-next"[^>]*>L</);
+    expect(plain).not.toContain('data-cued');
+    expect(plain).toContain('Lyra’s Solo begins in 1.4 s. Thread them to Cue it');
+    const cued = renderToStaticMarkup(
+      createElement(BeatStrip, { beat: beat(1.3, false, lyra(1.4, true)), reduced: true }),
+    );
+    expect(cued).toContain('data-cued="true"');
+    expect(cued).toContain('Lyra’s Solo begins in 1.4 s, Cued');
+    const none = renderToStaticMarkup(createElement(BeatStrip, { beat: beat(1.3), reduced: true }));
+    expect(none).not.toContain('data-armed');
+    expect(none).toMatch(/visibility:hidden[^>]*data-testid="beat-next"/);
+    // In a real fight the strip's next Solo is the sim's: the least soloDueIn, held for the beat.
     const { sim, step } = conductSim(['a_tempo']);
     const st = sim.state;
-    // A snapshot taken off the beat, then the sim stepped into the window.
+    engage(sim, step);
+    const next = hud(sim).conducting!.beat!.next!;
+    const dues = st.party.map((id) => soloDueIn(st, st.entities.get(id)!)!);
+    expect(next.in).toBe(Math.min(...dues));
+    // soloDueIn already holds the Solo for the beat: no wait is left at the moment it names.
+    expect(beatWait(st, st.time + next.in)).toBe(0);
+    // It begins inside a downbeat's window, never before.
+    const at = st.time + next.in;
+    expect(Math.abs(at - beatAt(at, BAR_SECONDS).nearest)).toBeLessThanOrEqual(0.15 + 1e-6);
+    expect(hud(sim).conducting!.beat!.gift).toBe(
+      Number((st.calling!.conducting!.cueResonance * resonanceScale(st)).toFixed(1)),
+    );
+  });
+
+  it('the strip reads the frame’s beat, not the snapshot’s (A Tempo)', () => {
+    const { sim, step } = conductSim(['a_tempo']);
+    const st = sim.state;
+    engage(sim, step);
+    // A snapshot taken off the beat, then the sim stepped on a little.
     offBeat(sim, step);
     const snap = hud(sim);
-    for (let i = 0; i < 400 && !onBeat(st); i++) step(1);
+    expect(snap.conducting!.beat!.next).not.toBeNull();
+    step(6);
     const now = beatNow(st);
-    expect(now).toEqual({ time: st.time, on: true, cost: 0 });
-    // The snapshot is stale; the live beat is the sim's now.
-    expect(snap.conducting!.beat!.on).toBe(false);
+    expect(now).toEqual({ time: st.time, on: onBeat(st) });
+    // The live beat is the sim's now, and the next Solo's seconds have run down with it.
     const strip = liveBeat(snap.conducting!.beat!, now);
-    expect(strip).toMatchObject({ time: st.time, on: true, cost: 0 });
-    expect(beatStrip(strip).inside).toBe(true);
-    const badge = liveCueBadge(snap.party[0]!.cue!, now);
-    expect(badge).toEqual(cueBadge(st, st.party[0]!));
-    expect(badge).toMatchObject({ free: true, label: 'Free' });
-    // And back out: "Free" goes the frame the window shuts.
-    offBeat(sim, step);
-    const out = liveCueBadge(snap.party[0]!.cue!, beatNow(st));
-    expect(out).toEqual(cueBadge(st, st.party[0]!));
-    expect(out.free).toBe(false);
+    expect(strip).toMatchObject({ time: st.time, on: onBeat(st) });
+    expect(strip.next!.in).toBeCloseTo(snap.conducting!.beat!.next!.in - 6 / 60, 9);
+    for (let i = 0; i < 400 && !onBeat(st); i++) step(1);
+    expect(snap.conducting!.beat!.on).toBe(false);
+    expect(beatStrip(liveBeat(snap.conducting!.beat!, beatNow(st))).inside).toBe(true);
     // With no live beat (no A Tempo, the UI lab) the snapshot's stands.
     expect(liveBeat(snap.conducting!.beat!, null)).toBe(snap.conducting!.beat);
-    expect(liveCueBadge(snap.party[0]!.cue!, null)).toBe(snap.party[0]!.cue);
   });
 
   it('the runtime writes the live beat on A Tempo runs only', () => {
@@ -538,6 +620,7 @@ describe('the Grand Finale, from finaleView', () => {
     });
     const { sim, step } = conductSim(['a_tempo']);
     step(30, [cue(0)]);
+    engage(sim, step);
     const quiet = fighting(hud(sim));
     const ids = (o?: { banner?: boolean }) => evaluateHints(quiet, o).map((x) => x.id);
     expect(ids()).toEqual(expect.arrayContaining(['chain', 'beat']));
@@ -545,7 +628,7 @@ describe('the Grand Finale, from finaleView', () => {
     expect(ids({ banner: true })).not.toContain('beat');
     const finale = fighting(conductStage('conduct-finale').hud);
     const during = evaluateHints(finale).map((x) => x.id);
-    for (const id of ['chain', 'beat', 'cue']) expect(during).not.toContain(id);
+    for (const id of ['chain', 'beat', 'solo']) expect(during).not.toContain(id);
   });
 
   it('the next hero and the ramp’s power, from finaleView (“Vexis next ×1.44”)', async () => {
@@ -583,41 +666,31 @@ describe('the Crescendo read-out and the Dissonance chip', () => {
     expect(hud(conductSim().sim).weaver.crescendoCost).toBe(CONTENT.resonance.crescendoCost);
   });
 
-  it('quiet on a Conductor run with no Dissonance; with Silent Cues it names only the surcharge', () => {
+  it('quiet on a Conductor run with no Dissonance; Silent Cues asks for a hold, never a price', () => {
     const plain = hud(conductSim().sim);
     expect(plain.dissonance).toBeNull();
-    expect(plain.weaver.cueCost).toBe(V.cue);
-    expect(plain.weaver.cueBase).toBe(V.cue);
-    // A Dissonance level that leaves the Cue alone: the Conductor's 15 is not reported.
+    expect(plain.weaver.cueHold).toBe(0);
     const other = hud(conductSim([], { dissonance: [{ id: 'blind_score', rank: 1 }] }).sim);
-    const quiet = hudDissonanceView(
-      other.dissonance!.levels,
-      other.weaver.cueCost,
-      other.weaver.cueBase,
-    );
-    expect(quiet.cueRaised).toBe(false);
-    expect(quiet.label).not.toMatch(/A Cue costs/);
-    // Silent Cues: 15 + its surcharge, reported as Dissonance's.
-    const silent = hud(conductSim([], { dissonance: [{ id: 'silent_cues', rank: 1 }] }).sim);
-    expect(silent.weaver.cueBase).toBe(V.cue);
-    expect(silent.weaver.cueCost).toBeGreaterThan(V.cue!);
-    const raised = hudDissonanceView(
-      silent.dissonance!.levels,
-      silent.weaver.cueCost,
-      silent.weaver.cueBase,
-    );
-    expect(raised.cueRaised).toBe(true);
-    expect(raised.label).toContain(`A Cue costs ${silent.weaver.cueCost} Resonance`);
+    expect(other.weaver.cueHold).toBe(0);
+    expect(hudDissonanceView(other.dissonance!.levels).label).not.toMatch(/A Cue costs/);
+    // Silent Cues: the Thread must hold; the chip lists the level in content's own words.
+    const level = CONTENT.dissonance.find((d) => d.effect === 'cue_hold')!;
+    const silent = hud(conductSim([], { dissonance: [{ id: level.id, rank: 1 }] }).sim);
+    expect(silent.weaver.cueHold).toBe(level.values.seconds);
+    const view = hudDissonanceView(silent.dissonance!.levels);
+    expect(view.levels.map((l) => l.name)).toEqual([level.name]);
+    expect(view.label).toContain(level.name);
+    expect(view.label).not.toMatch(/costs|Resonance/);
   });
 });
-
 describe('call-outs and hints', () => {
-  it('DUET a toast, TRIO a banner, Free Cue, Reprise, Marcato: from the events’ own numbers', () => {
+  it('DUET a toast, TRIO a banner, A Tempo’s gift, Reprise, Marcato: from the events’ own numbers', () => {
     const stage = conductStage('conduct-trio');
     expect(stage.reached).toBe(true);
     const texts = stage.callouts.map((c) => `${c.kind}:${c.text}`);
-    expect(texts).toContain('system:DUET · Lyra ×1.25');
-    expect(texts).toContain('perfect:TRIO · Vexis ×1.5');
+    // The Thread followed the Solos as they fired: Lyra, then Vexis, then Kael's wall.
+    expect(texts).toContain('system:DUET · Vexis ×1.25');
+    expect(texts).toContain('perfect:TRIO · Kael ×1.5');
     // No Cue can join a Trio: no ring, no "Trio next", nothing to drain.
     expect(stage.hud.conducting!.chain).toBeNull();
     expect(stage.hud.party.every((p) => (p.cue?.link ?? 1) === 1)).toBe(true);
@@ -625,11 +698,23 @@ describe('call-outs and hints', () => {
       `system:Reprise · every Solo +${DEF.tiers[1]!.options[0]!.values.pct}%`,
     );
     const name = () => 'Lyra';
-    const free = conductingCallouts(
-      { type: 'cueChained', tick: 1, hero: 2, link: 1, power: 1, cost: 0, onBeat: true, until: 3 },
-      { name, time: 0 },
-    );
-    expect(free.map((c) => c.callout.text)).toEqual(['Free Cue · on the beat']);
+    const onTheBeat = {
+      type: 'cueChained' as const,
+      tick: 1,
+      hero: 2,
+      link: 1 as const,
+      power: 1,
+      cost: 0,
+      onBeat: true,
+      until: 3,
+    };
+    // A Solo Cued on the downbeat: what A Tempo gave the meter. Never "free".
+    const gift = conductingCallouts(onTheBeat, { name, time: 0, gift: 5.5 });
+    expect(gift.map((c) => c.callout.text)).toEqual(['On the beat · +5.5 Resonance']);
+    expect(conductingCallouts(onTheBeat, { name, time: 0 })).toEqual([]);
+    expect(
+      conductingCallouts({ ...onTheBeat, onBeat: false }, { name, time: 0, gift: 5.5 }),
+    ).toEqual([]);
     const marcato = conductingCallouts(
       { type: 'marcato', tick: 1, heroes: [1], until: 4, readyAt: 8 },
       { name, time: 0, marcato: { pct: 0.1, seconds: 4 } },
@@ -643,15 +728,30 @@ describe('call-outs and hints', () => {
     expect(stage.hud.conducting!.marcato!.readyIn).toBe(marcatoReadyIn(stage.sim.state));
   });
 
-  it('the chain hint names the window and the hero to Cue; the beat hint on A Tempo', () => {
+  it('the chain hint names the link, the hero and their Thread key; the beat hint what A Tempo gives', () => {
     const fighting = (h: ReturnType<typeof hud>) =>
       evaluateHints({ ...h, encounter: { ...h.encounter, kind: 'skirmish', status: 'fighting' } });
     const { sim, step } = conductSim();
     step(30, [cue(0)]);
+    // No Solo is coming yet (nobody to fight): nothing to follow, no hint.
+    expect(fighting(hud(sim)).map((x) => x.id)).not.toContain('chain');
+    engage(sim, step);
     const chain = fighting(hud(sim)).find((x) => x.id === 'chain')!;
-    expect(chain.text).toContain(`within ${V.chain} s for a Duet`);
+    expect(chain.text).toBe('Duet next. Thread Lyra {2} as their Solo fires');
+    // The Thread already on that hero: the hint has nothing to add.
+    step(1, [{ t: 'thread', slot: 1 }]);
+    const after = fighting(hud(sim)).find((x) => x.id === 'chain');
+    expect(after?.text ?? '').not.toContain('Lyra');
+    // A Tempo: the beat hint says when Solos begin and what a Cued one gives (the sim's number).
     const beat = conductSim(['a_tempo']);
-    expect(fighting(hud(beat.sim)).map((x) => x.id)).toContain('beat');
+    expect(fighting(hud(beat.sim)).map((x) => x.id)).not.toContain('beat');
+    engage(beat.sim, beat.step);
+    const h = hud(beat.sim);
+    const hint = fighting(h).find((x) => x.id === 'beat')!;
+    expect(hint.text).toBe(
+      `Solos begin on the downbeat. Each one you Cue gives ${h.conducting!.beat!.gift} Resonance`,
+    );
+    expect(hint.text).not.toMatch(/free|costs/i);
   });
 });
 
@@ -692,7 +792,7 @@ describe('the sim’s rules, read not copied', () => {
 });
 
 describe('Result and Summary', () => {
-  it('the Result’s line: damage, Duets, Trios, the Finale’s Solos, free Cues', () => {
+  it('the Result’s line: damage, Duets, Trios, the Finale’s Solos, Solos Cued on the beat', () => {
     const stats = {
       callingAmplified: 412,
       callingShielded: 0,
@@ -708,13 +808,13 @@ describe('Result and Summary', () => {
       },
     };
     expect(callingResultLine(stats, { id: 'conductor', path: [] })).toBe(
-      `+412 damage through your heroes · 3 Duets · 1 Trio · ${DEF.crescendoName} played 6 Solos · 4 free Cues`,
+      `+412 damage through your heroes · 3 Duets · 1 Trio · ${DEF.crescendoName} played 6 Solos · 4 Solos Cued on the beat`,
     );
     // Without a Duet the Summary says how; with one it doesn't.
     expect(
       conductingTip('conductor', { conducting: { ...stats.conducting, duets: 0, trios: 0 } }),
     ).toBe(
-      `No Duet this run: Cue a second hero within ${V.chain} s of the first, and their Solo plays ${V.duet}% stronger.`,
+      `No Duet this run. Cue two Solos within ${V.chain} s: the second plays ${V.duet}% stronger.`,
     );
     expect(conductingTip('conductor', stats)).toBeNull();
     expect(conductingTip('luminary', {})).toBeNull();

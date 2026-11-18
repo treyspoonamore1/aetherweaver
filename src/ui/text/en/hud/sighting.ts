@@ -47,22 +47,22 @@ export const sighting = {
     'Snip cuts your Thread; Unravel turns your Mend; the Mirror Ward shields its champion. Retarget, Empower, Focus.',
   'hud.sighting.paradoxCancelsIt': ' Paradox cancels it.',
   'hud.sighting.cuedItsLamentMarks':
-    'Cued, its Lament marks a hero. Chime it away (in its last second, a Clutch), Ward it, or interrupt the Alto.{undo}',
+    'Cued, its Lament marks a hero. Chime it away, Ward it, or interrupt the Alto.{undo}',
   'hud.sighting.cuedItsBassoOstinato':
-    'Cued, its Basso Ostinato rings a circle on its target. Ward on the beat (a Perfect), or interrupt the Bass.{value}',
+    'Cued, its Basso Ostinato rings a circle on its target. Ward on the beat, or interrupt the Bass.{value}',
   'hud.sighting.rewindStepsThemBack': ' Rewind steps them back out.',
   'hud.sighting.cuedItsCadenzaCuts':
-    'Cued, its Cadenza cuts a line to the farthest hero: more than their life. Rewind them back out of it, step aside, or interrupt the Tenor.{undo}',
+    'Cued, its Cadenza cuts a lethal line to the farthest hero. Rewind them out, step aside, or interrupt the Tenor.{undo}',
   'hud.sighting.cuedItsCadenzaCuts2':
-    'Cued, its Cadenza cuts a line to the farthest hero: more than their life. Step aside, Ward them, or interrupt the Tenor; Anchor holds them, it can’t pull them out.',
+    'Cued, its Cadenza cuts a lethal line to the farthest hero. Step aside, Ward them or interrupt the Tenor. Anchor holds them: it can’t pull them out.',
   'hud.sighting.cuedItsCadenzaCuts3':
-    'Cued, its Cadenza cuts a line to the farthest hero: more than their life. {value} or interrupt the Tenor.',
+    'Cued, its Cadenza cuts a lethal line to the farthest hero. {value} or interrupt the Tenor.',
   'hud.sighting.swapTakesTheBlow': 'Swap takes the blow on you; step aside,',
   'hud.sighting.reelThemOutStep': 'Reel them out, step aside,',
   'hud.sighting.cuedItsShatterAria':
-    'Cued, its Shatter Aria shatters a circle around a hero. Scatter so it catches one, Ward the one it’s on, or interrupt the Soprano.',
+    'Cued, its Shatter Aria bursts a circle round a hero. Scatter, Ward that hero, or interrupt the Soprano.',
   'hud.sighting.itCuesItsMirror':
-    'It Cues its mirror-choir; every blow you leave unanswered feeds its Discord, and at {DISCORD_MAX} it plays {FORTISSIMO_NAME}: your Crescendo cancels it. At the last it stops the music: only your {noteSources} are heard, and eight notes wake your heroes.',
+    'It Cues its mirror-choir. Unanswered blows feed Discord. At {DISCORD_MAX} it plays {FORTISSIMO_NAME}: your Crescendo cancels it.',
   'hud.sighting.wardHerAsThe':
     'Ward her as the blow lands: she parries and counters {countTimes}. A Perfect Ward is a kill shot.',
   'hud.sighting.sheHuntsTheStrongest':

@@ -304,12 +304,7 @@ export function HudView({
               />
             )}
             <KeystoneChip keystones={hud.astrolabe?.keystones ?? []} />
-            <DissonanceChip
-              dissonance={hud.dissonance}
-              cueCost={hud.weaver.cueCost}
-              cueBase={hud.weaver.cueBase}
-              open={dissonanceTip}
-            />
+            <DissonanceChip dissonance={hud.dissonance} open={dissonanceTip} />
           </div>
         )}
       </div>
@@ -369,7 +364,6 @@ export function HudView({
               rewind={hud.weaver.rewind !== null}
               techniques={hud.weaver.techniques.map((t) => t.name)}
               crescendoName={hud.conducting ? hud.weaver.crescendoName : undefined}
-              chainWindow={hud.conducting?.chainWindow}
             />
           )}
           {notes && hud.boss && (

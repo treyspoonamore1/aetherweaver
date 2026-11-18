@@ -21,10 +21,9 @@ export interface StageRuntime {
 export interface VariantScenario {
   /** The variant in each slot (content ids; a slot left out keeps its default). */
   techniques: NonNullable<SimConfig['techniques']>;
-  /** The encounter (default: the sandbox), Chords (default: Guardian) and Autonomy. */
+  /** The encounter (default: the sandbox), and Chords (default: Guardian). */
   encounter?: string;
   chords?: ChordConfig[];
-  autonomy?: boolean;
   /** Motifs it needs (Twin Aegis: a second Ward charge). */
   motifs?: { id: string; level: number }[];
   /** The moments it stages (the tests check each is drawn). */
@@ -285,10 +284,9 @@ export const VARIANT_SCENARIOS: Record<string, VariantScenario> = {
   'Every variant · I': {
     techniques: { ward: 'chorale', chime: 'purge', reel: 'swap', glide: 'phase_step' },
     encounter: 'first_light',
-    autonomy: true,
     shows: ['chorale', 'swap', 'phase_step'],
     seconds: 30,
-    note: 'First Light with Chorale, Purge, Swap and Phase Step, Autonomy on, Kael threaded: each cast in turn (the clutter check)',
+    note: 'First Light with Chorale, Purge, Swap and Phase Step, Kael threaded: each cast in turn (the clutter check)',
     stage: (rt) => {
       rt.later(0.2, () => rt.queue({ t: 'thread', slot: KAEL }));
       loop(rt, 2, 28, 7.5, (i) => rt.queue(ward(SLOTS[i % 3]!)));
@@ -300,10 +298,9 @@ export const VARIANT_SCENARIOS: Record<string, VariantScenario> = {
   'Every variant · II': {
     techniques: { ward: 'aegis_link', chime: 'absolve', reel: 'anchor', glide: 'skate' },
     encounter: 'first_light',
-    autonomy: true,
     shows: ['link', 'absolve', 'anchor', 'skate'],
     seconds: 30,
-    note: 'First Light with Aegis Link, Absolve, Anchor and Skate, Autonomy on, Lyra threaded: each cast in turn (the clutter check)',
+    note: 'First Light with Aegis Link, Absolve, Anchor and Skate, Lyra threaded: each cast in turn (the clutter check)',
     stage: (rt) => {
       rt.later(0.2, () => rt.queue({ t: 'thread', slot: LYRA }));
       loop(rt, 2, 28, 7.5, () => rt.queue(ward(KAEL)));

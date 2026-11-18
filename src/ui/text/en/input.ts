@@ -104,17 +104,17 @@ export const input = {
     'Hold: let go on a spoke. Toggle: one press opens it, the next picks.',
   'input.options.mouseover': 'Mouseover casting',
   'input.options.mouseover.hint':
-    'Ward, Reel, Chime and Cue go to the hero under the cursor. Off: always the threaded hero.',
+    'Ward, Reel and Chime go to the hero under the cursor. Off: the threaded hero.',
   'input.options.cueModifier': 'Cue modifier',
   'input.options.cueModifier.hint': 'Held with a hero’s Thread key, Cues their Solo',
   'input.options.autoThread': 'Auto-Thread',
   'input.options.autoThread.hint':
-    'After 2 s with no input, the Thread moves to the hero lowest on life. Shown as an assist.',
+    'After 2 s with no input, the Thread follows a Solo about to fire, or goes to the hero lowest on life. Counts as an assist.',
   'input.pad.title': 'Gamepad',
   'input.pad.intro':
     'Any standard gamepad works. Click a slot, then press a pad button (Esc cancels). Buttons are named by position.',
   'input.pad.sticks':
-    'Left stick: move. Right stick: flick the reticle between heroes, or aim the Directive wheel while it’s open. The reticle’s hero is the one your techniques and Cues go to.',
+    'Left stick: move. Right stick: flick the reticle between heroes, or aim the Directive wheel. Your techniques go to the reticle’s hero.',
   'input.pad.reset': 'Reset the pad',
   'input.pad.group.reticle': 'Reticle',
   'input.pad.menus':
@@ -207,7 +207,7 @@ export const input = {
     'A mirror’s copy of your Empower, or the Unweaver’s Thread: it deals {EMBOLDENED_PCT}% more damage.',
   'input.labels.stilled': 'Stilled',
   'input.labels.waitsForYourSong':
-    'Waits for your song: frozen by the Grand Silence, it can’t move, attack, take a call or a Cue. Your Ward, Chime, Reel and Mend still reach them.',
+    'Frozen by the Grand Silence. Your Ward, Chime, Reel and Mend still reach them.',
   'input.labels.playPerfectWardsClutch':
     'Play Perfect Wards, Clutch Chimes and Reel-saves: eight notes wake them, and stand the fallen back up.',
   'input.labels.rooted': 'Rooted',

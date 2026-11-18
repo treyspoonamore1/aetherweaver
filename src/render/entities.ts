@@ -125,7 +125,6 @@ import {
 import {
   DISSONANCE_HEX,
   RISEN_DESAT,
-  cueTicks,
   dissonanceLook,
   emptyDissonanceLook,
   emptyRiseShape,
@@ -580,9 +579,8 @@ export class EntityLayer {
   /** A risen enemy's pose as it stands back up (reused). */
   private readonly riseOut = emptyRiseShape();
   /** Silent Cues: where the Cue's cost falls on the Resonance orbit, in segments (reused). */
-  private readonly ticks = new Float32Array(8);
-  /** What was drawn last frame (tests, the lab): risen enemies marked, rising, crown gems, Cue ticks. */
-  readonly drawnDis = { risen: 0, rising: 0, gems: 0, cueTicks: 0 };
+  /** What was drawn last frame (tests, the lab): risen enemies marked, rising, crown gems. */
+  readonly drawnDis = { risen: 0, rising: 0, gems: 0 };
   /**
    * Movement II, what was drawn last frame (tests, the lab): quadrupeds in their gait, a Pounce's
    * crouch, a charge's lean, leaps and charges in flight, stack pips, Wound hearts, latch
@@ -1306,7 +1304,6 @@ export class EntityLayer {
     this.drawnDis.risen = 0;
     this.drawnDis.rising = 0;
     this.drawnDis.gems = 0;
-    this.drawnDis.cueTicks = 0;
     const m2 = this.drawnM2;
     m2.quadrupeds = 0;
     m2.crouch = 0;
@@ -3240,25 +3237,6 @@ export class EntityLayer {
         lit,
       );
     }
-    // Silent Cues (Dissonance): a Cue costs more than a segment, so a gold tick on the orbit marks
-    // where each Cue's cost falls (lit once it is paid for). At the content's cost there is none.
-    const n = cueTicks(look, this.ticks);
-    for (let k = 0; k < n; k++) {
-      const at = this.ticks[k]!;
-      // A star's segment is full at its own place: `at` segments sits `at - 1` steps on from the first.
-      const a = this.now * 1.6 + (at - 1) * step;
-      const paid = w.resonance + 1e-9 >= at * seg;
-      kit.sprites.push(
-        x + Math.cos(a) * r,
-        1.12,
-        z + Math.sin(a) * r,
-        paid ? 0.15 : 0.1,
-        SPRITE.diamond,
-        C.amp,
-        paid ? 1 : 0.4,
-      );
-    }
-    this.drawnDis.cueTicks = n;
     // Ribbons: sample the hand's path and trail three flowing ribbons behind.
     this.histTimer += dt;
     // Phase 7: standing still (not gliding, not re-forming), they lift into their idle.

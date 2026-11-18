@@ -2,7 +2,7 @@ import type { Catalogue } from '../../catalogue';
 
 /** The `hud.conducting.*` messages: `src/ui/hud/conducting.ts`. */
 export const conducting = {
-  'hud.conducting.onTheBeat': 'On the beat · {cost}',
+  'hud.conducting.onTheBeat': 'On the beat · +{gift} Resonance',
   'hud.conducting.canTPlay': 'can’t play',
   'hud.conducting.playedLost': 'played · lost',
   'hud.conducting.playsTheNextTurn': '{name} plays the next turn of the Finale',
@@ -22,7 +22,6 @@ export const conducting = {
   'hud.conducting.outOfTime': 'out of time',
   'hud.conducting.trio': 'TRIO · {who} {powerLabel}',
   'hud.conducting.duet': 'DUET · {who} {powerLabel}',
-  'hud.conducting.freeCueOnThe': 'Free Cue · on the beat',
   'hud.conducting.repriseEverySolo': 'Reprise · every Solo +{charge}%',
   'hud.conducting.aHero': 'A hero',
   'hud.conducting.canTPlay2': '{who} can’t play — {value}',
@@ -35,7 +34,6 @@ export const conducting = {
   'hud.conducting.one': 'one',
   'hud.conducting.solo': 'Solo',
   'hud.conducting.solos': 'Solos',
-  'hud.conducting.free': 'Free',
   'hud.conducting.waiting': 'Waiting',
   'hud.conducting.marcato': 'Marcato',
   'hud.conducting.next': '{linkName} next',

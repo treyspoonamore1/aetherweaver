@@ -30,8 +30,10 @@ import {
   fightMovement,
   rewindCanRevive,
   saplingInField,
+  soloDueIn,
   songReserveOf,
   techniqueCost,
+  threadCues,
   vowHoldsAt,
   weaverHealCut,
   weaverSilenced,
@@ -153,10 +155,39 @@ function crescendoTotal(calling: { id: string; path: string[]; crescendo: string
 }
 
 /**
- * No Cue can be bought (docs/solos.md): the stand-in price the HUD's Cue pieces read until they
- * go. Out of any meter's reach, and a plain number, so the snapshot still survives JSON.
+ * A hero's Solo as it comes (docs/solos.md), every rule the sim's: `soloDueIn` (the tell: seconds
+ * until it fires, null when none is coming), `threadCues` (would it be Cued now: your Thread is
+ * on them) and, under Silent Cues, how long the Thread must still stay. Two stages: the last
+ * seconds of charge (quiet), then full with the wait running (`soloNow`: the moment to move the
+ * Thread). Kael may raise his wall sooner than the count says (`soloLoose`). A possessed or
+ * stilled hero does not fire, so has no tell.
  */
-const NO_CUE_PRICE = Number.MAX_SAFE_INTEGER;
+export function soloTell(
+  state: WorldState,
+  e: ReadonlyEntity,
+): Pick<HeroHud, 'soloIn' | 'soloNow' | 'soloLoose' | 'willCue' | 'cueHold'> {
+  const h = e.health;
+  if (!e.hero || !h || isStilled(h) || h.statuses.some((s) => s.id === 'possessed'))
+    return { soloIn: null, willCue: false };
+  // Full with no one to fight: the wait has not begun (heroes.ts `soloFires`), so nothing is
+  // coming yet. Oro's wait also runs while a Sapling fights.
+  const idle = e.hero.solo >= 100 && e.hero.targetId === null && !e.hero.grove;
+  const soloIn = idle ? null : soloDueIn(state, e);
+  if (soloIn === null) return { soloIn: null, willCue: false };
+  const willCue = threadCues(state, e);
+  const w = state.entities.get(state.weaverId)?.weaver;
+  const hold =
+    !willCue && state.mods.cueHold > 0 && w?.threadSlot === e.hero.slot
+      ? Math.max(0, state.mods.cueHold - (state.time - w.threadSince))
+      : 0;
+  return {
+    soloIn,
+    soloNow: e.hero.solo >= 100,
+    willCue,
+    ...(e.hero.soloId === 'aegisWall' ? { soloLoose: true } : {}),
+    ...(hold > 0 ? { cueHold: hold } : {}),
+  };
+}
 
 /**
  * Builds the HUD snapshot from sim state: plain numbers and strings only, so React never
@@ -280,12 +311,11 @@ export function buildHudSnapshot(
       revive: h.revive,
       dead: h.dead,
       solo: hero.solo,
-      // A stilled hero cannot be Cued (the sim refuses it), so its Solo is not "ready" until the
-      // song returns, though the notes fill it (docs/phase-5d.md: relit gold on Reignite).
+      // A stilled hero does not fire (docs/solos.md), so its Solo is not "ready" until the song
+      // returns, though the notes fill it (docs/phase-5d.md: relit gold on Reignite).
       soloReady: hero.solo >= 100 && hero.soloActive <= 0 && !isStilled(h),
       soloActive: hero.soloActive > 0,
-      // Every hero fires their own Solo (docs/solos.md): AUTO whenever they have someone to fight.
-      soloAuto: hero.targetId !== null,
+      ...soloTell(state, e),
       soloId: soloDef.id,
       soloName: soloDef.name,
       soloText: soloDef.text,
@@ -540,11 +570,7 @@ export function buildHudSnapshot(
       resonance: w?.resonance ?? 0,
       resonanceMax: resonance.max,
       segment: resonance.segment,
-      // A Cue has no price (docs/solos.md). Until the HUD's Cue pieces are reworked, the meter is
-      // told the price is out of reach, which hides them: the ticks, the label, the "press to
-      // Cue" hint.
-      cueCost: NO_CUE_PRICE,
-      cueBase: NO_CUE_PRICE,
+      cueHold: state.mods.cueHold,
       // Maestro's 75 on a Conductor run (the sim's own), else the content's.
       crescendoCost: crescendoCostOf(state),
       crescendo: w?.crescendo ?? 0,

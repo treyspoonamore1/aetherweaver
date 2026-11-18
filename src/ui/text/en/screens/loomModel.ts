@@ -38,7 +38,7 @@ export const loomModel = {
   'screens.loomModel.bonusesChosenBetweenRuns': 'Bonuses chosen between runs',
   'screens.loomModel.spendYourStarlight': 'Spend your Starlight',
   'screens.loomModel.relicsKeptBetweenRuns2': 'Relics kept between runs',
-  'screens.loomModel.theHeroesTalentsAnd': 'The heroes’ talents and Solos',
+  'screens.loomModel.theHeroesTalentsAnd': 'Hero talents and Solos',
   'screens.loomModel.featsWithinARun': 'Feats within a run',
   'screens.loomModel.harderRunsThatPay': 'Harder runs that pay more, set in Prep',
   'screens.loomModel.echoesAndThisWeek': 'Echoes, and This Week’s Song',
@@ -93,10 +93,10 @@ export const loomModel = {
     'Choose relics to carry into a run: one from Rank {one}, two from {two}, three from {three}. Each lends the run its Inscriptions, and the first, attuned, plays its own effect too.',
   'screens.loomModel.bonds': 'Bonds',
   'screens.loomModel.everyFightPaysBond':
-    'Every fight pays {bondedNames} Bond XP, more for the support you gave each. Each Bond rank opens something: talents (one of two in each tier), an alternate Solo (a hero’s big move, which they charge as they fight), or a scene by a Respite’s fire.',
+    'Fights pay {bondedNames} Bond XP. Each Bond rank opens a talent, an alternate Solo (a hero’s big move) or a scene.',
   'screens.loomModel.whoTheyBecome': 'Who they become',
   'screens.loomModel.onEachHeroS':
-    'On each hero’s page, choose one talent a tier (or neither) and which Solo they bring. Choices change freely between runs; a run keeps what it embarked with.',
+    'Choose one talent a tier and a Solo for each hero. A run keeps what it set out with.',
   'screens.loomModel.deeds': 'Deeds',
   'screens.loomModel.featsWithinARun2':
     'Feats within a run, from winning one to a run where no hero ever goes down. Each pays Starlight as you earn it, and {ladder} of them give an Astrolabe point each too.',

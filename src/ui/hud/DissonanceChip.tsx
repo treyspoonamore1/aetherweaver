@@ -1,7 +1,7 @@
 import { Icon } from '../kit/Icon';
 import { Tip } from '../kit/Tip';
 import { BLIND_LOOK, DISCORD_LOOK } from '../kit/dissonanceLook';
-import { blindLine, cueLine, hudDissonanceView } from '../screens/dissonanceModel';
+import { blindLine, hudDissonanceView } from '../screens/dissonanceModel';
 import { RankPips } from '../screens/DissonanceParts';
 import type { DissonanceHud } from '../store';
 import { t } from '../text';
@@ -9,26 +9,19 @@ import { t } from '../text';
 /**
  * The Dissonance in force this fight (Phase 4d), beside the Calling and keystone chips: its glyph
  * and its points, an eye struck through under Blind Score. Pointing at it (or focusing it) lists
- * its levels with their ranks and effects, and what Blind Score and a raised Cue cost mean here.
- * Nothing without Dissonance.
+ * its levels with their ranks and effects, and what Blind Score means here. Nothing without
+ * Dissonance.
  */
 export function DissonanceChip({
   dissonance,
-  cueCost,
-  cueBase,
   open = false,
 }: {
   dissonance: DissonanceHud | null;
-  /** What a Cue costs this fight (`WeaverHud.cueCost`). */
-  cueCost: number;
-  /** What it would cost without Dissonance (`WeaverHud.cueBase`; Phase 5f: the Conductor's 15). */
-  cueBase?: number;
   /** UI lab: the tooltip shown. */
   open?: boolean;
 }) {
   if (!dissonance) return null;
-  const v = hudDissonanceView(dissonance.levels, cueCost, cueBase);
-  const raised = v.cueRaised;
+  const v = hudDissonanceView(dissonance.levels);
   return (
     <Tip
       open={open}
@@ -61,25 +54,12 @@ export function DissonanceChip({
               </li>
             ))}
           </ul>
-          {(dissonance.blindScore || raised) && (
+          {dissonance.blindScore && (
             <span className="flex flex-col gap-0.5 border-t border-ink-600/70 pt-1.5 text-xs leading-snug">
-              {dissonance.blindScore && (
-                <span className="flex items-start gap-1.5" style={{ color: BLIND_LOOK.color }}>
-                  <Icon name={BLIND_LOOK.icon} size={13} className="mt-px shrink-0" />
-                  {blindLine()}
-                </span>
-              )}
-              {raised && (
-                <span className="flex items-start gap-1.5 text-text">
-                  <Icon
-                    name="note"
-                    size={13}
-                    className="mt-px shrink-0"
-                    style={{ color: DISCORD_LOOK.color }}
-                  />
-                  {cueLine(cueCost)}
-                </span>
-              )}
+              <span className="flex items-start gap-1.5" style={{ color: BLIND_LOOK.color }}>
+                <Icon name={BLIND_LOOK.icon} size={13} className="mt-px shrink-0" />
+                {blindLine()}
+              </span>
             </span>
           )}
         </span>

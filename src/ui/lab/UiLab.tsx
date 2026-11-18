@@ -1189,12 +1189,21 @@ function TrainingTechniquesLab({ initial }: { initial: Partial<Techniques> }) {
 
 /** The Conductor's HUD views (docs/phase-5f.md): a staged real fight each. */
 const CONDUCT_HUD: readonly [ConductScenario, string, boolean?][] = [
-  ['conduct-open', 'HUD: one Cue, the chain open (“Duet next”, Duet badges)'],
-  ['conduct-duet', 'HUD: a Duet (DUET call-out, the Trio badge on Vexis)'],
-  ['conduct-trio', 'HUD: a Trio with Marcato and Spotlight (TRIO, Reprise)'],
-  ['conduct-beat', 'HUD: A Tempo, inside the downbeat’s window (“Free”)'],
-  ['conduct-offbeat', 'HUD: A Tempo, mid-bar'],
-  ['conduct-beat', 'HUD: A Tempo inside the window, reduced motion (stepped light)', true],
+  [
+    'conduct-open',
+    'HUD: one Solo Cued, the chain open (“Duet next”, a Duet badge on the next Solo)',
+  ],
+  ['conduct-duet', 'HUD: a Duet (DUET call-out, the Trio badge on Kael’s coming wall)'],
+  [
+    'conduct-trio',
+    'HUD: a Trio with Marcato and Spotlight (TRIO, Reprise), the Thread on each Solo',
+  ],
+  ['conduct-beat', 'HUD: A Tempo, a Solo about to begin on the downbeat, your Thread on its hero'],
+  [
+    'conduct-offbeat',
+    'HUD: A Tempo, mid-bar, a Solo waiting for the downbeat, the Thread elsewhere',
+  ],
+  ['conduct-beat', 'HUD: A Tempo before the downbeat, reduced motion (stepped light)', true],
   ['conduct-offbeat', 'HUD: A Tempo mid-bar, reduced motion (stepped light)', true],
   ['conduct-finale', 'HUD: Grand Finale with Maestro, two turns played, Vexis next'],
   ['conduct-waits', 'HUD: Grand Finale, Kael waits mid-Solo, Vexis’s turns lost'],
@@ -1276,6 +1285,22 @@ const VIEWS: ViewDef[] = [
     w: 1280,
     h: 720,
     render: () => <HudStage scenario="resonance" />,
+  },
+  {
+    id: 'hud-solos',
+    group: 'Combat HUD',
+    label: 'Solo strip: coming (Kael), Thread to Cue (Lyra), Cued (Vexis)',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="solos" />,
+  },
+  {
+    id: 'hud-solos-more',
+    group: 'Combat HUD',
+    label: 'Solo strip: Kael’s wall (no seconds), coming, Silent Cues’ hold',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="solos-more" coach={false} />,
   },
   {
     id: 'hud-calls',
@@ -2696,17 +2721,7 @@ const VIEWS: ViewDef[] = [
       const c = h.conducting!;
       return (
         <World>
-          <HowToPlay
-            onClose={noop}
-            conduct={{
-              cueCost: c.cueCost,
-              chainWindow: c.chainWindow,
-              duet: c.duet,
-              trio: c.trio,
-              crescendoName: h.weaver.crescendoName,
-              crescendoCost: h.weaver.crescendoCost,
-            }}
-          />
+          <HowToPlay onClose={noop} conduct={{ chainWindow: c.chainWindow }} />
         </World>
       );
     },
@@ -2714,7 +2729,7 @@ const VIEWS: ViewDef[] = [
   {
     id: 'result-conduct',
     group: 'Conductor',
-    label: 'Result: his line (Duets, Trios, the Finale, free Cues)',
+    label: 'Result: his line (Duets, Trios, the Finale, Solos Cued on the beat)',
     w: 1280,
     h: 2320,
     render: () => {
@@ -3763,7 +3778,7 @@ const VIEWS: ViewDef[] = [
   {
     id: 'hud-dissonance',
     group: 'Dissonance',
-    label: 'HUD: the readout, its levels on hover; Silent Cues on the arc',
+    label: 'HUD: the readout, its levels on hover; Silent Cues among them',
     w: 1280,
     h: 720,
     render: () => <HudDissonance scenario="calm" levels={mockDissonance(20)} tip />,

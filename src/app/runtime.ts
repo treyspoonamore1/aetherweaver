@@ -46,7 +46,13 @@ import {
   type ThreadCutHeard,
 } from '../ui/hudBridge';
 import { callingLook } from '../ui/kit/callingLook';
-import { CONDUCT_GOLD, FINALE_TURNS_KEY, beatNow, conductingCallouts } from '../ui/hud/conducting';
+import {
+  CONDUCT_GOLD,
+  FINALE_TURNS_KEY,
+  beatGift,
+  beatNow,
+  conductingCallouts,
+} from '../ui/hud/conducting';
 import { takeHudCommits } from '../ui/perfCounters';
 import { useBeatNow, useUi } from '../ui/store';
 import { useProfile } from './profileStore';
@@ -118,7 +124,6 @@ const TECH_NAMES: Record<string, string> = {
   reel: 'Reel',
   glide: 'Glide',
   thread: 'Thread',
-  cue: 'Cue',
   crescendo: 'Crescendo',
   plant: 'Plant',
 };
@@ -199,7 +204,7 @@ export class GameRuntime {
    */
   private readonly crucible: boolean;
   /**
-   * Phase 5f: A Tempo is on the Conductor's path, so the beat strip and the Cue badges read the
+   * Phase 5f: A Tempo is on the Conductor's path, so the beat strip reads the
    * beat every frame (`useBeatNow`). False on every other run, which does no per-frame beat work.
    */
   private readonly aTempo: boolean;
@@ -922,19 +927,15 @@ export class GameRuntime {
             (s) => s.hero === event.hero && (s.power !== 1 || s.finale),
           );
           if (event.cued && conducted) break;
-          if (event.cued)
-            ui.pushCallout(
-              { kind: 'solo', text: `Cue: ${who?.name ?? ''}`, color: who?.color },
-              now,
-              1600,
-            );
-          // Fired on their own (hero autonomy, Kael's brace): named, so it isn't missed.
-          else if (who) {
+          // Every hero fires their own Solo (docs/solos.md): named, so it isn't missed, and
+          // "Cued" in front when your Thread was on them as it fired.
+          if (who) {
             const name = soloName(state, event.hero, event.solo);
+            const line = name ? `${who.name}: ${name}` : who.name;
             ui.pushCallout(
-              { kind: 'solo', text: name ? `${who.name}: ${name}` : who.name, color: who.color },
+              { kind: 'solo', text: event.cued ? `Cued · ${line}` : line, color: who.color },
               now,
-              1200,
+              event.cued ? 1600 : 1200,
             );
           }
           break;
@@ -1026,7 +1027,7 @@ export class GameRuntime {
           );
           break;
         default: {
-          // The Conductor (docs/phase-5f.md): Duets, Trios, free Cues, Reprise, Marcato and the
+          // The Conductor (docs/phase-5f.md): Duets, Trios, A Tempo's gift, Reprise, Marcato and the
           // Grand Finale's turns. Only his runs raise these events. The Finale's turns build one
           // toast ("Kael ×1 · Lyra ×1.2"), found again by its key.
           const turns =
@@ -1041,6 +1042,7 @@ export class GameRuntime {
               ? (callingDef(state.calling.id).crescendoName ?? undefined)
               : undefined,
             marcato: state.calling?.conducting?.marcato,
+            gift: beatGift(state),
           });
           for (const c of conducted) {
             // A keyed one replaces its last (the Finale's turns, a hero's lost turns, the Duet).

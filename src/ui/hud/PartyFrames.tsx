@@ -21,7 +21,7 @@ import { StatusBadge } from './StatusBadge';
 import { ConductMarks, CueBadge } from './ConductParts';
 import { POSSESSED_COLOR, PossessedStrip, StitchChip } from './RiftMarks';
 import { healCutTitle } from './legionLook';
-import { ROLE_LABEL, bindingLabel, cueModifierMark, mouseRoleLabel } from './labels';
+import { ROLE_LABEL, bindingLabel, mouseRoleLabel } from './labels';
 import { beamSong, heroSongs, type HeroSongs } from './songs';
 import { bearLabel, shineLabel } from './calling';
 import { CallingGlyph, callingLook } from '../kit/CallingGlyph';
@@ -1050,6 +1050,7 @@ export function HeroFrame({
               {relit && !h.stilled && <ReigniteStrip hero={h} />}
               {h.held && <HeldStrip hero={h} />}
               {h.call && <CallStrip hero={h} threadMode={threadMode} named={named} />}
+              {soloComing(h) && <SoloStrip hero={h} />}
               {h.possessed && <PossessedStrip possessed={h.possessed} blind={blind} />}
               <div className="mt-1 flex min-h-5 flex-wrap items-center gap-1">
                 {(h.rewind || h.foreseen.length > 0 || h.lands) && (
@@ -1335,13 +1336,22 @@ function InFieldPip({ inField, out }: { inField: boolean; out: boolean }) {
   );
 }
 
+/** A hero's Solo is coming: the tell is on (`HeroHud.soloIn`), and they stand. */
+function soloComing(h: HeroHud): boolean {
+  return h.soloIn !== null && h.soloIn !== undefined && !h.dead && !h.downed;
+}
+
 /**
- * Portrait disc ringed by the Solo charge; blazes with the Cue key when ready. Phase 4e: their
- * Bond rank on its corner, once Bonds are open.
+ * Portrait disc ringed by the Solo charge (docs/solos.md). While their Solo is coming the ring
+ * is gold, and glows once it is full; with your Thread on them (it will be Cued) the ring
+ * doubles. The Solo strip in the frame says the rest. Phase 4e: their Bond rank on its corner,
+ * once Bonds are open.
  */
 function Portrait({ hero: h, bondRank = null }: { hero: HeroHud; bondRank?: number | null }) {
-  // A stilled hero cannot be Cued until the song returns.
+  // A stilled hero does not fire until the song returns.
   const ready = h.soloReady && !h.dead && !h.downed && !h.stilled;
+  const coming = soloComing(h);
+  const cued = coming && h.willCue === true;
   return (
     <div className="relative flex shrink-0 flex-col items-center gap-0.5">
       {bondRank !== null && (
@@ -1362,49 +1372,118 @@ function Portrait({ hero: h, bondRank = null }: { hero: HeroHud; bondRank?: numb
           <Icon name="leaf" size={10} />
         </span>
       )}
-      <Ring
-        value={h.soloActive ? 1 : h.solo / 100}
-        size={46}
-        stroke={4}
-        color={ready || h.soloActive ? GOLD : 'rgb(252 217 138 / 0.65)'}
-        className={ready ? 'anim-glow' : ''}
-      >
-        <span
-          className="flex h-8 w-8 items-center justify-center rounded-full font-display text-base font-bold text-ink-950"
-          style={{ background: h.color }}
-          aria-hidden
-        >
-          {h.name.slice(0, 1)}
-        </span>
-      </Ring>
       <span
-        className={`font-mono text-xs leading-none ${ready ? 'font-bold text-gold-300' : 'text-muted'}`}
+        className="rounded-full"
+        style={
+          cued ? { boxShadow: `0 0 0 2px var(--color-ink-950), 0 0 0 4px ${GOLD}` } : undefined
+        }
+        data-testid="solo-ring"
+        data-coming={coming || undefined}
+        data-cued={cued || undefined}
+      >
+        <Ring
+          value={h.soloActive ? 1 : h.solo / 100}
+          size={46}
+          stroke={4}
+          color={ready || coming || h.soloActive ? GOLD : 'rgb(252 217 138 / 0.65)'}
+          className={coming && h.soloNow ? 'anim-glow' : ''}
+        >
+          <span
+            className="flex h-8 w-8 items-center justify-center rounded-full font-display text-base font-bold text-ink-950"
+            style={{ background: h.color }}
+            aria-hidden
+          >
+            {h.name.slice(0, 1)}
+          </span>
+        </Ring>
+      </span>
+      <span
+        className={`font-mono text-xs leading-none ${ready || coming ? 'font-bold text-gold-300' : 'text-muted'}`}
         title={txt('hud.partyFrames.charged', { soloName: h.soloName, solo: Math.floor(h.solo) })}
+        data-testid="solo-count"
       >
         {h.dead
           ? ''
           : h.soloActive
             ? txt('hud.partyFrames.solo2')
             : ready
-              ? h.soloAuto
-                ? txt('hud.partyFrames.auto')
-                : txt('hud.partyFrames.ready')
+              ? txt('hud.partyFrames.ready')
               : `${Math.floor(h.solo)}%`}
       </span>
-      {ready && (
-        <span
-          className="mt-0.5 flex items-center gap-0.5"
-          title={
-            h.soloAuto
-              ? txt('hud.partyFrames.firesOnItsOwn', { soloName: h.soloName })
-              : txt('hud.partyFrames.cue', { soloName: h.soloName })
-          }
-        >
-          <KeyCap label={`${cueModifierMark()}${h.slot + 1}`} accent />
+    </div>
+  );
+}
+
+/**
+ * The Solo strip (docs/solos.md): while a hero's Solo is coming, the seconds until it fires and
+ * what your Thread makes of it. Two stages with the Thread elsewhere. Coming (the last seconds of
+ * charge): the Solo's name in a quiet dashed outline, so the hand can get ready. Now (full, the
+ * wait running): a solid gold outline that glows, "Thread to Cue". Thread on them, at either
+ * stage: a filled gold strip, "Cued" and the Solo's name, with a tick. Under Silent Cues, with the Thread on them but not
+ * yet long enough: "Hold" and the seconds still to hold. Shape and words carry it, not colour
+ * alone; with Reduced motion nothing pulses. Kael may raise his wall sooner than the count, so
+ * his strip shows no seconds. On a Conductor run the Duet or Trio it would be sits by the name.
+ */
+function SoloStrip({ hero: h }: { hero: HeroHud }) {
+  const cued = h.willCue === true;
+  const hold = !cued && (h.cueHold ?? 0) > 0;
+  const now = h.soloNow === true;
+  const seconds = h.soloIn!.toFixed(1);
+  // No seconds for Kael (he may raise his wall sooner), nor once the count has run out and the
+  // hero is holding the Solo for a moment (a hit about to land): a standing "0.0" says nothing.
+  const count = !h.soloLoose && h.soloIn! > 0.05;
+  const state = cued ? 'cued' : hold ? 'hold' : now ? 'now' : 'coming';
+  return (
+    <div
+      className={`mt-1.5 flex items-center gap-1.5 rounded-md px-2 py-1 text-xs ${
+        cued ? 'border-2 font-bold' : now ? 'anim-glow border-2' : 'border border-dashed'
+      }`}
+      style={
+        cued
+          ? { borderColor: GOLD, background: GOLD, color: 'var(--color-ink-950)' }
+          : {
+              borderColor: now ? GOLD : 'rgb(245 184 61 / 0.6)',
+              background: now ? 'rgb(245 184 61 / 0.16)' : 'rgb(245 184 61 / 0.06)',
+              color: now ? 'var(--color-gold-200)' : 'var(--color-muted)',
+            }
+      }
+      role="status"
+      aria-label={
+        cued
+          ? txt('hud.partyFrames.soloCued', { name: h.name, soloName: h.soloName })
+          : hold
+            ? txt('hud.partyFrames.soloHold', {
+                name: h.name,
+                soloName: h.soloName,
+                hold: h.cueHold!.toFixed(1),
+              })
+            : txt('hud.partyFrames.soloThread', { name: h.name, soloName: h.soloName })
+      }
+      title={txt('hud.partyFrames.cuedMeans')}
+      data-testid="solo-strip"
+      data-state={state}
+    >
+      {/* What to do leads: the Solo's name gives way to it once the Solo is full. */}
+      <Icon name={cued ? 'check' : hold || now ? 'thread' : 'note'} size={13} />
+      {(cued || hold || now) && (
+        <span className="shrink-0 whitespace-nowrap font-bold" data-testid="solo-say">
+          {cued
+            ? txt('hud.partyFrames.cued')
+            : hold
+              ? txt('hud.partyFrames.hold', { hold: h.cueHold!.toFixed(1) })
+              : txt('hud.partyFrames.threadToCue')}
         </span>
       )}
-      {/* The Conductor (docs/phase-5f.md): what a Cue now would be, "Duet ×1.25", "Free". */}
-      {ready && h.cue && <CueBadge hero={h} />}
+      {(cued || !(hold || now)) && (
+        <span className={`truncate ${cued ? 'font-normal' : 'font-semibold'}`}>{h.soloName}</span>
+      )}
+      {h.cue && <CueBadge hero={h} />}
+      <span className="ml-auto" />
+      {count && (
+        <span className="w-7 shrink-0 text-right font-mono font-semibold" data-testid="solo-in">
+          {seconds}
+        </span>
+      )}
     </div>
   );
 }

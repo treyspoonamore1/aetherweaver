@@ -172,7 +172,14 @@ export const codexScreen = {
   'screens.codexScreen.aShortDashWith':
     'A short dash with {iframes}s of invulnerability. Free to use.',
   'screens.codexScreen.goodSupportFillsThe':
-    "Good support fills the Resonance arc ({max} in segments of {segment}). A Cue ({key}, or {cueMod} + a hero's number) spends one segment to fire a charged Solo with a bonus. Crescendo ({key2}) spends it all on {name}: {description}{value}",
+    'Good support fills Resonance. At {cost}, Crescendo ({key2}) spends it on {name}: {description}{value}',
+  'screens.codexScreen.hisCrescendoIs': ' The {name}’s Crescendo is {crescendoName}.',
+  'screens.codexScreen.solos': 'Solos',
+  'screens.codexScreen.heroesFireTheirOwn':
+    'Heroes fire their own Solos. A Solo fired with your Thread on them is Cued: the stronger form.{value}',
+  'screens.codexScreen.firesAfter': 'Fires {wait} s after it fills',
+  'screens.codexScreen.kaelHolds': 'Kael holds his wall up to {kaelHold} s',
+  'screens.codexScreen.oneEach': 'One Solo starts each {gap} s',
   'screens.codexScreen.perfectWard': 'Perfect Ward +{perfectWard}',
   'screens.codexScreen.save': 'Save +{save}',
   'screens.codexScreen.clutchChime': 'Clutch Chime +{clutchChime}',
@@ -209,7 +216,7 @@ export const codexScreen = {
   'screens.codexScreen.onAChronomancerRun':
     ' On a Chronomancer run, Rewind takes its key: the hero goes back {rewind} s, to where they stood and the life they had (never less than now). {cooldown} s cooldown, Reel’s cost and range. Once a run, it stands back up a hero who fell in that time.',
   'screens.codexScreen.onARunA':
-    ' On a {name} run a Cue costs {value}, and a Cue within {value2} s of the last plays as a Duet, {value3}% stronger; a third in a row is a Trio, {value4}% stronger. His Crescendo is {crescendoName}.',
+    ' On a {name} run, a Solo Cued within {value2} s of the last is a Duet, {value3}% stronger. A third is a Trio, {value4}% stronger.',
   'screens.codexScreen.theMiddleMouseButton': 'the middle mouse button',
   'screens.codexScreen.pressOf': 'press of {mouseRoleLabel}',
   'screens.codexScreen.beamSong': 'beam song',

@@ -21,7 +21,7 @@ export const resultText = {
   'screens.resultText.sforzandoStepOutOf': 'Sforzando: step out of the line, or {value}',
   'screens.resultText.rewindThem': 'Rewind them',
   'screens.resultText.fortissimoSilenceCrescendoBefore':
-    'Fortissimo Silence: Crescendo before Discord fills, or dome, Ward and heal',
+    'Fortissimo Silence: sing your Crescendo before Discord fills',
   'screens.resultText.restChimeItAway': 'Rest: Chime it away in its last second, or Ward it',
   'screens.resultText.onlyYouCanAnswer':
     'Only you can answer in the silence: Ward on the beat, or {value}',
@@ -54,8 +54,8 @@ export const resultText = {
   'screens.resultText.ofThemAtThe': ', {clutchCleanses} of them at the last moment',
   'screens.resultText.rewindTookHeroesOut': 'Rewind took heroes out of danger {reels} {reelsWord}.',
   'screens.resultText.reeledHeroesOutOf': 'Reeled heroes out of danger {reels} {reelsWord}.',
-  'screens.resultText.cued': 'Cued {cues} {cuesWord}{value}.',
-  'screens.resultText.andSang': ' and sang {crescendos} {crescendosWord}',
+  'screens.resultText.cued': '{cues} {cuesWord} Cued{value}.',
+  'screens.resultText.andSang': ', {crescendos} {crescendosWord} sung',
   'screens.resultText.answeredOfForHelp':
     'Answered {responses} of {calls} {callsWord} for help: {responses} {responsesWord}.',
   'screens.resultText.yourPartyCalledFor':

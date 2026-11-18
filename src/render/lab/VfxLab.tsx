@@ -190,7 +190,7 @@ interface LabApi {
   dissonanceStats(): DissonanceStats;
   /** Phase 4e */
   bondScenarios(): string[];
-  /** Restarts the real sim with that scenario's Bonds (and encounter, party, Autonomy) and stages it. */
+  /** Restarts the real sim with that scenario's Bonds (and encounter, party) and stages it. */
   bondScenario(name: string): void;
   /** Restarts the real sim with these talents and alternate Solos (null: none). */
   setBonds(bonds: { talents: string[]; solos: string[] } | null): void;
@@ -425,8 +425,7 @@ interface BondStats {
 interface DissonanceStats {
   levels: { id: string; rank: number }[];
   blindScore: boolean;
-  cueCost: number;
-  /** Rises started; rises drawn, risen enemies marked, crown gems, Cue ticks, blind badges. */
+  /** Rises started; rises drawn, risen enemies marked, crown gems, blind badges. */
   fired: Record<string, number>;
   drawn: Record<string, number>;
   enemies: {
@@ -598,7 +597,8 @@ let dissonanceCfg: { id: string; rank: number }[] = [];
 let encounterOverride: string | null = null;
 /**
  * Phase 4e: the Bonds the lab sim fights with (talents and alternate Solos, as SimConfig.bonds),
- * a scenario's party, and Autonomy (the heroes fire their Solos on their own: the uncued Solos).
+ * and a scenario's party. The heroes fire their own Solos (docs/solos.md); a scene that wants a
+ * Solo at a given moment stages it with the `fireSolo` debug command, Cued or plain.
  */
 let bondsCfg: { talents: string[]; solos: string[] } | null = null;
 let partyCfg: string[] | null = null;
@@ -1671,17 +1671,21 @@ const DIS_SCENARIOS: Record<string, DisScenario> = {
     },
   },
   'Silent Cues': {
-    levels: ['cue_cost'],
-    note: 'A Cue costs 35: gold ticks on your Resonance orbit where each Cue’s cost falls. At 30 the first is dim; at 2 s, 40: lit, a Cue paid for',
+    levels: ['cue_hold'],
+    note: 'Your Thread must hold a second to Cue. Lyra’s Solo fires plain (your Thread is elsewhere: the dashed mark). Then your Thread goes to Vexis: a second ring fills round her mark as it holds, and the mark turns to the Cued look before her Solo fires',
     stage: (rt) => {
-      rt.later(0.1, () => rt.queue({ t: 'debug', op: { op: 'setResonance', value: 30 } }));
-      rt.later(2, () => rt.queue({ t: 'debug', op: { op: 'setResonance', value: 40 } }));
+      rt.later(0.2, () => {
+        rt.attackers(1, 2);
+        rt.attackers(2, 2);
+      });
+      rt.later(1.2, () => rt.queue({ t: 'debug', op: { op: 'chargeSolos' } }));
+      rt.later(1.5, () => rt.thread(2));
     },
   },
   'Every level': {
     levels: EVERY_LEVEL,
     encounter: 'muted_nave',
-    note: 'Every level at its top rank in the Muted Nave: risen choristers, two-affix elites, blind telegraphs, the orbit’s ticks (the clutter check)',
+    note: 'Every level at its top rank in the Muted Nave: risen choristers, two-affix elites, blind telegraphs (the clutter check)',
     stage: (rt) => {
       rt.later(0.2, () => {
         rt.thread(0);
@@ -1710,8 +1714,6 @@ interface BondScenario {
   encounter?: string;
   chords?: ChordConfig[];
   party?: string[];
-  /** The heroes fire their Solos on their own (Autonomy): the uncued Solos. */
-  autonomy?: boolean;
   /** Phase 5b: the floor (default: the one shown), e.g. a Spire arena for Brann's clutter check. */
   theme?: string;
   /** Phase 5b: motifs in force (Blood Tithe, Blood and Silk). */
@@ -1786,7 +1788,7 @@ function rosterScenarios(): Record<string, BondScenario> {
     'Seren · Thousand Cuts cued': {
       talents: [],
       party: WITH_SEREN,
-      note: 'You Cue Seren: she vanishes and blinks between them, violet afterimages edged in your gold, then returns',
+      note: 'Seren’s Solo fires Cued (your Thread on them): she vanishes and blinks between them, violet afterimages edged in your gold, then returns',
       stage: (rt) => {
         rt.packOn(SEREN, 'hollow_chorister', 5);
         rt.later(0.6, () => rt.serenEvent(SEREN, 'cuts'));
@@ -1836,7 +1838,7 @@ function rosterScenarios(): Record<string, BondScenario> {
     'Oro · Wildgrowth cued': {
       talents: [],
       party: WITH_ORO,
-      note: 'You Cue Oro: the Ancient rises (its ground warning), its taunt ring, vines on the lesser enemies it roots; and its 6 m disc counts as your field: a second, dashed disc with a bark rim',
+      note: 'Oro’s Solo fires Cued (your Thread on them): the Ancient rises (its ground warning), its taunt ring, vines on the lesser enemies it roots; and its 6 m disc counts as your field: a second, dashed disc with a bark rim',
       stage: (rt) => {
         rt.packOn(KAEL, 'hollow_chorister', 4);
         rt.later(0.3, () => rt.sprout(ORO, true));
@@ -1906,7 +1908,7 @@ function brannScenarios(): Record<string, BondScenario> {
     'Brann · Red Frenzy cued': {
       talents: [],
       party: WITH_BRANN,
-      note: 'You Cue Brann: he spins as he chases, a crimson swipe ring round him edged in gold, his lifesteal motes larger (Cued: his axe drinks three times as deep)',
+      note: 'Brann’s Solo fires Cued (your Thread on them): he spins as he chases, a crimson swipe ring round him edged in gold, his lifesteal motes larger (Cued: his axe drinks three times as deep)',
       stage: (rt) => {
         rt.later(0.2, () => rt.attackers(BRANN, 3));
         rt.later(0.3, () => rt.bloodOf(BRANN));
@@ -1919,8 +1921,7 @@ function brannScenarios(): Record<string, BondScenario> {
     'Brann · Red Frenzy uncued': {
       talents: [],
       party: WITH_BRANN,
-      autonomy: true,
-      note: 'Autonomy: Brann fires Red Frenzy himself: the spin and the crimson ring, no gold',
+      note: 'Plain (your Thread elsewhere): Brann fires Red Frenzy: the spin and the crimson ring, no gold',
       stage: (rt) => {
         rt.later(0.2, () => rt.attackers(BRANN, 3));
         rt.later(0.3, () => rt.bloodOf(BRANN));
@@ -1978,7 +1979,7 @@ function brannScenarios(): Record<string, BondScenario> {
       talents: [],
       solos: ['blood_brother'],
       party: WITH_BRANN,
-      note: 'You Thread Kael and Cue Brann (Blood Brother): a brass tether from him to Kael, the heal running along it',
+      note: 'You Thread Kael; Brann’s Solo fires Cued (Blood Brother): a brass tether from him to Kael, the heal running along it',
       stage: (rt) => {
         rt.later(0.2, () => rt.attackers(BRANN, 3));
         rt.later(0.3, () => rt.thread(KAEL));
@@ -2011,8 +2012,7 @@ function brannScenarios(): Record<string, BondScenario> {
       talents: ['berserkers_hymn', 'deathless'],
       party: ['lyra', 'vexis', 'brann'],
       theme: 'kennels',
-      autonomy: true,
-      note: 'No tank: eight Sanguine Hounds on Brann in the Kennels at 35%, Autonomy on: his ember, brass ring and swipes must stay apart from the hounds’ red and the lethal channels',
+      note: 'No tank: eight Sanguine Hounds on Brann in the Kennels at 35%: his ember, brass ring and swipes must stay apart from the hounds’ red and the lethal channels',
       stage: (rt) => {
         rt.packOn(2, 'sanguine_hound', 8);
         rt.later(0.3, () => {
@@ -2202,7 +2202,7 @@ const BOND_SCENARIOS: Record<string, BondScenario> = {
   },
   Supernova: {
     talents: ['supernova'],
-    note: 'Three brutes ahead; you Cue Vexis: Starfall, and its last meteor bursts into a nova',
+    note: 'Three brutes ahead; Vexis’s Solo fires Cued (your Thread on them): Starfall, and its last meteor bursts into a nova',
     stage: (rt) => {
       rt.later(0.2, () => {
         rt.spawn('bell_brute', -2, -7);
@@ -2220,7 +2220,7 @@ const BOND_SCENARIOS: Record<string, BondScenario> = {
     // Kael's and Lyra's alternate Solos: their Cues are quieter to look at than a dome and a
     // barrage, so the stars show.
     solos: ['oathkeeper', 'hawks_vigil'],
-    note: `You Cue Kael, then Lyra: each Cue leaves a star where the hero stood, casting Vexis’s bolt every ${tval('constellation', 'interval')} s for ${tval('constellation', 'seconds')} s, the two joined`,
+    note: `Kael’s Solo fires Cued, then Lyra’s: each Cue leaves a star where the hero stood, casting Vexis’s bolt every ${tval('constellation', 'interval')} s for ${tval('constellation', 'seconds')} s, the two joined`,
     stage: (rt) => {
       rt.later(0.2, () => {
         rt.spawn('bell_brute', -3, -7);
@@ -2241,7 +2241,7 @@ const BOND_SCENARIOS: Record<string, BondScenario> = {
   'Oathkeeper · cued': {
     talents: [],
     solos: ['oathkeeper'],
-    note: `You Cue Kael (Oathkeeper, ${sval('oathkeeper', 'cuedRadius')} m): choristers on Lyra and Vexis, and their hits land on Kael instead (a tether each)`,
+    note: `Kael’s Solo fires Cued (your Thread on them) (Oathkeeper, ${sval('oathkeeper', 'cuedRadius')} m): choristers on Lyra and Vexis, and their hits land on Kael instead (a tether each)`,
     stage: (rt) => {
       readySolos(rt, 0.2);
       rt.later(0.4, () => rt.queue({ t: 'debug', op: { op: 'fireSolo', slot: KAEL, cued: true } }));
@@ -2254,8 +2254,7 @@ const BOND_SCENARIOS: Record<string, BondScenario> = {
   'Oathkeeper · uncued': {
     talents: [],
     solos: ['oathkeeper'],
-    autonomy: true,
-    note: `Autonomy: Kael fires Oathkeeper himself (${sval('oathkeeper', 'radius')} m), choristers on Lyra`,
+    note: `Plain (your Thread elsewhere): Kael fires Oathkeeper (${sval('oathkeeper', 'radius')} m), choristers on Lyra`,
     stage: (rt) => {
       rt.later(0.2, () => rt.attackers(LYRA, 3));
       rt.later(0.6, () => rt.queue({ t: 'debug', op: { op: 'chargeSolos' } }));
@@ -2264,7 +2263,7 @@ const BOND_SCENARIOS: Record<string, BondScenario> = {
   'Hawk’s Vigil · cued': {
     talents: [],
     solos: ['hawks_vigil'],
-    note: `Brutes, a Lancer and a Lamenter ahead; you Cue Lyra: she shoots each enemy that starts an attack and marks it (${sval('hawks_vigil', 'pct')}% more damage, ${sval('hawks_vigil', 'mark')} s)`,
+    note: `Brutes, a Lancer and a Lamenter ahead; Lyra’s Solo fires Cued (your Thread on them): she shoots each enemy that starts an attack and marks it (${sval('hawks_vigil', 'pct')}% more damage, ${sval('hawks_vigil', 'mark')} s)`,
     stage: (rt) => {
       attackersAhead(rt, 0.2);
       readySolos(rt, 0.3);
@@ -2275,8 +2274,7 @@ const BOND_SCENARIOS: Record<string, BondScenario> = {
     talents: [],
     solos: ['hawks_vigil'],
     party: ['kael', 'lyra'],
-    autonomy: true,
-    note: 'Autonomy (Kael and Lyra): she fires her Vigil herself, holds still and shoots each enemy that starts an attack (no marks)',
+    note: 'Plain (your Thread elsewhere): she fires her Vigil, holds still and shoots each enemy that starts an attack (no marks)',
     stage: (rt) => {
       attackersAhead(rt, 0.2);
       rt.later(2.4, () => rt.queue({ t: 'debug', op: { op: 'chargeSolos' } }));
@@ -2285,8 +2283,7 @@ const BOND_SCENARIOS: Record<string, BondScenario> = {
   'Celestial Sphere · uncued': {
     talents: [],
     solos: ['celestial_sphere'],
-    autonomy: true,
-    note: `Autonomy: you Thread Kael, a Bell Brute on him (you step back); Vexis fires her Sphere on him and it swallows the brute’s blows whole, ${sval('celestial_sphere', 'hits')}, then shatters`,
+    note: `Plain: you Thread Kael, a Bell Brute on him (you step back); Vexis fires her Sphere on him and it swallows the brute’s blows whole, ${sval('celestial_sphere', 'hits')}, then shatters`,
     stage: (rt) => {
       rt.later(0.15, () => rt.brute(KAEL));
       rt.later(0.2, () => rt.thread(KAEL));
@@ -2296,7 +2293,7 @@ const BOND_SCENARIOS: Record<string, BondScenario> = {
   'Celestial Sphere · cued': {
     talents: [],
     solos: ['celestial_sphere'],
-    note: `You Cue Vexis: every hero in your field gets a sphere of ${sval('celestial_sphere', 'hits')} hits (gold stars: your Cue’s); choristers test them`,
+    note: `Vexis’s Solo fires Cued (your Thread on them): every hero in your field gets a sphere of ${sval('celestial_sphere', 'hits')} hits (gold stars: your Cue’s); choristers test them`,
     stage: (rt) => {
       readySolos(rt, 0.2);
       rt.later(0.4, () =>
@@ -2322,8 +2319,7 @@ const BOND_SCENARIOS: Record<string, BondScenario> = {
     ],
     solos: ['celestial_sphere'],
     encounter: 'muted_nave',
-    autonomy: true,
-    note: 'The Muted Nave with a talent of every kind and Vexis’s Sphere, Autonomy on, Kael threaded (the clutter check)',
+    note: 'The Muted Nave with a talent of every kind and Vexis’s Sphere, Kael threaded (the clutter check)',
     stage: (rt) => {
       rt.later(0.2, () => rt.thread(KAEL));
       readySolos(rt, 3.5);
@@ -3306,7 +3302,6 @@ class LabRuntime {
     return {
       levels: st.dissonance.levels.map((l) => ({ ...l })),
       blindScore: st.dissonance.blindScore,
-      cueCost: CONTENT.resonance.segment,
       fired: { ...v.dissonance.fired },
       drawn: {
         ...v.dissonance.drawn,
@@ -4612,7 +4607,7 @@ class LabRuntime {
     };
   }
 
-  /** Phase 4e: restarts with that scenario's Bonds (its encounter, party, Autonomy) and stages it. */
+  /** Phase 4e: restarts with that scenario's Bonds (its encounter, party) and stages it. */
   bondScenario(name: string): void {
     const sc = BOND_SCENARIOS[name];
     if (!sc) return;
@@ -4645,7 +4640,7 @@ class LabRuntime {
     if (best !== null) this.queue({ t: 'directive', kind: 'focus', target: best });
   }
 
-  /** Phase 4f: restarts with that scenario's variants (its encounter, Autonomy) and stages it. */
+  /** Phase 4f: restarts with that scenario's variants (its encounter) and stages it. */
   variantScenario(name: string): void {
     const sc = VARIANT_SCENARIOS[name];
     if (!sc) return;

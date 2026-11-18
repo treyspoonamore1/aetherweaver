@@ -275,7 +275,7 @@ export const PASSIVE_NAME: Readonly<Record<string, string>> = {
     return txt('screens.callingText.rewindTelegraphTimersAnd');
   },
   get conductor() {
-    return txt('screens.callingText.cheapCuesDuetsAnd');
+    return txt('screens.callingText.duetsAndTrios');
   },
 };
 
@@ -768,21 +768,22 @@ function conductingParts(stats: CallingStats): CallingPart[] {
       figure: fmt(c.finaleSolos),
       caption: txt('screens.callingText.solosPlayed', { finale }),
     });
-  // Cues that cost nothing on the downbeat (A Tempo; the sim counts only those that cost 0).
+  // Solos Cued on the downbeat (A Tempo gave Resonance for each; the tally keeps its old name,
+  // `freeCues`, for the saves' sake: docs/solos.md).
   if (c.freeCues >= 1)
     parts.push({
-      label: txt('screens.callingText.freeCues'),
+      label: txt('screens.callingText.onTheBeat'),
       amount: c.freeCues,
       text: count(
         c.freeCues,
-        txt('screens.callingText.freeCue'),
-        txt('screens.callingText.freeCues2'),
+        txt('screens.callingText.soloOnTheBeat'),
+        txt('screens.callingText.solosOnTheBeat'),
       ),
       figure: fmt(c.freeCues),
       caption:
         c.freeCues === 1
-          ? txt('screens.callingText.freeCue')
-          : txt('screens.callingText.freeCues2'),
+          ? txt('screens.callingText.soloOnTheBeat')
+          : txt('screens.callingText.solosOnTheBeat'),
     });
   return parts;
 }

@@ -66,8 +66,9 @@ export function mouseRoleDefault(role: MouseRole): boolean {
 }
 
 /**
- * The Cue modifier as the hero keys' prefix, as the player has it: "⇧" for Shift (as always),
- * otherwise its name and a plus ("Ctrl+").
+ * The Cue modifier as the hero keys' prefix: "⇧" for Shift, otherwise its name and a plus
+ * ("Ctrl+"). No key Cues a Solo any more (docs/solos.md) and nothing on the HUD shows this; it
+ * goes with the setting it reads (the input step's).
  */
 export function cueModifierMark(): string {
   const mod = optionsOf(useSettings.getState().settings).input.cueModifier || 'Shift';

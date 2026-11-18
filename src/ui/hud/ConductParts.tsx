@@ -19,7 +19,6 @@ import {
   finaleTurnLabel,
   finaleTurnSentence,
   liveBeat,
-  liveCueBadge,
   pctLabel,
 } from './conducting';
 import { t } from '../text';
@@ -54,7 +53,7 @@ export function ConductRow({ c, reduced }: { c: ConductingHud; reduced?: boolean
   );
 }
 
-/** The chain's window: a gold ring draining from the last Cue, "Duet next" or "Trio next". */
+/** The chain's window: a gold ring draining from the last Cued Solo, "Duet next" or "Trio next". */
 export function ChainRing({ chain }: { chain: NonNullable<ConductingHud['chain']> }) {
   const label = chainLabel(chain);
   return (
@@ -84,12 +83,13 @@ export function ChainRing({ chain }: { chain: NonNullable<ConductingHud['chain']
 }
 
 /**
- * A Tempo's metronome (docs/phase-5f.md): four beat marks a bar, the first larger, the downbeat's
- * window as a band round it, and a light running with the sim's time. Inside the window the band
- * glows white-gold and reads "Free". With reduced motion the light steps mark to mark, on the
- * downbeat's exactly while the window is open; the band's glow and the word mark it too, so it
- * reads with the sound off. Its time, window and cost are the frame's (`useBeatNow`), not the
- * 15 Hz snapshot's, when the runtime writes them.
+ * A Tempo's metronome (docs/phase-5f.md, docs/solos.md): four beat marks a bar, the first larger,
+ * the downbeat's window as a band round it, and a light running with the sim's time. The heroes
+ * begin their Solos in that window, so the strip shows when the next Solo begins: while one is
+ * due on the coming downbeat the band is lit and the hero's initial stands beside it in their
+ * colour, ringed gold when your Thread is on them (it will be Cued). With reduced motion the
+ * light steps mark to mark, on the downbeat's exactly while the window is open. Its time and
+ * window are the frame's (`useBeatNow`), not the 15 Hz snapshot's, when the runtime writes them.
  */
 export function BeatStrip({
   beat: snapshot,
@@ -109,21 +109,22 @@ export function BeatStrip({
   const W = 108;
   const H = 14;
   const x = (f: number) => 4 + f * (W - 8);
+  const next = v.armed ? beat.next : null;
+  const lit = v.armed;
   return (
     <span
       className="flex items-center gap-1"
       role="img"
       aria-label={
-        beat.downbeatCost > 0
-          ? v.inside
-            ? t('hud.conductParts.onTheDownbeatA', { downbeatCost: beat.downbeatCost })
-            : t('hud.conductParts.theBeatCueOn', { downbeatCost: beat.downbeatCost })
-          : v.inside
-            ? t('hud.conductParts.onTheDownbeatA2')
-            : t('hud.conductParts.theBeatCueOn2')
+        next
+          ? next.willCue
+            ? t('hud.conductParts.beatNextCued', { name: next.name, in: next.in.toFixed(1) })
+            : t('hud.conductParts.beatNext', { name: next.name, in: next.in.toFixed(1) })
+          : t('hud.conductParts.beat')
       }
       data-testid="beat-strip"
       data-inside={v.inside || undefined}
+      data-armed={v.armed || undefined}
       data-stepped={stepped || undefined}
       data-light={v.light.toFixed(3)}
     >
@@ -142,10 +143,14 @@ export function BeatStrip({
           width={Math.max(2, x(v.band.to) - x(v.band.from))}
           height={H - 2}
           rx={3}
-          fill={v.inside ? BEAT_LIGHT : `color-mix(in srgb, ${LOOK.light} 18%, transparent)`}
-          stroke={v.inside ? CONDUCT_GOLD : LOOK.light}
-          strokeOpacity={v.inside ? 1 : 0.45}
-          strokeWidth={1}
+          fill={
+            lit && v.inside
+              ? BEAT_LIGHT
+              : `color-mix(in srgb, ${lit ? CONDUCT_GOLD : LOOK.light} ${lit ? 45 : 18}%, transparent)`
+          }
+          stroke={lit ? CONDUCT_GOLD : LOOK.light}
+          strokeOpacity={lit ? 1 : 0.45}
+          strokeWidth={lit ? 1.5 : 1}
           data-testid="beat-band"
         />
         {v.marks.map((m) => (
@@ -155,7 +160,7 @@ export function BeatStrip({
             x2={x(m.x)}
             y1={m.down ? 2 : 4.5}
             y2={m.down ? H - 2 : H - 4.5}
-            stroke={m.down && v.inside ? 'var(--color-ink-950)' : LOOK.light}
+            stroke={m.down && lit && v.inside ? 'var(--color-ink-950)' : LOOK.light}
             strokeWidth={m.down ? 2.2 : 1.4}
             strokeLinecap="round"
           />
@@ -170,13 +175,18 @@ export function BeatStrip({
           data-testid="beat-light"
         />
       </svg>
+      {/* Whose Solo begins on the coming downbeat: their initial, ringed gold when it will be Cued. */}
       <span
-        className="w-6 font-mono text-[0.75rem] font-bold leading-none"
-        style={{ color: BEAT_LIGHT, visibility: v.inside ? 'visible' : 'hidden' }}
-        data-testid="beat-free"
+        className="flex h-4 w-4 items-center justify-center rounded-full font-display text-xs font-bold leading-none text-ink-950"
+        style={{
+          background: next?.color ?? 'transparent',
+          boxShadow: next?.willCue ? `0 0 0 2px ${CONDUCT_GOLD}` : undefined,
+          visibility: next ? 'visible' : 'hidden',
+        }}
+        data-testid="beat-next"
+        data-cued={next?.willCue || undefined}
       >
-        {/* Free, or (Silent Cues) the surcharge a Cue on the beat still pays. */}
-        {beat.on && beat.cost > 0 ? beat.cost : t('hud.conductParts.free')}
+        {next?.name.slice(0, 1)}
       </span>
     </span>
   );
@@ -244,37 +254,32 @@ function FinalePip({ state }: { state: FinaleHud['pips'][number] }) {
 // ── A hero's frame ─────────────────────────────────────────────────────────────────────
 
 /**
- * The Cue badge under a ready hero's portrait (docs/phase-5f.md): "Duet ×1.25", "Trio ×1.5" in
- * gold, "Free" in white-gold on the downbeat. Nothing for a plain Cue: the key cap says it. On A
- * Tempo whether it is on the beat, and its cost, are the frame's (`useBeatNow`).
+ * The badge on a hero whose Solo is coming (docs/phase-5f.md, docs/solos.md): "Duet" or "Trio",
+ * what it will be if your Thread is on them as it fires. Outlined gold while the Thread is
+ * elsewhere, filled gold once it is on them. Nothing for a plain Cue.
  */
 export function CueBadge({ hero: h }: { hero: HeroHud }) {
-  const on = useBeatNow((s) => s.beat?.on);
-  const cost = useBeatNow((s) => s.beat?.cost);
-  const c =
-    h.cue && on !== undefined && cost !== undefined ? liveCueBadge(h.cue, { on, cost }) : h.cue;
-  if (!c?.label) return null;
+  const c = h.cue;
+  if (!c) return null;
+  const on = h.willCue === true;
   return (
     <span
-      className="mt-0.5 flex items-center gap-0.5 whitespace-nowrap rounded px-1 font-mono text-[0.75rem] font-bold leading-4"
+      className="flex items-center gap-0.5 whitespace-nowrap rounded px-1 font-mono text-[0.75rem] font-bold leading-4"
       style={{
-        color: c.free ? 'var(--color-ink-950)' : CONDUCT_GOLD,
-        background: c.free ? BEAT_LIGHT : 'rgb(5 8 20 / 0.75)',
+        color: on ? 'var(--color-ink-950)' : CONDUCT_GOLD,
+        background: on ? CONDUCT_GOLD : 'rgb(5 8 20 / 0.75)',
         boxShadow: `inset 0 0 0 1px ${CONDUCT_GOLD}`,
       }}
-      title={t('hud.conductParts.cueNow', {
+      title={t('hud.conductParts.cuedItIsA', {
         soloName: h.soloName,
         label: c.label,
-        value:
-          c.cost > 0
-            ? t('hud.conductParts.resonance', { cost: c.cost })
-            : t('hud.conductParts.noResonance'),
+        powerLabel: powerLabel(c.power),
       })}
       data-testid="cue-badge"
       data-link={c.link}
-      data-free={c.free || undefined}
+      data-on={on || undefined}
     >
-      {c.link > 1 && <Icon name="chain" size={10} />}
+      <Icon name="chain" size={10} />
       {c.label}
     </span>
   );

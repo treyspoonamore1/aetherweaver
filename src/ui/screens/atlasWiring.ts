@@ -16,7 +16,7 @@ import { normalShareCode, shareLine } from '../../meta/shareCode';
 import { weekOf } from '../../meta/weekly';
 import { useUi } from '../store';
 import { setAtlasActions, type AtlasActions } from './atlasActions';
-import type { WeeklyProgressInput, WeeklyResultInput } from './atlasModel';
+import { replayMessage, type WeeklyProgressInput, type WeeklyResultInput } from './atlasModel';
 
 /** A verification under way or done, for the weekly panel. */
 export interface WeeklyVerifyState {
@@ -151,7 +151,7 @@ export function atlasActionsFor(deps: AtlasWiringDeps = BROWSER): AtlasActions {
           job = null;
           useWeeklyVerify.getState().set({
             progress: null,
-            result: { status: result.status, message: result.message },
+            result: { status: result.status, message: replayMessage(result) },
           });
           recordVerified(result, code, deps.now());
         })

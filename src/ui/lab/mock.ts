@@ -229,6 +229,8 @@ export type HudScenario =
   | 'downed'
   | 'boss'
   | 'resonance'
+  | 'solos'
+  | 'solos-more'
   | 'sandbox'
   | 'calls'
   | 'fermata'
@@ -352,8 +354,7 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
       resonance: 38,
       resonanceMax: 100,
       segment: 25,
-      cueCost: CONTENT.resonance.segment,
-      cueBase: CONTENT.resonance.segment,
+      cueHold: 0,
       crescendoCost: 100,
       crescendo: 0,
       crescendoName: CONTENT.crescendo.name,
@@ -455,6 +456,12 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
             statuses: [{ id: 'shaken', remaining: 0, duration: 0 }],
             solo: 100,
             soloReady: true,
+            // His wall is full and the Thread is on Lyra: "Thread to Cue", and no seconds (he
+            // may raise it sooner).
+            soloIn: 0.8,
+            soloNow: true,
+            soloLoose: true,
+            willCue: false,
           }),
           hero(1, 'lyra', {
             hp: 210,
@@ -503,6 +510,12 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
             shields: [{ kind: 'dome', amount: 400, max: 640 }],
             solo: 100,
             soloReady: true,
+            // The Thread is on him (slot 0): his wall will be Cued.
+            threaded: true,
+            soloIn: 1.9,
+            soloNow: true,
+            soloLoose: true,
+            willCue: true,
           }),
           hero(1, 'lyra', { hp: 700, incoming: 740, lethal: true }),
           hero(2, 'vexis', {
@@ -766,6 +779,64 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
     case 'astro-grace':
     case 'astro-sanguine':
       return astroStage(scenario).hud;
+    case 'solos':
+      // The Solo strip's stages (docs/solos.md), one a frame: coming (the last seconds of
+      // charge, quiet), now (full, the wait running: "Thread to Cue"), and Cued (your Thread on
+      // them).
+      return {
+        ...base,
+        weaver: { ...base.weaver, resonance: 45, threadSlot: 2 },
+        party: [
+          hero(0, 'kael', { hp: 1480, solo: 93, soloIn: 4.8, soloNow: false, soloLoose: true }),
+          hero(1, 'lyra', {
+            hp: 820,
+            solo: 100,
+            soloReady: true,
+            soloIn: 0.6,
+            soloNow: true,
+            willCue: false,
+          }),
+          hero(2, 'vexis', {
+            hp: 740,
+            solo: 93,
+            threaded: true,
+            soloIn: 2.7,
+            soloNow: false,
+            willCue: true,
+          }),
+        ],
+        encounter: { ...base.encounter, elapsed: 26, enemies: 5 },
+      };
+    case 'solos-more':
+      // The rest: Kael's wall full (no seconds: he may raise it sooner), Lyra coming (quiet), and
+      // Silent Cues' hold on Vexis (the Thread is on her, not yet long enough).
+      return {
+        ...base,
+        weaver: { ...base.weaver, resonance: 45, threadSlot: 2, cueHold: 1 },
+        party: [
+          hero(0, 'kael', {
+            hp: 1480,
+            solo: 100,
+            soloReady: true,
+            soloIn: 2.2,
+            soloNow: true,
+            soloLoose: true,
+            willCue: false,
+          }),
+          hero(1, 'lyra', { hp: 820, solo: 94, soloIn: 2.5, soloNow: false, willCue: false }),
+          hero(2, 'vexis', {
+            hp: 740,
+            solo: 100,
+            soloReady: true,
+            threaded: true,
+            soloIn: 0.8,
+            soloNow: true,
+            willCue: false,
+            cueHold: 0.6,
+          }),
+        ],
+        encounter: { ...base.encounter, elapsed: 26, enemies: 5 },
+      };
     case 'resonance':
       return {
         ...base,
@@ -779,9 +850,25 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
           techniques: techniques({ ward: { charges: 2, maxCharges: 2 } }),
         },
         party: [
-          hero(0, 'kael', { hp: 1560, solo: 100, soloReady: true, threaded: true }),
-          hero(1, 'lyra', { hp: 820, solo: 100, soloReady: true }),
-          hero(2, 'vexis', { hp: 740, solo: 100, soloActive: true }),
+          // The Solo states (docs/solos.md): playing; full with the Thread elsewhere ("Thread to
+          // Cue"); and coming with the Thread on them ("Cued").
+          hero(0, 'kael', { hp: 1560, solo: 100, soloActive: true }),
+          hero(1, 'lyra', {
+            hp: 820,
+            solo: 100,
+            soloReady: true,
+            soloIn: 0.6,
+            soloNow: true,
+            willCue: false,
+          }),
+          hero(2, 'vexis', {
+            hp: 740,
+            solo: 93,
+            threaded: true,
+            soloIn: 2.7,
+            soloNow: false,
+            willCue: true,
+          }),
         ],
         encounter: { ...base.encounter, elapsed: 40, enemies: 5 },
       };
@@ -1033,7 +1120,7 @@ export function mockCallouts(scenario: HudScenario): Callout[] {
     case 'resonance':
       return [
         c(1, 'perfect', 'Crescendo — Sunrise', { color: '#fde68a' }),
-        c(2, 'solo', 'Cue: Vexis', { color: heroDef('vexis').color }),
+        c(2, 'solo', 'Cued · Kael: Aegis Wall', { color: heroDef('kael').color }),
       ];
     case 'calls':
       return [
@@ -1091,6 +1178,8 @@ export function mockCallouts(scenario: HudScenario): Callout[] {
     case 'sandbox':
     case 'relics-waiting':
     case 'luminary':
+    case 'solos':
+    case 'solos-more':
       return [];
   }
 }
@@ -2788,7 +2877,7 @@ export function mockDissonance(target: number): DissonanceChoice[] {
 
 /**
  * The HUD with Dissonance in force: a scenario's HUD, with what the bridge reads of a real fight
- * at these levels (its points, Blind Score, the Cue's cost).
+ * at these levels (its points, Blind Score, Silent Cues' hold).
  */
 export function mockDissonanceHud(
   scenario: HudScenario,
@@ -2801,7 +2890,7 @@ export function mockDissonanceHud(
   const hud = mockHud(scenario);
   return {
     ...hud,
-    weaver: { ...hud.weaver, cueCost: real.weaver.cueCost },
+    weaver: { ...hud.weaver, cueHold: real.weaver.cueHold },
     dissonance: real.dissonance,
   };
 }

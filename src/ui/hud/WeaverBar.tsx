@@ -27,8 +27,6 @@ import { CallingGlyph, callingLook } from '../kit/CallingGlyph';
 import { AstrolabeGlyph } from '../kit/AstrolabeGlyph';
 import { CONSTELLATION_LOOK } from '../kit/astrolabeLook';
 import { rewindSentence } from './rewindText';
-import { DISCORD_LOOK } from '../kit/dissonanceLook';
-import { cueLine, cueTicks } from '../screens/dissonanceModel';
 import { ConductRow, FinaleReadout } from './ConductParts';
 import { VARIANT_LOOK } from '../kit/variantLook';
 import { RUNE_KEYS, slotSilenced, slotState } from './techniqueState';
@@ -38,8 +36,6 @@ import { t as txt } from '../text';
 
 /** The Chronomancer's clockwork (Phase 3e): Stasis on the buttons, Rewind, Temporal Mastery. */
 const CHRONO = callingLook('chronomancer');
-/** The Conductor's ink and ivory (Phase 5f): his Cue ticks on the arc. */
-const CONDUCTOR = callingLook('conductor');
 /** Prism Covenant's mark on the Life bar (Phase 4), in the Choir's violet. */
 const PRISM = CONSTELLATION_LOOK.choir;
 
@@ -783,7 +779,7 @@ function ResonanceArc({
 }: {
   weaver: WeaverHud;
   callingId?: string;
-  /** Phase 5f: the Conductor's fight (his Cue ticks are his, the Grand Finale's pips). */
+  /** Phase 5f: the Conductor's fight (the Grand Finale's pips). */
   conducting?: ConductingHud;
 }) {
   const segments = Math.max(1, Math.round(w.resonanceMax / w.segment));
@@ -804,12 +800,6 @@ function ResonanceArc({
     return { d: `M ${at(a0)} A ${radius} ${radius} 0 0 1 ${at(a1)}`, fill };
   });
   const full = Math.floor((w.resonance + 1e-9) / w.segment);
-  // Silent Cues (Phase 4d): a Cue costs more than a segment; its price is marked on the arc.
-  const ticks = cueTicks(w);
-  const cues = Math.floor((w.resonance + 1e-9) / Math.max(1e-9, w.cueCost));
-  // The Conductor's cheaper Cue (docs/phase-5f.md) is his Calling's, in his ivory; a Cue Silent
-  // Cues raised stays Dissonance's.
-  const tickColor = conducting && w.cueCost === w.cueBase ? CONDUCTOR.light : DISCORD_LOOK.color;
 
   return (
     <div
@@ -823,13 +813,7 @@ function ResonanceArc({
         full,
         segments,
         value: ready ? txt('hud.weaverBar.crescendoReady') : '',
-        value2:
-          ticks.length > 0
-            ? txt('hud.weaverBar.enoughFor', { cueLine: cueLine(w.cueCost), cues })
-            : '',
       })}
-      title={ticks.length > 0 ? cueLine(w.cueCost) : undefined}
-      data-cue-cost={w.cueCost}
     >
       <svg viewBox="0 0 136 74" width="136" height="74" className="absolute inset-0" aria-hidden>
         {arcs.map((a, i) => (
@@ -855,28 +839,7 @@ function ResonanceArc({
             />
           </g>
         ))}
-        {ticks.map((v) => {
-          const deg = 180 + (v / w.resonanceMax) * 180;
-          const d = `M ${at(deg, radius - 7.5)} L ${at(deg, radius + 7.5)}`;
-          return (
-            <g key={v} data-testid="cue-tick">
-              <path d={d} stroke="var(--color-ink-950)" strokeWidth={4.5} strokeLinecap="round" />
-              <path d={d} stroke={tickColor} strokeWidth={2.2} strokeLinecap="round" />
-            </g>
-          );
-        })}
       </svg>
-      {ticks.length > 0 && !active && (
-        <span
-          className="absolute inset-x-0 top-[1.3rem] flex items-center justify-center gap-0.5 font-mono text-[0.75rem] font-bold leading-none"
-          style={{ color: tickColor }}
-          aria-hidden
-          data-testid="cue-cost"
-        >
-          <Icon name="note" size={10} />
-          {txt('hud.weaverBar.cue', { cueCost: w.cueCost })}
-        </span>
-      )}
       <div className="absolute inset-x-0 bottom-0 flex flex-col items-center">
         {active && conducting?.finale ? (
           <FinaleReadout finale={conducting.finale} name={w.crescendoName} />

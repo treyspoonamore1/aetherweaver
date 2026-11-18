@@ -12,9 +12,10 @@ import {
 } from '../../meta/profile';
 import { CHORD_PRESETS } from '../../meta/run';
 import { WITHOUT_YOU_MAX_SECONDS } from '../../sim';
+import { SOLOS } from '../../sim/constants';
 import type { EnemyDef, HeroDef } from '../../content';
 import { AnswerGlyph } from '../hud/AnswerGlyph';
-import { ROLE_LABEL, bindingLabel, inputLabel, mouseRoleCode, mouseRoleLabel } from '../hud/labels';
+import { ROLE_LABEL, bindingLabel, mouseRoleCode, mouseRoleLabel } from '../hud/labels';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
 import { CATEGORY, Chip, RARITY, RarityChip } from '../kit/Chip';
@@ -965,21 +966,30 @@ function EnemyEntry({ enemy: e }: { enemy: EnemyDef }) {
   );
 }
 
+/**
+ * What a Resonance gain adds to the meter, as a text states it: the content's number at the
+ * content's scale (`resonance.gainScale`, docs/solos.md), to one decimal at most.
+ */
+function resonanceGain(n: number): string {
+  return String(Number((n * CONTENT.resonance.gainScale).toFixed(1)));
+}
+
 function Weaver({ look, portrait }: { look: Readonly<WeaverLook>; portrait: PortraitSubject }) {
   const t = CONTENT.techniques;
   // The Calling whose Rewind takes Reel's key (Phase 3e), for Reel's entry.
   const rewind = CONTENT.callings.find((c) => (c.values.rewind ?? 0) > 0);
-  // The Calling whose Cues chain into Duets and Trios (Phase 5f), for Resonance's entry.
+  // The Calling whose Cued Solos chain into Duets and Trios (Phase 5f), for the Solos' entry.
   const conductor = conductorDef();
   const r = CONTENT.resonance;
+  // What a gain adds to the meter: the content's number at the content's scale (docs/solos.md).
+  const gain = (n: number) => resonanceGain(n);
   const th = CONTENT.thread;
-  // Key names follow the player's bindings, mouse roles and Cue modifier (Phase 7, W1).
+  // Key names follow the player's bindings and mouse roles (Phase 7, W1).
   useSettings((s) => s.settings.bindings);
-  const controls = useSettings((s) => optionsOf(s.settings).input);
+  useSettings((s) => optionsOf(s.settings).input);
   const key = bindingLabel;
   const threadClick = mouseRoleCode('thread') === 'Mouse0' ? 'click' : mouseRoleLabel('thread');
   const wheelMiddle = mouseRoleCode('wheel') === 'Mouse1';
-  const cueMod = inputLabel(controls.cueModifier || 'Shift');
   const entries: {
     name: string;
     icon: IconName;
@@ -1059,34 +1069,48 @@ function Weaver({ look, portrait }: { look: Readonly<WeaverLook>; portrait: Port
       ],
     },
     {
-      name: txt('screens.codexScreen.resonance'),
+      // Solos (docs/solos.md): heroes fire their own, and the Thread makes one Cued.
+      name: txt('screens.codexScreen.solos'),
       icon: 'note',
-      keys: `${key('cue')} / ${key('crescendo')}`,
+      keys: `${key('focus1')}–${key('focus4')}`,
+      body: txt('screens.codexScreen.heroesFireTheirOwn', {
+        value: conductor
+          ? txt('screens.codexScreen.onARunA', {
+              name: conductor.name,
+              value2: conductor.values.chain ?? 0,
+              value3: conductor.values.duet ?? 0,
+              value4: conductor.values.trio ?? 0,
+            })
+          : '',
+      }),
+      stats: [
+        txt('screens.codexScreen.firesAfter', { wait: SOLOS.wait }),
+        txt('screens.codexScreen.kaelHolds', { kaelHold: SOLOS.kaelHold }),
+        txt('screens.codexScreen.oneEach', { gap: SOLOS.gap }),
+      ],
+    },
+    {
+      name: txt('screens.codexScreen.resonance'),
+      icon: 'sun',
+      keys: key('crescendo'),
       body: txt('screens.codexScreen.goodSupportFillsThe', {
-        max: r.max,
-        segment: r.segment,
-        key: key('cue'),
-        cueMod,
+        cost: r.crescendoCost,
         key2: key('crescendo'),
         name: CONTENT.crescendo.name,
         description: CONTENT.crescendo.description,
         value: conductor
-          ? txt('screens.codexScreen.onARunA', {
+          ? txt('screens.codexScreen.hisCrescendoIs', {
               name: conductor.name,
-              value: conductor.values.cue ?? r.segment,
-              value2: conductor.values.chain ?? 0,
-              value3: conductor.values.duet ?? 0,
-              value4: conductor.values.trio ?? 0,
               crescendoName: crescendoName(conductor),
             })
           : '',
       }),
       stats: [
-        txt('screens.codexScreen.perfectWard', { perfectWard: r.gains.perfectWard }),
-        txt('screens.codexScreen.save', { save: r.gains.save }),
-        txt('screens.codexScreen.clutchChime', { clutchChime: r.gains.clutchChime }),
-        txt('screens.codexScreen.reelDodge', { reelDodge: r.gains.reelDodge }),
-        txt('screens.codexScreen.answeredCall', { response: r.gains.response }),
+        txt('screens.codexScreen.perfectWard', { perfectWard: gain(r.gains.perfectWard) }),
+        txt('screens.codexScreen.save', { save: gain(r.gains.save) }),
+        txt('screens.codexScreen.clutchChime', { clutchChime: gain(r.gains.clutchChime) }),
+        txt('screens.codexScreen.reelDodge', { reelDodge: gain(r.gains.reelDodge) }),
+        txt('screens.codexScreen.answeredCall', { response: gain(r.gains.response) }),
       ],
     },
     {
@@ -1702,7 +1726,7 @@ function Calls({ roster }: { roster: readonly string[] }) {
           {txt('screens.codexScreen.beforeABigMove')}
           <b style={{ color: CALL }}>{txt('screens.codexScreen.flourish')}</b>
           {txt('screens.codexScreen.aStrongerVersionOf', {
-            response: CONTENT.resonance.gains.response,
+            response: resonanceGain(CONTENT.resonance.gains.response),
           })}
         </p>
         <div className="mt-3 flex flex-wrap gap-1.5">

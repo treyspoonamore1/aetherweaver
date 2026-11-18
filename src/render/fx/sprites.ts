@@ -60,6 +60,13 @@ export const SPRITE = {
    * inside a thin ring: the boss's crown sigil over a cast of the attack it borrowed.
    */
   crown: 21,
+  /**
+   * A Solo coming (docs/solos.md, render/soloMark.ts): a ring over the hero that fills clockwise
+   * from twelve as the Solo nears. `param` 0..1 is how full, on the plain look: a dashed ring
+   * round a note. `param` 2..3 (2 + how full) is the Cued look, your Thread on them: a solid
+   * ring with eight rays outside it and its middle left clear for the Thread's own glyph.
+   */
+  solo: 22,
 } as const;
 
 /** SPRITE.mode's `param` for Unravel's 'minus' (Mend reversed): a bar alone. */
@@ -279,6 +286,34 @@ void main() {
     float beads = exp(-dot(t0, t0) * 90.0) + exp(-dot(t1, t1) * 110.0);
     a = max(ring * 0.7, body * (0.8 - 0.35 * rim)) + beads * 0.9 + exp(-d * d * 3.0) * 0.14;
     a *= 1.0 - smoothstep(0.95, 1.0, d);
+  } else if (style == 22) {
+    // A Solo coming: a ring that fills clockwise from twelve. Plain: dashed, round a note.
+    // Cued (param >= 2): solid, with eight rays outside it, the middle left clear.
+    float ang = atan(vUv.x, vUv.y);
+    float f = (ang < 0.0 ? ang + 6.2831853 : ang) / 6.2831853;
+    if (vSize.w < 1.5) {
+      float lit = f <= vSize.w ? 1.0 : 0.42;
+      float dash = smoothstep(0.16, 0.26, abs(fract(f * 12.0) - 0.5) * 2.0);
+      float ring = (1.0 - smoothstep(0.06, 0.1, abs(d - 0.8))) * dash;
+      // The note, as style 19 draws it, at half size in the middle.
+      vec2 n = vUv / 0.5;
+      vec2 hd = mat2(0.94, 0.34, -0.34, 0.94) * (n - vec2(-0.2, -0.5));
+      float head = length(vec2(hd.x / 0.3, hd.y / 0.2)) - 1.0;
+      float stem = segD(n, vec2(0.08, -0.45), vec2(0.08, 0.78)) - 0.085;
+      float flag = segD(n, vec2(0.08, 0.78), vec2(0.42, 0.32)) - 0.09;
+      float e = min(min(head * 0.2, stem), flag);
+      a = ring * lit + (1.0 - smoothstep(-0.04, 0.04, e)) + exp(-d * d * 3.0) * 0.16;
+    } else {
+      float fill = vSize.w - 2.0;
+      float lit = f <= fill ? 1.0 : 0.5;
+      float ring = 1.0 - smoothstep(0.06, 0.1, abs(d - 0.66));
+      // Eight rays: wedges that narrow outward from the ring.
+      float w = abs(fract(f * 8.0 + 0.5) - 0.5) * 2.0;
+      float reach = clamp((0.98 - d) / 0.2, 0.0, 1.0);
+      float rays = (1.0 - smoothstep(reach * 0.34, reach * 0.34 + 0.06, w)) * step(0.78, d);
+      a = ring * lit + rays * 0.95 + exp(-pow((d - 0.66) / 0.2, 2.0)) * 0.2;
+    }
+    a *= 1.0 - smoothstep(0.97, 1.0, d);
   } else {
     // Sigil: a rotating star in a ring (Cue / leitmotif).
     float ang = atan(vUv.y, vUv.x) + uTime * 1.2;

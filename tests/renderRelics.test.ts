@@ -319,7 +319,8 @@ describe('relics in the fight (real sim → RelicView)', () => {
     expect(h.callouts).toEqual([]);
     const peak = h.total(h.frame(sim.state));
     expect(peak).toBeGreaterThan(5);
-    expect(h.callouts).toEqual(['HYMNAL · CUE READY']);
+    // It only sings: a Cue has no price to be "ready" for (docs/solos.md).
+    expect(h.callouts).toEqual(['HYMNAL']);
   });
 
   it('Heavy Score: a refused Glide drops the chain once, however hard Space is mashed', () => {

@@ -23,7 +23,7 @@ export const a11y = {
   'a11y.motion.on': 'On',
   'a11y.motion.off': 'Off',
   'a11y.flashes.hint':
-    'Full-screen flashes on Perfect, Save and Crescendo, and how bright bursts, impact flashes and the Thread’s pulses are. 0 turns the full-screen ones off.',
+    'How bright flashes, bursts and the Thread’s pulses are. 0 turns full-screen flashes off.',
   'a11y.vignette.label': 'Slow-motion vignette',
   'a11y.vignette.hint': 'The dark screen edge during slow motion.',
   'a11y.numbers.important': 'Important numbers only',

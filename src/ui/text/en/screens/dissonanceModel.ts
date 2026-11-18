@@ -77,7 +77,6 @@ export const dissonanceModel = {
   'screens.dissonanceModel.skipNoHealingHere': 'Skip: no healing here ({name})',
   'screens.dissonanceModel.dissonanceRestRestoresNo':
     '{name} (Dissonance): Rest restores no life in this run.',
-  'screens.dissonanceModel.aCueCostsResonance': 'A Cue costs {cueCost} Resonance this fight.',
   'screens.dissonanceModel.expeditionsOnly': 'Expeditions only',
   'screens.dissonanceModel.tyrant': 'Tyrant',
   'screens.dissonanceModel.mimicry': 'Mimicry',

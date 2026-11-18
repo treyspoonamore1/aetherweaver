@@ -1094,6 +1094,15 @@ export function laterPieces(): { atlas: boolean; trueDissonance: boolean } {
 // ── Sounds ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * What a replay check says under its flag: its own message, or, for a replay recorded before
+ * heroes fired their own Solos (docs/solos.md: `refused: 'oldReplay'`, never a failed check), one
+ * plain sentence.
+ */
+export function replayMessage(result: { message: string; refused?: unknown }): string {
+  return result.refused === 'oldReplay' ? txt('screens.atlasModel.replayTooOld') : result.message;
+}
+
+/**
  * What the Summary's Atlas card sounds (audio/ui.ts): `atlasStar` with the stars the Echo now
  * has, when any star newly lit (null: none); then `atlasConstellation`, when a constellation or
  * the whole Atlas completed.

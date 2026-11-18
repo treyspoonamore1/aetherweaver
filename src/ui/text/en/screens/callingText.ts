@@ -29,7 +29,7 @@ export const callingText = {
   'screens.callingText.bearAndSongsSung': 'Bear, and songs sung with your Life',
   'screens.callingText.rewindTelegraphTimersAnd':
     'Rewind, telegraph timers and a wider Perfect window',
-  'screens.callingText.cheapCuesDuetsAnd': 'Cheap Cues, Duets and Trios',
+  'screens.callingText.duetsAndTrios': 'Duets and Trios',
   'screens.callingText.thePassive': 'the passive',
   'screens.callingText.rewindHasStoodA':
     'Rewind has stood a hero back up this run: its revive is spent until your next run.',
@@ -60,11 +60,11 @@ export const callingText = {
   'screens.callingText.trio': 'Trio',
   'screens.callingText.played': '{finale} played {count}',
   'screens.callingText.solosPlayed': 'Solos {finale} played',
-  'screens.callingText.freeCues': 'Free Cues',
-  'screens.callingText.freeCue': 'free Cue',
-  'screens.callingText.freeCues2': 'free Cues',
+  'screens.callingText.onTheBeat': 'On the beat',
+  'screens.callingText.soloOnTheBeat': 'Solo Cued on the beat',
+  'screens.callingText.solosOnTheBeat': 'Solos Cued on the beat',
   'screens.callingText.noDuetThisRun':
-    'No Duet this run: Cue a second hero within {value} s of the first, and their Solo plays {value2}% stronger.',
+    'No Duet this run. Cue two Solos within {value} s: the second plays {value2}% stronger.',
   'screens.callingText.rewound': 'Rewound',
   'screens.callingText.gaveBackLife': '{REWIND_NAME} gave back {rewound} life',
   'screens.callingText.lifeGaveBackTo': 'life {REWIND_NAME} gave back to your heroes',
@@ -85,7 +85,7 @@ export const callingText = {
   'screens.callingText.haloedDamageKeptOff': 'Haloed: {callingShielded} damage kept off',
   'screens.callingText.damageHaloedKeptOff': 'damage Haloed kept off',
   'screens.callingText.yourCallingAddedNothing':
-    'Your Calling added nothing this run: Cue a second hero within {value} s of the first for a Duet, and a third for a Trio.',
+    'Your Calling added nothing this run. Cue two Solos within {value} s for a Duet, three for a Trio.',
   'screens.callingText.rewindGaveNothingBack':
     'Rewind gave nothing back this run: when a hero takes a big hit or falls, press {rewindKey} within {rewindSeconds} s to send them back.',
   'screens.callingText.youBoreNothingThis':
