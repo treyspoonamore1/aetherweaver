@@ -498,7 +498,7 @@ Budget: no growth in FX batches (about 12) and the particle caps hold. Every new
 
 ### Bands (arrival kit, 50 seeds per cell; whole runs 200)
 
-> **Since the Solo rework (2026-11-18, [docs/solos.md](solos.md)).** The Novice's bands were set again: her heroes use their Solos now, so she wins more, and the fights were left as they are. Movement II elites 55-90% (were 35-75%), the Gorehound Matriarch 65-95% (40-70%), Vharun 55-85% (35-65%). The Skilled bot's bands are as below. `tools/harness.ts` prints the bands in force.
+> **Since the Solo rework (2026-11-18, [docs/solos.md](solos.md)).** The Novice's bands were set again: her heroes use their Solos now, so she wins more, and the fights were left as they are. Movement II elites 65-95% (were 35-75%), the Gorehound Matriarch 75% or more (40-70%), Vharun 55-85% (35-65%). The skirmish floor is as it was. The Skilled bot's bands are as below. `tools/harness.ts` prints the bands in force.
 
 | Content | Idle | Novice | Skilled | Skilled share | Skilled length |
 |---|---|---|---|---|---|

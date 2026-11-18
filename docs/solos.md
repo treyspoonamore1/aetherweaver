@@ -51,27 +51,27 @@ The bots read `soloDueIn`. The frames, the mark, the beat strip and Auto-Thread 
 
 ## For hands
 
-*Measured on the first tuned rules; the wait, the gap and the rule "on the tick it fires" have not changed since.*
+*Measured on the final rules.*
 
-The bots move the Thread within one tick. A person does not. So tuning built a stand-in for a person's hands (`tools/person.ts`, played by `tools/solo-study.ts`): the Skilled bot's play, but the Thread goes to a Solo 350 ms after it is noticed, stays until the Solo fires, misses one Solo in six altogether, and never leaves a hero under 30% of their life. 84 boss and mini-boss fights each:
+The bots move the Thread within one tick. A person does not. So tuning built a stand-in for a person's hands (`tools/person.ts`, played by `tools/solo-study.ts`): the Skilled bot's play, but the Thread goes to a Solo 350 ms after it is noticed, stays until the Solo fires, misses one Solo in six altogether, and never leaves a hero under 30% of their life. 140 boss and mini-boss fights each, no Calling:
 
 | Who | Solos Cued | Win | Seconds | Heroes downed |
 |---|---|---|---|---|
-| The Skilled bot | 91% | 98% | 131 | 0.75 |
-| Person, goes when the tell appears | 81% | 99% | 144 | 0.99 |
-| Person, goes only when the Solo is full | 84% | 98% | 130 | 0.56 |
-| The same, hands at 600 ms | 85% | 99% | 132 | 0.71 |
-| The same, hands at 800 ms | 83% | 98% | 133 | 0.76 |
-| The same, hands at 1 s | 52% | 94% | 146 | 0.86 |
-| A player who never follows a Solo | 34% | 94% | 142 | 1.12 |
+| The Skilled bot | 92% | 97% | 129 | 0.69 |
+| Person, goes when the tell appears | 81% | 96% | 137 | 1.06 |
+| Person, goes only when the Solo is full | 85% | 99% | 131 | 0.71 |
+| The same, hands at 600 ms | 86% | 98% | 131 | 0.69 |
+| The same, hands at 800 ms | 84% | 96% | 128 | 0.68 |
+| The same, hands at 1 s | 63% | 96% | 134 | 0.76 |
+| A player who never follows a Solo | 35% | 92% | 136 | 0.88 |
 
 The target was 70%. So **the 1 second wait stays, and the rule was not widened.** Five in six is the ceiling, since the stand-in misses one in six on purpose. What this says:
 
-- **The moment to move is when the Solo is full**, not when its tell first shows. The person who goes at the first sign keeps the Thread there for up to 4 s and pays for it: fights take 10% longer and one more hero in four goes down.
-- **The wait is a hard edge.** Hands as slow as 800 ms still make it. At 1 s they do not.
-- **Kael is the hardest to Cue** (72 to 78%, against 83 to 90% for Lyra and Vexis), because he raises his wall at once when he is hurt, with no wait to react in. His frame shows no countdown for that reason.
-- Other waits measured no better: 0.75 s gives the same share Cued; 1.5 s gives the same share and slightly worse fights, because Solos sit unused longer.
-- A player who never moves the Thread for a Solo still has a third of them Cued, on whoever the Thread is on, and still wins.
+- **The moment to move is when the Solo is full**, not when its tell first shows. The person who goes at the first sign keeps the Thread there for up to 4 s and pays for it: fights take 5% longer and one more hero in three goes down.
+- **The wait is a hard edge.** Hands as slow as 800 ms still make it. At 1 s a third of the Solos are missed. (That is fewer than on the first rules, where 1 s hands got 52%: a hero now finishes a cast before the Solo, which sometimes gives slow hands a little longer.)
+- **Kael is the hardest to Cue** (73 to 82%, against 83 to 89% for Lyra and Vexis), because he raises his wall at once when he is hurt, with no wait to react in. His frame shows no countdown for that reason.
+- Other waits measured no better: 0.75 s and 1.5 s give the same share Cued (85% and 84%) and the same fights.
+- A player who never moves the Thread for a Solo still has a third of them Cued, on whoever the Thread is on, and still wins 92% of boss fights, seven seconds slower than the Skilled bot. The one fight where following plainly matters is the Seamstress: such a player wins it 65% of the time (13 of 20), against 95% for the Skilled bot and for the person who goes when the Solo is full.
 
 ## What the player sees and hears
 
@@ -153,15 +153,15 @@ Three of those want a word:
 
 **The lines no longer tell the player to "Cue"**, which no key does. Where a line tells the player what to do it says "Thread": "Requiem: every hero will lose 90% of their life. Thread Kael for his dome, or Ward and heal." Elsewhere "Cued" is a state of a Solo: "Cued Solos last 50% longer." The content's lines and the screens' were reworded this way, in the voice of [docs/voice.md](voice.md).
 
-Why the meter is twice as deep and not the same depth: with no Calling the size of the economy hardly matters to a fight. With the Conductor, whose Crescendo is his best thing, this size puts his boss fights back on their old length (94 s against 96 s). A full song now comes about once a boss fight. It was once in two or three, when most Resonance went on Cues.
+Why the meter is twice as deep and not the same depth: with no Calling the size of the economy hardly matters to a fight. With the Conductor, whose Crescendo is his best thing, this size puts his boss fights back on their old length (93 s against 96 s). A full song now comes about once a boss fight. It was once in two or three, when most Resonance went on Cues.
 
 ## The Conductor
 
 It stays a Calling of skill. A **Duet** is a Solo Cued within 4 seconds of the last Cued Solo, a **Trio** a third: follow each Solo with the Thread as it fires, one, two, three. The Grand Finale is as it was. A hero whose turn is still to come keeps their Solo for it, and when it ends every Solo is full, so the three fire a second apart: a Trio for the taking.
 
-A plain Solo neither joins a chain nor breaks one, as before. Measured, only 0 to 3% of Duets and Trios have a plain Solo inside them, so a rule either way would change almost nothing.
+A plain Solo neither joins a chain nor breaks one, as before. Measured on the first round's rules, only 0 to 3% of Duets and Trios have a plain Solo inside them, so a rule either way would change almost nothing. The chain's rule has not changed since.
 
-With A Tempo the heroes hold a ready Solo for the next downbeat, so Solos come a bar apart (2.7 s). The beat strip shows when the next one begins and whose it is. A Tempo gives 30 Resonance for each Solo Cued on the beat, of a meter of 200. At a third of that his A Tempo paths were slower than before the rework (59 s a boss fight against 51 s), because the heroes now hold their Solos for the downbeat. At 30 they are back (50 s and 78 s, against 51 s and 80 s). The Conductor gains 10% more Resonance, so the card says 30 and the meter gains 33.
+With A Tempo the heroes hold a ready Solo for the next downbeat, so Solos come a bar apart (2.7 s). The beat strip shows when the next one begins and whose it is. A Tempo gives 30 Resonance for each Solo Cued on the beat, of a meter of 200. At a third of that his A Tempo paths were slower than before the rework (59 s a boss fight against 51 s), because the heroes now hold their Solos for the downbeat. At 30 they are back: on A Tempo, Upbeat, Spotlight and Maestro the Skilled bot's boss fights take 50 s, against 51 s before, and 3.3 Solos a boss fight are Cued on the beat. The Conductor gains 10% more Resonance, so the card says 30 and the meter gains 33.
 
 On the HUD the badge says **Duet** or **Trio** and nothing else, outlined until your Thread is on that hero, then filled. It shows only when the Solo is due before the chain closes, so a badge is a promise the Solo keeps. A Tempo's chime sounds on each Cued Solo it pays for.
 
@@ -173,47 +173,63 @@ On the HUD the badge says **Duet** or **Trio** and nothing else, outlined until 
 
 ## What it does to the numbers
 
-The study's 13 fights across the four Movements, 20 seeds: 140 boss and mini-boss fights in each row. "Before" is main, measured again with the same fights and seeds.
+The study's 13 fights across the four Movements, 20 seeds: 140 boss and mini-boss fights in each row. "Before" is main, measured with the same fights and seeds. "Now" is the final rules, measured after the second round. (The rework was tuned in two rounds. The second added rules 8, 10 and 11, a cast finished first, no plain Solo rooting and Oro's wait, and gave the Novice a beginner's hands.)
 
-**These tables are from the first tuned rules.** The second round (casts finished first, no plain Solo rooting, Oro's wait, the Novice's beginner's hands) changed how fights play again. Its own tables replace these when its last study is in. What is already measured on the second round's rules is said under each table.
+**Boss and mini-boss fights, the Skilled bot: held.** Win / seconds / heroes downed.
 
-**Boss and mini-boss fights, the Skilled bot: held.**
-
-| Calling | Before: win / seconds / heroes downed | After the first round |
+| Calling | Before | Now |
 |---|---|---|
-| None | 96% / 133 / 0.90 | 94% / 132 / 0.71 |
-| Luminary | 99% / 124 / 0.75 | 98% / 118 / 0.61 |
-| Martyr | 96% / 135 / 0.87 | 99% / 133 / 0.72 |
-| Chronomancer | 99% / 132 / 0.66 | 99% / 128 / 0.66 |
-| Conductor: Marcato, Reprise, Ensemble, Triad | 99% / 96 / 0.42 | 98% / 93 / 0.36 |
-| Conductor: A Tempo, Upbeat, Spotlight, Maestro | 100% / 51 / 0.10 | 100% / 50 / 0.08 |
+| None | 96% / 133 / 0.90 | 97% / 129 / 0.69 |
+| Luminary | 99% / 124 / 0.75 | 96% / 117 / 0.68 |
+| Martyr | 96% / 135 / 0.87 | 95% / 132 / 0.76 |
+| Chronomancer | 99% / 132 / 0.66 | 99% / 128 / 0.62 |
+| Conductor: Marcato, Reprise, Ensemble, Triad | 99% / 96 / 0.42 | 96% / 93 / 0.44 |
+| Conductor: A Tempo, Upbeat, Spotlight, Maestro | 100% / 51 / 0.10 | 100% / 50 / 0.06 |
+| Silent Cues, no Calling | not measured | 96% / 129 / 0.72 |
+
+Three rows are 1 to 3 points under "before"; over 140 fights that is one to two standard errors, and each is far inside the Skilled bot's band. The Skilled bot Cues 92% of Solos with no Calling and 89% under Silent Cues. The Conductor's first path makes 2.3 Duets and 1.0 Trios a boss fight (2.8 and 1.0 before).
 
 The Skilled bot's fights are where they were. The player who never touched the Cue key is the one whose game changed: before, that player's boss fights took 226 seconds and their heroes used no Solo at all.
 
-**The Novice wins more, and two things make that so.** After the first round she won 75% of boss fights with no Calling where she won 46%. Part of that is the rework itself: her heroes now use their Solos. Part was her own following: she swung the Thread to a Solo within one tick and got 60% of Solos Cued, more than the stand-in for a person with one-second hands (52%). With her following switched off she won 52%, so about 17 of those points were hers and not the rework's. In the second round she follows with a beginner's hands and gets 45% Cued, against 35% for a player who never follows. Her bands in the harness are set to what she measures (`MOVEMENT_BANDS` in `tools/harness.ts`): about 15 points either side of her result over 40 fights a cell. After the first round they were:
+**The Novice wins more, and it is the heroes' doing, not her following.** She wins 67% of boss fights with no Calling where she won 46%. That gain comes from her heroes firing their own Solos: with her following switched off altogether she wins 71% (the difference is noise). Her following, with a beginner's hands, gets 45% of Solos Cued instead of 24%, and makes her fights 14 seconds shorter (164 s against 178 s). (After the first round, when she swung the Thread to a Solo within one tick, she Cued 60% and won 75%.) A player who never follows a Solo gets 35% Cued.
 
-| The Novice's band | Before the rework | After the first round |
+| Calling | The Novice before | Now | Solos Cued now |
+|---|---|---|---|
+| None | 46% | 67% | 45% |
+| Luminary | 66% | 74% | 43% |
+| Martyr | 49% | 65% | 42% |
+| Chronomancer | 61% | 74% | 43% |
+| Conductor: Marcato, Reprise, Ensemble, Triad | 71% | 81% | 48% |
+| Conductor: A Tempo, Upbeat, Spotlight, Maestro | 87% | 90% | 64% |
+| Silent Cues, no Calling | not measured | 68% | 25% |
+
+Her bands in the harness are set to what she measures (`MOVEMENT_BANDS` in `tools/harness.ts`): about 15 points either side of her result over 40 fights a cell; the skirmish floors were kept, and she clears them.
+
+| The Novice's band | Before the rework | Now |
 |---|---|---|
-| Movement II elites | 35-75% | 55-90% |
-| Gorehound Matriarch | 40-70% | 65-95% |
+| Movement II elites | 35-75% | 65-95% |
+| Gorehound Matriarch | 40-70% | 75% or more |
 | Vharun | 35-65% | 55-85% |
-| Movement III skirmishes | ≥55% | ≥45% |
+| Movement III skirmishes | 55% or more | 45% or more |
+| Movement III elites | 30-65% | 20-50% |
 | The Seamstress | 30-60% | 45-75% |
-| The Unweaver | 25-55% | 50-80% |
-| The Silent Conductor | 15-40% | 25-55% |
+| The Unweaver | 25-55% | 60-90% |
+| The Silent Conductor | 15-40% | 20-50% |
 
 The Skilled bot's bands did not move.
 
-**Whole runs**, as the baselines play them, after the first round. Two-Movement Expeditions, 150 seeds: the Skilled bot wins 71% (73% before), the Novice 22% (13%). The Finale route, 80 seeds: Skilled 61% (65%), Novice 5% (1%).
+**Whole runs**, as the baselines play them. Two-Movement Expeditions, 150 seeds: the Skilled bot wins 76% (73% before), the Novice 31% (13%). The Finale route, 80 seeds: Skilled 73% (65%), Novice 1% (1%).
 
-**Two fights lost ground in the first round, and the second round mended both.** Both have enemies that cut the Thread, so the bot keeps the Thread off Lyra, so her Gale Barrage fired plain, and plain it rooted her to the spot, where she was killed.
+**Two fights lost ground in the first round, and the second round mended both.** Both have enemies that cut the Thread, so the bot keeps the Thread off Lyra, so her Gale Barrage fired plain, and plain it rooted her to the spot, where she was killed. No plain Solo roots now. 150 fights each:
 
-| Fight | Before | After the first round | After the second | Its band |
-|---|---|---|---|---|
-| The Frayed Threshold (Movement III, first skirmish) | 93% | 85 to 88% | 94% | 85% or more |
-| The Seamstress (Movement III, mini-boss) | 94% | 89% | 91% | 90% or more |
+| Fight | Before | After the first round | Now | Its band | The Novice now (her band) |
+|---|---|---|---|---|---|
+| The Frayed Threshold (Movement III, first skirmish) | 93% | 85 to 88% | 94% | 85% or more | 56% (45% or more) |
+| The Seamstress (Movement III, mini-boss) | 94% | 89% | 91% | 90% or more | 59% (45-75%) |
 
-**Finishing a cast first has a cost the bots do not show.** Vexis casts almost without pause, so her Solo now fires after its own wait has run out in 4 Solos of 10, by a second on average and 2.2 seconds at most (39 fights, the Skilled bot; `/home/user/aw-work/11/solo/w6/scripts/cast-hold.mts`). The Skilled bot still gets 92% of Solos Cued. For a player it means her strip can stand at "Thread to Cue" for a second or two. The frames and Auto-Thread count the cast (the sim's queue); the bots' own tell, `soloDueIn`, does not.
+The Silent Conductor's fight is a little quicker than its band for the Skilled bot in the study: 167 s (the band is 170 to 230 s; it was 175 s before the rework).
+
+**Finishing a cast first has a cost the bots do not show.** Vexis casts almost without pause, so her Solo now fires after its own wait has run out in 4 Solos of 10, by a second on average and 2.2 seconds at most (39 fights, the Skilled bot, on the final rules). The Skilled bot still gets 92% of Solos Cued. For a player it means her strip can stand at "Thread to Cue" for a second or two. The frames and Auto-Thread count the cast (the sim's queue); the bots' own tell, `soloDueIn`, does not.
 
 ## Old replays and settings
 
@@ -247,14 +263,18 @@ Not measured, or not checked:
 - **A weekly run under way when the update arrives.** Read from the code, not run: its log is the old format and does not read, so that run makes no replay and its result stays Claimed.
 - **Performance** of the mark. It adds two sprites a hero to a batch that already exists.
 
+Known, and kept:
+
+- **A hero finishes a cast before their Solo, so Vexis's Solo fires late in about 4 Solos of 10, by about a second.** The frames and Auto-Thread count the cast; the bots' `soloDueIn` does not, and stays so, since changing it would move every recorded fight result again.
+
 ## Decided on the way
 
 - **Whole numbers.** The owner chose them: the meter is 200 and every gain is the number it was.
 - **A plain Gale Barrage does not root Lyra.** That mended the Frayed Threshold, and nothing was lost anywhere.
 - **The Reliquary's Ringing and Attentive affixes** need no migration: with the gains back to their old numbers they are worth what they were.
 - **Brann stays out of Auto-Thread's 60% line**, as he is out of the danger line.
+- **A hero finishes a cast before their Solo**, Vexis's late Solos included. The alternatives were a Solo that cuts a cast short, as before, or a hero who starts no new cast once a Solo is ready.
 
 ## For the owner to look at
 
-1. **Vexis's Solo waiting on her casts** (above). The alternatives are a Solo that cuts a cast short, as before, or a hero who starts no new cast once a Solo is ready.
-2. **A first fight nobody touches.** The Solos fire once, near the end, plain. On two of six seeds tried the party falls before the fight is won, because nobody is healed. That was so before the rework too.
+1. **A first fight nobody touches.** The Solos fire once, near the end, plain. On two of six seeds tried the party falls before the fight is won, because nobody is healed. That was so before the rework too.

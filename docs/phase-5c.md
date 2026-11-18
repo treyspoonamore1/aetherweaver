@@ -819,7 +819,7 @@ All 15 are pinned as literals at the end.
 
 ### Bands (ARRIVAL3_KIT, 50 seeds a cell; whole runs 200; met only on all 3 seed sets)
 
-> **Since the Solo rework (2026-11-18, [docs/solos.md](solos.md)).** The Novice's bands were set again. Movement III skirmishes ≥45% (were ≥55%: the Frayed Threshold got harder for her), the Seamstress 45-75% (30-60%), the Unweaver 50-80% (25-55%). The Skilled bot's bands are as below. `tools/harness.ts` prints the bands in force.
+> **Since the Solo rework (2026-11-18, [docs/solos.md](solos.md)).** The Novice's bands were set again. Movement III skirmishes 45% or more (were 55% or more: the Frayed Threshold got harder for her, 56% over 150 fights), the elites 20-50% (30-65%), the Seamstress 45-75% (30-60%), the Unweaver 60-90% (25-55%). The Skilled bot's bands are as below. `tools/harness.ts` prints the bands in force.
 
 | Content | Idle | Novice | Skilled | Skilled share | Skilled length |
 |---|---|---|---|---|---|
