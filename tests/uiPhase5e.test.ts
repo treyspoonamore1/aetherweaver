@@ -752,6 +752,9 @@ describe('review fixes: the Mirror Choir decree, and Brann’s Codex entry', () 
     // those two lines differ: his Cued line ("…three times as deep. It heals him…", a full stop
     // where a dash was) and the end of his needs line ("Thread him as Red Frenzy fires: Cued, it
     // heals him.", where it told the player to Cue, which no key does now).
+    // Re-recorded again in the rework's second round, compared the same way: the two lines of
+    // Lyra's Gale Barrage differ and nothing else (no plain Solo roots its hero now, so "Lyra
+    // roots herself and…" and "Cued: she can move while firing…" were reworded in the content).
     const CodexView = await component<Record<string, unknown>>(
       '../src/ui/screens/CodexScreen',
       'CodexView',
@@ -768,7 +771,7 @@ describe('review fixes: the Mirror Choir decree, and Brann’s Codex entry', () 
     for (const id of ['seren', 'oro'])
       stripped = stripped.replace(heroDef(id).recruit!.lockedText!, '');
     expect(createHash('sha256').update(stripped).digest('hex')).toBe(
-      '3934ddff582fe19e7eea2d751915cb4076e713f7c1dc8b001506f0afe8509473',
+      'ff72c80dc9a695aa95b3b574f169e260afd615ef92ca155d172ec20754e9b984',
     );
   });
 });
@@ -805,6 +808,14 @@ describe('Brann’s and the default party’s UI are byte-equal to before', () =
   // and `aria-label` left its outer element, a hidden `role="status"` line with the state's
   // sentence came in ("Kael’s Aegis Wall is full. Thread them to Cue it."), and what is drawn
   // sits in one `aria-hidden` wrapper. Nothing drawn changed.
+  //
+  // Re-recorded a fifth time, for 8 keys (the `frames:*` scenes whose party has Lyra in it:
+  // `calm`, `crisis`, `downed`, `boss`, `calls`, `fermata`, `brann-execution`, `brann-cleave`),
+  // when no plain Solo roots its hero any more (the Solo rework's second round). Compared piece
+  // by piece with the tree before: the two lines of Lyra's Gale Barrage in her frame's tooltip,
+  // and nothing else. "Lyra looses twelve arrows a second for three seconds." (it said she
+  // roots herself) and "Cued: her arrows hit a third harder and crit 40% more often." (it said
+  // she can move while firing, which she now can either way).
   it('every pinned text and frame hashes as recorded at W3’s head', async () => {
     const want = JSON.parse(
       readFileSync(join(__dirname, 'uiPhase5e.brann.json'), 'utf8'),
