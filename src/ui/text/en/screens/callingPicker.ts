@@ -3,18 +3,14 @@ import type { Catalogue } from '../../catalogue';
 /** The `screens.callingPicker.*` messages: `src/ui/screens/CallingPicker.tsx`. */
 export const callingPicker = {
   'screens.callingPicker.yourCalling': 'Your Calling',
-  'screens.callingPicker.theWeaverSClass': 'The Weaver’s class for this run, chosen here.',
-  'screens.callingPicker.itGrowsAsYou':
-    ' It grows as you win: {schedule} picks, one of two each, {tierWhenList}.',
+  'screens.callingPicker.theWeaverSClass': 'The Weaver’s class for this run.',
+  'screens.callingPicker.itGrowsAsYou': ' It grows as you win: {schedule} picks, one of two each.',
   'screens.callingPicker.theFirstOpensAt': 'The first opens at Weaver Rank {rank}.',
   'screens.callingPicker.playingACallingEarns':
-    'Playing a Calling earns mastery, which opens its path.',
+    'Playing one earns mastery, which opens more of its path.',
   'screens.callingPicker.noCalling': 'No Calling',
-  'screens.callingPicker.yourSongsAndYour':
-    'Your songs and your Thread, as always. No path to pick along the way.',
+  'screens.callingPicker.yourSongsAndYour': 'No class: your songs and your Thread, nothing added.',
   'screens.callingPicker.chosen': 'Chosen',
-  'screens.callingPicker.reachWeaverRankTo':
-    'Reach Weaver Rank {rank} to choose it (or Settings → Skip the unlocks).',
   'screens.callingPicker.picksAlongTheWay':
     '{length} picks along the way, one of two each: {tierWhenList}.',
   'screens.callingPicker.mastery': 'Mastery {level}',

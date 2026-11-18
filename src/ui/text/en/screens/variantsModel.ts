@@ -25,7 +25,7 @@ export const variantsModel = {
   'screens.variantsModel.everyVariantIsOpen2':
     'Every variant is open: Settings → Skip the unlocks.',
   'screens.variantsModel.eachSlotHasVariants':
-    'Each slot has {countWord} variants, bought with Starlight. Settings → Skip the unlocks opens them all.',
+    'Each slot has {countWord} variants. Buy them with Starlight at the Atelier.',
   'screens.variantsModel.ofVariantsOwnedThe':
     '{n} of {total} variants owned. The rest are bought with Starlight.',
   'screens.variantsModel.alwaysYours': 'Always yours',

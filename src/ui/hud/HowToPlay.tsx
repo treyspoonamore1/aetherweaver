@@ -176,7 +176,6 @@ export function HowToPlay({
 }) {
   return (
     <Modal title={t('hud.howToPlay.howToPlay')} width="max-w-2xl" onClose={onClose} closeOnEscape>
-      <p className="mt-1 text-sm text-muted">{t('hud.howToPlay.theFightIsPaused')}</p>
       <ul className="mt-4 flex flex-col gap-3">
         {rows(bear, rewind, cue, conduct).map((r) => (
           <li

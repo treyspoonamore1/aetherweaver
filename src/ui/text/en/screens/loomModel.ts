@@ -48,15 +48,19 @@ export const loomModel = {
   'screens.loomModel.youCanAfford': '{n} you can afford',
   'screens.loomModel.ofEarned': '{earned} of {total} earned',
   'screens.loomModel.bestWon': 'Best won: {best}',
-  'screens.loomModel.starlightEveryWonFight': 'Won fights and Deeds pay Starlight. Spend it at the Atelier{value} on technique variants, robes, Thread looks and titles.',
+  'screens.loomModel.starlightEveryWonFight':
+    'Won fights and Deeds pay Starlight. Spend it at the Atelier{value} on technique variants, robes, Thread looks and titles.',
   'screens.loomModel.whichOpensAtWeaver': ' (opens at Weaver Rank {atelierRank})',
   'screens.loomModel.litUpVisitTo': '{capital} {value} opened.',
   'screens.loomModel.theLoom': 'The Loom',
   'screens.loomModel.yourSanctumBetweenRuns': 'Your base between runs',
-  'screens.loomModel.betweenRunsYouCome': 'You come back here after every run. Lit stations are open. Dark ones open as you play, and each shows you around on your first visit.',
-  'screens.loomModel.everyRunStartsHere': 'Runs start here. In Prep you choose your songs (the auras you sing to your heroes as they fight: healing them, or making them hit harder), then set out. A run you leave waits at the Gate.',
+  'screens.loomModel.betweenRunsYouCome':
+    'You come back here after every run. Lit stations are open. Dark ones open as you play, and each shows you around on your first visit.',
+  'screens.loomModel.everyRunStartsHere':
+    'Every run starts here. Through the Gate is Prep, where you choose your songs (the auras you sing to your heroes as they fight: healing them, or making them hit harder), then set out on the road. A run you leave waits at the Gate to be continued.',
   'screens.loomModel.theTrainingGroundsAnd': 'The Training Grounds and the Codex',
-  'screens.loomModel.theTrainingGroundsAre': 'The Training Grounds are a sandbox: spawn enemies and try your build, with nothing at stake. The Codex explains every enemy, song and system.',
+  'screens.loomModel.theTrainingGroundsAre':
+    'The Training Grounds are a sandbox: spawn enemies and try your build, with nothing at stake. The Codex explains every enemy, song and system.',
   'screens.loomModel.tryItContinueYour': 'Try it: continue your run',
   'screens.loomModel.tryItBeginA': 'Try it: begin a run',
   'screens.loomModel.tryItOpen': 'Try it: open {stationProse}',
