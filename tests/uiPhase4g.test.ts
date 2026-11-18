@@ -472,7 +472,7 @@ describe('Starlight on the Result and the Summary', () => {
     expect(fightStarlight({ kind: 'miniboss', outcome: 'defeat', starlight: 0 })).toMatchObject({
       amount: 0,
       headline: '+0 Starlight',
-      detail: 'A loss pays nothing; what the run earned before stays yours.',
+      detail: 'A loss pays nothing. You keep what the run already earned.',
     });
     expect(fightStarlight({ kind: 'sandbox', outcome: 'victory', starlight: 0 })).toBeNull();
     // A fight won in a save from before Starlight paid none, and says so.
@@ -489,7 +489,7 @@ describe('Starlight on the Result and the Summary', () => {
     expect(starlightUse(S.atelierRank - 1)).toContain(`opens at Weaver Rank ${S.atelierRank}`);
     expect(starlightUse(1, true)).toMatch(/^Spend it/);
     expect(starlightUse(S.atelierRank - 1, false, true)).toBe(
-      `Saved for the Loom’s Atelier, open from Weaver Rank ${S.atelierRank}.`,
+      `The Atelier opens at Weaver Rank ${S.atelierRank}.`,
     );
   });
 

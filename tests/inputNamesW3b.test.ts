@@ -48,18 +48,15 @@ const empowerHint = () => evaluateHints(healthy()).find((h) => h.id === 'empower
 
 describe('live input names in HUD text', () => {
   it('default settings: the words are as before', () => {
-    expect(empowerHint()).toBe(
-      'Everyone is healthy — press {RMB} to switch the Thread to Empower and add damage',
-    );
+    // The hint's own words are round 11's (the menu text pass); the key in them is what's held.
+    expect(empowerHint()).toBe('Everyone is healthy. Press {RMB} for Empower and add damage');
     expect(switchKeyLabel()).toBe('RMB');
     expect(cueModifierMark()).toBe('⇧');
   });
 
   it('a rebound Mend ⇄ Empower role and Cue modifier are named in hints and the key hints', async () => {
     rebind();
-    expect(empowerHint()).toBe(
-      'Everyone is healthy — press {Mouse 4} to switch the Thread to Empower and add damage',
-    );
+    expect(empowerHint()).toBe('Everyone is healthy. Press {Mouse 4} for Empower and add damage');
     expect(switchKeyLabel()).toBe('Mouse 4');
     expect(cueModifierMark()).toBe('Ctrl+');
     const { KeyHints } = await tsx<{ KeyHints: FunctionComponent<Props> }>(

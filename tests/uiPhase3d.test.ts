@@ -274,11 +274,11 @@ describe('the HUD on a Martyr run (from a real sim)', () => {
     const ids = evaluateHints(coach).map((x) => x.id);
     expect(ids).toContain('bear');
     expect(evaluateHints(coach).find((x) => x.id === 'bear')!.text).toMatch(
-      /^\{B\} Bear — take part of the big hit coming at Kael/,
+      /^\{B\} Bear: take part of the big hit coming at Kael/,
     );
     expect(ids).toContain('bear-intro');
     const intro = evaluateHints(coach).find((x) => x.id === 'bear-intro')!;
-    expect(intro.text).toMatch(/^\{B\}: Bear — take part of a big hit on your threaded hero/);
+    expect(intro.text).toMatch(/^\{B\} Bear: take part of a big hit on your threaded hero/);
     for (const scenario of ['calm', 'luminary', 'crisis'] as const)
       expect(evaluateHints(mockHud(scenario)).some((x) => x.id.startsWith('bear'))).toBe(false);
     // In the Vow, the coach names it.

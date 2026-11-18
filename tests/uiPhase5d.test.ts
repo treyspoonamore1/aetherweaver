@@ -454,7 +454,7 @@ describe('hints, recaps and callouts', () => {
     expect(ids('silence-0')).toContain('silence');
     for (const id of ['discord', 'fortissimo', 'silence']) expect(ANSWER_HINTS.has(id)).toBe(true);
     const silence = evaluateHints(fighting(finaleHud('silence-0'))).find((h) => h.id === 'silence');
-    expect(silence?.text).toMatch(/Eight notes bring your heroes back — even the fallen/);
+    expect(silence?.text).toMatch(/Eight notes bring your heroes back, even the fallen/);
     const fort = evaluateHints(fighting(finaleHud('fortissimo'))).find(
       (h) => h.id === 'fortissimo',
     );

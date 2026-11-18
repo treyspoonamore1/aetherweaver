@@ -212,7 +212,7 @@ describe('the latched and Bloodmoon hints on a Chronomancer run', () => {
     expect(text(plain, 'latched')).toMatch(/Reel \{.*\} or Chime/);
     expect(text(plain, 'bloodmoon')).toMatch(/Reel \{.*\} frees a pinned hero/);
     const rewinds = chrono(plain);
-    expect(text(rewinds, 'latched')).toMatch(/— Chime \{.*\} frees them$/);
+    expect(text(rewinds, 'latched')).toMatch(/\. Chime \{.*\} frees them$/);
     expect(text(rewinds, 'bloodmoon')).toMatch(/Rally \{.*\} the party to you$/);
     for (const h of evaluateHints(rewinds)) expect(h.text).not.toMatch(/Reel \{/);
   });

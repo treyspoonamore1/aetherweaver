@@ -275,7 +275,7 @@ describe('Execution follows the live heal cut', () => {
       party: hud.party.map((h) => (h.defId === 'brann' ? { ...h, healCut: undefined } : h)),
     };
     const hint = evaluateHints(oath).find((h) => h.id === 'execution')!;
-    expect(hint.text).toMatch(/lift them above 40% before it lands, or Ward \{Q\} them/);
+    expect(hint.text).toMatch(/Lift them above 40% before it lands, or Ward \{Q\} them/);
   });
 
   it('the bridge reads the condemned hero’s live cut from the sim', () => {

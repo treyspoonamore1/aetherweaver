@@ -383,7 +383,7 @@ describe('his hints', () => {
     const hud = brannHud('brann-raging');
     expect(ids(hud)).toContain('brannLow');
     expect(evaluateHints(hud).find((h) => h.id === 'brannLow')!.text).toMatch(
-      /fights harder hurt — Ward \{Q\} him, don’t Mend him/,
+      /fights harder hurt\. Ward \{Q\} him, don’t Mend him/,
     );
     expect(ids(hud)).not.toContain('hurt');
     expect(ids(hud)).not.toContain('hurt-mode');
@@ -403,9 +403,9 @@ describe('his hints', () => {
 
   it('Execution on Brann asks for a Ward', () => {
     const e = evaluateHints(brannHud('brann-execution')).find((h) => h.id === 'execution')!;
-    expect(e.text).toMatch(/Brann is condemned — Ward \{Q\} him/);
+    expect(e.text).toMatch(/Brann is condemned\. Ward \{Q\} him/);
     const lyra = evaluateHints(legionExecution()).find((h) => h.id === 'execution')!;
-    expect(lyra.text).toMatch(/lift them above 40%/);
+    expect(lyra.text).toMatch(/Lift them above 40%/);
   });
 
   it('the default party gets none of them', () => {
