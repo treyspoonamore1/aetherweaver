@@ -1043,7 +1043,8 @@ export class ThreadView {
       );
       this.overlay?.callout(
         tr.x,
-        tr.height + 1.25 + tr.y,
+        // Over the drawn head (heroes are drawn HERO_DRAWN tall): the same lift over it as before.
+        tr.height * HERO_DRAWN + 1.25 + tr.y,
         tr.z,
         this.pourLabel,
         this.pourHex,
