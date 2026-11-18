@@ -591,7 +591,7 @@ describe('the per-hero copy', () => {
       }) as unknown as DeathRecap;
     const over = down({ overextended: true, far: false, parryable: false, warded: false } as never);
     expect(deathAdviceLine(over, DUO_PARTIES.SO)).toBe(
-      'Reel or Rally her out of the pack, or Cue Thousand Cuts.',
+      'Reel or Rally her out of the pack, or Thread her as Thousand Cuts fires.',
     );
     expect(deathAdviceLine(over, DUO_PARTIES.SO, 'chronomancer')).toBe(
       'Rally her, or Rewind as the pack closes.',
@@ -747,6 +747,11 @@ describe('review fixes: the Mirror Choir decree, and Brann’s Codex entry', () 
   it('the Codex heroes page for the first four is byte-equal to W3’s, but for the narrowed locked lines', async () => {
     // Review fix: the Passive <dt> gained flex classes for every hero, Brann included. Recorded at
     // cf8c56e (W3's head) with the old locked lines stripped; here the new ones are stripped.
+    // Re-recorded once, at the join of the Solo rework (docs/solos.md): two of Brann's lines were
+    // reworded in the content, and the page was compared line by line before and after. Exactly
+    // those two lines differ: his Cued line ("…three times as deep. It heals him…", a full stop
+    // where a dash was) and the end of his needs line ("Thread him as Red Frenzy fires: Cued, it
+    // heals him.", where it told the player to Cue, which no key does now).
     const CodexView = await component<Record<string, unknown>>(
       '../src/ui/screens/CodexScreen',
       'CodexView',
@@ -763,7 +768,7 @@ describe('review fixes: the Mirror Choir decree, and Brann’s Codex entry', () 
     for (const id of ['seren', 'oro'])
       stripped = stripped.replace(heroDef(id).recruit!.lockedText!, '');
     expect(createHash('sha256').update(stripped).digest('hex')).toBe(
-      'b9f17d814045a040d1d1861fab7b40bca854a29cb20cb1c9d2287727a6c6421c',
+      '3934ddff582fe19e7eea2d751915cb4076e713f7c1dc8b001506f0afe8509473',
     );
   });
 });
@@ -785,6 +790,14 @@ describe('Brann’s and the default party’s UI are byte-equal to before', () =
   // crisis scene (a hit coming for two heroes, Kael's wall full), its dome lesson. Nothing else
   // moved: no life bar, no status, no Brann chip, no Fermata. The picker, the notes and every
   // other key are as recorded at W3's head.
+  //
+  // Re-recorded a third time, for 12 keys (`needs` and the 11 `frames:brann-*`), at the join of
+  // the Solo rework: the content's two reworded lines of Brann's reached this tree. The values
+  // were compared with the tree before, piece by piece, and two sentences differ and nothing
+  // else: his needs line ends "Thread him as Red Frenzy fires: Cued, it heals him." (`needs`),
+  // and his Solo's Cued line, which every one of his frames carries as its tooltip, reads
+  // "…three times as deep. It heals him where your healing can’t." The other 64 keys are as
+  // they were.
   it('every pinned text and frame hashes as recorded at W3’s head', async () => {
     const want = JSON.parse(
       readFileSync(join(__dirname, 'uiPhase5e.brann.json'), 'utf8'),

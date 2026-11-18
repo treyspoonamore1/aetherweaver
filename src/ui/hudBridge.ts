@@ -169,10 +169,8 @@ export function soloTell(
   const h = e.health;
   if (!e.hero || !h || isStilled(h) || h.statuses.some((s) => s.id === 'possessed'))
     return { soloIn: null, willCue: false };
-  // Full with no one to fight: the wait has not begun (heroes.ts `soloFires`), so nothing is
-  // coming yet. Oro's wait also runs while a Sapling fights.
-  const idle = e.hero.solo >= 100 && e.hero.targetId === null && !e.hero.grove;
-  const soloIn = idle ? null : soloDueIn(state, e);
+  // (Full with no one to fight, the wait has not begun: `soloDueIn` says null for it.)
+  const soloIn = soloDueIn(state, e);
   if (soloIn === null) return { soloIn: null, willCue: false };
   const willCue = threadCues(state, e);
   const w = state.entities.get(state.weaverId)?.weaver;

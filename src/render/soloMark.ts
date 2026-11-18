@@ -93,9 +93,9 @@ export function soloTellSeconds(hero: ReadonlyEntity): number {
 }
 
 /**
- * The mark a hero shows now, or null: none while no Solo is coming (`soloDueIn`), while they are
- * possessed or stilled (they do not fire), full with no one to fight (the wait has not begun;
- * Oro's also runs while a Sapling fights), or held by a Fermata (its own marks take the slot).
+ * The mark a hero shows now, or null: none while no Solo is coming (`soloDueIn`: that includes
+ * full with no one to fight, the wait not begun), while they are possessed or stilled (they do
+ * not fire), or held by a Fermata (its own marks take the slot).
  */
 export function soloMarkOf(state: WorldState, hero: ReadonlyEntity): SoloMark | null {
   const h = hero.hero;
@@ -105,7 +105,6 @@ export function soloMarkOf(state: WorldState, hero: ReadonlyEntity): SoloMark | 
     const id = health.statuses[i]!.id;
     if (id === 'possessed' || id === 'stilled') return null;
   }
-  if (h.solo >= 100 && h.targetId === null && !h.grove) return null;
   // A Fermata hold owns the slot over the head (its arch, HOLD and the heal prompt) for its
   // second and a half: the mark stands down, and the frame's strip still counts.
   if (h.hold) return null;

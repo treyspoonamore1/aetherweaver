@@ -24,9 +24,7 @@ import {
   type PadLike,
 } from '../src/input/gamepad';
 import {
-  AUTO_SOLO_DANGER,
   AUTO_SOLO_KEEP,
-  AUTO_SOLO_LEAD,
   AUTO_THREAD_IDLE_SECONDS,
   InputController,
   autoSoloTarget,
@@ -814,8 +812,8 @@ describe('Auto-Thread follows a Solo about to fire (docs/solos.md, rule 7)', () 
     for (const slot of [LYRA, VEXIS]) {
       const fired = solos.get(slot)!.at;
       const sent = threads.filter((t) => t.slot === slot && t.at <= fired).pop()!;
-      expect(fired - sent.at, `slot ${slot}`).toBeLessThanOrEqual(AUTO_SOLO_LEAD + 2 / SIM_HZ);
-      expect(fired - sent.at, `slot ${slot}`).toBeGreaterThan(AUTO_SOLO_LEAD / 2);
+      expect(fired - sent.at, `slot ${slot}`).toBeLessThanOrEqual(SOLOS.lead + 2 / SIM_HZ);
+      expect(fired - sent.at, `slot ${slot}`).toBeGreaterThan(SOLOS.lead / 2);
     }
     // Kael may raise his full wall at any moment, so the Thread waits on him between the others.
     expect(threads.map((t) => t.slot)).toEqual([KAEL, LYRA, KAEL, VEXIS, KAEL, VEXIS]);
@@ -830,7 +828,7 @@ describe('Auto-Thread follows a Solo about to fire (docs/solos.md, rule 7)', () 
     useSettings.getState().update((d) => ({ ...d, aids: { autoThread: true } }));
     const sim = fight(VEXIS);
     const { threads, solos } = play(sim, controller(), 5, {
-      shares: { [LYRA]: AUTO_SOLO_DANGER - 0.05 },
+      shares: { [LYRA]: SOLOS.danger - 0.05 },
     });
     // The lowest-life rule sends it to Lyra once, after the idle wait, and there it stays.
     expect(threads.map((t) => t.slot)).toEqual([LYRA]);
@@ -918,7 +916,7 @@ describe('Auto-Thread follows a Solo about to fire (docs/solos.md, rule 7)', () 
     // lowest-life rule does not run either: Auto-Thread sends nothing at all.
     const { threads, solos } = play(sim, controller(), 6, {
       busy: true,
-      shares: { [LYRA]: AUTO_SOLO_DANGER - 0.05 },
+      shares: { [LYRA]: SOLOS.danger - 0.05 },
     });
     expect(threads).toEqual([]);
     expect(sim.state.entities.get(sim.state.weaverId)!.weaver!.threadSlot).toBe(VEXIS);
@@ -986,14 +984,14 @@ describe('Auto-Thread follows a Solo about to fire (docs/solos.md, rule 7)', () 
     stepFor(sim, 1, [CHARGE]);
     life(sim);
     // Every Solo full: Lyra's is due in a second (not yet within the lead), so Kael's wall.
-    expect(soloDueIn(s, hero(sim, LYRA))!).toBeGreaterThan(AUTO_SOLO_LEAD);
+    expect(soloDueIn(s, hero(sim, LYRA))!).toBeGreaterThan(SOLOS.lead);
     expect(autoSoloTarget(s)).toBe(KAEL);
     // Within the lead: Lyra.
-    for (let i = 0; soloDueIn(s, hero(sim, LYRA))! > AUTO_SOLO_LEAD && i < 2 * SIM_HZ; i++) {
+    for (let i = 0; soloDueIn(s, hero(sim, LYRA))! > SOLOS.lead && i < 2 * SIM_HZ; i++) {
       life(sim);
       stepFor(sim, 1);
     }
-    expect(soloDueIn(s, hero(sim, LYRA))!).toBeLessThanOrEqual(AUTO_SOLO_LEAD);
+    expect(soloDueIn(s, hero(sim, LYRA))!).toBeLessThanOrEqual(SOLOS.lead);
     expect(autoSoloTarget(s)).toBe(LYRA);
     const w = worldOf(sim);
     const lyra = w.entities.get(s.party[LYRA]!)!;
@@ -1010,10 +1008,10 @@ describe('Auto-Thread follows a Solo about to fire (docs/solos.md, rule 7)', () 
     vexisAt.x = vx;
     lyra.x = x;
     // A hero in danger, a hero down, the Thread locked, the Weaver down: nobody.
-    lyra.health!.hp = lyra.health!.maxHp * (AUTO_SOLO_DANGER - 0.01);
+    lyra.health!.hp = lyra.health!.maxHp * (SOLOS.danger - 0.01);
     expect(partyInDanger(s)).toBe(true);
     expect(autoSoloTarget(s)).toBeNull();
-    lyra.health!.hp = lyra.health!.maxHp * (AUTO_SOLO_DANGER + 0.01);
+    lyra.health!.hp = lyra.health!.maxHp * (SOLOS.danger + 0.01);
     expect(partyInDanger(s)).toBe(false);
     expect(autoSoloTarget(s)).toBe(LYRA);
     const vexis = w.entities.get(s.party[VEXIS]!)!;
@@ -1069,10 +1067,19 @@ describe('Auto-Thread follows a Solo about to fire (docs/solos.md, rule 7)', () 
       expect(hero(sim, slot).hero!.solo).toBe(100);
       expect(hero(sim, slot).hero!.targetId).toBeNull();
     }
-    // The tell still reads the whole wait for Lyra: under Silent Cues' lead, but she won't fire.
+    // Nothing is coming, by the sim's own tell (it used to read the whole wait here, inside
+    // Silent Cues' lead, and Auto-Thread kept a guard of its own): they won't fire, so the
+    // Thread does not go and sit on one of them between waves.
     w.mods.cueHold = 1;
-    expect(soloDueIn(s, hero(sim, LYRA))!).toBeLessThanOrEqual(AUTO_SOLO_LEAD + 1);
+    for (const slot of [KAEL, LYRA, VEXIS]) expect(soloDueIn(s, hero(sim, slot))).toBeNull();
     expect(autoSoloTarget(s)).toBeNull();
+    // Someone to fight again: the waits run, and a Solo is followed.
+    const k = hero(sim, KAEL);
+    stepFor(sim, 1, [spawn('bell_brute', k.x, k.z - 4)]);
+    stepUntil(sim, () => [KAEL, LYRA, VEXIS].every((x) => hero(sim, x).hero!.targetId !== null));
+    life(sim);
+    expect(soloDueIn(s, hero(sim, LYRA))).not.toBeNull();
+    expect(autoSoloTarget(s)).not.toBeNull();
   });
 
   it('Silent Cues: the Thread goes a second sooner, so it has been on the hero long enough', () => {
@@ -1093,11 +1100,11 @@ describe('Auto-Thread follows a Solo about to fire (docs/solos.md, rule 7)', () 
     };
     const plain = run(0);
     expect(plain.cued).toBe(true);
-    expect(plain.lead).toBeLessThanOrEqual(AUTO_SOLO_LEAD + 2 / SIM_HZ);
+    expect(plain.lead).toBeLessThanOrEqual(SOLOS.lead + 2 / SIM_HZ);
     const silent = run(1);
     expect(silent.cued).toBe(true);
     expect(silent.lead).toBeGreaterThan(1);
-    expect(silent.lead).toBeLessThanOrEqual(1 + AUTO_SOLO_LEAD + 2 / SIM_HZ);
+    expect(silent.lead).toBeLessThanOrEqual(1 + SOLOS.lead + 2 / SIM_HZ);
   });
 });
 

@@ -7,8 +7,8 @@
  *   scale degrees over its last note) by the first hero's voice.
  * - **Trio** (link 3): the three heroes' notes as a chord, strings swelling with brass entering
  *   under them, resolving to D on the music's next bar line.
- * - **A Tempo's Cue** (`onBeat`, with A Tempo's Resonance on the path): a bright glass chime on
- *   the phrase of each Cued Solo A Tempo pays for.
+ * - **A Tempo's Cue** (`cueChained.paid`: on the beat, with A Tempo's Resonance on the path): a
+ *   bright glass chime on the phrase of each Cued Solo A Tempo pays for.
  * - **The downbeat** (A Tempo): a soft baton tick on each of the sim's downbeats.
  * - **Grand Finale**: two baton taps as it is raised (no Sunrise); each turn the hero's
  *   leitmotif, a scale degree higher per turn; a lost turn a muted string; at its end a full
@@ -93,16 +93,6 @@ export const CADENCE: readonly (readonly number[])[] = [
 export const SHIMMER: readonly number[] = [14, 18, 21];
 /** The Triad's held chord: D4, F4, A4 (D minor, the key's own). */
 export const TRIAD_CHORD: readonly number[] = [0, 2, 4];
-
-/**
- * Did A Tempo pay for this Cued Solo? The sim's own rule (conducting.ts `conductCue`): it began
- * on the downbeat and the run's A Tempo gives Resonance for it. `cost` is always 0 now and says
- * nothing.
- */
-export const tempoPays = (
-  ev: Extract<SimEvent, { type: 'cueChained' }>,
-  state: WorldState,
-): boolean => ev.onBeat && (state.calling?.conducting?.cueResonance ?? 0) > 0;
 
 const fightOver = (state: WorldState): boolean => {
   const status = state.encounter?.status;
@@ -191,9 +181,9 @@ export class ConductSounds {
           const chain = state.field.conducting?.chain?.heroes ?? [];
           this.trio(state, chain.length >= 3 ? chain.slice(0, 3) : [ev.hero]);
         }
-        // A Tempo pays for a Cued Solo begun on the downbeat (conducting.ts `conductCue`: on
-        // the beat, with its Resonance on the path), Silent Cues or not.
-        if (tempoPays(ev, state)) this.tempoCue(state, ev.hero);
+        // A Tempo pays for a Cued Solo begun on the downbeat, Silent Cues or not. The rule is
+        // the sim's (conducting.ts `conductCue`), read from its own flag, never copied here.
+        if (ev.paid === true) this.tempoCue(state, ev.hero);
         break;
       }
       case 'reprised':

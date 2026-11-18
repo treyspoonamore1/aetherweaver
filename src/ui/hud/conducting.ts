@@ -207,8 +207,6 @@ function nextSolo(
   for (const id of state.party) {
     const e = state.entities.get(id);
     if (!e?.hero || !e.health) continue;
-    // Full with no one to fight: the wait has not begun (as the frames read it, `soloTell`).
-    if (e.hero.solo >= 100 && e.hero.targetId === null && !e.hero.grove) continue;
     const due = soloDueIn(state, e);
     if (due === null || (best && best.in <= due)) continue;
     best = {

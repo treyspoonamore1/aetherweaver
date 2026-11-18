@@ -1,5 +1,6 @@
 import { quantize } from '../sim/core/dmath';
 import {
+  SOLOS,
   soloDueIn,
   threadCues,
   type Command,
@@ -61,16 +62,13 @@ export const CUT_FALLBACK_SECONDS = 3;
 export const AUTO_THREAD_IDLE_SECONDS = 2;
 
 /**
- * Auto-Thread follows a Solo (docs/solos.md, rule 7) as the Skilled bot does (`soloCue`,
- * src/bots/skilled.ts): the Thread goes to a hero this many seconds before their Solo is due to
- * fire (the bot's `SOLO_LEAD`), and longer by Silent Cues' hold when that level is on.
- */
-export const AUTO_SOLO_LEAD = 0.5;
-/** Nor while a hero is under this share of their life: they need the Thread more (`SOLO_DANGER`). */
-export const AUTO_SOLO_DANGER = 0.3;
-/**
- * Nor does it leave the hero the Thread is on while that hero is under this share of their life:
- * a player busy with other keys may be healing them with it. (The bot has no such line: it
+ * Auto-Thread follows a Solo (docs/solos.md) as the Skilled bot does (`soloCue`,
+ * src/bots/skilled.ts), by the same two numbers, the sim's own: the Thread goes to a hero
+ * `SOLOS.lead` seconds before their Solo is due to fire (longer by Silent Cues' hold when that
+ * level is on), and not while a hero is under `SOLOS.danger` of their life.
+ *
+ * It also does not leave the hero the Thread is on while that hero is under this share of their
+ * life: a player busy with other keys may be healing them with it. (The bot has no such line: it
  * weighs every hero each tick. This one is the aid's own.)
  */
 export const AUTO_SOLO_KEEP = 0.6;
@@ -1163,7 +1161,7 @@ export function autoThreadTarget(state: WorldState): PartySlot | null {
  * Is a hero in danger, so that Auto-Thread leaves Solos be and keeps to the lowest-life hero?
  * The Skilled bot's reasons to keep its Thread (`soloCue`, src/bots/skilled.ts): a hero downed,
  * on a Fermata hold (a Mend saves them), condemned by an Execution (under its line, or within a
- * tenth of their life above it), or under `AUTO_SOLO_DANGER` of their life. Brann aside for that
+ * tenth of their life above it), or under `SOLOS.danger` of their life. Brann aside for that
  * last one, who sits low on purpose (docs/phase-5b.md).
  */
 export function partyInDanger(state: WorldState): boolean {
@@ -1172,7 +1170,7 @@ export function partyInDanger(state: WorldState): boolean {
     const h = e?.health;
     if (!e?.hero || !h || h.dead || h.maxHp <= 0) continue;
     if (h.downed || e.hero.hold) return true;
-    if (e.hero.blood === undefined && h.hp < h.maxHp * AUTO_SOLO_DANGER) return true;
+    if (e.hero.blood === undefined && h.hp < h.maxHp * SOLOS.danger) return true;
   }
   for (const t of state.telegraphs) {
     if (t.executeBelow === undefined || t.target === null) continue;
@@ -1186,7 +1184,7 @@ export function partyInDanger(state: WorldState): boolean {
  * The hero whose Solo Auto-Thread follows now (docs/solos.md, rule 7), or null to leave the
  * Thread to the lowest-life rule. It is the Skilled bot's rule (`soloCue` and `soloToCue`,
  * src/bots): with nobody in danger (`partyInDanger`), the hero whose Solo is soonest due within
- * `AUTO_SOLO_LEAD` seconds (the sim's `soloDueIn`; Silent Cues' hold is added to the lead, so the
+ * `SOLOS.lead` seconds (the sim's `soloDueIn`; Silent Cues' hold is added to the lead, so the
  * Thread has been there long enough), whom the Thread can reach. Kael may raise his wall at any
  * moment once it is full, so he counts from then on, behind any hero due within the lead: the
  * wall he raises with the Thread on him is the dome over everyone.
@@ -1208,7 +1206,7 @@ export function autoSoloTarget(state: WorldState): PartySlot | null {
   if (state.mods.alwaysCued) return null;
   if (state.field.finale?.silence || partyInDanger(state)) return null;
   const reach = w.threadRange - AUTO_SOLO_REACH_MARGIN;
-  const lead = AUTO_SOLO_LEAD + state.mods.cueHold;
+  const lead = SOLOS.lead + state.mods.cueHold;
   let soon: PartySlot | null = null;
   let soonDue = Infinity;
   let wall: PartySlot | null = null;
@@ -1222,10 +1220,8 @@ export function autoSoloTarget(state: WorldState): PartySlot | null {
     if (dx * dx + dz * dz >= reach * reach) continue;
     const due = soloDueIn(state, e);
     if (due === null) continue;
-    // A full Solo with no one to fight does not fire (heroes.ts `soloFires`), though the tell
-    // still reads its whole wait: nothing to follow, or the Thread would sit there between
-    // waves. (Oro is the exception: target-less, his wait runs while a Sapling fights.)
-    if (c.solo >= 100 && c.targetId === null && !c.grove) continue;
+    // (A full Solo with no one to fight does not fire, and `soloDueIn` says null for it: the
+    // Thread never sits on such a hero between waves.)
     // Cued as things stand, though the Thread is elsewhere (the rule is the sim's, and may be
     // widened for slower hands): nothing to follow. On the threaded hero it reads true as well;
     // they stay a candidate, so that the Thread is kept on them until they fire.

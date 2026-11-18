@@ -540,6 +540,7 @@ describe('his sounds in the fight (real sim)', () => {
     const free = t.run(1, [{ t: 'debug', op: { op: 'fireSolo', slot: 1, cued: true } }])[0]!;
     const chained = ofType(free.events, 'cueChained')[0]!;
     expect(chained.onBeat).toBe(true);
+    expect(chained.paid).toBe(true);
     expect(free.groups).toContain(CONDUCT_SOUND_GROUPS.tempo);
     // Spotlight: the held note under Lyra's Solo, let go when it ends.
     expect(free.groups).toContain(CONDUCT_SOUND_GROUPS.spotlight);
@@ -558,7 +559,7 @@ describe('his sounds in the fight (real sim)', () => {
 
   // Successor of "under Silent Cues a Cue on the beat still costs: no glass chime" (docs/solos.md):
   // a Cue costs nothing now, so the chime follows what A Tempo pays for, a Cued Solo begun on the
-  // downbeat, read from the run (its Resonance on the path), not from the event's `cost` (always 0).
+  // downbeat, read from the sim's own flag (`cueChained.paid`), not from the event's `cost` (always 0).
   it('A Tempo’s chime sounds on each Cued Solo it pays for, Silent Cues or not, and on no other', () => {
     const onTheBeat = (t: ReturnType<typeof fight>) => {
       while (Math.abs(((t.sim.state.time + 0.05) % BAR_SECONDS) - 0.05) > 0.1) t.run(1);
@@ -577,6 +578,7 @@ describe('his sounds in the fight (real sim)', () => {
     const paid = fireSolo(silent, true);
     const chained = ofType(paid.events, 'cueChained')[0]!;
     expect(chained.onBeat).toBe(true);
+    expect(chained.paid).toBe(true);
     expect(chained.cost).toBe(0);
     expect(paidBy(paid.events)).toBe(true);
     expect(paid.groups).toContain(CONDUCT_SOUND_GROUPS.tempo);
@@ -589,6 +591,7 @@ describe('his sounds in the fight (real sim)', () => {
     off.run(Math.round((BAR_SECONDS / 2) * 60));
     const offBeat = fireSolo(off, true);
     expect(ofType(offBeat.events, 'cueChained')[0]!.onBeat).toBe(false);
+    expect(ofType(offBeat.events, 'cueChained')[0]!.paid).toBe(false);
     expect(paidBy(offBeat.events)).toBe(false);
     expect(offBeat.groups).not.toContain(CONDUCT_SOUND_GROUPS.tempo);
 
@@ -606,6 +609,7 @@ describe('his sounds in the fight (real sim)', () => {
     onTheBeat(lead);
     const noTempo = fireSolo(lead, true);
     expect(ofType(noTempo.events, 'cueChained')[0]!.onBeat).toBe(false);
+    expect(ofType(noTempo.events, 'cueChained')[0]!.paid).toBe(false);
     expect(lead.conduct().asked.tempo).toBe(0);
   });
 

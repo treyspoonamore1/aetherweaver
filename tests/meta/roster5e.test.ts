@@ -626,13 +626,13 @@ describe('down recaps name the answer (downAdvice)', () => {
 
   it('Seren: overextended (the Chronomancer’s Rally line), a far beam, an unwarded parryable blow', () => {
     expect(Run.downAdvice(seren({ overextended: true, parryable: true }), P)).toBe(
-      'Reel or Rally her out of the pack, or Cue Thousand Cuts.',
+      'Reel or Rally her out of the pack, or Thread her as Thousand Cuts fires.',
     );
     expect(Run.downAdvice(seren({ overextended: true }), P, 'chronomancer')).toBe(
       'Rally her, or Rewind as the pack closes.',
     );
     expect(Run.downAdvice(seren({ overextended: true }), P, 'martyr')).toBe(
-      'Reel or Rally her out of the pack, or Cue Thousand Cuts.',
+      'Reel or Rally her out of the pack, or Thread her as Thousand Cuts fires.',
     );
     expect(Run.downAdvice(seren({ far: true }), P)).toBe('Reel or Ward the beam on her.');
     expect(Run.downAdvice(seren({ parryable: true }), P)).toBe(

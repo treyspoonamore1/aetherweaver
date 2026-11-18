@@ -192,8 +192,8 @@ describe('Seren overextended: the recap’s answer follows the Reel variant', ()
     duel: { warded: false, parryable: false, overextended: true, far: false },
   } satisfies Pick<DeathRecap, 'heroId' | 'killer' | 'duel'>;
   const P = ['kael', 'vexis', 'seren'];
-  const REEL = 'Reel or Rally her out of the pack, or Cue Thousand Cuts.';
-  const RALLY = 'Rally her out of the pack, or Cue Thousand Cuts.';
+  const REEL = 'Reel or Rally her out of the pack, or Thread her as Thousand Cuts fires.';
+  const RALLY = 'Rally her out of the pack, or Thread her as Thousand Cuts fires.';
 
   it('the plain Reel (and an unknown variant) still Reels; Anchor and Swap Rally', () => {
     expect(Run.downAdvice(down, P)).toBe(REEL);
