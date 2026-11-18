@@ -514,11 +514,12 @@ describe('the Decree gate (tools/decrees.ts)', () => {
   }, 60_000);
 
   it('judges an Unpick the win leaves inside its lock on the fight, not as a missed re-thread', () => {
-    // Seed 64352 (1000 + 8 × 7919; 72271, then 16838, before W9's tuning rounds): an Unpick
+    // Seed 8919 (1000 + 7919; 64352 until the Solo rework's tuning, docs/solos.md; 72271, then
+    // 16838, before W9's tuning rounds): an Unpick
     // cuts and the Seamstress falls before its 1 s lock runs out, so no re-thread was possible.
     // It once read as a failure (Skilled's Unpicking 93% over 30 seeds, where every Unpick it
     // could judge was answered).
-    const f = decreeFight('the_seamstress', 64352, 'skilled');
+    const f = decreeFight('the_seamstress', 8919, 'skilled');
     expect(f.won).toBe(true);
     const open = f.unpicks!.filter((u) => u.open);
     expect(open.length).toBeGreaterThan(0);
@@ -695,8 +696,9 @@ describe('the harness and a roster party: the Phase 5b review fixes', () => {
   }
 
   it('caps Blood and Silk’s tallied Resonance at the bar’s max, as the sim does', () => {
-    // An empty bar fills at 3 a second over the 2 s.
-    expect(silk(0)).toBeGreaterThan(4);
+    // An empty bar fills at 1.5 a second over the 2 s (3 a second before the Solo rework halved
+    // every Resonance gain, docs/solos.md).
+    expect(silk(0)).toBeGreaterThan(2);
     // A full bar takes nothing, so nothing is tallied.
     expect(silk(CONTENT.resonance.max)).toBe(0);
     // Nearly full: no more than the room left each tick.
@@ -1102,12 +1104,12 @@ describe('the Finale verbs (FinaleWatch)', () => {
     expect(play([{ type: 'encounterEnded', tick: 60, outcome: 'defeat' }])).toBe(1);
   });
 
-  it('a real fight fails no Cue its soloist’s death or a phase shift cleared (Skilled, 1001)', () => {
+  it('a real fight fails no Cue its soloist’s death or a phase shift cleared (Skilled, 1006)', () => {
     let cue: number | null = null;
     let excused = 0;
     let unsung = 0;
     const run = playEncounter(
-      { seed: 1001, encounter: CONDUCTOR, ...kit4 },
+      { seed: 1006, encounter: CONDUCTOR, ...kit4 },
       'skilled',
       (sim, events) => {
         for (const e of events) {
@@ -1127,11 +1129,10 @@ describe('the Finale verbs (FinaleWatch)', () => {
         }
       },
     );
-    // Seed 1001's fight (a win) has Cues cleared by both: one by a phase shift, one by its
-    // soloist's death. None of them counts as failed, and only the Cues that landed on a voice
-    // that couldn't sing do. (It was seed 1002 before the Finale was tuned; the tuned 1002 still
-    // passes, but only a death clears one of its Cues, so it no longer shows the phase-shift
-    // excuse. 1001 shows both.)
+    // Seed 1006's fight (a win) has two Cues cleared by a phase shift or their soloist's death.
+    // Neither counts as failed, and only the Cues that landed on a voice that couldn't sing do.
+    // (Which seed's fight shows it moves with the fights: 1002 before the Finale was tuned, 1001
+    // after it, 1006 since the Solo rework's tuning, docs/solos.md.)
     expect(run.outcome).toBe('victory');
     expect(excused).toBeGreaterThan(0);
     expect(unsung).toBeGreaterThan(0);
