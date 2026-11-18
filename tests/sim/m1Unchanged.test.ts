@@ -10,6 +10,12 @@
  * Conductor Calling's three (docs/phase-5f.md, W4) follow the twenty-five, which come first and
  * unchanged. Phase 6's three (docs/phase-6.md, W7: Tyrant, Mimicry, the Postlude) follow the
  * twenty-eight, which come first and unchanged, and its Echo golden (W7 part B) the thirty-one.
+ *
+ * Re-recorded once, all thirty-two, with SIM_VERSION 23: the Solo rework (docs/solos.md) changed
+ * how every fight plays (heroes fire their own Solos, a Cue costs nothing, Resonance is earned at
+ * half speed, and the bots follow Solos with the Thread), so no earlier hash could stand. The
+ * literals below are the new ones (`tools/sync-golden-pins.ts` copied them from golden.json), and
+ * the order and the scenarios are as they were.
  */
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../../src/content';
@@ -22,43 +28,43 @@ import { SCENARIOS } from '../../tools/scenarios';
 import golden from './golden.json';
 
 const M1_HASHES: Readonly<Record<string, string>> = {
-  patrol: '2626acee5ce8d584',
-  crowd: '323bd3a88aea3f1b',
-  'skilled-first-light': '905754ea95eb27ac',
-  'skilled-bellwarden': '9ff673296b5779d5',
-  'novice-cantor': 'ef492fba9d6c91ec',
+  patrol: '7a249d07ba9b423e',
+  crowd: '6368ad57ebbf44b0',
+  'skilled-first-light': '2e20da90497bc019',
+  'skilled-bellwarden': '62d3ddd3ebe238ca',
+  'novice-cantor': 'c334cf223d327d9c',
 };
 
 /** Movement II's three default-party goldens (docs/phase-5b.md: pinned before Brann lands). */
 const M2_HASHES: Readonly<Record<string, string>> = {
-  'skilled-crimson-gate': '33de216e886e4fae',
-  'novice-matriarch': 'c189c9db37b9b5f0',
-  'skilled-vharun': '0d468d6046318cd6',
+  'skilled-crimson-gate': 'f0d42eab0ebe313f',
+  'novice-matriarch': '485f8be301e7dc5b',
+  'skilled-vharun': '362fdb3ba2009dc6',
 };
 
 /** Brann's three goldens (docs/phase-5c.md, W0a: pinned before any Movement III content lands). */
 const BRANN_HASHES: Readonly<Record<string, string>> = {
-  'skilled-brann-crimson-gate': '5831f3df358d5c5d',
-  'skilled-brann-bellwarden': '10e99af8f2dd8003',
-  'novice-brann-first-light': '9ba4ea40f94cd1aa',
+  'skilled-brann-crimson-gate': 'e4f5a72759ad831f',
+  'skilled-brann-bellwarden': '21325a6c35a80f0b',
+  'novice-brann-first-light': 'a17e711cc86728ad',
 };
 
 const PINNED: Readonly<Record<string, string>> = { ...M1_HASHES, ...M2_HASHES, ...BRANN_HASHES };
 
 /** Movement III's four goldens (docs/phase-5c.md, "Hand-off": pinned for the Finale slice). */
 const M3_HASHES: Readonly<Record<string, string>> = {
-  'skilled-unstitched-threshold': 'f72dc5e1b03025cf',
-  'novice-seamstress': 'c379707e6d0dab69',
-  'skilled-unweaver': '63e8f91b068c4bad',
-  'skilled-brann-mirror-hall': '34359b7e914cfd05',
+  'skilled-unstitched-threshold': '41181b0941ee2038',
+  'novice-seamstress': 'e3c76c26d175a800',
+  'skilled-unweaver': 'f2d7fe4d5ab74b11',
+  'skilled-brann-mirror-hall': '5a71cbd5f54ed1b2',
 };
 
 /** The Finale's four goldens (docs/phase-5d.md, "Hand-off": pinned for the next slice). */
 const M4_HASHES: Readonly<Record<string, string>> = {
-  'skilled-conductor': '6bdc7685bdb401fb',
-  'novice-grand-silence': '53e97197ec54183f',
-  'skilled-brann-conductor': '2aa1d517c92d14a3',
-  'skilled-chrono-silence': '7841a66073bbaeee',
+  'skilled-conductor': '8db32ebe5ec9adf6',
+  'novice-grand-silence': '66748d7c00f437cf',
+  'skilled-brann-conductor': 'e081f52b64227122',
+  'skilled-chrono-silence': 'a162025d709f9f74',
 };
 
 /** The fifteen goldens the Finale slice found, in golden.json's order. */
@@ -74,12 +80,12 @@ const NINETEEN: Readonly<Record<string, string>> = { ...FIFTEEN, ...M4_HASHES };
  * them. Only W8 or later may append to golden.json.
  */
 const ROSTER_HASHES: Readonly<Record<string, string>> = {
-  'skilled-seren-crimson-gate': '8a2255440dd4690e',
-  'novice-seren-first-light': '64fc18df79b0fad1',
-  'skilled-oro-bellwarden': 'f3eec5fbf3a4472e',
-  'skilled-red-line-vharun': '7cb1ccd3bf32f746',
-  'skilled-oro-conductor': '48db24c60f4424d8',
-  'novice-grove-mirror-hall': '3c1d02049ef29ef6',
+  'skilled-seren-crimson-gate': 'bc73314d67e0a69b',
+  'novice-seren-first-light': '8c0a8935d74ed7ca',
+  'skilled-oro-bellwarden': '487de70fcb4f2af8',
+  'skilled-red-line-vharun': 'e9e38422b811ea45',
+  'skilled-oro-conductor': '6e72f8d623de4fcf',
+  'novice-grove-mirror-hall': 'c9fa3b51c6583e69',
 };
 
 /** All twenty-five goldens, in golden.json's order. */
@@ -91,9 +97,9 @@ const ALL_PINNED: Readonly<Record<string, string>> = { ...NINETEEN, ...ROSTER_HA
  * (W5); the twenty-five never are.
  */
 const CONDUCTING_HASHES: Readonly<Record<string, string>> = {
-  'skilled-conducting-bellwarden': '013e676d2eaa8f74',
-  'novice-conducting-first-light': 'c3408b85068381ef',
-  'skilled-conducting-silent': 'd200c6af6720f641',
+  'skilled-conducting-bellwarden': '0510594d224f1ccf',
+  'novice-conducting-first-light': '59a9498620b7dcbb',
+  'skilled-conducting-silent': 'b16b7a1aaa6a3165',
 };
 
 /** The twenty-eight goldens Phase 6 found, in golden.json's order (first, and unchanged). */
@@ -105,9 +111,9 @@ const TWENTY_EIGHT: Readonly<Record<string, string>> = { ...ALL_PINNED, ...CONDU
  * tunes Phase 6's numbers; the twenty-eight never are.
  */
 const PHASE6_HASHES: Readonly<Record<string, string>> = {
-  'skilled-tyrant-vharun': '6a1cfc180a7f1f31',
-  'novice-mimicry-first-light': '727ddeaca04419a3',
-  'skilled-postlude': 'f5712565598dccac',
+  'skilled-tyrant-vharun': '078e53f6f930bb2c',
+  'novice-mimicry-first-light': 'df2772569557301c',
+  'skilled-postlude': '6cf58d82959e8fef',
 };
 
 /** The thirty-one goldens W7's Echo golden found, in golden.json's order (first, and unchanged). */
@@ -119,16 +125,16 @@ const THIRTY_ONE: Readonly<Record<string, string>> = { ...TWENTY_EIGHT, ...PHASE
  * no leg scale as built).
  */
 const ECHO_HASHES: Readonly<Record<string, string>> = {
-  'skilled-echo-bells-in-the-rift': '07fd95fcfee7c80b',
+  'skilled-echo-bells-in-the-rift': '24f5b76e25299e99',
 };
 
 /** All thirty-two goldens, in golden.json's order. */
 const ALL_GOLDENS: Readonly<Record<string, string>> = { ...THIRTY_ONE, ...ECHO_HASHES };
 
 describe('Movement I is unchanged (docs/phase-5a.md)', () => {
-  it('SIM_VERSION is still 22', () => {
-    expect(SIM_VERSION).toBe(22);
-    expect(golden.simVersion).toBe(22);
+  it('SIM_VERSION is 23 (the Solo rework, docs/solos.md)', () => {
+    expect(SIM_VERSION).toBe(23);
+    expect(golden.simVersion).toBe(23);
   });
 
   it('golden.json still holds the eleven pinned hashes', () => {
