@@ -54,8 +54,8 @@ export interface PrepTechniquesProps {
   /** Opens the Codex's Techniques page. */
   onRules?(): void;
   /**
-   * Open or folded at first (default: as last left, else open when a variant can be chosen).
-   * The UI lab sets it.
+   * Open or folded at first (default: as last left, else folded: one line of what the four keys
+   * play, with the variants' texts a click away). The UI lab sets it.
    */
   expanded?: boolean;
   className?: string;
@@ -85,7 +85,7 @@ export function PrepTechniquesPanel({
     callingId: run.calling?.id ?? null,
   });
   const summary = techniquesSummary(owned, all, run.weekly !== undefined);
-  const [open, setOpen] = useState(() => expanded ?? storedExpanded() ?? summary.choosable);
+  const [open, setOpen] = useState(() => expanded ?? storedExpanded() ?? false);
   const [said, setSaid] = useState<{ text: string; locked: boolean } | null>(null);
   const toggle = () => {
     setOpen(!open);

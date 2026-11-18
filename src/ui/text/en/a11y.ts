@@ -27,8 +27,7 @@ export const a11y = {
   'a11y.vignette.label': 'Slow-motion vignette',
   'a11y.vignette.hint': 'The dark screen edge during slow motion.',
   'a11y.numbers.important': 'Important numbers only',
-  'a11y.numbers.importantHint':
-    'Only what you caused: Empowered and song hits, your heals, saves and downs.',
+  'a11y.numbers.importantHint': 'Only Empowered and song hits, your heals, saves and downs.',
 
   // Settings → Telegraphs
   'a11y.telegraphs.title': 'Telegraphs',
