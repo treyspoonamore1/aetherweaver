@@ -859,15 +859,17 @@ test('Phase 5f: the Conductor — choose him in Prep, no price on the meter, the
     .toBeGreaterThanOrEqual(75);
   await page.evaluate(() => window.__AW__!.setDevTimeScale(1));
   // A Duet is made by moving the Thread: to each hero as their Solo comes due (the soonest due
-  // within 0.8 s, by the sim's own tell), one after the other. No key Cues anything.
+  // within 0.8 s, by the sim's queue, as the frames show it), one after the other. No key Cues
+  // anything. The queue, not the hero's own tell: since a hero finishes a cast before their Solo
+  // and no two Solos start within a second, the tell can name a hero who fires second.
   await expect
     .poll(
       async () => {
         const s = await page.evaluate(() => window.__AW__!.solos());
         if (s.duets >= 1) return true;
         const due = s.heroes
-          .filter((h) => h.dueIn !== null && h.dueIn <= 0.8 && !h.playing)
-          .sort((a, b) => a.dueIn! - b.dueIn! || a.slot - b.slot)[0];
+          .filter((h) => h.turnIn !== null && h.turnIn <= 0.8 && !h.playing)
+          .sort((a, b) => a.turnIn! - b.turnIn! || a.slot - b.slot)[0];
         if (due && !due.willCue) await page.keyboard.press(`Digit${due.slot + 1}`);
         return false;
       },

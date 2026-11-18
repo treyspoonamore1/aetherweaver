@@ -72,6 +72,11 @@ export interface SolosView {
     charge: number;
     /** Seconds until it fires, as near as the sim can say; null when none is coming. */
     dueIn: number | null;
+    /**
+     * Seconds until it fires by the sim's queue (`soloTurnIn`): the gap after another hero's Solo
+     * and a cast being finished counted, as the party frames show it. Null when none is coming.
+     */
+    turnIn: number | null;
     /** It would be Cued if it fired now: the Thread is on them (and has held, under Silent Cues). */
     willCue: boolean;
     /** A Solo of theirs is playing now, and whether that one was Cued. */

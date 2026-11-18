@@ -14,7 +14,7 @@ import type { Reliquary } from '../meta/reliquary';
 import { saveProfile } from '../meta/save';
 import type { CombatOutcome, MapNode, RunState } from '../meta/types';
 import { encounterDef, heroDef, inscriptionDef } from '../content';
-import { saplingInField, soloDueIn, summonsOf, threadCues } from '../sim';
+import { saplingInField, soloDueIn, soloTurnIn, summonsOf, threadCues } from '../sim';
 import { emptyLedger } from '../sim/world';
 import { useUi } from '../ui/store';
 import { startDemo } from './demo';
@@ -111,6 +111,7 @@ export function installTestHook(runtime: GameRuntime): () => void {
               slot,
               charge: e.hero.solo,
               dueIn: soloDueIn(st, e),
+              turnIn: soloTurnIn(st, e),
               willCue: threadCues(st, e),
               playing,
               cued: playing && e.hero.soloCued,
