@@ -55,6 +55,7 @@ export const resultText = {
   'screens.resultText.rewindTookHeroesOut': 'Rewind took heroes out of danger {reels} {reelsWord}.',
   'screens.resultText.reeledHeroesOutOf': 'Reeled heroes out of danger {reels} {reelsWord}.',
   'screens.resultText.cued': '{cues} {cuesWord} Cued{value}.',
+  'screens.resultText.cuedOf': '{cues} of {solos} {solosWord} Cued{value}.',
   'screens.resultText.andSang': ', {crescendos} {crescendosWord} sung',
   'screens.resultText.answeredOfForHelp':
     'Answered {responses} of {calls} {callsWord} for help: {responses} {responsesWord}.',

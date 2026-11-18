@@ -816,6 +816,11 @@ describe('Brann’s and the default party’s UI are byte-equal to before', () =
   // and nothing else. "Lyra looses twelve arrows a second for three seconds." (it said she
   // roots herself) and "Cued: her arrows hit a third harder and crit 40% more often." (it said
   // she can move while firing, which she now can either way).
+  //
+  // Re-recorded a sixth time, for 3 keys (`result:A`, `result:B`, `result:C`), when the Result
+  // began to count every Solo the heroes fired. Compared piece by piece with the tree before:
+  // each of the three Results gains one line, "0 of 2 Solos Cued." (the lab's fight now has two
+  // Solos fired with the Thread elsewhere, and none Cued), and nothing else moved.
   it('every pinned text and frame hashes as recorded at W3’s head', async () => {
     const want = JSON.parse(
       readFileSync(join(__dirname, 'uiPhase5e.brann.json'), 'utf8'),

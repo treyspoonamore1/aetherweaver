@@ -354,6 +354,8 @@ const StatsSchema = z
     clutchCleanses: Num,
     reels: Num,
     cues: Num,
+    // Optional: a fight saved before plain Solos were counted has none (the run save stays 5).
+    plainSolos: Num.optional(),
     crescendos: Num,
     downs: Num,
     deaths: Num,

@@ -24,6 +24,7 @@ import {
   onBeat,
   resonanceScale,
   soloDueIn,
+  soloQueue,
   type Command,
   type PartySlot,
   type Sim,
@@ -510,6 +511,19 @@ describe('the beat strip, from beatAt and onBeat', () => {
     expect(hud(sim).conducting!.beat!.gift).toBe(
       Number((st.calling!.conducting!.cueResonance * resonanceScale(st)).toFixed(1)),
     );
+    // The party stilled (the Grand Silence), or stunned: nobody can fire, so the strip names no
+    // next Solo. It asks the sim, which holds no turn for a hero who cannot fire.
+    for (const id of ['stilled', 'stun']) {
+      for (const hero of st.party) {
+        const statuses = st.entities.get(hero)!.health!.statuses as unknown as unknown[];
+        statuses.push({ id, remaining: 9, duration: 9, stacks: 1, source: null });
+      }
+      expect(soloQueue(st), id).toEqual([]);
+      expect(hud(sim).conducting!.beat!.next, id).toBeNull();
+      for (const hero of st.party)
+        (st.entities.get(hero)!.health!.statuses as unknown as unknown[]).pop();
+      expect(hud(sim).conducting!.beat!.next, id).not.toBeNull();
+    }
   });
 
   it('the strip reads the frame’s beat, not the snapshot’s (A Tempo)', () => {

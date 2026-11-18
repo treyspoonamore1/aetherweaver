@@ -2554,6 +2554,7 @@ export function summarize(
     clutchCleanses: l.clutchCleanses,
     reels: l.reels,
     cues: l.cues,
+    plainSolos: l.plainSolos,
     crescendos: l.crescendos,
     downs: l.downs,
     deaths: outcome.party.filter((p) => p.dead).length,
@@ -2946,6 +2947,8 @@ export function runTotals(
     encounters: run.results.length,
     duration: 0,
   };
+  let plain = 0;
+  let plainKnown = true;
   for (const r of run.results) {
     const s = r.stats;
     total.healing += s.healing;
@@ -2970,6 +2973,9 @@ export function runTotals(
     total.clutchCleanses += s.clutchCleanses;
     total.reels += s.reels;
     total.cues += s.cues;
+    // Every Solo fired, only if every fight of the run counted its plain ones.
+    if (s.plainSolos === undefined) plainKnown = false;
+    else plain += s.plainSolos;
     total.crescendos += s.crescendos;
     total.downs += s.downs;
     total.deaths += s.deaths;
@@ -2987,6 +2993,7 @@ export function runTotals(
     }
     total.duration += r.duration;
   }
+  if (plainKnown && run.results.length > 0) total.plainSolos = plain;
   total.weaverShare = weaverShare(total);
   return total;
 }

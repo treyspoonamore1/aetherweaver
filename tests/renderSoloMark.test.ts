@@ -155,6 +155,16 @@ describe('what the mark shows is the sim’s', () => {
     expect(soloMarkOf(st, hero(1))).not.toBeNull();
     (hero(1).health as { downed: boolean }).downed = true;
     expect(soloMarkOf(st, hero(1))).toBeNull();
+    (hero(1).health as { downed: boolean }).downed = false;
+    expect(soloMarkOf(st, hero(1))).not.toBeNull();
+    // A hero who cannot fire shows no mark: the sim says so (a stun as much as the Grand
+    // Silence's stilling), and the mark keeps no list of its own.
+    for (const id of ['stun', 'stagger', 'sleep', 'stilled', 'possessed']) {
+      statuses.push({ id, remaining: 9, duration: 9, stacks: 1, source: null });
+      expect(soloMarkOf(st, hero(1)), id).toBeNull();
+      statuses.pop();
+    }
+    expect(soloMarkOf(st, hero(1))).not.toBeNull();
   });
 
   it('Silent Cues: once the hold can no longer be met, the quiet look and no hold ring (the sim’s cueInReach)', () => {

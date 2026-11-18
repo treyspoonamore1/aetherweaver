@@ -928,6 +928,37 @@ describe('Auto-Thread follows a Solo about to fire (docs/solos.md, rule 7)', () 
     expect(sim.state.entities.get(sim.state.weaverId)!.weaver!.threadSlot).toBe(KAEL);
   });
 
+  it('a hero who cannot fire is not followed: the Thread does not go and wait on a stunned Kael with a full wall', () => {
+    useSettings.getState().update((d) => ({ ...d, aids: { autoThread: true } }));
+    // Kael's wall alone is full, and he is stunned for four seconds of the six. The player's
+    // Thread is on Vexis; she is busy Warding.
+    const stunned = (sim: Sim, on: boolean) => {
+      const statuses = hero(sim, KAEL).health!.statuses as unknown as Record<string, unknown>[];
+      const at = statuses.findIndex((x) => x.id === 'stun');
+      if (on && at < 0)
+        statuses.push({ id: 'stun', remaining: 9, duration: 9, stacks: 1, source: null });
+      if (!on && at >= 0) statuses.splice(at, 1);
+    };
+    const sim = fight(VEXIS);
+    const { threads, solos } = play(sim, controller(), 8, {
+      busy: true,
+      charge: (x) => {
+        worldOf(x).entities.get(x.state.party[KAEL]!)!.hero!.solo = 100;
+        stunned(x, true);
+      },
+      act: (f) => {
+        if (f < 4 * SIM_HZ) expect(soloQueue(sim.state)).toEqual([]);
+        if (f === 4 * SIM_HZ) stunned(sim, false);
+      },
+    });
+    // Nothing while he cannot act (it used to go to him at once and sit there). Once he can,
+    // the Thread waits on him, his wall goes up Cued, and it goes back to Vexis.
+    expect(threads.filter((t) => t.at < 4)).toEqual([]);
+    expect(threads.map((t) => t.slot)).toEqual([KAEL, VEXIS]);
+    expect(solos.get(KAEL)!.cued).toBe(true);
+    expect(sim.state.entities.get(sim.state.weaverId)!.weaver!.threadSlot).toBe(VEXIS);
+  });
+
   it('a click that threads nobody is no touch of the Thread: the follow goes on, and the Thread comes back after it', () => {
     useSettings.getState().update((d) => ({ ...d, aids: { autoThread: true } }));
     // Kael's wall alone is full; the Thread goes to wait on him. A second in, the player

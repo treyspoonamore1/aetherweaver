@@ -311,9 +311,22 @@ describe('the frames read the sim’s tell (soloDueIn) and Cue (threadCues)', ()
     sim.step([]);
     expect(hud(sim).party[1]!.soloIn).not.toBeNull();
     const statuses = hero(1).health!.statuses as unknown as Record<string, unknown>[];
-    for (const id of ['possessed', 'stilled']) {
+    // Whatever stops a hero firing: the frame asks the sim and keeps no list of its own, so a
+    // stun, a stagger or a sleep leaves no "Thread to Cue" standing either.
+    for (const id of ['possessed', 'stilled', 'stun', 'stagger', 'sleep']) {
       statuses.push({ id, remaining: 9, duration: 9, stacks: 1, source: null });
-      expect(hud(sim).party[1]!.soloIn, id).toBeNull();
+      expect(soloDueIn(sim.state, hero(1)), id).toBeNull();
+      const lyra = hud(sim).party[1]!;
+      expect(lyra.soloIn, id).toBeNull();
+      expect(frames([lyra]), id).not.toContain('data-testid="solo-strip"');
+      // Nor does the coach tell the player to thread them.
+      expect(
+        evaluateHints({
+          ...hud(sim),
+          encounter: { ...hud(sim).encounter, kind: 'skirmish', status: 'fighting' },
+        }).map((x) => x.id),
+        id,
+      ).not.toContain('solo');
       statuses.pop();
     }
     expect(hud(sim).party[1]!.soloIn).not.toBeNull();
@@ -577,5 +590,68 @@ describe('an old replay is refused in one plain sentence', () => {
     expect(shown).toMatchObject({ word: 'Claimed', message: OLD_REPLAY_LINE });
     // No screen text holds a second copy of it.
     expect(Object.values(EN).filter((v) => v.includes('earlier version'))).toEqual([]);
+  });
+});
+
+describe('the Result and the Summary count every Solo the heroes fired', () => {
+  it('“7 of 9 Solos Cued” when the fight counted its plain Solos; the old line when it did not', async () => {
+    const { statLines } = await tsx<{
+      statLines: (r: { stats: Record<string, unknown> }) => { text: string }[];
+    }>('../src/ui/screens/resultText');
+    const { resultRun } = await tsx<{
+      resultRun: (v: boolean) => { lastResult: { stats: Record<string, unknown> } };
+    }>('../src/ui/lab/mock');
+    const r = resultRun(true).lastResult;
+    const cuedLine = (over: Record<string, unknown>) => {
+      const stats: Record<string, unknown> = { ...r.stats, crescendos: 0, ...over };
+      if (!('plainSolos' in over)) delete stats.plainSolos;
+      return statLines({ ...r, stats })
+        .map((l) => l.text)
+        .find((t) => /Cued/.test(t));
+    };
+    expect(cuedLine({ cues: 7, plainSolos: 2 })).toBe('7 of 9 Solos Cued.');
+    expect(cuedLine({ cues: 1, plainSolos: 0 })).toBe('1 of 1 Solo Cued.');
+    // None Cued is said too: it is what tells a player the Thread could have been there.
+    expect(cuedLine({ cues: 0, plainSolos: 3 })).toBe('0 of 3 Solos Cued.');
+    expect(cuedLine({ cues: 7, plainSolos: 2, crescendos: 1 })).toBe(
+      '7 of 9 Solos Cued, 1 Crescendo sung.',
+    );
+    // A fight saved before plain Solos were counted: only what is known.
+    expect(cuedLine({ cues: 7 })).toBe('7 Solos Cued.');
+    expect(cuedLine({ cues: 0 })).toBeUndefined();
+  });
+
+  it('a fight’s stats carry the sim’s count of plain Solos, and a run’s totals add them up', async () => {
+    const Run = await tsx<{
+      encounterStats?: unknown;
+      runTotals: (run: { results: { stats: Record<string, unknown>; duration: number }[] }) => {
+        cues: number;
+        plainSolos?: number;
+      };
+    }>('../src/meta/run');
+    const { resultRun } = await tsx<{
+      resultRun: (v: boolean) => {
+        results: { stats: Record<string, unknown>; duration: number }[];
+      };
+    }>('../src/ui/lab/mock');
+    const run = resultRun(true);
+    const withCounts = {
+      ...run,
+      results: [
+        { ...run.results[0]!, stats: { ...run.results[0]!.stats, cues: 3, plainSolos: 1 } },
+        { ...run.results[0]!, stats: { ...run.results[0]!.stats, cues: 4, plainSolos: 2 } },
+      ],
+    };
+    expect(Run.runTotals(withCounts)).toMatchObject({ cues: 7, plainSolos: 3 });
+    // One fight from before the count: the run's total of every Solo is not known, so none is said.
+    const old = { ...run.results[0]!.stats, cues: 2 };
+    delete (old as { plainSolos?: number }).plainSolos;
+    const mixed = {
+      ...withCounts,
+      results: [...withCounts.results, { ...run.results[0]!, stats: old }],
+    };
+    const totals = Run.runTotals(mixed);
+    expect(totals.cues).toBe(9);
+    expect(totals.plainSolos).toBeUndefined();
   });
 });

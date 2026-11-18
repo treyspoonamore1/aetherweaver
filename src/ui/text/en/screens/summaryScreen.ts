@@ -85,6 +85,8 @@ export const summaryScreen = {
   'screens.summaryScreen.cues': 'Cued Solos',
   'screens.summaryScreen.cuedSungToSafety':
     '{cues} {cuesWord} Cued, {crescendos} {crescendosWord} sung, {reels} {reelsWord} to safety.',
+  'screens.summaryScreen.cuedOfSungToSafety':
+    '{cues} of {solos} {solosWord} Cued, {crescendos} {crescendosWord} sung, {reels} {reelsWord} to safety.',
   'screens.summaryScreen.callsAnswered': 'Calls answered',
   'screens.summaryScreen.yourPartyCalledFor':
     'Your party called for help {calls} {callsWord}; you answered {responses}, and each became a Flourish.',

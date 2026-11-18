@@ -434,12 +434,17 @@ export function statLines(
             }),
           },
     );
-  if (s.cues + s.crescendos > 0) {
+  // Every Solo the heroes fired, and how many had your Thread on them: "7 of 9 Solos Cued".
+  // (A fight saved before plain Solos were counted says only how many were Cued.)
+  const solos = s.plainSolos === undefined ? null : s.cues + s.plainSolos;
+  if ((solos ?? s.cues) + s.crescendos > 0) {
     lines.push({
       icon: 'note',
-      text: txt('screens.resultText.cued', {
+      text: txt(solos === null ? 'screens.resultText.cued' : 'screens.resultText.cuedOf', {
         cues: s.cues,
         cuesWord: plural(s.cues, 'Solo'),
+        solos: solos ?? 0,
+        solosWord: plural(solos ?? 0, 'Solo'),
         value:
           s.crescendos > 0
             ? txt('screens.resultText.andSang', {

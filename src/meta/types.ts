@@ -343,6 +343,12 @@ export interface EncounterStats {
   clutchCleanses: number;
   reels: number;
   cues: number;
+  /**
+   * Solos the heroes fired plain, the Thread elsewhere (docs/solos.md). With `cues` it is every
+   * Solo fired: "7 of 9 Solos Cued". Absent for a fight saved before plain Solos were counted,
+   * and from a run's totals when any of its fights lacks it.
+   */
+  plainSolos?: number;
   crescendos: number;
   downs: number;
   deaths: number;

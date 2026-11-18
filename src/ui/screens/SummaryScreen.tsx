@@ -742,15 +742,28 @@ export function SummaryView({
               icon="note"
               color="var(--color-gold-300)"
               label={txt('screens.summaryScreen.cues')}
-              value={String(totals.cues)}
-              sentence={txt('screens.summaryScreen.cuedSungToSafety', {
-                cues: totals.cues,
-                cuesWord: plural(totals.cues, 'Solo'),
-                crescendos: totals.crescendos,
-                crescendosWord: plural(totals.crescendos, 'Crescendo'),
-                reels: totals.reels,
-                reelsWord: plural(totals.reels, techniqueName('reel', run.calling?.id)),
-              })}
+              // Of every Solo the heroes fired, as the calls tile counts its answers (a run with
+              // a fight saved before plain Solos were counted shows the Cued ones alone).
+              value={
+                totals.plainSolos === undefined
+                  ? String(totals.cues)
+                  : `${totals.cues}/${totals.cues + totals.plainSolos}`
+              }
+              sentence={txt(
+                totals.plainSolos === undefined
+                  ? 'screens.summaryScreen.cuedSungToSafety'
+                  : 'screens.summaryScreen.cuedOfSungToSafety',
+                {
+                  cues: totals.cues,
+                  cuesWord: plural(totals.cues, 'Solo'),
+                  solos: totals.cues + (totals.plainSolos ?? 0),
+                  solosWord: plural(totals.cues + (totals.plainSolos ?? 0), 'Solo'),
+                  crescendos: totals.crescendos,
+                  crescendosWord: plural(totals.crescendos, 'Crescendo'),
+                  reels: totals.reels,
+                  reelsWord: plural(totals.reels, techniqueName('reel', run.calling?.id)),
+                },
+              )}
             />
             <Tile
               icon="call"
