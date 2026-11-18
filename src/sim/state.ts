@@ -1113,8 +1113,9 @@ export interface LedgerConducting {
   duets: number;
   trios: number;
   /**
-   * Cued Solos A Tempo paid Resonance for. (Named for the free Cues A Tempo once gave; the name
-   * is renamed with the save's and the recap's rework, docs/solos.md.)
+   * Cued Solos A Tempo paid Resonance for. (Named for the free Cues A Tempo once gave. The name
+   * is kept: this tally is hashed and saved with the run, so renaming it would move every
+   * Conductor fight's hash and the run save's shape, docs/solos.md.)
    */
   freeCues: number;
   /** Resonance A Tempo gave for them. (Named for what the cheaper Cues once kept; as above.) */
