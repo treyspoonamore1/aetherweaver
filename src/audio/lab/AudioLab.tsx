@@ -152,7 +152,7 @@ const GROUPS: {
   {
     id: 'conductor',
     title:
-      'Phase 5f · The Conductor (Duets and Trios, the free Cue, the downbeat, the Grand Finale and its cadence, Reprise, Marcato, Ensemble, Spotlight, Triad, his Calling’s UI)',
+      'Phase 5f · The Conductor (Duets and Trios, A Tempo’s chime, the downbeat, the Grand Finale and its cadence, Reprise, Marcato, Ensemble, Spotlight, Triad, his Calling’s UI)',
   },
   {
     id: 'fill',
@@ -942,7 +942,7 @@ export function AudioLab() {
                 onChange={(e) => setAutoSupport(e.target.checked)}
                 data-testid="auto-support"
               />
-              auto-support bot (Thread, Ward, Cue…)
+              auto-support bot (Thread, Ward, follows Solos…)
             </label>
           </div>
           <p className="font-mono text-xs text-muted" data-testid="fight-info">

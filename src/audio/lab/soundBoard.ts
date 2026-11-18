@@ -46,7 +46,7 @@ export interface SoundButton {
     /** Phase 5e: Oro (his voice, his Saplings and the Ancient; he joins the lab party). */
     | 'oro'
     /**
-     * Phase 5f: the Conductor (Duets and Trios, the free Cue, the downbeat, the Grand Finale, the
+     * Phase 5f: the Conductor (Duets and Trios, A Tempo's chime, the downbeat, the Grand Finale, the
      * path's Reprise, Marcato, Ensemble, Spotlight and Triad, his Calling's UI voicings).
      */
     | 'conductor'
@@ -98,6 +98,15 @@ export function fireSound(s: SoundButton, d: SynthDirector, w: FakeWorld): () =>
 }
 
 const fire = (d: SynthDirector, w: FakeWorld, ...events: SimEvent[]) => d.onEvents(events, w.state);
+
+/** Solos: the tick for these heroes' waits beginning together (soloWait.ts `tick`). */
+const soloWaitTick = (d: SynthDirector, w: FakeWorld, heroes: readonly HeroKey[]): void => {
+  const ents = heroes.flatMap((h) => {
+    const e = w.state.entities.get(IDS[h]);
+    return e ? [e] : [];
+  });
+  d.sfxEngine()?.soloWait.tick(w.state, ents);
+};
 
 const tele = (
   answers: ('ward' | 'chime' | 'reel' | 'focus' | 'scatter' | 'stack' | 'move' | 'dome' | 'mend')[],
@@ -1428,6 +1437,30 @@ export const SOUNDS: SoundButton[] = [
     group: 'support',
     fire: (d, w) => fire(d, w, ev('cued', { hero: IDS[h] })),
   })),
+  // Solos (docs/solos.md): the soft tick as a hero's Solo wait begins (soloWait.ts).
+  ...(['kael', 'lyra', 'vexis'] as const).map((h): SoundButton => ({
+    id: `solo-wait-${h}`,
+    label: `${h}'s Solo coming: the soft tick as the wait begins`,
+    group: 'support',
+    fire: (d, w) => soloWaitTick(d, w, [h]),
+  })),
+  {
+    id: 'solo-wait-three',
+    label: 'Three Solos coming together: one rolled tick, each softer',
+    group: 'support',
+    fire: (d, w) => soloWaitTick(d, w, ['kael', 'lyra', 'vexis']),
+  },
+  {
+    id: 'solo-wait-row',
+    label: 'Three Solos a second apart, as the heroes take turns: a tick before each',
+    group: 'support',
+    length: 3,
+    fire: (d, w) => soloWaitTick(d, w, ['kael']),
+    then: [
+      { delay: 1, fire: (d: SynthDirector, w: FakeWorld) => soloWaitTick(d, w, ['lyra']) },
+      { delay: 2, fire: (d: SynthDirector, w: FakeWorld) => soloWaitTick(d, w, ['vexis']) },
+    ],
+  },
   ...[25, 50, 75, 100].map((total): SoundButton => ({
     id: `res-${total}`,
     label: `Resonance ${total}`,
@@ -4532,7 +4565,8 @@ const chained = (hero: number, link: 1 | 2 | 3, onBeat = false) =>
     hero,
     link,
     power: link === 3 ? 1.5 : link === 2 ? 1.25 : 1,
-    cost: onBeat ? 0 : 15,
+    // Always 0: a Cue costs nothing (the field is kept until its readers are reworked).
+    cost: 0,
     onBeat,
     until: 3,
   });
@@ -4591,14 +4625,17 @@ function conductorSounds(): SoundButton[] {
         ),
     },
     {
-      id: 'conduct-free',
-      label: 'A free Cue on the downbeat (A Tempo): a bright glass chime on Lyra’s phrase',
+      id: 'conduct-tempo',
+      label:
+        'A Tempo: Lyra’s Solo begins on the downbeat, Cued, and A Tempo pays for it (a bright glass chime on her phrase)',
       group: 'conductor',
       length: 2.5,
-      fire: (d, w) =>
+      fire: (d, w) => {
+        w.setCalling('conductor', ['a_tempo']);
         withConducting(w, { chain: { heroes: [IDS.lyra], at: w.time } }, () =>
           fire(d, w, cued(IDS.lyra), chained(IDS.lyra, 1, true)),
-        ),
+        );
+      },
     },
     {
       id: 'conduct-tick',

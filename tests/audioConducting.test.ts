@@ -531,7 +531,7 @@ describe('his sounds in the fight (real sim)', () => {
     expect(f.conduct().asked.lost).toBe(1);
   });
 
-  it('a free Cue chimes; Marcato stabs; Ensemble holds; Spotlight sustains under the Solo; Triad holds', () => {
+  it('A Tempo’s Cue chimes; Marcato stabs; Ensemble holds; Spotlight sustains under the Solo; Triad holds', () => {
     const t = fight(TEMPO);
     t.run(30);
     // Wait for the downbeat's window, then Cue inside it.
@@ -540,7 +540,7 @@ describe('his sounds in the fight (real sim)', () => {
     const free = t.run(1, [{ t: 'debug', op: { op: 'fireSolo', slot: 1, cued: true } }])[0]!;
     const chained = ofType(free.events, 'cueChained')[0]!;
     expect(chained.onBeat).toBe(true);
-    expect(free.groups).toContain(CONDUCT_SOUND_GROUPS.free);
+    expect(free.groups).toContain(CONDUCT_SOUND_GROUPS.tempo);
     // Spotlight: the held note under Lyra's Solo, let go when it ends.
     expect(free.groups).toContain(CONDUCT_SOUND_GROUPS.spotlight);
     expect(t.conduct().asked.spotlight).toBe(1);
@@ -556,19 +556,57 @@ describe('his sounds in the fight (real sim)', () => {
       for (const x of freqsOf(b.sources)) expect(inKey(x), `${x}`).toBe(true);
   });
 
-  it('under Silent Cues a Cue on the beat still costs: no glass chime', () => {
-    const t = fight(['a_tempo'], { dissonance: [{ id: 'silent_cues', rank: 1 }] });
-    t.run(30);
-    t.run(1, [debug({ op: 'setResonance', value: 100 })]);
-    // Wait for the downbeat's window, then Cue inside it.
-    while (Math.abs(((t.sim.state.time + 0.05) % BAR_SECONDS) - 0.05) > 0.1) t.run(1);
-    t.run(1, [debug({ op: 'chargeSolos' })]);
-    const paid = t.run(1, [{ t: 'debug', op: { op: 'fireSolo', slot: 1, cued: true } }])[0]!;
+  // Successor of "under Silent Cues a Cue on the beat still costs: no glass chime" (docs/solos.md):
+  // a Cue costs nothing now, so the chime follows what A Tempo pays for, a Cued Solo begun on the
+  // downbeat, read from the run (its Resonance on the path), not from the event's `cost` (always 0).
+  it('A Tempo’s chime sounds on each Cued Solo it pays for, Silent Cues or not, and on no other', () => {
+    const onTheBeat = (t: ReturnType<typeof fight>) => {
+      while (Math.abs(((t.sim.state.time + 0.05) % BAR_SECONDS) - 0.05) > 0.1) t.run(1);
+    };
+    const fireSolo = (t: ReturnType<typeof fight>, cued: boolean, slot: 0 | 1 | 2 = 1) => {
+      t.run(1, [debug({ op: 'chargeSolos' })]);
+      return t.run(1, [{ t: 'debug', op: { op: 'fireSolo', slot, cued } }])[0]!;
+    };
+    const paidBy = (events: SimEvent[]) =>
+      ofType(events, 'resonanceGained').some((g) => g.reason === 'a_tempo');
+
+    // Under Silent Cues, on the beat: A Tempo pays (its Resonance), so it chimes.
+    const silent = fight(['a_tempo'], { dissonance: [{ id: 'silent_cues', rank: 1 }] });
+    silent.run(30);
+    onTheBeat(silent);
+    const paid = fireSolo(silent, true);
     const chained = ofType(paid.events, 'cueChained')[0]!;
     expect(chained.onBeat).toBe(true);
-    expect(chained.cost).toBeGreaterThan(0);
-    expect(paid.groups).not.toContain(CONDUCT_SOUND_GROUPS.free);
-    expect(t.conduct().asked.free).toBe(0);
+    expect(chained.cost).toBe(0);
+    expect(paidBy(paid.events)).toBe(true);
+    expect(paid.groups).toContain(CONDUCT_SOUND_GROUPS.tempo);
+    expect(silent.conduct().asked.tempo).toBe(1);
+
+    // Cued off the beat: A Tempo pays nothing, no chime.
+    const off = fight(['a_tempo']);
+    off.run(30);
+    onTheBeat(off);
+    off.run(Math.round((BAR_SECONDS / 2) * 60));
+    const offBeat = fireSolo(off, true);
+    expect(ofType(offBeat.events, 'cueChained')[0]!.onBeat).toBe(false);
+    expect(paidBy(offBeat.events)).toBe(false);
+    expect(offBeat.groups).not.toContain(CONDUCT_SOUND_GROUPS.tempo);
+
+    // A plain Solo on the beat (Vexis's; Lyra is still playing hers): no Cue, nothing paid, no chime.
+    onTheBeat(off);
+    const plain = fireSolo(off, false, 2);
+    expect(ofType(plain.events, 'soloStarted')[0]!.cued).toBe(false);
+    expect(ofType(plain.events, 'cueChained')).toHaveLength(0);
+    expect(paidBy(plain.events)).toBe(false);
+    expect(plain.groups).not.toContain(CONDUCT_SOUND_GROUPS.tempo);
+
+    // The Conductor without A Tempo: a Cued Solo is never "on the beat", and never chimes.
+    const lead = fight(LEAD);
+    lead.run(30);
+    onTheBeat(lead);
+    const noTempo = fireSolo(lead, true);
+    expect(ofType(noTempo.events, 'cueChained')[0]!.onBeat).toBe(false);
+    expect(lead.conduct().asked.tempo).toBe(0);
   });
 
   it('a run without him makes none of his sounds; Sunrise is still Sunrise', () => {

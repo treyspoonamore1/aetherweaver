@@ -7,7 +7,8 @@
  *   scale degrees over its last note) by the first hero's voice.
  * - **Trio** (link 3): the three heroes' notes as a chord, strings swelling with brass entering
  *   under them, resolving to D on the music's next bar line.
- * - **Free Cue** (`onBeat` at cost 0): a bright glass chime on the Cue's phrase.
+ * - **A Tempo's Cue** (`onBeat`, with A Tempo's Resonance on the path): a bright glass chime on
+ *   the phrase of each Cued Solo A Tempo pays for.
  * - **The downbeat** (A Tempo): a soft baton tick on each of the sim's downbeats.
  * - **Grand Finale**: two baton taps as it is raised (no Sunrise); each turn the hero's
  *   leitmotif, a scale degree higher per turn; a lost turn a muted string; at its end a full
@@ -31,7 +32,7 @@ import { chordNotesInRange, heroPluckIndex, leitmotifFor, midiToHz, scaleMidi } 
 export const CONDUCT_SOUND_GROUPS = {
   duet: 'conduct:duet',
   trio: 'conduct:trio',
-  free: 'conduct:free',
+  tempo: 'conduct:tempo',
   tick: 'conduct:tick',
   start: 'conduct:start',
   turn: 'conduct:turn',
@@ -50,7 +51,7 @@ export type ConductGroup = keyof typeof CONDUCT_SOUND_GROUPS;
 export const CONDUCT_SOUND_LIMITS: Readonly<Record<ConductGroup, readonly [number, number]>> = {
   duet: [0.3, 2],
   trio: [0.5, 1],
-  free: [0.2, 2],
+  tempo: [0.2, 2],
   tick: [0.4, 1],
   start: [1, 1],
   turn: [0.3, 2],
@@ -93,6 +94,16 @@ export const SHIMMER: readonly number[] = [14, 18, 21];
 /** The Triad's held chord: D4, F4, A4 (D minor, the key's own). */
 export const TRIAD_CHORD: readonly number[] = [0, 2, 4];
 
+/**
+ * Did A Tempo pay for this Cued Solo? The sim's own rule (conducting.ts `conductCue`): it began
+ * on the downbeat and the run's A Tempo gives Resonance for it. `cost` is always 0 now and says
+ * nothing.
+ */
+export const tempoPays = (
+  ev: Extract<SimEvent, { type: 'cueChained' }>,
+  state: WorldState,
+): boolean => ev.onBeat && (state.calling?.conducting?.cueResonance ?? 0) > 0;
+
 const fightOver = (state: WorldState): boolean => {
   const status = state.encounter?.status;
   return status === 'victory' || status === 'defeat';
@@ -111,7 +122,7 @@ export class ConductSounds {
   readonly asked: Record<ConductGroup, number> = {
     duet: 0,
     trio: 0,
-    free: 0,
+    tempo: 0,
     tick: 0,
     start: 0,
     turn: 0,
@@ -180,8 +191,9 @@ export class ConductSounds {
           const chain = state.field.conducting?.chain?.heroes ?? [];
           this.trio(state, chain.length >= 3 ? chain.slice(0, 3) : [ev.hero]);
         }
-        // Free only when it cost nothing: under Silent Cues a Cue on the beat still costs.
-        if (ev.onBeat && ev.cost <= 0) this.freeCue(state, ev.hero);
+        // A Tempo pays for a Cued Solo begun on the downbeat (conducting.ts `conductCue`: on
+        // the beat, with its Resonance on the path), Silent Cues or not.
+        if (tempoPays(ev, state)) this.tempoCue(state, ev.hero);
         break;
       }
       case 'reprised':
@@ -370,10 +382,10 @@ export class ConductSounds {
     );
   }
 
-  /** A free Cue (A Tempo): a bright glass chime on its phrase, D6 then A6. */
-  private freeCue(state: WorldState, hero: EntityId): void {
+  /** A Cued Solo A Tempo paid for: a bright glass chime on its phrase, D6 then A6. */
+  private tempoCue(state: WorldState, hero: EntityId): void {
     this.play(
-      'free',
+      'tempo',
       (v, t) => {
         glassNote(v, t + 0.02, midiToHz(scaleMidi(14)), 0.045, 1.0, 0.9);
         glassNote(v, t + 0.09, midiToHz(scaleMidi(18)), 0.035, 1.1, 0.9);

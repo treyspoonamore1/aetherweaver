@@ -34,6 +34,7 @@ import {
 } from '../sim';
 import { BUS_NAMES, busTrim, Voice, type BusName, type Engine, type VoiceHandle } from './engine';
 import { ConductSounds } from './conduct';
+import { SoloWaitTicks } from './soloWait';
 import { FillSounds } from './fill';
 import { DissonanceSounds } from './dissonance';
 import { HeroVoices } from './barks';
@@ -890,6 +891,8 @@ export class SfxEngine {
 
   /** Phase 5f: the Conductor's sounds and A Tempo's beat input (docs/phase-5f.md, "Audio"). */
   readonly conduct: ConductSounds;
+  /** Solos (docs/solos.md): the soft tick as a hero's Solo wait begins. */
+  readonly soloWait: SoloWaitTicks;
   /** Phase 5g: the content fill's sounds (docs/phase-5g.md): Razor Silk, the Needle, triggers. */
   readonly fill: FillSounds;
   /** Phase 6: Tyrant's edict and its casts, the Postlude's rise, pairs and stems (docs/phase-6.md). */
@@ -907,6 +910,10 @@ export class SfxEngine {
       play: (key, max, bus, build, opts) => this.play(key, max, bus, build, opts),
     });
     this.fill = new FillSounds({
+      e,
+      play: (key, max, bus, build, opts) => this.play(key, max, bus, build, opts),
+    });
+    this.soloWait = new SoloWaitTicks({
       e,
       play: (key, max, bus, build, opts) => this.play(key, max, bus, build, opts),
     });
@@ -1287,12 +1294,8 @@ export class SfxEngine {
       case 'rooted':
         this.rootedSound(ev.target, state);
         break;
-      case 'soloReady':
-        if (this.e.gate(`ready:${ev.hero}`, 1)) {
-          const n = scaleMidi(heroPluckIndex(this.heroId(state, ev.hero)) + 7);
-          this.play('ready', 2, 'sfx', (v, t) => glassNote(v, t, midiToHz(n), 0.045, 1.0, 0.6));
-        }
-        break;
+      // A full Solo is heard as its wait begins (soloWait.ts, from the state each frame): the
+      // glass that sounded here marked when a Cue could be bought, and there is no buying now.
       case 'resonanceGained': {
         const before = Math.floor((ev.total - ev.amount) / 25 + 1e-6);
         const after = Math.floor(ev.total / 25 + 1e-6);
@@ -7770,6 +7773,8 @@ export class SfxEngine {
     // Phase 4: Unbroken Chorus's songs holding under a Mute's dome.
     this.followUnbroken(state);
     this.finalTicks(state);
+    // Solos (docs/solos.md): a soft tick as a hero's Solo wait begins.
+    this.soloWait.follow(state);
 
     // Scan the world a few times a second.
     this.lastIntensityScan += dt;
