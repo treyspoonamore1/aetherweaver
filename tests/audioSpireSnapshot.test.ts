@@ -410,6 +410,9 @@ function snapshot(): { music: Record<string, string>; sfx: Record<string, string
  * The music, captured on main (eccfbbd) before any Phase 5c audio change. The fourth field (the
  * patch) was added later and captured on the same, unchanged, audio source.
  */
+// The Solo rework (docs/solos.md): the five `fight:` entries that failed (Reliquary's three, Crimson Gate, the Matriarch) were re-recorded, since heroes now fire their own
+// Solos and every fight plays differently. Compared first: no mood, boss phase or sound-board
+// entry moved.
 const MUSIC: Record<string, string> = {
   'reliquary:title@0/0': '96:6f980a44:a2dfed6a:441c171b',
   'reliquary:map@0/0': '67:f24b065f:8ad15a8a:2b0b8d4b',
@@ -424,9 +427,9 @@ const MUSIC: Record<string, string> = {
   'reliquary:boss@100/2/mini': '225:70855784:51cdb754:f1fa2fec',
   'reliquary:victory@0/0': '55:e82691d0:d1c2ce18:2845b5dd',
   'reliquary:defeat@0/0': '29:276436b8:5b168a3f:81cf7d40',
-  'reliquary:fight:first_light': '489:ec46c243:e1032391:1a6e3acd',
-  'reliquary:fight:bellwarden': '652:5b9b1858:3c292bfb:14e4474d',
-  'reliquary:fight:hollow_cantor': '725:4a2bce2a:f6524314:a2890a7f',
+  'reliquary:fight:first_light': '488:55fc60e1:4e6aa48e:f0d7e36b',
+  'reliquary:fight:bellwarden': '667:123f32f3:c2dc19c3:3d354ad6',
+  'reliquary:fight:hollow_cantor': '716:491d5b82:90160569:d76fbf23',
   'crimson_spire:title@0/0': '96:6f980a44:a2dfed6a:441c171b',
   'crimson_spire:map@0/0': '120:225b99fd:d7dd5355:190edaee',
   'crimson_spire:loom@0/0': '114:17dd0f48:e37d3a58:4cfa6388',
@@ -440,9 +443,9 @@ const MUSIC: Record<string, string> = {
   'crimson_spire:boss@100/2/mini': '341:b2bd377f:32590490:20a103d9',
   'crimson_spire:victory@0/0': '55:e82691d0:d1c2ce18:2845b5dd',
   'crimson_spire:defeat@0/0': '29:276436b8:5b168a3f:81cf7d40',
-  'crimson_spire:fight:crimson_gate': '1152:62a8f9c5:616563d6:a6bfaa4a',
+  'crimson_spire:fight:crimson_gate': '1146:a5e42de2:1106c13c:8a5aa3d0',
   'crimson_spire:fight:shield_wall': '1072:c99ab367:10375774:e72b3da8',
-  'crimson_spire:fight:gorehound_matriarch': '930:c0c17a49:a748023e:4137949f',
+  'crimson_spire:fight:gorehound_matriarch': '953:2384d3bd:1fba7b8b:b63cf062',
   'crimson_spire:fight:vharun': '974:f1e7015e:9f7bccea:74107f2f',
 };
 

@@ -298,6 +298,9 @@ const MOOD_CASES: [Mood, number, number][] = [
 const FIGHTS = ['first_light', 'bellwarden', 'hollow_cantor'];
 
 /** Captured on main before any Phase 5a audio change (`GEN_AUDIO_SNAPSHOT=1` prints them). */
+// The Solo rework (docs/solos.md): the three `fight:` entries were re-recorded, since heroes now fire their own
+// Solos and every fight plays differently. Compared first: no mood, boss phase or sound-board
+// entry moved.
 const RELIQUARY: Record<string, string> = {
   'title@0/0': '96:cd9f5026',
   'map@0/0': '67:5f805a49',
@@ -310,9 +313,9 @@ const RELIQUARY: Record<string, string> = {
   'boss@100/3': '225:4b70a8ae',
   'victory@0/0': '55:4a4317c2',
   'defeat@0/0': '29:3c2c8106',
-  'fight:first_light': '489:8124a3f1',
-  'fight:bellwarden': '652:e39dfc72',
-  'fight:hollow_cantor': '725:2023d574',
+  'fight:first_light': '488:15a6884b',
+  'fight:bellwarden': '667:b281be01',
+  'fight:hollow_cantor': '716:c0c9a144',
 };
 
 describe('the Sunlit Reliquary is unchanged (Phase 5a)', () => {

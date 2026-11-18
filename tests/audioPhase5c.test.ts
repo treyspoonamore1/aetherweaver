@@ -710,7 +710,9 @@ const MUSIC: Record<string, string> = {
   'crimson_spire:boss@50/1': '274:64b842f4:1a71ef67:d0277e87',
   'crimson_spire:boss@100/3': '449:74cec08e:6a81c981:0c3897ff',
   'crimson_spire:boss@100/2/mini': '341:b2bd377f:32590490:20a103d9',
-  'reliquary:fight:hollow_cantor': '725:4a2bce2a:f6524314:a2890a7f',
+  // Re-recorded with the Solo rework (docs/solos.md): heroes fire their own Solos, so the fight
+  // plays differently. The same value as tests/audioSpireSnapshot.test.ts records for it.
+  'reliquary:fight:hollow_cantor': '716:491d5b82:90160569:d76fbf23',
   'crimson_spire:fight:vharun': '974:f1e7015e:9f7bccea:74107f2f',
 };
 

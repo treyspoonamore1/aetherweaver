@@ -405,6 +405,9 @@ function snapshot(): { music: Record<string, string>; sfx: Record<string, string
 }
 
 /** The Rift's music, captured on main (b11f149) before any Phase 5d audio change. */
+// The Solo rework (docs/solos.md): the two `fight:` entries that failed (Mirror Hall, the Seamstress) were re-recorded, since heroes now fire their own
+// Solos and every fight plays differently. Compared first: no mood, boss phase or sound-board
+// entry moved.
 const MUSIC: Record<string, string> = {
   'abyssal_rift:title@0/0': '96:6f980a44:a2dfed6a:441c171b',
   'abyssal_rift:map@0/0': '95:fe8d8fd2:63adeca6:a122c268',
@@ -420,9 +423,9 @@ const MUSIC: Record<string, string> = {
   'abyssal_rift:victory@0/0': '55:e82691d0:d1c2ce18:2845b5dd',
   'abyssal_rift:defeat@0/0': '29:276436b8:5b168a3f:81cf7d40',
   'abyssal_rift:fight:frayed_threshold': '733:00ccb234:56abf5d7:0e3082da',
-  'abyssal_rift:fight:mirror_hall': '865:02c5e3cd:f5e300a4:2266f3b2',
+  'abyssal_rift:fight:mirror_hall': '864:87d36da7:efa6fb4d:78434457',
   'abyssal_rift:fight:frayed_court': '598:31472a65:3e111a52:dbf70a0a',
-  'abyssal_rift:fight:the_seamstress': '1047:a8d5d077:ff3bb5a7:fdbf2dc4',
+  'abyssal_rift:fight:the_seamstress': '1059:be949191:841506e5:5b2efba6',
   'abyssal_rift:fight:the_unweaver': '879:bfd62a60:5ff256ca:cf4d5ff4',
 };
 
