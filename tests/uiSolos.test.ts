@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../src/content';
 import { SOLOS } from '../src/sim/constants';
 import {
+  cueInReach,
   soloDueIn,
   threadCues,
   wallWanted,
@@ -208,6 +209,74 @@ describe('the frames read the sim’s tell (soloDueIn) and Cue (threadCues)', ()
     // On a Conductor run the Duet or Trio is said with it.
     const duet = { ...coming, cue: { link: 2 as const, power: 1.25, label: 'Duet' } };
     expect(read(duet).live).toEqual([`Lyra’s ${lyra.soloName} is coming. Cued, it is a Duet.`]);
+  });
+
+  it('Silent Cues: the strip asks for the Thread only while threading can still Cue it', () => {
+    const silent = { dissonance: [{ id: 'silent_cues', rank: 1 }] };
+    const need = fight(silent).st.mods.cueHold;
+    expect(need).toBeGreaterThan(0);
+    /** Lyra's Solo full at tick 0 (the Thread on Kael), then `ticks` more ticks. */
+    const at = (ticks: number) => {
+      const f = fight(silent);
+      f.sim.step([{ t: 'thread', slot: 0 }]);
+      f.setSolo(1, 100);
+      for (let i = 0; i < ticks; i++) f.sim.step([]);
+      f.sim.drainEvents();
+      return f;
+    };
+    /** What her Solo turns out to be if the Thread goes to her now and stays. */
+    const ifThreadedNow = (ticks: number): boolean | null => {
+      const { sim, st, hero } = at(ticks);
+      sim.step([{ t: 'thread', slot: 1 }]);
+      for (let i = 0; i < 240; i++) {
+        sim.step([]);
+        for (const e of sim.drainEvents())
+          if (e.type === 'soloStarted' && e.hero === hero(1).id) return e.cued;
+      }
+      void st;
+      return null;
+    };
+    let asked = 0;
+    let quiet = 0;
+    // From the first tick the sim has seen her Solo full (as a player first sees the loud strip).
+    for (let ticks = 1; ticks < 70; ticks += 3) {
+      const { sim, st, hero } = at(ticks);
+      if (soloDueIn(st, hero(1)) === null) break;
+      const lyra = hud(sim).party[1]!;
+      const html = frames([lyra]);
+      const says = html.includes('Thread to Cue');
+      // The sim's own answer, and the frame's, agree.
+      expect(lyra.cueLate === true, `tick ${ticks}`).toBe(!cueInReach(st, hero(1)));
+      expect(says, `tick ${ticks}`).toBe(cueInReach(st, hero(1)));
+      // And the answer is true: obeying the strip works, and where it is silent it would not.
+      expect(ifThreadedNow(ticks), `tick ${ticks}`).toBe(says);
+      if (says) asked++;
+      else {
+        quiet++;
+        expect(html, `tick ${ticks}`).toContain('data-state="late"');
+        expect(html, `tick ${ticks}`).not.toMatch(/Hold|anim-glow/);
+        expect(html, `tick ${ticks}`).toContain(lyra.soloName);
+        // The coach does not tell the player to do what cannot work either.
+        expect(
+          evaluateHints({
+            ...hud(sim),
+            encounter: { ...hud(sim).encounter, kind: 'skirmish', status: 'fighting' },
+          }).map((x) => x.id),
+          `tick ${ticks}`,
+        ).not.toContain('solo');
+      }
+    }
+    // Late in her wait it is always too late. (Whether there is an early part of the wait in
+    // which the Thread still makes it depends on the hold being shorter than the wait.)
+    expect(quiet).toBeGreaterThan(0);
+    expect(asked > 0).toBe(need < SOLOS.wait - 1e-9);
+    // Without Silent Cues it is never too late while a Solo is coming.
+    const plain = fight();
+    plain.setSolo(1, 100);
+    for (let i = 0; i < 50; i++) plain.sim.step([]);
+    expect(cueInReach(plain.st, plain.hero(1))).toBe(true);
+    expect(hud(plain.sim).party[1]!.cueLate).toBeUndefined();
+    expect(frames([hud(plain.sim).party[1]!])).toContain('Thread to Cue');
   });
 
   it('a count that has run out shows no seconds: a standing 0.0 says nothing', () => {

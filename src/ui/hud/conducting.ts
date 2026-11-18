@@ -362,7 +362,7 @@ export function finaleTurnOf(
 export function heroConducting(
   state: WorldState,
   heroId: EntityId,
-  hero: Pick<HeroHud, 'soloIn' | 'downed' | 'dead' | 'possessed' | 'stilled'>,
+  hero: Pick<HeroHud, 'soloIn' | 'cueLate' | 'downed' | 'dead' | 'possessed' | 'stilled'>,
   heard: FinaleHeard | null = null,
 ): Pick<HeroHud, 'cue' | 'spotlight' | 'marcato' | 'finale'> {
   const field = state.field.conducting;
@@ -370,7 +370,9 @@ export function heroConducting(
   if (!field || !view) return {};
   const up = !hero.dead && !hero.downed;
   const coming = hero.soloIn !== null && hero.soloIn !== undefined;
-  const badge = coming && up && !hero.possessed ? cueBadge(state, heroId, hero.soloIn!) : null;
+  // No badge on a Solo that can no longer be Cued (Silent Cues): it will be no Duet.
+  const badge =
+    coming && up && !hero.possessed && !hero.cueLate ? cueBadge(state, heroId, hero.soloIn!) : null;
   const light = up ? spotlit(state, heroId) : 0;
   const held = field.marcato;
   const marcato =

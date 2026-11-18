@@ -665,3 +665,25 @@ export function wallWanted(state: WorldState, hero: ReadonlyEntity): boolean {
   if (soloDueIn(state, hero) === null) return false;
   return partyHitWithin(state as World, SOLOS.partyHit);
 }
+
+/**
+ * Could this hero's coming Solo still be Cued (docs/solos.md)? Without Silent Cues, always: the
+ * Thread need only be on them on the tick it fires. Under Silent Cues the Thread must have held
+ * `mods.cueHold` seconds by then, so there is a last moment to move it: true while the time until
+ * the Solo is due (`soloDueIn`) covers the hold still owed, all of it with the Thread elsewhere,
+ * the rest of it with the Thread already on them. False when no Solo is coming. For the views:
+ * a prompt to thread a hero is shown only while doing so can work. (Kael may raise his wall
+ * sooner than `soloDueIn` says; for him this is the best that can be said.)
+ */
+export function cueInReach(state: WorldState, hero: ReadonlyEntity): boolean {
+  const due = soloDueIn(state, hero);
+  if (due === null || !hero.hero) return false;
+  if (state.mods.alwaysCued) return true;
+  const need = state.mods.cueHold;
+  if (!(need > 0)) return true;
+  const weaver = state.entities.get(state.weaverId);
+  const w = weaver?.weaver;
+  if (!w || !weaver.health || weaver.health.downed || weaver.health.dead) return false;
+  const held = w.threadSlot === hero.hero.slot ? state.time - w.threadSince : 0;
+  return due + held >= need - EPS;
+}

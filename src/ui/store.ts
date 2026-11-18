@@ -94,6 +94,11 @@ export interface HeroHud {
    */
   soloLoose?: boolean;
   /**
+   * Silent Cues: this Solo can no longer be Cued (the sim's `cueInReach`): it fires before the
+   * Thread could have held long enough. The strip, the coach and the badge then ask for nothing.
+   */
+  cueLate?: boolean;
+  /**
    * Kael's dome on demand: his wall is full and a hit is about to land on the party, so with
    * your Thread on him he raises it at once (the sim's `wallWanted`). The coach's dome lesson.
    */

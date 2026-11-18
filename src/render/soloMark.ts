@@ -1,5 +1,5 @@
 import type { EntityId, ReadonlyEntity, WorldState } from '../sim';
-import { soloDueIn, threadCues } from '../sim';
+import { cueInReach, soloDueIn, threadCues } from '../sim';
 import { SOLOS } from '../sim/constants';
 import type { FxKit } from './fx/kit';
 import { SPRITE } from './fx/sprites';
@@ -113,11 +113,13 @@ export function soloMarkOf(state: WorldState, hero: ReadonlyEntity): SoloMark | 
   const cued = threadCues(state, hero);
   const need = state.mods.cueHold;
   const w = state.entities.get(state.weaverId)?.weaver;
-  const holding = !cued && need > 0 && w?.threadSlot === h.slot;
+  // Silent Cues: once it can no longer be Cued (`cueInReach`), the quiet look and no hold ring.
+  const reach = cued || cueInReach(state, hero);
+  const holding = !cued && reach && need > 0 && w?.threadSlot === h.slot;
   return {
     due,
     fill: clamp01(1 - due / soloTellSeconds(hero)),
-    now: h.solo >= 100,
+    now: h.solo >= 100 && reach,
     cued,
     raised: !!h.call && !h.call.answered,
     hold: holding ? clamp01((state.time - w.threadSince) / need) : -1,

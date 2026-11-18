@@ -425,7 +425,9 @@ function allHints(hud: HudSnapshot): Hint[] {
   }
   // A Solo is coming and your Thread is elsewhere (docs/solos.md): say what the Thread does.
   // During the Grand Finale the heroes keep their Solos for their turns: say nothing then.
-  const soloHero = party.find((h) => alive(h) && soloComing(h) && !h.willCue && !h.cueHold);
+  const soloHero = party.find(
+    (h) => alive(h) && soloComing(h) && !h.willCue && !h.cueHold && !h.cueLate,
+  );
   if (soloHero && !hud.conducting?.finale) {
     out.push({
       id: 'solo',
@@ -553,7 +555,7 @@ function conductingHints(hud: HudSnapshot): Hint[] {
   const out: Hint[] = [];
   const w = hud.weaver;
   const coming = hud.party.filter((h) => alive(h) && soloComing(h));
-  const chained = c.chain ? coming.find((h) => h.cue && !h.willCue) : undefined;
+  const chained = c.chain ? coming.find((h) => h.cue && !h.willCue && !h.cueLate) : undefined;
   if (c.chain && chained)
     out.push({
       id: 'chain',

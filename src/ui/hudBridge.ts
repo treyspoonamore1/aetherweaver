@@ -30,6 +30,7 @@ import {
   fightMovement,
   rewindCanRevive,
   saplingInField,
+  cueInReach,
   soloDueIn,
   songReserveOf,
   techniqueCost,
@@ -166,7 +167,10 @@ function crescendoTotal(calling: { id: string; path: string[]; crescendo: string
 export function soloTell(
   state: WorldState,
   e: ReadonlyEntity,
-): Pick<HeroHud, 'soloIn' | 'soloNow' | 'soloLoose' | 'willCue' | 'cueHold' | 'wallWanted'> {
+): Pick<
+  HeroHud,
+  'soloIn' | 'soloNow' | 'soloLoose' | 'willCue' | 'cueHold' | 'cueLate' | 'wallWanted'
+> {
   const h = e.health;
   if (!e.hero || !h || isStilled(h) || h.statuses.some((s) => s.id === 'possessed'))
     return { soloIn: null, willCue: false };
@@ -174,18 +178,23 @@ export function soloTell(
   const soloIn = soloDueIn(state, e);
   if (soloIn === null) return { soloIn: null, willCue: false };
   const willCue = threadCues(state, e);
+  // Silent Cues: once the Solo will fire before the Thread could have held long enough, nothing
+  // the player does can Cue it. The frame then says neither "Thread to Cue" nor "Hold".
+  const late = !willCue && !cueInReach(state, e);
   const w = state.entities.get(state.weaverId)?.weaver;
   const hold =
-    !willCue && state.mods.cueHold > 0 && w?.threadSlot === e.hero.slot
+    !willCue && !late && state.mods.cueHold > 0 && w?.threadSlot === e.hero.slot
       ? Math.max(0, state.mods.cueHold - (state.time - w.threadSince))
       : 0;
   return {
     soloIn,
-    soloNow: e.hero.solo >= 100,
+    // The loud stage, "move the Thread now": not once it is too late to Cue it.
+    soloNow: e.hero.solo >= 100 && !late,
     willCue,
     ...(e.hero.soloId === 'aegisWall' ? { soloLoose: true } : {}),
     ...(wallWanted(state, e) ? { wallWanted: true } : {}),
     ...(hold > 0 ? { cueHold: hold } : {}),
+    ...(late ? { cueLate: true } : {}),
   };
 }
 

@@ -1420,7 +1420,8 @@ function Portrait({ hero: h, bondRank = null }: { hero: HeroHud; bondRank?: numb
  * charge): the Solo's name in a quiet dashed outline, so the hand can get ready. Now (full, the
  * wait running): a solid gold outline that glows, "Thread to Cue". Thread on them, at either
  * stage: a filled gold strip, "Cued" and the Solo's name, with a tick. Under Silent Cues, with the Thread on them but not
- * yet long enough: "Hold" and the seconds still to hold. Shape and words carry it, not colour
+ * yet long enough: "Hold" and the seconds still to hold; and once the Solo will fire before any
+ * hold could be met, the quiet look again, asking for nothing. Shape and words carry it, not colour
  * alone; with Reduced motion nothing pulses. Kael may raise his wall sooner than the count, so
  * his strip shows no seconds. On a Conductor run the Duet or Trio it would be sits by the name.
  *
@@ -1430,13 +1431,15 @@ function Portrait({ hero: h, bondRank = null }: { hero: HeroHud; bondRank?: numb
  */
 function SoloStrip({ hero: h }: { hero: HeroHud }) {
   const cued = h.willCue === true;
-  const hold = !cued && (h.cueHold ?? 0) > 0;
-  const now = h.soloNow === true;
+  // Silent Cues, too late to Cue it: the quiet look again, and no word about the Thread.
+  const late = !cued && h.cueLate === true;
+  const hold = !cued && !late && (h.cueHold ?? 0) > 0;
+  const now = h.soloNow === true && !late;
   const seconds = h.soloIn!.toFixed(1);
   // No seconds for Kael (he may raise his wall sooner), nor once the count has run out and the
   // hero is holding the Solo for a moment (a hit about to land): a standing "0.0" says nothing.
   const count = !h.soloLoose && h.soloIn! > 0.05;
-  const state = cued ? 'cued' : hold ? 'hold' : now ? 'now' : 'coming';
+  const state = cued ? 'cued' : late ? 'late' : hold ? 'hold' : now ? 'now' : 'coming';
   const names = { name: h.name, soloName: h.soloName };
   const said = cued
     ? txt('hud.partyFrames.soloCued', names)

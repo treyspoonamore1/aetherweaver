@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { COLOR_VISIONS, deltaE, simulateVision, visionPalette } from '../src/app/colorVision';
 import { CONTENT } from '../src/content';
 import { SOLOS } from '../src/sim/constants';
-import { soloDueIn, threadCues, type Command, type Sim } from '../src/sim';
+import { cueInReach, soloDueIn, threadCues, type Command, type Sim } from '../src/sim';
 import type { FxKit } from '../src/render/fx/kit';
 import { SPRITE } from '../src/render/fx/sprites';
 import { HERO_DRAWN } from '../src/render/models/artFlag';
@@ -155,6 +155,29 @@ describe('what the mark shows is the sim’s', () => {
     expect(soloMarkOf(st, hero(1))).not.toBeNull();
     (hero(1).health as { downed: boolean }).downed = true;
     expect(soloMarkOf(st, hero(1))).toBeNull();
+  });
+
+  it('Silent Cues: once the hold can no longer be met, the quiet look and no hold ring (the sim’s cueInReach)', () => {
+    const { sim, st, hero, setSolo } = fight({ dissonance: [{ id: 'silent_cues', rank: 1 }] });
+    expect(st.mods.cueHold).toBeGreaterThan(0);
+    sim.step([{ t: 'thread', slot: 0 }]);
+    setSolo(1, 100);
+    // Late in her wait, the Thread elsewhere: too late to Cue it.
+    for (let i = 0; i < 45; i++) sim.step([]);
+    expect(soloDueIn(st, hero(1))).not.toBeNull();
+    expect(cueInReach(st, hero(1))).toBe(false);
+    expect(soloMarkOf(st, hero(1))).toMatchObject({ now: false, cued: false, hold: -1 });
+    // The Thread sent now cannot hold long enough either: still no loud look, no hold ring.
+    sim.step([{ t: 'thread', slot: 1 }]);
+    sim.step([]);
+    expect(threadCues(st, hero(1))).toBe(false);
+    expect(soloMarkOf(st, hero(1))).toMatchObject({ now: false, hold: -1 });
+    // Without Silent Cues the same moment is the loud one.
+    const plain = fight();
+    plain.sim.step([{ t: 'thread', slot: 0 }]);
+    plain.setSolo(1, 100);
+    for (let i = 0; i < 45; i++) plain.sim.step([]);
+    expect(soloMarkOf(plain.st, plain.hero(1))).toMatchObject({ now: true, cued: false });
   });
 
   it('with Hollow Crown every Solo is Cued, Thread or not: the Cued look', () => {
