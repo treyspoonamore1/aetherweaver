@@ -33,6 +33,12 @@ export type DebugOp =
   | { op: 'healParty' }
   /** Fill every hero's Solo charge (stage Solos: each fires after its wait). */
   | { op: 'chargeSolos' }
+  /**
+   * The hero in `slot` fires their Solo now, whatever its charge: Cued (as if the Thread were on
+   * them) or plain. Stages a Solo for the labs and the tests; a hero who is down, disabled or
+   * mid-Solo doesn't.
+   */
+  | { op: 'fireSolo'; slot: PartySlot; cued: boolean }
   /** Set the boss's HP to a fraction of its max (stage boss phases). */
   | { op: 'setBossHp'; pct: number }
   /** Make the hero in `slot` call for support now (stage Call and Response). */

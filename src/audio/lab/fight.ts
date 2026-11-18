@@ -131,7 +131,7 @@ export class Fight {
       if (w.resonance >= 100 && w.crescendo <= 0 && s.tick % 7 === 0) cmds.push({ t: 'crescendo' });
       else if (w.resonance >= 25 && s.tick % 90 === 0) {
         const ready = heroes.find((h) => h?.hero && h.hero.solo >= 100 && !h.health?.downed);
-        if (ready?.hero) cmds.push({ t: 'cue', slot: ready.hero.slot });
+        if (ready?.hero) cmds.push({ t: 'thread', slot: ready.hero.slot });
       }
       if (s.tick % 240 === 120) {
         const target = heroes.find((h) => h?.health && h.health.hp / h.health.maxHp < 0.6);

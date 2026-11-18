@@ -40,7 +40,7 @@ function cueAt(rt: StageRuntime, at: number, slot: number): void {
   rt.later(at, () => {
     rt.queue(debug({ op: 'chargeSolos' }));
     rt.queue(debug({ op: 'setResonance', value: 100 }));
-    rt.later(0.05, () => rt.queue({ t: 'cue', slot: slot as 0 | 1 | 2 }));
+    rt.later(0.05, () => rt.queue(debug({ op: 'fireSolo', slot: slot as 0 | 1 | 2, cued: true })));
   });
 }
 
@@ -123,7 +123,9 @@ export const CONDUCT_SCENARIOS: Record<string, ConductScenario> = {
       rt.later(0.1, () => fight(rt));
       rt.later(0.3, () => {
         rt.queue(debug({ op: 'chargeSolos' }));
-        rt.later(toDownbeat(rt, 1), () => rt.queue({ t: 'cue', slot: LYRA }));
+        rt.later(toDownbeat(rt, 1), () =>
+          rt.queue(debug({ op: 'fireSolo', slot: LYRA, cued: true })),
+        );
       });
     },
   },

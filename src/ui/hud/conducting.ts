@@ -2,7 +2,7 @@
  * The Conductor in the fight (docs/phase-5f.md), without React so the tests read it: the Cue
  * badge on a ready hero's frame, the chain ring, the A Tempo beat strip, the Grand Finale's pips
  * and each hero's turn, the Calling chip's states, and the call-outs. Every rule is the sim's own:
- * `nextCue` (what a Cue would be now), `onBeat`, `cueCostNow` and `beatAt` (the downbeat),
+ * `nextCue` (what a Cue would be now), `onBeat` and `beatAt` (the downbeat),
  * `openChain`, `finaleView` (who plays next and at what power), `finaleTurnBlock` (what stops a
  * hero's turn), `marcatoOn`, `marcatoReadyIn`, `ensembleBonus`; every number is
  * `calling.conducting` (from content, through the mods) or `field.conducting`. Nothing here
@@ -10,7 +10,6 @@
  */
 import {
   beatAt,
-  cueCostNow,
   ensembleBonus,
   finaleTurnBlock,
   finaleView,
@@ -68,8 +67,10 @@ export function cueBadgeLabel(next: {
 
 /** A ready hero's badge from the sim's `nextCue` (null without the Conductor). */
 export function cueBadge(state: WorldState, heroId: EntityId): CueBadgeHud | null {
-  const next = nextCue(state, heroId);
-  if (!next) return null;
+  const chained = nextCue(state, heroId);
+  if (!chained) return null;
+  // A Cue costs nothing (docs/solos.md); `cost` stays 0 until the badge is reworked.
+  const next = { ...chained, cost: 0 };
   return {
     link: next.link,
     power: next.power,
@@ -125,12 +126,13 @@ export function beatStrip(
 }
 
 /**
- * A Tempo's beat as the sim stands now (`useBeatNow`): its time, whether a Cue now falls on the
- * downbeat (`onBeat`) and what it costs (`cueCostNow`). The runtime writes it every frame on A
- * Tempo runs, so the strip and the badge never wait for the HUD snapshot.
+ * A Tempo's beat as the sim stands now (`useBeatNow`): its time and whether it is inside the
+ * downbeat's window (`onBeat`). `cost` is 0: a Cue costs nothing (docs/solos.md), and the field
+ * goes when the strip is reworked. The runtime writes it every frame on A Tempo runs, so the
+ * strip and the badge never wait for the HUD snapshot.
  */
 export function beatNow(state: WorldState): BeatNow {
-  return { time: state.time, on: onBeat(state), cost: cueCostNow(state) };
+  return { time: state.time, on: onBeat(state), cost: 0 };
 }
 
 /** The strip's beat with the frame's live time, window and cost over the snapshot's. */
@@ -166,7 +168,8 @@ export function conductingHud(
   const field = state.field.conducting;
   if (!view || !field) return null;
   return {
-    cueCost: view.cueCost,
+    // A Cue costs nothing (docs/solos.md): 0 here and on the beat until the strip is reworked.
+    cueCost: 0,
     chainWindow: view.chainWindow,
     duet: view.duet,
     trio: view.trio,
@@ -177,9 +180,8 @@ export function conductingHud(
           bar: view.beat.bar,
           within: view.beat.within,
           on: onBeat(state),
-          cost: cueCostNow(state),
-          // What a Cue on the downbeat costs: Silent Cues' surcharge alone (`cueCostNow`).
-          downbeatCost: state.mods.cueCostBonus,
+          cost: 0,
+          downbeatCost: 0,
         }
       : null,
     finale: finaleHudOf(state, nameOf),

@@ -1,14 +1,23 @@
 import { heroDef } from '../../content';
 import type { Command, DebugOp, DirectiveKind } from '../commands';
 import { len } from '../core/dmath';
-import { heal, isActive, killEnemy, reviveHero, slotHero, startHold } from '../combat/health';
+import {
+  heal,
+  isActive,
+  isDisabled,
+  killEnemy,
+  reviveHero,
+  slotHero,
+  startHold,
+} from '../combat/health';
 import type { FollowMode } from '../state';
 import { weaverOf, type World } from '../world';
 import { clearDummies, drill, spawnDummies } from './dummies';
 import { startCall } from './calls';
 import { spawnEnemy } from './enemies';
 import { plantField } from './field';
-import { castChime, castGlide, castReel, castWard, crescendo } from './techniques';
+import { castChime, castGlide, castReel, castWard, crescendo, cueSolo } from './techniques';
+import { startSolo } from './solos';
 import { castRewind } from './rewind';
 import { attachThread, toggleThreadMode } from './thread';
 import { groveRally } from './grove';
@@ -162,6 +171,14 @@ function applyDebug(world: World, op: DebugOp): void {
         world.events.push({ type: 'soloReady', tick: world.tick, hero: e.id });
       }
       break;
+    case 'fireSolo': {
+      const hero = slotHero(world, op.slot);
+      if (!isActive(hero) || !hero.hero || hero.hero.soloActive > 0 || isDisabled(hero)) break;
+      world.field.lastSoloAt = world.time;
+      if (op.cued) cueSolo(world, hero);
+      else startSolo(world, hero, false);
+      break;
+    }
     case 'setBossHp': {
       const boss =
         world.encounter.bossId === null ? undefined : world.entities.get(world.encounter.bossId);

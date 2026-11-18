@@ -42,6 +42,8 @@ function normalizeDebug(op: DebugOp): DebugOp | null {
       return { op: 'healParty' };
     case 'chargeSolos':
       return { op: 'chargeSolos' };
+    case 'fireSolo':
+      return isSlot(op.slot) ? { op: 'fireSolo', slot: op.slot, cued: op.cued === true } : null;
     case 'setBossHp':
       return ok(op.pct) ? { op: 'setBossHp', pct: z0(op.pct) } : null;
     case 'forceCall':

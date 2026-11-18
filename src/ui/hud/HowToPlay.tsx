@@ -71,7 +71,7 @@ function cueRow(cue: CuePrimer | null, conduct: ConductPrimer | null): Row {
       title: t('hud.howToPlay.leadThemDuetsAnd'),
       body: t('hud.howToPlay.goodSupportFillsResonance', {
         cueCost: conduct.cueCost,
-        value: cue ? t('hud.howToPlay.raisesItThisRun', { levelName: levelName('cue_cost') }) : '',
+        value: cue ? t('hud.howToPlay.raisesItThisRun', { levelName: levelName('cue_hold') }) : '',
         Number: Number(conduct.chainWindow.toFixed(1)),
         morePct: morePct(conduct.duet),
         morePct2: morePct(conduct.trio),
@@ -86,7 +86,7 @@ function cueRow(cue: CuePrimer | null, conduct: ConductPrimer | null): Row {
     body: cue
       ? t('hud.howToPlay.goodSupportFillsResonance2', {
           cost: cue.cost,
-          levelName: levelName('cue_cost'),
+          levelName: levelName('cue_hold'),
         })
       : t('hud.howToPlay.goodSupportFillsResonance3'),
   };

@@ -212,7 +212,7 @@ export class FakeWorld {
   dissonance: DissonanceState = {
     levels: [],
     blindScore: false,
-    cueCost: CONTENT.resonance.cueCost,
+    cueHold: 0,
   };
   readonly state: WorldState;
   /** The party in slot order (Phase 5b: Brann only when asked for). */
@@ -629,7 +629,7 @@ export class FakeWorld {
     this.dissonance = {
       levels: on ? [{ id, rank: 1 }] : [],
       blindScore: on,
-      cueCost: CONTENT.resonance.cueCost,
+      cueHold: 0,
     };
   }
   /** Phase 4: the Weaver's Life, as a share of her usable Life. */
@@ -848,7 +848,6 @@ export function conductView(path: readonly string[]): ConductingView {
     c?.tiers.flatMap((t) => t.options).find((o) => o.id === id)?.values[key] ?? fallback;
   const has = (id: string) => path.includes(id);
   return {
-    cueCost: v('cue', 15),
     crescendoCost: has('maestro') ? opt('maestro', 'cost', 75) : CONTENT.resonance.crescendoCost,
     chainWindow: v('chain', 3),
     duet: 1 + v('duet', 25) / 100,
@@ -860,6 +859,7 @@ export function conductView(path: readonly string[]): ConductingView {
       wait: v('wait', 12),
     },
     beat: has('a_tempo') ? { bar: BAR_SECONDS, within: opt('a_tempo', 'beat', 0.15) } : null,
+    cueResonance: has('a_tempo') ? opt('a_tempo', 'resonance', 10) : 0,
     marcato: has('marcato')
       ? {
           pct: opt('marcato', 'pct', 10) / 100,

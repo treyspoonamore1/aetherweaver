@@ -80,7 +80,6 @@ export function recordBotRun(
         const config = Run.combatConfig(run, {
           perfectWindowBonus: 0,
           telegraphLead: 1,
-          autonomy: false,
         })!;
         const sim = createSim(config);
         const recorder = new ReplayRecorder(sim.config);

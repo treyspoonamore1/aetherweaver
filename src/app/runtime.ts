@@ -531,7 +531,6 @@ export class GameRuntime {
         buildHudSnapshot(state, {
           seed: this.seed,
           hovered: this.input.hoveredHero,
-          autonomy: this.sim.config.assists.autonomy,
           guardBlockedAt: this.guardBlockedAt,
           threadCut: this.threadCut,
           reignited: this.reignited,

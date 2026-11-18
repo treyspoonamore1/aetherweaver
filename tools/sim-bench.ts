@@ -152,8 +152,8 @@ export const SCENARIO_GROVE_PEAK: Scenario = {
         out.push({ t: 'debug', op: { op: 'chargeSolos' } });
         out.push({ t: 'debug', op: { op: 'setResonance', value: 100 } });
       }
-      // Wildgrowth, Cued, once the hounds are in (and again whenever it's ready).
-      if (tick >= 660 && tick % 60 === 0) out.push({ t: 'cue', slot: 2 });
+      // Wildgrowth, Cued, once the hounds are in (and again whenever it's ready): the Thread on Oro.
+      if (tick >= 660 && tick % 60 === 0) out.push({ t: 'thread', slot: 2 });
       return out;
     };
   },

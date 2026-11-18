@@ -17,8 +17,6 @@ import {
   bossPhaseTable,
   canPay,
   crescendoCostOf,
-  cueCostNow,
-  onBeat,
   cutWouldLand,
   deathlessActive,
   fallingFast,
@@ -154,6 +152,9 @@ function crescendoTotal(calling: { id: string; path: string[]; crescendo: string
   return CONTENT.crescendo.duration;
 }
 
+/** No Cue can be bought (docs/solos.md): the stand-in price the HUD's Cue pieces read until they go. */
+const NO_CUE_PRICE = Number.POSITIVE_INFINITY;
+
 /**
  * Builds the HUD snapshot from sim state: plain numbers and strings only, so React never
  * holds references into the live simulation. Called at 15 Hz by the runtime.
@@ -163,7 +164,6 @@ export function buildHudSnapshot(
   opts: {
     seed: number;
     hovered: EntityId | null;
-    autonomy?: boolean;
     /** Sim time of the last `guardBlocked` event the runtime heard (Movement II). */
     guardBlockedAt?: number | null;
     /** The last enemy cut of the Thread the runtime heard (Movement III, `heardCut`). */
@@ -281,7 +281,8 @@ export function buildHudSnapshot(
       // song returns, though the notes fill it (docs/phase-5d.md: relit gold on Reignite).
       soloReady: hero.solo >= 100 && hero.soloActive <= 0 && !isStilled(h),
       soloActive: hero.soloActive > 0,
-      soloAuto: opts.autonomy === true && hero.targetId !== null,
+      // Every hero fires their own Solo (docs/solos.md): AUTO whenever they have someone to fight.
+      soloAuto: hero.targetId !== null,
       soloId: soloDef.id,
       soloName: soloDef.name,
       soloText: soloDef.text,
@@ -536,13 +537,11 @@ export function buildHudSnapshot(
       resonance: w?.resonance ?? 0,
       resonanceMax: resonance.max,
       segment: resonance.segment,
-      // Silent Cues (Phase 4d) raises it: the fight's own. Phase 5g: the price a Cue pays now
-      // (`cueCostNow`: Opening Bars, Tempo Rubato, Hollow Crown's floor), for every Calling; it is
-      // `dissonance.cueCost` without those. On the Conductor's downbeat the meter keeps the off-beat
-      // price, as before (his beat strip shows the downbeat's).
-      cueCost: onBeat(state) ? state.dissonance.cueCost : cueCostNow(state),
-      // Without Silent Cues' surcharge: the content's, or the Conductor's own.
-      cueBase: state.dissonance.cueCost - state.mods.cueCostBonus,
+      // A Cue has no price (docs/solos.md). Until the HUD's Cue pieces are reworked, the meter is
+      // told the price is out of reach, which hides them: the ticks, the label, the "press to
+      // Cue" hint.
+      cueCost: NO_CUE_PRICE,
+      cueBase: NO_CUE_PRICE,
       // Maestro's 75 on a Conductor run (the sim's own), else the content's.
       crescendoCost: crescendoCostOf(state),
       crescendo: w?.crescendo ?? 0,

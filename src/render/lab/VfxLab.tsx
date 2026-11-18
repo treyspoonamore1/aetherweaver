@@ -602,7 +602,6 @@ let encounterOverride: string | null = null;
  */
 let bondsCfg: { talents: string[]; solos: string[] } | null = null;
 let partyCfg: string[] | null = null;
-let autonomyCfg = false;
 /** Phase 4f: the technique variants the lab sim fights with (SimConfig.techniques; null: none). */
 let techniquesCfg: SimConfig['techniques'] | null = null;
 /** Phase 4f: motifs a variant scenario needs (Twin Aegis), or none. */
@@ -1698,7 +1697,6 @@ const DIS_SCENARIO_NAMES = Object.keys(DIS_SCENARIOS);
 function clearBonds(): void {
   bondsCfg = null;
   partyCfg = null;
-  autonomyCfg = false;
   // Phase 4f: and the techniques' defaults.
   techniquesCfg = null;
   motifsCfg = null;
@@ -1913,7 +1911,9 @@ function brannScenarios(): Record<string, BondScenario> {
         rt.later(0.2, () => rt.attackers(BRANN, 3));
         rt.later(0.3, () => rt.bloodOf(BRANN));
         readySolos(rt, 0.4);
-        rt.later(0.8, () => rt.queue({ t: 'cue', slot: BRANN }));
+        rt.later(0.8, () =>
+          rt.queue({ t: 'debug', op: { op: 'fireSolo', slot: BRANN, cued: true } }),
+        );
       },
     },
     'Brann · Red Frenzy uncued': {
@@ -1983,7 +1983,9 @@ function brannScenarios(): Record<string, BondScenario> {
         rt.later(0.2, () => rt.attackers(BRANN, 3));
         rt.later(0.3, () => rt.thread(KAEL));
         readySolos(rt, 0.4);
-        rt.later(0.8, () => rt.queue({ t: 'cue', slot: BRANN }));
+        rt.later(0.8, () =>
+          rt.queue({ t: 'debug', op: { op: 'fireSolo', slot: BRANN, cued: true } }),
+        );
       },
     },
     'Brann · Blood Tithe and Blood and Silk': {
@@ -2208,7 +2210,9 @@ const BOND_SCENARIOS: Record<string, BondScenario> = {
         rt.spawn('bell_brute', 3, -6);
       });
       readySolos(rt, 0.4);
-      rt.later(1.2, () => rt.queue({ t: 'cue', slot: VEXIS }));
+      rt.later(1.2, () =>
+        rt.queue({ t: 'debug', op: { op: 'fireSolo', slot: VEXIS, cued: true } }),
+      );
     },
   },
   Constellation: {
@@ -2224,8 +2228,8 @@ const BOND_SCENARIOS: Record<string, BondScenario> = {
         rt.spawn('hollow_chorister', 0, -8);
       });
       readySolos(rt, 0.3);
-      rt.later(0.8, () => rt.queue({ t: 'cue', slot: KAEL }));
-      rt.later(2.0, () => rt.queue({ t: 'cue', slot: LYRA }));
+      rt.later(0.8, () => rt.queue({ t: 'debug', op: { op: 'fireSolo', slot: KAEL, cued: true } }));
+      rt.later(2.0, () => rt.queue({ t: 'debug', op: { op: 'fireSolo', slot: LYRA, cued: true } }));
     },
   },
   'Arcane Ward': {
@@ -2240,7 +2244,7 @@ const BOND_SCENARIOS: Record<string, BondScenario> = {
     note: `You Cue Kael (Oathkeeper, ${sval('oathkeeper', 'cuedRadius')} m): choristers on Lyra and Vexis, and their hits land on Kael instead (a tether each)`,
     stage: (rt) => {
       readySolos(rt, 0.2);
-      rt.later(0.4, () => rt.queue({ t: 'cue', slot: KAEL }));
+      rt.later(0.4, () => rt.queue({ t: 'debug', op: { op: 'fireSolo', slot: KAEL, cued: true } }));
       rt.later(0.5, () => {
         rt.attackers(LYRA, 3);
         rt.attackers(VEXIS, 2);
@@ -2264,7 +2268,7 @@ const BOND_SCENARIOS: Record<string, BondScenario> = {
     stage: (rt) => {
       attackersAhead(rt, 0.2);
       readySolos(rt, 0.3);
-      rt.later(2.4, () => rt.queue({ t: 'cue', slot: LYRA }));
+      rt.later(2.4, () => rt.queue({ t: 'debug', op: { op: 'fireSolo', slot: LYRA, cued: true } }));
     },
   },
   'Hawk’s Vigil · uncued': {
@@ -2295,7 +2299,9 @@ const BOND_SCENARIOS: Record<string, BondScenario> = {
     note: `You Cue Vexis: every hero in your field gets a sphere of ${sval('celestial_sphere', 'hits')} hits (gold stars: your Cue’s); choristers test them`,
     stage: (rt) => {
       readySolos(rt, 0.2);
-      rt.later(0.4, () => rt.queue({ t: 'cue', slot: VEXIS }));
+      rt.later(0.4, () =>
+        rt.queue({ t: 'debug', op: { op: 'fireSolo', slot: VEXIS, cued: true } }),
+      );
       rt.later(0.6, () => {
         rt.attackers(KAEL, 2);
         rt.attackers(LYRA, 2);
@@ -2321,7 +2327,7 @@ const BOND_SCENARIOS: Record<string, BondScenario> = {
     stage: (rt) => {
       rt.later(0.2, () => rt.thread(KAEL));
       readySolos(rt, 3.5);
-      rt.later(3.8, () => rt.queue({ t: 'cue', slot: LYRA }));
+      rt.later(3.8, () => rt.queue({ t: 'debug', op: { op: 'fireSolo', slot: LYRA, cued: true } }));
     },
   },
   ...brannScenarios(),
@@ -3050,7 +3056,6 @@ class LabRuntime {
       dissonance: dissonanceCfg,
       ...(bondsCfg ? { bonds: bondsCfg } : {}),
       ...(partyCfg ? { party: partyCfg } : {}),
-      ...(autonomyCfg ? { assists: { autonomy: true } } : {}),
       ...(techniquesCfg ? { techniques: techniquesCfg } : {}),
       ...(motifsCfg ? { motifs: motifsCfg } : {}),
     });
@@ -3301,7 +3306,7 @@ class LabRuntime {
     return {
       levels: st.dissonance.levels.map((l) => ({ ...l })),
       blindScore: st.dissonance.blindScore,
-      cueCost: st.dissonance.cueCost,
+      cueCost: CONTENT.resonance.segment,
       fired: { ...v.dissonance.fired },
       drawn: {
         ...v.dissonance.drawn,
@@ -4615,7 +4620,6 @@ class LabRuntime {
     motifsCfg = sc.motifs ? sc.motifs.map((m) => ({ ...m })) : null;
     bondsCfg = { talents: [...sc.talents], solos: [...(sc.solos ?? [])] };
     partyCfg = sc.party ? [...sc.party] : null;
-    autonomyCfg = !!sc.autonomy;
     encounterOverride = sc.encounter ?? 'sandbox';
     // Phase 5b: a scenario's own floor (Brann's clutter check on the Spire).
     if (sc.theme) this.theme = sc.theme;
@@ -4649,7 +4653,6 @@ class LabRuntime {
     const cfg = scenarioConfig(sc);
     techniquesCfg = { ...cfg.techniques };
     motifsCfg = cfg.motifs ?? null;
-    autonomyCfg = !!sc.autonomy;
     encounterOverride = cfg.encounter ?? 'sandbox';
     callingCfg = null;
     chordsOverride = sc.chords ?? GUARDIAN_CHORDS;
@@ -6170,7 +6173,7 @@ export function VfxLab() {
           <Btn
             onClick={() => {
               q({ t: 'debug', op: { op: 'setResonance', value: 100 } });
-              q({ t: 'cue', slot });
+              q({ t: 'debug', op: { op: 'fireSolo', slot, cued: true } });
             }}
           >
             Cue

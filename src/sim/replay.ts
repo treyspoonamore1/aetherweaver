@@ -57,6 +57,7 @@ const CommandSchemaRaw = z.discriminatedUnion('t', [
       z.object({ op: z.literal('setResonance'), value: z.number() }).strict(),
       z.object({ op: z.literal('healParty') }).strict(),
       z.object({ op: z.literal('chargeSolos') }).strict(),
+      z.object({ op: z.literal('fireSolo'), slot: SlotSchema, cued: z.boolean() }).strict(),
       z.object({ op: z.literal('setBossHp'), pct: z.number() }).strict(),
       z.object({ op: z.literal('forceCall'), slot: SlotSchema }).strict(),
       z.object({ op: z.literal('forceHold'), slot: SlotSchema }).strict(),

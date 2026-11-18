@@ -154,7 +154,7 @@ export function allowanceOf(r: AllowanceRecord): Allowance {
 
 /** A fight's assists. Only values Settings offer verify (`ASSIST_VALUES`, `assistsOffered`). */
 const AssistsSchema = z
-  .object({ perfectWindowBonus: z.number(), telegraphLead: z.number(), autonomy: z.boolean() })
+  .object({ perfectWindowBonus: z.number(), telegraphLead: z.number() })
   .strict();
 
 /** Were these assists ones Settings offer? (The sim would clamp others silently.) */

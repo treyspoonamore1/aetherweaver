@@ -664,7 +664,7 @@ export interface HudDissonanceView {
 export function hudDissonanceView(
   levels: readonly DissonanceChoice[],
   cueCost: number,
-  cueBase: number = CONTENT.resonance.cueCost,
+  cueBase: number = CONTENT.resonance.segment,
 ): HudDissonanceView {
   const points = dissonancePoints(levels);
   const rows = takenRows(levels);

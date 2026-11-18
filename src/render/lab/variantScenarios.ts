@@ -321,7 +321,6 @@ export function scenarioConfig(sc: VariantScenario): Partial<SimConfig> {
   return {
     encounter: sc.encounter ?? 'sandbox',
     techniques: { ...sc.techniques },
-    ...(sc.autonomy ? { assists: { autonomy: true } } : {}),
     ...(sc.motifs ? { motifs: sc.motifs.map((m) => ({ ...m })) } : {}),
   };
 }

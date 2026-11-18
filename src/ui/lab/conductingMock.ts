@@ -81,7 +81,10 @@ export function conductStage(scenario: ConductScenario): ConductStage {
     return pred();
   };
   const seconds = (s: number) => Math.round(s * 60);
-  const cue = (slot: number): Command => ({ t: 'cue', slot: slot as PartySlot });
+  const cue = (slot: number): Command => ({
+    t: 'debug',
+    op: { op: 'fireSolo', slot: slot as PartySlot, cued: true },
+  });
   const charge: Command = { t: 'debug', op: { op: 'chargeSolos' } };
   const fill: Command = { t: 'debug', op: { op: 'setResonance', value: 100 } };
   // The Weaver a step behind her party; Kael threaded.

@@ -171,8 +171,6 @@ export class InputController {
   /** Thread mode held (hold mode): the input holding it, and the command its press queued. */
   private modeHeldBy: string | null = null;
   private modeHoldCommand: Command | null = null;
-  /** A key (not Shift, Ctrl or Alt) chosen as the Cue modifier is down. */
-  private modifierHeld = false;
   // The pad.
   private readonly pads: PadSource;
   private readonly reader = new PadReader();
@@ -390,14 +388,6 @@ export class InputController {
     this.cut = { target: cut.target, until: cut.at + CUT_FALLBACK_SECONDS };
   }
 
-  /** The Cue modifier is held: Shift, Ctrl or Alt by the event's flag, or a chosen key. */
-  private cueHeld(event: KeyboardEvent, mod: string): boolean {
-    if (mod === 'Shift') return event.shiftKey;
-    if (mod === 'Control') return event.ctrlKey;
-    if (mod === 'Alt') return event.altKey;
-    return mod !== '' && this.modifierHeld;
-  }
-
   private onKeyDown = (event: KeyboardEvent): void => {
     if (isTyping(event)) return;
     // OS / browser chords (Ctrl+R, Cmd+Tab…) never reach the game, and a Meta press clears
@@ -410,8 +400,8 @@ export class InputController {
     const mod = opts.cueModifier;
     const action = this.codeIndex.get(event.code);
     if (mod !== '' && !isModifierToken(mod) && modifierOf(event.code) === mod) {
-      // A key chosen as the Cue modifier (unbound otherwise: Controls keeps one use a key).
-      this.modifierHeld = true;
+      // A key chosen as the Cue modifier (unbound otherwise: Controls keeps one use a key). It
+      // does nothing now (docs/solos.md); it leaves with the Controls' rework.
       if (!action) {
         event.preventDefault();
         return;
@@ -442,8 +432,10 @@ export class InputController {
     this.touched = true;
     const slot = focusSlot(action);
     if (slot !== null) {
-      // The Cue modifier (Shift) + a number cues that hero; a plain number threads them.
-      this.pending.push(this.cueHeld(event, mod) ? { t: 'cue', slot } : { t: 'thread', slot });
+      // A hero's number threads them, with the Cue modifier held or not: heroes fire their own
+      // Solos, and the Thread on them is the Cue (docs/solos.md). The modifier and the Cue key
+      // leave with the Controls' rework.
+      this.pending.push({ t: 'thread', slot });
       return;
     }
     this.act(action, 'key', event.code);
@@ -497,11 +489,10 @@ export class InputController {
         });
         break;
       }
-      case 'cue': {
-        const s = this.smartSlot(source);
-        if (s !== undefined) this.pending.push({ t: 'cue', slot: s });
+      case 'cue':
+        // Nothing: heroes fire their own Solos (docs/solos.md). The action leaves with the
+        // Controls' rework.
         break;
-      }
       case 'crescendo':
         this.pending.push({ t: 'crescendo' });
         break;
@@ -543,9 +534,6 @@ export class InputController {
       this.releaseAll();
       return;
     }
-    const mod = this.input().cueModifier;
-    if (mod !== '' && !isModifierToken(mod) && modifierOf(event.code) === mod)
-      this.modifierHeld = false;
     this.heldCodes.delete(event.code);
     this.wheelRelease(event.code);
     this.modeRelease(event.code);
@@ -635,7 +623,6 @@ export class InputController {
     this.heldCodes.clear();
     this.held.clear();
     this.padHeld.clear();
-    this.modifierHeld = false;
     if (this.modeHeldBy !== null) this.endModeHold(true);
   }
 
@@ -993,11 +980,9 @@ export class InputController {
       case 'threadReticle':
         if (this.reticle !== null) this.pending.push({ t: 'thread', slot: this.reticle });
         return;
-      case 'cueReticle': {
-        const s = this.smartSlot('pad');
-        if (s !== undefined) this.pending.push({ t: 'cue', slot: s });
+      case 'cueReticle':
+        // Nothing: heroes fire their own Solos (docs/solos.md).
         return;
-      }
       default:
         this.padHeld.add(action);
         this.act(action, 'pad', PAD_CODES[button]!);

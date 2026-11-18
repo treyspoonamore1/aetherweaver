@@ -41,7 +41,10 @@ export interface DissonanceLook {
   risePct: number;
   /** Elite Vanguard: elites carry more affixes. */
   vanguard: boolean;
-  /** What a Cue costs this fight (Silent Cues adds to the content's). */
+  /**
+   * One Resonance segment. (Once what a Cue cost; a Cue costs nothing now, docs/solos.md. At one
+   * segment the orbit carries no ticks; the field goes when Silent Cues' look is reworked.)
+   */
   cueCost: number;
   /** The Resonance segment and the most Resonance (content). */
   segment: number;
@@ -57,7 +60,7 @@ export function emptyDissonanceLook(): DissonanceLook {
     restless: false,
     risePct: 0,
     vanguard: false,
-    cueCost: CONTENT.resonance.cueCost,
+    cueCost: CONTENT.resonance.segment,
     segment: CONTENT.resonance.segment,
     max: CONTENT.resonance.max,
     from: null,
@@ -82,10 +85,7 @@ export function dissonanceLook(state: WorldState, out: DissonanceLook): Dissonan
   const d = (state as { dissonance?: WorldState['dissonance'] }).dissonance;
   const levels = d?.levels ?? null;
   out.blindScore = !!d?.blindScore;
-  out.cueCost =
-    typeof d?.cueCost === 'number' && Number.isFinite(d.cueCost)
-      ? d.cueCost
-      : CONTENT.resonance.cueCost;
+  out.cueCost = CONTENT.resonance.segment;
   if (levels === out.from) return out;
   out.from = levels;
   const list = levels ?? [];
@@ -176,7 +176,5 @@ export function cueTicks(look: DissonanceLook, out: Float32Array): number {
 /** A Cue could be paid for now (the Weaver's Resonance against this fight's cost). */
 export function cueReady(state: WorldState): boolean {
   const w = state.entities.get(state.weaverId)?.weaver;
-  const d = (state as { dissonance?: WorldState['dissonance'] }).dissonance;
-  const cost = typeof d?.cueCost === 'number' ? d.cueCost : CONTENT.resonance.cueCost;
-  return !!w && w.resonance + 1e-9 >= cost;
+  return !!w && w.resonance + 1e-9 >= CONTENT.resonance.segment;
 }
