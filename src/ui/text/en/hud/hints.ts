@@ -30,9 +30,9 @@ export const hints = {
   'hud.hints.bearingStopsYourOn':
     'Bearing stops your {value} on {name}. Press {B} again to go back',
   'hud.hints.yourHeroesCanT':
-    '{crescendoName}: your heroes can’t fall below 1 life. What gets past them comes to you, softened',
+    '{crescendoName}: your heroes can’t fall below 1 life — what gets past them comes to you, softened',
   'hud.hints.everyEnemyWaitsYour':
-    '{crescendoName}: every enemy waits. Your techniques have no cooldowns{value} while it lasts. Ward {Q}, Chime {E} and Rewind {F} freely',
+    '{crescendoName}: every enemy waits — your techniques have no cooldowns{value} while it lasts. Ward {Q}, Chime {E} and Rewind {F} freely',
   'hud.hints.andCostLess': ' and cost {less}% less',
   'hud.hints.isOutsideYourField':
     '{name} is outside your field — move closer so your auras reach them',
