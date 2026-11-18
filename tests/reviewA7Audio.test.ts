@@ -7,6 +7,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { CONTENT } from '../src/content';
 import { SynthDirector } from '../src/audio/director';
 import { DEFAULT_SETTINGS, useSettings, type Settings } from '../src/app/settings';
 import { computePin, type PresentationPin } from './aura/presentationPinFixture';
@@ -493,7 +494,10 @@ function busyFight(rule: 'old' | 'new', voices: boolean, seed: number, crowd: nu
       if (tick % 20 === 10)
         cmds.push({ t: 'plant', point: { x: ((tick / 20) % 5) - 2, z: ((tick / 7) % 5) - 2 } });
       if (tick % 60 === 40)
-        cmds.push(debug({ op: 'chargeSolos' }), debug({ op: 'setResonance', value: 100 }));
+        cmds.push(
+          debug({ op: 'chargeSolos' }),
+          debug({ op: 'setResonance', value: CONTENT.resonance.max }),
+        );
       if (tick % 60 === 41)
         cmds.push({
           t: 'debug',

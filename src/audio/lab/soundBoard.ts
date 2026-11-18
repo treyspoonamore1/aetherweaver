@@ -1461,11 +1461,18 @@ export const SOUNDS: SoundButton[] = [
       { delay: 2, fire: (d: SynthDirector, w: FakeWorld) => soloWaitTick(d, w, ['vexis']) },
     ],
   },
-  ...[25, 50, 75, 100].map((total): SoundButton => ({
-    id: `res-${total}`,
-    label: `Resonance ${total}`,
+  // A segment of the meter fills. The ids name the share of the meter (a quarter, a half…),
+  // whatever the meter holds; the event carries the content's own numbers.
+  ...[1, 2, 3, 4].map((n): SoundButton => ({
+    id: `res-${n * 25}`,
+    label: `Resonance: segment ${n} of 4 fills`,
     group: 'support',
-    fire: (d, w) => fire(d, w, ev('resonanceGained', { amount: 5, reason: 'lab', total })),
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        ev('resonanceGained', { amount: 5, reason: 'lab', total: n * CONTENT.resonance.segment }),
+      ),
   })),
   {
     id: 'crescendo',

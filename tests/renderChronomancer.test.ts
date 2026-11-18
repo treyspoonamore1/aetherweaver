@@ -245,7 +245,7 @@ const enemyClock = (h: Harness) => h.enemyClock();
 
 /** Stasis, staged as the lab does it: Resonance to 100, then `{t:'crescendo'}`. */
 function stopTime(h: Harness): void {
-  h.run(1, [debug({ op: 'setResonance', value: 100 })]);
+  h.run(1, [debug({ op: 'setResonance', value: CONTENT.resonance.max })]);
   h.run(1, [{ t: 'crescendo' }]);
 }
 
@@ -928,7 +928,7 @@ describe('the Chronomancer in the fight (real sim → render)', () => {
       for (let i = 0; i < 2; i++) h.tick(i === 0 ? [{ t: 'thread', slot: 0 }] : [], flashes);
       for (let i = 0; i < 120; i++) h.tick(i === 0 ? [{ t: 'move', x: 1, z: 0 }] : [], flashes);
       h.tick([REWIND], flashes);
-      h.tick([debug({ op: 'setResonance', value: 100 })], flashes);
+      h.tick([debug({ op: 'setResonance', value: CONTENT.resonance.max })], flashes);
       h.tick([{ t: 'crescendo' }], flashes);
       for (let i = 0; i < 20; i++) h.tick([], flashes);
       return { last: h.tick([], flashes).counts, fired: { ...h.view.fired } };

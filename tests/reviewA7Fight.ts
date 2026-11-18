@@ -12,6 +12,7 @@
  * either tree.
  */
 import * as THREE from 'three';
+import { CONTENT } from '../src/content';
 
 /** The modules the fight needs, from whichever tree. */
 export interface FightModules {
@@ -203,7 +204,10 @@ export function playFight(m: FightModules): FightRecord {
       [0, [{ t: 'thread', slot: 0 }]],
       [PLANT_TICK, [{ t: 'plant', point: { x: 2.5, z: 1.5 } }]],
       [HOLD_TICK, [{ t: 'debug', op: { op: 'forceHold', slot: 1 } }]],
-      [CRESCENDO_TICK - 2, [{ t: 'debug', op: { op: 'setResonance', value: 100 } }]],
+      [
+        CRESCENDO_TICK - 2,
+        [{ t: 'debug', op: { op: 'setResonance', value: CONTENT.resonance.max } }],
+      ],
       [CRESCENDO_TICK, [{ t: 'crescendo' }]],
     ]);
     const frame = {

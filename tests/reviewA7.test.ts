@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, useSettings, type Settings } from '../src/app/settings';
-import { arenaDef, encounterDef } from '../src/content';
+import { CONTENT, arenaDef, encounterDef } from '../src/content';
 import { PAD_BUTTONS, type Action, type PadButton } from '../src/input/actions';
 import { holdPadForCapture, type PadLike } from '../src/input/gamepad';
 import { InputController } from '../src/input/InputController';
@@ -373,7 +373,7 @@ describe('finding 7: a wind-up is captioned when its sound plays', () => {
     sim.step([{ t: 'thread', slot: 1 }, spawn('bell_brute', -2.5, -5)]);
     for (const e of worldOf(sim).entities.list())
       if (e.enemy && e.health) e.health.hp = e.health.maxHp = 1e6;
-    sim.step([{ t: 'debug', op: { op: 'setResonance', value: 100 } } as Command]);
+    sim.step([{ t: 'debug', op: { op: 'setResonance', value: CONTENT.resonance.max } } as Command]);
     sim.step([{ t: 'crescendo' }]);
     sim.drainEvents();
     for (let i = 0; i < 30; i++) sim.step([]);

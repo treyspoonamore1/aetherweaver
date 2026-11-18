@@ -118,7 +118,7 @@ const away = debug({ op: 'teleportWeaver', x: 14, z: 6 });
 
 /** Sunrise, staged as the lab does it: Resonance to 100, then `{t:'crescendo'}`. */
 function sunrise(h: ReturnType<typeof harness>): void {
-  h.run(1, [debug({ op: 'setResonance', value: 100 })]);
+  h.run(1, [debug({ op: 'setResonance', value: CONTENT.resonance.max })]);
   h.run(2, [{ t: 'crescendo' }]);
 }
 
@@ -146,7 +146,7 @@ describe('Luminary cues', () => {
       check();
       // Walk back in, then Sunrise.
       stepFor(sim, 240);
-      stepFor(sim, 1, [debug({ op: 'setResonance', value: 100 })]);
+      stepFor(sim, 1, [debug({ op: 'setResonance', value: CONTENT.resonance.max })]);
       stepFor(sim, 2, [{ t: 'crescendo' }]);
       expect(sim.state.field.crescendo).toBe(true);
       check();

@@ -2,6 +2,7 @@
  * Runs a real headless sim in the lab (60 Hz, fed to the director) so the mix can be judged
  * with realistic event density. Optional "auto-support" bot plays the Weaver a little.
  */
+import { CONTENT } from '../../content';
 import {
   SIM_DT,
   createSim,
@@ -139,7 +140,8 @@ export class Fight {
     }
     const w = s.entities.get(s.weaverId)?.weaver;
     if (w) {
-      if (w.resonance >= 100 && w.crescendo <= 0 && s.tick % 7 === 0) cmds.push({ t: 'crescendo' });
+      if (w.resonance >= CONTENT.resonance.crescendoCost && w.crescendo <= 0 && s.tick % 7 === 0)
+        cmds.push({ t: 'crescendo' });
       if (s.tick % 240 === 120) {
         const target = heroes.find((h) => h?.health && h.health.hp / h.health.maxHp < 0.6);
         if (target) cmds.push({ t: 'tech', id: 'chime', point: { x: target.x, z: target.z } });

@@ -4041,9 +4041,11 @@ export class Feedback {
 
     // Resonance notes rising off the Weaver.
     if (w && this.resonanceAcc > 0) {
-      const n = Math.min(4, Math.floor(this.resonanceAcc / 2));
+      // One note for each fiftieth of the meter gained (2 Resonance when the meter held 100).
+      const per = CONTENT.resonance.max / 50;
+      const n = Math.min(4, Math.floor(this.resonanceAcc / per));
       if (n > 0) {
-        this.resonanceAcc -= n * 2;
+        this.resonanceAcc -= n * per;
         for (let i = 0; i < n; i++) {
           kit.particles.emit(
             w.x + (Math.random() - 0.5) * 0.8,

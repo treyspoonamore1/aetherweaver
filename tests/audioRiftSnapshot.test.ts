@@ -299,7 +299,7 @@ function moodScore(biome: Biome, mood: Mood, resonance: number, phase: number, r
   return seeded(() => {
     const h = harness();
     h.d.setBiome(biome);
-    h.world.setResonance(resonance);
+    h.world.setResonancePct(resonance);
     if (mood === 'boss') h.world.setEnemies(1, role, role, phase);
     else if (mood === 'combat') h.world.setEnemies(6);
     const from = h.ctx.sources.length;

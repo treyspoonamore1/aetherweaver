@@ -213,7 +213,7 @@ function setup(path: string[] = [], config: Partial<SimConfig> = {}) {
 /** A Cue as the HUD sends it, with its Solo full and the meter full (real debug ops). */
 function cueOf(h: ReturnType<typeof harness>, slot: number): SimEvent[] {
   h.run(1, [debug({ op: 'chargeSolos' })]);
-  h.run(1, [debug({ op: 'setResonance', value: 100 })]);
+  h.run(1, [debug({ op: 'setResonance', value: CONTENT.resonance.max })]);
   return h.run(1, [cue(slot)]);
 }
 
@@ -517,7 +517,7 @@ describe('the Grand Finale, drawn', () => {
   it('a baton stroke and a growing sigil each turn; the sweep at its end; never Sunrise', () => {
     const { sim, h } = setup();
     const before = { blazes: h.blazes(), flashes: h.overlay.flashes.length };
-    h.run(1, [debug({ op: 'setResonance', value: 100 })]);
+    h.run(1, [debug({ op: 'setResonance', value: CONTENT.resonance.max })]);
     const ev = h.run(1, [{ t: 'crescendo' }]);
     expect(ofType(ev, 'crescendoStart')[0]!.calling).toBe('Grand Finale');
     expect(sim.state.field.crescendo).toBe(false);
@@ -551,7 +551,7 @@ describe('the Grand Finale, drawn', () => {
 
   it('the sigil grows with the ramp: each turn’s sprite is bigger than the last', () => {
     const { h } = setup();
-    h.run(1, [debug({ op: 'setResonance', value: 100 })]);
+    h.run(1, [debug({ op: 'setResonance', value: CONTENT.resonance.max })]);
     h.run(1, [{ t: 'crescendo' }]);
     // The Finale sigil's size at each turn's peak (a later turn's sigil overlaps the last one's
     // fade, so each turn's peak is read up to the next turn).
@@ -577,7 +577,7 @@ describe('the Grand Finale, drawn', () => {
     const { sim, h, w } = setup();
     const vexis = w.entities.get(w.party[2]!)!;
     vexis.health!.downed = true;
-    h.run(1, [debug({ op: 'setResonance', value: 100 })]);
+    h.run(1, [debug({ op: 'setResonance', value: CONTENT.resonance.max })]);
     h.run(1, [{ t: 'crescendo' }]);
     h.run(60 * 3);
     expect(h.view.fired.finaleLost).toBe(1);
@@ -598,7 +598,7 @@ describe('no new draw calls', () => {
       h.run(30);
       cueOf(h, 2);
       h.run(60 * 4);
-      h.run(1, [debug({ op: 'setResonance', value: 100 })]);
+      h.run(1, [debug({ op: 'setResonance', value: CONTENT.resonance.max })]);
       h.run(60 * 8, [{ t: 'crescendo' }]);
       return {
         fx: h.kit.group.children.length,
@@ -619,7 +619,7 @@ describe('no new draw calls', () => {
     cueOf(h, 0);
     cueOf(h, 1);
     cueOf(h, 2);
-    h.run(1, [debug({ op: 'setResonance', value: 100 })]);
+    h.run(1, [debug({ op: 'setResonance', value: CONTENT.resonance.max })]);
     let most = { rings: 0, sprites: 0, ribbons: 0 };
     for (let i = 0; i < 60 * 3; i++) {
       const f = h.tick();

@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { assistsInUse, gameSpeed, withAssisted } from '../src/app/gameSpeed';
+import { CONTENT } from '../src/content';
 import * as Run from '../src/meta/run';
 import { loadRun, saveRun, type KeyValueStore } from '../src/meta/save';
 import { DEFAULT_SETTINGS, optionsOf, useSettings, type Settings } from '../src/app/settings';
@@ -299,7 +300,7 @@ function comfortFight(patch: Partial<Settings>, flashes = 1) {
       [150, [{ t: 'plant', point: { x: 2.5, z: 1.5 } }]],
       [210, [debug({ op: 'forceHold', slot: 2 })]],
       [240, [debug({ op: 'healParty' })]],
-      [330, [debug({ op: 'setResonance', value: 100 })]],
+      [330, [debug({ op: 'setResonance', value: CONTENT.resonance.max })]],
       [332, [{ t: 'crescendo' }]],
       [360, [{ t: 'thread', slot: 2 }]],
       [420, [debug({ op: 'teleportWeaver', x: 18, z: 18 })]],

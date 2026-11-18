@@ -490,6 +490,13 @@ export class FakeWorld {
   setResonance(v: number): void {
     this.weaverData().resonance = v;
   }
+  /**
+   * Resonance as a share of the meter, 0 to 100, whatever the meter holds: what the lab's moods
+   * and the mood tests mean by "at 50" and "at 100" (full, every stem up).
+   */
+  setResonancePct(pct: number): void {
+    this.setResonance((pct / 100) * CONTENT.resonance.max);
+  }
   setTension(v: number): void {
     this.weaverData().threadTension = v;
   }
@@ -848,7 +855,9 @@ export function conductView(path: readonly string[]): ConductingView {
     c?.tiers.flatMap((t) => t.options).find((o) => o.id === id)?.values[key] ?? fallback;
   const has = (id: string) => path.includes(id);
   return {
-    crescendoCost: has('maestro') ? opt('maestro', 'cost', 75) : CONTENT.resonance.crescendoCost,
+    crescendoCost: has('maestro')
+      ? opt('maestro', 'cost', CONTENT.resonance.crescendoCost * 0.75)
+      : CONTENT.resonance.crescendoCost,
     chainWindow: v('chain', 3),
     duet: 1 + v('duet', 25) / 100,
     trio: 1 + v('trio', 50) / 100,
@@ -873,7 +882,7 @@ export function conductView(path: readonly string[]): ConductingView {
       : null,
     spotlight: has('spotlight') ? opt('spotlight', 'mult', 2) : 0,
     triad: has('triad') ? opt('triad', 'count', 3) : 0,
-    upbeat: has('upbeat') ? opt('upbeat', 'resonance', 50) : 0,
+    upbeat: has('upbeat') ? opt('upbeat', 'resonance', CONTENT.resonance.max / 2) : 0,
   };
 }
 

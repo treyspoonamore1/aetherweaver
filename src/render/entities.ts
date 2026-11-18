@@ -3216,9 +3216,9 @@ export class EntityLayer {
     const x = rec.x;
     const z = rec.z;
     kit.rings.push(x, 0.03, z, rec.radius * 1.5, 0.07, 0.2, RING.plain, C.gold, 0.6);
-    // Resonance: orbiting white-gold segments (one per full segment, the content's 25 of 100).
+    // Resonance: orbiting white-gold segments (one per full segment of the content's meter).
     const look = this.dis;
-    const seg = look.segment > 0 ? look.segment : 25;
+    const seg = look.segment > 0 ? look.segment : CONTENT.resonance.segment;
     const stars = Math.max(1, Math.round(look.max / seg));
     const step = (Math.PI * 2) / stars;
     const full = Math.floor(w.resonance / seg);

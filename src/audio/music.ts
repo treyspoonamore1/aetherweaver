@@ -1,7 +1,7 @@
 /**
  * The music director: one procedural track in D dorian at 88 BPM with four stems (Pad,
  * Pulse, Melody, Choir), scheduled on the AudioContext clock with a lookahead pump. Stem
- * levels follow the mood, Weaver Resonance (25/50/75/100 → one more stem each), combat
+ * levels follow the mood, Weaver Resonance (one more stem for each full segment of the meter), combat
  * intensity, downed heroes and Crescendo, and change on bar lines (beat lines for urgent
  * jumps). Exposes the current key, chord and beat position so SFX can be pitched to it.
  *
@@ -23,7 +23,7 @@
  * while `inputs.silence` holds, every stem is zeroed and the Weaver's notes reopen them, two notes
  * a stem. The run's last victory has a stinger of its own, `finale`.
  */
-import type { Biome } from '../content';
+import { CONTENT, type Biome } from '../content';
 import type { AudioMood } from './types';
 import { Voice, type Engine } from './engine';
 import {
@@ -80,7 +80,7 @@ const STEMS: readonly StemName[] = ['pad', 'pulse', 'melody', 'choir'];
 const STEM_GAIN: Record<StemName, number> = { pad: 1, pulse: 1, melody: 1, choir: 1 };
 
 export interface MusicInputs {
-  /** Weaver Resonance 0..100. */
+  /** Weaver Resonance, in the meter's own units (0 to `CONTENT.resonance.max`). */
   resonance: number;
   /** Smoothed combat intensity 0..1 (enemies alive, telegraphs). */
   intensity: number;
@@ -913,7 +913,7 @@ export class MusicEngine {
   // ── Stem levels ──────────────────────────────────────────────────────────────────
   private effTier(now: number): number {
     const i = this.inputs;
-    let tier = Math.min(4, Math.floor(i.resonance / 25 + 1e-6));
+    let tier = Math.min(4, Math.floor(i.resonance / CONTENT.resonance.segment + 1e-6));
     // Intensity steps in with hysteresis so the layers don't flap bar to bar.
     this.busy1 = i.intensity > (this.busy1 ? 0.1 : 0.2);
     this.busy2 = i.intensity > (this.busy2 ? 0.45 : 0.6);

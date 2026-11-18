@@ -335,7 +335,7 @@ describe('the coach says what the Thread does', () => {
       'solo',
     );
     // No Solo coming: no hint, however full the meter.
-    const none = { ...base, weaver: { ...base.weaver, resonance: 100 } };
+    const none = { ...base, weaver: { ...base.weaver, resonance: base.weaver.resonanceMax } };
     expect(fighting(none).map((x) => x.id)).not.toContain('solo');
     expect(fighting(none).map((x) => x.id)).not.toContain('cue');
   });

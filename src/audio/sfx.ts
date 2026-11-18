@@ -1297,8 +1297,10 @@ export class SfxEngine {
       // A full Solo is heard as its wait begins (soloWait.ts, from the state each frame): the
       // glass that sounded here marked when a Cue could be bought, and there is no buying now.
       case 'resonanceGained': {
-        const before = Math.floor((ev.total - ev.amount) / 25 + 1e-6);
-        const after = Math.floor(ev.total / 25 + 1e-6);
+        // A segment of the meter filled (the content's, never a number kept here).
+        const segment = CONTENT.resonance.segment;
+        const before = Math.floor((ev.total - ev.amount) / segment + 1e-6);
+        const after = Math.floor(ev.total / segment + 1e-6);
         if (after > before && after >= 1) this.resonanceArpeggio(Math.min(4, after));
         // Phase 3e: Eternal Moment's Resonance, from a Perfect Ward cast during Stasis.
         if (ev.reason === 'eternal moment') this.eternalMoment();

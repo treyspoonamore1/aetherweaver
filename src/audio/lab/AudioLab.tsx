@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ambienceVolume, barksVolume, useSettings } from '../../app/settings';
-import type { Biome } from '../../content';
+import { CONTENT, type Biome } from '../../content';
 import type { SimEvent } from '../../sim';
 import { getAudio, type SynthDirector } from '../index';
 import type { AudioDebugStats, AudioMood, Volumes } from '../types';
@@ -766,7 +766,7 @@ export function AudioLab() {
           <Slider
             label="Resonance"
             value={resonance}
-            max={100}
+            max={CONTENT.resonance.max}
             step={1}
             onChange={setResonance}
             testId="resonance"

@@ -80,7 +80,7 @@ describe('a stilled hero is not Cue-ready', () => {
       });
     }
     const w = world.entities.get(world.weaverId)!.weaver!;
-    w.resonance = 100;
+    w.resonance = CONTENT.resonance.max;
     return { sim, world };
   };
   const fighting = (hud: HudSnapshot): HudSnapshot => ({

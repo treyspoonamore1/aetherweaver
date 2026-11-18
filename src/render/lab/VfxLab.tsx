@@ -701,7 +701,7 @@ const RELIC_SCENARIOS: Record<string, RelicScenario> = {
   },
   "Cantor's Hymnal": {
     relics: ['cantors_hymnal'],
-    note: 'The fight opens with 25 Resonance (tick 0)',
+    note: `The fight opens with ${CONTENT.relics.find((r) => r.id === 'cantors_hymnal')?.values.resonance ?? '?'} Resonance (tick 0)`,
     stage: () => {},
   },
   'Prism Loom': {
@@ -778,10 +778,10 @@ const FOUR_AURAS: ChordConfig[] = [
 ];
 const SOVEREIGN_PATH = ['haloed', 'dawnward', 'lantern_bearer', 'sovereign_symphony'];
 
-/** Sunrise the way the Weaver panel stages it: Resonance to 100, then `{t:'crescendo'}`. */
+/** Sunrise the way the Weaver panel stages it: a full meter, then `{t:'crescendo'}`. */
 function sunrise(rt: LabRuntime, at: number): void {
   rt.later(at, () => {
-    rt.queue({ t: 'debug', op: { op: 'setResonance', value: 100 } });
+    rt.queue({ t: 'debug', op: { op: 'setResonance', value: CONTENT.resonance.max } });
     rt.later(0.05, () => rt.queue({ t: 'crescendo' }));
   });
 }
@@ -1123,7 +1123,7 @@ function shapesFight(rt: LabRuntime): void {
  * Phase 3e: one scenario per Chronomancer visual. Each restarts the real sim with the
  * Chronomancer on that path (and its Chords) and stages it with real commands and debug ops (no
  * injected events). Rewind is `{t:'tech', id:'reel'}`; Stasis is staged as the Weaver panel's
- * Crescendo button does it (Resonance to 100, then `{t:'crescendo'}`).
+ * Crescendo button does it (a full meter, then `{t:'crescendo'}`).
  */
 const CHRONO_SCENARIOS: Record<string, ChronoScenario> = {
   'Rewind · ready': {
@@ -1328,7 +1328,7 @@ const CHRONO_SCENARIOS: Record<string, ChronoScenario> = {
           if (e.type !== 'telegraphStarted') return;
           const at = e.perfectFrom + 0.06 - rt.sim.state.time;
           rt.later(Math.max(0, at - 0.06), () =>
-            rt.queue({ t: 'debug', op: { op: 'setResonance', value: 100 } }),
+            rt.queue({ t: 'debug', op: { op: 'setResonance', value: CONTENT.resonance.max } }),
           );
           rt.later(Math.max(0, at), () => rt.queue({ t: 'crescendo' }));
           // Late in Stasis (5 s with Eternal Moment), so the Ward (3 s) is up when it lands.
@@ -1691,7 +1691,9 @@ const DIS_SCENARIOS: Record<string, DisScenario> = {
         rt.thread(0);
         rt.queue({ t: 'mode' });
       });
-      rt.later(0.3, () => rt.queue({ t: 'debug', op: { op: 'setResonance', value: 40 } }));
+      rt.later(0.3, () =>
+        rt.queue({ t: 'debug', op: { op: 'setResonance', value: CONTENT.resonance.max * 0.4 } }),
+      );
     },
   },
 };
@@ -2030,7 +2032,7 @@ function brannScenarios(): Record<string, BondScenario> {
 function readySolos(rt: LabRuntime, at: number): void {
   rt.later(at, () => {
     rt.queue({ t: 'debug', op: { op: 'chargeSolos' } });
-    rt.queue({ t: 'debug', op: { op: 'setResonance', value: 100 } });
+    rt.queue({ t: 'debug', op: { op: 'setResonance', value: CONTENT.resonance.max } });
   });
 }
 
@@ -6167,7 +6169,7 @@ export function VfxLab() {
           <Btn onClick={() => q({ t: 'glide', x: -1, z: 0 })}>Glide ←</Btn>
           <Btn
             onClick={() => {
-              q({ t: 'debug', op: { op: 'setResonance', value: 100 } });
+              q({ t: 'debug', op: { op: 'setResonance', value: CONTENT.resonance.max } });
               q({ t: 'debug', op: { op: 'fireSolo', slot, cued: true } });
             }}
           >
@@ -6175,14 +6177,18 @@ export function VfxLab() {
           </Btn>
           <Btn
             onClick={() => {
-              q({ t: 'debug', op: { op: 'setResonance', value: 100 } });
+              q({ t: 'debug', op: { op: 'setResonance', value: CONTENT.resonance.max } });
               q({ t: 'crescendo' });
             }}
           >
             Crescendo
           </Btn>
-          <Btn onClick={() => q({ t: 'debug', op: { op: 'setResonance', value: 75 } })}>
-            Resonance 75
+          <Btn
+            onClick={() =>
+              q({ t: 'debug', op: { op: 'setResonance', value: CONTENT.resonance.max * 0.75 } })
+            }
+          >
+            Resonance {CONTENT.resonance.max * 0.75}
           </Btn>
           <Btn
             onClick={() => {

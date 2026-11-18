@@ -8,6 +8,7 @@
  * sim, a clock and a command queue (`StageRuntime`), so the lab plays them in the browser and
  * tests/renderConducting.test.ts plays them in Node.
  */
+import { CONTENT } from '../../content';
 import { BAR_SECONDS, soloDueIn, type ChordConfig, type Command, type PartySlot } from '../../sim';
 import type { ConductView } from '../conduct';
 import type { StageRuntime } from './variantScenarios';
@@ -86,7 +87,7 @@ function followSolos(rt: StageRuntime, at: number, count: number): void {
 /** The Grand Finale at `at`: a full meter, then `{t:'crescendo'}`. */
 function finaleAt(rt: StageRuntime, at: number): void {
   rt.later(at, () => {
-    rt.queue(debug({ op: 'setResonance', value: 100 }));
+    rt.queue(debug({ op: 'setResonance', value: CONTENT.resonance.max }));
     rt.later(0.05, () => rt.queue({ t: 'crescendo' }));
   });
 }

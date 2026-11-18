@@ -451,7 +451,7 @@ describe('the Finale’s stems, re-voiced', () => {
     const h = lab();
     h.d.setBiome('celestial_crucible');
     // Under the top layer (Resonance 100 plays it), so the pressure's is heard.
-    h.world.setResonance(25);
+    h.world.setResonancePct(25);
     h.world.setEnemies(1, 'boss', 'boss', 3);
     h.d.setMood('boss');
     h.run(6);

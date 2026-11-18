@@ -193,8 +193,11 @@ export function SpawnPalette({
             <Button size="sm" onClick={() => debug({ op: 'healParty' })}>
               <Icon name="heart" size={14} /> {t('screens.trainingParts.healParty')}
             </Button>
-            <Button size="sm" onClick={() => debug({ op: 'setResonance', value: 100 })}>
-              <Icon name="note" size={14} /> {t('screens.trainingParts.resonance100')}
+            <Button
+              size="sm"
+              onClick={() => debug({ op: 'setResonance', value: CONTENT.resonance.max })}
+            >
+              <Icon name="note" size={14} /> {t('screens.trainingParts.resonanceFull')}
             </Button>
             <Button
               size="sm"

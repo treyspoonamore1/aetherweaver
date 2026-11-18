@@ -491,7 +491,7 @@ describe('Lyra’s and Vexis’s talents', () => {
     tough(sim);
     h.run(2, [
       { t: 'debug', op: { op: 'chargeSolos' } },
-      { t: 'debug', op: { op: 'setResonance', value: 100 } },
+      { t: 'debug', op: { op: 'setResonance', value: CONTENT.resonance.max } },
     ]);
     h.run(1, [{ t: 'debug', op: { op: 'fireSolo', slot: KAEL, cued: true } }]);
     h.run(1);
@@ -521,7 +521,7 @@ describe('Lyra’s and Vexis’s talents', () => {
     tough(sim);
     h.run(2, [
       { t: 'debug', op: { op: 'chargeSolos' } },
-      { t: 'debug', op: { op: 'setResonance', value: 100 } },
+      { t: 'debug', op: { op: 'setResonance', value: CONTENT.resonance.max } },
     ]);
     h.run(2, [{ t: 'debug', op: { op: 'fireSolo', slot: KAEL, cued: true } }]);
     expect(h.view.drawn.stars).toBe(1);

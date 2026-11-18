@@ -93,6 +93,12 @@ import {
 import { fitTechniques, variantsFor, type Techniques } from '../../meta/variants';
 import type { TechniqueKey } from '../types';
 
+/**
+ * A share of the Resonance meter (0 to 100) in the meter's own units, so the lab's scenes keep
+ * their meaning ("a bit over a third", "full") whatever the content's meter holds.
+ */
+const meter = (pct: number): number => (pct / 100) * CONTENT.resonance.max;
+
 // ── HUD snapshots ─────────────────────────────────────────────────────────────────────
 
 function techniques(
@@ -351,11 +357,11 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
       spirit: 38,
       maxSpirit: w.maxSpirit,
       reserved: 55,
-      resonance: 38,
-      resonanceMax: 100,
-      segment: 25,
+      resonance: meter(38),
+      resonanceMax: CONTENT.resonance.max,
+      segment: CONTENT.resonance.segment,
       cueHold: 0,
-      crescendoCost: 100,
+      crescendoCost: CONTENT.resonance.crescendoCost,
       crescendo: 0,
       crescendoName: CONTENT.crescendo.name,
       threadMode: 'mend',
@@ -502,7 +508,7 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
     case 'boss':
       return {
         ...base,
-        weaver: { ...base.weaver, resonance: 71, threadMode: 'empower', threadSlot: 0 },
+        weaver: { ...base.weaver, resonance: meter(71), threadMode: 'empower', threadSlot: 0 },
         party: [
           hero(0, 'kael', {
             hp: 1010,
@@ -568,7 +574,7 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
           ...base.weaver,
           threadSlot: 1,
           threadMode: 'empower',
-          resonance: 55,
+          resonance: meter(55),
           chords,
           auras: chords.flatMap((c) => c.auras),
           reserved: 72.5,
@@ -787,7 +793,7 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
       // them).
       return {
         ...base,
-        weaver: { ...base.weaver, resonance: 45, threadSlot: 2 },
+        weaver: { ...base.weaver, resonance: meter(45), threadSlot: 2 },
         party: [
           hero(0, 'kael', { hp: 1480, solo: 93, soloIn: 4.8, soloNow: false, soloLoose: true }),
           hero(1, 'lyra', {
@@ -814,7 +820,7 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
       // Silent Cues' hold on Vexis (the Thread is on her, not yet long enough).
       return {
         ...base,
-        weaver: { ...base.weaver, resonance: 45, threadSlot: 2, cueHold: 1 },
+        weaver: { ...base.weaver, resonance: meter(45), threadSlot: 2, cueHold: 1 },
         party: [
           hero(0, 'kael', {
             hp: 1480,
@@ -844,7 +850,7 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
         ...base,
         weaver: {
           ...base.weaver,
-          resonance: 100,
+          resonance: meter(100),
           spirit: 72,
           reserved: 25,
           auras: base.weaver.auras.slice(0, 1),
@@ -935,7 +941,7 @@ function luminaryHud(
       auras: chords.flatMap((c) => c.auras),
       reserved: third ? 92 : 78,
       spirit: third ? 8 : 18,
-      resonance: sunrise ? 0 : 64,
+      resonance: sunrise ? 0 : meter(64),
       crescendo: sunrise ? 5.2 : 0,
       fieldRadius: sunrise ? 13.8 : 9.2,
     },
@@ -1043,7 +1049,7 @@ function martyrHud(
     vow,
     crescendo: vow ? 3.4 : 0,
     crescendoName: me.vowName,
-    resonance: vow ? 0 : opts.coach ? 52 : 76,
+    resonance: vow ? 0 : meter(opts.coach ? 52 : 76),
     threadSlot: 0,
     chords,
     auras: chords.flatMap((c) => c.auras),
@@ -4215,7 +4221,7 @@ export function finaleHud(scenario: FinaleScenario): HudSnapshot {
     case 'discord-100':
       return {
         ...base,
-        weaver: { ...base.weaver, resonance: 100 },
+        weaver: { ...base.weaver, resonance: meter(100) },
         party: party(),
         boss: conductor(2, { discord: discord(100) }),
         encounter,
@@ -4236,7 +4242,7 @@ export function finaleHud(scenario: FinaleScenario): HudSnapshot {
     case 'fortissimo':
       return {
         ...base,
-        weaver: { ...base.weaver, resonance: 100 },
+        weaver: { ...base.weaver, resonance: meter(100) },
         party: party([{ incoming: 820 }, { incoming: 410 }, { incoming: 370 }]),
         boss: conductor(2, {
           discord: discord(100),

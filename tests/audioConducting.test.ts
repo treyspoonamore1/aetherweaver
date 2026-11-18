@@ -17,6 +17,7 @@ import {
   conductDegree,
 } from '../src/audio/conduct';
 import { SynthDirector } from '../src/audio/director';
+import { CONTENT } from '../src/content';
 import { FakeWorld } from '../src/audio/lab/labState';
 import { SOUNDS } from '../src/audio/lab/soundBoard';
 import { BEAT_TOLERANCE } from '../src/audio/music';
@@ -428,7 +429,7 @@ function fight(path: string[], config: Partial<SimConfig> = {}) {
   };
   const cue = (slot: number) => {
     run(1, [debug({ op: 'chargeSolos' })]);
-    run(1, [debug({ op: 'setResonance', value: 100 })]);
+    run(1, [debug({ op: 'setResonance', value: CONTENT.resonance.max })]);
     return run(1, [
       { t: 'debug', op: { op: 'fireSolo', slot: slot as 0 | 1 | 2, cued: true } },
     ])[0]!;
@@ -483,7 +484,7 @@ describe('his sounds in the fight (real sim)', () => {
   it('the Grand Finale: no Sunrise; each turn its hero’s phrase a degree higher; the cadence', () => {
     const f = fight([]);
     f.run(30);
-    f.run(1, [debug({ op: 'setResonance', value: 100 })]);
+    f.run(1, [debug({ op: 'setResonance', value: CONTENT.resonance.max })]);
     const cast = f.run(1, [{ t: 'crescendo' }])[0]!;
     expect(ofType(cast.events, 'crescendoStart')[0]!.calling).toBe('Grand Finale');
     expect(cast.groups).not.toContain('bigCrescendo');
@@ -521,7 +522,7 @@ describe('his sounds in the fight (real sim)', () => {
     const f = fight([]);
     f.run(30);
     f.w.entities.get(f.w.party[2]!)!.health!.downed = true;
-    f.run(1, [debug({ op: 'setResonance', value: 100 })]);
+    f.run(1, [debug({ op: 'setResonance', value: CONTENT.resonance.max })]);
     f.run(1, [{ t: 'crescendo' }]);
     const music = f.d.musicEngine()!;
     expect(music.inputs.crescendo).toBe(true);
@@ -619,7 +620,7 @@ describe('his sounds in the fight (real sim)', () => {
     f.cue(0);
     f.run(30);
     f.cue(1);
-    f.run(1, [debug({ op: 'setResonance', value: 100 })]);
+    f.run(1, [debug({ op: 'setResonance', value: CONTENT.resonance.max })]);
     const cast = f.run(1, [{ t: 'crescendo' }])[0]!;
     expect(cast.groups).toContain('bigCrescendo');
     f.run(60 * 10);

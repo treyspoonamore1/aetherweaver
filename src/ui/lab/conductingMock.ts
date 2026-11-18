@@ -5,7 +5,7 @@
  * player makes them, the Thread going to each hero as their Solo comes due (`follow`). The HUD is the bridge's own snapshot, and the call-outs are the ones
  * the runtime would push for the same events, so the lab shows the sim's rules, not a copy.
  */
-import { encounterDef, heroDef } from '../../content';
+import { CONTENT, encounterDef, heroDef } from '../../content';
 import * as Run from '../../meta/run';
 import type { RunState } from '../../meta/types';
 import {
@@ -87,7 +87,10 @@ export function conductStage(scenario: ConductScenario): ConductStage {
     op: { op: 'fireSolo', slot: slot as PartySlot, cued: true },
   });
   const charge: Command = { t: 'debug', op: { op: 'chargeSolos' } };
-  const fill: Command = { t: 'debug', op: { op: 'setResonance', value: 100 } };
+  const fill: Command = {
+    t: 'debug',
+    op: { op: 'setResonance', value: CONTENT.resonance.max },
+  };
   /** The party slot whose Solo fires next (the sim's `soloDueIn`); null: none is coming. */
   const nextSolo = (): PartySlot | null => {
     let best: PartySlot | null = null;

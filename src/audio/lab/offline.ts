@@ -138,7 +138,8 @@ export function sceneEvents(scene: MoodScene, w: FakeWorld, seconds: number) {
 }
 
 /**
- * Renders a mood (music only) for a few seconds with the given inputs. Phase 5a: in a biome (the
+ * Renders a mood (music only) for a few seconds with the given inputs (`resonance` is a share of
+ * the meter, 0 to 100, as everywhere in this file). Phase 5a: in a biome (the
  * Sunlit Reliquary by default), and for a boss mood at a boss phase (a final boss's, so the
  * Crimson Spire's Vharun stems play). Phase 5c: and a scene (the Seamstress, the Unweaver's
  * stolen verse or Unravel).
@@ -154,7 +155,7 @@ export async function renderMood(
 ): Promise<AudioBuffer> {
   const { ctx, d } = offlineDirector(seconds, volumes);
   const w = new FakeWorld();
-  w.setResonance(resonance);
+  w.setResonancePct(resonance);
   const role = scene.miniboss ? 'miniboss' : 'boss';
   if (bossPhase > 0) w.setEnemies(1, role, role, bossPhase);
   else w.setEnemies(resonance >= 50 ? 12 : 0);
@@ -385,7 +386,7 @@ export async function loudnessOfMood(
 ): Promise<PrePost> {
   const { ctx, d } = tappedDirector(seconds, volumes);
   const w = new FakeWorld();
-  w.setResonance(resonance);
+  w.setResonancePct(resonance);
   if (bossPhase > 0) w.setEnemies(1, 'boss', 'boss', bossPhase);
   else w.setEnemies(resonance >= 50 ? 12 : 0);
   if (biome !== 'reliquary') d.setBiome(biome);

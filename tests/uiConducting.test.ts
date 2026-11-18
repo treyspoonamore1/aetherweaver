@@ -106,7 +106,7 @@ function conductSim(
     }
   };
   step(1, [{ t: 'debug', op: { op: 'chargeSolos' } }]);
-  step(1, [{ t: 'debug', op: { op: 'setResonance', value: 100 } }]);
+  step(1, [{ t: 'debug', op: { op: 'setResonance', value: CONTENT.resonance.max } }]);
   return { sim, step, events };
 }
 const cue = (slot: number): Command => ({
@@ -831,7 +831,7 @@ describe('the sim’s rules, read not copied', () => {
     const e = sim.state.calling!.conducting!.ensemble!;
     for (const slot of [0, 1, 2]) {
       step(1, [{ t: 'debug', op: { op: 'chargeSolos' } }]);
-      step(1, [{ t: 'debug', op: { op: 'setResonance', value: 100 } }]);
+      step(1, [{ t: 'debug', op: { op: 'setResonance', value: CONTENT.resonance.max } }]);
       step(1, [cue(slot)]);
       expect(hud(sim).conducting!.ensemble!.bonus).toBe(ensembleBonus(sim.state));
     }

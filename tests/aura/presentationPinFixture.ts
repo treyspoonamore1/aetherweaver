@@ -133,7 +133,7 @@ function script(fermata: boolean): Map<number, Command[]> {
     at(240, debug({ op: 'healParty' }));
     at(300, debug({ op: 'forceHold', slot: 0 }));
   }
-  at(330, debug({ op: 'setResonance', value: 100 }));
+  at(330, debug({ op: 'setResonance', value: CONTENT.resonance.max }));
   at(332, { t: 'crescendo' });
   at(360, { t: 'thread', slot: 2 });
   return s;

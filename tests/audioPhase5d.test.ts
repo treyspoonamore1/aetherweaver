@@ -386,7 +386,7 @@ const note = (n: number, source: 'perfect' | 'clutch' | 'reel' | 'rewind' = 'per
 function conductor(phase = 3) {
   const h = harness();
   h.d.setBiome('celestial_crucible');
-  h.world.setResonance(100);
+  h.world.setResonancePct(100);
   h.world.setEnemies(1, 'boss', 'boss', phase);
   h.d.setMood('boss');
   run(h, 6);
@@ -420,7 +420,7 @@ function crucible(mood: Mood, opts: { resonance?: number; phase?: number; second
   return seeded(() => {
     const h = harness();
     h.d.setBiome('celestial_crucible');
-    h.world.setResonance(opts.resonance ?? 0);
+    h.world.setResonancePct(opts.resonance ?? 0);
     if (mood === 'boss') h.world.setEnemies(1, 'boss', 'boss', opts.phase ?? 1);
     else if (mood === 'combat') h.world.setEnemies(6);
     const from = h.ctx.sources.length;
@@ -540,7 +540,7 @@ describe('the Celestial Crucible’s voicing (Phase 5d)', () => {
     const reliquary = seeded(() => {
       const h = harness();
       h.world.setEnemies(6);
-      h.world.setResonance(100);
+      h.world.setResonancePct(100);
       const from = h.ctx.sources.length;
       h.d.setMood('combat');
       run(h, 12);

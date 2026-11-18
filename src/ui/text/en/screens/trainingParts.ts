@@ -10,7 +10,7 @@ export const trainingParts = {
   'screens.trainingParts.spawnAsElite': 'Spawn as elite',
   'screens.trainingParts.killAllEnemies': 'Kill all enemies',
   'screens.trainingParts.healParty': 'Heal party',
-  'screens.trainingParts.resonance100': 'Resonance 100',
+  'screens.trainingParts.resonanceFull': 'Fill Resonance',
   'screens.trainingParts.stageACall': 'Stage a call',
   'screens.trainingParts.stageAFermataHold': 'Stage a Fermata hold',
   'screens.trainingParts.n20Dummies': '+ 20 dummies',

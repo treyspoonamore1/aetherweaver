@@ -314,7 +314,7 @@ function moodScore(biome: Biome, mood: Mood, resonance: number, phase: number, r
   return seeded(() => {
     const h = harness();
     h.d.setBiome(biome);
-    h.world.setResonance(resonance);
+    h.world.setResonancePct(resonance);
     if (mood === 'boss') h.world.setEnemies(1, role, role, phase);
     else if (mood === 'combat') h.world.setEnemies(6);
     const from = h.ctx.sources.length;
@@ -427,7 +427,7 @@ function rift(mood: Mood, opts: RiftOpts = {}) {
   return seeded(() => {
     const h = harness();
     h.d.setBiome('abyssal_rift');
-    h.world.setResonance(opts.resonance ?? 0);
+    h.world.setResonancePct(opts.resonance ?? 0);
     const role = opts.mini ? 'miniboss' : 'boss';
     if (mood === 'boss') h.world.setEnemies(1, role, role, opts.phase ?? 1);
     else if (mood === 'combat') h.world.setEnemies(6);
@@ -604,7 +604,7 @@ describe('the Unweaver’s and the Seamstress’s stems (Phase 5c)', () => {
     // The verse returned: the choir is back by the next beat or two.
     const h = harness();
     h.d.setBiome('abyssal_rift');
-    h.world.setResonance(100);
+    h.world.setResonancePct(100);
     h.world.setEnemies(1, 'boss', 'boss', 2);
     fire(h, ev('verseStolen', { aura: 'lab', add: IDS.enemyBase + 1, until: 1e6 }));
     h.d.setMood('boss');

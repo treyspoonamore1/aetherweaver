@@ -244,7 +244,7 @@ function moodScore(mood: Mood, resonance: number, phase: number, explicit: boole
 function moodScoreOf(mood: Mood, resonance: number, phase: number, explicit: boolean): string {
   const h = harness();
   if (explicit) h.d.setBiome?.('reliquary');
-  h.world.setResonance(resonance);
+  h.world.setResonancePct(resonance);
   if (mood === 'boss') h.world.setEnemies(1, 'boss', 'boss', phase);
   else if (mood === 'combat') h.world.setEnemies(6);
   const from = h.ctx.sources.length;
@@ -343,7 +343,7 @@ describe('the Sunlit Reliquary is unchanged (Phase 5a)', () => {
       if (m !== 'title' && m !== 'loom' && m !== 'victory' && m !== 'defeat') continue;
       const h = harness();
       h.d.setBiome('crimson_spire');
-      h.world.setResonance(r);
+      h.world.setResonancePct(r);
       const from = h.ctx.sources.length;
       h.d.setMood(m);
       for (let i = 0; i < 120; i++) {
@@ -378,7 +378,7 @@ interface CrimsonOpts {
 function crimson(mood: Mood, opts: CrimsonOpts = {}) {
   const h = harness();
   h.d.setBiome('crimson_spire');
-  h.world.setResonance(opts.resonance ?? 0);
+  h.world.setResonancePct(opts.resonance ?? 0);
   const role = opts.apex === false ? 'miniboss' : 'boss';
   if (mood === 'boss') h.world.setEnemies(1, role, role, opts.phase ?? 1);
   else if (mood === 'combat') h.world.setEnemies(6);
