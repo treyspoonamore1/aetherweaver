@@ -35,7 +35,7 @@ function trackErrors(page: Page): string[] {
 interface Seen {
   /** `"<slot>|<state>|<what the strip says>"`, in the order first seen. */
   strips: string[];
-  /** Each line a call-out showed, in the order first seen. */
+  /** Each line a call-out or a note showed (the coach's hints among them), in the order first seen. */
   callouts: string[];
 }
 declare global {
@@ -60,8 +60,11 @@ async function watchHud(page: Page): Promise<void> {
         const say = strip.querySelector('[data-testid="solo-say"]')?.textContent ?? '';
         add(seen.strips, `${slot}|${strip.getAttribute('data-state')}|${say}`);
       });
-      const callouts = document.querySelector<HTMLElement>('[data-testid="callouts"]');
-      for (const line of (callouts?.innerText ?? '').split('\n')) add(seen.callouts, line.trim());
+      // Call-outs are drawn over the arena or, on a wide screen, in the notes column.
+      for (const box of document.querySelectorAll<HTMLElement>(
+        '[data-testid="callouts"], [data-testid="hud-notes"]',
+      ))
+        for (const line of box.innerText.split('\n')) add(seen.callouts, line.trim());
     };
     look();
     new MutationObserver(look).observe(document.body, {

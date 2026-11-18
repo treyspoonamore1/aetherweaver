@@ -810,8 +810,11 @@ test('Phase 5f: the Conductor — choose him in Prep, no price on the meter, the
       if (document.querySelector('[data-testid="chain-ring"]')) seen.ring = true;
       for (const b of document.querySelectorAll('[data-testid="cue-badge"]'))
         add(seen.badges, `${b.textContent}|${b.getAttribute('data-on') ?? 'false'}`);
-      const callouts = document.querySelector<HTMLElement>('[data-testid="callouts"]');
-      for (const line of (callouts?.innerText ?? '').split('\n')) add(seen.callouts, line.trim());
+      // Call-outs are drawn over the arena or, on a wide screen, in the notes column.
+      for (const box of document.querySelectorAll<HTMLElement>(
+        '[data-testid="callouts"], [data-testid="hud-notes"]',
+      ))
+        for (const line of box.innerText.split('\n')) add(seen.callouts, line.trim());
     };
     new MutationObserver(look).observe(document.body, {
       subtree: true,
