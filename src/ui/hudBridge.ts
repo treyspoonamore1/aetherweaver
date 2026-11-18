@@ -157,13 +157,15 @@ function crescendoTotal(calling: { id: string; path: string[]; crescendo: string
 /**
  * A hero's Solo as it comes (docs/solos.md), every rule the sim's: `soloDueIn` (the tell: seconds
  * until it fires, null when none is coming), `threadCues` (would it be Cued now: your Thread is
- * on them) and, under Silent Cues, how long the Thread must still stay. A possessed or stilled
- * hero does not fire, so has no tell.
+ * on them) and, under Silent Cues, how long the Thread must still stay. Two stages: the last
+ * seconds of charge (quiet), then full with the wait running (`soloNow`: the moment to move the
+ * Thread). Kael may raise his wall sooner than the count says (`soloLoose`). A possessed or
+ * stilled hero does not fire, so has no tell.
  */
 export function soloTell(
   state: WorldState,
   e: ReadonlyEntity,
-): Pick<HeroHud, 'soloIn' | 'willCue' | 'cueHold'> {
+): Pick<HeroHud, 'soloIn' | 'soloNow' | 'soloLoose' | 'willCue' | 'cueHold'> {
   const h = e.health;
   if (!e.hero || !h || isStilled(h) || h.statuses.some((s) => s.id === 'possessed'))
     return { soloIn: null, willCue: false };
@@ -178,7 +180,13 @@ export function soloTell(
     !willCue && state.mods.cueHold > 0 && w?.threadSlot === e.hero.slot
       ? Math.max(0, state.mods.cueHold - (state.time - w.threadSince))
       : 0;
-  return { soloIn, willCue, ...(hold > 0 ? { cueHold: hold } : {}) };
+  return {
+    soloIn,
+    soloNow: e.hero.solo >= 100,
+    willCue,
+    ...(e.hero.soloId === 'aegisWall' ? { soloLoose: true } : {}),
+    ...(hold > 0 ? { cueHold: hold } : {}),
+  };
 }
 
 /**

@@ -454,8 +454,11 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
             statuses: [{ id: 'shaken', remaining: 0, duration: 0 }],
             solo: 100,
             soloReady: true,
-            // His wall is coming and the Thread is on Lyra: "Thread to Cue".
+            // His wall is full and the Thread is on Lyra: "Thread to Cue", and no seconds (he
+            // may raise it sooner).
             soloIn: 0.8,
+            soloNow: true,
+            soloLoose: true,
             willCue: false,
           }),
           hero(1, 'lyra', {
@@ -508,6 +511,8 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
             // The Thread is on him (slot 0): his wall will be Cued.
             threaded: true,
             soloIn: 1.9,
+            soloNow: true,
+            soloLoose: true,
             willCue: true,
           }),
           hero(1, 'lyra', { hp: 700, incoming: 740, lethal: true }),
@@ -785,18 +790,25 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
           techniques: techniques({ ward: { charges: 2, maxCharges: 2 } }),
         },
         party: [
-          // The three Solo states (docs/solos.md): coming with the Thread on them (Cued), coming
-          // with the Thread elsewhere, and playing.
-          hero(0, 'kael', {
-            hp: 1560,
+          // The Solo states (docs/solos.md): playing; full with the Thread elsewhere ("Thread to
+          // Cue"); and coming with the Thread on them ("Cued").
+          hero(0, 'kael', { hp: 1560, solo: 100, soloActive: true }),
+          hero(1, 'lyra', {
+            hp: 820,
             solo: 100,
             soloReady: true,
-            threaded: true,
             soloIn: 0.6,
+            soloNow: true,
+            willCue: false,
+          }),
+          hero(2, 'vexis', {
+            hp: 740,
+            solo: 93,
+            threaded: true,
+            soloIn: 2.7,
+            soloNow: false,
             willCue: true,
           }),
-          hero(1, 'lyra', { hp: 820, solo: 92, soloIn: 2.4, willCue: false }),
-          hero(2, 'vexis', { hp: 740, solo: 100, soloActive: true }),
         ],
         encounter: { ...base.encounter, elapsed: 40, enemies: 5 },
       };
@@ -1048,7 +1060,7 @@ export function mockCallouts(scenario: HudScenario): Callout[] {
     case 'resonance':
       return [
         c(1, 'perfect', 'Crescendo — Sunrise', { color: '#fde68a' }),
-        c(2, 'solo', 'Cue: Vexis', { color: heroDef('vexis').color }),
+        c(2, 'solo', 'Cued · Kael: Aegis Wall', { color: heroDef('kael').color }),
       ];
     case 'calls':
       return [

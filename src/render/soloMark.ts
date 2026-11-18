@@ -14,8 +14,10 @@ import { flareScale } from './relicCues';
  * glyph takes over a threaded hero, and fills clockwise until the Solo fires. It has two looks,
  * told apart by shape as well as by light:
  *
- * - **Solo coming** (the Thread is elsewhere): a dashed ring round a note, pale gold. An empty
- *   socket: "your Thread could be here".
+ * - **Solo coming** (the Thread is elsewhere): a dashed ring round a note. An empty socket:
+ *   "your Thread could be here". Quiet and smaller through the last seconds of charge; once the
+ *   Solo is full and its 1 s wait is running (the moment to move the Thread) it is full size,
+ *   brighter, and breathes quickly.
  * - **Solo coming, your Thread on them** (the sim's `threadCues`: it will be Cued): a solid ring
  *   with eight rays, white-gold and a third larger, round the Thread's glyph. It pops once as the
  *   Thread arrives.
@@ -24,8 +26,8 @@ import { flareScale } from './relicCues';
  * would be Cued now (`threadCues`: Silent Cues' hold and Hollow Crown included). Nothing here
  * decides one.
  *
- * Comfort: with Reduced motion On (`still`) nothing pulses, pops or bobs: the ring stands and only
- * its fill moves. Its light follows the Flashes setting (`flareScale`). The two golds are not in
+ * Comfort: with Reduced motion On (`still`) nothing breathes or pops: the ring stands and only its
+ * fill moves (the loud stage is still larger and brighter). Its light follows the Flashes setting (`flareScale`). The two golds are not in
  * the colour-vision palettes on purpose: under every palette they stay light warm tones, far from
  * the enemies' red outline and from Mend's teal, and the two looks differ in shape (dashed against
  * solid, a note against rays), so neither rests on hue (tests/renderSoloMark.test.ts).
@@ -49,6 +51,8 @@ export const SOLO_MARK_CALL_LIFT = 0.95;
 /** The sprite's half-size in metres: the plain look, and the Cued look (a third larger). */
 export const SOLO_MARK_SIZE = 0.5;
 export const SOLO_MARK_CUED_SIZE = 0.68;
+/** The plain look through the last seconds of charge, before the Solo is full: this much smaller. */
+export const SOLO_MARK_QUIET = 0.82;
 /** How long the Cued look's pop lasts as the Thread arrives (seconds; none with Reduced motion). */
 const POP = 0.3;
 
@@ -58,6 +62,8 @@ export interface SoloMark {
   due: number;
   /** How full the ring is: 0 as the tell begins, 1 as the Solo fires. */
   fill: number;
+  /** The Solo is full and its wait is running: the moment to move the Thread. */
+  now: boolean;
   /** Your Thread is on them: it will be Cued (the sim's `threadCues`). */
   cued: boolean;
   /** A call's bubble is open over them: the mark stands above it. */
@@ -92,6 +98,7 @@ export function soloMarkOf(state: WorldState, hero: ReadonlyEntity): SoloMark | 
   return {
     due,
     fill: clamp01(1 - due / soloTellSeconds(hero)),
+    now: h.solo >= 100,
     cued: threadCues(state, hero),
     raised: !!h.call && !h.call.answered,
   };
@@ -112,7 +119,7 @@ export class SoloMarkView {
 
   /**
    * `flashes` (Settings, 0..1): how bright the mark's light is. `still` (Reduced motion On): no
-   * pulse, pop or bob.
+   * breath and no pop.
    */
   sync(state: WorldState, kit: FxKit, dt: number, time: number, flashes = 1, still = false): void {
     this.frameNo++;
@@ -135,8 +142,7 @@ export class SoloMarkView {
       else m.cuedFor = m.cuedFor < 0 ? 0 : m.cuedFor + dt;
 
       const lift = SOLO_MARK_LIFT + (mark.raised ? SOLO_MARK_CALL_LIFT : 0);
-      const bob = still || mark.cued ? 0 : 0.04 * Math.sin(time * 3.1 + i * 1.7);
-      const y = r.height * HERO_DRAWN + lift + r.y + bob;
+      const y = r.height * HERO_DRAWN + lift + r.y;
       if (mark.cued) {
         const k = still ? 1 : clamp01(m.cuedFor / POP);
         const pop = still ? 0 : Math.sin(k * Math.PI) * 0.3;
@@ -145,12 +151,14 @@ export class SoloMarkView {
         // A soft light behind it: the "spotlight is on" read at a distance.
         kit.spritesTop.push(r.x, y, r.z, size * 1.25, SPRITE.glow, C.gold, 0.3 * flare);
       } else {
-        // The plain look beckons: a slow breath, quicker in the last second.
-        const rate = mark.due < 1 ? 9 : 4.2;
-        const breath = still ? 0 : 0.5 + 0.5 * Math.sin(time * rate + i * 1.7);
-        const size = SOLO_MARK_SIZE * (1 + 0.06 * breath);
-        const alpha = (0.82 + 0.18 * breath) * flare;
-        kit.spritesTop.push(r.x, y, r.z, size, SPRITE.solo, C.gold, alpha, 0, 1, mark.fill);
+        // Two stages. Coming (the last seconds of charge): quiet and smaller, so the hand can
+        // get ready. Now (full, the wait running): full size, bright, and it beckons with a
+        // quick breath: "Thread here".
+        const breath = still || !mark.now ? 0 : 0.5 + 0.5 * Math.sin(time * 9 + i * 1.7);
+        const size = SOLO_MARK_SIZE * (mark.now ? 1 + 0.08 * breath : SOLO_MARK_QUIET);
+        const alpha = (mark.now ? 0.86 + 0.14 * breath : 0.6) * flare;
+        const tint = mark.now ? C.goldHot : C.gold;
+        kit.spritesTop.push(r.x, y, r.z, size, SPRITE.solo, tint, alpha, 0, 1, mark.fill);
       }
     }
     if (this.marks.size > 8) {

@@ -64,17 +64,14 @@ export const partyFrames = {
   'hud.partyFrames.outsideYourAuraField': 'Outside your aura field',
   'hud.partyFrames.inYourAuraField': 'In your aura field',
   'hud.partyFrames.charged': '{soloName}: {solo}% charged',
-  'hud.partyFrames.soloIn': '{in} s',
   'hud.partyFrames.threadToCue': 'Thread to Cue',
   'hud.partyFrames.cued': 'Cued',
   'hud.partyFrames.hold': 'Hold {hold} s',
   'hud.partyFrames.cuedMeans': 'Cued: fired with your Thread on them. The stronger form.',
-  'hud.partyFrames.soloThreadIn':
-    '{name} fires {soloName} in {seconds} seconds. Thread them to Cue it',
-  'hud.partyFrames.soloCuedIn':
-    '{name} fires {soloName} in {seconds} seconds, Cued: your Thread is on them',
-  'hud.partyFrames.soloHoldIn':
-    '{name} fires {soloName} in {seconds} seconds. Hold your Thread on them {hold} more seconds to Cue it',
+  'hud.partyFrames.soloThread': '{name}’s {soloName} is coming. Thread them to Cue it',
+  'hud.partyFrames.soloCued': '{name}’s {soloName} is coming, Cued: your Thread is on them',
+  'hud.partyFrames.soloHold':
+    '{name}’s {soloName} is coming. Hold your Thread on them {hold} more seconds to Cue it',
   'hud.partyFrames.health': '{name} health',
   'hud.partyFrames.of': '{hp} of {maxHp}{value}{value2}{value3}{value4}',
   'hud.partyFrames.bloodlettingLifeHeSpent': 'Bloodletting: life he spent, not a hit',

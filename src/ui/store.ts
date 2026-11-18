@@ -83,6 +83,16 @@ export interface HeroHud {
    * sim's `soloDueIn`). Null or absent: none is coming.
    */
   soloIn?: number | null;
+  /**
+   * The Solo is full and its wait is running: the moment to move the Thread (the loud stage).
+   * False through the last seconds of charge (the quiet stage).
+   */
+  soloNow?: boolean;
+  /**
+   * Kael's wall: he may raise it sooner than `soloIn` says (hurt, a big hit coming), so the
+   * frame shows no seconds for it.
+   */
+  soloLoose?: boolean;
   /** Their Solo would be Cued if it fired now (the sim's `threadCues`): your Thread is on them. */
   willCue?: boolean;
   /**
