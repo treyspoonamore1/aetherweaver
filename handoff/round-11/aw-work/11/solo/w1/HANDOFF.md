@@ -1,12 +1,32 @@
 # Solos, step W1 (tools, the "person" follower, tuning, baselines): hand-off, second round
 
-*18 November 2026 · branch `p11/solo` in `/home/user/aw-work/wt-p11solo` · the numbers the
+*18 November 2026 (numbers measured again at 21:00 UTC on `8e7f950`) · branch `p11/solo` in `/home/user/aw-work/wt-p11solo` · the numbers the
 screens state are in `/home/user/aw-work/11/solo/w1/NUMBERS.md` (sections 7 and 8 are the
 current ones) · the first round's hand-off is kept beside this as `HANDOFF-round1.md`.*
 
 ## 1. Where it stands
 
-@@STATUS@@
+**Done, on `p11/solo` at `8e7f950`. The rules are final; this step changed nothing in them.**
+
+- **The numbers below were measured again on `8e7f950`, on 18 November 2026 after 21:00 UTC.**
+  The first measurements were lost with the old container, so the whole study was run again:
+  5,200 fights (`final.jsonl`), plus the extra hands rows, the Novice with her following off, the
+  two Movement III fights at 150 fights each and the whole runs. Every figure that the draft of
+  this hand-off already quoted (the Skilled bot 97% / 129 s, a never-following player 92% /
+  136 s, the Novice 67% / 164 s with 45% Cued, 71% with her following off, the Seamstress 91%,
+  the Frayed Threshold 94%) came out the same to the last digit, as a deterministic sim should.
+- **What is verified, and on which commit.**
+  - `bc46e3f` (the second re-record): typecheck and lint clean, and the test run over this step's
+    files passed (2,734 tests) except two aura presentation-pin tests (recorded in `08d69db`'s
+    message).
+  - `08d69db` (the Novice's bands): changes only `tools/harness.ts`'s bands and the three band
+    literals in `tests/harnessTools.test.ts`; no recorded result.
+  - `8e7f950` (the aura pin fixture fills the 200-deep meter): `tests/aura` passes, 5 passed and
+    1 skipped (the writer); the pin file itself is untouched.
+  - **Not verified on `8e7f950` by this step:** the whole unit suite, typecheck and lint on that
+    exact commit, `npm run build` and the browser tests. They are the join's (`p11/solo-join`),
+    which runs them on the joined tree.
+- **Nothing was committed in this step.** Measurement and writing only.
 
 ## 2. What the second round changed, in plain words
 
@@ -70,7 +90,97 @@ Cued** (it was 60%; a player who never follows gets 35%; the person model 81 to 
 
 ## 3. Numbers
 
-@@NUMBERS@@
+All from bots and the stand-in for hands, on `8e7f950`, measured again on 18 November 2026.
+"Before" is main before the rework: its fights have not changed since the first round, so the
+first round's "before" figures stand (they were measured with the same fights and seeds). The
+study's 13 fights, 20 seeds: 140 boss and mini-boss fights and 120 skirmishes in each row. Data in
+`/home/user/aw-work/11/solo/w1/data/`.
+
+**Boss and mini-boss fights, the Skilled bot: held.** Win / seconds (won fights) / heroes downed.
+
+| Calling | Before | After the first round | **Now** |
+|---|---|---|---|
+| None | 96% / 133 / 0.90 | 94% / 132 / 0.71 | **97% / 129 / 0.69** |
+| Luminary | 99% / 124 / 0.75 | 98% / 118 / 0.61 | **96% / 117 / 0.68** |
+| Martyr | 96% / 135 / 0.87 | 99% / 133 / 0.72 | **95% / 132 / 0.76** |
+| Chronomancer | 99% / 132 / 0.66 | 99% / 128 / 0.66 | **99% / 128 / 0.62** |
+| Conductor: Marcato, Reprise, Ensemble, Triad (path A) | 99% / 96 / 0.42 | 98% / 93 / 0.36 | **96% / 93 / 0.44** |
+| Conductor: A Tempo, Upbeat, Spotlight, Maestro (path B) | 100% / 51 / 0.10 | 100% / 50 / 0.08 | **100% / 50 / 0.06** |
+| Silent Cues (the Dissonance), no Calling | not measured | not measured | **96% / 129 / 0.72** |
+
+Luminary, Martyr and the Conductor's path A are 1 to 3 points under "before"; at 140 fights a
+row that is one to two standard errors, and every one is far inside the Skilled bot's band. The
+one cell under 90%: Martyr at the Hollow Cantor, 85% (17 of 20).
+
+Skirmishes, no Calling: 100% in 41 s (was 100% in 44 s). A full song is sung 0.74 times a boss
+fight with no Calling (0.44 before). The Conductor's chains, a boss fight: path A 2.3 Duets and
+1.0 Trios (2.8 and 1.0 before); path B 1.3 Duets, 0.7 Trios and 3.3 Solos Cued on the beat.
+Solos Cued, Skilled bot: 92% with no Calling, 91% path A, 94% path B, 89% under Silent Cues.
+
+**The same fights, the Novice: she wins more almost everywhere, as decided.**
+
+| Calling | Before | After the first round | **Now** | Solos Cued now |
+|---|---|---|---|---|
+| None | 46% | 75% | **67%** (164 s, 3.3 downed) | 45% |
+| Luminary | 66% | 72% | **74%** | 43% |
+| Martyr | 49% | 64% | **65%** | 42% |
+| Chronomancer | 61% | 74% | **74%** | 43% |
+| Conductor, path A | 71% | 82% | **81%** | 48% |
+| Conductor, path B | 87% | 92% | **90%** | 64% |
+| Silent Cues, no Calling | not measured | not measured | **68%** | 25% |
+
+With her following switched off altogether she wins **71%** of boss fights (178 s, 24% of Solos
+Cued, which is where the Thread already was). Her following, with a beginner's hands, gets 45%
+Cued instead of 24% and makes her fights 14 seconds shorter (164 s against 178 s); the 4-point
+difference in wins is noise at 140 fights. So her gain over "before" is the heroes firing their
+own Solos, not her following. Her bands (set in `08d69db` from 40 fights a cell): Movement II
+elite 65-95%, mini-boss 75% or more, boss 55-85%; Movement III skirmish 45% or more, elite
+20-50%, mini-boss 45-75%, boss 60-90%; the Finale's boss 20-50%.
+
+**Hands** (no Calling, boss and mini-boss fights):
+
+| Who | Solos Cued | Win / seconds / downed |
+|---|---|---|
+| The Skilled bot | 92% | 97% / 129 / 0.69 |
+| Person, goes when the tell appears | 81% | 96% / 137 / 1.06 |
+| Person, goes when the Solo is full | 85% | 99% / 131 / 0.71 |
+| The same, hands at 600 ms | 86% | 98% / 131 / 0.69 |
+| The same, hands at 800 ms | 84% | 96% / 128 / 0.68 |
+| The same, hands at 1 s | 63% | 96% / 134 / 0.76 |
+| A player who never follows a Solo | 35% | 92% / 136 / 0.88 |
+
+By hero (Kael, Lyra, Vexis): the Skilled bot 90 / 93 / 93%; the person going at the tell 73 /
+86 / 84%; the person going when full 82 / 89 / 83%; the never-following player 24 / 63 / 14%
+(the Thread rests mostly on Lyra). Under Silent Cues the person going when full gets 82%. The
+wait measured at 0.75 s and 1.5 s for the person going when full: 85% and 84% Cued, 96% and 98%
+won: no better than 1 s. Before the rework a player who never pressed the Cue key fought boss
+fights of 226 s and their heroes used no Solo.
+
+**Whole runs** (as the baselines play them; `runs-rate.mts`, the full counts, nothing cut):
+
+| | Before | After the first round | **Now** |
+|---|---|---|---|
+| Two Movements, 150 runs: Skilled / Novice wins | 73% / 13% | 71% / 22% | **76% / 31%** |
+| The Finale route, 80 runs: Skilled / Novice wins | 65% / 1% | 61% / 5% | **73% / 1%** |
+
+**The two Movement III fights where the Skilled bot lost ground in the first round** (harness,
+150 fights each, both with enemies that cut the Thread): both are back in band.
+
+| Fight | Before | After the first round | **Now** | Its band | The Novice now |
+|---|---|---|---|---|---|
+| The Frayed Threshold (Movement III, first skirmish) | 93% | 85 to 88% | **94%** (43 s) | 85% or more | 56% (band 45% or more) |
+| The Seamstress (Movement III, mini-boss) | 94% | 89% | **91%** (77 s) | 90% or more | 59% (band 45-75%) |
+
+**Out of band or worth a look:**
+- The Silent Conductor's fight is a little quicker than its band for the Skilled bot in the study:
+  167 s (band 170 to 230 s; it was 175 s before the rework). 20 fights, the study's kit, not the
+  harness's 50-fight cells.
+- A never-following player wins the Seamstress 65% (13 of 20), against 95% for the Skilled bot
+  and the person: the one fight where following plainly matters.
+
+Data: `/home/user/aw-work/11/solo/w1/data/` (`final.jsonl`, `hands-final.jsonl`,
+`novice-follow0.txt`, `m3-two.txt`, `runs-2-150.txt`, `runs-4-80.txt`). Read a study file with
+`npx tsx tools/solo-study.ts --report <file> --by kind`.
 
 ## 4. For the owner to decide
 
@@ -108,7 +218,7 @@ Cued** (it was 60%; a player who never follows gets 35%; the person model 81 to 
   `src/render/feedback.ts` line 4045 still hold a literal 50 or 100 and want a look.
 - **`tests/meta/roster5e.test.ts` lines 629 and 635** still pin the recap line W2 reworded
   (unchanged from the first round's hand-off).
-- **`tools/release-check.ts`:** the content's version is now `@@CONTENTVERSION@@`.
+- **`tools/release-check.ts`:** the content's version is now `c-7781374df5775748` (`contentVersion` in `tests/sim/golden.json`).
 - **Fight-derived sound and picture snapshots** follow these goldens (the second set); they were
   not re-recorded here.
 - **For `docs/solos.md`** (the join's file), the sentence about the Novice, with its numbers:
@@ -142,11 +252,32 @@ meter twice as deep, which every hash holds.
 
 `/home/user/aw-work/11/solo/w1/rerecord.sh` runs rows 2 to 9 in order.
 
-@@RECORDEDNOTE@@
+**Nothing was recorded again after `bc46e3f`.** `08d69db` set the Novice's bands (text in the
+harness, not a recorded result) and `8e7f950` changed the aura pin's scripted fight, not the pin:
+its Crescendo was set to 100 Resonance, which since the meter became 200 deep is half a meter, so
+the Crescendo was refused; it now fills the meter to `CONTENT.resonance.max`, and every entry of
+`tests/aura/presentationPin.json` is what it was. Neither of the two aura pins was re-recorded.
+The fight-derived sound and picture snapshots follow these goldens and are the join's to
+re-record (compared first).
 
 ## 7. Tests
 
-@@TESTS@@
+- **On `bc46e3f`**, the run over this step's files
+  (`npx vitest run tests/sim tests/bots tests/bots.test.ts tests/fill tests/content
+  tests/content.test.ts tests/meta tests/harnessTools.test.ts tests/weeklyBotParity.test.ts
+  tests/withoutYouRise.test.ts tests/demo.test.ts tests/demoChoice.test.ts tests/aura
+  --maxWorkers=2 --testTimeout=900000`): 2,734 tests, all passed except two, both in the aura presentation
+  pin, whose scripted Crescendo no longer fired on a 200-deep meter. Typecheck and lint clean.
+- **On `8e7f950`**, `npx vitest run tests/aura`: 5 passed, 1 skipped (the writer). That fixes the
+  two failures above; nothing else changed between the two runs except the bands (`08d69db`,
+  whose three literals in `tests/harnessTools.test.ts` were changed with them).
+- **Not run by this step:** the whole unit suite on `p11/solo` alone. The first round's whole
+  suite (`9b3d702`) had 31 failures, none in this step's files; on the joined tree that is the
+  join's `/home/user/aw-work/6/full-suite.sh` run, where the 11 fight-derived sound snapshots are
+  expected red until re-recorded.
+- **Known at the join:** `tests/meta/roster5e.test.ts` lines 629 and 635 (a recap line W2
+  reworded); `tests/uiPhase5e.test.ts`'s pins of the content lines; the mock ledger's
+  `plainSolos` line (section 5).
 
 ## 8. Not done, not checked
 

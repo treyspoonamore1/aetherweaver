@@ -32,3 +32,13 @@ Session https://claude.ai/code/session_01Ufyqn2mkV4tgoiGTmeGECM, 18 November 202
 
 - A hero finishes a cast before their Solo (Vexis's Solo is about a second late in 4 of 10). Kept;
   the bots' `soloDueIn` stays as it is; documented in `docs/solos.md`.
+
+## Later (about 21:35 UTC)
+
+- Version 20 pictures made and sent to the owner: `pictures/v20/` (Settings, Codex Motifs, the
+  marks; Version 19 left, Version 20 right).
+- W1's numbers re-measured on `8e7f950` (no code change): `aw-work/12/w1/DOC-TABLES.md` (ready to
+  paste into `docs/solos.md` and three phase docs), `aw-work/11/solo/w1/HANDOFF.md` filled,
+  summaries in `aw-work/12/w1/`. Sent to the join agent for its step 7.
+- Still running: the join agent (`aw-work/12/join/BRIEF.md`; its notes in `/home/user/aw-work/12/join/PROGRESS.md`,
+  not in this branch until copied).
