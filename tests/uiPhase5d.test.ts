@@ -17,6 +17,7 @@ import {
   BASSO_OSTINATO,
   CADENZA,
   CONDUCTOR,
+  DISCORD_MAX,
   DOWNBEAT,
   FINAL_CADENCE,
   FORTISSIMO,
@@ -45,6 +46,7 @@ import {
   finaleCallouts,
   finaleCaption,
   fortissimoInText,
+  fortissimoName,
   noteCallout,
   noteSources,
   silenceLeftFrac,
@@ -403,26 +405,34 @@ describe('the sighting card follows the Calling and Reel’s variant', () => {
   const conductor = (rewinds: boolean, paradox: boolean, reel: string | null) =>
     sightingOf(CONDUCTOR, rewinds, paradox, reel);
 
-  it('the Conductor’s card names the notes this Weaver can play', () => {
+  it('the Conductor’s card says what to do now; its answers follow this Weaver’s notes', () => {
+    // The card stops at Discord and the Crescendo. What is heard in the Grand Silence is said
+    // when it begins, by the coach (`noteSources`, below), for this Weaver's own techniques.
     const plain = conductor(false, false, null);
-    expect(plain.lesson).toContain('Perfect Wards, Clutch Chimes and Reel-saves are heard');
+    expect(plain.lesson).toBe(
+      `It Cues its mirror-choir. Unanswered blows feed Discord. At ${DISCORD_MAX} it plays ${fortissimoName()}: your Crescendo cancels it.`,
+    );
+    expect(plain.lesson).not.toContain('are heard');
     expect(plain.answers).toEqual(['focus', 'crescendo', 'ward', 'chime', 'reel']);
+    expect(noteSources({ rewinds: false, reel: null })).toBe(
+      'Perfect Wards, Clutch Chimes and Reel-saves',
+    );
     const chrono = conductor(true, false, null);
-    expect(chrono.lesson).toContain('a Rewind that undoes a blow');
+    expect(noteSources({ rewinds: true, reel: null })).toContain('a Rewind that undoes a blow');
     expect(chrono.lesson).not.toContain('Reel');
     expect(chrono.answers).not.toContain('reel');
     const anchor = conductor(false, false, 'anchor');
-    expect(anchor.lesson).toContain('only your Perfect Wards and Clutch Chimes are heard');
+    expect(noteSources({ rewinds: false, reel: 'anchor' })).toBe('Perfect Wards and Clutch Chimes');
     expect(anchor.answers).not.toContain('reel');
-    expect(conductor(false, false, 'swap').lesson).toContain('Swap takes the blow on you');
+    expect(noteSources({ rewinds: false, reel: 'swap' })).toContain('Swap');
   });
 
   it('each voice teaches its Solo’s verb; a Chronomancer card never teaches Reel', () => {
     expect(sightingOf(ALTO).lesson).toMatch(/Lament marks a hero\. Chime it away/);
     expect(sightingOf(BASS).lesson).toMatch(/Ward on the beat/);
-    expect(sightingOf(SOPRANO).lesson).toMatch(/Scatter so it catches one/);
+    expect(sightingOf(SOPRANO).lesson).toMatch(/Scatter, Ward that hero/);
     expect(sightingOf(TENOR).lesson).toMatch(/Reel them out/);
-    expect(sightingOf(TENOR, true).lesson).toMatch(/Rewind them back out/);
+    expect(sightingOf(TENOR, true).lesson).toMatch(/Rewind them out/);
     expect(sightingOf(TENOR, true).lesson).not.toMatch(/Reel/);
     expect(sightingOf(TENOR, true, true).lesson).toMatch(/Paradox cancels it/);
     expect(sightingOf(TENOR, false, false, 'anchor').lesson).toMatch(/Anchor holds them/);
@@ -458,7 +468,7 @@ describe('hints, recaps and callouts', () => {
     const fort = evaluateHints(fighting(finaleHud('fortissimo'))).find(
       (h) => h.id === 'fortissimo',
     );
-    expect(fort?.text).toMatch(/your Crescendo \{.+\} cancels it/);
+    expect(fort?.text).toMatch(/Press \{.+\}: your Crescendo cancels it/);
   });
 
   it('every Finale down names an answer; no earlier death gets a Finale line', () => {

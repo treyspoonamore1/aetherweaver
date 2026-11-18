@@ -46,7 +46,7 @@ export const rosterModel = {
     'One of Oro’s {count} rooted mini-tanks ({maxHp} life): it takes your songs, taunts the small things within {radius} m, and re-sprouts {respawn} s after it is felled. Telegraphs and bosses never touch it: Saplings soak blows, never shapes.',
   'screens.rosterModel.oneOfOroS2': 'One of Oro’s rooted mini-tanks.',
   'screens.rosterModel.oroSSoloA':
-    'Oro’s Solo: a {maxHp}-life tree that rises for the rest of {name}’s {duration} s. It roots, taunts and slams the lesser enemies within {tauntRadius} m. Cued, it stands {life} s and its disc counts as your field.',
+    'Oro’s Solo: a {maxHp}-life tree that rises for the rest of {name}’s {duration} s (Cued, it stands {life} s from rising), roots and taunts the lesser enemies within {tauntRadius} m and slams them. Cued, its disc counts as your field.',
   'screens.rosterModel.oroSSoloA2': 'Oro’s Solo: a tree that rises for a few seconds.',
   'screens.rosterModel.heldInPlaceBy':
     'Held in place by Oro’s roots for {root} s, then immune for a while. A rooted enemy still attacks and casts; it can’t walk, charge or leap. Bosses, minibosses and heavy foes are never rooted.',
@@ -57,7 +57,7 @@ export const rosterModel = {
   'screens.rosterModel.saplingsLifeArmourPlanted':
     'Saplings ({count}): {maxHp} life, {armor} armour. Planted {forward} m ahead of you; a Rally re-plants them there. Each swings for {damage}, taunts the small things within {radius} m, and re-sprouts {respawn} s after it is felled. While Oro tends, they hit {tendedBonus} harder.',
   'screens.rosterModel.theAncientLifeAfter':
-    'The Ancient ({name}): {maxHp} life, after a ground warning, for the rest of {name}’s {duration} s. Cued, {life} s. It roots and taunts the lesser enemies within {tauntRadius} m, and slams everything within {radius} m for {damage}.',
+    'The Ancient ({name}): {maxHp} life, after a ground warning, for the rest of {name}’s {duration} s (Cued, {life} s from rising). It roots and taunts the lesser enemies within {tauntRadius} m, and slams everything within {radius} m for {damage}.',
   'screens.rosterModel.bossesMinibossesAndThe':
     'Bosses, minibosses and the biggest foes ignore both, and no telegraph, raid, splash or status ever touches them.',
   'screens.rosterModel.inMovement': ' in Movement {value}',

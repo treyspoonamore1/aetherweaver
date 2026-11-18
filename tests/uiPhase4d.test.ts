@@ -597,7 +597,7 @@ describe('in a fight', () => {
     for (let i = 0; i < 240 && st.entities.get(st.party[1]!)!.hero!.targetId === null; i++)
       sim.step([]);
     // Her Solo a little short of full: the tell is on, the Thread elsewhere.
-    st.entities.get(st.party[1]!)!.hero!.solo = 95;
+    (st.entities.get(st.party[1]!)!.hero as { solo: number }).solo = 95;
     sim.step([]);
     expect(lyra().soloIn).not.toBeNull();
     expect(lyra()).toMatchObject({ willCue: false, soloNow: false });

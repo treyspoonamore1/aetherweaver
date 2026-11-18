@@ -9,7 +9,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../src/content';
 import { SOLOS } from '../src/sim/constants';
-import { soloDueIn, threadCues, type Command, type Sim } from '../src/sim';
+import { soloDueIn, threadCues, type Command, type PartySlot, type Sim } from '../src/sim';
 import { buildHudSnapshot } from '../src/ui/hudBridge';
 import { evaluateHints } from '../src/ui/hud/hints';
 import { mockHud } from '../src/ui/lab/mock';
@@ -59,9 +59,10 @@ describe('the frames read the sim’s tell (soloDueIn) and Cue (threadCues)', ()
     let now = 0;
     for (let tick = 0; tick < 60 * 45; tick++) {
       // The Thread wanders: on Lyra, on Vexis, on nobody's Solo.
-      const commands: Command[] = tick % 240 === 0 ? [{ t: 'thread', slot: (tick / 240) % 3 }] : [];
+      const commands: Command[] =
+        tick % 240 === 0 ? [{ t: 'thread', slot: ((tick / 240) % 3) as PartySlot }] : [];
       if (tick % 600 === 0) commands.push(brute);
-      sim.step(commands as Command[]);
+      sim.step(commands);
       if (tick % 4) continue;
       const h = hud(sim);
       for (let slot = 0; slot < 3; slot++) {
@@ -200,7 +201,7 @@ describe('nothing on the HUD names a Cue key or a Cue’s price', () => {
       expect(html, s).not.toContain('data-cue-cost');
       expect(html, s).not.toMatch(/Cue \d|Enough for|A Cue costs/);
     }
-    const w: Record<string, unknown> = mockHud('calm').weaver;
+    const w: object = mockHud('calm').weaver;
     expect('cueCost' in w).toBe(false);
     expect('cueBase' in w).toBe(false);
   });

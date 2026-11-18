@@ -54,7 +54,7 @@ export const sighting = {
   'hud.sighting.cuedItsCadenzaCuts':
     'Cued, its Cadenza cuts a lethal line to the farthest hero. Rewind them out, step aside, or interrupt the Tenor.{undo}',
   'hud.sighting.cuedItsCadenzaCuts2':
-    'Cued, its Cadenza cuts a lethal line to the farthest hero. Step aside, Ward them or interrupt the Tenor. Anchor can’t pull them out.',
+    'Cued, its Cadenza cuts a lethal line to the farthest hero. Step aside, Ward them or interrupt the Tenor. Anchor holds them: it can’t pull them out.',
   'hud.sighting.cuedItsCadenzaCuts3':
     'Cued, its Cadenza cuts a lethal line to the farthest hero. {value} or interrupt the Tenor.',
   'hud.sighting.swapTakesTheBlow': 'Swap takes the blow on you; step aside,',

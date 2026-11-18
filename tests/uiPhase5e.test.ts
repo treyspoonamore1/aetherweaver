@@ -774,8 +774,16 @@ describe('Brann’s and the default party’s UI are byte-equal to before', () =
   // joined two thoughts: "Kael is hurt. Thread them: …") and the Result's chart caption ("Glyphs
   // mark what you did and when. Hover one for detail."). The values were compared with main's
   // line by line before the hashes were replaced: 42 changed lines, all of them those 21
-  // sentences, none about Fermata, a Solo, a Cue or Resonance. The frames, the picker, the notes
-  // and every other key are as recorded at W3's head.
+  // sentences, none about Fermata, a Solo, a Cue or Resonance.
+  //
+  // Re-recorded a second time, for 19 keys (17 `frames:*`, `hints:crisis`, `hints:boss`), when
+  // heroes began to fire their own Solos (docs/solos.md). The values were compared with the tree
+  // before, piece by piece: every frame's Solo ring gained a wrapper and its line a test id; the
+  // key cap that named the Cue key under a ready portrait went; the crisis and boss scenes, whose
+  // Kael has a Solo coming, gained the Solo strip ("Thread to Cue", "Cued") and, in the boss
+  // scene, the Thread on him; and the same two scenes' coach gained the Solo lesson. Nothing else
+  // moved: no life bar, no status, no Brann chip, no Fermata. The picker, the notes and every
+  // other key are as recorded at W3's head.
   it('every pinned text and frame hashes as recorded at W3’s head', async () => {
     const want = JSON.parse(
       readFileSync(join(__dirname, 'uiPhase5e.brann.json'), 'utf8'),

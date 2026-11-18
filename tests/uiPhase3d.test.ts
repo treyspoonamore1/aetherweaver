@@ -283,7 +283,7 @@ describe('the HUD on a Martyr run (from a real sim)', () => {
       expect(evaluateHints(mockHud(scenario)).some((x) => x.id.startsWith('bear'))).toBe(false);
     // In the Vow, the coach names it.
     expect(evaluateHints(mockHud('martyr-vow')).find((x) => x.id === 'vow')!.text).toMatch(
-      /^Martyr’s Vow: your heroes can’t fall below 1 life/,
+      /^Martyr’s Vow: no hero falls below 1 life/,
     );
   });
 
