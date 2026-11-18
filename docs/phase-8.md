@@ -548,6 +548,9 @@ fixed-seed generator (`models/ownRandom.ts`).
 panel and the camera next". Nothing in it touches an aura's or ornament's look, the sim, content
 or a replay.*
 
+*Landed on main at `eb82ad6` on 18 November 2026, with the red outline (8b, "Phase 8c: the red outline,
+checked") and the portraits (8d), and in the playable demo from Version 18 ([docs/demo.md](demo.md)).*
+
 ### What was wrong
 
 The bosses of 8b are worth looking at and were often not on show. Measured (below) on main, with
@@ -757,6 +760,33 @@ hash or snapshot was re-recorded.
   foe's card and a hint together reach about 530 px on a 720-line screen).
 - Measured on software rendering, at a few frames a second, with one bot at one seed. Nobody has
   watched the camera move at 60 frames a second on a real graphics card.
+
+### The marks on the larger heroes: proposed, not landed
+
+Heroes are drawn 12% larger since 8b, and the marks placed from a hero's height stayed where they
+were (aura and ornament drawing changes only when the owner approves that change). Seven proposals
+are built, each as its own commit on top of `cedfbd1` and none on main. Each places one mark from
+the hero's drawn height instead and changes nothing else: +0.24 m on Kael and +0.22 m on Lyra for a
+mark over the head.
+
+| | Mark | Branch | Entries of `tests/aura/presentationPin.json` it would move (of 627) |
+|---|---|---|---|
+| M1 | the beam song's ring and its "All in" ring | `p9/marks-m1` | 80 (`field`, the ten beam-song cases) |
+| M2 | the Calling halo | `p9/marks-m2` | none |
+| M3 | where the Sunrise beam ends | `p9/marks-m3` | none |
+| M4a | the Mend / Empower glyph | `p9/marks-m4a` | none |
+| M4b | call prompts, with their glow and stars | `p9/marks-m4b` | none |
+| M4c | where the Thread meets the hero (+0.14 m, +0.13 m) | `p9/marks-m4c` | 80 (`beam`, the same ten cases) |
+| M5 | Fermata's glyph, with its flare, callout and shards | `p9/marks-m5` | 10 (`fermata`, the two Fermata cases) |
+
+`p9/marks` has all seven stacked. The pin file is not edited on any of them, so the aura pin's two
+tests fail there on purpose until the owner approves a proposal and its entries are re-recorded.
+Still placed from the old height and not proposed yet: the pour's label, the Luminary's Dawn
+callout, Radiance shaft and circlet, the Tyrant's crown and edict, the Martyr's seals and ember,
+the Chronomancer's mastery mark and Stasis callout, the Conductor's sigil, marcato mark and solo
+light (all aura, ornament or Calling drawing); and, outside it, Seren's and Oro's glyphs, stun
+stars and status badges, bond and relic marks, damage and heal numbers, and the PERFECT, SAVED and
+HOLD callouts.
 
 ## 8d: portraits and the map's rewards
 
