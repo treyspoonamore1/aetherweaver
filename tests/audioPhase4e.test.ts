@@ -602,7 +602,6 @@ describe('Bonds in a real fight (Phase 4e)', () => {
       seed: 5,
       encounter: 'first_light',
       chords: [{ auras: ['fortissimo'] }, { auras: ['sostenuto'] }],
-      assists: { autonomy: true },
       bonds: {
         talents: [
           'vanguards_roar',

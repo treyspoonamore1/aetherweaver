@@ -5,6 +5,7 @@ import { callingSetups } from '../tools/callings';
 import { M1_ENCOUNTERS } from '../tools/m1-baseline';
 import { BOSS_TABLES, decreeFight } from '../tools/decrees';
 import { CONTENT } from '../src/content';
+import { SOLOS } from '../src/sim/constants';
 import * as Run from '../src/meta/run';
 import { makeBot, SkilledBot, type BotKind } from '../src/bots';
 import {
@@ -845,7 +846,7 @@ describe('the Skilled bot with Brann (staged)', () => {
     expect(run(PARTY_A)).toBe(false);
   });
 
-  it('Cues Red Frenzy when he is low with two enemies on him', () => {
+  it('has her Thread on Brann as his Red Frenzy fires, low with two enemies on him', () => {
     const { sim, b } = brannSandbox(PARTY_A, 0.35);
     stepFor(sim, 1, [
       spawn('sanguine_hound', b.x + 1.5, b.z),
@@ -871,10 +872,12 @@ describe('the Skilled bot with Brann (staged)', () => {
     for (const e of w.entities.list())
       if (e.enemy) Object.assign(e, { x: brann.x + 1, z: brann.z + 0.5 });
     brann.health!.hp = brann.health!.maxHp * 0.35;
+    // Red Frenzy full and about to fire (heroes fire their own, docs/solos.md): her Thread goes
+    // to him, so it is Cued and its lifesteal ×3 heals him where her healing can't.
     brann.hero!.solo = 100;
-    w.entities.get(w.weaverId)!.weaver!.resonance = 50;
+    brann.hero!.soloHeld = SOLOS.wait - 0.2;
     const out = makeBot('skilled', 1).decide(sim.state);
-    expect(out).toContainEqual({ t: 'debug', op: { op: 'fireSolo', slot: brannSlot(sim), cued: true } });
+    expect(out).toContainEqual({ t: 'thread', slot: brannSlot(sim) });
   });
 
   it('with an explicit default party issues what it does with none', () => {
@@ -1047,21 +1050,6 @@ describe('the Skilled bot with Brann: the Phase 5b review fixes (staged)', () =>
     const slot = 2;
     expect(staged(false)).toContainEqual({ t: 'tech', id: 'reel', slot });
     expect(staged(true)).not.toContainEqual({ t: 'tech', id: 'reel', slot });
-  });
-
-  it('Cues Red Frenzy in a boss fight only once Brann is below his line', () => {
-    const cues = (frac: number) => {
-      const { sim, b } = brannSandbox(PARTY_A, frac);
-      const w = worldOf(sim);
-      w.encounter.bossId = w.weaverId;
-      b.hero!.solo = 100;
-      w.entities.get(w.weaverId)!.weaver!.resonance = 50;
-      return makeBot('skilled', 1)
-        .decide(sim.state)
-        .some((c) => c.t === 'cue' && c.slot === brannSlot(sim));
-    };
-    expect(cues(1)).toBe(false);
-    expect(cues(0.35)).toBe(true);
   });
 });
 
@@ -2555,71 +2543,32 @@ describe('the Skilled bot reads the Finale (staged)', () => {
     expect(has(makeBot('skilled', 1).decide(sim.state), { t: 'crescendo' })).toBe(true);
   });
 
-  it('sends no Cue beside the Fortissimo cancel: the Crescendo needs every segment', () => {
-    for (const [name, party] of Object.entries(FINALE_PARTIES)) {
-      const sim = finaleRift(party, 'none', 0.4);
-      const w = worldOf(sim);
-      w.encounter.bossId = tough(sim, 'hollow_chorister', 0, -10).id;
-      weaverE(sim).weaver!.resonance = 100;
-      w.party.forEach((_, slot) => (heroE(sim, slot).hero!.solo = 100));
-      // Between pulses: the next pulse's telegraph not begun yet, so no raid holds a damage Cue.
-      finaleOf(sim).fortissimo = { pulse: 2, impact: w.time + 1.5 };
-      const out = makeBot('skilled', 1).decide(sim.state);
-      expect(has(out, { t: 'crescendo' }), name).toBe(true);
-      expect(
-        out.some((c) => c.t === 'cue'),
-        name,
-      ).toBe(false);
-    }
-  });
-
-  it('banks the Crescendo as Discord climbs: no damage Cue, no early Crescendo', () => {
+  it('banks the Crescendo as Discord climbs: no early Crescendo', () => {
     const decide = (discord: { value: number; rate: number } | null, resonance = 100) => {
       const sim = rift({ hp: 0.5, thread: null });
       const boss = tough(sim, 'hollow_chorister', 0, -10);
       worldOf(sim).encounter.bossId = boss.id;
       weaverE(sim).weaver!.resonance = resonance;
-      heroE(sim, 1).hero!.solo = 100;
       if (discord) finaleOf(sim).discord = discord;
       return makeBot('skilled', 1).decide(sim.state);
     };
-    const cues = (out: Command[]) => out.some((c) => c.t === 'cue');
     const crescendo = (out: Command[]) => has(out, { t: 'crescendo' });
-    // Without Discord: the low party gets its Crescendo and Lyra her Cue, as ever.
-    expect(cues(decide(null))).toBe(true);
+    // Without Discord: the low party gets its Crescendo, as ever.
     expect(crescendo(decide(null))).toBe(true);
-    // Discord at 60+: both held for Fortissimo Silence.
-    expect(cues(decide({ value: 65, rate: 1 }))).toBe(false);
+    // Discord at 60+: held for Fortissimo Silence.
     expect(crescendo(decide({ value: 65, rate: 1 }))).toBe(false);
-    // Low but fast: due at 100 (11.7 s) before a spent segment comes back (12.5 s), held.
-    expect(cues(decide({ value: 30, rate: 6 }))).toBe(false);
-    // Slower (14 s): not yet.
-    expect(cues(decide({ value: 30, rate: 5 }))).toBe(true);
+    // Low and slow, the song full: not held.
     expect(crescendo(decide({ value: 30, rate: 5 }))).toBe(true);
   });
 
-  it('lets the Requiem-dome reserve yield to its own banking while Discord stands', () => {
-    const decide = (discord: boolean) => {
-      const sim = rift({ thread: null });
-      const boss = tough(sim, 'hollow_chorister', 0, -10);
-      worldOf(sim).encounter.bossId = boss.id;
-      weaverE(sim).weaver!.resonance = 40;
-      heroE(sim, 0).hero!.solo = 90;
-      heroE(sim, 1).hero!.solo = 100;
-      if (discord) finaleOf(sim).discord = { value: 10, rate: 0.5 };
-      return makeBot('skilled', 1).decide(sim.state);
-    };
-    expect(decide(false).some((c) => c.t === 'cue')).toBe(false);
-    expect(decide(true)).toContainEqual({ t: 'debug', op: { op: 'fireSolo', slot: 1, cued: true } });
-  });
-
   it('without a Crescendo, guards Fortissimo Silence: the dome, the lowest Warded, Mend, a Rally', () => {
-    // The dome before the first pulse.
+    // The dome before the first pulse: the Thread on Kael, whose wall, raised for the pulse, is
+    // then the dome over everyone (docs/solos.md).
     const dome = finaleRift(undefined);
     weaverE(dome).weaver!.resonance = 50;
     heroE(dome, 0).hero!.solo = 100;
     fortissimoOn(dome, 1, 2, 1);
-    expect(makeBot('skilled', 1).decide(dome.state)).toContainEqual({ t: 'debug', op: { op: 'fireSolo', slot: 0, cued: true } });
+    expect(makeBot('skilled', 1).decide(dome.state)).toContainEqual({ t: 'thread', slot: 0 });
 
     // In each pulse's Perfect window, the lowest hero's Ward, over a bigger hit on a healthier one.
     for (const [name, party] of Object.entries(FINALE_PARTIES))
@@ -3061,32 +3010,6 @@ describe('the Skilled bot in the Grand Silence (staged)', () => {
     }
   });
 
-  it('Cues every ready Solo in the last burn, damage Solos first, and none while stilled', () => {
-    const burn = (when: 'over' | 'holding' | 'shift') => {
-      const sim = rift({ thread: null });
-      conductorOn(sim);
-      weaverE(sim).weaver!.resonance = 40;
-      heroE(sim, 0).hero!.solo = 100;
-      heroE(sim, 1).hero!.solo = 100;
-      const bot = makeBot('skilled', 1);
-      const w = worldOf(sim);
-      if (when !== 'shift') {
-        // The silence seen on a tick between decisions (it is watched every tick).
-        w.tick = 4 * Math.ceil(w.tick / 4) + 1;
-        silenceOn(sim);
-        bot.decide(sim.state);
-        if (when === 'over') silenceOff(sim);
-      }
-      w.tick = 4 * Math.ceil((w.tick + 1) / 4);
-      return bot.decide(sim.state);
-    };
-    // Lyra's Gale Barrage before Kael's dome (the Requiem reserve would have held both).
-    expect(burn('over')).toContainEqual({ t: 'debug', op: { op: 'fireSolo', slot: 1, cued: true } });
-    expect(burn('holding').some((c) => c.t === 'cue')).toBe(false);
-    // Phase 3 entered, the silence not yet begun (the phase shift): no Solo is Cued to freeze.
-    expect(burn('shift').some((c) => c.t === 'cue')).toBe(false);
-  });
-
   it('lands the clutch Chime inside the clutch window: a Rest in play is cleansed as a clutch', () => {
     const chime = CONTENT.techniques.chime;
     // The Chime lands its flight after it goes: with 1.25 s of Dirge left it would be no clutch.
@@ -3274,7 +3197,7 @@ describe('the Novice bot in the Finale (NOVICE_M4, staged)', () => {
     ).toBe(false);
   });
 
-  it('Cues more in the last burn, and only once the silence was seen', () => {
+  it('follows a Solo with the Thread more in the last burn, and only once the silence was seen', () => {
     const cueRate = (when: 'none' | 'burn' | 'shift') => {
       let n = 0;
       for (let seed = 1; seed <= 40; seed++) {
@@ -3289,7 +3212,8 @@ describe('the Novice bot in the Finale (NOVICE_M4, staged)', () => {
         heroE(sim, 1).hero!.solo = 100;
         const bot = makeBot('novice', seed);
         const w = worldOf(sim);
-        const decide = () => bot.decide(sim.state).some((c) => c.t === 'cue');
+        // Lyra's Solo is full and due within its wait: following it is a Thread to her.
+        const decide = () => bot.decide(sim.state).some((c) => c.t === 'thread' && c.slot === 1);
         if (when === 'burn') {
           // A first decision (as in 'none'), then the silence seen between her decisions (it is
           // watched every tick, with no draw) and over by the next.
@@ -3767,25 +3691,6 @@ describe('the Skilled bot with Seren (staged)', () => {
     expect(free(true, ['serenNoSwap'])).toBe(true);
   });
 
-  it('serenCue: Thousand Cuts at 4+ enemies or when she is overextended', () => {
-    const cue = (n: number, overext: boolean, skip: RosterRule[] = []) => {
-      const { sim, w, seren, slot } = serenStage();
-      const hounds = onSeren(w, seren, n, 5);
-      if (!overext) for (const h of hounds) h.enemy!.targetId = null;
-      seren.hero!.duel!.quarry = hounds[0]!.id;
-      seren.hero!.solo = 100;
-      w.entities.get(w.weaverId)!.weaver!.resonance = 50;
-      return skilled(skip)
-        .decide(sim.state)
-        .some((c) => c.t === 'cue' && c.slot === slot);
-    };
-    expect(cue(4, false)).toBe(true);
-    expect(cue(2, false)).toBe(false);
-    expect(cue(3, true)).toBe(true);
-    // Left off, 3 enemies are no pack for a damage Solo (the plain rule: 4+ or a boss).
-    expect(cue(3, true, ['serenCue'])).toBe(false);
-  });
-
   it('discordBreaker: with Seren and no Lyra in the roster, Empowers the hardest hitter against a discord shield', () => {
     const thread = (party: string[], skip: RosterRule[] = []) => {
       const sim = createSim({ seed: 7, encounter: 'crimson_gate', debug: true, ...KIT, party });
@@ -4132,23 +4037,6 @@ describe('the Skilled bot with Oro (staged)', () => {
     // With no tank (OB), on the road as at a boss.
     const ob = ['lyra', 'vexis', 'oro'];
     expect(move([], false, ob)!.z - move(['groveCover'], false, ob)!.z).toBeGreaterThan(0.9);
-  });
-
-  it('oroCue: Wildgrowth on a pack of 3, or while a Sapling stands outside the field', () => {
-    const cue = (n: number, outside: boolean, skip: RosterRule[] = []) => {
-      const { sim, w, oro, slot, saplings } = grove();
-      for (let i = 0; i < n; i++) foe(w, 'sanguine_hound', -4 + i * 2, -9, { hp: 1e6 });
-      if (outside) plantAt(saplings[0]!, 16, 0);
-      oro.hero!.solo = 100;
-      w.entities.get(w.weaverId)!.weaver!.resonance = 50;
-      return skilled(skip)
-        .decide(sim.state)
-        .some((c) => c.t === 'cue' && c.slot === slot);
-    };
-    expect(cue(3, false)).toBe(true);
-    expect(cue(1, false)).toBe(false);
-    expect(cue(1, true)).toBe(true);
-    expect(cue(1, true, ['oroCue'])).toBe(false);
   });
 
   it('names every roster rule; leaving them all off changes nothing for a party without Seren or Oro', () => {

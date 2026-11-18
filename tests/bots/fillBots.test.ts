@@ -1,16 +1,13 @@
 /**
  * The bots and Phase 5g's relics (docs/phase-5g.md; review B's B1, B2 and C2): Iron Mask, whose
- * curse refuses Empower; Everbell, a second Chime charge; and a Cue's price off the Conductor,
- * which Opening Bars, Tempo Rubato and Hollow Crown change. tests/bots/fillInert.test.ts shows the
- * same bots send what they always did on fights holding none of these.
+ * curse refuses Empower; and Everbell, a second Chime charge. (Review C2 was about a Cue's price;
+ * a Cue costs nothing now, docs/solos.md.) tests/bots/fillInert.test.ts shows the same bots send
+ * what they always did on fights holding none of these.
  */
 import { describe, expect, it } from 'vitest';
 import { makeBot, type BotKind } from '../../src/bots';
-import { cueGateCost } from '../../src/bots/common';
-import { CONTENT } from '../../src/content';
 import {
   createSim,
-  cueCostNow,
   type Command,
   type SimConfig,
   type ThreadMode,
@@ -40,7 +37,6 @@ interface Played {
   /** Chimes cast while another, landing elsewhere, was in the air. */
   secondCharges: number;
   /** The Resonance held when each Cue was sent, and that Cue's price then. */
-  cues: { resonance: number; now: number; base: number }[];
 }
 
 function play(config: SimConfig, bot: BotKind): Played {
@@ -53,7 +49,6 @@ function play(config: SimConfig, bot: BotKind): Played {
     bearTicksInUnravel: 0,
     coveredChimes: 0,
     secondCharges: 0,
-    cues: [],
   };
   for (let t = 0; t < MAX_TICKS; t++) {
     const state = sim.state;
@@ -66,14 +61,6 @@ function play(config: SimConfig, bot: BotKind): Played {
         if (state.chimes.some((f) => Math.hypot(f.x - p.x, f.z - p.z) <= f.radius - 0.5))
           r.coveredChimes++;
         else r.secondCharges++;
-      }
-      if (c.t === 'cue') {
-        const w = state.entities.get(state.weaverId)!.weaver!;
-        r.cues.push({
-          resonance: w.resonance,
-          now: cueCostNow(state),
-          base: state.dissonance.cueCost,
-        });
       }
     }
     sim.step(commands);
@@ -158,55 +145,5 @@ describe('Everbell: no second Chime where the first will land (review B2)', () =
       }
     // A second charge spent at once, on a hero the first Chime doesn't reach.
     expect(second).toBeGreaterThan(0);
-  }, 300_000);
-});
-
-describe('A Cue is gated on the price paid now, off the Conductor (review C2)', () => {
-  it('cueCostNow is dissonance.cueCost on every tick of fights without a Cue discount', () => {
-    const configs: SimConfig[] = [
-      { seed: 5000, encounter: 'hollow_cantor' },
-      { seed: 5000, encounter: 'vharun', ...kitConfig(ARRIVAL_KIT) },
-      // Hollow Crown's cut is in dissonance.cueCost already; its floor never bites at 15.
-      withRelic({ seed: 5000, encounter: 'vharun', ...kitConfig(ARRIVAL_KIT) }, 'hollow_crown'),
-      { seed: 5000, encounter: 'hollow_cantor', dissonance: [{ id: 'silent_cues', rank: 1 }] },
-    ];
-    for (const config of configs) {
-      const sim = createSim(config);
-      const player = makeBot('skilled', config.seed);
-      let ticks = 0;
-      for (let t = 0; t < MAX_TICKS; t++) {
-        expect(cueCostNow(sim.state)).toBe(sim.state.dissonance.cueCost);
-        expect(cueGateCost(sim.state)).toBe(sim.state.dissonance.cueCost);
-        ticks++;
-        sim.step(player.decide(sim.state));
-        sim.drainEvents();
-        const s = sim.state.encounter.status;
-        if (s === 'victory' || s === 'defeat') break;
-      }
-      expect(ticks).toBeGreaterThan(600);
-    }
-  }, 120_000);
-
-  it('with Opening Bars the bots Cue at the cut price, and never below it', () => {
-    const top = CONTENT.motifs.find((m) => m.id === 'opening_bars')!.values.length;
-    // A bare party: Resonance is low when the first Solo fills (a kit's is far above 25 by then).
-    const base: SimConfig = { seed: 5000, encounter: 'hollow_cantor' };
-    for (const bot of ['skilled', 'novice'] as const) {
-      let cheap = 0;
-      for (const seed of [5000, 12919, 20838]) {
-        const r = play(
-          {
-            ...base,
-            seed,
-            motifs: [...(base.motifs ?? []), { id: 'opening_bars', level: top }],
-          },
-          bot,
-        );
-        for (const c of r.cues) expect(c.resonance).toBeGreaterThanOrEqual(c.now - 1e-9);
-        cheap += r.cues.filter((c) => c.resonance < c.base && c.now < c.base).length;
-      }
-      // The first Cue of a fight, sent with less Resonance than the uncut price.
-      expect(cheap, bot).toBeGreaterThan(0);
-    }
   }, 300_000);
 });

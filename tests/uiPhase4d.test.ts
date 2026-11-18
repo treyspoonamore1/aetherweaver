@@ -500,7 +500,7 @@ describe('in a fight', () => {
       points: dissonancePoints(levels),
       blindScore: true,
     });
-    expect(hud.weaver.cueCost).toBe(CONTENT.resonance.cueCost + (silent.values.resonance ?? 0));
+    expect(hud.weaver.cueCost).toBe(CONTENT.resonance.segment + (silent.values.resonance ?? 0));
     const v = hudDissonanceView(hud.dissonance!.levels, hud.weaver.cueCost);
     expect(v.points).toBe(hud.dissonance!.points);
     expect([v.blind, v.cueRaised]).toEqual([true, true]);
@@ -509,7 +509,7 @@ describe('in a fight', () => {
     // Without Dissonance: no readout, and a Cue costs the content's.
     const plain = buildHudSnapshot(createSim({ seed: 7 }).state, { seed: 7, hovered: null });
     expect(plain.dissonance).toBeNull();
-    expect(plain.weaver.cueCost).toBe(CONTENT.resonance.cueCost);
+    expect(plain.weaver.cueCost).toBe(CONTENT.resonance.segment);
   });
 
   it('the par the HUD counts to is the one the run grades with, lengthened by Dissonance', () => {

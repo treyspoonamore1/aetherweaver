@@ -399,7 +399,7 @@ describe('the default heroes are byte-for-byte as they were (Phase 5e)', () => {
   it('a default-party fight never sounds any of Seren’s (or Oro’s)', () => {
     const ctx = new RecordingContext();
     const d = director(ctx, 'combat');
-    const sim = createSim({ seed: 5, encounter: 'first_light', assists: { autonomy: true } });
+    const sim = createSim({ seed: 5, encounter: 'first_light' });
     for (let i = 0; i < 60 * 40; i++) {
       sim.step(i % 600 === 30 ? [{ t: 'thread', slot: 0 }] : []);
       const events = sim.drainEvents();

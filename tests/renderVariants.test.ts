@@ -665,7 +665,6 @@ describe('every look', () => {
         seed: 5,
         encounter: 'first_light',
         chords: GUARDIAN,
-        assists: { autonomy: true },
         techniques,
       });
       const h = harness(sim);

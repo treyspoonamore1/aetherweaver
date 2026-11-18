@@ -598,7 +598,6 @@ describe('the variants in a real fight', () => {
         seed: 5,
         encounter: 'first_light',
         chords: [{ auras: ['fortissimo'] }, { auras: ['sostenuto'] }],
-        assists: { autonomy: true },
         techniques,
       });
       const cast = new Set<string>();

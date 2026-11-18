@@ -15,13 +15,11 @@ import {
   beatAt,
   createSim,
   crescendoCostOf,
-  cueCostNow,
   ensembleBonus,
   finaleTurnBlock,
   finaleView,
   marcatoOn,
   marcatoReadyIn,
-  nextCue,
   onBeat,
   type Command,
   type PartySlot,
@@ -109,7 +107,10 @@ function conductSim(
   step(1, [{ t: 'debug', op: { op: 'setResonance', value: 100 } }]);
   return { sim, step, events };
 }
-const cue = (slot: number): Command => ({ t: 'debug', op: { op: 'fireSolo', slot: slot as PartySlot, cued: true } });
+const cue = (slot: number): Command => ({
+  t: 'debug',
+  op: { op: 'fireSolo', slot: slot as PartySlot, cued: true },
+});
 const hud = (sim: Sim) => buildHudSnapshot(sim.state, { seed: 7, hovered: null });
 /** Steps until the sim's time is off the beat (no A Tempo needs none). */
 function offBeat(sim: Sim, step: (n: number) => void) {
@@ -184,7 +185,7 @@ describe('the Cue badge, from the sim’s nextCue', () => {
     // No chain: a plain Cue, no badge words.
     const first = cueBadge(st, id(0))!;
     expect(first).toMatchObject({ link: 1, power: 1, label: null });
-    expect(first).toMatchObject({ cost: nextCue(st, id(0))!.cost });
+    expect(first).toMatchObject({ cost: 0 });
     step(30, [cue(0)]);
     for (const slot of [1, 2]) {
       const b = cueBadge(st, id(slot))!;
@@ -216,7 +217,7 @@ describe('the Cue badge, from the sim’s nextCue', () => {
     for (let i = 0; i < 400 && !(st.time > 0.5 && onBeat(st)); i++) step(1);
     expect(onBeat(st)).toBe(true);
     const b = cueBadge(st, st.party[0]!)!;
-    expect(b).toMatchObject({ free: true, cost: st.mods.cueCostBonus, label: 'Free' });
+    expect(b).toMatchObject({ free: true, cost: 0, label: 'Free' });
     expect(hud(sim).party.every((p) => p.cue?.label === 'Free')).toBe(true);
     expect(cueBadgeLabel({ link: 2, power: 1.25, onBeat: true, cost: 0 })).toBe(
       'Duet ×1.25 · Free',
@@ -248,7 +249,7 @@ describe('the Cue badge, from the sim’s nextCue', () => {
       expect('marcato' in p).toBe(false);
     }
     expect(h.weaver.crescendoCost).toBe(CONTENT.resonance.crescendoCost);
-    expect(h.weaver.cueBase).toBe(CONTENT.resonance.cueCost);
+    expect(h.weaver.cueBase).toBe(CONTENT.resonance.segment);
   });
 });
 
@@ -350,11 +351,11 @@ describe('the beat strip, from beatAt and onBeat', () => {
     const snap = hud(sim);
     for (let i = 0; i < 400 && !onBeat(st); i++) step(1);
     const now = beatNow(st);
-    expect(now).toEqual({ time: st.time, on: true, cost: cueCostNow(st) });
+    expect(now).toEqual({ time: st.time, on: true, cost: 0 });
     // The snapshot is stale; the live beat is the sim's now.
     expect(snap.conducting!.beat!.on).toBe(false);
     const strip = liveBeat(snap.conducting!.beat!, now);
-    expect(strip).toMatchObject({ time: st.time, on: true, cost: cueCostNow(st) });
+    expect(strip).toMatchObject({ time: st.time, on: true, cost: 0 });
     expect(beatStrip(strip).inside).toBe(true);
     const badge = liveCueBadge(snap.party[0]!.cue!, now);
     expect(badge).toEqual(cueBadge(st, st.party[0]!));
@@ -687,23 +688,6 @@ describe('the sim’s rules, read not copied', () => {
       expect(h.conducting!.marcato!.ready).toBe(marcatoReadyIn(st) === 0);
       step(15);
     }
-  });
-});
-
-describe('the beat hint says what a Cue on the downbeat costs', () => {
-  const fighting = (h: ReturnType<typeof hud>) =>
-    evaluateHints({ ...h, encounter: { ...h.encounter, kind: 'skirmish', status: 'fighting' } });
-  it('free without Silent Cues; its surcharge with them', () => {
-    const plain = fighting(hud(conductSim(['a_tempo']).sim)).find((x) => x.id === 'beat')!;
-    expect(plain.text).toContain('it’s free');
-    const { sim } = conductSim(['a_tempo'], { dissonance: [{ id: 'silent_cues', rank: 1 }] });
-    const surcharge = sim.state.mods.cueCostBonus;
-    expect(surcharge).toBeGreaterThan(0);
-    const h = hud(sim);
-    expect(h.conducting!.beat!.downbeatCost).toBe(surcharge);
-    const silent = fighting(h).find((x) => x.id === 'beat')!;
-    expect(silent.text).not.toContain('free');
-    expect(silent.text).toContain(`it costs only ${surcharge} Resonance`);
   });
 });
 

@@ -421,6 +421,8 @@ const NULL_PRIEST = 'null_priest';
 // ── The Finale's levers (docs/phase-5d.md, "Bots and harness"; measured by tools/verbs.ts) ──
 /** `cueFocus`'s crowd guard: Focus the soloist only while no more than this many enemies stand. */
 const CUE_FOCUS_AT = 4;
+/** `fortissimoGuard`: the Thread goes to Kael for his dome once the first pulse is this near (s). */
+const FORTISSIMO_DOME_AT = 1.5;
 /** `crescendoCancel`: the Crescendo this long after Fortissimo Silence's first pulse begins. */
 const CANCEL_AFTER = 0.3;
 /**
@@ -1121,6 +1123,22 @@ export class SkilledBot implements Bot {
     ) {
       const soloist = soloToCue(state, party, w, SOLO_LEAD + state.dissonance.cueHold);
       if (soloist) threadTo = soloist;
+    }
+    // Fortissimo Silence with no Crescendo (`fortissimoGuard`): its first pulse near and Kael's
+    // wall full, the Thread goes to him, so the wall he raises for it is the dome over everyone.
+    if (
+      guardFortissimo &&
+      fortissimo !== null &&
+      fortissimo.pulse === 1 &&
+      fortissimo.impact - now < FORTISSIMO_DOME_AT &&
+      !holding &&
+      downed.length === 0
+    ) {
+      const wall = party.find(
+        (h) =>
+          h.e.hero!.soloId === 'aegisWall' && h.e.hero!.solo >= 100 && h.e.hero!.soloActive <= 0,
+      );
+      if (wall) threadTo = wall;
     }
     // ── Movement III (docs/phase-5c.md): each step leaves the pick alone without its mechanic. ──
     // Severing: not the hero beside the elite, unless they're the only one hurt.

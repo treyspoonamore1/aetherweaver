@@ -494,7 +494,11 @@ function busyFight(rule: 'old' | 'new', voices: boolean, seed: number, crowd: nu
         cmds.push({ t: 'plant', point: { x: ((tick / 20) % 5) - 2, z: ((tick / 7) % 5) - 2 } });
       if (tick % 60 === 40)
         cmds.push(debug({ op: 'chargeSolos' }), debug({ op: 'setResonance', value: 100 }));
-      if (tick % 60 === 41) cmds.push({ t: 'debug', op: { op: 'fireSolo', slot: (((tick / 60) % 4) | 0) as PartySlot, cued: true } });
+      if (tick % 60 === 41)
+        cmds.push({
+          t: 'debug',
+          op: { op: 'fireSolo', slot: (((tick / 60) % 4) | 0) as PartySlot, cued: true },
+        });
       if (tick % 150 === 75)
         cmds.push(debug({ op: 'forceHold', slot: (((tick / 150) % 4) | 0) as PartySlot }));
       sim.step(cmds);

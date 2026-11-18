@@ -8,10 +8,14 @@
  */
 import { describe, expect, it } from 'vitest';
 import { NoviceBot, SkilledBot } from '../../src/bots';
-import { CONDUCTING_RULES, type ConductingRule, type SkilledOptions } from '../../src/bots/skilled';
+import {
+  CONDUCTING_RULES,
+  type ConductingRule,
+  type SkilledOptions,
+  type SoloRule,
+} from '../../src/bots/skilled';
 import { NOVICE_CONDUCTING, NOVICE_CONDUCTING_RULES } from '../../src/bots/novice';
 import {
-  beatSoon,
   chainOpen,
   conductingOf,
   crescendoCostOf,
@@ -19,7 +23,7 @@ import {
   marcatoReady,
 } from '../../src/bots/common';
 import { CONTENT } from '../../src/content';
-import { createSim, onBeat, type SimConfig, type SimEvent } from '../../src/sim';
+import { beatWait, createSim, onBeat, type SimConfig, type SimEvent } from '../../src/sim';
 import { StateHasher, hashValue } from '../../src/sim/core/hash';
 import { BAR_SECONDS } from '../../src/sim/constants';
 import { kitConfig, ARRIVAL3_KIT, ARRIVAL4_KIT } from '../../tools/kits';
@@ -34,7 +38,7 @@ const MARCATO_TRIAD = ['marcato', 'upbeat', 'spotlight', 'triad'];
 const SEEDS = Array.from({ length: 8 }, (_, i) => 1000 + i * 7919);
 const MAX_TICKS = 9 * 60 * 60;
 
-type Skip = ReadonlySet<ConductingRule>;
+type Skip = ReadonlySet<ConductingRule | SoloRule>;
 const NONE: Skip = new Set();
 
 function conductorConfig(seed: number, encounter: string, path: string[] | null): SimConfig {
@@ -124,13 +128,12 @@ describe('the Skilled bot on the Conductor (docs/phase-5f.md)', () => {
     expect(finaled).toBe(true);
   });
 
-  it('with A Tempo most of its Cues are free', () => {
+  it('with A Tempo most of its Cues begin on the beat, and are paid for', () => {
+    // The heroes begin their Solos on the downbeat (docs/solos.md); only Kael's urgent wall and
+    // the Grand Finale's turns do not.
     const rows = fights(TEMPO_MAESTRO);
     expect(total(rows, (r) => r.cues)).toBeGreaterThan(0);
     expect(total(rows, (r) => r.freeCues) / total(rows, (r) => r.cues)).toBeGreaterThan(0.6);
-    // Without the beat's rule it falls to about the chance of landing there (11%).
-    const blind = fights(TEMPO_MAESTRO, new Set<ConductingRule>(['conductBeat']));
-    expect(total(blind, (r) => r.freeCues) / total(blind, (r) => r.cues)).toBeLessThan(0.3);
   });
 
   it('plays every fight of the default setup without Conductor rules, as it did', () => {
@@ -145,25 +148,14 @@ describe('the Skilled bot on the Conductor (docs/phase-5f.md)', () => {
   });
 
   describe('each rule, left off, changes what the fight showed', () => {
-    it('conductChain: fewer Duets and Trios', () => {
+    it('soloCue: without the Thread on the Solos, fewer Cues, Duets and Trios', () => {
+      // Duets and Trios come of following each Solo with the Thread (docs/solos.md).
       const on = fights(MARCATO_TRIAD);
-      const off = fights(MARCATO_TRIAD, new Set<ConductingRule>(['conductChain']));
+      const off = fights(MARCATO_TRIAD, new Set<SoloRule>(['soloCue']));
       const links = (rows: readonly Counts[]) => total(rows, (r) => r.duets + r.trios);
       expect(links(on)).toBeGreaterThan(0);
       expect(links(off)).toBeLessThan(links(on));
-    });
-
-    it('conductHold: another fight', () => {
-      // Without A Tempo: with it, the wait for the downbeat (BEAT_AHEAD, a whole bar) covers it.
-      const on = fights(MARCATO_TRIAD);
-      const off = fights(MARCATO_TRIAD, new Set<ConductingRule>(['conductHold']));
-      expect(off.map((r) => r.commands)).not.toEqual(on.map((r) => r.commands));
-    });
-
-    it('conductBeat: fewer Cues on the beat', () => {
-      const on = fights(TEMPO_MAESTRO);
-      const off = fights(TEMPO_MAESTRO, new Set<ConductingRule>(['conductBeat']));
-      expect(total(off, (r) => r.freeCues)).toBeLessThan(total(on, (r) => r.freeCues));
+      expect(total(off, (r) => r.cues)).toBeLessThan(total(on, (r) => r.cues));
     });
 
     it('conductFinale: fewer Grand Finales', () => {
@@ -257,12 +249,11 @@ describe('the Novice on the Conductor (docs/phase-5f.md)', () => {
     }
   });
 
-  it('with A Tempo, more of her Cues are free than chance alone (about 11%) gives', () => {
+  it('with A Tempo, the beat to go by, she Cues more than without that draw', () => {
     const rows = SEEDS.map((seed) => noviceFight(seed, TEMPO_MAESTRO));
-    const free = total(rows, (r) => r.freeCues) / total(rows, (r) => r.cues);
-    expect(free).toBeGreaterThan(0.25);
+    expect(total(rows, (r) => r.freeCues)).toBeGreaterThan(0);
     const blind = SEEDS.map((seed) => noviceFight(seed, TEMPO_MAESTRO, new Set(['beat'])));
-    expect(total(blind, (r) => r.freeCues) / total(blind, (r) => r.cues)).toBeLessThan(free);
+    expect(total(blind, (r) => r.cues)).toBeLessThan(total(rows, (r) => r.cues));
   });
 });
 
@@ -301,26 +292,25 @@ describe('the Conductor readers (src/bots/common.ts)', () => {
   it('are null, false or empty without the Calling', () => {
     const sim = createSim({ seed: 1, encounter: 'first_light' });
     expect(conductingOf(sim.state)).toBeNull();
-    expect(beatSoon(sim.state)).toBeNull();
+    expect(beatWait(sim.state, sim.state.time)).toBe(0);
     expect(chainOpen(sim.state)).toBeNull();
     expect(finaleOn(sim.state)).toBe(false);
     expect(marcatoReady(sim.state)).toBe(false);
     expect(crescendoCostOf(sim.state)).toBe(CONTENT.resonance.crescendoCost);
   });
 
-  it('read the sim’s beat: beatSoon is 0 exactly inside the window and counts down to it', () => {
+  it('read the sim’s beat: `beatWait` is 0 exactly inside the window and counts down to it', () => {
     const sim = createSim(conductorConfig(7, 'bellwarden', TEMPO_MAESTRO));
     const state = sim.state;
     let inside = 0;
     for (let t = 0; t < 60 * 12; t++) {
-      const soon = beatSoon(state);
-      expect(soon).not.toBeNull();
+      const soon = beatWait(state, state.time);
       expect(soon === 0, `tick ${t}`).toBe(onBeat(state));
-      expect(soon!).toBeLessThanOrEqual(BAR_SECONDS);
+      expect(soon).toBeLessThanOrEqual(BAR_SECONDS);
       if (soon === 0) inside++;
       // A wait of `soon` seconds lands inside (within a tick's slack either side).
-      if (soon! > 0 && t % 20 === 0) {
-        const ahead = state.time + soon!;
+      if (soon > 0 && t % 20 === 0) {
+        const ahead = state.time + soon;
         const k = Math.round(ahead / BAR_SECONDS);
         expect(Math.abs(ahead - k * BAR_SECONDS)).toBeLessThanOrEqual(state.mods.beatWindow + 1e-9);
       }
@@ -337,7 +327,7 @@ describe('the Conductor readers (src/bots/common.ts)', () => {
     expect(conductingOf(maestro.state)!.view.finale.turns).toBe(2);
     const triad = createSim(conductorConfig(3, 'bellwarden', MARCATO_TRIAD));
     expect(crescendoCostOf(triad.state)).toBe(100);
-    expect(beatSoon(triad.state)).toBeNull();
+    expect(conductingOf(triad.state)!.view.beat).toBeNull();
     expect(marcatoReady(triad.state)).toBe(true);
   });
 });

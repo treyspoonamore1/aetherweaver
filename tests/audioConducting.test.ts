@@ -429,7 +429,9 @@ function fight(path: string[], config: Partial<SimConfig> = {}) {
   const cue = (slot: number) => {
     run(1, [debug({ op: 'chargeSolos' })]);
     run(1, [debug({ op: 'setResonance', value: 100 })]);
-    return run(1, [{ t: 'debug', op: { op: 'fireSolo', slot: slot as 0 | 1 | 2, cued: true } }])[0]!;
+    return run(1, [
+      { t: 'debug', op: { op: 'fireSolo', slot: slot as 0 | 1 | 2, cued: true } },
+    ])[0]!;
   };
   return {
     ctx,

@@ -8,14 +8,13 @@
  */
 import { createElement, type FunctionComponent, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { useProfile } from '../src/app/profileStore';
 import { useRun } from '../src/app/runStore';
 import { useSettings } from '../src/app/settings';
 import { CONTENT, boonText, motifText, relicCurse, relicText, type Content } from '../src/content';
 import { FILL_IDS } from '../src/content/fill';
-import { createSim, cueCostNow } from '../src/sim';
-import type { Mods } from '../src/sim/mods';
+import { createSim } from '../src/sim';
 import type { RunState } from '../src/meta/types';
 import { buildHudSnapshot } from '../src/ui/hudBridge';
 import { relicHuds } from '../src/ui/hud/relics';
@@ -43,23 +42,6 @@ import {
 } from '../src/ui/screens/rosterModel';
 import { useUi } from '../src/ui/store';
 import { worldOf } from './sim/helpers';
-
-/**
- * Opening Bars and Tempo Rubato are W3's (`src/sim/fill/finale.ts`, a neutral stub in this tree):
- * here `cueCostCut` does what its doc comment asks, so the HUD's read of `cueCostNow` is tested on
- * a real cut.
- */
-vi.mock('../src/sim/fill/finale', async (importOriginal) => {
-  const real = await importOriginal<Record<string, unknown>>();
-  return {
-    ...real,
-    cueCostCut: (state: { mods: Mods; ledger: { cues: number } }, cost: number): number => {
-      const n = state.ledger.cues;
-      if (state.mods.freeCueEvery > 0 && (n + 1) % state.mods.freeCueEvery === 0) return 0;
-      return n === 0 ? Math.max(0, cost - state.mods.firstCueCut) : cost;
-    },
-  };
-});
 
 beforeEach(() => {
   useSettings.getState().reset();
@@ -575,50 +557,6 @@ describe('the relic bar: trigger relics pulse, once-a-fight relics show spent', 
       const tile = buildHudSnapshot(sim.state, { seed: 3, hovered: null }).relics[0]!;
       expect(tile, id).toMatchObject({ id, kind: 'once', ready: true });
     }
-  });
-});
-
-describe('the Cue’s price on the HUD is the sim’s (cueCostNow), for every Calling', () => {
-  function staged(mods: Partial<Mods>, cues = 0) {
-    const sim = createSim({ seed: 3, encounter: 'first_light' });
-    const world = worldOf(sim) as unknown as { mods: Mods; ledger: { cues: number } };
-    world.mods = { ...world.mods, ...mods };
-    world.ledger.cues = cues;
-    return sim;
-  }
-  const shown = (sim: ReturnType<typeof createSim>) =>
-    buildHudSnapshot(sim.state, { seed: 3, hovered: null }).weaver.cueCost;
-
-  it('without the fill’s entries it is the fight’s cost, as before', () => {
-    const sim = staged({});
-    expect(shown(sim)).toBe(sim.state.dissonance.cueCost);
-    expect(shown(sim)).toBe(cueCostNow(sim.state));
-  });
-
-  it('Opening Bars: the first Cue of the fight shows its cut', () => {
-    const first = staged({ firstCueCut: 10 });
-    expect(shown(first)).toBe(first.state.dissonance.cueCost - 10);
-    expect(shown(first)).toBe(cueCostNow(first.state));
-    const later = staged({ firstCueCut: 10 }, 1);
-    expect(shown(later)).toBe(later.state.dissonance.cueCost);
-  });
-
-  it('Tempo Rubato: the free Cue shows free', () => {
-    const free = staged({ freeCueEvery: 3 }, 2);
-    expect(shown(free)).toBe(0);
-    const paid = staged({ freeCueEvery: 3 }, 1);
-    expect(shown(paid)).toBe(paid.state.dissonance.cueCost);
-  });
-
-  it('the hint and the meter read the same price', async () => {
-    const sim = staged({ firstCueCut: 10 });
-    const hud = buildHudSnapshot(sim.state, { seed: 3, hovered: null });
-    const WeaverBar = await component<Record<string, unknown>>(
-      '../src/ui/hud/WeaverBar',
-      'WeaverBar',
-    );
-    const html = renderToStaticMarkup(createElement(WeaverBar, { hud }));
-    expect(html).toContain(`data-cue-cost="${sim.state.dissonance.cueCost - 10}"`);
   });
 });
 

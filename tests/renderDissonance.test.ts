@@ -259,7 +259,7 @@ describe('Dissonance cues', () => {
       blindScore: false,
       restless: false,
       vanguard: false,
-      cueCost: CONTENT.resonance.cueCost,
+      cueCost: CONTENT.resonance.segment,
       segment: CONTENT.resonance.segment,
       max: CONTENT.resonance.max,
     });
@@ -270,7 +270,7 @@ describe('Dissonance cues', () => {
     });
     expect(at([level('elite_vanguard')])).toMatchObject({ vanguard: true });
     expect(at([level('cue_cost')]).cueCost).toBe(
-      CONTENT.resonance.cueCost + value('cue_cost', 'resonance'),
+      CONTENT.resonance.segment + value('cue_cost', 'resonance'),
     );
     // A state without `dissonance` (an old fixture, a lab stand-in) reads as none.
     const sim = sandbox();
@@ -320,7 +320,7 @@ describe('Dissonance cues', () => {
     const out = new Float32Array(8);
     const look = emptyDissonanceLook();
     expect(cueTicks(look, out)).toBe(0);
-    look.cueCost = CONTENT.resonance.cueCost + value('cue_cost', 'resonance');
+    look.cueCost = CONTENT.resonance.segment + value('cue_cost', 'resonance');
     const n = cueTicks(look, out);
     const want: number[] = [];
     for (let k = 1; k * look.cueCost <= look.max; k++) {
@@ -333,7 +333,7 @@ describe('Dissonance cues', () => {
   });
 
   it('a Cue is ready when the Weaver’s Resonance pays this fight’s cost (the Hymnal reads it)', () => {
-    const cost = CONTENT.resonance.cueCost + value('cue_cost', 'resonance');
+    const cost = CONTENT.resonance.segment + value('cue_cost', 'resonance');
     const sim = sandbox({ dissonance: [level('cue_cost')] });
     stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: cost - 1 } }]);
     expect(cueReady(sim.state)).toBe(false);
@@ -341,7 +341,7 @@ describe('Dissonance cues', () => {
     expect(cueReady(sim.state)).toBe(true);
     const plain = sandbox();
     stepFor(plain, 1, [
-      { t: 'debug', op: { op: 'setResonance', value: CONTENT.resonance.cueCost } },
+      { t: 'debug', op: { op: 'setResonance', value: CONTENT.resonance.segment } },
     ]);
     expect(cueReady(plain.state)).toBe(true);
   });

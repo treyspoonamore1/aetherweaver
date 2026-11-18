@@ -729,7 +729,6 @@ describe('every moment, and the rules they keep', () => {
     const batches = (config: Partial<SimConfig>) => {
       const { sim, h } = setup({
         ...config,
-        assists: { autonomy: true },
         encounter: 'first_light',
       });
       const counts: number[] = [];
