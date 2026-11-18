@@ -238,22 +238,22 @@ The cold read (≥ 4 of 5 testers answering the first two questions) uses the pr
 - **More Resonance.** You gain 10% more Resonance. A Cue costs nothing for anyone now: a Solo is Cued when your Thread is on the hero as it fires, and the meter shows no price.
 - **Duets and Trios.** A Solo Cued within 4 seconds of the last Cued Solo plays as a **Duet**, 25% stronger. A third hero Cued within 4 seconds of the second plays as a **Trio**, 50% stronger. So follow each Solo with your Thread as it fires: the heroes fire a second apart. A chain needs different heroes: the same hero Cued again starts it over.
 - **Only Cued Solos count.** A Solo that fires plain, with your Thread elsewhere, neither joins nor breaks a chain, and neither does a Grand Finale turn.
-- **Grand Finale** replaces Sunrise. Every hero plays their Solo in turn, Cued, each 20% stronger than the last. Then every Solo is full again, and the three fire a second apart: a Trio for the taking. It costs the Crescendo's 100 Resonance.
+- **Grand Finale** replaces Sunrise. Every hero plays their Solo in turn, Cued, each 20% stronger than the last. Then every Solo is full again, and the three fire a second apart: a Trio for the taking. It costs the Crescendo's full song: 200 Resonance, since the meter now holds 200.
 
 **His path.**
 
 - **Tier I:**
   - **Marcato:** heroes who answer one of your orders (Focus, Rally, Hold or Scatter) deal 10% more damage for 4 seconds. It comes again 8 seconds after it was given.
-  - **A Tempo:** your heroes begin their Solos on the downbeat. Each one you Cue gives 15 Resonance. The strip under your Resonance shows the beat, and whose Solo begins on the next one.
+  - **A Tempo:** your heroes begin their Solos on the downbeat. Each one you Cue gives 30 Resonance. The strip under your Resonance shows the beat, and whose Solo begins on the next one.
 - **Tier II:**
   - **Reprise:** when a Trio lands, every hero's Solo charges 30%.
-  - **Upbeat:** every fight begins with 50 Resonance.
+  - **Upbeat:** every fight begins with 100 Resonance, half the meter.
 - **Tier III:**
   - **Ensemble:** each different hero Cued in a row makes your heroes deal 5% more damage, up to 15%, until one of them is Cued again.
   - **Spotlight:** a hero whose Solo is Cued stays Empowered at double strength while it lasts, wherever your Thread goes.
 - **Tier IV:**
   - **Triad:** while three or more heroes stand in your field, your Resonance never fades.
-  - **Maestro:** Grand Finale needs only 75 Resonance, and it plays every hero's turn twice, still rising.
+  - **Maestro:** Grand Finale needs only 150 Resonance, and it plays every hero's turn twice, still rising.
 
 **What to look for.**
 
@@ -272,7 +272,7 @@ The cold read (≥ 4 of 5 testers answering the first two questions) uses the pr
 **What we know is off.**
 
 - Only bots have played him. In their runs the Grand Finale is so strong that fights with the Conductor end much sooner than with no Calling: the Silent Conductor, for one, falls about 65 to 120 seconds sooner. It may feel too strong, and tell us if it does.
-- On the Triad path the Finale costs 100 Resonance, which is seldom reached in the short early fights; the Maestro path casts it far more often. If Triad feels like a Calling with no Finale, that is this.
+- On the Triad path the Finale costs the whole meter (200 Resonance), which is seldom reached in the short early fights; the Maestro path casts it far more often. If Triad feels like a Calling with no Finale, that is this.
 - Marcato needs orders to answer. The bots could not use it well in the Prelude, so we know least about how it plays.
 
 **Please tell us:**
@@ -302,7 +302,7 @@ The Expedition's pools are much larger: **63 new motifs** (30 common, 22 rare an
 - **Shatterglass** (rare): when a Ward breaks, shards strike the three nearest enemies for 100 / 150 / 200 damage each. It pays on a Ward that was used up, not on a Perfect Ward.
 - **Breath Between** (rare): after 4 seconds without casting a technique, your next costs 30 / 45 / 60% less Spirit. It rewards pacing your casts.
 - **Iron Answer** (Kael, common): each Ward you cast on Kael brings his Challenge 2 / 3 / 4 seconds closer. The other Bond motifs are Penitent Shield (Kael), Split Fletching and Steady Draw (Lyra), Constellation Lines and Inner Orbit (Vexis), Bloodsong and Edge of the Red (Brann), Cold Steel and Second Intention (Seren), and Graft and Seed Vault (Oro). Each is offered only when its hero is in your party.
-- **Opening Bars** (rare, a Finale motif): the first Solo Cued in each fight gives 5 / 7.5 / 12.5 Resonance.
+- **Opening Bars** (rare, a Finale motif): the first Solo Cued in each fight gives 10 / 15 / 25 Resonance.
 - **Concert Pitch** (Harmony, needs Steady Hands and Thread the Needle): a Perfect Ward rings out, and every hero deals 15% more damage for 4 seconds.
 - **Tempo Rubato** (Harmony, needs Canon and Opening Bars): one Cue in every three gives half a segment of Resonance.
 - **Everbell** (legendary relic): your Chime holds two charges.
