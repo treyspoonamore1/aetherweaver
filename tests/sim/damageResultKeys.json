@@ -3,55 +3,55 @@
   "patrol": {},
   "crowd": {},
   "skilled-first-light": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 129
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 132
   },
   "skilled-bellwarden": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 270
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 267
   },
   "novice-cantor": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 362
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 500
   },
   "skilled-crimson-gate": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 292
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 308
   },
   "novice-matriarch": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 767
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 789
   },
   "skilled-vharun": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 805
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 792
   },
   "skilled-brann-crimson-gate": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 357
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 356
   },
   "skilled-brann-bellwarden": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 264
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 257
   },
   "novice-brann-first-light": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 128
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 150
   },
   "skilled-unstitched-threshold": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 244
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 278
   },
   "novice-seamstress": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 518
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 521
   },
   "skilled-unweaver": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 1126
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 1151
   },
   "skilled-brann-mirror-hall": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 196
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 201
   },
   "skilled-conductor": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 1145
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 1023
   },
   "novice-grand-silence": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 161
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 172
   },
   "skilled-brann-conductor": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 735
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 683
   },
   "skilled-chrono-silence": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 106
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 113
   }
  },
  "keys": [

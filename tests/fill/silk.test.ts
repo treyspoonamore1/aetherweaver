@@ -335,7 +335,10 @@ describe('the Silk motifs, each at every level and without it', () => {
       expect(caught.needled).toHaveLength(1);
       expect(caught.needled[0]!.negated).toBeCloseTo((400 * v) / 100, 9);
       expect(caught.resonance).toHaveLength(1);
-      expect(caught.resonance[0]!.amount).toBeCloseTo(CONTENT.resonance.gains.perfectWard / 2, 9);
+      expect(caught.resonance[0]!.amount).toBeCloseTo(
+        (CONTENT.resonance.gains.perfectWard / 2) * CONTENT.resonance.gainScale,
+        9,
+      );
       expect(caught.shielded).toBeCloseTo((400 * v) / 100, 9);
       // Not a Perfect Ward: nothing that pays one fires.
       expect(caught.perfects).toBe(0);
@@ -351,8 +354,11 @@ describe('the Silk motifs, each at every level and without it', () => {
   });
 
   it('Gilt Edge: an Empowered hero’s kill gives {v} more Resonance', () => {
-    const gain = CONTENT.resonance.gains.empoweredKill;
-    for (const [level, v] of levels('gilt_edge')) {
+    // Every gain is scaled by the content's `gainScale` (docs/solos.md).
+    const scale = CONTENT.resonance.gainScale;
+    const gain = CONTENT.resonance.gains.empoweredKill * scale;
+    for (const [level, raw] of levels('gilt_edge')) {
+      const v = raw * scale;
       for (const mode of ['empower', 'mend'] as const) {
         const s = stage('gilt_edge', level);
         const kael = s.hero(0);

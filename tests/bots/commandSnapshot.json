@@ -1,102 +1,102 @@
 {
  "skilled:first_light:1000": {
-  "commands": "151e14bfcff37661",
-  "count": 760,
-  "final": "95eae650cd18cadc"
+  "commands": "2aa34b56e94cb8f7",
+  "count": 674,
+  "final": "c60da70e036810f4"
  },
  "skilled:crimson_gate:1000": {
-  "commands": "075027bd3ffd26a1",
-  "count": 714,
-  "final": "f453cd35b64e25f1"
+  "commands": "17aa32dd5db912ad",
+  "count": 707,
+  "final": "9796a0d8635abc4b"
  },
  "skilled:first_light:8919": {
-  "commands": "0d2a66ab660d754a",
-  "count": 645,
-  "final": "ea4ab40c97d2483c"
+  "commands": "e4677f391b48e05b",
+  "count": 617,
+  "final": "04b5d678b241cb43"
  },
  "skilled:crimson_gate:8919": {
-  "commands": "35c51049f61770e2",
-  "count": 701,
-  "final": "855c49072623f591"
+  "commands": "4424d6771a8b2f9b",
+  "count": 702,
+  "final": "04bd7090db48b4be"
  },
  "skilled:first_light:16838": {
-  "commands": "39d0043065fe4bce",
-  "count": 728,
-  "final": "2cce800feef9608a"
+  "commands": "d43075574201e749",
+  "count": 736,
+  "final": "5a5a54bfad8e949b"
  },
  "skilled:crimson_gate:16838": {
-  "commands": "217d15936b236d54",
-  "count": 814,
-  "final": "31627a335b28cd22"
+  "commands": "46c58e99cdd9754e",
+  "count": 812,
+  "final": "d148662badb2d108"
  },
  "skilled:first_light:24757": {
-  "commands": "0c877020ac79c4cf",
-  "count": 719,
-  "final": "8f15394032be0f91"
+  "commands": "fa804955728029e2",
+  "count": 710,
+  "final": "2a80bd7de1c6bb0c"
  },
  "skilled:crimson_gate:24757": {
-  "commands": "cea017dad8e785b4",
+  "commands": "6a40515690c497ee",
   "count": 794,
-  "final": "a97cc09977afa5ea"
+  "final": "d462ce0ffbaa8a92"
  },
  "skilled:first_light:32676": {
-  "commands": "73e6686ff37f3119",
-  "count": 707,
-  "final": "2e914369224bd559"
+  "commands": "bf7b7599eb1001d8",
+  "count": 682,
+  "final": "c413e5437f7fa396"
  },
  "skilled:crimson_gate:32676": {
-  "commands": "3d5bd372cd7ff9e2",
-  "count": 644,
-  "final": "b4902c318b2adbee"
+  "commands": "7ef60be2ed46cca0",
+  "count": 642,
+  "final": "146e0f4dada187cd"
  },
  "novice:first_light:1000": {
-  "commands": "63cb28a590d91d49",
+  "commands": "2a58c10bbcfbda0b",
   "count": 96,
-  "final": "c8f4f36311d54c61"
+  "final": "d97a57e4346b17cd"
  },
  "novice:crimson_gate:1000": {
-  "commands": "e7ab8c0f51d486f7",
-  "count": 95,
-  "final": "c320b9a246a288f9"
+  "commands": "46be6175855c22ec",
+  "count": 97,
+  "final": "ca843b14452d347e"
  },
  "novice:first_light:8919": {
-  "commands": "97f26105b65f9baf",
-  "count": 96,
-  "final": "49ae6668b272fac8"
+  "commands": "ed129380e02398da",
+  "count": 99,
+  "final": "8b84c41729551786"
  },
  "novice:crimson_gate:8919": {
-  "commands": "72626425a4b26e00",
-  "count": 97,
-  "final": "b82defefcef33aa3"
+  "commands": "10fdb7ccfe875f4e",
+  "count": 96,
+  "final": "6e783670e3417af4"
  },
  "novice:first_light:16838": {
-  "commands": "fa889cbe9729a06d",
-  "count": 93,
-  "final": "b55a685de7b387a6"
+  "commands": "9530936416cc0828",
+  "count": 96,
+  "final": "f34ee382e7bca4a8"
  },
  "novice:crimson_gate:16838": {
-  "commands": "6d5096ffd18db4cf",
-  "count": 98,
-  "final": "85abca3d17e2923c"
+  "commands": "f4521bd18c7467a6",
+  "count": 93,
+  "final": "e59fe0855f204114"
  },
  "novice:first_light:24757": {
-  "commands": "5bf31606383ac16c",
-  "count": 79,
-  "final": "a125b140553a2625"
+  "commands": "7772b5fa24a72e39",
+  "count": 80,
+  "final": "d8449a05131392c2"
  },
  "novice:crimson_gate:24757": {
-  "commands": "a5c100aba849933a",
-  "count": 81,
-  "final": "ced74c07189c431b"
+  "commands": "bc32d68ded4230b7",
+  "count": 82,
+  "final": "6979fcfb52226760"
  },
  "novice:first_light:32676": {
-  "commands": "05b58e8675b0f450",
-  "count": 83,
-  "final": "53517d9c153e4513"
+  "commands": "59eaaeaae31e36e4",
+  "count": 95,
+  "final": "331f73fcceb67385"
  },
  "novice:crimson_gate:32676": {
-  "commands": "c9354e0dbcbac80f",
-  "count": 85,
-  "final": "8618134ddc92370c"
+  "commands": "db262b07f82017b6",
+  "count": 87,
+  "final": "d05f5f14e6cf9689"
  }
 }

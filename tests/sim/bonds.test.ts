@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { CONTENT, altSoloDef, heroDef, talentDef } from '../../src/content';
-import type { SimConfig, SimEvent } from '../../src/sim';
+import { resonanceScale, type SimConfig, type SimEvent } from '../../src/sim';
 import { addShield, addStatus, dealDamage, heal } from '../../src/sim/combat/health';
 import { KNOWN_ALT_SOLOS, KNOWN_TALENTS } from '../../src/sim/bonds';
 import { resolveConfig } from '../../src/sim/world';
@@ -732,7 +732,7 @@ describe('the review’s fixes', () => {
     });
     stepFor(sim, 1);
     expect(b!.health!.hp).toBeLessThan(1e6);
-    expect(weaver.resonance).toBeCloseTo(v('hawk_eye', 'resonance') * w.mods.resonanceMult, 6);
+    expect(weaver.resonance).toBeCloseTo(v('hawk_eye', 'resonance') * resonanceScale(w), 6);
   });
 
   it('Constellation’s stars fade when Vexis falls', () => {

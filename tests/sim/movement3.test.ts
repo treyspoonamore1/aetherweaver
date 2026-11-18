@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { attackDef, CONTENT, heroDef } from '../../src/content';
 import type { Command, Sim, SimConfig, SimEvent } from '../../src/sim';
-import { createSim, weaverSilenced } from '../../src/sim';
+import { createSim, resonanceScale, weaverSilenced } from '../../src/sim';
 import {
   addStatus,
   dealDamage,
@@ -191,7 +191,7 @@ describe('cutThread: an enemy cuts the Thread', () => {
     sim.drainEvents();
     expect(cutThread(w, 'snip', 3, null)).toBe('cut');
     expect(wv.threadLock).toBe(1.5);
-    expect(wv.resonance - before).toBeCloseTo(10 * w.mods.resonanceMult, 9);
+    expect(wv.resonance - before).toBeCloseTo(10 * resonanceScale(w), 9);
     const events = sim.drainEvents();
     expect(ofType(events, 'threadSnapped')[0]).toMatchObject({ cause: 'snip', lock: 1.5 });
     // It acted, so the view hears it (its sound, W7).

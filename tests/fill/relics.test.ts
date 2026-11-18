@@ -215,9 +215,17 @@ describe('common relics', () => {
       return wv.resonance - before;
     };
     const base = gain([]);
-    expect(base).toBeCloseTo(CONTENT.resonance.gains.response, 9);
-    expect(gain([plain('tin_whistle')]) - base).toBeCloseTo(val('tin_whistle', 'resonance'), 9);
-    expect(gain([emp('tin_whistle')]) - base).toBeCloseTo(val('tin_whistle', 'resonance', true), 9);
+    // Every gain is scaled by the content's `gainScale` (docs/solos.md).
+    const scale = CONTENT.resonance.gainScale;
+    expect(base).toBeCloseTo(CONTENT.resonance.gains.response * scale, 9);
+    expect(gain([plain('tin_whistle')]) - base).toBeCloseTo(
+      val('tin_whistle', 'resonance') * scale,
+      9,
+    );
+    expect(gain([emp('tin_whistle')]) - base).toBeCloseTo(
+      val('tin_whistle', 'resonance', true) * scale,
+      9,
+    );
   });
 
   it('Black Ribbon: a heavy foe falling heals every hero; a light one doesn’t', () => {
@@ -382,7 +390,10 @@ describe('rare relics', () => {
       );
       expect(ofType(events, 'allyDowned')).toHaveLength(1);
       expect(fires(events, 'lament_pin')).toHaveLength(1);
-      expect(wv.resonance - before).toBeCloseTo(val('lament_pin', 'resonance', empowered), 9);
+      expect(wv.resonance - before).toBeCloseTo(
+        val('lament_pin', 'resonance', empowered) * CONTENT.resonance.gainScale,
+        9,
+      );
     }
   });
 
@@ -765,7 +776,10 @@ describe('cursed relics', () => {
       const before = wv.resonance;
       const events = act(w, () => w.events.push(perfectWard(w, heroAt(w, 0))));
       expect(fires(events, 'red_ink')).toHaveLength(1);
-      expect(wv.resonance - before).toBeCloseTo(val('red_ink', 'resonance', empowered), 9);
+      expect(wv.resonance - before).toBeCloseTo(
+        val('red_ink', 'resonance', empowered) * CONTENT.resonance.gainScale,
+        9,
+      );
       expect(wardCooldown(w)).toBeCloseTo(base + val('red_ink', 'slower'), 9);
     }
   });
@@ -775,7 +789,7 @@ describe('cursed relics', () => {
     expect(wardCooldown(w)).toBe(wardCooldown(world()));
     const wv = weaverEntity(w).weaver!;
     act(w, () => w.events.push(perfectWard(w, heroAt(w, 0))));
-    expect(wv.resonance).toBeCloseTo(val('red_ink', 'resonance'), 9);
+    expect(wv.resonance).toBeCloseTo(val('red_ink', 'resonance') * CONTENT.resonance.gainScale, 9);
   });
 
   it('Hollow Crown: every Solo plays Cued, Thread or not; Solos charge slower until cleansed', () => {

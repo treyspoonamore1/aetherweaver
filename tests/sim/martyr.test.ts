@@ -226,7 +226,7 @@ describe('the path', () => {
     // What she lifted off Kael (before the toll softens it).
     const lifted = w.ledger.calling.shielded;
     expect(weaverOf(w).weaver!.resonance - before).toBeCloseTo(
-      (lifted / 100) * value('penitence', 'per'),
+      (lifted / 100) * value('penitence', 'per') * CONTENT.resonance.gainScale,
       6,
     );
   });

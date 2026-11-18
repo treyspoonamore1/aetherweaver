@@ -94,7 +94,7 @@ describe('Reel edge cases', () => {
     expect(resolved.outcome).toBe('dodged');
     expect(sim.state.ledger.reels).toBe(1);
     expect(weaver(sim).weaver!.resonance).toBeGreaterThanOrEqual(
-      before + CONTENT.resonance.gains.reelDodge - 0.01,
+      before + CONTENT.resonance.gains.reelDodge * CONTENT.resonance.gainScale - 0.01,
     );
   });
 

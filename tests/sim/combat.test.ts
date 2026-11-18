@@ -43,7 +43,9 @@ describe('Ward and the Perfect window', () => {
       spirit - tech.ward.cost + tech.ward.cost * tech.ward.perfectRefund - 1,
     );
     expect(ofType(all, 'statusApplied').some((s) => s.status === 'stagger')).toBe(true);
-    expect(weaver(sim).weaver!.resonance).toBeGreaterThanOrEqual(res.gains.perfectWard - 1);
+    expect(weaver(sim).weaver!.resonance).toBeGreaterThanOrEqual(
+      res.gains.perfectWard * res.gainScale - 1,
+    );
     expect(ofType(all, 'timeScaleChanged').some((e) => e.reason === 'perfect')).toBe(true);
   });
 
@@ -96,7 +98,7 @@ describe('Chime', () => {
     expect(sim.state.ledger.cleanses).toBe(1);
     expect(sim.state.ledger.clutchCleanses).toBe(1);
     expect(weaver(sim).weaver!.resonance).toBeGreaterThanOrEqual(
-      resonance + res.gains.cleanse + res.gains.clutchChime - 1,
+      resonance + (res.gains.cleanse + res.gains.clutchChime) * res.gainScale - 1,
     );
   });
 

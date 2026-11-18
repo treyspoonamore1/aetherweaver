@@ -394,7 +394,7 @@ describe('Blood and Silk', () => {
 
   it('Empowering him below 30% makes Resonance; Mend, or above 30%, doesn’t', () => {
     const v = motif('blood_and_silk').values[0]!;
-    expect(gain(0.2, 'empower')).toBeCloseTo(v, 1);
+    expect(gain(0.2, 'empower')).toBeCloseTo(v * CONTENT.resonance.gainScale, 1);
     expect(gain(0.5, 'empower')).toBeCloseTo(0, 6);
     expect(gain(0.2, 'mend')).toBeCloseTo(0, 6);
     expect(gain(0.2, 'empower', {})).toBeCloseTo(0, 6);

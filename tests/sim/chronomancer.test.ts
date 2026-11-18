@@ -418,7 +418,9 @@ describe('Stasis', () => {
     const gained = ofType(eternal.events, 'resonanceGained').filter(
       (e) => e.reason === 'eternal moment',
     );
-    expect(gained.map((e) => e.amount)).toEqual([value('eternal_moment', 'resonance')]);
+    expect(gained.map((e) => e.amount)).toEqual([
+      value('eternal_moment', 'resonance') * CONTENT.resonance.gainScale,
+    ]);
   });
 });
 
