@@ -58,12 +58,102 @@ export function SettingsPanel({
   compact?: boolean;
   context?: 'run' | 'training';
 }) {
+  // Two tabs: what a player opens Settings to change, and the key, mouse and gamepad tables.
+  const [tab, setTab] = useState<SettingsTab>('general');
+  const tabsId = useId();
+
+  if (tab === 'controls')
+    return (
+      <>
+        <SettingsTabs id={tabsId} tab={tab} onTab={setTab} />
+        <div
+          id={`${tabsId}-panel`}
+          role="tabpanel"
+          aria-labelledby={`${tabsId}-controls`}
+          className="mt-4"
+        >
+          <Section title={t('a11y.settings.controls')}>
+            <ControlsSettings compact={compact} />
+          </Section>
+        </div>
+      </>
+    );
+  return (
+    <>
+      <SettingsTabs id={tabsId} tab={tab} onTab={setTab} />
+      <div
+        id={`${tabsId}-panel`}
+        role="tabpanel"
+        aria-labelledby={`${tabsId}-general`}
+        className={`mt-4 grid gap-4 ${compact ? '' : 'lg:grid-cols-2'}`}
+      >
+        <GeneralSettings compact={compact} context={context} />
+      </div>
+    </>
+  );
+}
+
+type SettingsTab = 'general' | 'controls';
+
+/**
+ * Settings' two tabs (the menu text pass, round 11): General, and Controls. Left and Right move
+ * between them, as on the Codex; the pad's d-pad reaches them like any other button.
+ */
+function SettingsTabs({
+  id,
+  tab,
+  onTab,
+}: {
+  id: string;
+  tab: SettingsTab;
+  onTab(tab: SettingsTab): void;
+}) {
+  const tabs: readonly { id: SettingsTab; label: string }[] = [
+    { id: 'general', label: t('a11y.settings.general') },
+    { id: 'controls', label: t('a11y.settings.controls') },
+  ];
+  return (
+    <div
+      role="tablist"
+      aria-label={t('a11y.settings.settings')}
+      className="mt-4 flex gap-2 border-b border-ink-600/60 pb-3"
+      data-testid="settings-tabs"
+      onKeyDown={(e) => {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        const next = tab === 'general' ? 'controls' : 'general';
+        onTab(next);
+        document.getElementById(`${id}-${next}`)?.focus();
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    >
+      {tabs.map((x) => (
+        <button
+          key={x.id}
+          id={`${id}-${x.id}`}
+          role="tab"
+          type="button"
+          aria-selected={tab === x.id}
+          aria-controls={`${id}-panel`}
+          onClick={() => onTab(x.id)}
+          data-testid={`settings-tab-${x.id}`}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+            tab === x.id ? 'bg-gold-400 text-ink-950' : 'bg-ink-800 text-muted hover:text-text'
+          }`}
+        >
+          {x.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Everything but Controls: sound, comfort, assists, telegraphs, the HUD, graphics, progress. */
+function GeneralSettings({ compact, context }: { compact: boolean; context?: 'run' | 'training' }) {
   const settings = useSettings((s) => s.settings);
   const update = useSettings((s) => s.update);
   const reset = useSettings((s) => s.reset);
-  // Phase 7's options (docs/phase-7.md, *Contracts*): each absent until the player sets it.
   const options = optionsOf(settings);
-
   const setVolume = (key: keyof Settings['volumes'], value: number) => {
     update((d) => ({ ...d, volumes: { ...d.volumes, [key]: value } }));
     try {
@@ -76,7 +166,7 @@ export function SettingsPanel({
     update((d) => ({ ...d, assists: { ...d.assists, [key]: value } }));
 
   return (
-    <div className={`mt-4 grid gap-4 ${compact ? '' : 'lg:grid-cols-2'}`}>
+    <>
       <Section title={t('a11y.settings.sound')}>
         <Slider
           label={t('a11y.settings.master')}
@@ -232,16 +322,11 @@ export function SettingsPanel({
         {DEMO && !compact && <DemoOver />}
       </Section>
       <div className={compact ? '' : 'lg:col-span-2'}>
-        <Section title={t('a11y.settings.controls')}>
-          <ControlsSettings compact={compact} />
-        </Section>
-      </div>
-      <div className={compact ? '' : 'lg:col-span-2'}>
         <Button variant="ghost" size="sm" onClick={reset}>
           {t('a11y.settings.restoreDefaults')}
         </Button>
       </div>
-    </div>
+    </>
   );
 }
 

@@ -35,7 +35,7 @@ export function handOff(outcome: CombatOutcome): void {
 export function CombatScreen() {
   const pending = useRun((s) => s.run?.pending ?? null);
   const encounters = useRun((s) => s.run?.encounters ?? 0);
-  // "The Prelude · node 3 of 10", or an Expedition's Movement and its node.
+  // "The Prelude · step 3 of 10", or an Expedition's Movement and its step.
   const subtitle = useRun((s) =>
     s.run ? combatSubtitle(s.run) : t('screens.combatScreen.thePreludeNode0'),
   );

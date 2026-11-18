@@ -17,6 +17,7 @@ import type { FxKit } from './fx/kit';
 import { PARTICLE } from './fx/particles';
 import { RING } from './fx/rings';
 import { SPRITE } from './fx/sprites';
+import { HERO_DRAWN } from './models/artFlag';
 import { C, clamp01, color } from './palette';
 
 /**
@@ -33,6 +34,15 @@ import { C, clamp01, color } from './palette';
  * never drawn here. `flash` is the parry's white-steel flash: a near-white with her violet in
  * it, never the Ward's cyan.
  */
+/**
+ * Where Seren's en garde blades cross: this far over her drawn head and this far to the right of
+ * it (m). Over the health bar, which sits at 0.42 (partyBars.ts BAR_LIFT) and is about 0.35 m tall
+ * at the game camera (at their first lift, 0.5, the bar lay across them), and beside the Thread's
+ * mode glyph, which stands over the middle of the head at 1.05 when she is the Thread's hero.
+ */
+export const GARDE_LIFT = 0.8;
+export const GARDE_ASIDE = 0.6;
+
 export const SEREN_HEX = {
   violet: '#a018f8',
   flash: '#f5efff',
@@ -379,7 +389,7 @@ export class SerenFx {
     if (r)
       this.d.overlay?.callout(
         r.x,
-        r.y + r.height + 1.1,
+        r.y + r.height * HERO_DRAWN + 1.1,
         r.z,
         PARRIED_TEXT,
         SEREN_HEX.flash,
@@ -417,7 +427,8 @@ export class SerenFx {
     if (at)
       this.d.overlay?.callout(
         at.x,
-        at.y + at.height + 1.3,
+        // Over her quarry as it was; over Seren herself (no quarry drawn), her drawn head.
+        at.y + at.height * (t ? 1 : HERO_DRAWN) + 1.3,
         at.z,
         e.executed ? EXECUTED_TEXT : KILL_SHOT_TEXT,
         SEREN_HEX.flash,

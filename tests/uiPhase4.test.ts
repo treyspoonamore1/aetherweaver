@@ -683,7 +683,7 @@ describe('the song builder with a tree', () => {
   });
 
   it('Prep says what pays for what; every Training preset can be sung with any tree', () => {
-    expect(poolBlurb(Run.newRun(3))).toMatch(/^Whatever Spirit your auras leave free/);
+    expect(poolBlurb(Run.newRun(3))).toMatch(/^Spirit your auras leave free/);
     expect(poolBlurb(Run.newRun(3, undefined, SANGUINE_TREE))).toMatch(/^With Sanguine Font/);
     expect(poolBlurb(Run.newRun(3, undefined, KEYSTONE_TREE))).toMatch(/^With Eldritch Conduit/);
     expect(poolBlurb(Run.setCalling(Run.newRun(3), 'martyr'))).toMatch(/^As the Martyr/);

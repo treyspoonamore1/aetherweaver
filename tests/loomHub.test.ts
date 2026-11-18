@@ -306,7 +306,11 @@ describe('first contact', () => {
     }
   });
 
-  it('each intro says what its words mean, on first use, in content’s numbers', () => {
+  // The second menu text pass (round 11) dropped the earlier rule that an intro explains each of
+  // its terms in brackets: a term is explained where the player uses it, and an intro's panel
+  // holds 30 words at most (docs/voice.md). What is held here now is content's numbers, and the
+  // lines other streams own, as they were (the songs' gloss, the Solo's).
+  it('each intro gives content’s numbers, in panels of 30 words at most', () => {
     const text = (id: Parameters<typeof stationIntro>[0]) =>
       stationIntro(id)
         .panels.map((p) => p.body)
@@ -317,14 +321,13 @@ describe('first contact', () => {
       .panels.map((p) => p.body)
       .join(' ');
     expect(welcome).toMatch(/a sandbox: spawn enemies and try your build/);
-    expect(welcome).toMatch(/Prep, where you choose your songs \(the auras you sing/);
+    expect(welcome).toMatch(/In Prep you choose your songs: the auras that heal your heroes/);
     // The Astrolabe: Deeds' points, and how a star is given back (right-click, or Give back).
-    expect(text('astrolabe')).toContain(`up to ${DEED_POINTS_MAX} more`);
-    expect(text('astrolabe')).toContain('Hall of Deeds');
-    expect(text('astrolabe')).toContain('choose a star you’ve taken and press Give back');
+    expect(text('astrolabe')).toContain(`Deeds add up to ${DEED_POINTS_MAX}`);
+    expect(text('astrolabe')).toContain('Right-click a star to give it back, or use Give back');
     // The Reliquary: Inscriptions, its materials, and the carry by Rank.
     const rq = CONTENT.reliquary;
-    expect(text('reliquary')).toMatch(/Inscriptions, small bonuses/);
+    expect(text('reliquary')).toMatch(/Inscriptions: small bonuses/);
     expect(text('reliquary')).toMatch(/Tuning Shards for each fight it won/);
     expect(text('reliquary')).toContain(
       `a Discord Tear for beating its boss with an ${rq.tearGrade}`,
@@ -333,7 +336,7 @@ describe('first contact', () => {
       `one from Rank ${rq.slotRanks[0]}, two from ${rq.slotRanks[1]}, three from ${rq.slotRanks[2]}`,
     );
     expect(text('reliquary')).toMatch(
-      /Each lends the run its Inscriptions, and the first, attuned, plays its own effect/,
+      /Each lends its Inscriptions\. The first is attuned and plays its own effect/,
     );
     // Bonds: who earns Bond XP, and what a Solo is.
     for (const h of bondedHeroes()) expect(text('bonds')).toContain(heroDef(h).name);
@@ -346,11 +349,20 @@ describe('first contact', () => {
     expect(text('dissonance')).toContain(
       `+${d.xpPerPoint}% Weaver XP and +${d.shardsPerPoint}% Tuning Shards`,
     );
-    // The Atelier: a Calling and its mastery, from the first Calling's Rank.
-    const first = Math.min(...CONTENT.callings.map((c) => c.unlockRank));
-    expect(text('atelier')).toContain(
-      `A Calling (a class for the Weaver, chosen in Prep from Rank ${first})`,
-    );
+    // The Atelier: what a Calling's top mastery does there.
+    expect(text('atelier')).toContain('A Calling’s top mastery puts its own variant on sale');
+    // The ceiling: 30 words a panel. Bonds' two panels are over it and are not this pass's to cut
+    // (they describe Solos). The Atlas's constellations panel lists keepsakes by name. The
+    // welcome's Gate and the Atlas's weekly were held too while aura lines were the owner's; that
+    // rule was lifted in round 11 and both are under the ceiling now.
+    const words = (s: string) => s.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
+    const held = new Set(['bonds:0', 'bonds:1', 'atlas:1']);
+    for (const id of STATIONS)
+      stationIntro(id).panels.forEach((p, i) => {
+        if (WELCOME.includes(id) ? id !== 'gate' || held.has(`gate:${i}`) : held.has(`${id}:${i}`))
+          return;
+        expect(words(p.body), `${id} panel ${i + 1}: ${p.body}`).toBeLessThanOrEqual(30);
+      });
   });
 
   it('the hub says what Starlight is for: where it’s spent, and from when', () => {
@@ -375,7 +387,7 @@ describe('first contact', () => {
       ...CONTENT.cosmetics.threads.map((t) => t.price),
     ];
     expect(text).toContain(`${Math.min(...looks)}–${Math.max(...looks)}`);
-    expect(text).toMatch(/Mend’s and Empower’s colours stay/);
+    expect(text).toMatch(/Mend and Empower keep their colours/);
   });
 });
 
@@ -493,14 +505,11 @@ describe('the Atelier', () => {
     let items = shelvesAt(at(S.atelierRank));
     const sold = items.find((i) => i.item.id === plain.id)!;
     expect([sold.status, sold.action]).toEqual(['Open', 'buy']);
-    expect(sold.note).toMatch(
-      /^Settings → Skip the unlocks lets you play it now, and it’s on sale/,
-    );
+    // The setting is named in Settings alone (the second menu text pass, round 11).
+    expect(sold.note).toBe('You can play it now. It’s on sale too, to keep.');
     const unsold = items.find((i) => i.item.id === m.variant)!;
     expect([unsold.status, unsold.action]).toEqual(['Open', null]);
-    expect(unsold.note).toBe(
-      `Settings → Skip the unlocks lets you play it now. On sale with the ${name}’s top mastery.`,
-    );
+    expect(unsold.note).toBe(`You can play it now. On sale with the ${name}’s top mastery.`);
     // The store agrees: the mastery variant can't be bought under Skip.
     expect(buy(at(S.atelierRank, { starlight: 999 }), m.variant, S.atelierRank, true)).toEqual({
       refused: shopItems(at(S.atelierRank), S.atelierRank, false).find((i) => i.id === m.variant)!
@@ -510,10 +519,10 @@ describe('the Atelier', () => {
     items = shelvesAt(at(1));
     expect(items.every((i) => i.action === null)).toBe(true);
     expect(items.find((i) => i.item.id === plain.id)!.note).toBe(
-      `Settings → Skip the unlocks lets you play it now. On sale from Weaver Rank ${S.atelierRank}.`,
+      `You can play it now. On sale from Weaver Rank ${S.atelierRank}.`,
     );
     expect(items.find((i) => i.item.id === m.variant)!.note).toBe(
-      `Settings → Skip the unlocks lets you play it now. On sale from Weaver Rank ${S.atelierRank}, with the ${name}’s top mastery.`,
+      `You can play it now. On sale from Weaver Rank ${S.atelierRank}, with the ${name}’s top mastery.`,
     );
   });
 

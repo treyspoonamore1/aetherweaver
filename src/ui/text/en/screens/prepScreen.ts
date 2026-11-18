@@ -7,12 +7,11 @@ export const prepScreen = {
   'screens.prepScreen.allUnlocked': '· all unlocked',
   'screens.prepScreen.theLoom': 'The Loom',
   'screens.prepScreen.youAreTheWeaver':
-    'You are the Weaver. These three fight on their own; you keep them alive and make them hit harder. Your',
-  'screens.prepScreen.ridesTheThreadWhoever':
-    'rides the Thread: whoever you thread hears it at {mult}, and everyone else near you hears an echo.',
+    'These three fight on their own. You keep them alive and make them hit harder. Your',
+  'screens.prepScreen.ridesTheThreadWhoever': 'rides your Thread at {mult}.',
   'screens.prepScreen.beamSong': 'beam song',
   'screens.prepScreen.your': ' Your',
-  'screens.prepScreen.surroundsYouAtFull': 'surrounds you, at full strength for everyone near you.',
+  'screens.prepScreen.surroundsYouAtFull': 'reaches everyone near you.',
   'screens.prepScreen.fieldSong': 'field song',
   'screens.prepScreen.yourParty': 'Your party',
   'screens.prepScreen.route': 'Route',

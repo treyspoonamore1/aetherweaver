@@ -347,7 +347,7 @@ export const LOOM_RUN_VIEWS: LabView[] = [
           hud={mockHud('luminary')}
           callouts={[]}
           decree={null}
-          subtitle="The Prelude · node 2 of 10"
+          subtitle="The Prelude · step 2 of 10"
           coach={false}
           tiersOpen={1}
         />

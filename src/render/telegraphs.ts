@@ -38,6 +38,7 @@ import { BEAM } from './fx/beams';
 import type { FxKit } from './fx/kit';
 import { PARTICLE } from './fx/particles';
 import { TG } from './fx/telegraphBatch';
+import { HERO_DRAWN, drawnHeight } from './models/artFlag';
 import { BADGE_TONE, type GlyphIcon, type Overlay } from './overlay';
 import { C, VISION_HEX, approach, clamp01, color } from './palette';
 import type { TelegraphSettings } from '../app/settings';
@@ -343,7 +344,8 @@ export class TelegraphLayer {
         if (ra && r) {
           overlay.badge(
             r.x,
-            r.height + STATUS_BADGE_LIFT + r.y,
+            // Over the drawn head (heroes are drawn HERO_DRAWN tall), over the pips and the bar.
+            r.height * HERO_DRAWN + STATUS_BADGE_LIFT + r.y,
             r.z,
             ra,
             ra.join(','),
@@ -363,7 +365,7 @@ export class TelegraphLayer {
       const label = pinned ? 'Pinned' : look.latchedBy >= 0 ? 'Latched' : `×${look.bleed}`;
       overlay.badge(
         r.x,
-        r.height + STATUS_BADGE_LIFT + r.y,
+        r.height * HERO_DRAWN + STATUS_BADGE_LIFT + r.y,
         r.z,
         answers,
         answers.join(','),
@@ -730,7 +732,9 @@ export class TelegraphLayer {
         if (target) {
           rec.cx = target.x;
           rec.cz = target.z;
-          rec.a = target.height;
+          // The drawn head (a hero's is HERO_DRAWN tall): the mark, Doom's pips round it and its
+          // answer badge keep their lift over it.
+          rec.a = drawnHeight(target);
           rec.b = target.radius;
         }
         this.drawMark(rec.cx, rec.cz, rec.a, rec.b, kit, prog, perfect, sev, flash, alpha, frost);
@@ -804,7 +808,8 @@ export class TelegraphLayer {
           const h = this.entities.recs.get(id);
           const e = state.entities.get(id);
           if (!h || !e?.health || e.health.dead || e.health.downed) continue;
-          this.drawMark(h.x, h.z, h.height, h.radius, kit, prog, perfect, sev, flash, alpha, frost);
+          const top = h.height * HERO_DRAWN;
+          this.drawMark(h.x, h.z, top, h.radius, kit, prog, perfect, sev, flash, alpha, frost);
         }
         if (rec.cut && live) this.unpickRipple(state, kit, alpha, time);
         if (live) {

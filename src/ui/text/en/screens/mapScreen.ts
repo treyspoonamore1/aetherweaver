@@ -24,7 +24,8 @@ export const mapScreen = {
   'screens.mapScreen.event': 'Event',
   'screens.mapScreen.miniBoss': 'Mini-boss',
   'screens.mapScreen.boss': 'Boss',
-  'screens.mapScreen.chooseWhereToGo': 'Choose a glowing stop. Hover one to see what it offers.',
+  'screens.mapScreen.chooseWhereToGo':
+    'Choose a glowing stop. Hover a stop, or Tab to it, to see what it offers.',
   'screens.mapScreen.noPathForward': 'No path forward.',
   'screens.mapScreen.map': 'Map',
   'screens.mapScreen.runStatus': 'Run status',

@@ -38,6 +38,7 @@ import { PARTICLE } from './fx/particles';
 import { RING } from './fx/rings';
 import { SHELL } from './fx/shells';
 import { SPRITE } from './fx/sprites';
+import { HERO_DRAWN, drawnHeight } from './models/artFlag';
 import { C, clamp01, color, rgba } from './palette';
 import { flareScale } from './relicCues';
 
@@ -82,6 +83,8 @@ export interface BondsRec {
   z: number;
   radius: number;
   height: number;
+  /** How large its model is drawn (a hero's: HERO_DRAWN); absent: as its height says. */
+  batch?: { drawn: number };
 }
 
 export interface BondsDeps {
@@ -343,7 +346,8 @@ export class BondsView {
     if (!r || !target) return;
     this.fired5b.tithe++;
     const text = e.spirit > 0 ? `+${Math.round(e.spirit)} SPIRIT` : `+${Math.round(e.life)} LIFE`;
-    this.d.overlay?.callout(r.x, r.y + r.height + 1.4, r.z, text, TITHE_HEX, 13, 1.0);
+    // Over the drawn head (heroes are drawn HERO_DRAWN tall), as every callout over a hero is.
+    this.d.overlay?.callout(r.x, r.y + r.height * HERO_DRAWN + 1.4, r.z, text, TITHE_HEX, 13, 1.0);
     this.d.kit.particles.burst(
       r.x,
       chestY(r),
@@ -732,7 +736,8 @@ export class BondsView {
     }
     if (this.once(m, BIT_BURST) && !FREQUENT.has(m.cue))
       kit.particles.burst(k.x, y, k.z, 8, 2.4, 1.4, 0.4, 0.1, m.color, 1, PARTICLE.spark, 3, 2);
-    this.callout(m, k.x, k.height + 1.6, k.z, 15);
+    // Over the hero's drawn head; over the Sapling, the Ancient or the striker, where it was.
+    this.callout(m, k.x, drawnHeight(k) + 1.6, k.z, 15);
     void time;
     return true;
   }
@@ -1049,7 +1054,7 @@ export class BondsView {
       // His seconds are up (or the fight moved on): done.
       m.life = Math.min(m.life, t);
     }
-    this.callout(m, k.x, k.height + 1.9, k.z, 22);
+    this.callout(m, k.x, k.height * HERO_DRAWN + 1.9, k.z, 22);
     return true;
   }
 
@@ -1099,7 +1104,7 @@ export class BondsView {
     }
     if (this.once(m, BIT_BURST))
       kit.particles.burst(k.x, ky, k.z, 10, 2.6, 1.6, 0.5, 0.11, m.color, 1, PARTICLE.spark, 2, 1);
-    this.callout(m, k.x, k.height + 1.7, k.z, 16);
+    this.callout(m, k.x, k.height * HERO_DRAWN + 1.7, k.z, 16);
     return true;
   }
 
@@ -1172,7 +1177,7 @@ export class BondsView {
         kit.ribbons.endStrip();
       }
     }
-    this.callout(m, l?.x ?? m.x2, (l?.height ?? m.h) + 1.6, l?.z ?? m.z2, 15);
+    this.callout(m, l?.x ?? m.x2, (l?.height ?? m.h) * HERO_DRAWN + 1.6, l?.z ?? m.z2, 15);
     return true;
   }
 
@@ -1476,7 +1481,7 @@ export class BondsView {
       );
       kit.particles.burst(ox, 0.9, oz, 8, 1.4, 0.8, 0.35, 0.09, STARLIGHT, 0.9, PARTICLE.dot, 4);
     }
-    this.callout(m, dx, m.h + 1.6, dz, 15);
+    this.callout(m, dx, m.h * HERO_DRAWN + 1.6, dz, 15);
     return true;
   }
 
@@ -1505,7 +1510,7 @@ export class BondsView {
     );
     kit.sprites.push(k.x, chestY(k), k.z, 0.5 + 0.3 * bump(t / 0.4), SPRITE.diamond, m.color, fade);
     void time;
-    this.callout(m, k.x, k.height + 1.7, k.z, 15);
+    this.callout(m, k.x, k.height * HERO_DRAWN + 1.7, k.z, 15);
     return true;
   }
 
@@ -1568,7 +1573,7 @@ export class BondsView {
       fade,
     );
     void time;
-    this.callout(m, k.x, k.height + 1.8, k.z, 17);
+    this.callout(m, k.x, k.height * HERO_DRAWN + 1.8, k.z, 17);
     return true;
   }
 
@@ -1848,9 +1853,10 @@ export class BondsView {
       FRONT - frac * Math.PI,
       frac * TAU,
     );
-    // Over his head, his oath: a diamond in a ring.
-    kit.sprites.push(r.x, r.height + 0.95, r.z, 0.52, SPRITE.ring, col, 0.75 * a);
-    kit.sprites.push(r.x, r.height + 0.95, r.z, 0.24, SPRITE.diamond, col, 0.95 * a);
+    // Over his head, his oath: a diamond in a ring (the drawn head: heroes are HERO_DRAWN tall).
+    const top = r.height * HERO_DRAWN + 0.95;
+    kit.sprites.push(r.x, top, r.z, 0.52, SPRITE.ring, col, 0.75 * a);
+    kit.sprites.push(r.x, top, r.z, 0.24, SPRITE.diamond, col, 0.95 * a);
     // Who stands under his oath (the heroes near him, and you: he takes your hits too), a ring of
     // his colour at their feet.
     if (able) {
@@ -1928,7 +1934,7 @@ export class BondsView {
         time * 1.2,
       );
     const frac = clamp01(h.soloActive / Math.max(0.1, this.altLength[slot] ?? 1));
-    const y = r.height + 0.95;
+    const y = r.height * HERO_DRAWN + 0.95;
     kit.sprites.push(r.x, y, r.z, 0.58, SPRITE.timer, col, 0.9 * a, 0, 1, frac);
     kit.sprites.push(r.x, y, r.z, 0.24, SPRITE.star, cued ? C.amp : col, a, time * 2);
     this.vigilDrawn[slot] = R;

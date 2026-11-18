@@ -27,6 +27,7 @@ import { RING } from './fx/rings';
 import { SHELL } from './fx/shells';
 import { SPRITE } from './fx/sprites';
 import { TG } from './fx/telegraphBatch';
+import { HERO_DRAWN, drawnHeight } from './models/artFlag';
 import { C, approach, clamp01, color } from './palette';
 import { flareScale } from './relicCues';
 import type { TelegraphGeometry } from './telegraphs';
@@ -65,6 +66,8 @@ export interface ChronoRec {
   yaw: number;
   radius: number;
   height: number;
+  /** How large its model is drawn (a hero's: HERO_DRAWN); absent: as its height says. */
+  batch?: { drawn: number };
   /** Held by Stasis (entities.ts), 0..1. */
   frost: number;
 }
@@ -817,7 +820,8 @@ export class ChronoView {
         const r = g.target === null ? undefined : this.d.recs.get(g.target);
         const x = r ? r.x : g.x;
         const z = r ? r.z : g.z;
-        const h = r ? r.height : g.a;
+        // Where the attack's own mark will be (telegraphs.ts: over the drawn head).
+        const h = r ? drawnHeight(r) : g.a;
         kit.marks.push(
           TG.mark,
           x,
@@ -1467,7 +1471,7 @@ export class ChronoView {
       const r = this.d.recs.get(m.target);
       const sx = r ? r.x : s.x;
       const sz = r ? r.z : s.z;
-      const sy = (r ? r.height : s.a) + 0.75;
+      const sy = (r ? drawnHeight(r) : s.a) + 0.75;
       const x = sx + (m.x2 - sx) * e;
       const z = sz + (m.z2 - sz) * e;
       const yy = sy + (casterY - sy) * e;
@@ -1734,7 +1738,8 @@ export class ChronoView {
     const kit = this.d.kit;
     const t = m.age / m.life;
     const flick = easeOut(seg(m.age, 0.05, 0.35));
-    const y = w.y + w.height + 0.75;
+    // Over her drawn head (the Weaver is drawn HERO_DRAWN tall): the same lift over it as before.
+    const y = w.y + w.height * HERO_DRAWN + 0.75;
     const a = 1 - seg(m.age, m.life * 0.6, m.life);
     kit.sprites.push(w.x, y, w.z, 0.95, SPRITE.clock, SILVER, 0.95 * a, 0, 1, (1 - flick) * TAU);
     kit.sprites.push(w.x, y, w.z, 1.5 * this.flare, SPRITE.glow, BRASS, 0.35 * a);
@@ -1995,7 +2000,7 @@ export class ChronoView {
     const over = 1 - seg(m.age, 0.35, 0.75);
     kit.sprites.push(
       w.x,
-      w.y + w.height + 1.7,
+      w.y + w.height * HERO_DRAWN + 1.7,
       w.z,
       0.8,
       SPRITE.clock,

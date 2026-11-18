@@ -521,11 +521,11 @@ describe('hints, recaps and callouts', () => {
     ).toBe('Lyra stands again');
     expect(
       finaleCallouts(ev({ type: 'silenceBroken', boss: 9, notes: 5 }), names)[0]!.callout.text,
-    ).toBe('The Coda — your heroes wake without the song');
+    ).toBe('The Coda: your heroes wake without the song');
     expect(
       finaleCallouts(ev({ type: 'fortissimoCancelled', boss: 9, by: 'crescendo' }), names)[0]!
         .callout.text,
-    ).toBe('Fortissimo Silence — cancelled');
+    ).toBe('Fortissimo Silence: cancelled');
     expect(
       finaleCallouts(ev({ type: 'fortissimoCancelled', boss: 9, by: 'phase' }), names),
     ).toEqual([]);

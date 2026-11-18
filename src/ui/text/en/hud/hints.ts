@@ -3,10 +3,10 @@ import type { Catalogue } from '../../catalogue';
 /** The `hud.hints.*` messages: `src/ui/hud/hints.ts`. */
 export const hints = {
   'hud.hints.fermataHoldsAt1':
-    'Fermata holds {name} at 1 life — one touch of the Thread saves {him}, even halved: {value}',
+    'Fermata holds {name} at 1 life. One touch of the Thread saves {him}, even halved: {value}',
   'hud.hints.keepMending': 'keep Mending {him}',
   'hud.hints.fermataIsHoldingAt':
-    'Fermata is holding {name} at 1 life — keep Mending them, or Chime {E} on them, before it ends',
+    'Fermata is holding {name} at 1 life. Keep Mending them, or Chime {E} on them, before it ends',
   'hud.hints.justWentDownPress':
     '{name} just went down. Press {toRewind}: Rewind stands them back up, once a run ({secondsLabel} left)',
   'hud.hints.isCallingForA':
@@ -35,9 +35,9 @@ export const hints = {
     '{crescendoName}: every enemy waits. Your techniques have no cooldowns{value}',
   'hud.hints.andCostLess': ' and cost {less}% less',
   'hud.hints.isOutsideYourField':
-    '{name} is outside your field — move closer so your auras reach them',
+    '{name} is outside your field. Move closer so your auras reach them',
   'hud.hints.isOutsideYourField2':
-    '{name} is outside your field — move closer so your auras reach them, or Reel {F} them in',
+    '{name} is outside your field. Move closer so your auras reach them, or Reel {F} them in',
   'hud.hints.yourBeamSongPours':
     'Your beam song pours into whoever you thread: {mult} on {name}. Everyone else near you hears an echo',
   'hud.hints.yourBeamSongPours2':
@@ -47,7 +47,7 @@ export const hints = {
   'hud.hints.anyMoment': 'any moment',
   'hud.hints.isComingAnswerIt': '{name} is coming. Answer it with {names}',
   'hud.hints.yourPedalPointField':
-    'Your Pedal Point field stays where you plant it — press {V} to plant it under the fight',
+    'Your Pedal Point field stays where you plant it. Press {V} to plant it under the fight',
   'hud.hints.rewindYourThreadedHero':
     '{F} Rewind: your threaded hero goes back {seconds} s, to where they stood and the life they had. Once a run, it stands up a hero who just fell. It replaces Reel',
   'hud.hints.bearTakePartOf2':
@@ -143,7 +143,7 @@ export const hints = {
     'Save {crescendoCost} Resonance: your Crescendo {crescendo} cancels {FORTISSIMO_NAME}',
   'hud.hints.thread': 'Thread {him} {{value}}',
   'hud.hints.fermataIsHoldingAt2':
-    'Fermata is holding {name} at 1 life — Thread them {{value}} or Chime {E} on them before it ends',
+    'Fermata is holding {name} at 1 life. Thread them {{value}} or Chime {E} on them before it ends',
   'hud.hints.then': '{{bindingLabel}}, then {F}',
   'hud.hints.isCallingForEmpower':
     '{name} calls for Empower. Thread them {{value}} in Empower {RMB} before the ring runs out for {flourish}',
@@ -154,9 +154,9 @@ export const hints = {
   'hud.hints.orThen': ' (or {B}, then {RMB})',
   'hud.hints.isHurtPressTo': '{name} is hurt. Press {RMB} to go back to Mend',
   'hud.hints.yourAurasAreSilenced':
-    'Your auras are silenced — bring the party into a hymn circle with Rally {{bindingLabel}}',
+    'Your auras are silenced. Bring the party into a hymn circle with Rally {{bindingLabel}}',
   'hud.hints.yourAurasAreSilenced2':
-    'Your auras are silenced — mark the {silencerName} with {{bindingLabel}} so the party breaks its dome',
+    'Your auras are silenced. Mark the {silencerName} with {{bindingLabel}} so the party breaks its dome',
   'hud.hints.aHitIsComingFor':
     'A hit is coming for the party. Thread {name} {{key}}: Cued, his wall shields everyone',
   'hud.hints.soloIsComing':

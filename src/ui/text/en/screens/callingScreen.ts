@@ -14,7 +14,7 @@ export const callingScreen = {
   'screens.callingScreen.theAFreeRetune': 'The {name} · {name2} · a free retune',
   'screens.callingScreen.aThirdVoiceFor': 'A third voice for your field song',
   'screens.callingScreen.yourFieldSongNow':
-    'Your field song now holds a third aura (the slot marked {name}). Rebuild your songs for free, or keep them and fill it at a Respite or a forge later.',
+    'Your field song now holds a third aura, in the slot marked {name}. Rebuild your songs for free, or fill it later at a Respite or a forge.',
   'screens.callingScreen.backChooseAgain': 'Back: choose again',
   'screens.callingScreen.retuneAndGoOn': 'Retune and go on',
   'screens.callingScreen.yourPath': 'Your path',

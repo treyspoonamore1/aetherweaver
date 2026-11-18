@@ -791,12 +791,77 @@ of placement each.
 **Not taken** (no strong case; still built on `p9/marks`): M3, where the Sunrise beam ends, and
 M4c, where the Thread meets the hero (it would move 80 `beam` entries).
 
-Still placed from the old height and not proposed: the pour's label, the Luminary's Dawn callout,
-Radiance shaft and circlet, the Tyrant's crown and edict, the Martyr's seals and ember, the
-Chronomancer's mastery mark and Stasis callout, the Conductor's sigil, marcato mark and solo light
-(all aura, ornament or Calling drawing); and, outside it, Seren's and Oro's glyphs, stun stars and
-status badges, bond and relic marks, damage and heal numbers, and the PERFECT, SAVED and HOLD
-callouts.
+**The rest of the marks that are not aura, ornament or Calling drawing** were raised the same way
+afterwards (`p11/marks`), one line of placement each and nothing else: a mark over a hero or the
+Weaver is lifted from the drawn height (`height * HERO_DRAWN`, or `drawnHeight(rec)` where the same
+mark is also drawn over enemies, which are not drawn larger and keep theirs).
+
+- Seren's crossed blades and her parry glyph, Oro's tending drop and his closed leaf.
+- Stun stars; the Legion's bleed pips and Wound's heart and the Rift's mask, Doom pips and rune
+  lock, with the answer badge over them (the bar, the pips and the badge are stacked as
+  `crimsonCues.ts` lays them out again: at the game camera the pips had come to touch the bar).
+- Bond marks: Oathkeeper's diamond in a ring, Hawk's Vigil's timer, and each talent's name over
+  its hero. Relic marks: the Glass Halo, the Cracked Metronome over the Weaver, the Heavy Score's
+  weight, and each relic's name over the hero or the Weaver. The Aegis Link's seconds over a lone
+  hero, a trigger's mark over its target, the Water Clock's dial, a Grand Silence note's start.
+- Damage and heal numbers where they start from a hero's head; the PERFECT, SAVED, REVIVED,
+  SNAPPED, CUT, POSSESSED, UNRAVEL, PARRIED and Flourish callouts; the Cue's sigil and Brann's
+  refusal glyph.
+
+`tests/renderMarksDrawn.test.ts` holds a sample of them (a hero's from the drawn height, an
+enemy's where it was). Neither aura pin moves and none of the eight aura files is touched. One
+sheet, Kael and a second figure at the game camera and close: `part1-before-after.png`.
+
+Seen while checking them:
+
+- Seren's blades (0.5 m over the head) and Oro's drop (0.45 m) were laid out at the health bar's
+  own height (0.42 m), so the bar crossed them, as it did on the old figures. They were then
+  given a new place (the integration, `p11/int-a`): just over the bar's right end, 0.8 m over the
+  drawn head and 0.6 m to the right (`GARDE_LIFT`, `TEND_LIFT` and their `_ASIDE`). Clear of the
+  bar, and beside the Thread's mode glyph instead of under it when that hero is the Thread's.
+  Oro's closed leaf flares where his drop is and moved with it.
+- **Known weakness, accepted as it is:** at the player's closest zoom a hero standing up the
+  screen from the Weaver has about 3 m of view over his head, and less while the aim pulls the
+  camera down the screen. The status badge (2.6 m over the head) was at that edge already and is
+  cut there now; with the aim at the bottom of the screen the bleed pips and a heal number over
+  such a hero reach the edge too. At the default zoom and in a boss fight's pulled-back view
+  everything is inside. The cure, if one is wanted, is in the camera or the overlay, for every
+  mark at once.
+- Not moved, because they are not marks over a head: a beam's or a pillar's far end, shells, the
+  Lantern rising from a fallen hero, and everything placed part of the way up the body (the chest
+  anchors).
+
+**The aura, ornament and Calling marks** were built as seven proposals (`p11/marks-proposals`, one
+commit and one "Now / Proposed" sheet each):
+
+| | Mark | Entries of `tests/aura/presentationPin.json` it moves (of 627) | State |
+|---|---|---|---|
+| P1 | the pour's label | 80 (`beam`, all 8 samples of the ten beam-song cases) | landed with the marks, pin re-recorded |
+| P2 | the Luminary's Dawn callout, Radiance shaft and Sovereign circlet | none | in `p11/int-a` |
+| P3 | the Martyr's seals and ember | none | in `p11/int-a` |
+| P4 | the Chronomancer's mastery mark and Stasis clock | none | in `p11/int-a` |
+| P5 | the Conductor's sigil, Marcato mark and Spotlight | none | in `p11/int-a` |
+| P6 | the target mark over a hero, with Foresight's outline of it | none | in `p11/int-a` |
+| P7 | Fermata's shell round the held hero | 10 (`fermata`, samples 4 to 8 of the two Fermata cases) | not taken: no gain that shows |
+
+P2 to P6 touch neither aura pin and none of the eight aura files, so the release check's aura row
+is as it was. P6 was held back from the first set because the Chronomancer draws that mark too
+(Foresight's outline, Paradox's mark flying back) and the two move together. P7 is the only chest
+anchor whose move shows at all, and only close up; the song's glow, the pour's splash, the Vow's
+tethers and a call's answer beam were built and compared and show no difference. The Tyrant's
+crown and edict are over the boss, which is not drawn larger: nothing to raise.
+
+P1 is one line in `src/render/thread.ts`: the label had come to sit on the raised mode glyph. The
+pin was computed on the landing tree and compared entry by entry: exactly those 80 entries differ
+and nothing else, and they were re-recorded in a commit of their own that names them.
+
+**The aura rule is lifted.** On 18 November 2026 the owner said "You can change the auras, remove
+that restriction." Auras, ornaments, their text and the eight aura files are ordinary parts of the
+game now. The two aura pins stay as regression pins: an entry is re-recorded only when a change
+means to move it, compared entry by entry first, with the entries named in the commit. The release
+check's approval guard is retired with the marks' landing: `AURA_APPROVED`, `AURA_BASE`, the
+eight-files diff and the glyph comparison are gone, and row 9 is green when both aura pin tests
+pass in the suite log.
 
 ## 8d: portraits and the map's rewards
 

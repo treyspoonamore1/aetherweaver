@@ -72,7 +72,7 @@ function SerenStage({ scenario, ally = false }: { scenario: SerenScenario; ally?
         hud={hud}
         callouts={ally ? recruitAllyCallouts('seren') : []}
         decree={hud.boss?.decree ?? null}
-        subtitle={hud.boss ? 'Movement I · node 7 of 7' : 'Movement I · node 3 of 7'}
+        subtitle={hud.boss ? 'Movement I · step 7 of 7' : 'Movement I · step 3 of 7'}
         forceCoach
       />
     </LabWorld>

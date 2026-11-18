@@ -20,6 +20,7 @@ import { PARTICLE } from './fx/particles';
 import { RING } from './fx/rings';
 import { SPRITE } from './fx/sprites';
 import type { Overlay } from './overlay';
+import { HERO_DRAWN } from './models/artFlag';
 import { C, clamp01, color, rgba } from './palette';
 import type { FrameInfo } from './types';
 
@@ -713,7 +714,8 @@ export class CrucibleCues {
     this.dirty = true;
     const r = this.rec(e.hero) ?? this.rec(state.weaverId);
     if (!r) return;
-    const y = r.height + 0.4 + r.y;
+    // From over the drawn head (a hero and the Weaver are drawn HERO_DRAWN tall).
+    const y = r.height * HERO_DRAWN + 0.4 + r.y;
     orreryTop(state.arenaRadius, Math.max(0, Math.min(ORRERY.rings - 1, e.n - 1)), this.at);
     let m = this.motes.find((k) => !k.active);
     if (!m) {

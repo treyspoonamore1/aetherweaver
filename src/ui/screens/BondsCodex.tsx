@@ -2,6 +2,7 @@ import { CONTENT, heroDef } from '../../content';
 import { bondRank, rosterHeroes, talentChoices, type Bond } from '../../meta/bonds';
 import { BOND_LOOK, heroInk } from '../kit/bondLook';
 import { Chip } from '../kit/Chip';
+import { Fold } from '../kit/Fold';
 import { fmt } from '../kit/format';
 import { Icon } from '../kit/Icon';
 import { Panel } from '../kit/Panel';
@@ -121,14 +122,14 @@ export function BondsCodexPage({
         </Panel>
       </div>
 
-      {heroes.map((h) => (
-        <HeroBondEntry key={h} heroId={h} bond={bondOf(bonds, h)} />
+      {heroes.map((h, i) => (
+        <HeroBondEntry key={h} heroId={h} bond={bondOf(bonds, h)} first={i === 0} />
       ))}
     </div>
   );
 }
 
-function HeroBondEntry({ heroId, bond }: { heroId: string; bond: Bond }) {
+function HeroBondEntry({ heroId, bond, first }: { heroId: string; bond: Bond; first: boolean }) {
   const def = heroDef(heroId);
   const ink = heroInk(heroId);
   const own = soloView(heroId, null);
@@ -148,127 +149,136 @@ function HeroBondEntry({ heroId, bond }: { heroId: string; bond: Bond }) {
           {def.name} <span className="text-sm font-normal text-muted">{def.title}</span>
         </h3>
       </div>
-      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted">
-            {txt('screens.bondsCodex.talents')}
-          </p>
-          <ol className="mt-1.5 flex flex-col gap-2">
-            {tiers().map((tier) => (
-              <li
-                key={tier}
-                className="grid grid-cols-[3.2rem_minmax(0,1fr)_minmax(0,1fr)] gap-2"
-                data-tier={tier}
-              >
-                <span className="flex flex-col items-center justify-center rounded-lg bg-ink-900/70 py-1">
-                  <span
-                    className="font-display text-lg font-bold leading-none"
-                    style={{ color: ink }}
-                  >
-                    {numeral(tier)}
-                  </span>
-                  <span className="font-mono text-xs text-muted">
-                    {CONTENT.bondRules.talentRanks[tier - 1]}
-                  </span>
-                </span>
-                {talentChoices(heroId, tier).map((t) => {
-                  const v = talentView(t);
-                  return (
-                    <span
-                      key={t.id}
-                      className="rounded-lg bg-ink-900/60 px-3 py-2"
-                      data-talent={t.id}
-                    >
-                      <b className="block text-sm font-semibold text-text">{v.name}</b>
-                      <span className="block text-xs leading-snug text-muted">{v.text}</span>
-                    </span>
-                  );
-                })}
-              </li>
-            ))}
-          </ol>
-        </div>
-        <div className="flex flex-col gap-3">
+      {/* The hero in a line; what their Bond opens is a fold away (the first hero's is open). */}
+      <Fold
+        small
+        open={first}
+        className="mt-4"
+        heading={txt('screens.bondsCodex.whatTheBondOpens')}
+        testId={`codex-bond-fold-${heroId}`}
+      >
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-muted">
-              {txt('screens.bondsCodex.solos')}
+              {txt('screens.bondsCodex.talents')}
             </p>
-            <dl className="mt-1.5 flex flex-col gap-2">
-              {[own, ...(altView ? [altView] : [])].map((s) => (
-                <div key={s.id} className="rounded-lg bg-ink-900/60 px-3 py-2" data-solo={s.id}>
-                  <dt className="flex items-center gap-1.5 text-sm font-semibold text-gold-200">
-                    <Icon name="note" size={14} /> {s.name}
-                    <span className="text-xs font-normal text-muted">
-                      {s.alt
-                        ? txt('screens.bondsCodex.alternateBondRank', {
-                            soloRank: CONTENT.bondRules.soloRank,
-                          })
-                        : txt('screens.bondsCodex.theirOwn')}
-                    </span>
-                  </dt>
-                  <dd className="text-xs leading-snug text-muted">{s.text}</dd>
-                  <dd className="text-xs leading-snug text-gold-300">{s.cued}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted">
-              {txt('screens.bondsCodex.scenes')}
-            </p>
-            <ul className="mt-1.5 flex flex-col gap-2">
-              {scenes.map((r) => (
+            <ol className="mt-1.5 flex flex-col gap-2">
+              {tiers().map((tier) => (
                 <li
-                  key={r.id}
-                  className="rounded-lg bg-ink-900/60 px-3 py-2"
-                  data-scene={r.id}
-                  data-state={r.state}
+                  key={tier}
+                  className="grid grid-cols-[3.2rem_minmax(0,1fr)_minmax(0,1fr)] gap-2"
+                  data-tier={tier}
                 >
-                  {r.state === 'seen' ? (
-                    <details>
-                      <summary className="cursor-pointer text-sm font-semibold text-text">
-                        <Icon
-                          name="check"
-                          size={13}
-                          className="mr-1 inline"
-                          style={{ color: ink }}
-                        />
-                        {r.title}{' '}
-                        <span className="font-mono text-xs font-normal text-muted">
-                          {txt('screens.bondsCodex.rankReadItAgain', { rank: r.rank })}
-                        </span>
-                      </summary>
-                      <div className="mt-2">
-                        <SceneBody
-                          scene={CONTENT.scenes.find((s) => s.id === r.id)!}
-                          reply={r.reply}
-                          compact
-                        />
-                      </div>
-                    </details>
-                  ) : (
-                    <p className="text-sm text-muted">
-                      <Icon
-                        name={r.state === 'locked' ? 'lock' : 'scene'}
-                        size={13}
-                        className="mr-1 inline"
-                      />
-                      <b className="font-semibold text-text">{r.title}</b>{' '}
-                      <span className="font-mono text-xs">
-                        {txt('screens.bondsCodex.rank2', { rank: r.rank })}
-                      </span>{' '}
-                      ·{' '}
-                      {r.state === 'locked'
-                        ? txt('screens.bondsCodex.notYet')
-                        : txt('screens.bondsCodex.waitingForARespite')}
-                    </p>
-                  )}
+                  <span className="flex flex-col items-center justify-center rounded-lg bg-ink-900/70 py-1">
+                    <span
+                      className="font-display text-lg font-bold leading-none"
+                      style={{ color: ink }}
+                    >
+                      {numeral(tier)}
+                    </span>
+                    <span className="font-mono text-xs text-muted">
+                      {CONTENT.bondRules.talentRanks[tier - 1]}
+                    </span>
+                  </span>
+                  {talentChoices(heroId, tier).map((t) => {
+                    const v = talentView(t);
+                    return (
+                      <span
+                        key={t.id}
+                        className="rounded-lg bg-ink-900/60 px-3 py-2"
+                        data-talent={t.id}
+                      >
+                        <b className="block text-sm font-semibold text-text">{v.name}</b>
+                        <span className="block text-xs leading-snug text-muted">{v.text}</span>
+                      </span>
+                    );
+                  })}
                 </li>
               ))}
-            </ul>
+            </ol>
+          </div>
+          <div className="flex flex-col gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+                {txt('screens.bondsCodex.solos')}
+              </p>
+              <dl className="mt-1.5 flex flex-col gap-2">
+                {[own, ...(altView ? [altView] : [])].map((s) => (
+                  <div key={s.id} className="rounded-lg bg-ink-900/60 px-3 py-2" data-solo={s.id}>
+                    <dt className="flex items-center gap-1.5 text-sm font-semibold text-gold-200">
+                      <Icon name="note" size={14} /> {s.name}
+                      <span className="text-xs font-normal text-muted">
+                        {s.alt
+                          ? txt('screens.bondsCodex.alternateBondRank', {
+                              soloRank: CONTENT.bondRules.soloRank,
+                            })
+                          : txt('screens.bondsCodex.theirOwn')}
+                      </span>
+                    </dt>
+                    <dd className="text-xs leading-snug text-muted">{s.text}</dd>
+                    <dd className="text-xs leading-snug text-gold-300">{s.cued}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+                {txt('screens.bondsCodex.scenes')}
+              </p>
+              <ul className="mt-1.5 flex flex-col gap-2">
+                {scenes.map((r) => (
+                  <li
+                    key={r.id}
+                    className="rounded-lg bg-ink-900/60 px-3 py-2"
+                    data-scene={r.id}
+                    data-state={r.state}
+                  >
+                    {r.state === 'seen' ? (
+                      <details>
+                        <summary className="cursor-pointer text-sm font-semibold text-text">
+                          <Icon
+                            name="check"
+                            size={13}
+                            className="mr-1 inline"
+                            style={{ color: ink }}
+                          />
+                          {r.title}{' '}
+                          <span className="font-mono text-xs font-normal text-muted">
+                            {txt('screens.bondsCodex.rankReadItAgain', { rank: r.rank })}
+                          </span>
+                        </summary>
+                        <div className="mt-2">
+                          <SceneBody
+                            scene={CONTENT.scenes.find((s) => s.id === r.id)!}
+                            reply={r.reply}
+                            compact
+                          />
+                        </div>
+                      </details>
+                    ) : (
+                      <p className="text-sm text-muted">
+                        <Icon
+                          name={r.state === 'locked' ? 'lock' : 'scene'}
+                          size={13}
+                          className="mr-1 inline"
+                        />
+                        <b className="font-semibold text-text">{r.title}</b>{' '}
+                        <span className="font-mono text-xs">
+                          {txt('screens.bondsCodex.rank2', { rank: r.rank })}
+                        </span>{' '}
+                        ·{' '}
+                        {r.state === 'locked'
+                          ? txt('screens.bondsCodex.notYet')
+                          : txt('screens.bondsCodex.waitingForARespite')}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
-      </div>
+      </Fold>
     </Panel>
   );
 }

@@ -4,13 +4,13 @@ import type { Catalogue } from '../../catalogue';
 export const dissonanceCodex = {
   'screens.dissonanceCodex.dissonance': 'Dissonance',
   'screens.dissonanceCodex.aFinaleClearAt': 'A Finale clear at Rank {openRank}',
-  'screens.dissonanceCodex.itsRulesWaitHere': '{lead} Its rules wait here until then. {skip}',
+  'screens.dissonanceCodex.itsRulesWaitHere': '{lead} Its rules wait here until then.',
   'screens.dissonanceCodex.theEndgameSDifficulty': 'The endgame’s difficulty. {dissonanceBlurb}',
   'screens.dissonanceCodex.inPrepTurnLevels':
-    'In Prep, turn levels on; some have ranks, each worth its points again. Their points add up to the run’s Dissonance, at most {max}. Prep remembers your last choice, and embarking keeps it for the whole run: changing it later is for the next.',
+    'Turn levels on in Prep. Some have ranks, each worth its points again. A run’s Dissonance is at most {max}, and embarking fixes it for that run.',
   'screens.dissonanceCodex.choosing': 'Choosing.',
   'screens.dissonanceCodex.yourFirstFinaleClear':
-    'Your first Finale clear at Weaver Rank {openRank} or above opens it, with a card at the run’s Summary; a Finale cleared sooner opens it on reaching that Rank. Settings → Skip the unlocks opens it too.',
+    'Your first Finale clear at Weaver Rank {openRank} or above opens it. A Finale cleared sooner opens it on reaching that Rank.',
   'screens.dissonanceCodex.opening': 'Opening.',
   'screens.dissonanceCodex.aRelicEnshrinedFrom':
     'A relic enshrined from a run keeps that run’s points as its ',

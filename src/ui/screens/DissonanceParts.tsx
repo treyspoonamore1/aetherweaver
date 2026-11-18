@@ -598,7 +598,7 @@ export function DissonanceClosed({ rank, className = '' }: { rank: number; class
         </h2>
         <p className="mt-0.5 text-sm text-muted">{dissonanceBlurb()}</p>
         <p className="mt-1 text-sm text-text" data-testid="dissonance-closed-line">
-          {lines.lead} <span className="text-muted">{lines.skip}</span>
+          {lines.lead}
         </p>
       </div>
     </section>

@@ -14,6 +14,7 @@ import { PARTICLE } from './fx/particles';
 import { RING } from './fx/rings';
 import { SPRITE } from './fx/sprites';
 import { ORO_SEED } from './models/library';
+import { HERO_DRAWN } from './models/artFlag';
 import { clamp01, color } from './palette';
 
 /**
@@ -29,6 +30,16 @@ import { clamp01, color } from './palette';
  * Ancient disc's rim; `out` the grey an aura rim takes outside your field; `vine` the root
  * vines on an enemy (the stake's look, in his moss).
  */
+/**
+ * Where Oro's tending drop sits, and the closed leaf that flares there when he refuses: this far
+ * over his drawn head and this far to the right of it (m). Over the health bar, which sits at 0.42
+ * (partyBars.ts BAR_LIFT) and is about 0.35 m tall at the game camera (at their first lifts, 0.45
+ * and 0.55, the bar lay across them), and beside the Thread's mode glyph, which stands over the
+ * middle of the head at 1.05 when he is the Thread's hero.
+ */
+export const TEND_LIFT = 0.8;
+export const TEND_ASIDE = 0.6;
+
 export const GROVE_HEX = {
   moss: '#487858',
   seed: ORO_SEED,
@@ -486,8 +497,8 @@ export class GroveFx {
         if (!r) return;
         const f = 1 - seg(t, 0, m.life);
         kit.sprites.push(
-          r.x,
-          r.y + r.height + 0.55,
+          r.x + TEND_ASIDE,
+          r.y + r.height * HERO_DRAWN + TEND_LIFT,
           r.z,
           0.36 + 0.12 * f,
           SPRITE.drop,

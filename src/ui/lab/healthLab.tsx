@@ -27,7 +27,7 @@ export function LayoutStage({
       hud={hud}
       callouts={callouts}
       decree={null}
-      subtitle="The Prelude · node 3 of 10"
+      subtitle="The Prelude · step 3 of 10"
       coach={false}
       keyHints={false}
       framesLayout={layout}

@@ -72,7 +72,7 @@ function BrannStage({ scenario, ally = false }: { scenario: BrannScenario; ally?
         hud={hud}
         callouts={brannCallouts(ally ? 'brann-ally' : scenario)}
         decree={hud.boss?.decree ?? null}
-        subtitle={hud.boss ? 'Movement II · node 7 of 7' : 'Movement I · node 3 of 7'}
+        subtitle={hud.boss ? 'Movement II · step 7 of 7' : 'Movement I · step 3 of 7'}
         forceCoach
       />
     </World>

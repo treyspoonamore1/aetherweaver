@@ -50,7 +50,7 @@ export const bondsModel = {
   'screens.bondsModel.aMiniBoss': 'a mini-boss',
   'screens.bondsModel.theBoss': 'the boss',
   'screens.bondsModel.afterEveryFightEach':
-    'After every fight, each hero in it earns {base} Bond XP, and a share of {pool} more by your support of them that fight: your healing and shields on them, the damage your songs and Thread added to theirs, and the life your saves kept. Without any support, the share isn’t paid.',
+    'Every fight pays each hero in it {base} Bond XP. They share {pool} more by your support: healing and shields on them, damage your songs and Thread added, and life your saves kept.',
   'screens.bondsModel.bothScaleWithThe':
     'Both scale with the fight: {listAnd}. A lost fight pays {loss} of that.',
   'screens.bondsModel.aScenePaysOf':
@@ -59,7 +59,7 @@ export const bondsModel = {
   'screens.bondsModel.aSceneEach': 'A scene each',
   'screens.bondsModel.aSceneWith': 'A scene with {listAnd}',
   'screens.bondsModel.bondXp2': '{who} ({sceneXp} Bond XP)',
-  'screens.bondsModel.openWithSkipThe': 'Open with Skip the unlocks',
+  'screens.bondsModel.openWithSkipThe': 'Open now',
   'screens.bondsModel.yourRunUnderWay':
     'Your run under way keeps the talents and Solos it embarked with: what you change here is for the next one.',
   'screens.bondsModel.onTheBondsScreen': 'on the Bonds screen, from the Loom or from Prep',

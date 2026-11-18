@@ -6,6 +6,17 @@
 export const HERO_DRAWN = 1.12;
 
 /**
+ * The height a figure is drawn at, for a mark placed over its head: its content height times how
+ * large its model is drawn (`ModelBatch.drawn`: HERO_DRAWN for a hero and the Weaver, 1 for an
+ * enemy or a summon). For the marks that sit over heroes and enemies alike (a damage number, the
+ * stun stars): over a hero they keep their clearance over the drawn head, over an enemy they stay
+ * where they were. A record with no model is taken at its own height.
+ */
+export function drawnHeight(r: { height: number; batch?: { drawn: number } }): number {
+  return r.height * (r.batch?.drawn ?? 1);
+}
+
+/**
  * Readability rule 5 (the rank-and-file hostile rim) and the elite's gold, as the owner chose them
  * (Phase 8c, docs/phase-8.md 8b: "Red outline, no wash"): both constants on. The outline carries
  * the standing rim (red on a rank-and-file foe, gold on an elite and its crown) and the body takes

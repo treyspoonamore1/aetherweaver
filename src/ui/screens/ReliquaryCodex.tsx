@@ -3,6 +3,7 @@ import { UNLOCKS } from '../../meta/profile';
 import { band, craftOdds } from '../../meta/reliquary';
 import { AstrolabeGlyph } from '../kit/AstrolabeGlyph';
 import { Chip } from '../kit/Chip';
+import { Fold } from '../kit/Fold';
 import { Icon } from '../kit/Icon';
 import { Panel } from '../kit/Panel';
 import {
@@ -184,339 +185,385 @@ export function ReliquaryCodexPage({ open, rank }: { open: boolean; rank: number
         </Panel>
       </div>
 
-      <Panel tone="solid" className="p-5" data-testid="codex-crafts">
-        <h3 className="font-display text-lg font-bold text-gold-300">
-          {txt('screens.reliquaryCodex.theCrafts')}
-        </h3>
-        <p className="mt-1 text-sm text-muted">{txt('screens.reliquaryCodex.betweenRunsOnThe')}</p>
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full min-w-[40rem] text-left text-sm">
-            <thead className="text-xs uppercase tracking-wider text-muted">
-              <tr>
-                <th className="py-1 pr-3 font-semibold">{txt('screens.reliquaryCodex.craft')}</th>
-                <th className="py-1 pr-3 font-semibold">{txt('screens.reliquaryCodex.cost')}</th>
-                <th className="py-1 pr-3 font-semibold">
-                  {txt('screens.reliquaryCodex.whatItDoes')}
-                </th>
-                <th className="py-1 font-semibold">{txt('screens.reliquaryCodex.instability')}</th>
-              </tr>
-            </thead>
-            <tbody className="align-top">
-              <tr className="border-t border-ink-600/70" data-craft="inscribe">
-                <td className="py-2 pr-3 font-semibold text-text">
-                  {txt('screens.reliquaryCodex.inscribe')}
-                </td>
-                <td className="py-2 pr-3 font-mono text-text">{shardsText(rules.inscribe.cost)}</td>
-                <td className="py-2 pr-3 text-text">
-                  {txt('screens.reliquaryCodex.addsARandomInscription', {
-                    maxInscriptions: rules.maxInscriptions,
-                    tierOdds: rules.inscribe.tierOdds
-                      .map((p, i) => (p > 0 ? `${tierLabel(5 - i)} ${num(p)}%` : null))
-                      .filter(Boolean)
-                      .join(', '),
-                    bands: rules.bands
-                      .map((b) =>
-                        txt('screens.reliquaryCodex.from', {
-                          depth: b.depth,
-                          oddsLine: oddsLine(b.depth),
-                        }),
-                      )
-                      .join('; '),
-                  })}
-                </td>
-                <td className="py-2 font-mono text-text">+{rules.inscribe.instability}</td>
-              </tr>
-              <tr className="border-t border-ink-600/70" data-craft="retune">
-                <td className="py-2 pr-3 font-semibold text-text">
-                  {txt('screens.reliquaryCodex.retune')}
-                </td>
-                <td className="py-2 pr-3 font-mono text-text">{shardsText(rules.retune.cost)}</td>
-                <td className="py-2 pr-3 text-text">
-                  {txt('screens.reliquaryCodex.rollsOneInscriptionS')}
-                </td>
-                <td className="py-2 font-mono text-text">+{rules.retune.instability}</td>
-              </tr>
-              <tr className="border-t border-ink-600/70" data-craft="ascend">
-                <td className="py-2 pr-3 font-semibold text-text">
-                  {txt('screens.reliquaryCodex.ascend')}
-                </td>
-                <td className="py-2 pr-3 font-mono text-text">{shardsText(rules.ascend.cost)}</td>
-                <td className="py-2 pr-3 text-text">
-                  {txt('screens.reliquaryCodex.triesToRaiseOne', {
-                    ladder: ladder
-                      .map(
-                        (l) =>
-                          `${tierLabel(l.from)} → ${tierLabel(l.from - 1)} ${oddsText(l.p)}${l.depth > 0 ? txt('screens.reliquaryCodex.wonAt', { depth: l.depth }) : ''}`,
-                      )
-                      .join(', '),
-                    bandsSentence: bandsSentence(),
-                  })}
-                </td>
-                <td className="py-2 font-mono text-text">+{rules.ascend.instability}</td>
-              </tr>
-              <tr className="border-t border-ink-600/70" data-craft="dissonate">
-                <td className="py-2 pr-3 font-semibold text-text">
-                  {txt('screens.reliquaryCodex.dissonate')}
-                </td>
-                <td className="py-2 pr-3 font-mono text-text">{tearsText(rules.dissonate.cost)}</td>
-                <td className="py-2 pr-3 text-text">
-                  {txt('screens.reliquaryCodex.theFinalGambleBelow')}
-                </td>
-                <td className="py-2 font-mono text-muted">—</td>
-              </tr>
-              <tr className="border-t border-ink-600/70" data-craft="release">
-                <td className="py-2 pr-3 font-semibold text-text">
-                  {txt('screens.reliquaryCodex.release')}
-                </td>
-                <td className="py-2 pr-3 font-mono text-muted">—</td>
-                <td className="py-2 pr-3 text-text">
-                  {txt('screens.reliquaryCodex.theRelicLeavesFor', {
-                    common: release.common,
-                    rare: release.rare,
-                    cursed: release.cursed,
-                    legendary: release.legendary,
-                    perInscription: release.perInscription,
-                  })}
-                </td>
-                <td className="py-2 font-mono text-muted">—</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </Panel>
+      {/* The rest of the rules fold, a group at a time (the second menu text pass, round 11). */}
+      <Fold
+        heading={txt('screens.reliquaryCodex.theCrafts')}
+        headingClass="text-gold-300"
+        testId="codex-fold-crafts"
+      >
+        <div className="flex flex-col gap-6">
+          <Panel tone="solid" className="p-5" data-testid="codex-crafts">
+            <p className="mt-1 text-sm text-muted">
+              {txt('screens.reliquaryCodex.betweenRunsOnThe')}
+            </p>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full min-w-[40rem] text-left text-sm">
+                <thead className="text-xs uppercase tracking-wider text-muted">
+                  <tr>
+                    <th className="py-1 pr-3 font-semibold">
+                      {txt('screens.reliquaryCodex.craft')}
+                    </th>
+                    <th className="py-1 pr-3 font-semibold">
+                      {txt('screens.reliquaryCodex.cost')}
+                    </th>
+                    <th className="py-1 pr-3 font-semibold">
+                      {txt('screens.reliquaryCodex.whatItDoes')}
+                    </th>
+                    <th className="py-1 font-semibold">
+                      {txt('screens.reliquaryCodex.instability')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="align-top">
+                  <tr className="border-t border-ink-600/70" data-craft="inscribe">
+                    <td className="py-2 pr-3 font-semibold text-text">
+                      {txt('screens.reliquaryCodex.inscribe')}
+                    </td>
+                    <td className="py-2 pr-3 font-mono text-text">
+                      {shardsText(rules.inscribe.cost)}
+                    </td>
+                    <td className="py-2 pr-3 text-text">
+                      {txt('screens.reliquaryCodex.addsARandomInscription', {
+                        maxInscriptions: rules.maxInscriptions,
+                        tierOdds: rules.inscribe.tierOdds
+                          .map((p, i) => (p > 0 ? `${tierLabel(5 - i)} ${num(p)}%` : null))
+                          .filter(Boolean)
+                          .join(', '),
+                        bands: rules.bands
+                          .map((b) =>
+                            txt('screens.reliquaryCodex.from', {
+                              depth: b.depth,
+                              oddsLine: oddsLine(b.depth),
+                            }),
+                          )
+                          .join('; '),
+                      })}
+                    </td>
+                    <td className="py-2 font-mono text-text">+{rules.inscribe.instability}</td>
+                  </tr>
+                  <tr className="border-t border-ink-600/70" data-craft="retune">
+                    <td className="py-2 pr-3 font-semibold text-text">
+                      {txt('screens.reliquaryCodex.retune')}
+                    </td>
+                    <td className="py-2 pr-3 font-mono text-text">
+                      {shardsText(rules.retune.cost)}
+                    </td>
+                    <td className="py-2 pr-3 text-text">
+                      {txt('screens.reliquaryCodex.rollsOneInscriptionS')}
+                    </td>
+                    <td className="py-2 font-mono text-text">+{rules.retune.instability}</td>
+                  </tr>
+                  <tr className="border-t border-ink-600/70" data-craft="ascend">
+                    <td className="py-2 pr-3 font-semibold text-text">
+                      {txt('screens.reliquaryCodex.ascend')}
+                    </td>
+                    <td className="py-2 pr-3 font-mono text-text">
+                      {shardsText(rules.ascend.cost)}
+                    </td>
+                    <td className="py-2 pr-3 text-text">
+                      {txt('screens.reliquaryCodex.triesToRaiseOne', {
+                        ladder: ladder
+                          .map(
+                            (l) =>
+                              `${tierLabel(l.from)} → ${tierLabel(l.from - 1)} ${oddsText(l.p)}${l.depth > 0 ? txt('screens.reliquaryCodex.wonAt', { depth: l.depth }) : ''}`,
+                          )
+                          .join(', '),
+                        bandsSentence: bandsSentence(),
+                      })}
+                    </td>
+                    <td className="py-2 font-mono text-text">+{rules.ascend.instability}</td>
+                  </tr>
+                  <tr className="border-t border-ink-600/70" data-craft="dissonate">
+                    <td className="py-2 pr-3 font-semibold text-text">
+                      {txt('screens.reliquaryCodex.dissonate')}
+                    </td>
+                    <td className="py-2 pr-3 font-mono text-text">
+                      {tearsText(rules.dissonate.cost)}
+                    </td>
+                    <td className="py-2 pr-3 text-text">
+                      {txt('screens.reliquaryCodex.theFinalGambleBelow')}
+                    </td>
+                    <td className="py-2 font-mono text-muted">—</td>
+                  </tr>
+                  <tr className="border-t border-ink-600/70" data-craft="release">
+                    <td className="py-2 pr-3 font-semibold text-text">
+                      {txt('screens.reliquaryCodex.release')}
+                    </td>
+                    <td className="py-2 pr-3 font-mono text-muted">—</td>
+                    <td className="py-2 pr-3 text-text">
+                      {txt('screens.reliquaryCodex.theRelicLeavesFor', {
+                        common: release.common,
+                        rare: release.rare,
+                        cursed: release.cursed,
+                        legendary: release.legendary,
+                        perInscription: release.perInscription,
+                      })}
+                    </td>
+                    <td className="py-2 font-mono text-muted">—</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </Panel>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel tone="solid" className="p-5" data-testid="codex-fracture">
-          <h3 className="flex items-center gap-2 font-display text-lg font-bold text-gold-300">
-            <Icon name="crack" size={20} style={{ color: FRACTURED_LOOK.color }} />{' '}
-            {txt('screens.reliquaryCodex.instabilityAndFracture')}
-          </h3>
-          <p className="mt-2 text-sm leading-relaxed text-text">
-            {txt('screens.reliquaryCodex.instabilityRuns0100', { above })}{' '}
-            <b style={{ color: FRACTURED_LOOK.color }}>{txt('screens.reliquaryCodex.fracture')}</b>
-            {txt('screens.reliquaryCodex.forEachPointPast', {
-              perPoint: num(rules.fracture.perPoint),
-              andList: andList(fractureExamples().map((e) => `${oddsText(e.p)} at ${e.at}`)),
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Panel tone="solid" className="p-5" data-testid="codex-fracture">
+              <h3 className="flex items-center gap-2 font-display text-lg font-bold text-gold-300">
+                <Icon name="crack" size={20} style={{ color: FRACTURED_LOOK.color }} />{' '}
+                {txt('screens.reliquaryCodex.instabilityAndFracture')}
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-text">
+                {txt('screens.reliquaryCodex.instabilityRuns0100', { above })}{' '}
+                <b style={{ color: FRACTURED_LOOK.color }}>
+                  {txt('screens.reliquaryCodex.fracture')}
+                </b>
+                {txt('screens.reliquaryCodex.forEachPointPast', {
+                  perPoint: num(rules.fracture.perPoint),
+                  andList: andList(fractureExamples().map((e) => `${oddsText(e.p)} at ${e.at}`)),
+                })}
+              </p>
+              <div className="mt-3 max-w-md">
+                <InstabilityBar view={instabilityView(demo)} />
+                <p className="mt-1 text-xs text-muted">
+                  {txt('screens.reliquaryCodex.atInscribeRetuneAnd', {
+                    instability: demo.instability,
+                    oddsText: oddsText(instabilityView(demo).fracture),
+                  })}
+                </p>
+              </div>
+            </Panel>
+            <Panel tone="solid" className="p-5" data-testid="codex-dissonate">
+              <h3 className="flex items-center gap-2 font-display text-lg font-bold text-gold-300">
+                <Icon
+                  name="dissonate"
+                  size={20}
+                  style={{ color: DISSONANCE_LOOK.dissonant.color }}
+                />{' '}
+                {txt('screens.reliquaryCodex.dissonate')}
+              </h3>
+              <ul className="mt-2 flex flex-col gap-2">
+                {growsOdds.map((c) => {
+                  const look = DISSONANCE_LOOK[c.key as (typeof DISSONANCE_KINDS)[number]];
+                  return (
+                    <li key={c.key} className="flex items-start gap-2 text-sm" data-outcome={c.key}>
+                      <Icon
+                        name={look.icon}
+                        size={16}
+                        className="mt-0.5 shrink-0"
+                        style={{ color: look.color }}
+                      />
+                      <span className="leading-snug">
+                        <b style={{ color: look.color }}>{c.label}</b>{' '}
+                        <span className="font-mono text-text">{c.text}</span>{' '}
+                        <span className="text-muted">
+                          {c.key === 'empowered'
+                            ? txt('screens.reliquaryCodex.itsOwnEffectGrows')
+                            : c.detail}
+                        </span>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              {still && stillOdds && (
+                <p className="mt-2 text-xs text-muted">
+                  {txt('screens.reliquaryCodex.aRelicWithNo', {
+                    name: still.name,
+                    DISSONANCE_KINDS: DISSONANCE_KINDS.map(
+                      (k) => `${DISSONANCE_LOOK[k].label} ${oddsText(stillOdds[k])}`,
+                    ).join(', '),
+                  })}
+                </p>
+              )}
+            </Panel>
+          </div>
+        </div>
+      </Fold>
+
+      <Fold
+        heading={txt('screens.reliquaryCodex.inscriptions')}
+        headingClass="text-gold-300"
+        testId="codex-fold-inscriptions"
+      >
+        <section
+          aria-label={txt('screens.reliquaryCodex.inscriptions')}
+          data-testid="codex-inscriptions"
+        >
+          <p className="mb-3 max-w-4xl text-sm text-muted">
+            {txt('screens.reliquaryCodex.upToOnA', {
+              maxInscriptions: rules.maxInscriptions,
+              tierLabel: tierLabel(rules.tierCap),
+              bandsSentence: bandsSentence(),
+              tierLabel2: tierLabel(rules.dissonate.cursedTierCap),
             })}
           </p>
-          <div className="mt-3 max-w-md">
-            <InstabilityBar view={instabilityView(demo)} />
-            <p className="mt-1 text-xs text-muted">
-              {txt('screens.reliquaryCodex.atInscribeRetuneAnd', {
-                instability: demo.instability,
-                oddsText: oddsText(instabilityView(demo).fracture),
-              })}
-            </p>
-          </div>
-        </Panel>
-        <Panel tone="solid" className="p-5" data-testid="codex-dissonate">
-          <h3 className="flex items-center gap-2 font-display text-lg font-bold text-gold-300">
-            <Icon name="dissonate" size={20} style={{ color: DISSONANCE_LOOK.dissonant.color }} />{' '}
-            {txt('screens.reliquaryCodex.dissonate')}
-          </h3>
-          <ul className="mt-2 flex flex-col gap-2">
-            {growsOdds.map((c) => {
-              const look = DISSONANCE_LOOK[c.key as (typeof DISSONANCE_KINDS)[number]];
+          <div className={GRID}>
+            {codexInscriptions().map((group) => {
+              const look = categoryLook(group.category);
               return (
-                <li key={c.key} className="flex items-start gap-2 text-sm" data-outcome={c.key}>
-                  <Icon
-                    name={look.icon}
-                    size={16}
-                    className="mt-0.5 shrink-0"
+                <Panel
+                  key={group.category}
+                  tone="solid"
+                  className="p-4"
+                  style={{ borderTopColor: look.color, borderTopWidth: 3 }}
+                >
+                  <h4
+                    className="flex items-center gap-2 font-display text-base font-bold"
                     style={{ color: look.color }}
-                  />
-                  <span className="leading-snug">
-                    <b style={{ color: look.color }}>{c.label}</b>{' '}
-                    <span className="font-mono text-text">{c.text}</span>{' '}
-                    <span className="text-muted">
-                      {c.key === 'empowered'
-                        ? txt('screens.reliquaryCodex.itsOwnEffectGrows')
-                        : c.detail}
-                    </span>
-                  </span>
-                </li>
+                  >
+                    <AstrolabeGlyph glyph={look.glyph} size={18} /> {look.name}
+                    <span className="font-sans text-sm font-normal text-muted">{look.blurb}</span>
+                  </h4>
+                  <ul className="mt-2 flex flex-col gap-2.5">
+                    {group.rows.map((row) => (
+                      <li key={row.id} data-inscription={row.id}>
+                        <p className="text-sm">
+                          <b className="text-text">{row.name}</b>{' '}
+                          <span className="text-muted">{row.text}</span>
+                        </p>
+                        <ol className="mt-1 grid grid-cols-5 gap-1">
+                          {row.tiers.map((t) => (
+                            <li
+                              key={t.tier}
+                              className={`flex flex-col items-center gap-0.5 rounded-md bg-ink-900/70 py-1 ${t.reachable ? '' : 'opacity-70'}`}
+                              title={
+                                t.reachable
+                                  ? undefined
+                                  : txt('screens.reliquaryCodex.aRelicWonAt', {
+                                      value: t.depth ?? '?',
+                                    })
+                              }
+                            >
+                              <TierBadge tier={t.tier} size="sm" />
+                              <span className="font-mono text-[0.75rem] text-text">{t.text}</span>
+                            </li>
+                          ))}
+                        </ol>
+                      </li>
+                    ))}
+                  </ul>
+                </Panel>
               );
             })}
-          </ul>
-          {still && stillOdds && (
-            <p className="mt-2 text-xs text-muted">
-              {txt('screens.reliquaryCodex.aRelicWithNo', {
-                name: still.name,
-                DISSONANCE_KINDS: DISSONANCE_KINDS.map(
-                  (k) => `${DISSONANCE_LOOK[k].label} ${oddsText(stillOdds[k])}`,
-                ).join(', '),
-              })}
-            </p>
-          )}
-        </Panel>
-      </div>
+          </div>
+        </section>
+      </Fold>
 
-      <section
-        aria-label={txt('screens.reliquaryCodex.inscriptions')}
-        data-testid="codex-inscriptions"
+      <Fold
+        heading={
+          <>
+            {txt('screens.reliquaryCodex.dissonantInscriptions')} ·{' '}
+            {txt('screens.reliquaryCodex.curses')}
+          </>
+        }
+        headingClass="text-gold-300"
+        testId="codex-fold-dissonant"
       >
-        <h3 className="mb-1 font-display text-lg font-bold text-gold-300">
-          {txt('screens.reliquaryCodex.inscriptions')}
-        </h3>
-        <p className="mb-3 max-w-4xl text-sm text-muted">
-          {txt('screens.reliquaryCodex.upToOnA', {
-            maxInscriptions: rules.maxInscriptions,
-            tierLabel: tierLabel(rules.tierCap),
-            bandsSentence: bandsSentence(),
-            tierLabel2: tierLabel(rules.dissonate.cursedTierCap),
-          })}
-        </p>
-        <div className={GRID}>
-          {codexInscriptions().map((group) => {
-            const look = categoryLook(group.category);
-            return (
-              <Panel
-                key={group.category}
-                tone="solid"
-                className="p-4"
-                style={{ borderTopColor: look.color, borderTopWidth: 3 }}
-              >
-                <h4
-                  className="flex items-center gap-2 font-display text-base font-bold"
-                  style={{ color: look.color }}
-                >
-                  <AstrolabeGlyph glyph={look.glyph} size={18} /> {look.name}
-                  <span className="font-sans text-sm font-normal text-muted">{look.blurb}</span>
-                </h4>
-                <ul className="mt-2 flex flex-col gap-2.5">
-                  {group.rows.map((row) => (
-                    <li key={row.id} data-inscription={row.id}>
-                      <p className="text-sm">
-                        <b className="text-text">{row.name}</b>{' '}
-                        <span className="text-muted">{row.text}</span>
-                      </p>
-                      <ol className="mt-1 grid grid-cols-5 gap-1">
-                        {row.tiers.map((t) => (
-                          <li
-                            key={t.tier}
-                            className={`flex flex-col items-center gap-0.5 rounded-md bg-ink-900/70 py-1 ${t.reachable ? '' : 'opacity-70'}`}
-                            title={
-                              t.reachable
-                                ? undefined
-                                : txt('screens.reliquaryCodex.aRelicWonAt', {
-                                    value: t.depth ?? '?',
-                                  })
-                            }
-                          >
-                            <TierBadge tier={t.tier} size="sm" />
-                            <span className="font-mono text-[0.75rem] text-text">{t.text}</span>
-                          </li>
-                        ))}
-                      </ol>
-                    </li>
-                  ))}
-                </ul>
-              </Panel>
-            );
-          })}
-        </div>
-      </section>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel tone="solid" className="p-5" data-testid="codex-dissonant">
-          <h3
-            className="font-display text-lg font-bold"
-            style={{ color: DISSONANCE_LOOK.dissonant.color }}
-          >
-            {txt('screens.reliquaryCodex.dissonantInscriptions')}
-          </h3>
-          <p className="mt-1 text-sm text-muted">{txt('screens.reliquaryCodex.oneOfTheseFills')}</p>
-          <ul className="mt-2 flex flex-col gap-1.5">
-            {CONTENT.inscriptions
-              .filter((d) => d.kind === 'dissonant')
-              .map((d) => (
-                <li key={d.id} className="flex items-start gap-2 text-sm" data-dissonant={d.id}>
-                  <span
-                    style={{ color: categoryLook(d.category).color }}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Panel tone="solid" className="p-5" data-testid="codex-dissonant">
+            <h3
+              className="font-display text-lg font-bold"
+              style={{ color: DISSONANCE_LOOK.dissonant.color }}
+            >
+              {txt('screens.reliquaryCodex.dissonantInscriptions')}
+            </h3>
+            <p className="mt-1 text-sm text-muted">
+              {txt('screens.reliquaryCodex.oneOfTheseFills')}
+            </p>
+            <ul className="mt-2 flex flex-col gap-1.5">
+              {CONTENT.inscriptions
+                .filter((d) => d.kind === 'dissonant')
+                .map((d) => (
+                  <li key={d.id} className="flex items-start gap-2 text-sm" data-dissonant={d.id}>
+                    <span
+                      style={{ color: categoryLook(d.category).color }}
+                      className="mt-0.5 shrink-0"
+                    >
+                      <AstrolabeGlyph glyph={categoryLook(d.category).glyph} size={15} />
+                    </span>
+                    <span>
+                      <b className="text-text">{d.name}</b>{' '}
+                      <span className="text-muted">{inscriptionText(d)}</span>
+                    </span>
+                  </li>
+                ))}
+            </ul>
+          </Panel>
+          <Panel tone="solid" className="p-5" data-testid="codex-curses">
+            <h3
+              className="font-display text-lg font-bold"
+              style={{ color: DISSONANCE_LOOK.cursed.color }}
+            >
+              {txt('screens.reliquaryCodex.curses')}
+            </h3>
+            <p className="mt-1 text-sm text-muted">
+              {txt('screens.reliquaryCodex.oneOfTheseJoins', {
+                tierLabel: tierLabel(rules.dissonate.cursedTierCap),
+              })}
+              {rules.bands.length > 0 &&
+                txt('screens.reliquaryCodex.orForARelic', {
+                  tierLabel: tierLabel(band(rules.bands[0]!.depth).cursedTierCap),
+                  depth: rules.bands[0]!.depth,
+                })}
+              {txt('screens.reliquaryCodex.aCurseIsAn')}
+            </p>
+            <ul className="mt-2 flex flex-col gap-1.5">
+              {CONTENT.curses.map((c) => (
+                <li key={c.id} className="flex items-start gap-2 text-sm" data-curse={c.id}>
+                  <Icon
+                    name="skull"
+                    size={15}
                     className="mt-0.5 shrink-0"
-                  >
-                    <AstrolabeGlyph glyph={categoryLook(d.category).glyph} size={15} />
-                  </span>
+                    style={{ color: DISSONANCE_LOOK.cursed.color }}
+                  />
                   <span>
-                    <b className="text-text">{d.name}</b>{' '}
-                    <span className="text-muted">{inscriptionText(d)}</span>
+                    <b className="text-text">{c.name}</b>{' '}
+                    <span className="text-muted">{curseText(c)}</span>
                   </span>
                 </li>
               ))}
-          </ul>
-        </Panel>
-        <Panel tone="solid" className="p-5" data-testid="codex-curses">
-          <h3
-            className="font-display text-lg font-bold"
-            style={{ color: DISSONANCE_LOOK.cursed.color }}
-          >
-            {txt('screens.reliquaryCodex.curses')}
-          </h3>
-          <p className="mt-1 text-sm text-muted">
-            {txt('screens.reliquaryCodex.oneOfTheseJoins', {
-              tierLabel: tierLabel(rules.dissonate.cursedTierCap),
-            })}
-            {rules.bands.length > 0 &&
-              txt('screens.reliquaryCodex.orForARelic', {
-                tierLabel: tierLabel(band(rules.bands[0]!.depth).cursedTierCap),
-                depth: rules.bands[0]!.depth,
-              })}
-            {txt('screens.reliquaryCodex.aCurseIsAn')}
-          </p>
-          <ul className="mt-2 flex flex-col gap-1.5">
-            {CONTENT.curses.map((c) => (
-              <li key={c.id} className="flex items-start gap-2 text-sm" data-curse={c.id}>
-                <Icon
-                  name="skull"
-                  size={15}
-                  className="mt-0.5 shrink-0"
-                  style={{ color: DISSONANCE_LOOK.cursed.color }}
-                />
-                <span>
-                  <b className="text-text">{c.name}</b>{' '}
-                  <span className="text-muted">{curseText(c)}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      </div>
-
-      <Panel tone="solid" className="p-5" data-testid="codex-empowered">
-        <h3
-          className="font-display text-lg font-bold"
-          style={{ color: DISSONANCE_LOOK.empowered.color }}
-        >
-          {txt('screens.reliquaryCodex.empoweredRelics')}
-        </h3>
-        <p className="mt-1 text-sm text-muted">
-          {txt('screens.reliquaryCodex.whatAnEmpoweredRelic', { andList: andList(empowered.none) })}
-        </p>
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full min-w-[40rem] text-left text-sm">
-            <thead className="text-xs uppercase tracking-wider text-muted">
-              <tr>
-                <th className="py-1 pr-3 font-semibold">{txt('screens.reliquaryCodex.relic')}</th>
-                <th className="py-1 pr-3 font-semibold">
-                  {txt('screens.reliquaryCodex.itsEffect')}
-                </th>
-                <th className="py-1 font-semibold">{txt('screens.reliquaryCodex.empowered')}</th>
-              </tr>
-            </thead>
-            <tbody className="align-top">
-              {empowered.rows.map((r) => (
-                <tr key={r.id} className="border-t border-ink-600/70" data-empowered={r.id}>
-                  <td className="py-1.5 pr-3 font-semibold text-text">{r.name}</td>
-                  <td className="py-1.5 pr-3 text-muted">{r.text}</td>
-                  <td className="py-1.5" style={{ color: DISSONANCE_LOOK.empowered.color }}>
-                    {r.empowered}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+            </ul>
+          </Panel>
         </div>
-      </Panel>
+      </Fold>
+
+      <Fold
+        heading={txt('screens.reliquaryCodex.empoweredRelics')}
+        style={{ color: DISSONANCE_LOOK.empowered.color }}
+        testId="codex-fold-empowered"
+      >
+        <Panel tone="solid" className="p-5" data-testid="codex-empowered">
+          <p className="mt-1 text-sm text-muted">
+            {txt('screens.reliquaryCodex.whatAnEmpoweredRelic', {
+              andList: andList(empowered.none),
+            })}
+          </p>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[40rem] text-left text-sm">
+              <thead className="text-xs uppercase tracking-wider text-muted">
+                <tr>
+                  <th className="py-1 pr-3 font-semibold">{txt('screens.reliquaryCodex.relic')}</th>
+                  <th className="py-1 pr-3 font-semibold">
+                    {txt('screens.reliquaryCodex.itsEffect')}
+                  </th>
+                  <th className="py-1 font-semibold">{txt('screens.reliquaryCodex.empowered')}</th>
+                </tr>
+              </thead>
+              <tbody className="align-top">
+                {empowered.rows.map((r) => (
+                  <tr key={r.id} className="border-t border-ink-600/70" data-empowered={r.id}>
+                    <td className="py-1.5 pr-3 font-semibold text-text">{r.name}</td>
+                    <td className="py-1.5 pr-3 text-muted">{r.text}</td>
+                    <td className="py-1.5" style={{ color: DISSONANCE_LOOK.empowered.color }}>
+                      {r.empowered}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      </Fold>
     </div>
   );
 }

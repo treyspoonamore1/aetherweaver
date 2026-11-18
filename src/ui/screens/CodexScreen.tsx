@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useProfile } from '../../app/profileStore';
 import { CONTENT, motifText, ornamentDef } from '../../content';
 import {
@@ -19,6 +19,7 @@ import { ROLE_LABEL, bindingLabel, mouseRoleCode, mouseRoleLabel } from '../hud/
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
 import { CATEGORY, Chip, RARITY, RarityChip } from '../kit/Chip';
+import { Fold } from '../kit/Fold';
 import { fmt, pct } from '../kit/format';
 import { Icon, type IconName } from '../kit/Icon';
 import { Panel } from '../kit/Panel';
@@ -551,8 +552,18 @@ function Callings({ allowance }: { allowance: Allowance }) {
                 </p>
               )}
             </Panel>
-            <CallingPathPreview def={def} columns={4} />
-            <AxisLegend def={def} />
+            {/* The class in a card; its eight options are a fold away. */}
+            <Fold
+              small
+              heading={txt('screens.codexScreen.itsPath')}
+              count={def.tiers.reduce((n, tier) => n + tier.options.length, 0)}
+              testId={`codex-calling-path-${def.id}`}
+            >
+              <div className="flex flex-col gap-4">
+                <CallingPathPreview def={def} columns={4} />
+                <AxisLegend def={def} />
+              </div>
+            </Fold>
           </section>
         );
       })}
@@ -670,85 +681,93 @@ function HeroEntry({ hero: h }: { hero: HeroDef }) {
             : txt('screens.codexScreen.ranged')}
         </Chip>
       </div>
-      <dl className="mt-3 flex flex-col gap-2 text-sm">
-        {h.abilities.map((a) => (
-          <div key={a.id}>
-            <dt className="font-semibold">
-              {a.name}{' '}
-              <span className="font-mono text-xs font-normal text-muted">
-                {txt('screens.codexScreen.s', { cooldown: a.cooldown })}
-              </span>
-            </dt>
-            <dd className="text-xs leading-relaxed text-muted">{a.description}</dd>
-          </div>
-        ))}
-        <div>
-          <dt className="font-semibold text-gold-200">
-            {txt('screens.codexScreen.solo', { name: h.solo.name })}
-          </dt>
-          <dd className="text-xs leading-relaxed text-muted">{h.solo.description}</dd>
-          <dd className="text-xs leading-relaxed text-gold-300">{h.solo.cuedDescription}</dd>
-        </div>
-        <div>
-          <dt className="flex items-center gap-1.5 font-semibold" style={{ color: CALL }}>
-            <Icon name="call" size={14} />{' '}
-            {txt('screens.codexScreen.call', {
-              value: CALL_ANSWER[h.call.answer],
-              name: h.call.flourish.name,
-            })}
-          </dt>
-          <dd className="text-xs leading-relaxed text-muted">{h.call.flourish.description}</dd>
-        </div>
-        <div>
-          <dt className="font-semibold">
-            {txt('screens.codexScreen.quirk', { name: h.quirk.name })}
-          </dt>
-          <dd className="text-xs leading-relaxed text-muted">{h.quirk.description}</dd>
-        </div>
-        {passive && (
-          <div data-testid={`codex-passive-${h.id}`}>
-            {h.passive && h.passive.id !== 'bloodRage' ? (
-              <dt className="flex items-center gap-1.5 font-semibold">
-                <Icon name={passiveIcon(h)} size={14} className="text-muted" />
-                {txt('screens.codexScreen.passive', { name: passive.name })}
-              </dt>
-            ) : (
-              // Brann's entry (and any passive without a glyph) is byte-equal to before Phase 5e.
+      {/* The hero in a line and three numbers; what they do is a fold away. */}
+      <Fold
+        small
+        className="mt-3"
+        heading={txt('screens.codexScreen.whatTheyDo')}
+        testId={`codex-hero-kit-${h.id}`}
+      >
+        <dl className="flex flex-col gap-2 text-sm">
+          {h.abilities.map((a) => (
+            <div key={a.id}>
               <dt className="font-semibold">
-                {txt('screens.codexScreen.passive', { name: passive.name })}
+                {a.name}{' '}
+                <span className="font-mono text-xs font-normal text-muted">
+                  {txt('screens.codexScreen.s', { cooldown: a.cooldown })}
+                </span>
               </dt>
-            )}
-            <dd className="text-xs leading-relaxed text-muted">{passive.text}</dd>
-            {stack && (
-              <dd
-                className="mt-1 text-xs leading-relaxed text-muted"
-                data-testid={`codex-heal-stack-${h.id}`}
-              >
-                {stack}
-              </dd>
-            )}
-          </div>
-        )}
-        {summons.length > 0 && (
-          <div data-testid={`codex-summons-${h.id}`}>
-            <dt className="flex items-center gap-1.5 font-semibold">
-              <Icon name="leaf" size={14} className="text-muted" />{' '}
-              {txt('screens.codexScreen.saplingsAndTheAncient')}
+              <dd className="text-xs leading-relaxed text-muted">{a.description}</dd>
+            </div>
+          ))}
+          <div>
+            <dt className="font-semibold text-gold-200">
+              {txt('screens.codexScreen.solo', { name: h.solo.name })}
             </dt>
-            {summons.map((line) => (
-              <dd key={line} className="text-xs leading-relaxed text-muted">
-                {line}
-              </dd>
-            ))}
+            <dd className="text-xs leading-relaxed text-muted">{h.solo.description}</dd>
+            <dd className="text-xs leading-relaxed text-gold-300">{h.solo.cuedDescription}</dd>
           </div>
-        )}
-        {needs && (
-          <div data-testid={`codex-needs-${h.id}`}>
-            <dt className="font-semibold">{txt('screens.codexScreen.needs')}</dt>
-            <dd className="text-xs leading-relaxed text-muted">{needs}</dd>
+          <div>
+            <dt className="flex items-center gap-1.5 font-semibold" style={{ color: CALL }}>
+              <Icon name="call" size={14} />{' '}
+              {txt('screens.codexScreen.call', {
+                value: CALL_ANSWER[h.call.answer],
+                name: h.call.flourish.name,
+              })}
+            </dt>
+            <dd className="text-xs leading-relaxed text-muted">{h.call.flourish.description}</dd>
           </div>
-        )}
-      </dl>
+          <div>
+            <dt className="font-semibold">
+              {txt('screens.codexScreen.quirk', { name: h.quirk.name })}
+            </dt>
+            <dd className="text-xs leading-relaxed text-muted">{h.quirk.description}</dd>
+          </div>
+          {passive && (
+            <div data-testid={`codex-passive-${h.id}`}>
+              {h.passive && h.passive.id !== 'bloodRage' ? (
+                <dt className="flex items-center gap-1.5 font-semibold">
+                  <Icon name={passiveIcon(h)} size={14} className="text-muted" />
+                  {txt('screens.codexScreen.passive', { name: passive.name })}
+                </dt>
+              ) : (
+                // Brann's entry (and any passive without a glyph) is byte-equal to before Phase 5e.
+                <dt className="font-semibold">
+                  {txt('screens.codexScreen.passive', { name: passive.name })}
+                </dt>
+              )}
+              <dd className="text-xs leading-relaxed text-muted">{passive.text}</dd>
+              {stack && (
+                <dd
+                  className="mt-1 text-xs leading-relaxed text-muted"
+                  data-testid={`codex-heal-stack-${h.id}`}
+                >
+                  {stack}
+                </dd>
+              )}
+            </div>
+          )}
+          {summons.length > 0 && (
+            <div data-testid={`codex-summons-${h.id}`}>
+              <dt className="flex items-center gap-1.5 font-semibold">
+                <Icon name="leaf" size={14} className="text-muted" />{' '}
+                {txt('screens.codexScreen.saplingsAndTheAncient')}
+              </dt>
+              {summons.map((line) => (
+                <dd key={line} className="text-xs leading-relaxed text-muted">
+                  {line}
+                </dd>
+              ))}
+            </div>
+          )}
+          {needs && (
+            <div data-testid={`codex-needs-${h.id}`}>
+              <dt className="font-semibold">{txt('screens.codexScreen.needs')}</dt>
+              <dd className="text-xs leading-relaxed text-muted">{needs}</dd>
+            </div>
+          )}
+        </dl>
+      </Fold>
     </Panel>
   );
 }
@@ -776,13 +795,16 @@ function Enemies({ seen }: { seen?: readonly string[] }) {
   const groups = byMovement(CONTENT.enemies);
   return (
     <div className="flex flex-col gap-8">
-      {groups.map(({ movement, items }) => (
-        <section
+      {groups.map(({ movement, items }, i) => (
+        <MovementGroup
           key={movement}
-          aria-label={movementLabel(movement)}
-          data-testid={`codex-enemies-${movement}`}
+          movement={movement}
+          fold={groups.length > 1}
+          open={i === 0}
+          count={items.length}
+          label={movementLabel(movement)}
+          testId={`codex-enemies-${movement}`}
         >
-          {groups.length > 1 && <MovementHeading movement={movement} />}
           <div className={GRID}>
             {items.map((e) =>
               !known || known.has(e.id) ? (
@@ -792,7 +814,7 @@ function Enemies({ seen }: { seen?: readonly string[] }) {
               ),
             )}
           </div>
-        </section>
+        </MovementGroup>
       ))}
     </div>
   );
@@ -812,18 +834,55 @@ function byMovement<T extends { movement?: number }>(
   return groups.sort((a, b) => a.movement - b.movement);
 }
 
-function MovementHeading({ movement }: { movement: number }) {
+/**
+ * A Movement's entries on a page that has several: a group that folds, the first open (the second
+ * menu text pass, round 11). With one Movement in sight there is no heading and nothing to fold.
+ */
+function MovementGroup({
+  movement,
+  fold,
+  open,
+  count,
+  label,
+  testId,
+  children,
+}: {
+  movement: number;
+  fold: boolean;
+  open: boolean;
+  count: number;
+  label: string;
+  testId?: string;
+  children: ReactNode;
+}) {
+  if (!fold)
+    return (
+      <section aria-label={label} data-testid={testId}>
+        {children}
+      </section>
+    );
   const def = CONTENT.movements[movement - 1];
   return (
-    <h2 className="mb-3 flex items-baseline gap-2 font-display text-lg font-bold text-gold-300">
-      {movementLabel(movement)}
-      {/* A labelled Movement (the Finale) is named by its place, not its name twice. */}
-      {def && (
-        <span className="text-sm font-normal text-muted">
-          · {def.label === movementLabel(movement) ? def.mapTitle : def.name}
-        </span>
-      )}
-    </h2>
+    <Fold
+      label={label}
+      open={open}
+      count={count}
+      testId={testId}
+      headingClass="text-gold-300"
+      heading={
+        <>
+          {movementLabel(movement)}
+          {/* A labelled Movement (the Finale) is named by its place, not its name twice. */}
+          {def && (
+            <span className="font-sans text-sm font-normal text-muted">
+              · {def.label === movementLabel(movement) ? def.mapTitle : def.name}
+            </span>
+          )}
+        </>
+      }
+    >
+      {children}
+    </Fold>
   );
 }
 
@@ -1262,10 +1321,18 @@ function Chords() {
   const w = CONTENT.weaver;
   const c = CONTENT.chorus;
   const fermata = CONTENT.auras.find((a) => a.id === 'fermata');
-  const unison = CONTENT.ornaments.find((o) => o.id === 'unison');
   const mult = (v: number) => `×${Number(v.toFixed(2))}`;
   return (
     <div className="flex flex-col gap-8">
+      <Panel tone="gold" className="p-5">
+        <p className="max-w-4xl text-sm leading-relaxed text-text">
+          {txt('screens.codexScreen.aurasReserveSpirit', {
+            cost: CONTENT.techniques.ward.cost,
+            cost2: CONTENT.techniques.chime.cost,
+            cost3: CONTENT.techniques.reel.cost,
+          })}
+        </p>
+      </Panel>
       <div className={GRID}>
         <Panel tone="gold" className="p-5">
           <h2 className="flex items-center gap-2 font-display text-xl font-bold text-gold-200">
@@ -1276,15 +1343,6 @@ function Chords() {
             <b>{mult(w.beamFocus)}</b>
             {txt('screens.codexScreen.whereverTheyAreAnd')} <b>{mult(w.beamEcho)}</b>
             {txt('screens.codexScreen.whoYouThreadDecides')}
-            {unison && (
-              <>
-                {txt('screens.codexScreen.with')}{' '}
-                <b style={{ color: unison.color }}>{unison.name}</b>{' '}
-                {txt('screens.codexScreen.itGoesAllIn', {
-                  mult: mult(w.beamFocus * unison.focusMult),
-                })}
-              </>
-            )}
           </p>
           <div className="mt-3 flex flex-wrap gap-1.5">
             <Chip icon="thread">
@@ -1317,9 +1375,6 @@ function Chords() {
               fieldRadius: w.fieldRadius,
               auraSlots: w.auraSlots,
               ornamentSlots: w.ornamentSlots,
-              cost: CONTENT.techniques.ward.cost,
-              cost2: CONTENT.techniques.chime.cost,
-              cost3: CONTENT.techniques.reel.cost,
             })}
           </p>
           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -1375,10 +1430,17 @@ function Chords() {
           </Panel>
         )}
       </div>
-      <section aria-label={txt('screens.codexScreen.ornaments')}>
-        <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-gold-300">
-          <Icon name="diamond" size={20} /> {txt('screens.codexScreen.ornaments')}
-        </h2>
+      <Fold
+        label={txt('screens.codexScreen.ornaments')}
+        count={CONTENT.ornaments.length}
+        headingClass="text-gold-300"
+        testId="codex-ornaments"
+        heading={
+          <>
+            <Icon name="diamond" size={20} /> {txt('screens.codexScreen.ornaments')}
+          </>
+        }
+      >
         <div className={GRID}>
           {CONTENT.ornaments.map((o) => (
             <Panel
@@ -1443,7 +1505,7 @@ function Chords() {
             </Panel>
           ))}
         </div>
-      </section>
+      </Fold>
     </div>
   );
 }
@@ -1484,8 +1546,6 @@ function Astrolabe({ onDeeds }: { onDeeds(): void }) {
           </p>
           <p className="mt-2 text-sm leading-relaxed text-text">
             {txt('screens.codexScreen.giveAStarBack')}
-            <b>{txt('screens.codexScreen.skipTheUnlocks')}</b>{' '}
-            {txt('screens.codexScreen.givesAllPoints', { all })}
           </p>
           <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted">
             {(['travel', 'notable', 'great', 'keystone'] as const).map((kind) => (
@@ -1593,7 +1653,6 @@ function Ranks({ deeds }: { deeds: number }) {
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-text">
             {txt('screens.codexScreen.everyFightEarnsWeaver')}
-            <b>{txt('screens.codexScreen.skipTheUnlocks')}</b>{' '}
             {txt('screens.codexScreen.opensEverythingAtOnce')}
           </p>
         </Panel>
@@ -1627,10 +1686,17 @@ function Ranks({ deeds }: { deeds: number }) {
           </ul>
         </Panel>
       </div>
-      <section aria-label={txt('screens.codexScreen.ranks')}>
-        <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-gold-300">
-          <Icon name="lock" size={20} /> {txt('screens.codexScreen.whatEachRankOpens')}
-        </h2>
+      <Fold
+        label={txt('screens.codexScreen.ranks')}
+        count={RANK_XP.length}
+        headingClass="text-gold-300"
+        testId="codex-ranks"
+        heading={
+          <>
+            <Icon name="lock" size={20} /> {txt('screens.codexScreen.whatEachRankOpens')}
+          </>
+        }
+      >
         <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {RANK_XP.map((xp, i) => {
             const rank = i + 1;
@@ -1706,7 +1772,7 @@ function Ranks({ deeds }: { deeds: number }) {
             );
           })}
         </ol>
-      </section>
+      </Fold>
     </div>
   );
 }
@@ -1814,29 +1880,89 @@ function LockedMotif({ heroId }: { heroId: string }) {
 
 function Motifs({ roster }: { roster: readonly string[] }) {
   const categories = Object.keys(CATEGORY) as (keyof typeof CATEGORY)[];
+  // A long list: one family open, a filter by name or words, and each motif's first level until
+  // every level is asked for (the second menu text pass, round 11). Content's words are as they
+  // were.
+  const [query, setQuery] = useState('');
+  const [levels, setLevels] = useState(false);
+  const q = query.trim().toLowerCase();
+  const matches = (m: (typeof CONTENT.motifs)[number]) =>
+    q === '' ||
+    m.name.toLowerCase().includes(q) ||
+    m.tags.some((tag) => tag.toLowerCase().includes(q)) ||
+    m.values.some((_, i) =>
+      motifText(m, i + 1)
+        .toLowerCase()
+        .includes(q),
+    );
+  const shown = CONTENT.motifs.filter(
+    (m) => (!m.requires.hero || roster.includes(m.requires.hero)) && matches(m),
+  ).length;
+  let first = true;
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-3" data-testid="codex-motif-tools">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={txt('screens.codexScreen.filterMotifs')}
+          aria-label={txt('screens.codexScreen.filterMotifs')}
+          className="w-64 rounded-lg border border-ink-500 bg-ink-900 px-3 py-1.5 text-sm text-text placeholder:text-muted"
+          data-testid="codex-motif-filter"
+        />
+        <Button
+          size="sm"
+          variant="secondary"
+          aria-pressed={levels}
+          onClick={() => setLevels(!levels)}
+          data-testid="codex-motif-levels"
+        >
+          {txt('screens.codexScreen.everyLevel')}
+        </Button>
+        {q !== '' && (
+          <span className="text-xs text-muted" role="status">
+            {shown === 0
+              ? txt('screens.codexScreen.noMotifMatches')
+              : txt('screens.codexScreen.motifsMatch', { n: shown })}
+          </span>
+        )}
+      </div>
       {categories.map((cat) => {
         // A hero's motifs wait for that hero to join the roster (docs/phase-5b.md): each is a
         // locked silhouette with a neutral name (never his, nor the motif's, whose text names
         // him), and how he is earned.
-        const motifs = CONTENT.motifs.filter(
+        const all = CONTENT.motifs.filter(
           (m) => m.category === cat && (!m.requires.hero || roster.includes(m.requires.hero)),
         );
-        const waiting = CONTENT.motifs.filter(
-          (m) => m.category === cat && !!m.requires.hero && !roster.includes(m.requires.hero),
-        );
-        if (motifs.length === 0 && waiting.length === 0) return null;
+        const motifs = all.filter(matches);
+        const waiting =
+          q === ''
+            ? CONTENT.motifs.filter(
+                (m) => m.category === cat && !!m.requires.hero && !roster.includes(m.requires.hero),
+              )
+            : [];
+        if (all.length === 0 && waiting.length === 0) return null;
+        if (q !== '' && motifs.length === 0) return null;
         const c = CATEGORY[cat];
+        const open = first;
+        first = false;
         return (
-          <section key={cat} aria-label={c.label}>
-            <h2
-              className="mb-3 flex items-center gap-2 font-display text-lg font-bold"
-              style={{ color: c.color }}
-            >
-              <Icon name={c.icon} size={20} /> {c.label}
-              <span className="text-sm font-normal text-muted">{c.blurb}</span>
-            </h2>
+          <Fold
+            key={cat}
+            label={c.label}
+            open={open}
+            force={q !== ''}
+            count={motifs.length}
+            style={{ color: c.color }}
+            testId={`codex-motifs-${cat}`}
+            heading={
+              <>
+                <Icon name={c.icon} size={20} /> {c.label}
+                <span className="font-sans text-sm font-normal text-muted">{c.blurb}</span>
+              </>
+            }
+          >
             <div className={GRID}>
               {motifs.map((m) => (
                 <Panel
@@ -1853,7 +1979,8 @@ function Motifs({ roster }: { roster: readonly string[] }) {
                   </div>
                   <ol className="mt-2 flex flex-col gap-1 text-sm leading-snug text-muted">
                     {m.values.map((_, i) => (
-                      <li key={i}>
+                      // Its first level stands for the motif; the rest wait for "Every level".
+                      <li key={i} hidden={i > 0 && !levels}>
                         <span className="mr-1.5 font-mono text-xs text-gold-300">
                           {txt('screens.codexScreen.lv', { value: i + 1 })}
                         </span>
@@ -1902,7 +2029,7 @@ function Motifs({ roster }: { roster: readonly string[] }) {
                 <LockedMotif key={m.id} heroId={m.requires.hero!} />
               ))}
             </div>
-          </section>
+          </Fold>
         );
       })}
     </div>
@@ -1930,16 +2057,22 @@ function Relics() {
         const relics = CONTENT.relics.filter((r) => r.rarity === rarity);
         const look = RELIC_RARITY[rarity];
         return (
-          <section key={rarity} aria-label={look.label}>
-            <h2
-              className="mb-3 flex items-center gap-2 font-display text-lg font-bold"
-              style={{ color: look.color }}
-            >
-              {look.label}
-              <span className="text-sm font-normal text-muted">
-                {txt('screens.codexScreen.aetherAtAMerchant', { value: RELIC_PRICE[rarity] })}
-              </span>
-            </h2>
+          <Fold
+            key={rarity}
+            label={look.label}
+            open={rarity === RELIC_ORDER[0]}
+            count={relics.length}
+            style={{ color: look.color }}
+            testId={`codex-relics-${rarity}`}
+            heading={
+              <>
+                {look.label}
+                <span className="font-sans text-sm font-normal text-muted">
+                  {txt('screens.codexScreen.aetherAtAMerchant', { value: RELIC_PRICE[rarity] })}
+                </span>
+              </>
+            }
+          >
             <div className={GRID}>
               {relics.map((r) => {
                 const info = relicInfo(r.id);
@@ -1972,7 +2105,7 @@ function Relics() {
                 );
               })}
             </div>
-          </section>
+          </Fold>
         );
       })}
     </div>
@@ -1993,14 +2126,18 @@ function Events({ seen, allowance }: { seen?: readonly string[]; allowance: Allo
           {txt('screens.codexScreen.eventsWaitOnThe')}
         </p>
       </Panel>
-      {groups.map(({ movement, items }) => (
-        <section
+      {groups.map(({ movement, items }, i) => (
+        <MovementGroup
           key={movement}
-          aria-label={txt('screens.codexScreen.eventsOf', {
+          movement={movement}
+          fold={groups.length > 1}
+          open={i === 0}
+          count={items.length}
+          label={txt('screens.codexScreen.eventsOf', {
             movementInSentence: movementInSentence(movement),
           })}
+          testId={`codex-events-${movement}`}
         >
-          {groups.length > 1 && <MovementHeading movement={movement} />}
           {movement > reach ? (
             <Panel
               tone="solid"
@@ -2060,12 +2197,15 @@ function Events({ seen, allowance }: { seen?: readonly string[]; allowance: Allo
               ))}
             </div>
           )}
-        </section>
+        </MovementGroup>
       ))}
-      <section aria-label={txt('screens.codexScreen.boonsAndBanes')}>
-        <h2 className="mb-3 font-display text-lg font-bold text-gold-300">
-          {txt('screens.codexScreen.boonsAndBanes')}
-        </h2>
+      <Fold
+        label={txt('screens.codexScreen.boonsAndBanes')}
+        count={CONTENT.boons.length}
+        headingClass="text-gold-300"
+        testId="codex-boons"
+        heading={txt('screens.codexScreen.boonsAndBanes')}
+      >
         <div className={GRID}>
           {CONTENT.boons.map((b) => {
             const info = boonInfo({ id: b.id, fights: b.fights });
@@ -2089,7 +2229,7 @@ function Events({ seen, allowance }: { seen?: readonly string[]; allowance: Allo
             );
           })}
         </div>
-      </section>
+      </Fold>
     </div>
   );
 }

@@ -190,7 +190,7 @@ export const input = {
   'input.labels.aChimeFreesEach': 'A Chime frees each one it reaches.',
   'input.labels.unravelled': 'Unravelled',
   'input.labels.yourMendWoundsThem': 'Your Mend wounds them while Unravel lasts.',
-  'input.labels.yourMendWoundsEmpower': 'Your Mend wounds — Empower.',
+  'input.labels.yourMendWoundsEmpower': 'Your Mend wounds. Empower.',
   'input.labels.emboldened': 'Emboldened',
   'input.labels.aMirrorSCopy':
     'A mirror’s copy of your Empower, or the Unweaver’s Thread: it deals {EMBOLDENED_PCT}% more damage.',

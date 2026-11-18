@@ -511,17 +511,17 @@ describe('the per-hero copy', () => {
 
   it('party notes name who holds and who interrupts, and OB’s note (Q8)', () => {
     const text = (p: readonly string[]) => missingStarterNotes(p).map((n) => n.text);
-    expect(text(SEREN_PARTIES.SB)[0]).toMatch(/The bosses will find Seren — Ward her/);
+    expect(text(SEREN_PARTIES.SB)[0]).toMatch(/The bosses will find Seren\. Ward her/);
     expect(text(ORO_PARTIES.OB)).toEqual([
       'No Kael: nothing holds the bosses, and Oro won’t. Keep a Perfect, a Reel or a Chime for each boss blow.',
     ]);
     expect(text(DUO_PARTIES.W)).toEqual([
-      'No Kael: nothing taunts. The bosses will find Seren — Ward her as the blow lands: she parries it whole.',
+      'No Kael: nothing taunts. The bosses will find Seren. Ward her as the blow lands: she parries it whole.',
       'No Lyra: Seren’s Lunge is your interrupter. Break guards with Focus.',
     ]);
     expect(text(DUO_PARTIES.SO)).toEqual([
       'No Lyra: only Kael’s Shield Bash and Seren’s Lunge interrupt. Break guards with Focus.',
-      'No Vexis: no Gravity Well — swarms stay spread out.',
+      'No Vexis: no Gravity Well. Swarms stay spread out.',
     ]);
     expect(text(['kael', 'brann', 'seren'])[0]).toBe(
       'No Lyra: only Kael’s Shield Bash, Brann’s Sunder Leap and Seren’s Lunge interrupt. Break guards with Focus.',
@@ -770,8 +770,14 @@ describe('review fixes: the Mirror Choir decree, and Brann’s Codex entry', () 
     let stripped = html;
     for (const id of ['seren', 'oro'])
       stripped = stripped.replace(heroDef(id).recruit!.lockedText!, '');
+    // Re-recorded in round 11's second menu text pass: each hero's abilities now sit in a fold
+    // ("What they do"), so the page shows a hero in a line until it is opened. The page's text
+    // was compared with main's: the same words in the same order, plus that heading four times.
+    // Re-recorded at the join of the Solo rework with that pass, compared with both parents: the
+    // page is main's folds around the rework's words (Lyra's two lines, Brann's Cued line and his
+    // needs line), and nothing else differs from either.
     expect(createHash('sha256').update(stripped).digest('hex')).toBe(
-      'ff72c80dc9a695aa95b3b574f169e260afd615ef92ca155d172ec20754e9b984',
+      '92afebccdd2ba53a2f872cfbc201910b2e4a11d7a517b6a43c2364bb73e2981c',
     );
   });
 });
@@ -784,6 +790,22 @@ describe('Brann’s and the default party’s UI are byte-equal to before', () =
   // line by line before the hashes were replaced: 42 changed lines, all of them those 21
   // sentences, none about Fermata, a Solo, a Cue or Resonance.
   //
+  // From here the pin moved on two branches at once, then they were joined.
+  //
+  // On the menu text branch (round 11's second pass and the aura lines):
+  // Re-recorded in the same round's second pass, for 22 keys: the 11 `notes:*` that
+  // hold one of two roster notes ("No Vexis: no Gravity Well. Swarms stay spread out." and the
+  // Brann note, each with a full stop where a dash was) and the 11 `frames:brann-*`, whose Blood
+  // Rage bar carries four tooltips reworded the same way ("40%: Bloodlust. Below it he won’t
+  // Rally, and Blood Rage runs hot"). Compared with main's first: those six sentences and
+  // nothing else.
+  // And again, when the owner lifted the rule that aura lines are left alone (round 11's
+  // AURAS-UNLOCKED note): five `hints:*` keys (`brann-rally`, `brann-held`, `crisis`, `calls`,
+  // `fermata`), for the hints about Fermata, the field and silenced auras, each with a full stop
+  // where a dash was ("Fermata holds Brann at 1 life. One touch of the Thread saves him, …").
+  // Compared with the recorded values first: six sentences, nothing else.
+  //
+  // On the Solo rework's branch:
   // Re-recorded a second time, for 19 keys (17 `frames:*`, `hints:crisis`, `hints:boss`), when
   // heroes began to fire their own Solos (docs/solos.md). The values were compared with the tree
   // before, piece by piece: every frame's Solo ring gained a wrapper and its line a test id; the
@@ -821,6 +843,15 @@ describe('Brann’s and the default party’s UI are byte-equal to before', () =
   // began to count every Solo the heroes fired. Compared piece by piece with the tree before:
   // each of the three Results gains one line, "0 of 2 Solos Cued." (the lab's fight now has two
   // Solos fired with the Thread elsewhere, and none Cued), and nothing else moved.
+  //
+  // At the join of the two branches, 12 keys were re-recorded (the 11 `frames:brann-*` and
+  // `hints:crisis`), the keys that both branches had moved. The merged tree's values were compared
+  // with each branch's, key by key: the other 64 keys are exactly one branch's recorded value, and
+  // in the 12 the only differences from the Solo branch are the menu pass's own sentences (Blood
+  // Rage's four tooltips, "Your auras are silenced. Mark the Mute…"), and the only differences
+  // from the menu branch are the Solo rework's own, as told above (the Solo ring and its count,
+  // the Cue key cap gone, Brann's and Lyra's reworded Solo lines, the coach's Solo and dome
+  // lessons).
   it('every pinned text and frame hashes as recorded at W3’s head', async () => {
     const want = JSON.parse(
       readFileSync(join(__dirname, 'uiPhase5e.brann.json'), 'utf8'),

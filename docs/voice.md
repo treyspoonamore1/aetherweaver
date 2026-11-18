@@ -26,7 +26,7 @@ Every example below is from the game: the line as it was, and the line as it is 
 **4. One noun for one thing.** The game has its own words. Use each the same way everywhere, and capitalise it. A place on the map is a _stop_. How far along you are is a _step_ ("step 3 of 10"). A station _opens_. Write "Rank 4", or "Weaver Rank 4" where a Bond rank could be meant.
 
 - Before: "Glowing nodes are within reach; hover one to see what it offers." (the same screen's header said "step", its arrival card said "stops")
-- After: "Choose a glowing stop. Hover one to see what it offers."
+- After: "Choose a glowing stop. Hover a stop, or Tab to it, to see what it offers."
 
 **5. No line longer than it needs.** Count the words. These are ceilings.
 
@@ -74,5 +74,7 @@ Each of these was in the game. The round 11 menu audit quotes them and counts th
 - Screen and card text ends with a full stop. Coach hints and labels don't.
 - A screen reader gets a whole sentence. An `aria-label` can say more than the text on screen.
 - Check every number against the code before the line ships.
-- Auras, ornaments and the songs' rules are the owner's words. Leave them as they are.
+- A long page folds. One group is open and the rest are a heading each (`src/ui/kit/Fold.tsx`). Content's own words stay as they are.
+- The setting that skips the unlocks is named in Settings and nowhere else.
+- Lines about auras, ornaments and the songs' rules follow this guide like any other. An aura's or an ornament's own description lives in content and waits for a content pass.
 - Solos and Cues follow this guide like any other line, since the rework ([docs/solos.md](solos.md)). No key Cues a Solo, so a line never tells the player to "Cue". It says what to do with the Thread: "Thread Kael for his dome". "Cued" is a state of a Solo, explained in one phrase everywhere: "fired with your Thread on them".

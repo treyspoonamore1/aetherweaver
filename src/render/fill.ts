@@ -15,6 +15,7 @@ import {
 import type { FxKit } from './fx/kit';
 import { PARTICLE } from './fx/particles';
 import { SPRITE } from './fx/sprites';
+import { drawnHeight } from './models/artFlag';
 import { C, clamp01 } from './palette';
 import { flareScale } from './relicCues';
 import { RELIC_HEX } from './relics';
@@ -68,6 +69,8 @@ export interface FillRec {
   z: number;
   radius: number;
   height: number;
+  /** How large its model is drawn (a hero's: HERO_DRAWN); absent: as its height says. */
+  batch?: { drawn: number };
 }
 
 /** What FillView needs of the Thread as drawn (ThreadView satisfies it). */
@@ -142,6 +145,8 @@ interface Moment {
   y: number;
   z: number;
   h: number;
+  /** Its target's drawn height: what a mark over its head is lifted from (a hero's: HERO_DRAWN). */
+  top: number;
   r: number;
   /** A bite's place is where the Thread crossed, not its enemy's feet. */
   fixed: boolean;
@@ -314,6 +319,7 @@ export class FillView {
           y: 0,
           z: 0,
           h: 1.5,
+          top: 1.5,
           r: 0.5,
           fixed: false,
         });
@@ -339,6 +345,7 @@ export class FillView {
     m.y = 0;
     m.z = r?.z ?? 0;
     m.h = r?.height ?? 1.5;
+    m.top = r ? drawnHeight(r) : 1.5;
     m.r = r?.radius ?? 0.5;
     m.fixed = false;
     return m;
@@ -401,6 +408,7 @@ export class FillView {
         m.x = r.x;
         m.z = r.z;
         m.h = r.height;
+        m.top = drawnHeight(r);
         m.r = r.radius;
       }
       this.moment(m);
@@ -701,7 +709,7 @@ export class FillView {
         const drop = easeOut(seg(t, 0, 0.2));
         kit.sprites.push(
           m.x,
-          m.h + 0.75 - 0.25 * drop,
+          m.top + 0.75 - 0.25 * drop,
           m.z,
           0.22,
           SPRITE.diamond,
@@ -714,7 +722,7 @@ export class FillView {
           const a = t * 6 + (i * TAU) / 3;
           kit.sprites.push(
             m.x + Math.cos(a) * 0.3,
-            m.h + 0.3,
+            m.top + 0.3,
             m.z + Math.sin(a) * 0.3,
             0.16,
             SPRITE.star,
@@ -727,7 +735,7 @@ export class FillView {
       case 'cooldown':
       case 'ability': {
         // A timer over the head, its arc sweeping round: something came back sooner.
-        const y = m.h + 0.75;
+        const y = m.top + 0.75;
         kit.sprites.push(
           m.x,
           y,
@@ -749,7 +757,7 @@ export class FillView {
           kit.particles.burst(m.x, chest, m.z, 8, 1.2, 1.6, 0.5, 0.06, col, 0.9, PARTICLE.spark, 2);
         kit.sprites.push(
           m.x,
-          m.h + 0.45,
+          m.top + 0.45,
           m.z,
           0.45 * (0.7 + 0.3 * seg(t, 0, 0.15)),
           SPRITE.mode,
@@ -780,7 +788,7 @@ export class FillView {
         break;
       }
       case 'generic': {
-        kit.sprites.push(m.x, m.h + 0.4, m.z, 0.3, SPRITE.star, col, 0.85 * fade, t * 3);
+        kit.sprites.push(m.x, m.top + 0.4, m.z, 0.3, SPRITE.star, col, 0.85 * fade, t * 3);
         break;
       }
     }
@@ -840,7 +848,7 @@ export class FillView {
    */
   private clock(m: Moment, t: number): void {
     const kit = this.d.kit;
-    const y = m.h + 0.8;
+    const y = m.top + 0.8;
     this.callout(m, 'water_clock', y + 1.3, RELIC_HEX.glass, 'rgba(160,220,255,0.8)');
     const fade = 1 - seg(t, m.life * 0.65, m.life);
     const appear = seg(t, 0, 0.12);

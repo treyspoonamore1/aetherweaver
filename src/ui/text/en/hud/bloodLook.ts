@@ -3,11 +3,11 @@ import type { Catalogue } from '../../catalogue';
 /** The `hud.bloodLook.*` messages: `src/ui/hud/bloodLook.ts`. */
 export const bloodLook = {
   'hud.bloodLook.bloodlustBelowItHe':
-    '{round}%: Bloodlust — below it he won’t Rally, and Blood Rage runs hot',
-  'hud.bloodLook.berserkerSHymnEvery': 'Berserker’s Hymn — every hero hits harder',
+    '{round}%: Bloodlust. Below it he won’t Rally, and Blood Rage runs hot',
+  'hud.bloodLook.berserkerSHymnEvery': 'Berserker’s Hymn. Every hero hits harder',
   'hud.bloodLook.bloodAndSilkEmpower': 'Blood and Silk — Empower him for Resonance',
-  'hud.bloodLook.criticalWardHimNow': '{round}%: critical — Ward him now',
-  'hud.bloodLook.deathlessOnceAFight': '{round}%: Deathless — once a fight, he can’t die',
+  'hud.bloodLook.criticalWardHimNow': '{round}%: critical. Ward him now',
+  'hud.bloodLook.deathlessOnceAFight': '{round}%: Deathless. Once a fight, he can’t die',
   'hud.bloodLook.deathless': 'Deathless',
   'hud.bloodLook.deathlessCanTDrop': 'Deathless: {name} can’t drop below 1 life while it lasts',
   'hud.bloodLook.bloodlustNoRally': 'Bloodlust · no Rally',
