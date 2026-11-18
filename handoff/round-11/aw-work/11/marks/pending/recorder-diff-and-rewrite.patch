@@ -1,0 +1,139 @@
+diff --git a/tests/aura/recordPresentationPin.ts b/tests/aura/recordPresentationPin.ts
+index 2c66b1b..8e58fa2 100644
+--- a/tests/aura/recordPresentationPin.ts
++++ b/tests/aura/recordPresentationPin.ts
+@@ -1,29 +1,119 @@
+ /**
+  * Records the aura presentation pin (docs/phase-7.md, ground rule 5) into `presentationPin.json`,
+- * beside this file. It was run ONCE, on the tree before Phase 7's W0 changed any source (main at
+- * 81a12ef), with default settings, and its output is committed:
++ * beside this file, and compares or re-records it later:
+  *
+  *   npx tsx --tsconfig tsconfig.app.json tests/aura/recordPresentationPin.ts
++ *     records the file when there is none (it refuses to overwrite one)
++ *   npx tsx --tsconfig tsconfig.app.json tests/aura/recordPresentationPin.ts --diff
++ *     computes the pin on this tree and lists every entry that differs from the file, case by
++ *     case and sample by sample; writes nothing (exit 1 if any differs)
++ *   npx tsx --tsconfig tsconfig.app.json tests/aura/recordPresentationPin.ts --rewrite --only=beam
++ *     the same list, then writes the file, but only if every entry that moved is in a record
++ *     named by `--only` (field, beam, fermata, chips, audio, markup, fieldShader, simVersion,
++ *     comma-separated); otherwise it writes nothing and exits 1. `--rewrite` alone is refused.
+  *
+- * It refuses to overwrite the file: recording it again on a later tree would pin that tree, which
+- * proves nothing. `presentationPin.test.ts` computes the pin again, with default settings and with
+- * every comfort option at its strongest, and compares both with the file. Only the owner, in
+- * person, may approve a change to an aura's or an ornament's look or sound (docs/phase-7.md).
++ * It was first recorded on the tree before Phase 7's W0 changed any source (main at 81a12ef), with
++ * default settings. Until 18 November 2026 it was the owner's guard: only the owner, in person,
++ * approved a change to an aura's or an ornament's look or sound, and the release check held the
++ * file to the commits they approved. The owner lifted that restriction on that day
++ * (docs/phase-8.md, "The marks on the larger heroes"), and the pin is now a regression pin: it
++ * catches a look or a sound that moved by accident. `presentationPin.test.ts` computes it again,
++ * with default settings and with every comfort option at its strongest, and compares both with
++ * the file.
+  *
+- * Since then the owner has approved changes that move recorded entries, and only those entries
+- * were re-recorded, each time by computing the pin on the approved tree and checking that nothing
+- * else differs. They are listed in `AURA_APPROVED` (tools/release-check.ts) and docs/phase-8.md.
++ * Re-record only what a change means to move: run `--diff` first, read the list, and name the
++ * records in `--only` so nothing else can ride along. Say in the commit which entries moved and
++ * why. Never re-record to make an unexplained failure pass.
+  */
+-import { existsSync, writeFileSync } from 'node:fs';
++import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+ import { fileURLToPath } from 'node:url';
+-import { computePin, serializePin } from './presentationPinFixture';
++import { computePin, serializePin, type PresentationPin } from './presentationPinFixture';
+ 
+ const PATH = fileURLToPath(new URL('./presentationPin.json', import.meta.url));
++const args = process.argv.slice(2);
++const diffOnly = args.includes('--diff');
++const rewrite = args.includes('--rewrite');
++const only = (args.find((a) => a.startsWith('--only='))?.slice('--only='.length) ?? '')
++  .split(',')
++  .filter(Boolean);
+ 
+-if (existsSync(PATH)) {
+-  console.error(`${PATH} exists: the pin is recorded once, before Phase 7 changes any source.`);
+-  process.exit(1);
++/** Entries of one record that differ: which record, a line to print, and how many entries. */
++interface Moved {
++  record: string;
++  line: string;
++  entries: number;
+ }
++
++/**
++ * Where `now` differs from `then`: the samples of a case's record (8 a record), a case's audio, a
++ * markup, the field shader or the sim version. `total` is how many entries the cases hold (a
++ * sample is one entry, a case's audio is one).
++ */
++function compare(then: PresentationPin, now: PresentationPin): { list: Moved[]; total: number } {
++  const list: Moved[] = [];
++  let total = 0;
++  for (const key of ['simVersion', 'fieldShader'] as const)
++    if (then[key] !== now[key]) list.push({ record: key, line: `${key} differs`, entries: 1 });
++  for (const id of new Set([...Object.keys(then.markup), ...Object.keys(now.markup)]))
++    if (then.markup[id] !== now.markup[id])
++      list.push({ record: 'markup', line: `markup ${id} differs`, entries: 1 });
++  for (const key of new Set([...Object.keys(then.cases), ...Object.keys(now.cases)])) {
++    const a = then.cases[key];
++    const b = now.cases[key];
++    for (const record of ['field', 'beam', 'fermata', 'chips'] as const) {
++      const n = Math.max(a?.[record].length ?? 0, b?.[record].length ?? 0);
++      total += n;
++      const samples: number[] = [];
++      for (let i = 0; i < n; i++) if (a?.[record][i] !== b?.[record][i]) samples.push(i + 1);
++      if (samples.length > 0)
++        list.push({
++          record,
++          line: `${key}  ${record}: samples ${samples.join(',')} of ${n}`,
++          entries: samples.length,
++        });
++    }
++    total += 1;
++    if (JSON.stringify(a?.audio) !== JSON.stringify(b?.audio))
++      list.push({ record: 'audio', line: `${key}  audio differs`, entries: 1 });
++  }
++  return { list, total };
++}
++
+ const t0 = performance.now();
+-writeFileSync(PATH, serializePin(await computePin()));
++if (!existsSync(PATH)) {
++  if (diffOnly) {
++    console.error(`${PATH} does not exist: nothing to compare with.`);
++    process.exit(1);
++  }
++  writeFileSync(PATH, serializePin(await computePin()));
++  console.log(`wrote ${PATH} in ${((performance.now() - t0) / 1000).toFixed(1)} s`);
++  process.exit(0);
++}
++if (!diffOnly && !rewrite) {
++  console.error(
++    `${PATH} exists. --diff lists what differs on this tree; --rewrite --only=<records> re-records it.`,
++  );
++  process.exit(1);
++}
++if (rewrite && only.length === 0) {
++  console.error('--rewrite needs --only=<records>: name the records this change means to move.');
++  process.exit(1);
++}
++const file = readFileSync(PATH, 'utf8');
++const now = await computePin();
++const { list, total } = compare(JSON.parse(file) as PresentationPin, now);
++for (const m of list) console.log(`  ${m.line}`);
++const count = list.reduce((n, m) => n + m.entries, 0);
++console.log(`${count} of ${total} entries differ`);
++if (diffOnly) process.exit(count > 0 ? 1 : 0);
++const stray = [...new Set(list.filter((m) => !only.includes(m.record)).map((m) => m.record))];
++if (stray.length > 0) {
++  console.error(`not written: entries moved outside --only=${only.join(',')}: ${stray.join(', ')}`);
++  process.exit(1);
++}
++if (serializePin(now) === file) {
++  console.log('nothing moved: the file is left as it is.');
++  process.exit(0);
++}
++writeFileSync(PATH, serializePin(now));
+ console.log(`wrote ${PATH} in ${((performance.now() - t0) / 1000).toFixed(1)} s`);

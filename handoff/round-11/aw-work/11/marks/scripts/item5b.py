@@ -1,0 +1,19 @@
+EDITS = {
+ 'src/render/serenCues.ts': [
+  ("/**\n * How far over Seren's drawn head her en garde blades cross (m). Over the health bar, which sits\n * at 0.42 (partyBars.ts BAR_LIFT) and is about 0.35 m tall at the game camera: at their first\n * lift, 0.5, the bar lay across them.\n */\nexport const GARDE_LIFT = 0.85;\n",
+   "/**\n * Where Seren's en garde blades cross: this far over her drawn head and this far to the right of\n * it (m). Over the health bar, which sits at 0.42 (partyBars.ts BAR_LIFT) and is about 0.35 m tall\n * at the game camera (at their first lift, 0.5, the bar lay across them), and beside the Thread's\n * mode glyph, which stands over the middle of the head at 1.05 when she is the Thread's hero.\n */\nexport const GARDE_LIFT = 0.8;\nexport const GARDE_ASIDE = 0.6;\n"),
+ ],
+ 'src/render/groveCues.ts': [
+  ("/**\n * How far over Oro's drawn head his tending drop sits, and the closed leaf that flares there when\n * he refuses (m). Over the health bar, which sits at 0.42 (partyBars.ts BAR_LIFT) and is about\n * 0.35 m tall at the game camera: at their first lifts, 0.45 and 0.55, the bar lay across them.\n */\nexport const TEND_LIFT = 0.8;\n",
+   "/**\n * Where Oro's tending drop sits, and the closed leaf that flares there when he refuses: this far\n * over his drawn head and this far to the right of it (m). Over the health bar, which sits at 0.42\n * (partyBars.ts BAR_LIFT) and is about 0.35 m tall at the game camera (at their first lifts, 0.45\n * and 0.55, the bar lay across them), and beside the Thread's mode glyph, which stands over the\n * middle of the head at 1.05 when he is the Thread's hero.\n */\nexport const TEND_LIFT = 0.8;\nexport const TEND_ASIDE = 0.6;\n"),
+  ("          r.x,\n          r.y + r.height * HERO_DRAWN + TEND_LIFT,", "          r.x + TEND_ASIDE,\n          r.y + r.height * HERO_DRAWN + TEND_LIFT,"),
+ ],
+ 'src/render/entities.ts': [
+  ("      // Over the drawn head (heroes are drawn HERO_DRAWN tall), clear of the health bar.\n      const y = rec.y + rec.height * HERO_DRAWN + GARDE_LIFT + 0.05 * Math.sin(this.now * 3);\n      kit.spritesTop.push(x, y, z, 0.42, SPRITE.needle, SEREN_FLASH, 0.95, 0.75);\n      kit.spritesTop.push(x, y, z, 0.42, SPRITE.needle, SEREN_FLASH, 0.95, -0.75);\n      kit.sprites.push(x, y, z, 0.6, SPRITE.glow, SEREN_VIOLET, 0.35);",
+   "      // Over the drawn head (heroes are drawn HERO_DRAWN tall): clear of the health bar, and\n      // beside the Thread's mode glyph (serenCues.ts GARDE_LIFT).\n      const gx = x + GARDE_ASIDE;\n      const y = rec.y + rec.height * HERO_DRAWN + GARDE_LIFT + 0.05 * Math.sin(this.now * 3);\n      kit.spritesTop.push(gx, y, z, 0.42, SPRITE.needle, SEREN_FLASH, 0.95, 0.75);\n      kit.spritesTop.push(gx, y, z, 0.42, SPRITE.needle, SEREN_FLASH, 0.95, -0.75);\n      kit.sprites.push(gx, y, z, 0.6, SPRITE.glow, SEREN_VIOLET, 0.35);"),
+  ("      // Over the drawn head, as every mark over a hero is, clear of the health bar.\n      const y = rec.y + rec.height * HERO_DRAWN + TEND_LIFT + 0.04 * Math.sin(this.now * 2);\n      kit.spritesTop.push(rec.x, y, rec.z, 0.26, SPRITE.drop, GROVE_MOSS, 0.95, 0, 1, 0);\n      kit.sprites.push(rec.x, y, rec.z, 0.4, SPRITE.glow, GROVE_SEED, 0.25);",
+   "      // Over the drawn head, as every mark over a hero is: clear of the health bar, and beside\n      // the Thread's mode glyph (groveCues.ts TEND_LIFT).\n      const tx = rec.x + TEND_ASIDE;\n      const y = rec.y + rec.height * HERO_DRAWN + TEND_LIFT + 0.04 * Math.sin(this.now * 2);\n      kit.spritesTop.push(tx, y, rec.z, 0.26, SPRITE.drop, GROVE_MOSS, 0.95, 0, 1, 0);\n      kit.sprites.push(tx, y, rec.z, 0.4, SPRITE.glow, GROVE_SEED, 0.25);"),
+  ("  GARDE_LIFT,\n", "  GARDE_ASIDE,\n  GARDE_LIFT,\n"),
+  ("  TEND_LIFT,\n", "  TEND_ASIDE,\n  TEND_LIFT,\n"),
+ ],
+}
