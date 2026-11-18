@@ -13,23 +13,22 @@ export const a11y = {
   'a11y.sound.ambienceFollow': 'Follow Effects',
   'a11y.sound.barks': 'Hero voices',
   'a11y.sound.heroVoices': 'Hero voices',
-  'a11y.sound.heroVoicesHint':
-    'Short wordless sounds when a hero speaks up, one voice for each hero. Their level is the Hero voices slider.',
+  'a11y.sound.heroVoicesHint': 'Short wordless sounds when a hero speaks up.',
 
   // Settings → Comfort
   'a11y.motion.label': 'Reduced motion',
   'a11y.motion.hint':
-    'On: menus stop animating, the camera stops shaking, bursts and impact flashes hold still and full-screen pulses stop. System follows your device.',
+    'On: menus, camera shake, bursts and full-screen pulses hold still. System follows your device.',
   'a11y.motion.system': 'System',
   'a11y.motion.on': 'On',
   'a11y.motion.off': 'Off',
   'a11y.flashes.hint':
     'Full-screen flashes on Perfect, Save and Crescendo, and how bright bursts, impact flashes and the Thread’s pulses are. 0 turns the full-screen ones off.',
   'a11y.vignette.label': 'Slow-motion vignette',
-  'a11y.vignette.hint': 'The dark edge round the screen while a big moment slows time.',
+  'a11y.vignette.hint': 'The dark screen edge during slow motion.',
   'a11y.numbers.important': 'Important numbers only',
   'a11y.numbers.importantHint':
-    'With damage numbers on: only hits you Empowered or your songs carried, your own heals, saves and downs.',
+    'Only what you caused: Empowered and song hits, your heals, saves and downs.',
 
   // Settings → Telegraphs
   'a11y.telegraphs.title': 'Telegraphs',
@@ -38,24 +37,22 @@ export const a11y = {
   'a11y.telegraphs.perfectBand': 'Perfect band',
   'a11y.telegraphs.times': '×{n}',
   'a11y.telegraphs.sizesHint':
-    'How solid the attacks on the floor are, how thick their edges, and how wide the bright band that says “Ward now”. It changes how they look, never their timing.',
+    'How attacks on the floor are drawn: the fill, the edge and the bright “Ward now” band. Their timing never changes.',
   'a11y.telegraphs.highContrast': 'High-contrast telegraphs',
   'a11y.telegraphs.highContrastHint':
-    'Threat and lethal at full strength, each with a dark outline. The answer glyphs stay.',
+    'Threat and lethal at full strength, each with a dark outline.',
   'a11y.telegraphs.glyphs': 'Answer glyphs',
-  'a11y.telegraphs.glyphsHint':
-    'The badge on each attack that shows how to answer it. Timers from a Calling still show.',
+  'a11y.telegraphs.glyphsHint': 'The badge on each attack that shows how to answer it.',
 
   // Settings → Assists
   'a11y.speed.label': 'Game speed',
-  'a11y.speed.hint':
-    'Slows the whole fight down: the same fight, with more time to think. Under 100% counts as an assist.',
+  'a11y.speed.hint': 'Slows the whole fight. Under 100% counts as an assist.',
 
   // Settings → Graphics
   'a11y.graphics.title': 'Graphics',
   'a11y.quality.label': 'Quality',
   'a11y.quality.hint':
-    'Lower settings draw fewer shadows and pixels. Auto picks one from how smoothly the fight runs.',
+    'Lower settings draw fewer shadows and pixels. Auto picks by how smoothly fights run.',
   'a11y.quality.auto': 'Auto',
   'a11y.quality.low': 'Low',
   'a11y.quality.medium': 'Medium',
@@ -63,7 +60,7 @@ export const a11y = {
 
   // Captions (src/ui/hud/captions.ts): each shown in brackets.
   'a11y.captions.hint':
-    'Key sounds in words, two at a time: attacks winding up and from which side, a hero falling low, a boss taking up a crown, and the Finale’s music stopping and returning.',
+    'Key sounds as words, two at a time: attacks winding up and their side, a hero falling low, boss moments.',
   'a11y.caption.windup': '{sound}, {side}',
   'a11y.caption.style.brass': 'Brass wind-up',
   'a11y.caption.style.glass': 'Glass wind-up',
@@ -84,7 +81,7 @@ export const a11y = {
   // src/ui/screens/SettingsScreen.tsx (W3b)
   'a11y.settings.showAllHintsAgain': 'Show all hints again',
   'a11y.settings.assistsNeverBlockAnything':
-    'Assists never block anything. They show as a small badge on the run summary.',
+    'Assists block nothing. They show as a badge on the run’s Summary.',
   'a11y.settings.restoreDefaults': 'Restore defaults',
   'a11y.settings.resetPositions': 'Reset positions',
   'a11y.settings.putsThePartyFrames':
@@ -103,7 +100,7 @@ export const a11y = {
   'a11y.settings.startOver': 'Start over',
   'a11y.settings.colourVision': 'Colour vision',
   'a11y.settings.dangerLifeAndCalls':
-    'Danger, life and calls get colours that stay apart for this kind of colour vision. Every colour also has a glyph.',
+    'Recolours danger, life and calls for this kind of colour vision. Every colour also has a glyph.',
   'a11y.settings.back': 'Back',
   'a11y.settings.sound': 'Sound',
   'a11y.settings.master': 'Master',
@@ -118,7 +115,7 @@ export const a11y = {
   'a11y.settings.captions': 'Captions',
   'a11y.settings.coachHints': 'Coach hints',
   'a11y.settings.shortTipsDuringThe':
-    'Short tips during the first fights; each shows at most three times.',
+    'Short tips in your first fights. Each shows three times at most.',
   'a11y.settings.assists': 'Assists',
   'a11y.settings.perfectWardWindow': 'Perfect Ward window',
   'a11y.settings.extraTimeToLand': 'Extra time to land a Perfect Ward.',
@@ -136,7 +133,7 @@ export const a11y = {
   'a11y.settings.progress': 'Progress',
   'a11y.settings.controls': 'Controls',
   'a11y.settings.barsOverTheHeroes': 'Bars over the heroes',
-  'a11y.settings.theirLifeOverTheir': 'Their life over their heads, coloured by how much is left.',
+  'a11y.settings.theirLifeOverTheir': 'Life bars over their heads.',
   'a11y.settings.always': 'Always',
   'a11y.settings.whenHurt': 'When hurt',
   'a11y.settings.off': 'Off',

@@ -8,8 +8,7 @@ import type { Catalogue } from '../catalogue';
  */
 export const saves = {
   'saves.title': 'Saves',
-  'saves.intro':
-    'Take your profile, your settings and any run in progress to another browser, or keep a copy: as a file, or as a code to paste.',
+  'saves.intro': 'Move your profile, settings and run to another browser, or keep a copy.',
 
   // What a save holds.
   'saves.holds.rank': 'Weaver Rank {rank}',

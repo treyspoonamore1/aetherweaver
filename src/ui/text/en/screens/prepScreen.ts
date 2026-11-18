@@ -19,7 +19,7 @@ export const prepScreen = {
   'screens.prepScreen.thePreludeIsMovement':
     'The Prelude is Movement I. An Expedition climbs on {expeditionOnward}.',
   'screens.prepScreen.quickAssists': 'Quick assists',
-  'screens.prepScreen.changeAnyTimeIn': 'Also in Settings. Assists lock nothing.',
+  'screens.prepScreen.changeAnyTimeIn': 'Also in Settings. Assists block nothing.',
   'screens.prepScreen.seed': 'Seed',
   'screens.prepScreen.fixYourSongsTo': 'Fix your songs to embark',
   'screens.prepScreen.toEmbark': 'to embark',
