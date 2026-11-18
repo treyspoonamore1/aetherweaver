@@ -15,8 +15,7 @@ export const codexScreen = {
   'screens.codexScreen.path': 'path',
   'screens.codexScreen.onAnExpeditionS': ' On an Expedition’s shorter road, {expeditionTiers}.',
   'screens.codexScreen.rank': 'Rank {rank}',
-  'screens.codexScreen.reachWeaverRankTo':
-    'Reach Weaver Rank {rank} to choose it in Prep, or turn on Settings → Skip the unlocks.',
+  'screens.codexScreen.reachWeaverRankTo': 'Reach Weaver Rank {rank} to choose it in Prep.',
   'screens.codexScreen.terms': 'Terms',
   'screens.codexScreen.aHeroNotYet': 'A hero not yet met',
   'screens.codexScreen.life': '{maxHp} life',
@@ -83,17 +82,14 @@ export const codexScreen = {
     'add up to {DEED_POINTS_MAX} more, a point for each on their ladder: {all} in all. The Weaver’s Star at the centre is always yours. A star can be taken when it touches one you have; pointing at a far one shows the path to it and what it costs, and taking it takes the path.',
   'screens.codexScreen.deeds': 'Deeds',
   'screens.codexScreen.giveAStarBack':
-    'Give a star back if nothing you’ve taken hangs on it, or everything at once: it’s free between runs. A run keeps the tree it embarked with; the Training Grounds use yours, so you can try a change first. Open it from the Loom or from Prep. Settings → ',
-  'screens.codexScreen.givesAllPoints': 'gives all {all} points.',
-  'screens.codexScreen.skipTheUnlocks': 'Skip the unlocks',
+    'Give a star back if nothing you’ve taken hangs on it, or everything at once: it’s free between runs. A run keeps the tree it embarked with; the Training Grounds use yours, so you can try a change first. Open it from the Loom or from Prep.',
   'screens.codexScreen.starsNotables': '{length} stars · notables: {notables}',
   'screens.codexScreen.betweenEachPairOf':
     'Between each pair of constellations sits a bridge notable, so a build can reach into a neighbour without walking its trunk.',
   'screens.codexScreen.weaverRank': 'Weaver Rank',
   'screens.codexScreen.everyFightEarnsWeaver':
-    'Every fight earns Weaver XP, won or lost, and XP raises your Rank. Each Rank opens one more piece of the build layer, so you meet the beam song first and the rest as you learn. XP is kept as each fight ends: quitting a run never loses it. Settings → ',
-  'screens.codexScreen.opensEverythingAtOnce':
-    'opens everything at once; the Training Grounds always have everything.',
+    'Every fight earns Weaver XP, won or lost, and XP raises your Rank. Each Rank opens one more piece of the build layer, so you meet the beam song first and the rest as you learn. XP is kept as each fight ends: quitting a run never loses it. ',
+  'screens.codexScreen.opensEverythingAtOnce': 'The Training Grounds always have everything.',
   'screens.codexScreen.weaverXp': 'Weaver XP',
   'screens.codexScreen.won': '{label} won',
   'screens.codexScreen.aFightLost': 'A fight lost',

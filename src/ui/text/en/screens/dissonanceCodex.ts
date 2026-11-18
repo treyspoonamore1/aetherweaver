@@ -4,7 +4,7 @@ import type { Catalogue } from '../../catalogue';
 export const dissonanceCodex = {
   'screens.dissonanceCodex.dissonance': 'Dissonance',
   'screens.dissonanceCodex.aFinaleClearAt': 'A Finale clear at Rank {openRank}',
-  'screens.dissonanceCodex.itsRulesWaitHere': '{lead} Its rules wait here until then. {skip}',
+  'screens.dissonanceCodex.itsRulesWaitHere': '{lead} Its rules wait here until then.',
   'screens.dissonanceCodex.theEndgameSDifficulty': 'The endgame’s difficulty. {dissonanceBlurb}',
   'screens.dissonanceCodex.inPrepTurnLevels':
     'Turn levels on in Prep. Some have ranks, each worth its points again. A run’s Dissonance is at most {max}, and embarking fixes it for that run.',

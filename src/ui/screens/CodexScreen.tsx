@@ -1460,8 +1460,6 @@ function Astrolabe({ onDeeds }: { onDeeds(): void }) {
           </p>
           <p className="mt-2 text-sm leading-relaxed text-text">
             {txt('screens.codexScreen.giveAStarBack')}
-            <b>{txt('screens.codexScreen.skipTheUnlocks')}</b>{' '}
-            {txt('screens.codexScreen.givesAllPoints', { all })}
           </p>
           <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted">
             {(['travel', 'notable', 'great', 'keystone'] as const).map((kind) => (
@@ -1569,7 +1567,6 @@ function Ranks({ deeds }: { deeds: number }) {
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-text">
             {txt('screens.codexScreen.everyFightEarnsWeaver')}
-            <b>{txt('screens.codexScreen.skipTheUnlocks')}</b>{' '}
             {txt('screens.codexScreen.opensEverythingAtOnce')}
           </p>
         </Panel>

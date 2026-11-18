@@ -531,13 +531,12 @@ export function bestRecords(
 // ── Closed, opening ───────────────────────────────────────────────────────────────────
 
 /** How it opens, while it's closed. */
-export function closedLines(rank: number): { lead: string; skip: string } {
+export function closedLines(rank: number): { lead: string } {
   const openRank = RULES().openRank;
   return {
     lead: opensAt(rank)
       ? t('screens.dissonanceModel.itOpensWithYour', { openRank, rank })
       : t('screens.dissonanceModel.itOpensAtRank', { openRank, rank }),
-    skip: t('screens.dissonanceModel.settingsSkipTheUnlocks'),
   };
 }
 

@@ -504,14 +504,11 @@ describe('the Atelier', () => {
     let items = shelvesAt(at(S.atelierRank));
     const sold = items.find((i) => i.item.id === plain.id)!;
     expect([sold.status, sold.action]).toEqual(['Open', 'buy']);
-    expect(sold.note).toMatch(
-      /^Settings → Skip the unlocks lets you play it now, and it’s on sale/,
-    );
+    // The setting is named in Settings alone (the second menu text pass, round 11).
+    expect(sold.note).toBe('You can play it now. It’s on sale too, to keep.');
     const unsold = items.find((i) => i.item.id === m.variant)!;
     expect([unsold.status, unsold.action]).toEqual(['Open', null]);
-    expect(unsold.note).toBe(
-      `Settings → Skip the unlocks lets you play it now. On sale with the ${name}’s top mastery.`,
-    );
+    expect(unsold.note).toBe(`You can play it now. On sale with the ${name}’s top mastery.`);
     // The store agrees: the mastery variant can't be bought under Skip.
     expect(buy(at(S.atelierRank, { starlight: 999 }), m.variant, S.atelierRank, true)).toEqual({
       refused: shopItems(at(S.atelierRank), S.atelierRank, false).find((i) => i.id === m.variant)!
@@ -521,10 +518,10 @@ describe('the Atelier', () => {
     items = shelvesAt(at(1));
     expect(items.every((i) => i.action === null)).toBe(true);
     expect(items.find((i) => i.item.id === plain.id)!.note).toBe(
-      `Settings → Skip the unlocks lets you play it now. On sale from Weaver Rank ${S.atelierRank}.`,
+      `You can play it now. On sale from Weaver Rank ${S.atelierRank}.`,
     );
     expect(items.find((i) => i.item.id === m.variant)!.note).toBe(
-      `Settings → Skip the unlocks lets you play it now. On sale from Weaver Rank ${S.atelierRank}, with the ${name}’s top mastery.`,
+      `You can play it now. On sale from Weaver Rank ${S.atelierRank}, with the ${name}’s top mastery.`,
     );
   });
 

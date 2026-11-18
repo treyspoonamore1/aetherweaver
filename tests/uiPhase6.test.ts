@@ -1157,9 +1157,7 @@ describe('after the reviews: plays back, the clock on codes, an Echo’s Movemen
 
   it('a weekly’s variants are open for the week, not by Skip the unlocks', () => {
     expect(techniquesSummary([], true, true).line).toMatch(/This Week’s Song/);
-    expect(techniquesSummary([], true).line).toBe(
-      'Every variant is open: Settings → Skip the unlocks.',
-    );
+    expect(techniquesSummary([], true).line).toBe('Every variant is open.');
   });
 
   it('an Echo’s fight pays and is labelled as the Movement its leg is built over', () => {

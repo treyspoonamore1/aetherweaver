@@ -22,15 +22,14 @@ export const variantsModel = {
   'screens.variantsModel.sCooldown': '{seconds} s cooldown',
   'screens.variantsModel.everyVariantIsOpen':
     'Every variant is open for This Week’s Song: everyone chooses from them all.',
-  'screens.variantsModel.everyVariantIsOpen2':
-    'Every variant is open: Settings → Skip the unlocks.',
+  'screens.variantsModel.everyVariantIsOpen2': 'Every variant is open.',
   'screens.variantsModel.eachSlotHasVariants':
     'Each slot has {countWord} variants. Buy them with Starlight at the Atelier.',
   'screens.variantsModel.ofVariantsOwnedThe':
     '{n} of {total} variants owned. The rest are bought with Starlight.',
   'screens.variantsModel.alwaysYours': 'Always yours',
   'screens.variantsModel.owned': 'Owned',
-  'screens.variantsModel.openSkipTheUnlocks': 'Open (Skip the unlocks)',
+  'screens.variantsModel.openSkipTheUnlocks': 'Open',
   'screens.variantsModel.locked': 'Locked',
   'screens.variantsModel.eachOfYourFour':
     'Each of your four techniques ({slots}) has {countWord} variants: the same key and slot, a different way to save someone. Prep shows each slot’s default and its variants; choose one per slot from what you own. The run keeps what it embarked with.',
@@ -45,7 +44,7 @@ export const variantsModel = {
   'screens.variantsModel.areTheOtherOpen':
     '{capital} are {rank}; the other {countWord} open to buy with a Calling’s top mastery: {listAnd}.',
   'screens.variantsModel.settingsSkipTheUnlocks':
-    '{how} Settings → Skip the unlocks opens them all, and the Training Grounds let you try any of them.',
+    '{how} The Training Grounds let you try any of them.',
   'screens.variantsModel.onARunTakes2':
     'On a {name} run, {REWIND_NAME} takes {reel}’s slot, so the {reel} choice has no effect; Prep says so.',
   'screens.variantsModel.inSSlotOn': 'In {defaultName}’s slot on this run',

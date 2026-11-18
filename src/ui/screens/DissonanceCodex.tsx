@@ -61,12 +61,7 @@ export function DissonanceCodexPage({
         <p className="mt-3 max-w-3xl text-sm leading-relaxed text-text">{unlock?.text}</p>
         <p className="mt-3 flex items-start gap-1.5 text-sm text-muted">
           <Icon name="lock" size={14} className="mt-0.5 shrink-0" />
-          <span>
-            {txt('screens.dissonanceCodex.itsRulesWaitHere', {
-              lead: lines.lead,
-              skip: lines.skip,
-            })}
-          </span>
+          <span>{txt('screens.dissonanceCodex.itsRulesWaitHere', { lead: lines.lead })}</span>
         </p>
       </Panel>
     );

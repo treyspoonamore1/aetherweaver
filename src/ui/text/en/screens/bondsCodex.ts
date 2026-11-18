@@ -5,7 +5,7 @@ export const bondsCodex = {
   'screens.bondsCodex.bonds': 'Bonds',
   'screens.bondsCodex.aHeroSFirst': 'A hero’s first Bond rank-up',
   'screens.bondsCodex.everyFightPaysBond':
-    'Every fight pays Bond XP: this page opens with a hero’s first Bond rank-up. Settings → Skip the unlocks opens it now.',
+    'Every fight pays Bond XP. This page opens with a hero’s first Bond rank-up.',
   'screens.bondsCodex.bondXp': 'Bond XP',
   'screens.bondsCodex.theRanks': 'The ranks',
   'screens.bondsCodex.rank': 'Rank',

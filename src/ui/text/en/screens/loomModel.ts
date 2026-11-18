@@ -141,10 +141,8 @@ export const loomModel = {
   'screens.loomModel.theThreadSOwn': 'The Thread’s own',
   'screens.loomModel.noTitle': 'No title',
   'screens.loomModel.yoursChooseItIn': 'Yours: choose it in Prep, under Your techniques ({key}).',
-  'screens.loomModel.settingsSkipTheUnlocks':
-    'Settings → Skip the unlocks lets you play it now, and it’s on sale too, to keep.',
-  'screens.loomModel.settingsSkipTheUnlocks2':
-    'Settings → Skip the unlocks lets you play it now. {openWhy}',
+  'screens.loomModel.settingsSkipTheUnlocks': 'You can play it now. It’s on sale too, to keep.',
+  'screens.loomModel.settingsSkipTheUnlocks2': 'You can play it now. {openWhy}',
   'screens.loomModel.onSaleFromWeaver': 'On sale from Weaver Rank {atelierRank}{value}.',
   'screens.loomModel.withTheSTop': ', with the {name}’s top mastery',
   'screens.loomModel.isYoursChooseIt': '{name} is yours: choose it in Prep.',
