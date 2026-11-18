@@ -8,7 +8,7 @@
    "outcome": "defeat",
    "lastEncounter": "unsung_choir",
    "fights": 2,
-   "minutes": 1.3261805555555226,
+   "minutes": 1.338680555555522,
    "motifs": [
     "long_weave:1"
    ],
@@ -17,13 +17,13 @@
    "aetherEarned": 26,
    "aetherLeft": 26,
    "bondXp": {
-    "kael": 47,
-    "lyra": 42,
+    "kael": 45,
+    "lyra": 44,
     "vexis": 27
    },
    "movementReached": 1,
    "minutesByMovement": [
-    1.3261805555555226
+    1.338680555555522
    ]
   },
   {
@@ -195,40 +195,31 @@
    "seed": 2000,
    "bot": "skilled",
    "outcome": "defeat",
-   "lastEncounter": "legion_vanguard",
-   "fights": 10,
-   "minutes": 9.421708333333555,
+   "lastEncounter": "bellwarden",
+   "fights": 6,
+   "minutes": 5.179944444444295,
    "motifs": [
     "long_weave:1",
     "bulwarks_echo:1",
     "deep_roots:1",
-    "warm_hum:1",
-    "twin_aegis:1",
-    "da_capo:1",
-    "golden_filament:1",
-    "fishers_knot:1"
+    "warm_hum:1"
    ],
    "relics": [
     "star_chart",
     "martyrs_veil",
-    "glass_halo",
-    "prism_loom",
-    "wardens_key",
-    "featherweight_robes",
-    "cantors_hymnal"
+    "glass_halo"
    ],
    "path": [],
-   "aetherEarned": 362,
-   "aetherLeft": 152,
+   "aetherEarned": 151,
+   "aetherLeft": 41,
    "bondXp": {
-    "kael": 291,
-    "lyra": 341,
-    "vexis": 244
+    "kael": 155,
+    "lyra": 158,
+    "vexis": 117
    },
-   "movementReached": 2,
+   "movementReached": 1,
    "minutesByMovement": [
-    7.046916666666959,
-    2.374791666666596
+    5.179944444444295
    ]
   },
   {

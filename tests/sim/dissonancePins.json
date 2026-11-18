@@ -2,61 +2,61 @@
   "simVersion": 23,
   "fights": {
     "skilled-bellwarden": {
-      "none": "62d3ddd3ebe238ca",
-      "brisk_foes:1": "e1542ed45606fe71",
-      "hardened:1": "abb8a73707212361",
-      "hardened:2": "402d0b7c8138f8e1",
-      "short_fuse:1": "b72b1d0b1f7dcc19",
-      "short_fuse:2": "e3461503df5e3b71",
-      "muted_choir:1": "166ddac4a5841ba3",
-      "fragile_threads:1": "3cbb9078de8b10d0",
-      "wounding_strikes:1": "a93c802b14d87ac9",
-      "wounding_strikes:2": "29fb944249733028",
-      "elite_vanguard:1": "b4a396d1428dd396",
-      "silent_cues:1": "2d6da18ba18fe19e",
-      "restless_dead:1": "dde227b4f16c9380",
-      "unforgiving:1": "801412366f2ed0a6",
-      "blind_score:1": "d68d28dc1dce8997",
-      "discordant_pact:1": "a19b9a60cca9ec16",
-      "all": "6155d5c1eeb3bdcd"
+      "none": "3dd9d3c7b90157a0",
+      "brisk_foes:1": "d4813087b75dbf25",
+      "hardened:1": "8cc2dd03bb19caf1",
+      "hardened:2": "93efc32fac2a9d78",
+      "short_fuse:1": "38adb679c0445366",
+      "short_fuse:2": "82c45a4da7a2b0da",
+      "muted_choir:1": "8ce380fef4f58580",
+      "fragile_threads:1": "fe3e294efdf1e4de",
+      "wounding_strikes:1": "c6b0709d251d6989",
+      "wounding_strikes:2": "8a5ffad80c0fd0f0",
+      "elite_vanguard:1": "83321f29f6a52ff8",
+      "silent_cues:1": "a2f01c5de20fbefe",
+      "restless_dead:1": "091546dd2667c1a9",
+      "unforgiving:1": "41a001d0d470d4d9",
+      "blind_score:1": "fbf1805a988cf998",
+      "discordant_pact:1": "fa9be7760876a35f",
+      "all": "3c04ef64017ad6c5"
     },
     "skilled-vharun": {
-      "none": "c8e7f45e337583b2",
-      "brisk_foes:1": "684713caace6bd01",
-      "hardened:1": "fd3d47db3449ed29",
-      "hardened:2": "e1859e130634ce93",
-      "short_fuse:1": "cf263b44e390b178",
-      "short_fuse:2": "98e29b96a2d1f644",
-      "muted_choir:1": "d3a7de6bb010c23c",
-      "fragile_threads:1": "8a60bd9bc23a7012",
-      "wounding_strikes:1": "78dc46e33de90988",
-      "wounding_strikes:2": "50415f07f47f3a88",
-      "elite_vanguard:1": "118f1b348c570d68",
-      "silent_cues:1": "46ff86718725f773",
-      "restless_dead:1": "007b986721e54788",
-      "unforgiving:1": "eb3e9767d4b9a325",
-      "blind_score:1": "98d12cd98a8f6c64",
-      "discordant_pact:1": "52ea0add6f55dd21",
-      "all": "fcc35d22163935a8"
+      "none": "bb2c275edd42137d",
+      "brisk_foes:1": "b87a0a944583acf8",
+      "hardened:1": "4d1f19c909971360",
+      "hardened:2": "80a4911922701f91",
+      "short_fuse:1": "813d7ea9142ce447",
+      "short_fuse:2": "072f5f4772005009",
+      "muted_choir:1": "6e76665a0e4d0233",
+      "fragile_threads:1": "99416874787e367e",
+      "wounding_strikes:1": "32a923f49ce4dd85",
+      "wounding_strikes:2": "fa270a2f2ce47337",
+      "elite_vanguard:1": "46ab2b146e95ad76",
+      "silent_cues:1": "bf3ed1034c29293d",
+      "restless_dead:1": "e0a93333c72457d6",
+      "unforgiving:1": "af56e833051561f9",
+      "blind_score:1": "226b46450dd63110",
+      "discordant_pact:1": "1c5086d115188c74",
+      "all": "24ab12bcd11cba72"
     },
     "skilled-conductor": {
-      "none": "d41123da95739e18",
-      "brisk_foes:1": "fd27080718ae058e",
-      "hardened:1": "a3baccdb29478bfe",
-      "hardened:2": "4ac70b6c1e5f5c8d",
-      "short_fuse:1": "a50a0ef82a004f64",
-      "short_fuse:2": "469d075cf1ef44d5",
-      "muted_choir:1": "086268fd1c51f2e0",
-      "fragile_threads:1": "7d5fcbeff9650a65",
-      "wounding_strikes:1": "3d0985e2f1473271",
-      "wounding_strikes:2": "33ac3b60227aceb5",
-      "elite_vanguard:1": "8e0b4810688aaf92",
-      "silent_cues:1": "83b751e941e7e9e2",
-      "restless_dead:1": "b8507ffb2df16125",
-      "unforgiving:1": "f3adb51b86570218",
-      "blind_score:1": "a31a05d5a08b2b61",
-      "discordant_pact:1": "89a2b81118362175",
-      "all": "1ec64c6fc9654d4c"
+      "none": "26ef2c5ab7085ee3",
+      "brisk_foes:1": "c3647fd8f52956af",
+      "hardened:1": "ec09128b137fc100",
+      "hardened:2": "370080de91e6d59a",
+      "short_fuse:1": "81862a1a92f5b30d",
+      "short_fuse:2": "6ffdbc2e7941d016",
+      "muted_choir:1": "6f590e90b3212b14",
+      "fragile_threads:1": "26f5647b1f4c6468",
+      "wounding_strikes:1": "236c94ff466e4f93",
+      "wounding_strikes:2": "a464f12faec2a8a8",
+      "elite_vanguard:1": "b5aaaf44feb9dffe",
+      "silent_cues:1": "7e829f1f7b07fa6a",
+      "restless_dead:1": "3295336bbc759927",
+      "unforgiving:1": "6c2d112f734919a7",
+      "blind_score:1": "ff2f51c5b66d3f1c",
+      "discordant_pact:1": "1b73e7314632b5f3",
+      "all": "c6bc0b21afd825a1"
     }
   },
   "runs": {
@@ -72,29 +72,30 @@
         "glass_halo",
         "wardens_key"
       ],
-      "results": "f6bf0f69ae0f4afe",
-      "state": "2b843ff55c641766"
+      "results": "90e8632e2593a43a",
+      "state": "ccc7a69496928500"
     },
     "finale-30": {
       "outcome": "defeat",
-      "lastEncounter": "mourning_steps",
-      "fights": 2,
+      "lastEncounter": "hollow_cantor",
+      "fights": 4,
       "movementReached": 1,
       "relics": [
         "prism_loom",
         "cracked_metronome",
         "spindle_of_fate",
         "hollow_crown",
-        "tuning_fork"
+        "tuning_fork",
+        "water_clock"
       ],
-      "results": "a2cf6efe62307779",
-      "state": "fdab3a70d669a5f7"
+      "results": "defbd2ef39584bb4",
+      "state": "fdb1f935c678337a"
     },
     "finale-10": {
-      "outcome": "victory",
-      "lastEncounter": "the_silent_conductor",
-      "fights": 14,
-      "movementReached": 4,
+      "outcome": "defeat",
+      "lastEncounter": "mirror_hall",
+      "fights": 11,
+      "movementReached": 3,
       "relics": [
         "prism_loom",
         "cracked_metronome",
@@ -108,12 +109,10 @@
         "everbell",
         "lantern_of_the_lost",
         "glass_halo",
-        "sand_glass",
-        "sacrificial_lamb",
-        "heartwood_lute"
+        "sand_glass"
       ],
-      "results": "f8764e4f9f0642cd",
-      "state": "723d9c48eaa43678"
+      "results": "4f2ae6a386628eef",
+      "state": "4f43703ffd515e19"
     },
     "prelude-light": {
       "outcome": "victory",
@@ -131,8 +130,8 @@
         "choirmasters_baton",
         "cantors_hymnal"
       ],
-      "results": "dbe5fb8aa8d34429",
-      "state": "61382450764133c6"
+      "results": "dccdf60ac34af2ea",
+      "state": "ccaa374c98cf8d44"
     },
     "finale-light": {
       "outcome": "victory",
@@ -155,8 +154,8 @@
         "silver_thimble",
         "choirmasters_baton"
       ],
-      "results": "5a171a28602e2264",
-      "state": "68430c93d6c57405"
+      "results": "5ec57845d5c034fe",
+      "state": "9af47775f9c4dd41"
     }
   }
 }

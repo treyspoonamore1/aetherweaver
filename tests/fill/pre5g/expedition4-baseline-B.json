@@ -6,27 +6,29 @@
    "seed": 2000,
    "bot": "novice",
    "outcome": "defeat",
-   "lastEncounter": "bellwarden",
-   "fights": 3,
-   "minutes": 2.177222222222163,
+   "lastEncounter": "hollow_cantor",
+   "fights": 4,
+   "minutes": 4.724777777777663,
    "motifs": [
     "taut_release:1",
-    "twin_aegis:1"
+    "twin_aegis:1",
+    "da_capo:1"
    ],
    "relics": [
-    "wardens_key"
+    "wardens_key",
+    "martyrs_veil"
    ],
    "path": [],
-   "aetherEarned": 49,
-   "aetherLeft": 49,
+   "aetherEarned": 99,
+   "aetherLeft": 99,
    "bondXp": {
-    "lyra": 70,
-    "vexis": 59,
-    "brann": 68
+    "lyra": 137,
+    "vexis": 107,
+    "brann": 119
    },
    "movementReached": 1,
    "minutesByMovement": [
-    2.177222222222163
+    4.724777777777663
    ],
    "harmony": {
     "silkOffered": 0,
@@ -189,7 +191,7 @@
    "outcome": "victory",
    "lastEncounter": "the_silent_conductor",
    "fights": 15,
-   "minutes": 20.33866666666825,
+   "minutes": 19.98531944444595,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1",
@@ -222,18 +224,18 @@
     "prism_loom"
    ],
    "path": [],
-   "aetherEarned": 845,
-   "aetherLeft": 225,
+   "aetherEarned": 851,
+   "aetherLeft": 231,
    "bondXp": {
-    "lyra": 829,
-    "vexis": 485,
-    "brann": 431
+    "lyra": 823,
+    "vexis": 492,
+    "brann": 434
    },
    "movementReached": 4,
    "minutesByMovement": [
-    4.664125000000187,
-    6.5108888888894345,
-    6.844583333334142,
+    4.439180555555561,
+    6.365763888889342,
+    6.861305555556553,
     2.319069444444489
    ],
    "harmony": {

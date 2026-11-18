@@ -2,43 +2,43 @@
  "skilled:the_silent_conductor:1000": {
   "commands": "8227fa6e2fa09313",
   "count": 528,
-  "final": "2c30304cfa08aaa8"
+  "final": "29790f9f13604da3"
  },
  "skilled:the_silent_conductor:8919": {
-  "commands": "186debca6bd53c2e",
-  "count": 572,
-  "final": "5b86f14d8fc11a81"
+  "commands": "e53721f29cfebde0",
+  "count": 594,
+  "final": "8285afb77dc13d65"
  },
  "skilled:the_silent_conductor:16838": {
   "commands": "71b0e639deabe981",
   "count": 552,
-  "final": "bedc63d35d17fd40"
+  "final": "69493a394b1905d9"
  },
  "skilled:the_silent_conductor:silence:1000": {
   "commands": "d4e0fed1518e3f00",
   "count": 212,
-  "final": "e09ca666f89b35af",
+  "final": "d262172792d70220",
   "notes": 7
  },
  "novice:the_silent_conductor:1000": {
-  "commands": "6942f8730bac7a6c",
-  "count": 78,
-  "final": "c256f2b3eb2c28eb"
+  "commands": "584790b66619b160",
+  "count": 74,
+  "final": "7c1b175723f598fd"
  },
  "novice:the_silent_conductor:8919": {
-  "commands": "70fb5e0666001317",
+  "commands": "612cb433918ad918",
   "count": 68,
-  "final": "521aea42699ae319"
+  "final": "c3ce9c5eeb552aa0"
  },
  "novice:the_silent_conductor:16838": {
-  "commands": "893e43f0adb4f751",
-  "count": 43,
-  "final": "73fba2b0a16b393a"
+  "commands": "78b58e3a7442f253",
+  "count": 38,
+  "final": "1b1b7bc25ccad752"
  },
  "novice:the_silent_conductor:silence:1000": {
   "commands": "7e81fbf24e494752",
   "count": 26,
-  "final": "3f0b473597e54e7f",
+  "final": "631e53ced61beb97",
   "notes": 4
  }
 }

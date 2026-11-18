@@ -8,7 +8,7 @@
    "outcome": "defeat",
    "lastEncounter": "bellwarden",
    "fights": 3,
-   "minutes": 2.4094999999999276,
+   "minutes": 2.691166666666578,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1"
@@ -20,13 +20,13 @@
    "aetherEarned": 52,
    "aetherLeft": 52,
    "bondXp": {
-    "lyra": 93,
+    "lyra": 92,
     "vexis": 60,
-    "oro": 44
+    "oro": 47
    },
    "movementReached": 1,
    "minutesByMovement": [
-    2.4094999999999276
+    2.691166666666578
    ]
   },
   {
@@ -143,7 +143,7 @@
    "outcome": "victory",
    "lastEncounter": "the_silent_conductor",
    "fights": 15,
-   "minutes": 24.537319444446727,
+   "minutes": 23.935902777780033,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1",
@@ -153,10 +153,10 @@
     "deep_roots:1",
     "long_weave:1",
     "clear_tone:1",
-    "starlit_study:1",
-    "deep_breath:2",
+    "starlit_study:2",
+    "deep_breath:3",
     "quickened_verse:1",
-    "wind_at_her_back:2",
+    "wind_at_her_back:1",
     "canon:1"
    ],
    "relics": [
@@ -176,19 +176,19 @@
     "prism_loom"
    ],
    "path": [],
-   "aetherEarned": 750,
-   "aetherLeft": 115,
+   "aetherEarned": 793,
+   "aetherLeft": 148,
    "bondXp": {
-    "lyra": 779,
-    "vexis": 522,
-    "oro": 451
+    "lyra": 799,
+    "vexis": 516,
+    "oro": 434
    },
    "movementReached": 4,
    "minutesByMovement": [
-    6.018930555556051,
-    7.298152777778174,
-    8.686513888890069,
-    2.5337222222224356
+    5.709583333333791,
+    7.742472222223176,
+    8.261694444445324,
+    2.222152777777744
    ]
   },
   {

@@ -180,10 +180,11 @@ describe('each Expert rule acts in a fight staged for it, and changes it when le
   }, 60_000);
 
   it('mimicFocus: the Shattered Choir with Mimicry, the Mimicking foe casting its mirror', () => {
-    // Seed 8919: its Focus meets a Mimicking foe mid-mirror where the plain rules send another
-    // (found again after the Solo rework, docs/solos.md, changed every fight; 1000 no longer does).
+    // Seed 40595: its Focus meets a Mimicking foe mid-mirror where the plain rules send another
+    // (found again after each round of the Solo rework, docs/solos.md, changed every fight: 1000,
+    // then 8919, no longer do).
     actsIn('mimicFocus', {
-      seed: 8919,
+      seed: 40595,
       encounter: 'shattered_choir',
       dissonance: level('mimicry'),
     });

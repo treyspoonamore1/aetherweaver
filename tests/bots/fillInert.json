@@ -1,122 +1,122 @@
 {
   "skilled:hollow_cantor:5000": {
-    "commands": "4d56b224cc29d9cf",
-    "count": 2309,
-    "final": "a9c04b07546dfba4"
+    "commands": "bcffeb94bceeb898",
+    "count": 1550,
+    "final": "cef70330918ad143"
   },
   "skilled:hollow_cantor:12919": {
-    "commands": "b94dcd4c75e6b2c8",
-    "count": 1705,
-    "final": "8dd4f4b453c949ca"
+    "commands": "966d871b844da6f6",
+    "count": 2215,
+    "final": "88923ac84dd14ac6"
   },
   "skilled:gorehound_matriarch:5000": {
-    "commands": "0ea208387703a05a",
-    "count": 1643,
-    "final": "76a1cf3948e7c9a6"
+    "commands": "1cd8c5ba7be73c76",
+    "count": 1808,
+    "final": "ad41726c2a48e6a1"
   },
   "skilled:gorehound_matriarch:12919": {
-    "commands": "3a9fbbd0c7d66293",
-    "count": 1542,
-    "final": "b07ec59a343eb1d7"
+    "commands": "af095c6903b1db90",
+    "count": 1311,
+    "final": "463a8a281f8745aa"
   },
   "skilled:vharun:5000": {
-    "commands": "366f61cb29b8dbd4",
-    "count": 3341,
-    "final": "51f0f684869b219d"
+    "commands": "c279e0700ecfd444",
+    "count": 3246,
+    "final": "b1cf9e88c2156da9"
   },
   "skilled:vharun:12919": {
-    "commands": "b60e285d322d2913",
-    "count": 3242,
-    "final": "4d3488ab91f68152"
+    "commands": "090c52083c25f6a1",
+    "count": 3532,
+    "final": "6dc9c000ac05c25b"
   },
   "skilled:the_unweaver:5000": {
-    "commands": "c1df3bdea17d2d48",
-    "count": 3466,
-    "final": "a0ef00e99e6796df"
+    "commands": "5f983842014bcc45",
+    "count": 3531,
+    "final": "210d059fb32e484f"
   },
   "skilled:the_unweaver:12919": {
-    "commands": "1421e7484c103193",
-    "count": 3099,
-    "final": "74a764458dbc26d7"
+    "commands": "8bbc7bb9f4e43487",
+    "count": 2944,
+    "final": "6698872946ca6a4a"
   },
   "skilled:the_seamstress:5000": {
     "commands": "8cedbfad7aba618f",
     "count": 1225,
-    "final": "2e9e5a5a6dfd560d"
+    "final": "769a6c9f9a279ac7"
   },
   "skilled:the_seamstress:12919": {
-    "commands": "e092c2e3ddc612ef",
-    "count": 1240,
-    "final": "b0d166b3d1cb9290"
+    "commands": "df2be3584fe5a25b",
+    "count": 1199,
+    "final": "ca06cf0f01d1b22a"
   },
   "skilled:silent_conductor:5000": {
-    "commands": "fde0f0cc86cdc178",
-    "count": 2131,
-    "final": "b93aa8e1ed6c73bb"
+    "commands": "5fff1e9e681a1a8d",
+    "count": 2480,
+    "final": "ebb7ad6f13f964f4"
   },
   "skilled:silent_conductor:12919": {
-    "commands": "b2eae5929ee3482e",
-    "count": 2300,
-    "final": "2a84812d1318118a"
+    "commands": "ba32b8cc1f4c1e54",
+    "count": 2435,
+    "final": "adbc4bb300ca1c83"
   },
   "novice:hollow_cantor:5000": {
-    "commands": "dff67308f11b2547",
-    "count": 329,
-    "final": "517f66fed6bb956c"
+    "commands": "06fbca2700cbff82",
+    "count": 304,
+    "final": "b1245cff50fb96be"
   },
   "novice:hollow_cantor:12919": {
-    "commands": "cf7a1b2cef6340bc",
-    "count": 305,
-    "final": "ab470c3196d9c886"
+    "commands": "a459126fbaeecfbc",
+    "count": 283,
+    "final": "6d98e29aff71c9ca"
   },
   "novice:gorehound_matriarch:5000": {
-    "commands": "d143105f253290ea",
-    "count": 326,
-    "final": "56a41f8e1943574d"
+    "commands": "314fffe98c42d5c3",
+    "count": 207,
+    "final": "2ac70dc9b836733a"
   },
   "novice:gorehound_matriarch:12919": {
-    "commands": "ed92d7b4e5c68f5a",
-    "count": 256,
-    "final": "2c9822dbccf4a704"
+    "commands": "19731ab2ab4326c4",
+    "count": 235,
+    "final": "891e21c7559a9d37"
   },
   "novice:vharun:5000": {
-    "commands": "6fa1881d7c05df12",
-    "count": 282,
-    "final": "30b633c5b2da0427"
+    "commands": "921242a5f8e6efcb",
+    "count": 296,
+    "final": "9850b4d3ca721c0d"
   },
   "novice:vharun:12919": {
-    "commands": "03f9fc553c729a10",
-    "count": 216,
-    "final": "867b51df9ad51988"
+    "commands": "b79ca0463faadb05",
+    "count": 278,
+    "final": "6555b62d7c2e0927"
   },
   "novice:the_unweaver:5000": {
-    "commands": "a89e35def1295bd0",
-    "count": 515,
-    "final": "6f64b6b5eb5a6369"
+    "commands": "fb759d8d9b2af2de",
+    "count": 431,
+    "final": "046f38929eec1650"
   },
   "novice:the_unweaver:12919": {
-    "commands": "834a16651d57ac62",
-    "count": 415,
-    "final": "7b5aefb88bdeebe4"
+    "commands": "2f91c2463df0d4a4",
+    "count": 474,
+    "final": "c1b06b80e9c68b42"
   },
   "novice:the_seamstress:5000": {
-    "commands": "6e153735c2556f41",
-    "count": 91,
-    "final": "fa31fee2ea32bd01"
+    "commands": "c4d2be34ded108f7",
+    "count": 128,
+    "final": "fcee19cd492694d3"
   },
   "novice:the_seamstress:12919": {
-    "commands": "2ada72d0a4df8153",
-    "count": 110,
-    "final": "ab32d127af31b944"
+    "commands": "ec568406ace03e5f",
+    "count": 123,
+    "final": "35ae0b7c97f31055"
   },
   "novice:silent_conductor:5000": {
-    "commands": "e2b122ba3780b8dc",
-    "count": 243,
-    "final": "f524fc8d880835a5"
+    "commands": "787e8e9e836430ff",
+    "count": 345,
+    "final": "4db6f48fb90ae8d4"
   },
   "novice:silent_conductor:12919": {
-    "commands": "25c4310b35e468cd",
-    "count": 261,
-    "final": "47d035dba8843dc4"
+    "commands": "a58dc90efbcd3284",
+    "count": 228,
+    "final": "a6c6f00f78b6195b"
   }
 }

@@ -68,21 +68,22 @@ const FINALE: SimConfig = {
 
 describe('"without you" after a Postlude rise', () => {
   it('without a rise, the result is exactly today’s (no key added)', () => {
-    // Recorded from the re-run before this field existed, and again with the Solo rework
-    // (docs/solos.md): left alone, the heroes now fire their own Solos, plain.
+    // Recorded from the re-run before this field existed, and again with each round of the Solo
+    // rework (docs/solos.md): left alone, the heroes now fire their own Solos, plain, and a plain
+    // Solo no longer roots them.
     const today: [SimConfig, WithoutYou][] = [
       [
         { seed: 11, encounter: 'first_light' },
         {
           outcome: 'defeat',
-          duration: 36.433333333332435,
+          duration: 36.083333333332455,
           wave: 3,
           waves: 3,
           downs: 3,
           standing: 0,
           bossHp: null,
-          ticks: 2307,
-          hash: '2ef00fc06907bcb4',
+          ticks: 2286,
+          hash: '3d6483a673bd06c2',
         },
       ],
       [
@@ -96,7 +97,7 @@ describe('"without you" after a Postlude rise', () => {
           standing: 0,
           bossHp: 0.29625,
           ticks: 1778,
-          hash: '926bab7fdeb70df5',
+          hash: '5b16625e9d30650e',
         },
       ],
     ];

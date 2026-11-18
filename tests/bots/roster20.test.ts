@@ -161,12 +161,16 @@ describe('every roster party plays (docs/phase-5e.md)', () => {
     for (const fight of [FIRST_LIGHT, VHARUN])
       it(`all 20 parties play ${fight.encounter} whole with the ${bot} bot, deterministically`, () => {
         const runs = playAll(fight, bot);
-        // Whole fights: every one of them ends inside the cap, but SO's Skilled Vharun. SO
-        // (Kael, Seren, Oro) is the damage-light party the bands print (docs/phase-5e.md, "W9
-        // tuning round 1"): since round 1 its grove holds long enough to carry this seed to the
-        // cap, a loss either way. It still plays to the cap, deterministically (above).
+        // Whole fights: every one of them ends inside the cap, but two Oro parties' Skilled
+        // Vharun. SO (Kael, Seren, Oro) is the damage-light party the bands print
+        // (docs/phase-5e.md, "W9 tuning round 1"): since round 1 its grove holds long enough to
+        // carry this seed to the cap, a loss either way. Kael, Brann, Oro joined it with the Solo
+        // rework (docs/solos.md): Oro's Solo now fires with every Sapling felled, so his grove
+        // stands back up sooner and this seed's long loss (the party wins 4 in 10 there, in
+        // seven minutes) runs to the cap too. Both still play to it, deterministically (above).
+        const toTheCap = ['kael,seren,oro', 'kael,brann,oro'];
         for (const [p, r] of runs) {
-          if (bot === 'skilled' && fight === VHARUN && p === 'kael,seren,oro') {
+          if (bot === 'skilled' && fight === VHARUN && toTheCap.includes(p)) {
             if (r.status === 'fighting') expect(r.ticks, p).toBe(MAX_TICKS);
             continue;
           }

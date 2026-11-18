@@ -73,7 +73,7 @@ export interface RowResult {
  */
 export const RELEASE_PINS = {
   simVersion: 23,
-  contentVersion: 'c-0a37a658f5775748',
+  contentVersion: 'c-7781374df5775748',
   runSave: 5,
   profile: 10,
   settings: 5,
