@@ -1,8 +1,8 @@
 /**
  * The Expert bot (docs/phase-6.md, "Design: the expert bot", decision 14(a)): the Skilled bot's
  * fight play deciding twice as often (every 2 ticks, a call answered after 0.25 s), every Skilled
- * rule as tuned (Phase 5f's `CONDUCTING_RULES` with `BEAT_AHEAD` 2.8 s and `BANK_WITH_FINALE`
- * false, Phase 5g's `FILL_RULES` and `cueGateCost`), plus its own rules for Phase 6's mechanics
+ * rule as tuned (Phase 5f's `CONDUCTING_RULES` with `BANK_WITH_FINALE` false, Phase 5g's
+ * `FILL_RULES`, the Solos' `SOLO_RULES`), plus its own rules for Phase 6's mechanics
  * (`EXPERT_RULES`). Its run policy (map, drafts, relics, merchants, Respites, the Calling's path)
  * is in expertRun.ts and its Rank 20 build in tools/dissonance.ts: the harness plays them.
  *
@@ -33,6 +33,7 @@ import {
   type ExpertHooks,
   type ExpertRead,
   type FillRule,
+  type SoloRule,
   type FinaleRule,
   type M3Rule,
   type RosterRule,
@@ -67,14 +68,15 @@ export const EXPERT_RULES = [
    */
   'restlessHold',
   /**
-   * The Postlude's rise: while the Conductor is untouchable, no damage Cue, no Grand Finale and
-   * no last-burn Cue goes into it (a dome still answers a threat).
+   * The Postlude's rise: while the Conductor is untouchable, no Grand Finale goes into it. (The
+   * heroes fire their own Solos, docs/solos.md: whether they should hold one through the rise
+   * is the sim's to say, and tuning's to measure.)
    */
   'postludeRise',
   /**
    * The Postlude's faster Discord: once it passes `POSTLUDE_BANK_AT` with no Fortissimo Silence
-   * live, the Crescendo (on a Conductor run, the Grand Finale itself) and the Cues that would
-   * leave it short are held for Fortissimo Silence's cancel (`crescendoCancel` then casts it).
+   * live, the Crescendo (on a Conductor run, the Grand Finale itself) is held for Fortissimo
+   * Silence's cancel (`crescendoCancel` then casts it).
    */
   'postludeBank',
   /**
@@ -86,7 +88,8 @@ export const EXPERT_RULES = [
 export type ExpertRule = (typeof EXPERT_RULES)[number];
 
 /** A rule the Expert's `skip` can name: its own, or one it inherits from the Skilled bot. */
-export type ExpertSkip = ExpertRule | M3Rule | FinaleRule | RosterRule | ConductingRule | FillRule;
+export type ExpertSkip =
+  ExpertRule | M3Rule | FinaleRule | RosterRule | ConductingRule | FillRule | SoloRule;
 
 // ── The Expert's levers (docs/phase-6.md, Bands: "Expert-only constants", lever 6) ──
 /** Ticks between decisions (the Skilled bot's: 4). */
@@ -268,7 +271,7 @@ export class ExpertBot extends SkilledBot {
     const skip = opts.skip ?? new Set<ExpertSkip>();
     const own = new Set<ExpertSkip>(EXPERT_RULES);
     const inherited = new Set([...skip].filter((r) => !own.has(r))) as ReadonlySet<
-      M3Rule | FinaleRule | RosterRule | ConductingRule | FillRule
+      M3Rule | FinaleRule | RosterRule | ConductingRule | FillRule | SoloRule
     >;
     const play = new ExpertPlay(skip);
     super(

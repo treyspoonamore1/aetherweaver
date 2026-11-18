@@ -13,10 +13,8 @@ import { contains, telegraphDamage } from '../sim/combat/telegraphs';
 import { quantize } from '../sim/core/dmath';
 import { rewindCanRevive } from '../sim/systems/rewind';
 import {
-  beatAt,
   bloodlusting,
   crescendoCostOf,
-  cueCostNow,
   fallingFast,
   gentle,
   onBeat,
@@ -27,6 +25,7 @@ import {
   replantInField,
   saplingInField,
   segmentDistSq,
+  soloDueIn,
   summonsOf,
   suppressRadiusOf,
 } from '../sim';
@@ -1169,8 +1168,8 @@ export type ConductingView = NonNullable<NonNullable<WorldState['calling']>['con
 /** The Conductor's fight state (`state.field.conducting`). */
 export type ConductingField = NonNullable<WorldState['field']['conducting']>;
 
-/** What a Cue costs and what the Crescendo costs are the sim's (re-exported, one rule). */
-export { crescendoCostOf, cueCostNow, onBeat };
+/** What the Crescendo costs, and the downbeat's window, are the sim's (re-exported, one rule). */
+export { crescendoCostOf, onBeat };
 
 /**
  * The Conductor's view and field; null without the Calling. The field is created with the world
@@ -1182,18 +1181,6 @@ export function conductingOf(
   const view = state.calling?.conducting;
   const field = state.field.conducting;
   return view && field ? { view, field } : null;
-}
-
-/**
- * Seconds until the downbeat's window next opens: 0 inside it, null without A Tempo. Uses the
- * sim's `onBeat` and `beatAt`, so the bot's window is the sim's.
- */
-export function beatSoon(state: WorldState): number | null {
-  const beat = state.calling?.conducting?.beat;
-  if (!beat) return null;
-  if (onBeat(state)) return 0;
-  const { next } = beatAt(state.time, beat.bar);
-  return Math.max(0, next - beat.within - state.time);
 }
 
 /**
@@ -1226,25 +1213,36 @@ export function marcatoReady(state: WorldState): boolean {
   return !c.field.marcato || state.time >= c.field.marcato.readyAt;
 }
 
-/** How far a hero's Solo reaches (m): its own radius or reach, else the hero's attack range. */
-export function soloReach(h: HeroView): number {
-  const def = CONTENT.heroes.find((d) => d.id === h.defId)!;
-  const own = h.e.hero!.soloId === def.solo.id;
-  return own ? (def.solo.radius ?? def.solo.reach ?? def.attack.range) : def.attack.range;
-}
-
 /**
- * Seconds until a hero's Solo is full from fighting (0 if it is; Infinity when it isn't charging:
- * mid-Solo or not engaged), from its charge time and the fight's `soloChargeMult`.
+ * The hero whose Solo is about to fire (docs/solos.md), for a bot that means to have its Thread
+ * on them as it does, so that the Solo is Cued: the soonest due within `within` seconds (the
+ * sim's `soloDueIn`), whom the Thread can reach. Kael's wall may go up at any moment once it is
+ * full (hurt, a big hit coming), so he counts from then on, behind any hero due within `within`.
+ * Null with none, or when every Solo is Cued anyway (Hollow Crown).
  */
-export function soloFullIn(state: WorldState, h: HeroView): number {
-  const c = h.e.hero!;
-  if (c.solo >= 100) return 0;
-  if (c.soloActive > 0 || !c.engaged) return Infinity;
-  const def = CONTENT.heroes.find((d) => d.id === h.defId)!;
-  const alt = CONTENT.altSolos.find((s) => s.id === c.soloId);
-  const chargeTime = c.soloId === def.solo.id ? def.solo.chargeTime : (alt?.chargeTime ?? 25);
-  return (100 - c.solo) / ((100 / chargeTime) * state.mods.soloChargeMult);
+export function soloToCue(
+  state: WorldState,
+  party: readonly HeroView[],
+  w: ReadonlyEntity,
+  within: number,
+): HeroView | null {
+  if (state.mods.alwaysCued) return null;
+  const reach = w.weaver!.threadRange - 0.5;
+  let soon: HeroView | null = null;
+  let soonDue = Infinity;
+  let wall: HeroView | null = null;
+  for (const h of party) {
+    const c = h.e.hero!;
+    if (isStilled(h.e) || isPossessed(h.e) || dist(h.e, w) >= reach) continue;
+    const due = soloDueIn(state, h.e);
+    if (due === null) continue;
+    if (c.soloId === 'aegisWall' && c.solo >= 100 && c.targetId !== null) wall = h;
+    if (due <= within && due < soonDue) {
+      soon = h;
+      soonDue = due;
+    }
+  }
+  return soon ?? wall;
 }
 
 // ── Phase 5g's relics (docs/phase-5g.md): each reader is the plain value, or false, on a fight
@@ -1259,14 +1257,4 @@ export const CHIME_COVER_MARGIN = 0.5;
  */
 export function chimeCovers(state: WorldState, e: ReadonlyEntity): boolean {
   return state.chimes.some((c) => dist(e, c) <= c.radius - CHIME_COVER_MARGIN);
-}
-
-/**
- * What a Cue is gated on: the price paid now (`cueCostNow`: Opening Bars, Tempo Rubato, Hollow
- * Crown). On a Conductor run, `dissonance.cueCost`, as the bots' own Conductor rules have it. Off
- * the Conductor and without a Cue discount the two are equal (A Tempo's downbeat is the
- * Conductor's alone; Hollow Crown's floor never bites at 15 or more), so nothing changes there.
- */
-export function cueGateCost(state: WorldState): number {
-  return conductingOf(state) ? state.dissonance.cueCost : cueCostNow(state);
 }

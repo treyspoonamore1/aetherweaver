@@ -1,8 +1,9 @@
 /**
  * Skilled bot: plays the Weaver the way the design intends — positions so the field covers
  * the party, threads by effective HP, times Wards into the Perfect window, Chimes marks late
- * (clutch), Reels heroes out of lethal shapes, revives, Cues Solos into the right moments
- * and fires the Crescendo when the party needs it. Phase 2: heals heroes held by Fermata,
+ * (clutch), Reels heroes out of lethal shapes, revives, has the Thread on a hero as their Solo
+ * fires so that it is Cued (docs/solos.md, `SOLO_RULES`) and fires the Crescendo when the party
+ * needs it. Phase 2: heals heroes held by Fermata,
  * answers calls when the answer isn't needed for something more urgent, plants Pedal Point
  * fields under the party and keeps a Unison Chord on the hero it suits. Movement II
  * (docs/phase-5a.md): Chimes the bleeding at 5+ stacks (and latches and Wounds), Reels heroes
@@ -15,8 +16,7 @@
  * Brann (docs/phase-5b.md, "Bots and harness") is played low but alive: he reads as healthy to
  * the Thread above his floor (25%; 15% with Berserker's Hymn) unless he's falling fast or a
  * lethal hit is on him; below his 40% line he's Perfect-Warded first, Warded freely with Blood
- * Tithe, Warded or Reeled out of an Execution, Cued into Red Frenzy low in a crowd or a boss
- * fight, left out of the Crescendo's average and of the Bloodmoon's Rally (Reeled in instead, a
+ * Tithe, Warded or Reeled out of an Execution, left out of the Crescendo's average and of the Bloodmoon's Rally (Reeled in instead, a
  * Rally at most every 8 s while he refuses them); with no dome his Ward goes on Twin Cleave's
  * first blow and the Reel waits for the second; Blood and Silk parks an Empowering Thread on
  * him. Every such branch is behind his presence and draws nothing, so a default party's command
@@ -37,18 +37,17 @@
  * Perfect-Warded as her kill shot, above any hit but a lethal one; she is Warded before her
  * mark's next swing (in a boss fight only against the boss's own blow, and never while a blow on
  * another hero is live); overextended and hurt she is Reeled home after every other Reel (a Rally
- * for the Chronomancer, or with Swap, which never Swaps into her duel); Thousand Cuts goes on a
- * crowd or when she is surrounded. A tending Oro is woken with a Focus in a thin fight; a Sapling
+ * for the Chronomancer, or with Swap, which never Swaps into her duel). A tending Oro is woken with a Focus in a thin fight; a Sapling
  * left outside the field is Rallied back in; hurt Saplings have the Thread Mend Oro; the Weaver
- * weighs the Saplings into where she stands; Wildgrowth goes on a pack. With Seren or Oro and no
+ * weighs the Saplings into where she stands. With Seren or Oro and no
  * Lyra in the roster the hardest hitter breaks a discord shield. Each is behind its hero's reader
  * and draws nothing, so every other party's command stream is unchanged.
  *
  * The Conductor (docs/phase-5f.md, "Bots and harness", `CONDUCTING_RULES`): with the Calling it
- * Cues a second and a third hero into a Duet and a Trio while a chain is open, waits a moment for
- * a second Solo about to fill, Cues on the downbeat's window with A Tempo, casts the Grand Finale
- * when it can pay for it with a boss or a crowd up, and sends a Directive when Marcato is ready.
- * Each is behind `conductingOf(state)` and draws nothing, so a run without the Calling is as it was.
+ * casts the Grand Finale when it can pay for it with a boss or a crowd up, and sends a Directive
+ * when Marcato is ready. Duets and Trios come of `soloCue` alone: Solos fire a second apart (a
+ * bar apart with A Tempo), and following each with the Thread chains them. Each is behind
+ * `conductingOf(state)` and draws nothing, so a run without the Calling is as it was.
  */
 import { CONTENT, attackDef, enemyDef, heroDef, partyHasDome } from '../content';
 import { Rng } from '../sim/core/rng';
@@ -131,21 +130,15 @@ import {
   FINALE_BANK_AT,
   cueOf,
   discordOf,
-  SilenceWatch,
   fortissimoLive,
   isFortissimo,
   isSilenceBlow,
-  isStilled,
   silenceOf,
   conductingOf,
-  chainOpen,
-  beatSoon,
-  cueCostNow,
   crescendoCostOf,
   finaleOn,
   marcatoReady,
-  soloFullIn,
-  soloReach,
+  soloToCue,
   chimeCovers,
   type Circle,
   type BloodView,
@@ -178,7 +171,7 @@ export interface SkilledOptions {
    * docs/phase-5d.md) to leave off. Absent, every rule plays, so the default options object is
    * unchanged.
    */
-  skip?: ReadonlySet<M3Rule | FinaleRule | RosterRule | ConductingRule | FillRule>;
+  skip?: ReadonlySet<M3Rule | FinaleRule | RosterRule | ConductingRule | FillRule | SoloRule>;
   /**
    * The Expert's rules (docs/phase-6.md, "Design: the expert bot"; `ExpertBot`, expert.ts): read
    * once a decision and applied at the few places below. Absent (the Skilled bot, every existing
@@ -196,7 +189,7 @@ export interface ExpertRead {
   keepWard: boolean;
   /** Bank Resonance for Fortissimo Silence's cancel, the Grand Finale too (`postludeBank`). */
   bank: boolean;
-  /** No damage Cue, no Grand Finale and no last-burn Cue while the boss is untouchable (`postludeRise`). */
+  /** No Grand Finale while the boss is untouchable (`postludeRise`). */
   holdDamage: boolean;
   /** Focus this enemy now, without the gap between Focuses (`tyrantFocus`, `mimicFocus`). */
   focus: ReadonlyEntity | null;
@@ -283,8 +276,6 @@ export const FINALE_RULES = [
   'silenceReel',
   /** Keep the Thread on the hero the silence's next blow is aimed at. */
   'silenceThread',
-  /** Cue the reignited Solos (after Reignite or the Coda). */
-  'reigniteCue',
 ] as const;
 export type FinaleRule = (typeof FINALE_RULES)[number];
 
@@ -294,12 +285,6 @@ export type FinaleRule = (typeof FINALE_RULES)[number];
  * nothing, so a run without the Conductor plays exactly as before.
  */
 export const CONDUCTING_RULES = [
-  /** With a chain open, Cue the next ready hero not in it whose Solo has work. */
-  'conductChain',
-  /** One Solo wanted and another filling within `HOLD_FILL` s: wait (at most `HOLD_MAX` s). */
-  'conductHold',
-  /** A Tempo: a Cue that isn't urgent waits for the downbeat's window when it is near. */
-  'conductBeat',
   /** Cast the Grand Finale when it is affordable, a boss or a crowd is up and 2 heroes are free. */
   'conductFinale',
   /** With Marcato ready and 2+ heroes engaged, send a Directive (a Focus) to give it. */
@@ -324,6 +309,20 @@ export const FILL_RULES = [
 export type FillRule = (typeof FILL_RULES)[number];
 
 /**
+ * The Skilled bot's Solo rules (docs/solos.md), each one a name `SkilledOptions.skip` can turn
+ * off. Heroes fire their own Solos; what is left to the Weaver is where her Thread is as they do.
+ */
+export const SOLO_RULES = [
+  /**
+   * A Solo about to fire: the Thread goes to that hero (within `SOLO_LEAD` s of it; Kael, whose
+   * wall may go up at any moment, from when it is full), so the Solo is Cued. Not while a hero
+   * is held, condemned, down or in danger (`SOLO_DANGER`), nor through the Grand Silence.
+   */
+  'soloCue',
+] as const;
+export type SoloRule = (typeof SOLO_RULES)[number];
+
+/**
  * The Skilled bot's Seren and Oro rules (docs/phase-5e.md, "Skilled ROSTER_RULES"), each one a
  * name `SkilledOptions.skip` can turn off. Every one is gated on its hero's reader (`duelOf`,
  * `groveOf`, or the roster for `discordBreaker`) and draws nothing, so a party without Seren or
@@ -343,8 +342,6 @@ export const ROSTER_RULES = [
   'serenCall',
   /** Never Swap into her duel. */
   'serenNoSwap',
-  /** Cue Thousand Cuts at 4+ enemies or when she is overextended. */
-  'serenCue',
   /**
    * Focus Kael's target (or the boss) while Oro tends (no crowd guard since W9 round 2); 2 s
    * after a Focus falls, and never at a boss that calls a pack while Kael and Seren both stand
@@ -357,8 +354,6 @@ export const ROSTER_RULES = [
   'oroThread',
   /** Weight the Saplings into where she stands (heroes 2 : Saplings 1). */
   'groveCover',
-  /** Cue Wildgrowth on a pack of 3+, or when the Saplings stand outside the field. */
-  'oroCue',
   /** No Lyra in a Seren or Oro roster: Empower the hardest hitter against discord shields. */
   'discordBreaker',
 ] as const;
@@ -392,9 +387,8 @@ const PARRY_WARD_AHEAD = CONTENT.techniques.ward.duration - 0.5;
 const GROVE_CALM = 0.75;
 /** `oroThread`: once Mending them, the Thread stays on Oro until the lowest Sapling is here. */
 const GROVE_MENDED = 0.9;
-/** The Solos the roster rules Cue. */
+/** Seren's Solo (she is away, and untouchable, while it plays). */
 const THOUSAND_CUTS = 'thousandCuts';
-const WILDGROWTH = 'wildgrowth';
 
 /**
  * Focus Movement III's targets only once no more than this many enemies stand (the
@@ -429,14 +423,13 @@ const NULL_PRIEST = 'null_priest';
 const CUE_FOCUS_AT = 4;
 /** `crescendoCancel`: the Crescendo this long after Fortissimo Silence's first pulse begins. */
 const CANCEL_AFTER = 0.3;
-/** `fortissimoGuard`: the dome is Cued once the first pulse is this near (s). */
-const FORTISSIMO_DOME_AT = 1.5;
 /**
  * `bankCrescendo`: what Resonance a Skilled Weaver earns a second in the Conductor's fight, a
- * planning estimate. Discord that will reach 100 before a Cue's segment comes back at this rate
- * holds the Cues (as does Discord at `FINALE_BANK_AT`).
+ * planning estimate (2 a second before the gains' scale, docs/solos.md). Discord that will reach
+ * 100 before the song can fill at this rate holds the Crescendo for the cancel (as does Discord
+ * at `FINALE_BANK_AT`).
  */
-const FINALE_RESONANCE_RATE = 2;
+const FINALE_RESONANCE_RATE = 2 * CONTENT.resonance.gainScale;
 /** `silenceReel`: the Reel goes this many seconds before the Final Cadence lands. */
 const SILENCE_REEL_FROM = 0.4;
 const SILENCE_REEL_TO = 0.6;
@@ -462,25 +455,6 @@ const CADENCE_AFTER = 0.5;
 
 // ── The Conductor's levers (docs/phase-5f.md, "Bots and harness"). Provisional: W5 tunes them,
 // and only where an ablation (tools/verbs.ts) shows the bot misplays. ──
-/** `conductHold`: another Solo due to fill within this many seconds is worth waiting for. */
-const HOLD_FILL = 2;
-/** `conductHold`: the longest a wanted Cue waits for it (s), then the chain starts. */
-const HOLD_MAX = 2;
-/** `conductHold`: a Cue's answer (a raid or a big hit) landing this soon is never waited past. */
-const HOLD_URGENT = 2;
-/**
- * `conductBeat`: wait for the downbeat's window only if it opens within this many seconds. A bar
- * is 2.73 s, so a Cue that isn't urgent always waits for the next downbeat: without the autonomy
- * assist a held Solo isn't lost. Measured (the six boss fights before the Finale, A Tempo path
- * 1111, Skilled, 20 seeds, tools/verbs.ts): at 0.6 s the bot gave 17-95% of its Cues on the beat
- * (four fights under 50%), at 2.8 s 78-100%, with the same wins, fights within 2 s or 5-10 s
- * shorter, and the Hollow Cantor's downs 0.65 → 0.20.
- */
-const BEAT_AHEAD = 2.8;
-/** `conductBeat`: in a chain, the window must open this long (s) before the chain's window shuts. */
-const BEAT_CHAIN_SLACK = 0.1;
-/** `conductChain`: a damage Solo has work while an enemy stands within its reach plus this (m). */
-const CHAIN_REACH = 2;
 /** `conductFinale`: a boss above this share of its life is worth the Finale. */
 const FINALE_BOSS_ABOVE = 0.1;
 /** `conductFinale`: or this many enemies standing. */
@@ -501,8 +475,8 @@ const MARCATO_ENGAGED = 2;
  */
 const MARCATO_FOCUS: 'standing' | 'boss' | 'kael' = 'standing';
 /**
- * The Finale's `bankCrescendo` on a Conductor run: false, so it never holds the Cues and the
- * Grand Finale for Fortissimo Silence's cancel (the Finale comes round often enough to meet it).
+ * The Finale's `bankCrescendo` on a Conductor run: false, so it never holds the Grand Finale for
+ * Fortissimo Silence's cancel (the Finale comes round often enough to meet it).
  * Measured at the Silent Conductor (Skilled, 50 seeds on each of two sets, tools/verbs.ts): the
  * bank cost 8-10 s with the Triad path and 27-28 s with Maestro, and won nothing.
  */
@@ -511,11 +485,12 @@ const BANK_WITH_FINALE = false;
 /** Focus a guarded Sentinel once no more than this many enemies stand (the pack first). */
 const SENTINEL_FOCUS_AT = 3;
 
-/** The Solos that guard the party (Bonds' alternates included); the rest deal damage. */
-const GUARDING: ReadonlySet<string> = new Set(['aegisWall', 'oathkeeper', 'celestial_sphere']);
+// ── Solos (docs/solos.md, `SOLO_RULES`). Starting values: tuning moves them. ──
+/** `soloCue`: the Thread goes to a hero this long (s) before their Solo is due to fire. */
+const SOLO_LEAD = 0.5;
+/** `soloCue`: not while a hero is below this share of their life (they need the Thread more). */
+const SOLO_DANGER = 0.3;
 
-/** Brann's Solo (docs/phase-5b.md): Cued low and in a crowd, its lifesteal ×3 heals him. */
-const RED_FRENZY = 'redFrenzy';
 /** While Brann refuses Rallies (Bloodlust), the bot calls one at most this often, in seconds. */
 const LUSTING_RALLY_GAP = 8;
 /** Blood and Silk's line (src/sim/systems/thread.ts): Empower him below it and it rings. */
@@ -540,12 +515,8 @@ export class SkilledBot implements Bot {
    * known to be the other (Final, Half, Final…). Null outside the silence.
    */
   private lastCadence: { id: number; final: boolean } | null = null;
-  /** The Finale: whether this fight's Grand Silence has been seen (the last burn waits on it). */
-  private readonly silenceWatch = new SilenceWatch();
   /** Oro (docs/phase-5e.md, `oroRally`): when each Sapling was first seen outside the field. */
   private readonly saplingOutSince = new Map<EntityId, number>();
-  /** The Conductor (`conductHold`): when this wait for a second Solo began; null when not waiting. */
-  private holdSince: number | null = null;
 
   constructor(
     seed: number,
@@ -558,8 +529,6 @@ export class SkilledBot implements Bot {
 
   decide(state: WorldState): Command[] {
     const out: Command[] = [];
-    // The Finale: watched every tick, so a silence between decisions is still seen (no draws).
-    this.silenceWatch.observe(state);
     if (state.tick % this.opts.every !== 0) return out;
     const w = weaverOf(state);
     const wc = w.weaver!;
@@ -600,7 +569,6 @@ export class SkilledBot implements Bot {
     const fortissimo = fortissimoLive(state);
     const silence = silenceOf(state);
     const cue = cueOf(state);
-    const burn = this.silenceWatch.burn(state);
     const crescendoReady = wc.resonance >= crescendoCostOf(state) && wc.crescendo <= 0;
     /** Fortissimo Silence with no Crescendo to cancel it: dome, Ward, Bear, Rally and Mend. */
     const guardFortissimo = fortissimo !== null && !crescendoReady && this.on('fortissimoGuard');
@@ -1136,6 +1104,24 @@ export class SkilledBot implements Bot {
       threadTo = grove.oro;
       mend = true;
     }
+    // ── A Solo about to fire (docs/solos.md, `soloCue`): the Thread is on that hero as they
+    // fire it, so it is Cued; then the pick above takes it back. It keeps the pick's mode. A
+    // hold, an Execution, a revive and a hero in danger keep the Thread, as does the silence. ──
+    if (
+      this.on('soloCue') &&
+      !holding &&
+      !condemned &&
+      downed.length === 0 &&
+      !silence &&
+      !guardFortissimo &&
+      // Brann sits low on purpose (docs/phase-5b.md): he is no reason to keep the Thread.
+      !party.some(
+        (h) => h.slot !== blood?.hero.slot && h.e.health!.hp < h.e.health!.maxHp * SOLO_DANGER,
+      )
+    ) {
+      const soloist = soloToCue(state, party, w, SOLO_LEAD + state.dissonance.cueHold);
+      if (soloist) threadTo = soloist;
+    }
     // ── Movement III (docs/phase-5c.md): each step leaves the pick alone without its mechanic. ──
     // Severing: not the hero beside the elite, unless they're the only one hurt.
     if (threadTo && !holding && !condemned && downed.length === 0 && this.on('severing'))
@@ -1197,21 +1183,14 @@ export class SkilledBot implements Bot {
     else if (ex?.empower === true && want === 'mend' && !unravel) want = 'empower';
     out.push(...modeCommands(wc.threadMode, want));
 
-    // ── Cues and the Crescendo. ──
-    const segment = state.dissonance.cueCost;
+    // ── The Crescendo. (Heroes fire their own Solos, docs/solos.md: the Thread above Cues them.) ──
     const raid = state.telegraphs.find((t) => t.kind === 'raid');
-    const bossFight = state.encounter.bossId !== null;
     const crescendoCost = crescendoCostOf(state);
     // The Conductor (docs/phase-5f.md): null without the Calling, and every rule of hers below is
     // behind it, so a run without it makes the decisions it always did.
     const cond = conductingOf(state);
-    /**
-     * What a Cue costs now (`cueCostNow`): on the downbeat (A Tempo) less than `segment`, and less
-     * with Opening Bars, Tempo Rubato or Hollow Crown, for any Calling. Else `segment`.
-     */
-    const cueNeed = cueCostNow(state);
-    // The Finale (docs/phase-5d.md): Discord will meet Fortissimo Silence before Resonance spent
-    // now could come back, so hold the Cues and the Crescendo for its cancel. False without it.
+    // The Finale (docs/phase-5d.md): Discord will meet Fortissimo Silence before the song can
+    // fill again, so hold the Crescendo for its cancel. False without it.
     // The Expert's `postludeBank` (expert.ts) banks in the Postlude past its line, whatever the
     // Calling (the Grand Finale too, which `BANK_WITH_FINALE` leaves alone). False for the Skilled.
     const bank =
@@ -1219,12 +1198,11 @@ export class SkilledBot implements Bot {
         discord !== null &&
         fortissimo === null &&
         this.on('bankCrescendo') &&
-        banking(discord, wc.resonance, segment, crescendoCost)) ||
+        banking(discord, wc.resonance, crescendoCost)) ||
       ex?.bank === true;
-    /** The Expert's `postludeRise`: the boss is untouchable, so no damage goes into it. */
+    /** The Expert's `postludeRise`: the boss is untouchable, so no Grand Finale goes into it. */
     const holdDamage = ex?.holdDamage === true;
-    // Fortissimo Silence with the Crescendo to cancel it: no Cue spends the Resonance it needs
-    // (commands run in order, so a Cue sent beside it would leave it short).
+    // Fortissimo Silence with the Crescendo to cancel it.
     const cancelling = crescendoReady && fortissimo !== null && this.on('crescendoCancel');
     // The Conductor's Grand Finale (`conductFinale`): false without the Calling.
     const finaleCast =
@@ -1234,106 +1212,6 @@ export class SkilledBot implements Bot {
       !holdDamage &&
       this.on('conductFinale') &&
       this.finaleWanted(state, party, enemies, wc.resonance, wc.crescendo, crescendoCost);
-    /**
-     * A Solo this Cue would answer: ready, and wanted by the rules below. `chained`: the Conductor's
-     * chain is open, so a Solo with work to do is wanted in place of the usual rule.
-     */
-    const wants = (h: HeroView, chained: boolean): boolean => {
-      const c = h.e.hero!;
-      if (c.solo < 100 || c.soloActive > 0) return false;
-      // Stilled by the Grand Silence: a Cue is refused (never so outside the Finale).
-      if (isStilled(h.e)) return false;
-      let go: boolean;
-      // A Solo that guards the party waits for a raid or a big hit; one that deals damage, a pack.
-      if (chained) {
-        go = this.conductWork(h, enemies);
-      } else if (blood && c.soloId === RED_FRENZY && h.slot === blood.hero.slot) {
-        // Red Frenzy Cued is lifesteal ×3: the heal his cut can't touch, low and in a crowd.
-        const r = CONTENT.heroes.find((d) => d.id === h.defId)?.solo.radius ?? 0;
-        const near = enemies.filter((e) => dist(e, h.e) <= r + e.radius).length;
-        go = blood.low && (near >= 2 || bossFight);
-      } else if (
-        duel &&
-        h.slot === duel.seren.slot &&
-        c.soloId === THOUSAND_CUTS &&
-        this.on('serenCue')
-      ) {
-        // Thousand Cuts (docs/phase-5e.md, `serenCue`): a crowd to cut through, or she is
-        // overextended (invulnerable throughout, she comes back where she began).
-        go = enemies.length >= 4 || duel.overextended;
-      } else if (
-        grove &&
-        h.slot === grove.oro.slot &&
-        c.soloId === WILDGROWTH &&
-        this.on('oroCue')
-      ) {
-        // Wildgrowth (docs/phase-5e.md, `oroCue`): the Ancient on a pack, or Cued while the
-        // Saplings stand outside the field (its disc counts as your field for its 8 s).
-        go = enemies.length >= 3 || (grove.outside.length > 0 && enemies.length > 0);
-      } else if (GUARDING.has(c.soloId)) {
-        const bigHit = party.some((p) =>
-          threatsOn(state, p.e).some(
-            (t) => t.impact - now < 1.2 && damageOf(t, p.e) > p.e.health!.hp * 0.6,
-          ),
-        );
-        go = (!!raid && raid.impact - now < 1.5) || (bigHit && wc.wardCharges === 0);
-        // Without a boss, a dome when the party is low is still good.
-        if (!bossFight && party.filter((p) => effectiveFraction(p.e) < 0.45).length >= 2) go = true;
-      } else {
-        go = enemies.length >= 4 || bossFight;
-        if (bossFight && raid) go = false;
-      }
-      // The Finale: banking, no damage Cue, and a dome only if a full song remains after it;
-      // Fortissimo Silence with no Crescendo, the dome before its first pulse.
-      if (bank) go = GUARDING.has(c.soloId) && go && wc.resonance - segment >= crescendoCost - 1e-9;
-      if (
-        guardFortissimo &&
-        fortissimo !== null &&
-        GUARDING.has(c.soloId) &&
-        fortissimo.pulse === 1 &&
-        fortissimo.impact - now < FORTISSIMO_DOME_AT
-      )
-        go = true;
-      // Save one segment for the Requiem dome in boss phase 3 (in the Finale's phases 1-2 it
-      // yields to `bankCrescendo`, which keeps a whole song instead).
-      if (
-        go &&
-        !GUARDING.has(c.soloId) &&
-        bossFight &&
-        wc.resonance < segment * 2 &&
-        this.guardReady(party) &&
-        !(discord !== null && this.on('bankCrescendo'))
-      )
-        go = false;
-      if (holdDamage && !GUARDING.has(c.soloId)) go = false;
-      return go;
-    };
-    if (
-      !cancelling &&
-      wc.resonance >= cueNeed &&
-      burn &&
-      !holdDamage &&
-      ex?.bank !== true &&
-      this.on('reigniteCue')
-    ) {
-      // The last burn (after Reignite or the Coda): every ready Solo, damage Solos first.
-      const ready = party.filter(
-        (h) => h.e.hero!.solo >= 100 && h.e.hero!.soloActive <= 0 && !isStilled(h.e),
-      );
-      const pick = ready.find((h) => !GUARDING.has(h.e.hero!.soloId)) ?? ready[0];
-      if (pick) out.push({ t: 'cue', slot: pick.slot });
-    } else if (!cond && !cancelling && wc.resonance >= cueNeed) {
-      for (const h of party) {
-        if (wants(h, false)) {
-          out.push({ t: 'cue', slot: h.slot });
-          break;
-        }
-      }
-    } else if (cond && !cancelling && !finaleCast && !finaleOn(state) && wc.resonance >= cueNeed) {
-      // The Conductor: chains, the wait for a second Solo, the downbeat.
-      const pick = this.conductCue(state, party, enemies, raid, now, wants);
-      if (pick) out.push({ t: 'cue', slot: pick.slot });
-    } else this.holdSince = null;
     if (cancelling && fortissimo) {
       // Fortissimo Silence (the Finale): any Calling's Crescendo cancels it, a breath after the
       // first pulse begins (or at once, on a later pulse).
@@ -1538,101 +1416,6 @@ export class SkilledBot implements Bot {
   // ── The Conductor (docs/phase-5f.md, "Bots and harness"): read only on a Conductor run. ──
 
   /**
-   * `conductChain`'s test of a Solo with work to do: a Solo that guards the party always, Oro's
-   * with an enemy standing, any other with an enemy within its reach (`CHAIN_REACH` to spare).
-   */
-  private conductWork(h: HeroView, enemies: readonly ReadonlyEntity[]): boolean {
-    if (GUARDING.has(h.e.hero!.soloId)) return true;
-    if (h.e.hero!.grove !== undefined) return enemies.length > 0;
-    const reach = soloReach(h) + CHAIN_REACH;
-    return enemies.some((e) => dist(e, h.e) <= reach + e.radius);
-  }
-
-  /**
-   * The hero to Cue this decision on a Conductor run, or undefined (wait). With a chain open
-   * (`conductChain`) the next ready hero not in it whose Solo has work, damage Solos first; else
-   * the usual rule picks, and the Cue may wait for a second Solo about to fill (`conductHold`) or
-   * for the downbeat (`conductBeat`). A Solo that guards the party answers a threat, so it never
-   * waits.
-   */
-  private conductCue(
-    state: WorldState,
-    party: readonly HeroView[],
-    enemies: readonly ReadonlyEntity[],
-    raid: ReadonlyTelegraph | undefined,
-    now: number,
-    wants: (h: HeroView, chained: boolean) => boolean,
-  ): HeroView | undefined {
-    const chain = this.on('conductChain') ? chainOpen(state) : null;
-    let pick: HeroView | undefined;
-    let chained = false;
-    if (chain) {
-      const ready = party.filter((h) => !chain.heroes.includes(h.e.id) && wants(h, true));
-      pick = ready.find((h) => !GUARDING.has(h.e.hero!.soloId)) ?? ready[0];
-      chained = pick !== undefined;
-    }
-    pick ??= party.find((h) => wants(h, false));
-    if (!pick) {
-      this.holdSince = null;
-      return undefined;
-    }
-    const urgent = GUARDING.has(pick.e.hero!.soloId);
-    // conductHold: another Solo is about to fill, so a chain is worth a short wait.
-    if (
-      !chained &&
-      !urgent &&
-      this.on('conductHold') &&
-      this.holdFor(state, party, enemies, pick, raid, now)
-    )
-      return undefined;
-    this.holdSince = null;
-    // conductBeat: the downbeat's window opens soon (and, in a chain, before it shuts).
-    if (!urgent && this.on('conductBeat')) {
-      const soon = beatSoon(state);
-      if (soon !== null && soon > 0) {
-        const limit =
-          chain && chained ? Math.min(BEAT_AHEAD, chain.closesIn - BEAT_CHAIN_SLACK) : BEAT_AHEAD;
-        if (soon <= limit) return undefined;
-      }
-    }
-    return pick;
-  }
-
-  /**
-   * `conductHold`: `pick` is wanted and another hero's Solo (with work to do) is due to fill
-   * within `HOLD_FILL` s, nothing a Cue would answer landing within `HOLD_URGENT` s: wait, but
-   * for `HOLD_MAX` s at most from the first wait. A Solo already full is no wait (the chain
-   * forms at once).
-   */
-  private holdFor(
-    state: WorldState,
-    party: readonly HeroView[],
-    enemies: readonly ReadonlyEntity[],
-    pick: HeroView,
-    raid: ReadonlyTelegraph | undefined,
-    now: number,
-  ): boolean {
-    const landing =
-      (!!raid && raid.impact - now < HOLD_URGENT) ||
-      party.some((p) =>
-        threatsOn(state, p.e).some(
-          (t) => t.impact - now < HOLD_URGENT && damageOf(t, p.e) > p.e.health!.hp * 0.6,
-        ),
-      );
-    const filling = party.some((h) => {
-      if (h === pick || !this.conductWork(h, enemies)) return false;
-      const full = soloFullIn(state, h);
-      return full > 0 && full <= HOLD_FILL;
-    });
-    if (landing || !filling) {
-      this.holdSince = null;
-      return false;
-    }
-    this.holdSince ??= now;
-    return now - this.holdSince < HOLD_MAX;
-  }
-
-  /**
    * `conductFinale`: the Grand Finale is affordable, nothing plays one now, 2 or more heroes
    * are free to take a turn, and a boss stands above `FINALE_BOSS_ABOVE` of its life or
    * `FINALE_CROWD` enemies stand.
@@ -1698,11 +1481,6 @@ export class SkilledBot implements Bot {
     return grove.outside.filter(
       (s) => now - (this.saplingOutSince.get(s.id) ?? now) > SAPLING_OUT_FOR,
     );
-  }
-
-  /** A guarding Solo (Kael's dome, or an alternate that guards) is nearly ready. */
-  private guardReady(party: HeroView[]): boolean {
-    return party.some((h) => GUARDING.has(h.e.hero!.soloId) && h.e.hero!.solo >= 80);
   }
 
   private notice(): boolean {
@@ -1780,7 +1558,9 @@ export class SkilledBot implements Bot {
   }
 
   /** A Movement III, Finale or roster rule plays unless the ablation skips it (tools/verbs.ts). */
-  private on(rule: M3Rule | FinaleRule | RosterRule | ConductingRule | FillRule): boolean {
+  private on(
+    rule: M3Rule | FinaleRule | RosterRule | ConductingRule | FillRule | SoloRule,
+  ): boolean {
     return this.opts.skip?.has(rule) !== true;
   }
 
@@ -2947,12 +2727,12 @@ function clutchDue(e: ReadonlyEntity): boolean {
 }
 
 /**
- * `bankCrescendo`: Discord at `FINALE_BANK_AT`, or due at 100 before the segment a Cue would
- * spend could come back at `FINALE_RESONANCE_RATE` with the song still to fill.
+ * `bankCrescendo`: Discord at `FINALE_BANK_AT`, or due at 100 before what the song still lacks
+ * could be earned at `FINALE_RESONANCE_RATE`.
  */
-function banking(d: DiscordView, resonance: number, segment: number, cost: number): boolean {
+function banking(d: DiscordView, resonance: number, cost: number): boolean {
   if (d.value >= FINALE_BANK_AT) return true;
-  const short = cost - Math.max(0, resonance - segment);
+  const short = Math.max(0, cost - resonance);
   return d.eta <= short / FINALE_RESONANCE_RATE;
 }
 

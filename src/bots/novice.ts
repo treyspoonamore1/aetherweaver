@@ -2,7 +2,8 @@
  * Novice bot: a first-time player who understands the basics. Threads whoever looks hurt
  * (with a lag), stays near the party, Wards low heroes without timing, Chimes marks when
  * they notice them, never Reels (though with the Chronomancer they may Rewind a hero who just
- * went down), and Cues Solos when they happen to be ready. Movement II (docs/phase-5a.md): they
+ * went down), and now and then swing the Thread to a hero whose Solo is about to fire, so that
+ * it is Cued (docs/solos.md, `NOVICE_SOLO`). Movement II (docs/phase-5a.md): they
  * sometimes Chime a hero bleeding at 5+ stacks, Ward or (rarely) Reel a pinned hero, and Scatter
  * for a Blood Pact. Each of those draws only while its mechanic is on the field, so Movement I
  * sees exactly the draws it always did. Movement III (docs/phase-5c.md): now and then she Chimes
@@ -15,16 +16,16 @@
  * boss). Her heal-the-lowest reflex is what the Shears, Unravel and the Mimic punish.
  * With Seren or Oro (docs/phase-5e.md, `NOVICE_ROSTER`) she now and then Wards Seren in a fight,
  * Focuses to wake a tending Oro, and Rallies a Sapling back into the field; each draws only with
- * its hero in the party, just before the Cue's draw. She keeps off a duelling Seren as off Brann.
- * With the Conductor (docs/phase-5f.md, `NOVICE_CONDUCTING`) she now and then Cues a ready hero
- * while a chain is open, Cues inside the downbeat's window (A Tempo) and casts the Grand Finale
- * with the song full; those draws are taken only on a Conductor run, just before the Cue's.
+ * its hero in the party, just before the Solo's draw. She keeps off a duelling Seren as off Brann.
+ * With the Conductor (docs/phase-5f.md, `NOVICE_CONDUCTING`) she follows a Solo more often while
+ * a chain is open or with A Tempo's beat to go by, and casts the Grand Finale with the song full;
+ * those draws are taken only on a Conductor run, just before the Solo's.
  */
 import { CONTENT } from '../content';
 import { Rng } from '../sim/core/rng';
 import { rewindCanRevive } from '../sim/systems/rewind';
-import { finaleTurnBlock, weaverSilenced } from '../sim';
-import type { Command, ReadonlyEntity, ThreadMode, WorldState } from '../sim';
+import { finaleTurnBlock, soloDueIn, weaverSilenced } from '../sim';
+import type { Command, PartySlot, ReadonlyEntity, ThreadMode, WorldState } from '../sim';
 import type { Bot } from './types';
 import {
   BLEED_CHIME_AT,
@@ -65,18 +66,15 @@ import {
   SilenceWatch,
   fortissimoLive,
   isCadence,
-  isStilled,
   silenceOf,
   duelOf,
   groveOf,
   rallyBringsHome,
   conductingOf,
   chainOpen,
-  cueCostNow,
-  cueGateCost,
   crescendoCostOf,
   finaleOn,
-  onBeat,
+  soloToCue,
   type HeroView,
 } from './common';
 import { MEASURE } from '../content/crucibleIds';
@@ -100,8 +98,22 @@ const NOVICE_M3 = {
 } as const;
 
 /**
+ * Solos (docs/solos.md): heroes fire their own, and a Solo is Cued if her Thread is on the hero
+ * as it fires. Now and then she sees one coming and swings the Thread over; once she has, it
+ * stays there until the Solo fires. Starting values: tuning moves them.
+ */
+export const NOVICE_SOLO = {
+  /** A Solo due within `within` s on a hero she isn't threading: the chance, each decision. */
+  follow: 0.3,
+  /** How near (s) a Solo must be to firing for her to see it coming: its wait. */
+  within: 1,
+  /** She gives a followed Solo this long (s) to fire, then goes back to her usual Thread. */
+  patience: 4,
+} as const;
+
+/**
  * The Finale's chances (docs/phase-5d.md, "Bots and harness"), each drawn only while its
- * mechanic is up, after every other draw and before the Cue's.
+ * mechanic is up, after every other draw and before the Solo's.
  */
 export const NOVICE_M4 = {
   /** Crescendo during Fortissimo Silence, with a full song (about 3 decisions a second). */
@@ -114,7 +126,7 @@ export const NOVICE_M4 = {
   silenceWard: 0.5,
   /** Reel the target of a Cadence in its last 0.8 s. */
   silenceReel: 0.25,
-  /** Cue a ready Solo in the last burn (after Reignite or the Coda). */
+  /** Follow a reignited Solo with the Thread in the last burn (after Reignite or the Coda). */
   reigniteCue: 0.5,
 } as const;
 /** A Finale draw `NoviceOptions.skip` can leave off (tools/verbs.ts `--bot novice`). */
@@ -124,7 +136,7 @@ export const NOVICE_M4_RULES = Object.keys(NOVICE_M4) as NoviceM4Rule[];
 
 /**
  * Seren's and Oro's chances (docs/phase-5e.md, "Novice"), each drawn only with that hero in the
- * party and its moment up, after every other draw and immediately before the Cue's.
+ * party and its moment up, after every other draw and immediately before the Solo's.
  */
 export const NOVICE_ROSTER = {
   /** Ward Seren while she is engaged (an enemy on her) and unwarded. */
@@ -143,13 +155,13 @@ const ORO_NEAR = 10;
 
 /**
  * The Conductor's chances (docs/phase-5f.md, "Novice"), each drawn only on a Conductor run and
- * only while its moment is up, after every other draw and immediately before the Cue's. Starting
- * values: W5 tunes them.
+ * only while its moment is up, after every other draw and immediately before the Solo's. Starting
+ * values: tuning moves them.
  */
 export const NOVICE_CONDUCTING = {
-  /** With a chain open and a ready hero not in it, Cue them. */
+  /** With a chain open and a Solo coming on a hero not in it, follow it (a Duet, a Trio). */
   chain: 0.4,
-  /** With A Tempo, inside the downbeat's window with a ready hero, Cue them. */
+  /** With A Tempo (the meter shows the beat the next Solo begins on), follow a Solo coming. */
   beat: 0.5,
   /** With the Crescendo affordable, 2+ heroes standing and a boss or a crowd up, cast it. */
   finale: 0.15,
@@ -191,6 +203,8 @@ export class NoviceBot implements Bot {
   private readonly stall = new StallWatch();
   /** The Finale: whether this fight's Grand Silence has been seen (the last burn waits on it). */
   private readonly silenceWatch = new SilenceWatch();
+  /** The Solo she is following (`NOVICE_SOLO`): the hero her Thread stays on, and since when. */
+  private following: { slot: PartySlot; since: number } | null = null;
 
   constructor(
     seed: number,
@@ -259,7 +273,13 @@ export class NoviceBot implements Bot {
     )[0];
     const held = heldHero(party);
     const pick = (held && this.rng.chance(0.6) ? held : null) ?? downed ?? lowest;
-    if (pick && wc.threadSlot !== pick.slot && wc.threadLock <= 0 && this.rng.chance(0.7)) {
+    // A Solo she is following (docs/solos.md): the Thread stays on that hero until it fires,
+    // unless someone is down or held.
+    const follow = this.followed(state, party, !!downed || !!held);
+    if (follow) {
+      if (wc.threadSlot !== follow.slot && wc.threadLock <= 0)
+        out.push({ t: 'thread', slot: follow.slot });
+    } else if (pick && wc.threadSlot !== pick.slot && wc.threadLock <= 0 && this.rng.chance(0.7)) {
       out.push({ t: 'thread', slot: pick.slot });
     }
     // Shielded enemies need Empower (the coach hint teaches this); otherwise keep Mending.
@@ -273,7 +293,7 @@ export class NoviceBot implements Bot {
     // Iron Mask (docs/phase-5g.md): the Thread can't Empower, and she knows it (the relic says so).
     const noEmpower = state.mods.noEmpower;
     const wantEmpower = !noEmpower && ((shielded && healthy && !downed) || empowerCall);
-    if (wantEmpower) {
+    if (wantEmpower && !follow) {
       const to = empowerCall ? calling : party.find((h) => h.defId === 'lyra');
       if (to && wc.threadSlot !== to.slot && wc.threadLock <= 0)
         out.push({ t: 'thread', slot: to.slot });
@@ -438,17 +458,17 @@ export class NoviceBot implements Bot {
     // Seren and Oro (docs/phase-5e.md): each draws only with its hero in the party.
     this.roster(state, party, enemies, w, out);
 
-    // The Conductor (docs/phase-5f.md): each draws only on a Conductor run, before the Cue's.
-    const conducted = this.conducting(state, party, enemies, wc, out);
+    // The Conductor (docs/phase-5f.md): each draws only on a Conductor run, before the Solo's.
+    const conducted = this.conducting(state, party, enemies, w, out);
 
-    // Cue whoever is ready, now and then; Crescendo when things look bad. (A hero stilled by
-    // the Grand Silence can't take a Cue: never so outside the Finale.) A Conductor's Cue
-    // already sent this decision stands in for it.
-    if (conducted !== 'cue' && wc.resonance >= cueGateCost(state) && this.rng.chance(0.3)) {
-      const ready = party.find(
-        (h) => h.e.hero!.solo >= 100 && h.e.hero!.soloActive <= 0 && !isStilled(h.e),
-      );
-      if (ready) out.push({ t: 'cue', slot: ready.slot });
+    // A Solo about to fire on a hero she isn't threading: now and then she swings the Thread
+    // over to Cue it (docs/solos.md); Crescendo when things look bad. Drawn only with one
+    // coming, nobody down or held, and none followed already (a Conductor's or the last burn's
+    // stands in for it).
+    if (conducted !== 'cue' && this.following === null && !downed && !held) {
+      const soloist = soloToCue(state, party, w, NOVICE_SOLO.within);
+      if (soloist && soloist.slot !== wc.threadSlot && this.rng.chance(NOVICE_SOLO.follow))
+        this.follow(soloist, now, wc, out);
     }
     if (wc.resonance >= crescendoCostOf(state) && conducted !== 'finale') {
       const avg =
@@ -462,50 +482,82 @@ export class NoviceBot implements Bot {
   }
 
   /**
-   * The Conductor's draws (`NOVICE_CONDUCTING`, docs/phase-5f.md): a Cue for a ready hero while a
-   * chain is open, a Cue inside the downbeat's window (A Tempo), the Grand Finale. Each draws only
-   * on a Conductor run and only with its moment up (no draw at all without the Calling). Returns
-   * what it sent, if anything ('cue' stands in for the usual Cue's draw this decision, 'finale' for
+   * The hero she is following, or null: the follow ends when their Solo fires, is no longer
+   * coming, has taken longer than her patience, or a hero is down or held (`needed`).
+   */
+  private followed(
+    state: WorldState,
+    party: readonly HeroView[],
+    needed: boolean,
+  ): HeroView | null {
+    const f = this.following;
+    if (f === null) return null;
+    const h = party.find((p) => p.slot === f.slot);
+    if (
+      needed ||
+      !h ||
+      h.e.hero!.soloActive > 0 ||
+      soloDueIn(state, h.e) === null ||
+      state.time - f.since > NOVICE_SOLO.patience
+    ) {
+      this.following = null;
+      return null;
+    }
+    return h;
+  }
+
+  /** She swings the Thread to `h`, whose Solo is coming, and keeps it there (`followed`). */
+  private follow(
+    h: HeroView,
+    now: number,
+    wc: NonNullable<ReadonlyEntity['weaver']>,
+    out: Command[],
+  ): void {
+    this.following = { slot: h.slot, since: now };
+    if (wc.threadSlot !== h.slot && wc.threadLock <= 0) out.push({ t: 'thread', slot: h.slot });
+  }
+
+  /**
+   * The Conductor's draws (`NOVICE_CONDUCTING`, docs/phase-5f.md): following a Solo that would
+   * join the open chain, following one by A Tempo's beat, the Grand Finale. Each draws only on a
+   * Conductor run and only with its moment up (no draw at all without the Calling). Returns what
+   * it did, if anything ('cue' stands in for the usual Solo's draw this decision, 'finale' for
    * the usual Crescendo's).
    */
   private conducting(
     state: WorldState,
     party: readonly HeroView[],
     enemies: readonly ReadonlyEntity[],
-    wc: NonNullable<ReadonlyEntity['weaver']>,
+    w: ReadonlyEntity,
     out: Command[],
   ): 'cue' | 'finale' | null {
     const cond = conductingOf(state);
     if (!cond) return null;
-    const ready = (h: HeroView) =>
-      h.e.hero!.solo >= 100 && h.e.hero!.soloActive <= 0 && !isStilled(h.e);
+    const wc = w.weaver!;
     let cued = false;
-    // Playing the Finale: no new Cue (a hero mid-Solo would make its turn wait).
-    if (!finaleOn(state)) {
+    // Playing the Finale, the heroes keep their Solos for their turns: nothing to follow.
+    if (!finaleOn(state) && this.following === null) {
+      const soloist = soloToCue(state, party, w, NOVICE_SOLO.within);
+      const fresh = soloist && soloist.slot !== wc.threadSlot ? soloist : null;
       const chain = chainOpen(state);
-      const next = chain
-        ? party.find((h) => ready(h) && !chain.heroes.includes(h.e.id))
-        : undefined;
       if (
         this.on('chain') &&
-        next &&
-        wc.resonance >= cueCostNow(state) &&
+        fresh &&
+        chain &&
+        !chain.heroes.includes(fresh.e.id) &&
         this.rng.chance(NOVICE_CONDUCTING.chain)
       ) {
-        out.push({ t: 'cue', slot: next.slot });
+        this.follow(fresh, state.time, wc, out);
         cued = true;
       }
-      const first = party.find(ready);
       if (
         this.on('beat') &&
         !cued &&
         cond.view.beat &&
-        onBeat(state) &&
-        first &&
-        wc.resonance >= cueCostNow(state) &&
+        fresh &&
         this.rng.chance(NOVICE_CONDUCTING.beat)
       ) {
-        out.push({ t: 'cue', slot: first.slot });
+        this.follow(fresh, state.time, wc, out);
         cued = true;
       }
     }
@@ -588,7 +640,7 @@ export class NoviceBot implements Bot {
 
   /**
    * The Finale's draws (`NOVICE_M4`, docs/phase-5d.md): a Crescendo in Fortissimo Silence, a Focus
-   * on the Cued soloist, the Grand Silence's Chime, Ward and Reel, and the last burn's Cues. Each
+   * on the Cued soloist, the Grand Silence's Chime, Ward and Reel, and the last burn's Solos. Each
    * draws only while its mechanic is up, so outside the Silent Conductor's fight nothing is drawn.
    */
   private finale(
@@ -674,15 +726,11 @@ export class NoviceBot implements Bot {
       )
         out.push({ t: 'tech', id: 'reel', slot: cadenced.slot });
     }
-    // The last burn: the reignited Solos are hers to Cue.
-    if (
-      this.on('reigniteCue') &&
-      this.silenceWatch.burn(state) &&
-      wc.resonance >= cueGateCost(state) &&
-      !has('cue')
-    ) {
-      const ready = party.find((h) => h.e.hero!.solo >= 100 && h.e.hero!.soloActive <= 0);
-      if (ready && this.rng.chance(NOVICE_M4.reigniteCue)) out.push({ t: 'cue', slot: ready.slot });
+    // The last burn: the reignited Solos fire themselves, and she follows them more surely.
+    if (this.on('reigniteCue') && this.silenceWatch.burn(state) && this.following === null) {
+      const soloist = soloToCue(state, party, w, NOVICE_SOLO.within);
+      if (soloist && soloist.slot !== wc.threadSlot && this.rng.chance(NOVICE_M4.reigniteCue))
+        this.follow(soloist, now, wc, out);
     }
   }
 }
