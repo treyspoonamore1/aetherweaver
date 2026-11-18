@@ -160,7 +160,19 @@ The Skilled bot's fights are where they were. The player who never touched the C
 
 The Conductor (Marcato, Reprise, Ensemble, Triad), Skilled, bosses: 99% in 96 s before, 99% in 94 s now, with 2.3 Duets and 1.1 Trios a fight (2.8 and 1.0 before).
 
-**The Novice wins more boss fights than before** (65% against 46%), because her heroes now use their Solos. The fights were left as they are, as decided, and her bands are re-set to the new results.
+**The Novice wins more boss fights than before** (65% against 46%), because her heroes now use their Solos. The fights were left as they are, as decided, and her bands were set again to what she wins now: her measured result over 40 fights a cell, with about 15 points either side (`MOVEMENT_BANDS` in `tools/harness.ts`). The Skilled bot's bands did not move.
+
+| The Novice's band | Was | Now |
+|---|---|---|
+| Movement II elites | 35-75% | 55-90% |
+| Gorehound Matriarch | 40-70% | 65-95% |
+| Vharun | 35-65% | 55-85% |
+| Movement III skirmishes | ≥55% | ≥45% |
+| The Seamstress | 30-60% | 45-75% |
+| The Unweaver | 25-55% | 50-80% |
+| The Silent Conductor | 15-40% | 25-55% |
+
+Movement III's skirmish band is the one that went down, for the Frayed Threshold (below).
 
 Whole runs, as the baselines played them when the rules were first built, before tuning. Two-Movement Expeditions, 150 seeds: the Skilled bot wins 70% (73% before), the Novice 21% (13%). The Finale route, 80 seeds: Skilled 65% (65%), Novice 4% (1%).
 

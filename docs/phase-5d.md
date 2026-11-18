@@ -775,6 +775,8 @@ The Coda keeps her band reachable. **Idle** stays `[]` (`src/bots/index.ts:7-12`
 
 ## Bands
 
+> **Since the Solo rework (2026-11-18, [docs/solos.md](solos.md)).** The Novice's band at the Silent Conductor was set again: 25-55% (was 15-40%). Her heroes use their Solos now. The Skilled bot's bands are as below, and the whole-run bands were not re-set. `tools/harness.ts` prints the bands in force.
+
 ARRIVAL4_KIT. 50 seeds a cell on 1000 / 500003 / 777001; whole runs 200 seeds on 2000 / 900007 / 333003; pacing on 9001 / 77003. 'Met' only on all three sets.
 
 | Content | Idle | Novice | Skilled | Skilled share | Skilled length |
