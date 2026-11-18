@@ -27,7 +27,7 @@ import { RING } from './fx/rings';
 import { SHELL } from './fx/shells';
 import { SPRITE } from './fx/sprites';
 import { TG } from './fx/telegraphBatch';
-import { HERO_DRAWN } from './models/artFlag';
+import { HERO_DRAWN, drawnHeight } from './models/artFlag';
 import { C, approach, clamp01, color } from './palette';
 import { flareScale } from './relicCues';
 import type { TelegraphGeometry } from './telegraphs';
@@ -66,6 +66,8 @@ export interface ChronoRec {
   yaw: number;
   radius: number;
   height: number;
+  /** How large its model is drawn (a hero's: HERO_DRAWN); absent: as its height says. */
+  batch?: { drawn: number };
   /** Held by Stasis (entities.ts), 0..1. */
   frost: number;
 }
@@ -818,7 +820,8 @@ export class ChronoView {
         const r = g.target === null ? undefined : this.d.recs.get(g.target);
         const x = r ? r.x : g.x;
         const z = r ? r.z : g.z;
-        const h = r ? r.height : g.a;
+        // Where the attack's own mark will be (telegraphs.ts: over the drawn head).
+        const h = r ? drawnHeight(r) : g.a;
         kit.marks.push(
           TG.mark,
           x,
@@ -1468,7 +1471,7 @@ export class ChronoView {
       const r = this.d.recs.get(m.target);
       const sx = r ? r.x : s.x;
       const sz = r ? r.z : s.z;
-      const sy = (r ? r.height : s.a) + 0.75;
+      const sy = (r ? drawnHeight(r) : s.a) + 0.75;
       const x = sx + (m.x2 - sx) * e;
       const z = sz + (m.z2 - sz) * e;
       const yy = sy + (casterY - sy) * e;
