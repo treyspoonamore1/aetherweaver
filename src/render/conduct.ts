@@ -15,6 +15,7 @@ import type { FxKit } from './fx/kit';
 import { PARTICLE } from './fx/particles';
 import { RING } from './fx/rings';
 import { SPRITE } from './fx/sprites';
+import { HERO_DRAWN } from './models/artFlag';
 import { C, clamp01, color } from './palette';
 import { flareScale } from './relicCues';
 
@@ -316,7 +317,8 @@ export class ConductView {
     const r = this.d.recs.get(id);
     if (!r) return false;
     out.x = r.x;
-    out.y = r.height + SIGIL_UP;
+    // Over the drawn head (heroes are drawn HERO_DRAWN tall): the same lift over it as before.
+    out.y = r.height * HERO_DRAWN + SIGIL_UP;
     out.z = r.z;
     return true;
   }
@@ -451,7 +453,7 @@ export class ConductView {
       const h = state.entities.get(id)?.health;
       if (!r || !h || h.dead || h.downed) continue;
       const x = r.x + r.radius + 0.45;
-      const y = r.height + 0.55;
+      const y = r.height * HERO_DRAWN + 0.55;
       const z = r.z;
       const s = 0.26;
       rb.beginStrip();
@@ -525,7 +527,7 @@ export class ConductView {
       if (s.spotlight) {
         // A soft vertical cone of white light from above onto the hero, its pool on the floor.
         const rb = kit.ribbons;
-        const top = r.height + 3.4;
+        const top = r.height * HERO_DRAWN + 3.4;
         const n = 8;
         rb.beginStrip();
         for (let i = 0; i <= n; i++) {
