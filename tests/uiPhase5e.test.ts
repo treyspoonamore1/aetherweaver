@@ -781,7 +781,8 @@ describe('Brann’s and the default party’s UI are byte-equal to before', () =
   // before, piece by piece: every frame's Solo ring gained a wrapper and its line a test id; the
   // key cap that named the Cue key under a ready portrait went; the crisis and boss scenes, whose
   // Kael has a Solo coming, gained the Solo strip ("Thread to Cue", "Cued") and, in the boss
-  // scene, the Thread on him; and the same two scenes' coach gained the Solo lesson. Nothing else
+  // scene, the Thread on him; and the coach gained its Solo lesson in both scenes and, in the
+  // crisis scene (a hit coming for two heroes, Kael's wall full), its dome lesson. Nothing else
   // moved: no life bar, no status, no Brann chip, no Fermata. The picker, the notes and every
   // other key are as recorded at W3's head.
   it('every pinned text and frame hashes as recorded at W3’s head', async () => {

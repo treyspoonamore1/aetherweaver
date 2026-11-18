@@ -1429,7 +1429,9 @@ function SoloStrip({ hero: h }: { hero: HeroHud }) {
   const hold = !cued && (h.cueHold ?? 0) > 0;
   const now = h.soloNow === true;
   const seconds = h.soloIn!.toFixed(1);
-  const count = !h.soloLoose;
+  // No seconds for Kael (he may raise his wall sooner), nor once the count has run out and the
+  // hero is holding the Solo for a moment (a hit about to land): a standing "0.0" says nothing.
+  const count = !h.soloLoose && h.soloIn! > 0.05;
   const state = cued ? 'cued' : hold ? 'hold' : now ? 'now' : 'coming';
   return (
     <div

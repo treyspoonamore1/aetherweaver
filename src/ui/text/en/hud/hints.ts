@@ -157,6 +157,8 @@ export const hints = {
     'Your auras are silenced — bring the party into a hymn circle with Rally {{bindingLabel}}',
   'hud.hints.yourAurasAreSilenced2':
     'Your auras are silenced — mark the {silencerName} with {{bindingLabel}} so the party breaks its dome',
+  'hud.hints.aHitIsComingFor':
+    'A hit is coming for the party. Thread {name} {{key}}: Cued, his wall shields everyone',
   'hud.hints.soloIsComing':
     '{name}’s {soloName} is coming. Thread them {{key}} to Cue it: the stronger form',
   'hud.hints.resonanceIsFullPress': 'Resonance is full. Press {{bindingLabel}} for {crescendoName}',
@@ -171,7 +173,7 @@ export const hints = {
   'hud.hints.everyoneIsHealthyPress': 'Everyone is healthy. Press {RMB} for Empower and add damage',
   'hud.hints.threadForALink': '{linkName} next. Thread {name} {{key}} as their Solo fires',
   'hud.hints.playsEverySoloRising':
-    '{crescendoName} {{bindingLabel}} plays every Solo in turn, then fills them',
+    '{crescendoName} {{bindingLabel}} plays every Solo, then refills them',
   'hud.hints.aBloodPactScatter':
     '{pact} {value} a Blood Pact. Scatter {{bindingLabel}}: Chime can’t break it',
   'hud.hints.aCrimsonSentinelS':

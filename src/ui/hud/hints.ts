@@ -99,6 +99,8 @@ export const ANSWER_HINTS: ReadonlySet<string> = new Set([
   'big-hit',
   'marked',
   'boss-cast',
+  // Kael's dome for a hit on the whole party (docs/solos.md).
+  'dome',
   // Movement II (docs/phase-5a.md): each names the answer its threat wants.
   'bleed',
   'pinned',
@@ -407,6 +409,24 @@ function allHints(hud: HudSnapshot): Hint[] {
   // The Conductor (docs/phase-5f.md): chain a Duet, the downbeat, the Grand Finale. Before the
   // plain Solo's hint: a chain's window is the more urgent.
   out.push(...conductingHints(hud));
+  // Kael's wall is full and a hit is coming for more than one hero: with your Thread on him he
+  // raises it for everyone (Cued, it is a dome). An answer, so Blind Score hides it.
+  const wall = party.find(
+    (h) => alive(h) && h.soloId === 'aegisWall' && h.soloReady && !h.willCue && !h.threaded,
+  );
+  if (
+    wall &&
+    !hud.conducting?.finale &&
+    party.filter((h) => alive(h) && h.incoming > 0).length > 1
+  ) {
+    out.push({
+      id: 'dome',
+      text: txt('hud.hints.aHitIsComingFor', {
+        name: wall.name,
+        key: bindingLabel(`focus${wall.slot + 1}` as Action),
+      }),
+    });
+  }
   // A Solo is coming and your Thread is elsewhere (docs/solos.md): say what the Thread does.
   // During the Grand Finale the heroes keep their Solos for their turns: say nothing then.
   const soloHero = party.find((h) => alive(h) && soloComing(h) && !h.willCue && !h.cueHold);

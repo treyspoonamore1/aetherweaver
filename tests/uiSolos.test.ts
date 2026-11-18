@@ -11,7 +11,7 @@ import { CONTENT } from '../src/content';
 import { SOLOS } from '../src/sim/constants';
 import { soloDueIn, threadCues, type Command, type PartySlot, type Sim } from '../src/sim';
 import { buildHudSnapshot } from '../src/ui/hudBridge';
-import { evaluateHints } from '../src/ui/hud/hints';
+import { ANSWER_HINTS, evaluateHints } from '../src/ui/hud/hints';
 import { mockHud } from '../src/ui/lab/mock';
 import type { HeroHud, HudSnapshot } from '../src/ui/store';
 import { EN } from '../src/ui/text';
@@ -150,6 +150,15 @@ describe('the frames read the sim’s tell (soloDueIn) and Cue (threadCues)', ()
     expect(html).toContain('Hold 0.6 s');
   });
 
+  it('a count that has run out shows no seconds: a standing 0.0 says nothing', () => {
+    const lyra = mockHud('resonance').party.find((h) => h.defId === 'lyra')!;
+    expect(frames([{ ...lyra, soloIn: 0.6 }])).toContain('data-testid="solo-in"');
+    const held = frames([{ ...lyra, soloIn: 0 }]);
+    expect(held).toContain('data-testid="solo-strip"');
+    expect(held).toContain('Thread to Cue');
+    expect(held).not.toContain('data-testid="solo-in"');
+  });
+
   it('Kael’s strip shows no seconds: he may raise his wall sooner', () => {
     const { sim, setSolo } = fight();
     setSolo(0, 100);
@@ -276,8 +285,38 @@ describe('the coach says what the Thread does', () => {
     expect(fighting(none).map((x) => x.id)).not.toContain('cue');
   });
 
+  it('a hit coming for the party with Kael’s wall full: Thread him for the dome', () => {
+    const base = mockHud('calm');
+    const stage = (kael: Partial<HeroHud>, hits: number) => ({
+      ...base,
+      party: base.party.map((h, i) =>
+        h.defId === 'kael'
+          ? { ...h, solo: 100, soloReady: true, threaded: false, incoming: 300, ...kael }
+          : { ...h, threaded: false, incoming: i <= hits ? 300 : 0 },
+      ),
+    });
+    const hint = fighting(stage({}, 2)).find((x) => x.id === 'dome')!;
+    expect(hint.text).toBe(
+      'A hit is coming for the party. Thread Kael {1}: Cued, his wall shields everyone',
+    );
+    expect(words(hint.text)).toBeLessThanOrEqual(18);
+    // One hero's hit is not the party's; a wall not full, or the Thread already on him, says nothing.
+    expect(fighting(stage({ incoming: 300 }, 0)).map((x) => x.id)).not.toContain('dome');
+    expect(fighting(stage({ soloReady: false, solo: 60 }, 2)).map((x) => x.id)).not.toContain(
+      'dome',
+    );
+    expect(fighting(stage({ threaded: true, willCue: true }, 2)).map((x) => x.id)).not.toContain(
+      'dome',
+    );
+    // His alternate Solo raises no dome.
+    expect(fighting(stage({ soloId: 'oathkeeper' }, 2)).map((x) => x.id)).not.toContain('dome');
+    // It names an answer, so Blind Score hides it.
+    expect(ANSWER_HINTS.has('dome')).toBe(true);
+  });
+
   it('every Solo, Cue and Resonance hint is within the voice guide’s 18 words', () => {
     const keys = [
+      'hud.hints.aHitIsComingFor',
       'hud.hints.soloIsComing',
       'hud.hints.threadForALink',
       'hud.hints.solosBeginOnThe',
