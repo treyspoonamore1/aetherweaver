@@ -222,7 +222,8 @@ function allHints(hud: HudSnapshot): Hint[] {
 
   // Phase 4f: the Ward's slot may play a variant: the hints name it.
   const ward = variantIn(hud, 'ward');
-  const wardIt = ward ? `cast ${variantName(ward)} ${Q}` : txt('hud.hints.ward', { Q });
+  // It opens a sentence ("… at Kael. Cast Chorale {Q} just before …").
+  const wardIt = ward ? `Cast ${variantName(ward)} ${Q}` : txt('hud.hints.ward', { Q });
   for (const h of party.filter(alive)) {
     if (h.lethal) {
       if (techReady(hud, 'ward')) {

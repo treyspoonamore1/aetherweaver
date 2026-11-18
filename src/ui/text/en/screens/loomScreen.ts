@@ -9,7 +9,8 @@ export const loomScreen = {
   'screens.loomScreen.you': 'You',
   'screens.loomScreen.rank': 'Rank {rank}',
   'screens.loomScreen.arrowKeysToMove': 'Arrows to move · Enter to open',
-  'screens.loomScreen.startingANewRun': 'A new run replaces your saved one. You keep what it earned.',
+  'screens.loomScreen.startingANewRun':
+    'A new run replaces your saved one. You keep what it earned.',
   'screens.loomScreen.keepIt': 'Keep it',
   'screens.loomScreen.newRun': 'New run',
   'screens.loomScreen.new': 'New',

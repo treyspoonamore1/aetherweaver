@@ -114,12 +114,7 @@ export function RespiteView({
           title={t('screens.respiteScreen.respite')}
         >
           <p className="mt-2 max-w-xl text-sm text-muted">
-            {t('screens.respiteScreen.theChoirCannotReach', {
-              value:
-                choices.length > 0
-                  ? t('screens.respiteScreen.retuneYourSongsOr')
-                  : t('screens.respiteScreen.orRetuneYourSongs'),
-            })}
+            {t('screens.respiteScreen.theChoirCannotReach')}
           </p>
         </ScreenHeader>
         <div className="mt-8 grid gap-6 md:grid-cols-3">
@@ -132,15 +127,18 @@ export function RespiteView({
               heal > 0
                 ? t('screens.respiteScreen.everyHeroRecoversOf', { round: Math.round(heal * 100) })
                 : unforgivingLine('rest'),
-              shaken > 0
-                ? t('screens.respiteScreen.steadiesShakenTheirLife', {
-                    shaken,
-                    value:
-                      shaken === 1
-                        ? t('screens.respiteScreen.hero')
-                        : t('screens.respiteScreen.heroes'),
-                  })
-                : t('screens.respiteScreen.noOneIsShaken'),
+              // Shaken is named only when someone is.
+              ...(shaken > 0
+                ? [
+                    t('screens.respiteScreen.steadiesShakenTheirLife', {
+                      shaken,
+                      value:
+                        shaken === 1
+                          ? t('screens.respiteScreen.hero')
+                          : t('screens.respiteScreen.heroes'),
+                    }),
+                  ]
+                : []),
             ]}
             onClick={() => onChoose('rest')}
           />
@@ -153,7 +151,9 @@ export function RespiteView({
               upgradable > 0
                 ? t('screens.respiteScreen.chooseOneOfYour', { upgradable })
                 : t('screens.respiteScreen.youHaveNothingTo'),
-              t('screens.respiteScreen.noHealingAndThe'),
+              shaken > 0
+                ? t('screens.respiteScreen.noHealingAndThe')
+                : t('screens.respiteScreen.noHealing'),
             ]}
             onClick={() => onChoose('meditate')}
           />

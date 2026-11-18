@@ -10,7 +10,8 @@ export const titleScreen = {
   'screens.titleScreen.startFresh': 'Start fresh',
   'screens.titleScreen.aNewWeaverThe': 'The game from the beginning. Things unlock as you play.',
   'screens.titleScreen.veteran': 'Veteran',
-  'screens.titleScreen.aWeaverSomeHours': 'Rank {VETERAN_RANK}, with Starlight to spend. Callings, Bonds and the Reliquary are open.',
+  'screens.titleScreen.aWeaverSomeHours':
+    'Rank {VETERAN_RANK}, with Starlight to spend. Callings, Bonds and the Reliquary are open.',
   'screens.titleScreen.continue': 'Continue',
   'screens.titleScreen.enterTheLoom': 'Enter the Loom',
   'screens.titleScreen.settings': 'Settings',

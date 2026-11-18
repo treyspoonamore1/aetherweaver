@@ -227,9 +227,6 @@ function HealCard({
     >
       <span className="flex items-center gap-1.5 text-sm font-semibold text-heal">
         <Icon name="heart" size={18} /> {t('screens.merchantScreen.healing')}
-        <span className="text-xs font-normal text-muted">
-          {t('screens.merchantScreen.forTheWholeParty')}
-        </span>
       </span>
       <h2 className="mt-3 font-display text-2xl font-bold leading-tight text-text">
         {t('screens.merchantScreen.aDraughtOfLight')}

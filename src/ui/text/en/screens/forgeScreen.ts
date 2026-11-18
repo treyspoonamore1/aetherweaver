@@ -2,8 +2,7 @@ import type { Catalogue } from '../../catalogue';
 
 /** The `screens.forgeScreen.*` messages: `src/ui/screens/ForgeScreen.tsx`. */
 export const forgeScreen = {
-  'screens.forgeScreen.anOldBellForge':
-    'An old bell-forge, still warm. The smith will do one thing for you before the fire goes out.',
+  'screens.forgeScreen.anOldBellForge': 'Choose one service.',
   'screens.forgeScreen.temperChooseAMotif': 'Temper: choose a motif to gain a level',
   'screens.forgeScreen.temper': 'Temper ·',
   'screens.forgeScreen.liftACurseThe': 'Lift a curse: the blessing stays',
@@ -15,14 +14,13 @@ export const forgeScreen = {
   'screens.forgeScreen.lv': 'Lv {from} → {to}',
   'screens.forgeScreen.was': 'Was:',
   'screens.forgeScreen.now': 'Now: {next}',
-  'screens.forgeScreen.oneServicePerVisit': 'One service per visit. You have {aether} Aether left.',
+  'screens.forgeScreen.oneServicePerVisit': 'You have {aether} Aether left.',
   'screens.forgeScreen.theForgeRetune': 'The Forge · Retune',
   'screens.forgeScreen.retuneYourSongs': 'Retune your songs',
-  'screens.forgeScreen.theForgeSFire':
-    "The forge's fire takes your old songs and gives them back reshaped. It costs {p} Aether and is this forge's one service: nothing else here can be used after.",
+  'screens.forgeScreen.theForgeSFire': 'Retuning costs {p} Aether and uses up this forge.',
   'screens.forgeScreen.backToTheForge': 'Back to the forge',
   'screens.forgeScreen.retuneForAether': 'Retune for {p} Aether',
-  'screens.forgeScreen.aForgeOneService': 'A forge · one service per visit',
+  'screens.forgeScreen.aForgeOneService': 'An old bell-forge, still warm',
   'screens.forgeScreen.theForge': 'The Forge',
   'screens.forgeScreen.temperAMotif': 'Temper a motif',
   'screens.forgeScreen.liftACurse': 'Lift a curse',

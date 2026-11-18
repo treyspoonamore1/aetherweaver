@@ -358,9 +358,11 @@ export function MapView({
             <Panel tone="solid" className="p-4">
               <SectionTitle
                 right={
-                  <span className="font-mono text-xs text-muted">
-                    {txt('screens.mapScreen.owned', { length: run.motifs.length })}
-                  </span>
+                  run.motifs.length > 0 ? (
+                    <span className="font-mono text-xs text-muted">
+                      {txt('screens.mapScreen.owned', { length: run.motifs.length })}
+                    </span>
+                  ) : undefined
                 }
               >
                 {txt('screens.mapScreen.motifs')}
@@ -607,9 +609,15 @@ function MapNodeView({
         </span>
       </span>
     );
+  // A stop out of reach with a name of its own (a fight's, an event's) shows that name on hover:
+  // its glyph and its rewards say what it is, and its name matters once it can be chosen. A stop
+  // named for its kind (Merchant, Forge, Respite, Shrine), a mini-boss and a boss keep theirs.
+  const quiet =
+    state === 'locked' && title !== look.label && node.kind !== 'boss' && node.kind !== 'miniboss';
   const label = (
     <span
-      className={`pointer-events-none block w-[5.4rem] text-center text-xs leading-tight ${chips.length > 0 ? 'mt-3' : 'mt-1'} ${state === 'locked' ? 'text-muted/70' : 'text-text'}`}
+      className={`pointer-events-none block w-[5.4rem] text-center text-xs leading-tight ${chips.length > 0 ? 'mt-3' : 'mt-1'} ${state === 'locked' ? 'text-muted/70' : 'text-text'} ${quiet ? 'opacity-0 group-hover:opacity-100' : ''}`}
+      data-quiet={quiet || undefined}
     >
       {title}
     </span>
