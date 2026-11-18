@@ -1533,20 +1533,23 @@ export class OroWatch {
 
 /**
  * How the Conductor Calling's fight went (docs/phase-5f.md, "Harness"). Counts are the fight's
- * (`ledger.conducting` and the events); `onBeat` counts the Cues given on the downbeat (A Tempo),
- * `chains` the Cues that began a chain, `chorusPulses` the chorus pulses (more Cues, more pulses).
+ * (`ledger.conducting` and the events). A Cue is a Solo fired with the Thread on its hero
+ * (docs/solos.md): `onBeat` counts those begun on the downbeat (A Tempo), `chains` those that
+ * began a chain, `plain` the Solos fired without the Thread, `chorusPulses` the chorus pulses.
  */
 export interface ConductingTally {
-  /** Cues given (`ledger.cues`; Grand Finale turns are not Cues). */
+  /** Cued Solos (`ledger.cues`; Grand Finale turns are not Cues). */
   cues: number;
+  /** Solos fired plain, the Thread elsewhere (Grand Finale turns aside). */
+  plain: number;
   /** Cues that began a chain (a Cue joining none). */
   chains: number;
   duets: number;
   trios: number;
-  /** Cues given on the downbeat, free (A Tempo). */
+  /** Cued Solos begun on the downbeat, which A Tempo pays Resonance for. */
   onBeat: number;
-  /** Resonance the Calling's cheaper and free Cues kept. */
-  saved: number;
+  /** Resonance A Tempo gave for them. */
+  given: number;
   /** Grand Finales cast, the Solos they played and the turns lost. */
   finales: number;
   finaleSolos: number;
@@ -1561,11 +1564,12 @@ export interface ConductingTally {
 /** The keys of a `ConductingTally`, in order (the harness tests pin them). */
 export const CONDUCTING_TALLY_KEYS: readonly (keyof ConductingTally)[] = [
   'cues',
+  'plain',
   'chains',
   'duets',
   'trios',
   'onBeat',
-  'saved',
+  'given',
   'finales',
   'finaleSolos',
   'finaleLost',
@@ -1581,6 +1585,7 @@ export const CONDUCTING_TALLY_KEYS: readonly (keyof ConductingTally)[] = [
 export class ConductingWatch {
   private chains = 0;
   private onBeat = 0;
+  private plain = 0;
   private chorusPulses = 0;
 
   private constructor() {}
@@ -1591,10 +1596,14 @@ export class ConductingWatch {
   }
 
   tick(_sim: Sim, events: readonly SimEvent[]): void {
+    const turns = new Set<number>();
+    for (const e of events) if (e.type === 'finaleTurn') turns.add(e.hero);
     for (const e of events) {
       if (e.type === 'cueChained') {
         if (e.link === 1) this.chains++;
         if (e.onBeat) this.onBeat++;
+      } else if (e.type === 'soloStarted') {
+        if (!e.cued && !turns.has(e.hero)) this.plain++;
       } else if (e.type === 'chorusPulse') this.chorusPulses++;
     }
   }
@@ -1604,11 +1613,12 @@ export class ConductingWatch {
     const c = l.conducting;
     return {
       cues: l.cues,
+      plain: this.plain,
       chains: this.chains,
       duets: c?.duets ?? 0,
       trios: c?.trios ?? 0,
       onBeat: this.onBeat,
-      saved: c?.saved ?? 0,
+      given: c?.saved ?? 0,
       finales: c?.finales ?? 0,
       finaleSolos: c?.finaleSolos ?? 0,
       finaleLost: c?.finaleLost ?? 0,

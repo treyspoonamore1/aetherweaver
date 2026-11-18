@@ -61,6 +61,7 @@ import { CHOIR_VOICES, SCENARIO_CONDUCTOR_PEAK, SCENARIO_GRAND_SILENCE } from '.
 import {
   callingArg,
   conductingTail,
+  CONDUCTOR_VERB_RULES,
   rulesFor,
   techniquesArg,
   verbConfig,
@@ -1802,8 +1803,10 @@ describe('the Conductor Calling (docs/phase-5f.md, "Harness")', () => {
     expect(t.finaleSolos).toBe(ledger!.conducting!.finaleSolos);
     // Every Cue is a chain's first, second or third.
     expect(t.chains + t.duets + t.trios).toBe(t.cues);
-    // The beat's Cues are the ledger's free ones.
+    // The beat's Cues are the ones the ledger says A Tempo paid for, and what it gave is theirs.
     expect(t.onBeat).toBe(ledger!.conducting!.freeCues);
+    expect(t.given).toBe(ledger!.conducting!.saved);
+    expect(t.plain).toBeGreaterThanOrEqual(0);
     expect(t.cues).toBeGreaterThan(0);
     // Reading it never moves the fight: the same run with no watch is the same.
     const again = playEncounter(cfg, 'skilled');
@@ -1880,15 +1883,17 @@ describe('the Conductor Calling (docs/phase-5f.md, "Harness")', () => {
       id: 'conductor',
       path: ['a_tempo', 'reprise', 'spotlight', 'maestro'],
     });
-    expect(rulesFor(1, 'skilled', null, conductor)).toBe(CONDUCTING_RULES);
-    expect(rulesFor(4, 'skilled', null, conductor)).toBe(CONDUCTING_RULES);
+    expect(rulesFor(1, 'skilled', null, conductor)).toBe(CONDUCTOR_VERB_RULES);
+    expect(rulesFor(4, 'skilled', null, conductor)).toBe(CONDUCTOR_VERB_RULES);
     expect(rulesFor(1, 'novice', null, conductor)).toBe(NOVICE_CONDUCTING_RULES);
     // No Conductor, no change.
     expect(rulesFor(3)).toBe(M3_RULES);
     expect(rulesFor(4, 'skilled', null, callingArg('luminary', undefined))).toBe(FINALE_RULES);
     // The rules that timed a Cue for a Duet, a Trio or the beat went with the Cue (docs/solos.md):
-    // the chain is made by the Thread following Solos now, which is every Calling's rule.
+    // the chain is made by the Thread following Solos now (`soloCue`, every Calling's rule), so
+    // his list is that rule and the two of his own.
     expect(CONDUCTING_RULES).toEqual(['conductFinale', 'conductMarcato']);
+    expect(CONDUCTOR_VERB_RULES).toEqual(['soloCue', 'conductFinale', 'conductMarcato']);
     // A fight's counts show the rule: no Finale rule, fewer Finales.
     const setup = { calling: conductor };
     const on = Array.from({ length: 4 }, (_, i) =>
@@ -1900,7 +1905,15 @@ describe('the Conductor Calling (docs/phase-5f.md, "Harness")', () => {
     expect(on.every((f) => f.conducting !== undefined)).toBe(true);
     const finales = (fs: typeof on) => fs.reduce((s, f) => s + f.conducting!.finales, 0);
     expect(finales(off)).toBeLessThan(finales(on));
+    // No Solo rule: the Thread follows no Solo, and the Duets and Trios all but go.
+    const ignoring = Array.from({ length: 4 }, (_, i) =>
+      verbFight('bellwarden', 1000 + i * 7919, new Set(['soloCue']), 1, setup),
+    );
+    const linked = (fs: typeof on) =>
+      fs.reduce((s, f) => s + f.conducting!.duets + f.conducting!.trios, 0);
+    expect(linked(ignoring)).toBeLessThan(linked(on) / 2);
     expect(conductingTail(on)).toContain('finales');
+    expect(conductingTail(on)).toContain('on beat');
     // Without the Calling a fight carries no counts and the row's tail is empty.
     const plain = verbFight('bellwarden', 1000, new Set(), 1);
     expect('conducting' in plain).toBe(false);

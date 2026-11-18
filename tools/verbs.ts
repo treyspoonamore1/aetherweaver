@@ -32,8 +32,11 @@
  *   npx tsx tools/verbs.ts --movement 1 --party OB --bot novice            # the Novice's draws
  *
  * The Conductor's rules (docs/phase-5f.md, "Bots and harness"): with `--calling conductor` the
- * default list is the Skilled bot's `CONDUCTING_RULES` (or, with `--bot novice`, her
- * `NOVICE_CONDUCTING` draws), whatever the Movement; `--path` picks the tiers' options.
+ * default list is `CONDUCTOR_VERB_RULES`: the Skilled bot's Solo rule (`soloCue`, the Thread
+ * following Solos, which is what makes his Duets and Trios: docs/solos.md) and its
+ * `CONDUCTING_RULES` (or, with `--bot novice`, her `NOVICE_CONDUCTING` draws), whatever the
+ * Movement; `--path` picks the tiers' options. `--rules soloCue` leaves the Solo rule off in any
+ * fight: a Weaver who never follows a Solo.
  *
  *   npx tsx tools/verbs.ts --movement 1 --encounters bellwarden --calling conductor --path 1011
  *   npx tsx tools/verbs.ts --movement 1 --encounters bellwarden --calling conductor --bot novice
@@ -61,10 +64,12 @@ import {
   M3_RULES,
   ROSTER_RULES,
   SkilledBot,
+  SOLO_RULES,
   type ConductingRule,
   type FinaleRule,
   type M3Rule,
   type RosterRule,
+  type SoloRule,
 } from '../src/bots/skilled';
 import {
   NOVICE_CONDUCTING_RULES,
@@ -97,9 +102,15 @@ export type VerbRule =
   | FinaleRule
   | RosterRule
   | ConductingRule
+  | SoloRule
   | NoviceM4Rule
   | NoviceRosterRule
   | NoviceConductingRule;
+/**
+ * The Skilled bot's rules on a Conductor run: following Solos with the Thread, which makes the
+ * Duets and Trios, then the Calling's own.
+ */
+export const CONDUCTOR_VERB_RULES: readonly VerbRule[] = [...SOLO_RULES, ...CONDUCTING_RULES];
 /** The bot an ablation plays (`--bot`): the Skilled bot by default. */
 export type VerbBot = 'skilled' | 'novice' | 'expert';
 
@@ -118,7 +129,7 @@ export function rulesFor(
   // The Expert (docs/phase-6.md): its own rules, whatever the Movement, party or Calling.
   if (bot === 'expert') return EXPERT_RULES;
   if (calling?.id === 'conductor')
-    return bot === 'novice' ? NOVICE_CONDUCTING_RULES : CONDUCTING_RULES;
+    return bot === 'novice' ? NOVICE_CONDUCTING_RULES : CONDUCTOR_VERB_RULES;
   if (party && (party.includes('seren') || party.includes('oro')))
     return bot === 'novice' ? NOVICE_ROSTER_RULES : ROSTER_RULES;
   if (bot === 'novice') return movement >= FINALE_MOVEMENT ? NOVICE_M4_RULES : [];
@@ -128,10 +139,17 @@ export function rulesFor(
 /** Every rule `--rules` may name, by bot. */
 function allRules(bot: VerbBot): readonly string[] {
   if (bot === 'expert')
-    return [...EXPERT_RULES, ...M3_RULES, ...FINALE_RULES, ...ROSTER_RULES, ...CONDUCTING_RULES];
+    return [
+      ...EXPERT_RULES,
+      ...M3_RULES,
+      ...FINALE_RULES,
+      ...ROSTER_RULES,
+      ...CONDUCTING_RULES,
+      ...SOLO_RULES,
+    ];
   return bot === 'novice'
     ? [...NOVICE_M4_RULES, ...NOVICE_ROSTER_RULES, ...NOVICE_CONDUCTING_RULES]
-    : [...M3_RULES, ...FINALE_RULES, ...ROSTER_RULES, ...CONDUCTING_RULES];
+    : [...M3_RULES, ...FINALE_RULES, ...ROSTER_RULES, ...CONDUCTING_RULES, ...SOLO_RULES];
 }
 
 /** One fight's numbers. */
@@ -145,7 +163,8 @@ export interface VerbFight {
     cues: number;
     duets: number;
     trios: number;
-    freeCues: number;
+    /** Cued Solos A Tempo paid for: begun on the downbeat. */
+    onBeat: number;
     finales: number;
     marcatos: number;
   };
@@ -288,7 +307,7 @@ export function verbFight(
             cues: st.ledger.cues,
             duets: st.ledger.conducting.duets,
             trios: st.ledger.conducting.trios,
-            freeCues: st.ledger.conducting.freeCues,
+            onBeat: st.ledger.conducting.freeCues,
             finales: st.ledger.conducting.finales,
             marcatos: st.ledger.conducting.marcatos,
           },
@@ -314,7 +333,7 @@ export function conductingTail(fights: readonly VerbFight[]): string {
   if (c.length === 0) return '';
   const m = (f: (x: NonNullable<VerbFight['conducting']>) => number) =>
     (c.reduce((s, x) => s + f(x), 0) / c.length).toFixed(2);
-  return ` · cues ${m((x) => x.cues)} · duets ${m((x) => x.duets)} · trios ${m((x) => x.trios)} · free ${m((x) => x.freeCues)} · finales ${m((x) => x.finales)} · marcatos ${m((x) => x.marcatos)}`;
+  return ` · cues ${m((x) => x.cues)} · duets ${m((x) => x.duets)} · trios ${m((x) => x.trios)} · on beat ${m((x) => x.onBeat)} · finales ${m((x) => x.finales)} · marcatos ${m((x) => x.marcatos)}`;
 }
 
 function main(): void {

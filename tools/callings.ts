@@ -145,7 +145,7 @@ export function useColumns(
   const share = (num: number) => (cues > 0 ? pct(num / cues) : '–');
   const linked = tallies.reduce((s, c) => s + c.duets + c.trios, 0);
   const onBeat = tallies.reduce((s, c) => s + c.onBeat, 0);
-  return `${base} · duets+trios ${share(linked)} of cues · trios ${t((c) => c.trios).toFixed(2)} · chains ${t((c) => c.chains).toFixed(1)} · finales ${t((c) => c.finales).toFixed(2)} (solos ${t((c) => c.finaleSolos).toFixed(1)}, lost ${t((c) => c.finaleLost).toFixed(1)}) · on the beat ${share(onBeat)} · marcato ${t((c) => c.marcatos).toFixed(1)} · reprise ${t((c) => c.reprised).toFixed(0)}`;
+  return `${base} · plain ${t((c) => c.plain).toFixed(1)} · duets+trios ${share(linked)} of cues · trios ${t((c) => c.trios).toFixed(2)} · chains ${t((c) => c.chains).toFixed(1)} · finales ${t((c) => c.finales).toFixed(2)} (solos ${t((c) => c.finaleSolos).toFixed(1)}, lost ${t((c) => c.finaleLost).toFixed(1)}) · on the beat ${share(onBeat)} · marcato ${t((c) => c.marcatos).toFixed(1)} · reprise ${t((c) => c.reprised).toFixed(0)}`;
 }
 
 function cells(): void {
