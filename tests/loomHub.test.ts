@@ -306,7 +306,11 @@ describe('first contact', () => {
     }
   });
 
-  it('each intro says what its words mean, on first use, in content’s numbers', () => {
+  // The second menu text pass (round 11) dropped the earlier rule that an intro explains each of
+  // its terms in brackets: a term is explained where the player uses it, and an intro's panel
+  // holds 30 words at most (docs/voice.md). What is held here now is content's numbers, and the
+  // lines other streams own, as they were (the songs' gloss, the Solo's).
+  it('each intro gives content’s numbers, in panels of 30 words at most', () => {
     const text = (id: Parameters<typeof stationIntro>[0]) =>
       stationIntro(id)
         .panels.map((p) => p.body)
@@ -319,12 +323,11 @@ describe('first contact', () => {
     expect(welcome).toMatch(/a sandbox: spawn enemies and try your build/);
     expect(welcome).toMatch(/Prep, where you choose your songs \(the auras you sing/);
     // The Astrolabe: Deeds' points, and how a star is given back (right-click, or Give back).
-    expect(text('astrolabe')).toContain(`up to ${DEED_POINTS_MAX} more`);
-    expect(text('astrolabe')).toContain('Hall of Deeds');
-    expect(text('astrolabe')).toContain('choose a star you’ve taken and press Give back');
+    expect(text('astrolabe')).toContain(`Deeds add up to ${DEED_POINTS_MAX}`);
+    expect(text('astrolabe')).toContain('Right-click a star to give it back, or use Give back');
     // The Reliquary: Inscriptions, its materials, and the carry by Rank.
     const rq = CONTENT.reliquary;
-    expect(text('reliquary')).toMatch(/Inscriptions, small bonuses/);
+    expect(text('reliquary')).toMatch(/Inscriptions: small bonuses/);
     expect(text('reliquary')).toMatch(/Tuning Shards for each fight it won/);
     expect(text('reliquary')).toContain(
       `a Discord Tear for beating its boss with an ${rq.tearGrade}`,
@@ -333,7 +336,7 @@ describe('first contact', () => {
       `one from Rank ${rq.slotRanks[0]}, two from ${rq.slotRanks[1]}, three from ${rq.slotRanks[2]}`,
     );
     expect(text('reliquary')).toMatch(
-      /Each lends the run its Inscriptions, and the first, attuned, plays its own effect/,
+      /Each lends its Inscriptions\. The first is attuned and plays its own effect/,
     );
     // Bonds: who earns Bond XP, and what a Solo is.
     for (const h of bondedHeroes()) expect(text('bonds')).toContain(heroDef(h).name);
@@ -346,11 +349,19 @@ describe('first contact', () => {
     expect(text('dissonance')).toContain(
       `+${d.xpPerPoint}% Weaver XP and +${d.shardsPerPoint}% Tuning Shards`,
     );
-    // The Atelier: a Calling and its mastery, from the first Calling's Rank.
-    const first = Math.min(...CONTENT.callings.map((c) => c.unlockRank));
-    expect(text('atelier')).toContain(
-      `A Calling (a class for the Weaver, chosen in Prep from Rank ${first})`,
-    );
+    // The Atelier: what a Calling's top mastery does there.
+    expect(text('atelier')).toContain('A Calling’s top mastery puts its own variant on sale');
+    // The ceiling: 30 words a panel. Three panels are over it and are not this pass's to cut: the
+    // welcome's Gate (it describes the songs), Bonds' two (they describe Solos) and the Atlas's
+    // weekly (it names Chords). The Atlas's constellations panel lists keepsakes by name.
+    const words = (s: string) => s.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
+    const held = new Set(['gate:1', 'bonds:0', 'bonds:1', 'atlas:1', 'atlas:2']);
+    for (const id of STATIONS)
+      stationIntro(id).panels.forEach((p, i) => {
+        if (WELCOME.includes(id) ? id !== 'gate' || held.has(`gate:${i}`) : held.has(`${id}:${i}`))
+          return;
+        expect(words(p.body), `${id} panel ${i + 1}: ${p.body}`).toBeLessThanOrEqual(30);
+      });
   });
 
   it('the hub says what Starlight is for: where it’s spent, and from when', () => {
@@ -375,7 +386,7 @@ describe('first contact', () => {
       ...CONTENT.cosmetics.threads.map((t) => t.price),
     ];
     expect(text).toContain(`${Math.min(...looks)}–${Math.max(...looks)}`);
-    expect(text).toMatch(/Mend’s and Empower’s colours stay/);
+    expect(text).toMatch(/Mend and Empower keep their colours/);
   });
 });
 

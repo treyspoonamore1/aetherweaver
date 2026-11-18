@@ -33,7 +33,7 @@ export const atlasModel = {
   'screens.atlasModel.byClearingItAt': '{value} {which} by clearing it at {points} Dissonance',
   'screens.atlasModel.theAt': 'the {which} at {points}',
   'screens.atlasModel.echoesAreOldSongs':
-    'Echoes are old roads with new foes or rules. Each has {countWord} stars. {rules}.',
+    'Echoes are old roads with new foes or rules, {countWord} stars each. {rules}.',
   'screens.atlasModel.yourAreYourOwn': 'Your {andList} are your own.',
   'screens.atlasModel.theExpeditionToThe': 'The Expedition, to the Finale',
   'screens.atlasModel.route': 'Route',

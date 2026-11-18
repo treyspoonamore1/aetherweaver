@@ -87,7 +87,7 @@ export const loomModel = {
     'Win a run and its Summary lets you enshrine one relic it found. The relic waits here with its first Inscriptions: small bonuses that crafting adds to.',
   'screens.loomModel.craftThem': 'Craft them',
   'screens.loomModel.everyRunThatEnds':
-    'A run that ends pays Tuning Shards for each fight it won, and a Discord Tear for beating its boss with {withArticle} grade. Spend them to Inscribe, Retune or Ascend.',
+    'A run pays Tuning Shards for each fight it won, and a Discord Tear for beating its boss with {withArticle} grade. Spend them to Inscribe, Retune or Ascend.',
   'screens.loomModel.carryThem': 'Carry them',
   'screens.loomModel.chooseRelicsToCarry':
     'Carry relics into a run: one from Rank {one}, two from {two}, three from {three}. Each lends its Inscriptions. The first is attuned and plays its own effect too.',
@@ -105,7 +105,7 @@ export const loomModel = {
     'Every Deed hangs here, earned or not: how each is earned, and your best run so far at the Deeds that keep a count.',
   'screens.loomModel.optionalDifficulty': 'Optional difficulty',
   'screens.loomModel.forTheEndgameLevels':
-    'Levels you turn on before a run. Each makes fights harder and is worth points. A point pays +{xpPerPoint}% Weaver XP and +{shardsPerPoint}% Tuning Shards. Relics from harder runs craft further.',
+    'Levels you turn on before a run. Each makes fights harder and gives points. A point pays +{xpPerPoint}% Weaver XP and +{shardsPerPoint}% Tuning Shards. Relics from harder runs craft further.',
   'screens.loomModel.chosenInPrep': 'Chosen in Prep',
   'screens.loomModel.turnItsLevelsOn':
     'Turn its levels on in Prep, through the Gate. Your choice is kept from run to run, and a run keeps it to the end.',
