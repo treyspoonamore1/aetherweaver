@@ -96,7 +96,8 @@ export class FermataView {
       r.seen = this.frameNo;
       const total = Math.max(0.05, r.until - r.start);
       const remain = clamp01((r.until - state.time) / total);
-      const cy = hr.height * 0.5 + hr.y;
+      // The middle of the drawn body (heroes are drawn HERO_DRAWN tall); the shell's size is kept.
+      const cy = hr.height * HERO_DRAWN * 0.5 + hr.y;
       // Healed in time: the hold still runs out, but now it resolves as a Save.
       const saved = !!state.entities.get(id)?.hero?.hold?.savedBy;
       if (saved && !r.saved) {
