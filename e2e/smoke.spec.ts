@@ -1196,13 +1196,15 @@ test('Phase 4d: Dissonance — choose levels in Prep, embark, the fight plays th
   const level = (id: string) => page.getByTestId(`dissonance-level-${id}`);
   const panel = page.getByTestId('prep-dissonance');
 
-  // A new profile: closed, and Prep says how it opens.
+  // A new profile: closed, and Ranks away, so Prep says nothing of it (the menu text pass, round
+  // 11: its station in the Loom says when it opens; from its Rank on, Prep says what is missing).
   await page.goto(START_URL);
   await page.waitForFunction(() => window.__AWRUN__ !== undefined);
   await page.evaluate(() => window.__AWRUN__!.newRun(4242));
   await expect.poll(phase).toBe('prep');
-  await expect(panel).toHaveAttribute('data-open', 'false');
-  await expect(page.getByTestId('dissonance-closed-line')).toContainText(`Rank ${rules.openRank}`);
+  await expect(page.getByRole('button', { name: /Embark/i }).first()).toBeVisible();
+  await expect(panel).toHaveCount(0);
+  expect(rules.openRank).toBeGreaterThan(1);
   expect((await dissonance()).open).toBe(false);
 
   // Settings → Skip the unlocks opens it; Prep shows every level, nothing chosen.
@@ -1608,6 +1610,12 @@ test('Phase 4g: the Loom — dark stations and the welcome; with Skip the unlock
   await expect(station('atelier')).toContainText(
     `Opens at Weaver Rank ${CONTENT.starlight.atelierRank}`,
   );
+  // Its card shows when it opens and nothing else (the menu text pass, round 11); what it is
+  // waits for hover or focus, and is read out.
+  await expect(station('atelier').getByTestId('station-when')).toHaveText(
+    `Opens at Rank ${CONTENT.starlight.atelierRank}`,
+  );
+  await expect(station('atelier').getByTestId('station-line')).toBeHidden();
   await page.getByTestId('intro-next').click();
   await page.getByTestId('intro-next').click();
   await expect(page.getByTestId('intro-try')).toBeVisible();

@@ -6,7 +6,7 @@ export const sighting = {
     'Every bite adds a Bleed stack{value}. Chime the bleeding at 5 stacks or more; a Ward blocks the bites.',
   'hud.sighting.upTo': ' (up to {maxStacks})',
   'hud.sighting.itsBloodPactLinks':
-    'Its Blood Pact links two heroes: they take more damage and burst together. Scatter — Chime can’t break it.',
+    'Its Blood Pact links two heroes: they take more damage and burst together. Scatter. Chime can’t break it.',
   'hud.sighting.itChargesTheFarthest':
     'It charges the farthest hero and pins them in place. A Ward stops the pin.',
   'hud.sighting.itChargesTheFarthest2':

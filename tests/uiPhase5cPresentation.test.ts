@@ -94,7 +94,7 @@ describe('the Stitch never promises one Chime frees a pair it may not reach', ()
     const text = hint(riftHud('seamstress'), 'stitched')!.text;
     expect(text).not.toMatch(/both/);
     expect(text).toMatch(
-      /a Chime \{\w+\} frees each one it reaches, a Reel \{\w+\} the one it pulls/,
+      /A Chime \{\w+\} frees each one it reaches, a Reel \{\w+\} the one it pulls/,
     );
     expect(hint(withRewind(riftHud('seamstress')), 'stitched')!.text).not.toMatch(/Reel/);
     expect(STATUS.stitched.answer).not.toMatch(/both/);

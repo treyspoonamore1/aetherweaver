@@ -8,7 +8,7 @@ export const mapScreen = {
   'screens.mapScreen.noAurasChosen': 'No auras chosen.',
   'screens.mapScreen.motifs': 'Motifs',
   'screens.mapScreen.owned': '{length} owned',
-  'screens.mapScreen.noneYetWinA': 'None yet. Win a fight and choose one.',
+  'screens.mapScreen.noneYetWinA': 'None yet. Win a fight to choose one.',
   'screens.mapScreen.keepGoing': 'Keep going',
   'screens.mapScreen.aNewMovement': 'A new movement',
   'screens.mapScreen.you': 'You',
@@ -24,8 +24,7 @@ export const mapScreen = {
   'screens.mapScreen.event': 'Event',
   'screens.mapScreen.miniBoss': 'Mini-boss',
   'screens.mapScreen.boss': 'Boss',
-  'screens.mapScreen.chooseWhereToGo':
-    'Choose where to go next. Glowing nodes are within reach; hover one to see what it offers.',
+  'screens.mapScreen.chooseWhereToGo': 'Choose a glowing stop. Hover one to see what it offers.',
   'screens.mapScreen.noPathForward': 'No path forward.',
   'screens.mapScreen.map': 'Map',
   'screens.mapScreen.runStatus': 'Run status',

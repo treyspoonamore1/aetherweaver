@@ -769,6 +769,13 @@ describe('review fixes: the Mirror Choir decree, and Brann’s Codex entry', () 
 });
 
 describe('Brann’s and the default party’s UI are byte-equal to before', () => {
+  // Re-recorded once since W3's head, for 20 of the 76 keys (every `hints:*` and `result:*`): the
+  // menu text pass of round 11 reworded 20 coach hints these scenes show (a full stop where a dash
+  // joined two thoughts: "Kael is hurt. Thread them: …") and the Result's chart caption ("Glyphs
+  // mark what you did and when. Hover one for detail."). The values were compared with main's
+  // line by line before the hashes were replaced: 42 changed lines, all of them those 21
+  // sentences, none about Fermata, a Solo, a Cue or Resonance. The frames, the picker, the notes
+  // and every other key are as recorded at W3's head.
   it('every pinned text and frame hashes as recorded at W3’s head', async () => {
     const want = JSON.parse(
       readFileSync(join(__dirname, 'uiPhase5e.brann.json'), 'utf8'),

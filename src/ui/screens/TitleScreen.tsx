@@ -260,7 +260,8 @@ export function TitleScreen({
         )}
         <div className="absolute bottom-4 flex flex-col items-center gap-0.5 text-xs text-muted">
           {demo && <p data-testid="playtest-line">{playtestLine()}</p>}
-          <p>{t('screens.titleScreen.arrowKeysOrTab')}</p>
+          {/* The key reminder is for the demo's two cards; the front door is a plain list. */}
+          {asking && <p>{t('screens.titleScreen.arrowKeysOrTab')}</p>}
         </div>
       </div>
     </main>

@@ -266,7 +266,8 @@ describe('owned and locked', () => {
 
   it('the panel’s line: none owned, some, or every one open', () => {
     expect(techniquesSummary([], false)).toMatchObject({ owned: 0, choosable: false });
-    expect(techniquesSummary([], false).line).toContain('Skip the unlocks');
+    // None owned: where to get one (the menu text pass, round 11: the Atelier, by name).
+    expect(techniquesSummary([], false).line).toContain('at the Atelier');
     const some = techniquesSummary([VARIANTS[0]!.id, 'gone', VARIANTS[0]!.id], false);
     expect(some).toMatchObject({ owned: 1, total: VARIANTS.length, choosable: true });
     expect(some.line).toBe(
@@ -574,7 +575,7 @@ describe('in a fight: the Weaver bar from a real sim', () => {
     const hints = evaluateHints(
       lethal((t) => (t.key === 'ward' ? { variant: variant(ward.id), name: ward.name } : {})),
     );
-    expect(hints.find((h) => h.id === 'lethal-ward')!.text).toContain(`cast ${ward.name} {Q}`);
+    expect(hints.find((h) => h.id === 'lethal-ward')!.text).toContain(`Cast ${ward.name} {Q}`);
     // Ward not ready: Reel's slot, its variant by name.
     for (const reel of own('reel')) {
       const h = evaluateHints(
@@ -586,7 +587,7 @@ describe('in a fight: the Weaver bar from a real sim', () => {
               : {},
         ),
       ).find((x) => x.id === 'lethal-reel')!;
-      expect(h.text).toBe(`${base.party[0]!.name} is in a lethal zone — ${reel.name} {F} on them`);
+      expect(h.text).toBe(`${base.party[0]!.name} is in a lethal zone. ${reel.name} {F} on them`);
     }
     const plain = evaluateHints(lethal((t) => (t.key === 'ward' ? { affordable: false } : {})));
     expect(plain.find((x) => x.id === 'lethal-reel')!.text).toContain('Reel them out {F}');

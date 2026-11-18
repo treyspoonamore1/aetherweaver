@@ -85,14 +85,14 @@ export const input = {
   'input.controls.cueHint': 'With {mod}: Cue their Solo',
   'input.mouse.title': 'Mouse',
   'input.mouse.intro':
-    'Each of these plays on any mouse button or key. Click one, then press the button or key (Esc cancels).',
+    'Each works on any mouse button or key. Click one, then press it (Esc cancels).',
   'input.mouse.reset': 'Reset the mouse',
   'input.role.thread': 'Thread the hovered hero',
   'input.role.thread.hint': 'Click a hero in the world or their party frame',
   'input.role.mode': 'Mend ⇄ Empower',
   'input.role.mode.hint': 'As the Mend ⇄ Empower key',
   'input.role.wheel': 'Directive wheel',
-  'input.role.wheel.hint': 'Hold for the wheel; a quick press on an enemy Focuses it',
+  'input.role.wheel.hint': 'Hold for the wheel. A quick press on an enemy Focuses it',
   'input.options.title': 'How the controls behave',
   'input.options.threadMode': 'Thread mode',
   'input.options.threadMode.hint':
@@ -101,7 +101,7 @@ export const input = {
   'input.options.hold': 'Hold',
   'input.options.wheel': 'Directive wheel',
   'input.options.wheel.hint':
-    'Hold: let go on a spoke. Toggle: a press opens it, the next press (or a click) picks.',
+    'Hold: let go on a spoke. Toggle: one press opens it, the next picks.',
   'input.options.mouseover': 'Mouseover casting',
   'input.options.mouseover.hint':
     'Ward, Reel, Chime and Cue go to the hero under the cursor. Off: always the threaded hero.',
@@ -112,7 +112,7 @@ export const input = {
     'After 2 s with no input, the Thread moves to the hero lowest on life. Shown as an assist.',
   'input.pad.title': 'Gamepad',
   'input.pad.intro':
-    'A standard gamepad plays every fight. Click a slot, then press the pad button (Esc cancels). Buttons are named by where they sit.',
+    'Any standard gamepad works. Click a slot, then press a pad button (Esc cancels). Buttons are named by position.',
   'input.pad.sticks':
     'Left stick: move. Right stick: flick the reticle between heroes, or aim the Directive wheel while it’s open. The reticle’s hero is the one your techniques and Cues go to.',
   'input.pad.reset': 'Reset the pad',
@@ -122,7 +122,7 @@ export const input = {
   'input.fixed.title': 'Menu keys (fixed)',
   'input.fixed.arrows': 'Move between choices',
   'input.fixed.enter': 'Choose',
-  'input.fixed.escape': 'Back, close; in a fight, pause (always)',
+  'input.fixed.escape': 'Back or close. In a fight: pause',
   'input.fixed.digits': 'Pick a choice on the Draft, Respite, Calling and Scene screens',
   'input.fixed.reroll': 'Reroll the Draft',
   'input.fixed.digitsKey': '1–9',
@@ -239,7 +239,7 @@ export const input = {
 
   // src/ui/screens/ControlsSettings.tsx (W3b)
   'input.controls.keysFollowTheirPhysical':
-    'Keys follow their physical position, so they work on any keyboard layout. Click a key, then press the new one (',
+    'Keys go by position, so any keyboard layout works. Click a key, then press the new one (',
   'input.controls.cancels': 'cancels).',
   'input.controls.esc': 'Esc',
   'input.controls.resetAllKeys': 'Reset all keys',

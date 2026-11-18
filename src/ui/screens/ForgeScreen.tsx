@@ -291,7 +291,11 @@ function ServiceCard({
           {t('screens.forgeScreen.aether')}
         </span>
       </p>
-      <p className="mt-3 text-base leading-relaxed text-text">{c.text}</p>
+      {/* A service with nothing to work on (no motif to temper, no curse to lift) says only that:
+          what it would do is read out, and shows once it can be used or only Aether is short. */}
+      {(status.available || short) && (
+        <p className="mt-3 text-base leading-relaxed text-text">{c.text}</p>
+      )}
       <p
         className={`mt-auto flex items-start gap-1.5 pt-4 text-sm ${status.available ? 'text-muted' : 'text-rose-300'}`}
       >

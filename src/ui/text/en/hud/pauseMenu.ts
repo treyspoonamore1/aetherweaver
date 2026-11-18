@@ -5,7 +5,6 @@ export const pauseMenu = {
   'hud.pauseMenu.backToThePause': 'Back to the pause menu',
   'hud.pauseMenu.keepPlaying': 'Keep playing',
   'hud.pauseMenu.abandonRun': 'Abandon run',
-  'hud.pauseMenu.theSimulationIsFrozen': 'The simulation is frozen.',
   'hud.pauseMenu.resume': 'Resume',
   'hud.pauseMenu.settings': 'Settings',
   'hud.pauseMenu.editHudLayout': 'Edit HUD layout',
@@ -13,6 +12,5 @@ export const pauseMenu = {
   'hud.pauseMenu.abandonThisRun': 'Abandon this run?',
   'hud.pauseMenu.paused': 'Paused',
   'hud.pauseMenu.controls': 'Controls',
-  'hud.pauseMenu.controlsNote':
-    'The key reminders from your first fights. Rebind any of them in Settings.',
+  'hud.pauseMenu.controlsNote': 'Rebind these in Settings.',
 } satisfies Catalogue;

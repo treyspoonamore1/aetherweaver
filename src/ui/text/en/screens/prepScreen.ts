@@ -17,16 +17,15 @@ export const prepScreen = {
   'screens.prepScreen.yourParty': 'Your party',
   'screens.prepScreen.route': 'Route',
   'screens.prepScreen.thePreludeIsMovement':
-    'The Prelude is Movement I alone; an Expedition climbs on {expeditionOnward}.',
+    'The Prelude is Movement I. An Expedition climbs on {expeditionOnward}.',
   'screens.prepScreen.quickAssists': 'Quick assists',
-  'screens.prepScreen.changeAnyTimeIn':
-    'Change any time in Settings. Assists never block anything.',
+  'screens.prepScreen.changeAnyTimeIn': 'Also in Settings. Assists block nothing.',
   'screens.prepScreen.seed': 'Seed',
   'screens.prepScreen.fixYourSongsTo': 'Fix your songs to embark',
   'screens.prepScreen.toEmbark': 'to embark',
   'screens.prepScreen.embark': 'Embark',
   'screens.prepScreen.chooseThreeTheyTake':
-    'Choose three. They take the keys {focusKeyLabel}, {focusKeyLabel2} and {focusKeyLabel3} in this order, so a hero’s key can change with the party: the key each will take is on their card.',
+    'Choose three. Each card shows the key its hero will take: {focusKeyLabel}, {focusKeyLabel2} or {focusKeyLabel3}.',
   'screens.prepScreen.life': '{toLocaleString} life',
   'screens.prepScreen.armour': '{round}% armour',
   'screens.prepScreen.s': '{cooldown}s',

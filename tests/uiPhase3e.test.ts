@@ -338,13 +338,13 @@ describe('the coach', () => {
     const revive = evaluateHints(mockHud('chrono-revive'));
     expect(revive[0]!.id).toBe('rewind-up');
     expect(revive[0]!.text).toMatch(
-      /^Kael just went down — press \{F\}: Rewind stands them back up, once a run/,
+      /^Kael just went down\. Press \{F\}: Rewind stands them back up, once a run/,
     );
     expect(ids('chrono-rewind')[0]).toBe('rewind-back');
     expect(ids('chrono-spent')).not.toContain('rewind-up');
     // Vexis just fell; Kael (threaded) is down too long: thread Vexis, then F.
     const reach = evaluateHints(mockHud('chrono-reach')).find((x) => x.id === 'rewind-up')!;
-    expect(reach.text).toMatch(/^Vexis just went down — press \{3\}, then \{F\}/);
+    expect(reach.text).toMatch(/^Vexis just went down\. Press \{3\}, then \{F\}/);
     for (const s of ['calm', 'crisis', 'luminary', 'martyr-bear', 'chrono-rewind'] as const)
       expect(ids(s)).not.toContain('lethal-reel');
     for (const s of ['calm', 'crisis', 'luminary', 'martyr-coach'] as const)

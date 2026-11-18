@@ -176,12 +176,12 @@ export function HowToPlay({
 }) {
   return (
     <Modal title={t('hud.howToPlay.howToPlay')} width="max-w-2xl" onClose={onClose} closeOnEscape>
-      <p className="mt-1 text-sm text-muted">{t('hud.howToPlay.theFightIsPaused')}</p>
-      <ul className="mt-4 flex flex-col gap-3">
+      {/* Tight enough that all six rows fit a 720 px window with nothing scrolled off the top. */}
+      <ul className="mt-2 flex flex-col gap-2">
         {rows(bear, rewind, cue, conduct).map((r) => (
           <li
             key={r.title}
-            className="flex gap-3 rounded-xl border border-ink-600/60 bg-ink-900/60 p-3"
+            className="flex gap-3 rounded-xl border border-ink-600/60 bg-ink-900/60 px-3 py-2"
           >
             <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gold-500/50 bg-gold-400/10 text-gold-300">
               <Icon name={r.icon} size={20} />
@@ -195,12 +195,12 @@ export function HowToPlay({
                   ))}
                 </span>
               </p>
-              <p className="mt-0.5 text-sm leading-relaxed text-text">{r.body}</p>
+              <p className="mt-0.5 text-sm leading-snug text-text">{r.body}</p>
             </div>
           </li>
         ))}
       </ul>
-      <div className="mt-5 flex items-center justify-between gap-3">
+      <div className="mt-3 flex items-center justify-between gap-3">
         <p className="text-xs text-muted">
           <KeyCap label={t('hud.howToPlay.esc')} /> {t('hud.howToPlay.pausesAtAnyTime')}
         </p>

@@ -2,8 +2,7 @@ import type { Catalogue } from '../../catalogue';
 
 /** The `hud.howToPlay.*` messages: `src/ui/hud/HowToPlay.tsx`. */
 export const howToPlay = {
-  'hud.howToPlay.theFightIsPaused': 'The fight is paused until you begin.',
-  'hud.howToPlay.pausesAtAnyTime': 'pauses at any time.',
+  'hud.howToPlay.pausesAtAnyTime': 'pauses.',
   'hud.howToPlay.beginTheFight': 'Begin the fight',
   'hud.howToPlay.leadThemDuetsAnd': 'Lead them: Duets and Trios',
   'hud.howToPlay.goodSupportFillsResonance':
@@ -26,16 +25,16 @@ export const howToPlay = {
     ' As the Martyr, {bindingLabel} Bears: you take part of what they would lose, and your songs hold your Life instead of your Spirit.',
   'hud.howToPlay.wardBeforeTheHit': 'Ward before the hit',
   'hud.howToPlay.watchTheStripedBar':
-    'Watch the striped bar on a hero’s frame: that is damage on its way. Ward them just before it lands for a Perfect Ward.',
+    'A striped bar on a frame is damage on its way. Ward just before it lands for a Perfect Ward.',
   'hud.howToPlay.answerTheirCalls': 'Answer their calls',
   'hud.howToPlay.beforeABigMove':
-    'Before a big move a hero calls for help: a gold glyph on their frame shows what they want, its key and a countdown. Answer in time and the move becomes a Flourish.',
+    'A gold glyph on a frame is a hero’s call, with its key and a countdown. Answer in time for a Flourish.',
   'hud.howToPlay.chimeAndRewind': 'Chime and Rewind',
   'hud.howToPlay.chimeCleansesMarksIn':
     'Chime cleanses marks in a circle under your cursor. As the Chronomancer, {bindingLabel} Rewinds instead of Reeling: your threaded hero goes back {seconds} s, to where they stood and the life they had (never less than now). {cooldown} s cooldown. Once a run, it stands back up a hero who fell in that time.',
   'hud.howToPlay.chimeAndReel': 'Chime and Reel',
   'hud.howToPlay.chimeCleansesMarksIn2':
-    'Chime cleanses marks in a circle under your cursor. Reel yanks a hero out of danger and to your side.',
+    'Chime cleanses marks under your cursor. Reel pulls a hero to your side.',
   'hud.howToPlay.howToPlay': 'How to play',
   'hud.howToPlay.esc': 'Esc',
 } satisfies Catalogue;

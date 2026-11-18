@@ -16,7 +16,7 @@ export const resultScreen = {
   'screens.resultScreen.ofItFromYou': 'of it from you',
   'screens.resultScreen.partyHealthOverThe': 'Party health over the fight',
   'screens.resultScreen.glyphsAlongTheBottom':
-    'Glyphs along the bottom mark what you did and when. Hover one for the detail.',
+    'Glyphs mark what you did and when. Hover one for detail.',
   'screens.resultScreen.fellAtTo': '{name} fell at {time} to {killer}.',
   'screens.resultScreen.theLastBlows': 'The last blows',
   'screens.resultScreen.readyButUnused': 'Ready but unused:',

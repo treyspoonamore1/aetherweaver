@@ -178,7 +178,10 @@ export function RankPanelView({
             <span className="whitespace-nowrap font-display text-base font-bold tracking-wide text-gold-300">
               {txt('screens.rank.weaverRank')} <span className="font-sans">{p.rank}</span>
             </span>
-            <span className="whitespace-nowrap font-mono text-xs text-muted">{p.record}</span>
+            {/* A new Weaver has no record to show yet. */}
+            {profile.runs > 0 && (
+              <span className="whitespace-nowrap font-mono text-xs text-muted">{p.record}</span>
+            )}
           </p>
           <XpBar
             before={p.fraction}
@@ -186,7 +189,13 @@ export function RankPanelView({
             label={txt('screens.rank.weaverXp', { progressText: p.progressText })}
             className="mt-1.5"
           />
-          <p className="mt-1 font-mono text-xs text-muted">{p.progressText}</p>
+          {/* The Rank is beside the bar: the line under it gives the XP alone (the bar's own
+              label, read out, says the whole sentence). */}
+          <p className="mt-1 font-mono text-xs text-muted">
+            {p.span === null
+              ? p.progressText
+              : txt('screens.rank.xp', { into: fmt(p.into), span: fmt(p.span) })}
+          </p>
         </div>
       </div>
       {preview && (p.next.length > 0 || p.nextAstrolabe || atelier) && (

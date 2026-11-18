@@ -82,7 +82,7 @@ describe('coach hints (Phase 2)', () => {
     const hud = mockHud('calls');
     const hints = evaluateHints(hud);
     const call = hints.find((h) => h.id === 'call');
-    expect(call?.text).toMatch(/Kael is calling for a Ward/);
+    expect(call?.text).toMatch(/Kael calls for a Ward/);
     hud.party.forEach((p) => {
       if (p.call) p.call.answered = true;
     });

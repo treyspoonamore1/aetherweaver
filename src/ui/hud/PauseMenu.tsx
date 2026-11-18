@@ -91,7 +91,6 @@ export function PauseMenu({
   }
   return (
     <Modal title={t('hud.pauseMenu.paused')} width="max-w-sm">
-      <p className="mt-1 text-sm text-muted">{t('hud.pauseMenu.theSimulationIsFrozen')}</p>
       <div className="mt-5 flex flex-col gap-2">
         <Button variant="primary" size="lg" data-autofocus onClick={onResume} sound="confirm">
           <Icon name="play" size={16} /> {t('hud.pauseMenu.resume')}

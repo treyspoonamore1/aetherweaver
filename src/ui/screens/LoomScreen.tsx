@@ -204,11 +204,6 @@ export function LoomView({
                   <StarlightChip amount={profile.starlight} testId="loom-starlight" />
                 </span>
               </Tip>
-              {about.line && (
-                <span className="mt-0.5 text-xs text-muted" data-testid="loom-starlight-line">
-                  {about.line}
-                </span>
-              )}
             </div>
             <Button
               variant="ghost"
@@ -401,6 +396,9 @@ function Station({
 }) {
   const look = STATION_LOOK[s.id];
   const plate = !s.open || s.id === 'atlas';
+  // One line a card: when a dark station opens, or what waits at a lit one. What the station is
+  // for shows on hover and on focus, and is always read out (`stationLabel`).
+  const detail = !s.open || !!s.badge;
   return (
     <button
       type="button"
@@ -436,8 +434,17 @@ function Station({
       >
         {s.name}
       </span>
+      {s.when && (
+        <span
+          className={`text-xs leading-snug text-muted group-hover:hidden group-focus:hidden ${PLATE}`}
+          aria-hidden
+          data-testid="station-when"
+        >
+          {s.when}
+        </span>
+      )}
       <span
-        className={`text-xs leading-snug text-muted ${plate ? PLATE : ''}`}
+        className={`text-xs leading-snug text-muted ${plate ? PLATE : ''} ${detail ? 'hidden group-hover:block group-focus:block' : ''}`}
         aria-hidden
         data-testid="station-line"
       >

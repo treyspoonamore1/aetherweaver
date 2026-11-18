@@ -164,6 +164,17 @@ describe('the Loom’s stations', () => {
     expect(station(stationViews(ready, false), 'dissonance').line).toBe(
       'Optional difficulty, for the endgame. Opens with your first Finale clear.',
     );
+    // Its card shows when it opens and nothing else; the line above waits for hover or focus.
+    expect(station(stationViews(ready, false), 'dissonance').when).toBe(
+      'Opens with a Finale clear',
+    );
+    const fresh = stationViews(at(1), false);
+    expect(station(fresh, 'astrolabe').when).toBe('Opens at Rank 4');
+    expect(station(fresh, 'bonds').when).toBe('Opens at Bond rank 2');
+    expect(station(fresh, 'dissonance').when).toBe(
+      `Opens at Rank ${RULES.openRank}, after a Finale clear`,
+    );
+    expect(station(fresh, 'gate').when).toBeNull();
     const won = { ...ready, dissonance: { open: true, levels: [], best: {} } };
     expect(open(won, 'dissonance')).toBe(true);
   });
@@ -172,9 +183,8 @@ describe('the Loom’s stations', () => {
     expect(lit(stationViews(newProfile(), true))).toEqual(STATIONS);
     // Each one new, named as a sentence names it.
     const welcomed = { ...newProfile(), introduced: WELCOME.map(introId) };
-    expect(freshLine(stationViews(welcomed, true))).toBe(
-      'The Astrolabe, the Atelier, the Reliquary, Bonds, the Hall of Deeds, Dissonance and the Atlas of Echoes have lit up: visit to see what’s there.',
-    );
+    // Three or more are counted (the menu text pass, round 11): their cards are marked New.
+    expect(freshLine(stationViews(welcomed, true))).toBe('7 stations have opened.');
     expect(stationIntro('deeds').tryIt).toBe('Try it: open the Hall of Deeds');
     expect(darkSaid('deeds', 1)).toBe(
       'The Hall of Deeds is dark. Deeds are feats within a run, like winning one. Opens with your first Deed.',
@@ -273,14 +283,12 @@ describe('first contact', () => {
     useProfile.getState().award(RANK_XP[S.atelierRank - 1]!);
     let views = stationViews(profile(), false);
     expect(views.filter((v) => v.fresh).map((v) => v.id)).toEqual(['astrolabe', 'atelier']);
-    expect(freshLine(views)).toBe(
-      'The Astrolabe and the Atelier have lit up: visit to see what’s there.',
-    );
+    expect(freshLine(views)).toBe('The Astrolabe and the Atelier have opened.');
     useProfile.getState().markIntroduced(stationIntro('atelier').seen);
     expect(profile().introduced).toContain('station:atelier');
     views = stationViews(profile(), false);
     expect(views.filter((v) => v.fresh).map((v) => v.id)).toEqual(['astrolabe']);
-    expect(freshLine(views)).toBe('The Astrolabe has lit up: visit to see what’s there.');
+    expect(freshLine(views)).toBe('The Astrolabe has opened.');
   });
 
   it('every intro: two or three panels drawn with their station, a Try it, recorded once', () => {
@@ -303,11 +311,12 @@ describe('first contact', () => {
       stationIntro(id)
         .panels.map((p) => p.body)
         .join(' ');
-    // The welcome: what the drill drills, and what Prep's songs are.
+    // The welcome: what Prep's songs are. (The drill's Perfect Ward is explained at the drill and
+    // in How to Play: the menu text pass, round 11, took it out of the welcome.)
     const welcome = welcomeIntro()
       .panels.map((p) => p.body)
       .join(' ');
-    expect(welcome).toMatch(/Ward them just before the blow lands and it’s a Perfect Ward/);
+    expect(welcome).toMatch(/a sandbox: spawn enemies and try your build/);
     expect(welcome).toMatch(/Prep, where you choose your songs \(the auras you sing/);
     // The Astrolabe: Deeds' points, and how a star is given back (right-click, or Give back).
     expect(text('astrolabe')).toContain(`up to ${DEED_POINTS_MAX} more`);
@@ -345,14 +354,14 @@ describe('first contact', () => {
   });
 
   it('the hub says what Starlight is for: where it’s spent, and from when', () => {
+    // The balance's tooltip says it all (the menu text pass, round 11, took the standing line
+    // from under the balance: the Atelier's own card says when it opens).
     const dark = starlightAbout(1, false);
-    expect(dark.line).toBe(`Spent at the Atelier, which opens at Weaver Rank ${S.atelierRank}`);
-    expect(dark.tip).toMatch(/every won fight pays it, and every Deed/);
-    expect(dark.tip).toContain(`which opens at Weaver Rank ${S.atelierRank}`);
+    expect(dark.tip).toMatch(/Won fights and Deeds pay Starlight/);
+    expect(dark.tip).toContain(`(opens at Weaver Rank ${S.atelierRank})`);
     const open = starlightAbout(S.atelierRank, false);
-    expect(open.line).toBeNull();
     expect(open.tip).not.toContain('opens at');
-    expect(starlightAbout(1, true).line).toBeNull();
+    expect(starlightAbout(1, true).tip).not.toContain('opens at');
   });
 
   it('the Atelier’s intro: what Starlight pays and buys, in content’s numbers', () => {
