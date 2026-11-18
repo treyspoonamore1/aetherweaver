@@ -471,10 +471,10 @@ describe('the harness’s Movement III tables', () => {
       ).toBe(true);
     // Movement II's rows exactly as before; Movement III's its own.
     expect(band('crimson_gate', 'skilled')).toBe('≥85% · share ≥35% · 35-60 s');
-    expect(band('vharun', 'novice')).toBe('35-65%');
+    expect(band('vharun', 'novice')).toBe('55-85%');
     expect(band('frayed_threshold', 'skilled')).toBe('≥85% · share ≥35% · 40-65 s');
     expect(band('the_unweaver', 'skilled')).toBe('≥80% · share ≥30% · 180-280 s');
-    expect(band('the_seamstress', 'novice')).toBe('30-60%');
+    expect(band('the_seamstress', 'novice')).toBe('45-75%');
     expect(band('the_unweaver', 'skilled', NAMED_PARTIES.B)).toContain('default − 15');
     expect(band('the_unweaver', 'skilled', NAMED_PARTIES.A)).toContain('default − 5');
     expect(runBand(2, 'skilled')).toBe('');
@@ -866,7 +866,7 @@ describe('the harness’s Finale tables', () => {
     expect(ARRIVAL3_KIT.motifs.length).toBe(10);
     expect(ARRIVAL3_KIT.relics.length).toBe(6);
     expect(band(CONDUCTOR, 'skilled')).toBe('≥80% · share ≥30% · 170-230 s');
-    expect(band(CONDUCTOR, 'novice')).toBe('15-40%');
+    expect(band(CONDUCTOR, 'novice')).toBe('25-55%');
     expect(band(CONDUCTOR, 'idle')).toBe('0%');
     expect(band(CONDUCTOR, 'skilled', NAMED_PARTIES.B)).toBe('≥ default − 15 · share ≥30%');
     expect(band(CONDUCTOR, 'skilled', NAMED_PARTIES.A)).toContain('≤280 s');
