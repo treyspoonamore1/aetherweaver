@@ -109,7 +109,7 @@ export const input = {
   'input.options.cueModifier.hint': 'Held with a hero’s Thread key, Cues their Solo',
   'input.options.autoThread': 'Auto-Thread',
   'input.options.autoThread.hint':
-    'After 2 s with no input, the Thread moves to the hero lowest on life. Shown as an assist.',
+    'After 2 s with no input, the Thread follows a Solo about to fire, or goes to the hero lowest on life. Counts as an assist.',
   'input.pad.title': 'Gamepad',
   'input.pad.intro':
     'Any standard gamepad works. Click a slot, then press a pad button (Esc cancels). Buttons are named by position.',

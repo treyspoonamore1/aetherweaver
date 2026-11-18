@@ -229,6 +229,8 @@ export type HudScenario =
   | 'downed'
   | 'boss'
   | 'resonance'
+  | 'solos'
+  | 'solos-more'
   | 'sandbox'
   | 'calls'
   | 'fermata'
@@ -777,6 +779,64 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
     case 'astro-grace':
     case 'astro-sanguine':
       return astroStage(scenario).hud;
+    case 'solos':
+      // The Solo strip's stages (docs/solos.md), one a frame: coming (the last seconds of
+      // charge, quiet), now (full, the wait running: "Thread to Cue"), and Cued (your Thread on
+      // them).
+      return {
+        ...base,
+        weaver: { ...base.weaver, resonance: 45, threadSlot: 2 },
+        party: [
+          hero(0, 'kael', { hp: 1480, solo: 93, soloIn: 4.8, soloNow: false, soloLoose: true }),
+          hero(1, 'lyra', {
+            hp: 820,
+            solo: 100,
+            soloReady: true,
+            soloIn: 0.6,
+            soloNow: true,
+            willCue: false,
+          }),
+          hero(2, 'vexis', {
+            hp: 740,
+            solo: 93,
+            threaded: true,
+            soloIn: 2.7,
+            soloNow: false,
+            willCue: true,
+          }),
+        ],
+        encounter: { ...base.encounter, elapsed: 26, enemies: 5 },
+      };
+    case 'solos-more':
+      // The rest: Kael's wall full (no seconds: he may raise it sooner), Lyra coming (quiet), and
+      // Silent Cues' hold on Vexis (the Thread is on her, not yet long enough).
+      return {
+        ...base,
+        weaver: { ...base.weaver, resonance: 45, threadSlot: 2, cueHold: 1 },
+        party: [
+          hero(0, 'kael', {
+            hp: 1480,
+            solo: 100,
+            soloReady: true,
+            soloIn: 2.2,
+            soloNow: true,
+            soloLoose: true,
+            willCue: false,
+          }),
+          hero(1, 'lyra', { hp: 820, solo: 94, soloIn: 2.5, soloNow: false, willCue: false }),
+          hero(2, 'vexis', {
+            hp: 740,
+            solo: 100,
+            soloReady: true,
+            threaded: true,
+            soloIn: 0.8,
+            soloNow: true,
+            willCue: false,
+            cueHold: 0.6,
+          }),
+        ],
+        encounter: { ...base.encounter, elapsed: 26, enemies: 5 },
+      };
     case 'resonance':
       return {
         ...base,
@@ -1118,6 +1178,8 @@ export function mockCallouts(scenario: HudScenario): Callout[] {
     case 'sandbox':
     case 'relics-waiting':
     case 'luminary':
+    case 'solos':
+    case 'solos-more':
       return [];
   }
 }

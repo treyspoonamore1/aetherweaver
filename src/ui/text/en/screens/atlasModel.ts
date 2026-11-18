@@ -57,6 +57,8 @@ export const atlasModel = {
   'screens.atlasModel.onlyACodeIts': 'Only a code: its replay hasn’t been checked.',
   'screens.atlasModel.didnTMatch': 'Didn’t match',
   'screens.atlasModel.itsReplayDoesnT': 'Its replay doesn’t play to what its code says.',
+  'screens.atlasModel.replayTooOld':
+    'This replay is from an earlier version. It can’t be played back.',
   'screens.atlasModel.playsBack': 'Plays back',
   'screens.atlasModel.notAWeeklyIts':
     'Not a weekly: its replay plays back as it was recorded, but nothing fixes its start.',

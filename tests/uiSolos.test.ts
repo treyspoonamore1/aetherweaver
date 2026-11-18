@@ -357,3 +357,17 @@ describe('the Codex states Resonance as the meter gains it', () => {
     expect(html).not.toMatch(/spends one segment|a Cue costs/i);
   });
 });
+
+describe('an old replay is refused in one plain sentence', () => {
+  it('a refused old replay shows the sentence, any other result its own message', async () => {
+    const { replayMessage } = await tsx<{
+      replayMessage: (r: { message: string; refused?: unknown }) => string;
+    }>('../src/ui/screens/atlasModel');
+    const line = EN['screens.atlasModel.replayTooOld'];
+    expect(replayMessage({ message: 'whatever the check said', refused: 'oldReplay' })).toBe(line);
+    expect(replayMessage({ message: 'Its replay played through.' })).toBe(
+      'Its replay played through.',
+    );
+    expect(line).toBe('This replay is from an earlier version. It can’t be played back.');
+  });
+});
