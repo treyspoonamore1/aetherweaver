@@ -60,7 +60,7 @@ export const codexScreen = {
   'screens.codexScreen.mAtMost': '{fieldRadiusCap} m at most',
   'screens.codexScreen.chorusPulse': 'Chorus pulse',
   'screens.codexScreen.singOrMoreAuras':
-    'Sing {minAuras} or more auras and every Cue also releases a chorus pulse from your field: each hero it reaches heals {healPctPerAura} of their life and gains a barrier of {barrierPctPerAura} of their life for {barrierDuration} s, per aura you sing. Grace Note is how you fit the third aura.',
+    'Sing {minAuras} or more auras and every Cued Solo also releases a chorus pulse from your field: each hero it reaches heals {healPctPerAura} of their life and gains a barrier of {barrierPctPerAura} of their life for {barrierDuration} s, per aura you sing. Grace Note is how you fit the third aura.',
   'screens.codexScreen.healPerAura': '{healPctPerAura} heal per aura',
   'screens.codexScreen.barrierPerAura': '{barrierPctPerAura} barrier per aura',
   'screens.codexScreen.fermataHold': 'Fermata hold',

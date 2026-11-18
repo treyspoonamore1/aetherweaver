@@ -813,7 +813,7 @@ describe('Result and Summary', () => {
     expect(
       conductingTip('conductor', { conducting: { ...stats.conducting, duets: 0, trios: 0 } }),
     ).toBe(
-      `No Duet this run. Cue two Solos within ${V.chain} s: the second plays ${V.duet}% stronger.`,
+      `No Duet this run. Thread two heroes as their Solos fire, within ${V.chain} s: the second plays ${V.duet}% stronger.`,
     );
     expect(conductingTip('conductor', stats)).toBeNull();
     expect(conductingTip('luminary', {})).toBeNull();

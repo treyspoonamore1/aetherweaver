@@ -49,9 +49,9 @@ export const chordBuilder = {
   'screens.chordBuilder.roomForAllThree': 'Room for all three back to back',
   'screens.chordBuilder.allThreeBackTo': 'All three back to back need {costText}',
   'screens.chordBuilder.chorusAurasSoEvery':
-    'Chorus: {auraCount} auras, so every Cue releases a pulse that heals {pct} and shields {pct2} of life.',
+    'Chorus: {auraCount} auras, so every Cued Solo releases a pulse that heals {pct} and shields {pct2} of life.',
   'screens.chordBuilder.withAurasEveryCue':
-    'With {minAuras}+ auras, every Cue also releases a chorus pulse (heal + barrier).',
+    'With {minAuras}+ auras, every Cued Solo also releases a chorus pulse: a heal and a barrier.',
   'screens.chordBuilder.ofLifeToFight':
     '{free} of {max} Life to fight with; {value}. Your songs may hold at most {capPct}%.',
   'screens.chordBuilder.holdsLife': '{name}: holds {spirit} Life',

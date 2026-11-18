@@ -590,9 +590,12 @@ export class InputController {
 
   private rolePress(role: MouseRole, code: string): void {
     if (role === 'thread') {
-      // Thread the hovered hero (in the world, or their party frame).
-      this.threadTouched = true;
-      if (this.hoveredSlot !== null) this.pending.push({ t: 'thread', slot: this.hoveredSlot });
+      // Thread the hovered hero (in the world, or their party frame). A press with no hero under
+      // it threads nobody, so it is no touch of the Thread: Auto-Thread's follow goes on.
+      if (this.hoveredSlot !== null) {
+        this.threadTouched = true;
+        this.pending.push({ t: 'thread', slot: this.hoveredSlot });
+      }
     } else if (role === 'mode') {
       this.modePress(code);
     } else {
@@ -1081,8 +1084,18 @@ export class InputController {
       // The Solo has fired (or a hero is in danger): back to the hero the Thread left for it.
       // With the hands off the lowest-life hero comes first, as that rule would send it anyway.
       if (handsOff) this.lastLifeAt = state.time;
-      const slot =
-        (handsOff ? autoThreadTarget(state) : null) ?? autoThreadBack(state, followed.back);
+      const lowest = handsOff ? autoThreadTarget(state) : null;
+      if (lowest !== null) {
+        this.autoSend(lowest);
+        return;
+      }
+      // The hero it followed is badly hurt: the Thread stays on them (the keep line holds on the
+      // way back too), and goes back once they are not.
+      if (autoThreadKeeps(state)) {
+        this.soloFollow = followed;
+        return;
+      }
+      const slot = autoThreadBack(state, followed.back);
       if (slot !== null) this.autoSend(slot);
       return;
     }
@@ -1235,11 +1248,25 @@ export function autoSoloTarget(state: WorldState): PartySlot | null {
   const pick = soon ?? wall;
   if (pick === null || pick === w.threadSlot) return pick;
   // The hero the Thread would leave is badly hurt: it stays.
-  const on = w.threadSlot === null ? undefined : state.entities.get(state.party[w.threadSlot]!);
+  return autoThreadKeeps(state) ? null : pick;
+}
+
+/**
+ * The keep line: the hero the Thread is on is under `AUTO_SOLO_KEEP` of their life, so
+ * Auto-Thread does not take it off them, neither to follow a Solo nor to go back after one.
+ * (Brann aside, who sits low on purpose; a dead hero keeps nothing.)
+ */
+function autoThreadKeeps(state: WorldState): boolean {
+  const slot = state.entities.get(state.weaverId)?.weaver?.threadSlot ?? null;
+  const on = slot === null ? undefined : state.entities.get(state.party[slot]!);
   const h = on?.health;
-  if (on?.hero && h && !h.dead && on.hero.blood === undefined && h.hp < h.maxHp * AUTO_SOLO_KEEP)
-    return null;
-  return pick;
+  return !!(
+    on?.hero &&
+    h &&
+    !h.dead &&
+    on.hero.blood === undefined &&
+    h.hp < h.maxHp * AUTO_SOLO_KEEP
+  );
 }
 
 /**

@@ -64,7 +64,7 @@ export const callingText = {
   'screens.callingText.soloOnTheBeat': 'Solo Cued on the beat',
   'screens.callingText.solosOnTheBeat': 'Solos Cued on the beat',
   'screens.callingText.noDuetThisRun':
-    'No Duet this run. Cue two Solos within {value} s: the second plays {value2}% stronger.',
+    'No Duet this run. Thread two heroes as their Solos fire, within {value} s: the second plays {value2}% stronger.',
   'screens.callingText.rewound': 'Rewound',
   'screens.callingText.gaveBackLife': '{REWIND_NAME} gave back {rewound} life',
   'screens.callingText.lifeGaveBackTo': 'life {REWIND_NAME} gave back to your heroes',
@@ -85,7 +85,7 @@ export const callingText = {
   'screens.callingText.haloedDamageKeptOff': 'Haloed: {callingShielded} damage kept off',
   'screens.callingText.damageHaloedKeptOff': 'damage Haloed kept off',
   'screens.callingText.yourCallingAddedNothing':
-    'Your Calling added nothing this run. Cue two Solos within {value} s for a Duet, three for a Trio.',
+    'Your Calling added nothing this run. Thread two heroes as their Solos fire, within {value} s, for a Duet. Three make a Trio.',
   'screens.callingText.rewindGaveNothingBack':
     'Rewind gave nothing back this run: when a hero takes a big hit or falls, press {rewindKey} within {rewindSeconds} s to send them back.',
   'screens.callingText.youBoreNothingThis':

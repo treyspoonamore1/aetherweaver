@@ -881,9 +881,65 @@ describe('Auto-Thread follows a Solo about to fire (docs/solos.md, rule 7)', () 
     expect(events.some((e) => e.type === 'techniqueCast')).toBe(true);
     expect([...solos.keys()].sort()).toEqual([KAEL, LYRA, VEXIS]);
     for (const [slot, s] of solos) expect(s.cued, `slot ${slot}`).toBe(true);
+    // Nothing moved the Thread before a Solo was coming: no command through the whole lull, and
+    // the first one on the frame after the Solos were charged (to Kael, whose full wall may go
+    // up at any moment).
+    expect(threads.filter((t) => t.at < 0)).toEqual([]);
+    expect(threads[0]).toEqual({ at: 1 / SIM_HZ, slot: KAEL });
     expect(threads.map((t) => t.slot)).toEqual([KAEL, LYRA, KAEL, VEXIS, KAEL, VEXIS]);
-    // Nothing moved the Thread before a Solo was coming, and it ends where the player had it.
-    expect(threads[0]!.at).toBeGreaterThanOrEqual(0);
+    // And it ends where the player had it.
+    expect(sim.state.entities.get(sim.state.weaverId)!.weaver!.threadSlot).toBe(VEXIS);
+    // The control, so that "nothing moved it" can fail: the same fight with the hands off. There
+    // the lowest-life rule does take the Thread to Lyra inside the lull, before any Solo.
+    const idle = fight(VEXIS);
+    const control = play(idle, controller(), 1, { shares: { [LYRA]: AUTO_SOLO_KEEP + 0.1 } });
+    expect(control.threads[0]!.slot).toBe(LYRA);
+    expect(control.threads[0]!.at).toBeLessThan(0);
+  });
+
+  it('going back does not take the Thread off a hero under 60%: it stays on the hero it followed until they are over the line', () => {
+    useSettings.getState().update((d) => ({ ...d, aids: { autoThread: true } }));
+    // The player left the Thread on Kael, who is whole, and is busy Warding. Lyra is at half her
+    // life (over the danger line, so her Solo is followed) and her Solo alone is full.
+    const sim = fight(KAEL);
+    const input = controller();
+    const lyraFull = (x: Sim) => {
+      worldOf(x).entities.get(x.state.party[LYRA]!)!.hero!.solo = 100;
+    };
+    const first = play(sim, input, 4, {
+      busy: true,
+      shares: { [LYRA]: AUTO_SOLO_KEEP - 0.1 },
+      charge: lyraFull,
+    });
+    expect(first.solos.get(LYRA)!.cued).toBe(true);
+    // To her for her Solo, and not back to Kael while she is under the line.
+    expect(first.threads.map((t) => t.slot)).toEqual([LYRA]);
+    expect(sim.state.entities.get(sim.state.weaverId)!.weaver!.threadSlot).toBe(LYRA);
+    // Healed past the line, the Thread goes back to where the player left it.
+    const second = play(sim, input, 1, { busy: true, lull: 0, charge: () => {} });
+    expect(second.threads.map((t) => t.slot)).toEqual([KAEL]);
+    expect(second.threads[0]!.at).toBeLessThan(2 / SIM_HZ);
+    expect(sim.state.entities.get(sim.state.weaverId)!.weaver!.threadSlot).toBe(KAEL);
+  });
+
+  it('a click that threads nobody is no touch of the Thread: the follow goes on, and the Thread comes back after it', () => {
+    useSettings.getState().update((d) => ({ ...d, aids: { autoThread: true } }));
+    // Kael's wall alone is full; the Thread goes to wait on him. A second in, the player
+    // left-clicks bare ground (no hero under the pointer): it threads nobody.
+    const sim = fight(VEXIS);
+    const { threads, solos } = play(sim, controller(), 5, {
+      busy: true,
+      charge: (x) => {
+        worldOf(x).entities.get(x.state.party[KAEL]!)!.hero!.solo = 100;
+      },
+      act: (f) => {
+        if (f === SIM_HZ) canvas.dispatchEvent(pointer('pointerdown', 5, 5, 0));
+        if (f === SIM_HZ + 2) win.dispatchEvent(pointer('pointerup', 5, 5, 0));
+      },
+    });
+    // His wall goes up Cued at his hold's end, and the Thread goes back to Vexis.
+    expect(solos.get(KAEL)!.cued).toBe(true);
+    expect(threads.map((t) => t.slot)).toEqual([KAEL, VEXIS]);
     expect(sim.state.entities.get(sim.state.weaverId)!.weaver!.threadSlot).toBe(VEXIS);
   });
 
