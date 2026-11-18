@@ -772,7 +772,8 @@ describe('Auto-Thread follows a Solo about to fire (docs/solos.md, rule 7)', () 
       if (f === 0) opts.charge?.(sim);
       input.updatePointer(sim.state);
       const cmds = input.collect();
-      for (const c of cmds) if (c.t === 'thread') out.threads.push({ at: f / SIM_HZ, slot: c.slot });
+      for (const c of cmds)
+        if (c.t === 'thread') out.threads.push({ at: f / SIM_HZ, slot: c.slot });
       const events = stepFor(sim, 1, f === 0 && !opts.charge ? [...cmds, CHARGE] : cmds);
       out.events.push(...events);
       for (const e of events) {

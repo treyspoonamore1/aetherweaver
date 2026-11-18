@@ -32,7 +32,7 @@ import {
   type Expected,
   type Fixture,
 } from '../../tools/save-fixtures';
-import { fuzzDamage, fuzzProfiles, fuzzRuns } from '../../tools/save-fuzz';
+import { fuzzDamage, fuzzProfiles, fuzzRuns, fuzzSettings } from '../../tools/save-fuzz';
 
 const fixtures = readFixtures();
 const expected = JSON.parse(readFileSync(join(FIXTURE_DIR, 'expected.json'), 'utf8')) as Record<
@@ -184,5 +184,9 @@ describe('the fuzzer (tools/save-fuzz.ts)', () => {
 
   it('damaged saves, files and codes never throw, and a save that won’t load is kept', () => {
     for (let seed = 1; seed <= 6; seed++) expect(fuzzDamage(seed, 12)).toEqual([]);
+  });
+
+  it('random version 4 settings read as version 5: the Cue key’s things dropped, the rest as saved; damaged, they never throw', () => {
+    for (let seed = 1; seed <= 12; seed++) expect(fuzzSettings(seed, 25)).toEqual([]);
   });
 });

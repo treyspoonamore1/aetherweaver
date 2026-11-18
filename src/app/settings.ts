@@ -506,8 +506,7 @@ function migrateKnown(raw: unknown): Settings | null {
   const v3 = SettingsV3Schema.safeParse(raw);
   if (v3.success) return fromV4({ ...v3.data, version: 4, hud: DEFAULT_HUD });
   const v2 = SettingsV2Schema.safeParse(raw);
-  if (v2.success)
-    return fromV4({ ...v2.data, version: 4, unlockAll: false, hud: DEFAULT_HUD });
+  if (v2.success) return fromV4({ ...v2.data, version: 4, unlockAll: false, hud: DEFAULT_HUD });
   const v1 = SettingsV1Schema.safeParse(raw);
   if (v1.success) {
     return {

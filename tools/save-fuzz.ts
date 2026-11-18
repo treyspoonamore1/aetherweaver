@@ -9,6 +9,10 @@
  * - **Runs:** a random run, played some steps on through the run layer, round-trips the same way;
  *   one with no Calling also round-trips from version 4 (the step before Callings). The older run
  *   versions are covered by the fixtures their own builds wrote (`tests/fixtures/saves/`).
+ * - **Settings of version 4:** random settings as the last build before the Solo rework stored
+ *   them, with what the Cue key had (the Hero autonomy assist, the Cue modifier, keys and pad
+ *   buttons bound to a Cue) present or not, must read as version 5 with those gone and every
+ *   other value as saved, and read again unchanged; damaged, they never throw.
  * - **Damage:** each save, damaged at random (a key dropped, a value replaced by another kind,
  *   its text cut or a character changed), never throws out of the loaders or the save file and
  *   code readers: it loads, or it is kept raw (`CORRUPT_SUFFIX`), or it is refused in words.
@@ -16,6 +20,7 @@
  * Run: `npx tsx tools/save-fuzz.ts [--seeds 50] [--from 1]`. The suite runs a few seeds of each
  * (`tests/meta/saveMatrix.test.ts`).
  */
+import { migrateSettings, SETTINGS_VERSION } from '../src/app/settings';
 import { CONTENT } from '../src/content';
 import * as Run from '../src/meta/run';
 import {
@@ -423,11 +428,157 @@ export function fuzzDamage(seed: number, rounds = 20): FuzzFailure[] {
   return failures;
 }
 
+/**
+ * Settings as version 4 stored them (the last before the Solo rework, docs/solos.md), every
+ * value random within what that version offered. What the Cue key had is there or not at random:
+ * the Hero autonomy assist always (version 4 required it), the Cue modifier, a `cue` key
+ * binding, and `cue` or `cueReticle` among the pad's.
+ */
+export function randomSettingsV4(r: Rand): Json {
+  const vol = () => int(r, 0, 20) / 20;
+  const maybe = <T>(value: T): T | undefined => (r() < 0.5 ? value : undefined);
+  const clean = <T extends Json>(o: T): T =>
+    Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
+  const keys = ['KeyJ', 'KeyY', 'KeyT', 'KeyH', 'Digit7', 'ShiftLeft', 'F6'];
+  const buttons = ['faceUp', 'faceDown', 'bumperRight', 'bumperLeft', 'select', 'dpadLeft'];
+  const actions = ['ward', 'chime', 'reel', 'crescendo', 'directiveScatter', 'focus2', 'cue'];
+  const padActions = [...actions, 'reticleNext', 'threadReticle', 'cueReticle'];
+  const bindings: Record<string, string[]> = {};
+  for (const a of some(r, actions, 0.3)) bindings[a] = some(r, keys, 0.3).slice(0, 3);
+  const padBindings: Record<string, string[]> = {};
+  for (const a of some(r, padActions, 0.3)) padBindings[a] = some(r, buttons, 0.3).slice(0, 3);
+  const input = clean({
+    threadMode: maybe(pick(r, ['toggle', 'hold'])),
+    wheel: maybe(pick(r, ['hold', 'toggle'])),
+    mouseoverCast: maybe(r() < 0.5),
+    mouse: maybe(clean({ mode: maybe(pick(r, ['Mouse4', 'KeyM'])), wheel: maybe('KeyN') })),
+    cueModifier: maybe(pick(r, ['Shift', 'Control', 'Alt', 'KeyM', ''])),
+    padBindings: maybe(padBindings),
+  });
+  return clean({
+    version: 4,
+    volumes: clean({
+      master: vol(),
+      music: vol(),
+      sfx: vol(),
+      ui: vol(),
+      ambience: maybe(vol()),
+      barks: maybe(vol()),
+    }),
+    screenShake: vol(),
+    flashes: vol(),
+    damageNumbers: r() < 0.5,
+    hints: r() < 0.5,
+    uiScale: pick(r, [0.8, 1, 1.25, 1.5]),
+    colorVision: pick(r, ['normal', 'deuteranopia', 'protanopia', 'tritanopia']),
+    bindings,
+    assists: {
+      perfectWindowBonus: pick(r, [0, 0.1, 0.2]),
+      telegraphLead: pick(r, [1, 1.25, 1.5]),
+      autonomy: r() < 0.5,
+    },
+    unlockAll: r() < 0.5,
+    hud: {
+      frames: {
+        at: r() < 0.5 ? null : { x: vol(), y: vol(), corner: pick(r, ['tl', 'bc', 'br']) },
+        scale: pick(r, [0.75, 1, 1.5]),
+        orientation: pick(r, ['vertical', 'horizontal']),
+      },
+      weaverBar: { at: null, scale: pick(r, [0.75, 1, 1.25]) },
+      allyBars: pick(r, ['always', 'hurt', 'off']),
+      healthText: pick(r, ['missing', 'percent', 'current']),
+      lowHealthSound: r() < 0.5,
+    },
+    captions: r() < 0.5,
+    reducedMotion: maybe(pick(r, ['system', 'on', 'off'])),
+    answerGlyphs: maybe(r() < 0.5),
+    heroVoices: maybe(r() < 0.5),
+    input: maybe(input),
+    aids: maybe(clean({ gameSpeed: maybe(pick(r, [0.7, 0.8, 0.9, 1])), autoThread: maybe(true) })),
+    quality: maybe(pick(r, ['auto', 'low', 'medium', 'high'])),
+    locale: maybe(pick(r, ['en', 'en-XA'])),
+  });
+}
+
+/** Version 4 settings as version 5 must read them: the Cue key's things gone, the rest as saved. */
+function settingsV5Of(v4: Json): Json {
+  const out = JSON.parse(JSON.stringify(v4)) as Json;
+  out.version = SETTINGS_VERSION;
+  delete (out.assists as Json).autonomy;
+  delete (out.bindings as Json).cue;
+  const input = out.input as Json | undefined;
+  if (input) {
+    delete input.cueModifier;
+    const pad = input.padBindings as Json | undefined;
+    if (pad) {
+      delete pad.cue;
+      delete pad.cueReticle;
+      if (Object.keys(pad).length === 0) delete input.padBindings;
+    }
+    if (Object.keys(input).length === 0) delete out.input;
+  }
+  return out;
+}
+
+/** JSON with every object's keys sorted: two plain values are equal when these are. */
+const sorted = (value: unknown): string =>
+  JSON.stringify(value, (_k, v: unknown) =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : 1)))
+      : v,
+  );
+
+/**
+ * Random version 4 settings read as version 5 (`migrateSettings`): the Cue key's things are
+ * dropped, every other value is as saved, the result reads again unchanged, byte for byte; and
+ * damaged ones never throw (they read, or they are refused with null).
+ */
+export function fuzzSettings(seed: number, rounds = 20): FuzzFailure[] {
+  const failures: FuzzFailure[] = [];
+  const r = rng(seed);
+  for (let i = 0; i < rounds; i++) {
+    const v4 = randomSettingsV4(r);
+    const text = JSON.stringify(v4);
+    try {
+      const v5 = migrateSettings(JSON.parse(text));
+      if (!v5) {
+        failures.push({ seed, what: 'settings v4 did not load', detail: text.slice(0, 200) });
+        continue;
+      }
+      if (sorted(v5) !== sorted(settingsV5Of(v4)))
+        failures.push({
+          seed,
+          what: 'settings v4 → 5 changed more than the Cue key’s things',
+          detail: `${sorted(v5).slice(0, 300)} ≠ ${sorted(settingsV5Of(v4)).slice(0, 300)}`,
+        });
+      const again = migrateSettings(JSON.parse(JSON.stringify(v5)));
+      if (JSON.stringify(again) !== JSON.stringify(v5))
+        failures.push({ seed, what: 'settings v5 do not read back equal', detail: text });
+    } catch (e) {
+      failures.push({ seed, what: 'settings v4 threw', detail: `${String(e)} ${text}` });
+    }
+    try {
+      migrateSettings(damageJson(v4, r));
+      const damaged = damageText(text, r);
+      let json: unknown;
+      try {
+        json = JSON.parse(damaged);
+      } catch {
+        json = damaged;
+      }
+      migrateSettings(json);
+    } catch (e) {
+      failures.push({ seed, what: 'damaged settings threw', detail: String(e) });
+    }
+  }
+  return failures;
+}
+
 /** Every fuzz over `seeds` seeds from `from`. */
 export function fuzzAll(seeds: number, from = 1): FuzzFailure[] {
   const failures: FuzzFailure[] = [];
   for (let s = from; s < from + seeds; s++)
-    failures.push(...fuzzProfiles(s), ...fuzzRuns(s), ...fuzzDamage(s));
+    failures.push(...fuzzProfiles(s), ...fuzzRuns(s), ...fuzzDamage(s), ...fuzzSettings(s));
   return failures;
 }
 
@@ -450,7 +601,7 @@ if (isMain) {
   const failures = fuzzAll(seeds, from);
   for (const f of failures) console.log(`✘ seed ${f.seed}: ${f.what}: ${f.detail}`);
   console.log(
-    `${failures.length === 0 ? '✔' : '✘'} ${seeds} seeds from ${from}: profiles of versions 1-${PROFILE_VERSION}, runs, damage; ${failures.length} failures (${Date.now() - started} ms)`,
+    `${failures.length === 0 ? '✔' : '✘'} ${seeds} seeds from ${from}: profiles of versions 1-${PROFILE_VERSION}, runs, damage, settings 4 to ${SETTINGS_VERSION}; ${failures.length} failures (${Date.now() - started} ms)`,
   );
   process.exitCode = failures.length === 0 ? 0 : 1;
 }

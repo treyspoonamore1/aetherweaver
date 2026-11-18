@@ -801,9 +801,7 @@ function ConflictPrompt({
     other = binderLabel(p.other);
     const swapped = bindCode(map, p.target, p.slot, p.code, 'swap');
     const previous =
-      p.target.kind === 'action'
-        ? map.bindings[p.target.action][p.slot]
-        : map.mouse[p.target.role];
+      p.target.kind === 'action' ? map.bindings[p.target.action][p.slot] : map.mouse[p.target.role];
     if (previous) {
       const holder = userOf(swapped, previous);
       if (holder && JSON.stringify(holder) === JSON.stringify(p.other))

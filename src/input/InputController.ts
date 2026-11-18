@@ -1145,8 +1145,7 @@ export function partyInDanger(state: WorldState): boolean {
   for (const t of state.telegraphs) {
     if (t.executeBelow === undefined || t.target === null) continue;
     const h = state.entities.get(t.target)?.health;
-    if (h && state.party.includes(t.target) && h.hp < h.maxHp * (t.executeBelow + 0.1))
-      return true;
+    if (h && state.party.includes(t.target) && h.hp < h.maxHp * (t.executeBelow + 0.1)) return true;
   }
   return false;
 }
@@ -1191,8 +1190,7 @@ export function autoSoloTarget(state: WorldState): PartySlot | null {
     // widened for slower hands): nothing to follow. On the threaded hero it reads true as well;
     // they stay a candidate, so that the Thread is kept on them until they fire.
     if (slot !== w.threadSlot && threadCues(state, e)) continue;
-    if (c.soloId === 'aegisWall' && c.solo >= 100 && c.targetId !== null)
-      wall = slot as PartySlot;
+    if (c.soloId === 'aegisWall' && c.solo >= 100 && c.targetId !== null) wall = slot as PartySlot;
     if (due <= lead && due < soonDue) {
       soon = slot as PartySlot;
       soonDue = due;
