@@ -9,7 +9,10 @@ import { DEFAULT_SETTINGS, useSettings } from '../src/app/settings';
 import { EXPEDITION_MOVEMENTS, RANK_XP, movementOneEnemies, newProfile } from '../src/meta/profile';
 import { storage } from '../src/app/storage';
 import * as Run from '../src/meta/run';
+import { RUN_REPLAY_FORMAT, verifyRunReplay } from '../src/meta/runReplay';
+import { encodeShareCode } from '../src/meta/shareCode';
 import type { CombatOutcome, RunState } from '../src/meta/types';
+import { weekStartMs } from '../src/meta/weekly';
 import { emptyLedger } from '../src/sim/world';
 
 const FIELD = [
@@ -290,5 +293,62 @@ describe('the roster in the stores (docs/phase-5b.md)', () => {
     useProfile.setState({ profile: { ...newProfile(), seen: profile.seen }, recruitNotices: [] });
     expect(useRun.getState().resume()).toBe(true);
     expect(useProfile.getState().profile.recruited).toEqual(['brann']);
+  });
+});
+
+describe('the weekly board and a replay that was refused unplayed (docs/solos.md)', () => {
+  const WEEK = 44;
+  const NOW = weekStartMs(WEEK) + 3600_000;
+  const code = encodeShareCode({
+    week: WEEK,
+    build: '01234567',
+    simVersion: 22,
+    won: true,
+    fightsWon: 3,
+    score: 444,
+    seconds: 300,
+    digest: '0123456789',
+  });
+  const entry = () =>
+    useProfile
+      .getState()
+      .profile.weekly?.find((w) => w.week === WEEK)
+      ?.entries.find((e) => e.code === code);
+
+  it('"Claimed" never takes the place of a check’s answer; a check still does', () => {
+    const profile = useProfile.getState();
+    expect(profile.addWeeklyCode(code, 'Mara', NOW)).toMatchObject({ ok: true, week: WEEK });
+    expect(entry()?.status).toBe('claimed');
+    profile.setWeeklyStatus(WEEK, code, 'verified');
+    expect(entry()?.status).toBe('verified');
+    // An old replay opened with this code: refused, nothing checked. The entry stays Verified.
+    const refused = verifyRunReplay({ format: RUN_REPLAY_FORMAT, version: 1 }, code);
+    expect(refused.status).toBe('claimed');
+    expect(refused.refused).toBe('oldReplay');
+    expect(refused.week).toBe(WEEK);
+    const before = useProfile.getState().profile;
+    profile.setWeeklyStatus(WEEK, code, refused.status as 'claimed');
+    expect(entry()?.status).toBe('verified');
+    // Nothing was written for it.
+    expect(useProfile.getState().profile).toBe(before);
+    // The same for an entry a check did not match.
+    profile.setWeeklyStatus(WEEK, code, 'mismatch');
+    profile.setWeeklyStatus(WEEK, code, 'claimed');
+    expect(entry()?.status).toBe('mismatch');
+    // A kept replay's key is still noted with it.
+    profile.setWeeklyStatus(WEEK, code, 'claimed', 'run-abc');
+    expect(entry()).toMatchObject({ status: 'mismatch', replay: 'run-abc' });
+    // And a real check moves it as before.
+    profile.setWeeklyStatus(WEEK, code, 'verified');
+    expect(entry()?.status).toBe('verified');
+  });
+
+  it('a new code that comes with a refused replay joins the board as Claimed', () => {
+    const profile = useProfile.getState();
+    const refused = verifyRunReplay({ format: RUN_REPLAY_FORMAT, version: 1 }, code);
+    const added = profile.addWeeklyCode(code, undefined, NOW);
+    expect(added.ok).toBe(true);
+    profile.setWeeklyStatus(WEEK, code, refused.status as 'claimed');
+    expect(entry()?.status).toBe('claimed');
   });
 });
