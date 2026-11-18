@@ -8,7 +8,7 @@
    "outcome": "defeat",
    "lastEncounter": "unsung_choir",
    "fights": 2,
-   "minutes": 1.469305555555515,
+   "minutes": 1.4600694444444038,
    "motifs": [
     "lingering_aegis:1"
    ],
@@ -18,157 +18,85 @@
    "aetherLeft": 26,
    "bondXp": {
     "kael": 43,
-    "lyra": 48,
+    "lyra": 46,
     "vexis": 26
    },
    "movementReached": 1,
    "minutesByMovement": [
-    1.469305555555515
+    1.4600694444444038
    ]
   },
   {
    "seed": 106729,
    "bot": "novice",
    "outcome": "defeat",
-   "lastEncounter": "vharun",
-   "fights": 11,
-   "minutes": 16.693430555557132,
+   "lastEncounter": "muted_nave",
+   "fights": 2,
+   "minutes": 1.3551249999999664,
    "motifs": [
-    "deep_breath:2",
-    "opening_bars:1",
-    "thread_the_needle:1",
-    "da_capo:1",
-    "twin_aegis:1",
-    "long_weave:1",
-    "kindred_wound:1",
-    "steady_draw:1",
-    "deep_roots:1",
-    "tender_guard:1"
+    "deep_breath:1"
    ],
    "relics": [
-    "cantors_hymnal",
-    "pilgrims_lamp",
-    "silver_thimble",
-    "thornwreath",
-    "sand_glass",
-    "wardens_key",
-    "cracked_metronome",
-    "water_clock"
+    "cantors_hymnal"
    ],
    "path": [],
-   "aetherEarned": 438,
-   "aetherLeft": 308,
+   "aetherEarned": 26,
+   "aetherLeft": 26,
    "bondXp": {
-    "kael": 423,
-    "lyra": 357,
-    "vexis": 310
+    "kael": 47,
+    "lyra": 36,
+    "vexis": 32
    },
-   "movementReached": 2,
+   "movementReached": 1,
    "minutesByMovement": [
-    7.088097222222755,
-    9.605333333334379
-   ],
-   "triggers": {
-    "pilgrims_lamp": 11,
-    "sand_glass": 8,
-    "kindred_wound": 72,
-    "steady_draw": 8,
-    "tender_guard": 3
-   },
-   "triggerFights": {
-    "pilgrims_lamp": {
-     "held": 9,
-     "fired": 6
-    },
-    "sand_glass": {
-     "held": 7,
-     "fired": 4
-    },
-    "kindred_wound": {
-     "held": 4,
-     "fired": 4
-    },
-    "steady_draw": {
-     "held": 3,
-     "fired": 3
-    },
-    "tender_guard": {
-     "held": 1,
-     "fired": 1
-    }
-   }
+    1.3551249999999664
+   ]
   },
   {
    "seed": 211458,
    "bot": "novice",
    "outcome": "defeat",
-   "lastEncounter": "vharun",
-   "fights": 11,
-   "minutes": 15.144847222223799,
+   "lastEncounter": "bellwarden",
+   "fights": 5,
+   "minutes": 3.61601388888879,
    "motifs": [
-    "whiplash:2",
+    "whiplash:1",
     "breath_between:1",
     "steady_draw:1",
-    "twin_aegis:1",
-    "da_capo:1",
-    "thread_the_needle:1",
-    "deep_breath:1",
-    "gilt_edge:1",
-    "fanfare:1",
-    "starlit_study:1"
+    "twin_aegis:1"
    ],
    "relics": [
-    "heartwood_lute",
-    "water_clock",
-    "bell_clapper",
-    "echoing_shell",
-    "prism_loom"
+    "heartwood_lute"
    ],
    "path": [],
-   "aetherEarned": 422,
-   "aetherLeft": 322,
+   "aetherEarned": 121,
+   "aetherLeft": 121,
    "bondXp": {
-    "kael": 428,
-    "lyra": 339,
-    "vexis": 286
+    "kael": 152,
+    "lyra": 116,
+    "vexis": 94
    },
-   "movementReached": 2,
+   "movementReached": 1,
    "minutesByMovement": [
-    7.274625000000635,
-    7.870222222223163
+    3.61601388888879
    ],
    "triggers": {
-    "whiplash": 13,
+    "whiplash": 3,
     "heartwood_lute": 0,
-    "steady_draw": 15,
-    "bell_clapper": 12,
-    "echoing_shell": 4,
-    "fanfare": 0
+    "steady_draw": 1
    },
    "triggerFights": {
     "whiplash": {
-     "held": 10,
-     "fired": 7
+     "held": 4,
+     "fired": 2
     },
     "heartwood_lute": {
-     "held": 9,
+     "held": 3,
      "fired": 0
     },
     "steady_draw": {
-     "held": 8,
-     "fired": 7
-    },
-    "bell_clapper": {
-     "held": 5,
-     "fired": 4
-    },
-    "echoing_shell": {
-     "held": 3,
-     "fired": 1
-    },
-    "fanfare": {
      "held": 2,
-     "fired": 0
+     "fired": 1
     }
    }
   },
@@ -178,7 +106,7 @@
    "outcome": "victory",
    "lastEncounter": "vharun",
    "fights": 11,
-   "minutes": 17.547222222223922,
+   "minutes": 17.337055555557303,
    "motifs": [
     "last_bastion:1",
     "second_toll:1",
@@ -207,31 +135,31 @@
     "iron_mask"
    ],
    "path": [],
-   "aetherEarned": 456,
-   "aetherLeft": 206,
+   "aetherEarned": 412,
+   "aetherLeft": 162,
    "bondXp": {
-    "kael": 476,
-    "lyra": 400,
-    "vexis": 343
+    "kael": 500,
+    "lyra": 395,
+    "vexis": 329
    },
    "movementReached": 2,
    "minutesByMovement": [
-    6.887458333333954,
-    10.659763888889971
+    7.415625000000594,
+    9.921430555556709
    ],
    "triggers": {
-    "second_toll": 1,
-    "black_ribbon": 9,
-    "sand_glass": 3,
-    "spindle_turn": 59,
-    "safe_harbour": 6,
+    "second_toll": 0,
+    "black_ribbon": 10,
+    "sand_glass": 0,
+    "spindle_turn": 53,
+    "safe_harbour": 7,
     "clutch_peal": 0,
-    "bell_clapper": 7
+    "bell_clapper": 4
    },
    "triggerFights": {
     "second_toll": {
      "held": 9,
-     "fired": 1
+     "fired": 0
     },
     "black_ribbon": {
      "held": 9,
@@ -239,7 +167,7 @@
     },
     "sand_glass": {
      "held": 7,
-     "fired": 2
+     "fired": 0
     },
     "spindle_turn": {
      "held": 5,
@@ -263,72 +191,50 @@
    "seed": 420916,
    "bot": "novice",
    "outcome": "defeat",
-   "lastEncounter": "shield_wall",
-   "fights": 9,
-   "minutes": 10.125097222222632,
+   "lastEncounter": "bellwarden",
+   "fights": 5,
+   "minutes": 4.254124999999865,
    "motifs": [
     "whiplash:1",
     "golden_filament:1",
     "fishers_knot:1",
-    "slack_line:2",
+    "slack_line:1",
     "quickened_verse:1",
-    "twin_aegis:1",
-    "da_capo:1",
-    "thread_the_needle:1",
-    "spindle_turn:1"
+    "twin_aegis:1"
    ],
    "relics": [
     "hollow_bell",
-    "menders_needle",
-    "sand_glass",
-    "prompt_book",
-    "echoing_shell"
+    "menders_needle"
    ],
    "path": [],
-   "aetherEarned": 291,
-   "aetherLeft": 141,
+   "aetherEarned": 115,
+   "aetherLeft": 45,
    "bondXp": {
-    "kael": 324,
-    "lyra": 261,
-    "vexis": 223
+    "kael": 147,
+    "lyra": 117,
+    "vexis": 100
    },
-   "movementReached": 2,
+   "movementReached": 1,
    "minutesByMovement": [
-    7.445375000000497,
-    2.679722222222134
+    4.254124999999865
    ],
    "triggers": {
-    "whiplash": 8,
-    "sand_glass": 1,
-    "echoing_shell": 0,
-    "spindle_turn": 9
+    "whiplash": 3
    },
    "triggerFights": {
     "whiplash": {
-     "held": 8,
-     "fired": 6
-    },
-    "sand_glass": {
      "held": 4,
-     "fired": 1
-    },
-    "echoing_shell": {
-     "held": 3,
-     "fired": 0
-    },
-    "spindle_turn": {
-     "held": 1,
-     "fired": 1
+     "fired": 3
     }
    }
   },
   {
    "seed": 2000,
    "bot": "skilled",
-   "outcome": "victory",
+   "outcome": "defeat",
    "lastEncounter": "vharun",
    "fights": 12,
-   "minutes": 16.046055555557224,
+   "minutes": 15.277236111112733,
    "motifs": [
     "lingering_aegis:1",
     "second_toll:2",
@@ -359,23 +265,23 @@
    "aetherEarned": 514,
    "aetherLeft": 99,
    "bondXp": {
-    "kael": 401,
-    "lyra": 506,
-    "vexis": 349
+    "kael": 363,
+    "lyra": 466,
+    "vexis": 326
    },
    "movementReached": 2,
    "minutesByMovement": [
-    7.569944444444811,
-    8.476111111112413
+    7.3278194444448195,
+    7.949416666667913
    ],
    "triggers": {
     "second_toll": 0,
-    "sand_glass": 34,
-    "red_ink": 27,
+    "sand_glass": 29,
+    "red_ink": 25,
     "iron_answer": 14,
-    "bell_clapper": 15,
-    "clean_strike": 23,
-    "echoing_shell": 18
+    "bell_clapper": 14,
+    "clean_strike": 19,
+    "echoing_shell": 17
    },
    "triggerFights": {
     "second_toll": {
@@ -392,7 +298,7 @@
     },
     "iron_answer": {
      "held": 7,
-     "fired": 4
+     "fired": 5
     },
     "bell_clapper": {
      "held": 5,
@@ -414,12 +320,13 @@
    "outcome": "victory",
    "lastEncounter": "vharun",
    "fights": 11,
-   "minutes": 14.015541666667371,
+   "minutes": 13.577236111111915,
    "motifs": [
     "deep_breath:2",
     "opening_bars:1",
     "thread_the_needle:1",
     "da_capo:1",
+    "inner_orbit:1",
     "twin_aegis:1",
     "long_weave:1",
     "kindred_wound:1",
@@ -438,37 +345,37 @@
     "water_clock"
    ],
    "path": [],
-   "aetherEarned": 497,
-   "aetherLeft": 337,
+   "aetherEarned": 491,
+   "aetherLeft": 296,
    "bondXp": {
-    "kael": 357,
-    "lyra": 504,
-    "vexis": 326
+    "kael": 349,
+    "lyra": 498,
+    "vexis": 341
    },
    "movementReached": 2,
    "minutesByMovement": [
-    6.544013888888992,
-    7.4715277777783795
+    5.953916666666739,
+    7.623319444445176
    ],
    "triggers": {
-    "pilgrims_lamp": 3,
-    "sand_glass": 20,
-    "kindred_wound": 0,
+    "pilgrims_lamp": 1,
+    "sand_glass": 16,
+    "kindred_wound": 1,
     "steady_draw": 11,
-    "tender_guard": 5
+    "tender_guard": 8
    },
    "triggerFights": {
     "pilgrims_lamp": {
      "held": 9,
-     "fired": 2
+     "fired": 1
     },
     "sand_glass": {
      "held": 7,
-     "fired": 4
+     "fired": 3
     },
     "kindred_wound": {
      "held": 4,
-     "fired": 0
+     "fired": 1
     },
     "steady_draw": {
      "held": 3,
@@ -486,7 +393,7 @@
    "outcome": "victory",
    "lastEncounter": "vharun",
    "fights": 11,
-   "minutes": 13.07609722222318,
+   "minutes": 13.270305555556652,
    "motifs": [
     "whiplash:2",
     "breath_between:1",
@@ -511,30 +418,30 @@
    "aetherLeft": 368,
    "bondXp": {
     "kael": 358,
-    "lyra": 477,
-    "vexis": 321
+    "lyra": 478,
+    "vexis": 320
    },
    "movementReached": 2,
    "minutesByMovement": [
-    6.015027777777951,
-    7.061069444445225
+    6.157222222222505,
+    7.113083333334147
    ],
    "triggers": {
-    "whiplash": 1,
-    "heartwood_lute": 1,
-    "steady_draw": 26,
+    "whiplash": 3,
+    "heartwood_lute": 2,
+    "steady_draw": 25,
     "bell_clapper": 12,
-    "echoing_shell": 17,
-    "fanfare": 0
+    "echoing_shell": 18,
+    "fanfare": 2
    },
    "triggerFights": {
     "whiplash": {
      "held": 10,
-     "fired": 1
+     "fired": 3
     },
     "heartwood_lute": {
      "held": 9,
-     "fired": 1
+     "fired": 2
     },
     "steady_draw": {
      "held": 8,
@@ -546,11 +453,11 @@
     },
     "echoing_shell": {
      "held": 3,
-     "fired": 2
+     "fired": 3
     },
     "fanfare": {
      "held": 2,
-     "fired": 0
+     "fired": 2
     }
    }
   },
@@ -560,7 +467,7 @@
    "outcome": "victory",
    "lastEncounter": "vharun",
    "fights": 11,
-   "minutes": 15.610291666668358,
+   "minutes": 15.536250000001855,
    "motifs": [
     "last_bastion:1",
     "second_toll:1",
@@ -589,26 +496,26 @@
     "iron_mask"
    ],
    "path": [],
-   "aetherEarned": 522,
-   "aetherLeft": 247,
+   "aetherEarned": 535,
+   "aetherLeft": 285,
    "bondXp": {
-    "kael": 381,
-    "lyra": 495,
-    "vexis": 342
+    "kael": 373,
+    "lyra": 499,
+    "vexis": 349
    },
    "movementReached": 2,
    "minutesByMovement": [
-    6.500638888889417,
-    9.109652777778939
+    6.8449027777784295,
+    8.691347222223426
    ],
    "triggers": {
     "second_toll": 0,
-    "black_ribbon": 12,
+    "black_ribbon": 11,
     "sand_glass": 20,
-    "spindle_turn": 62,
-    "safe_harbour": 16,
+    "spindle_turn": 59,
+    "safe_harbour": 17,
     "clutch_peal": 0,
-    "bell_clapper": 7
+    "bell_clapper": 5
    },
    "triggerFights": {
     "second_toll": {
@@ -629,7 +536,7 @@
     },
     "safe_harbour": {
      "held": 4,
-     "fired": 3
+     "fired": 4
     },
     "clutch_peal": {
      "held": 3,
@@ -644,10 +551,10 @@
   {
    "seed": 420916,
    "bot": "skilled",
-   "outcome": "defeat",
+   "outcome": "victory",
    "lastEncounter": "vharun",
    "fights": 12,
-   "minutes": 12.98786111111143,
+   "minutes": 12.658694444444551,
    "motifs": [
     "whiplash:1",
     "golden_filament:1",
@@ -674,23 +581,23 @@
     "choirmasters_baton"
    ],
    "path": [],
-   "aetherEarned": 559,
-   "aetherLeft": 379,
+   "aetherEarned": 555,
+   "aetherLeft": 375,
    "bondXp": {
-    "kael": 333,
-    "lyra": 516,
-    "vexis": 341
+    "kael": 364,
+    "lyra": 558,
+    "vexis": 368
    },
    "movementReached": 2,
    "minutesByMovement": [
-    5.762124999999895,
-    7.225736111111534
+    6.140444444444527,
+    6.518250000000023
    ],
    "triggers": {
     "whiplash": 3,
-    "sand_glass": 15,
-    "echoing_shell": 15,
-    "spindle_turn": 37,
+    "sand_glass": 19,
+    "echoing_shell": 16,
+    "spindle_turn": 39,
     "penitent_shield": 3
    },
    "triggerFights": {
