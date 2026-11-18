@@ -2159,11 +2159,12 @@ describe('the Movement III bots: the tools review fixes', () => {
 
   it('the Decree gate fails a Stolen Verse still standing when the party wipes', () => {
     // A Skilled Weaver who walks off as the Unweaver nears phase 2 (70% of its life) and does
-    // nothing more: at 1000 and 32676 a verse is stolen and the party wipes with it up, which no
-    // 'verseReturned' ends. (The Novice no longer wipes with one up: since W9 she Focuses
+    // nothing more: at 32676 and 80190 a verse is stolen and the party wipes with it up, which no
+    // 'verseReturned' ends. (The seeds were found again after the Solo rework, docs/solos.md,
+    // changed every fight: 1000 no longer stages it.) (The Novice no longer wipes with one up: since W9 she Focuses
     // Spindles and outlasts the Shear; and a party left only at the theft now outlives the
     // verse's 30 s.)
-    for (const seed of [1000, 32676]) {
+    for (const seed of [32676, 80190]) {
       const skilled = makeBot('skilled', seed);
       let gone = false;
       let up = false;
@@ -2208,7 +2209,9 @@ describe('Movement III smoke guards (ARRIVAL3_KIT)', () => {
   }, 120_000);
 
   it('the Skilled bot clears the Frayed Threshold', () => {
-    for (const seed of [1000, 8919]) {
+    // Two of the harness's seeds she wins on (10 of its first 12, since the Solo rework,
+    // docs/solos.md, changed every fight; 1000 was one of the two before it).
+    for (const seed of [8919, 16838]) {
       const run = playEncounter({ seed, encounter: 'frayed_threshold', ...KIT3 }, 'skilled');
       expect(run.outcome, `seed ${seed}`).toBe('victory');
       expect(run.share).toBeGreaterThan(0.3);
@@ -4040,7 +4043,8 @@ describe('the Skilled bot with Oro (staged)', () => {
   });
 
   it('names every roster rule; leaving them all off changes nothing for a party without Seren or Oro', () => {
-    expect(new Set(ROSTER_RULES).size).toBe(12);
+    // Ten: `serenCue` and `oroCue` went with the Cue command (docs/solos.md).
+    expect(new Set(ROSTER_RULES).size).toBe(10);
     const stream = (skip?: ReadonlySet<RosterRule>) => {
       const sim = createSim({ seed: 1000, encounter: 'crimson_gate', ...KIT, party: PARTY_A });
       const bot = new SkilledBot(1000, skip ? { ...SKILLED, skip } : SKILLED);

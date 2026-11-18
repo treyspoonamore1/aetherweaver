@@ -335,7 +335,9 @@ describe('Tyrant (docs/phase-6.md)', () => {
     );
     expect(tyrant.program).not.toContain(DOWNBEAT);
     expect(tyrant.held).toBe(false);
-    expect(plain.burn).toEqual({ downbeat: BURN_EVERY.downbeat, sforzando: BURN_EVERY.sforzando });
+    // To the float's last digits: the clocks are read at whatever sim time the burn begins.
+    expect(plain.burn!.downbeat).toBeCloseTo(BURN_EVERY.downbeat, 6);
+    expect(plain.burn!.sforzando).toBeCloseTo(BURN_EVERY.sforzando, 6);
     expect(tyrant.burn!.downbeat).toBeCloseTo(TYRANT_BURN.downbeat, 6);
     expect(tyrant.burn!.sforzando).toBeCloseTo(TYRANT_BURN.sforzando, 6);
   }, 120_000);

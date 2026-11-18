@@ -6,9 +6,9 @@
    "seed": 2000,
    "bot": "novice",
    "outcome": "defeat",
-   "lastEncounter": "gorehound_matriarch",
-   "fights": 8,
-   "minutes": 10.543361111112025,
+   "lastEncounter": "frayed_threshold",
+   "fights": 10,
+   "minutes": 14.487944444446365,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1",
@@ -16,25 +16,35 @@
     "second_verse:1",
     "warm_hum:1",
     "deep_roots:1",
-    "long_weave:1"
+    "long_weave:1",
+    "clear_tone:1",
+    "wind_at_her_back:1",
+    "deep_breath:1",
+    "standing_ovation:1"
    ],
    "relics": [
     "wardens_key",
     "martyrs_veil",
-    "cantors_hymnal"
+    "cantors_hymnal",
+    "star_chart",
+    "choirmasters_baton",
+    "hollow_bell",
+    "lantern_of_the_lost",
+    "cracked_metronome"
    ],
    "path": [],
-   "aetherEarned": 281,
-   "aetherLeft": 281,
+   "aetherEarned": 415,
+   "aetherLeft": 90,
    "bondXp": {
-    "kael": 287,
-    "lyra": 223,
-    "vexis": 214
+    "kael": 400,
+    "lyra": 326,
+    "vexis": 295
    },
-   "movementReached": 2,
+   "movementReached": 3,
    "minutesByMovement": [
-    6.952194444445477,
-    3.5911666666665476
+    5.7873333333340975,
+    8.228666666667827,
+    0.471944444444439
    ]
   },
   {
@@ -186,7 +196,7 @@
    "outcome": "victory",
    "lastEncounter": "the_silent_conductor",
    "fights": 15,
-   "minutes": 23.35765277778071,
+   "minutes": 23.051388888891555,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1",
@@ -219,19 +229,19 @@
     "prism_loom"
    ],
    "path": [],
-   "aetherEarned": 862,
-   "aetherLeft": 217,
+   "aetherEarned": 868,
+   "aetherLeft": 248,
    "bondXp": {
-    "kael": 528,
-    "lyra": 762,
-    "vexis": 459
+    "kael": 525,
+    "lyra": 747,
+    "vexis": 479
    },
    "movementReached": 4,
    "minutesByMovement": [
-    5.599472222223019,
-    7.188513888889635,
-    7.6986527777786895,
-    2.87101388888937
+    5.641236111111564,
+    7.1604166666674605,
+    7.442208333334321,
+    2.807527777778207
    ]
   },
   {

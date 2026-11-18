@@ -64,15 +64,20 @@ export interface RowResult {
   parts: Part[];
 }
 
-/** What the release pins, as recorded at the start of Phase 7 (docs/phase-7.md, ground rule 1). */
+/**
+ * What the release pins, as recorded at the start of Phase 7 (docs/phase-7.md, ground rule 1),
+ * and moved once since, on purpose, by the Solo rework (docs/solos.md): the sim 22 to 23, the
+ * content's version, the fight replay 6 to 7 and the run replay 1 to 2. (Settings moves to 5 when
+ * the Hero autonomy setting and the Cue key leave it, in the rework's input step.)
+ */
 export const RELEASE_PINS = {
-  simVersion: 22,
-  contentVersion: 'c-691f26eff5775748',
+  simVersion: 23,
+  contentVersion: 'c-82f6ca44f5775748',
   runSave: 5,
   profile: 10,
   settings: 4,
-  fightReplay: 6,
-  runReplay: 1,
+  fightReplay: 7,
+  runReplay: 2,
 } as const;
 
 /** The commit Phase 7's pins are read from: main when docs/phase-7.md was written. */

@@ -513,8 +513,8 @@ describe('Phase 7 save and version contracts', () => {
     return run;
   }
 
-  it('no version moves: sim 22, content as the goldens, run save 5, profile 10, settings 4', () => {
-    expect(SIM_VERSION).toBe(22);
+  it('the versions: sim 23 (the Solo rework, docs/solos.md), content as the goldens, run save 5, profile 10, settings 4', () => {
+    expect(SIM_VERSION).toBe(23);
     expect(CONTENT_VERSION).toBe(golden.contentVersion);
     expect(RUN_SAVE_VERSION).toBe(5);
     expect(PROFILE_VERSION).toBe(10);

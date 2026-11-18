@@ -180,8 +180,10 @@ describe('each Expert rule acts in a fight staged for it, and changes it when le
   }, 60_000);
 
   it('mimicFocus: the Shattered Choir with Mimicry, the Mimicking foe casting its mirror', () => {
+    // Seed 8919: its Focus meets a Mimicking foe mid-mirror where the plain rules send another
+    // (found again after the Solo rework, docs/solos.md, changed every fight; 1000 no longer does).
     actsIn('mimicFocus', {
-      seed: 1000,
+      seed: 8919,
       encounter: 'shattered_choir',
       dissonance: level('mimicry'),
     });
@@ -191,20 +193,21 @@ describe('each Expert rule acts in a fight staged for it, and changes it when le
     actsIn('mimicCrack', { seed: 1000, encounter: 'tolling_halls', dissonance: level('mimicry') });
   }, 60_000);
 
-  it('postludeRise: the Conductor rising with every Solo full and the Resonance to Cue them', () => {
-    // Staged: as the rise begins, every hero's Solo is full and the Weaver's Resonance is at its
-    // top (test-only). The Skilled bot Cues a damage Solo into the untouchable boss; the Expert waits.
+  it('postludeRise: the Conductor rising, on a Conductor run with a whole song to spend', () => {
+    // Staged: as the rise begins, the Weaver's Resonance is at its top (test-only). The Skilled
+    // bot casts the Grand Finale into the untouchable boss; the Expert waits. (Heroes fire their
+    // own Solos, docs/solos.md, so the Grand Finale is what the rule still holds.)
     let staged = false;
-    actsIn('postludeRise', POSTLUDE, {
+    const config: SimConfig = {
+      ...POSTLUDE,
+      calling: { id: 'conductor', path: ['marcato', 'reprise', 'ensemble', 'triad'] },
+    };
+    actsIn('postludeRise', config, {
       each: (state) => {
         const p = state.field.finale?.postlude;
         if (staged || !p) return;
         const w = state.entities.get(state.weaverId)!.weaver! as { resonance: number };
         w.resonance = 100;
-        for (const id of state.party) {
-          const hero = state.entities.get(id)?.hero as { solo: number } | undefined;
-          if (hero) hero.solo = 100;
-        }
         staged = true;
       },
       reset: () => (staged = false),
@@ -212,13 +215,15 @@ describe('each Expert rule acts in a fight staged for it, and changes it when le
   }, 120_000);
 
   it('postludePair: the Silent Conductor with True Dissonance, a pair under way', () => {
-    // Seed 8919: a pair under way meets a Ward the plain rules would spend (seed 1000's meets none).
-    actsIn('postludePair', { ...POSTLUDE, seed: 8919 });
+    // Seed 16838: a pair under way meets a Ward the plain rules would spend (found again after the
+    // Solo rework, docs/solos.md, changed every fight; 1000's and 8919's meet none).
+    actsIn('postludePair', { ...POSTLUDE, seed: 16838 });
   }, 120_000);
 
   it('postludeBank: the Postlude on a Conductor run, Discord set past its line after the rise', () => {
-    // Staged: once the Conductor has stood up, its Discord is put at 80 (test-only), so the bank
-    // meets Fortissimo Silence; a Conductor run, where `bankCrescendo` holds nothing.
+    // Staged: once the Conductor has stood up, its Discord is put at 80 and the song filled
+    // (test-only), so the bank holds a Grand Finale for Fortissimo Silence; a Conductor run, where
+    // `bankCrescendo` holds nothing.
     let staged = false;
     const stage: Stage = {
       each: (state) => {
@@ -226,6 +231,7 @@ describe('each Expert rule acts in a fight staged for it, and changes it when le
         const d = state.field.finale?.discord;
         if (staged || !p || !d || state.time < p.riseUntil) return;
         (d as { value: number }).value = 80;
+        (state.entities.get(state.weaverId)!.weaver! as { resonance: number }).resonance = 100;
         staged = true;
       },
       reset: () => (staged = false),

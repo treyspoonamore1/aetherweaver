@@ -170,13 +170,17 @@ describe('the mods', () => {
     '{"enemySpeedMult":1,"enemyLifeMult":1,"dissonanceWindupMult":1,"dissonanceRadiusMult":1,"heroHealMult":1,"cueCostBonus":0,"restlessPct":0,"vanguardElites":0,"vanguardAffixes":0,"relayHealPct":0,"threadRangeBonus":0,"lifelineMult":1,"tautReleasePct":0,"empowerMult":1,"wardBarrierMult":1,"wardDurationBonus":0,"perfectWindowBonus":0,"ripostePower":0,"wardCharges":1,"chimeRadiusMult":1,"reelCooldownCut":0,"fieldRadiusMult":1,"spiritRegenMult":1,"sostenutoMult":1,"ostinatoRefillCut":0,"allegroBonus":0,"hammerfallChance":0,"heavyEyelidsSleep":0,"bulwarksEchoPct":0,"lyraAttackSpeed":0,"starboltCastMult":1,"resonanceMult":1,"soloChargeMult":1,"canon":0,"encoreBonus":0,"daCapo":0,"mendMult":1,"thimbleBarrierPct":0,"thimbleCooldown":0,"thimbleDuration":0,"lanternBarrierPct":0,"lanternDuration":0,"glideCooldownMult":1,"noGlide":false,"muteDamageMult":1,"partyDamageMult":1,"perfectSoloCharge":0,"perfectHealPct":0,"cuedSoloDurationMult":1,"chimeCooldownMult":1,"chimeHealMult":1,"martyrsVeil":false,"startResonance":0,"prismRadius":0,"prismPotency":0,"metronomeCooldown":0,"beamEcho":null,"startSolos":false,"spiritMult":1,"radiancePerAura":0,"sunriseRadianceMult":1,"fieldSongRadiusMult":1,"haloedReduction":0,"dawnwardPct":0,"dawnwardCooldown":0,"dawnwardDuration":0,"plantedEffectMult":1,"sovereignMult":1,"sovereignMinAuras":0,"eclipseVulnerability":0,"crescendoRadiusMult":null,"lifeMult":1,"lifeReserve":false,"bearShare":0,"borneTaken":1,"vowDuration":0,"vowRedirect":0,"vowHealMult":1,"penitencePer100":0,"bearDamageTaken":1,"bloodFontPct":0,"bloodFontBelow":0,"sharedWounds":0,"undyingInvulnerable":0,"undyingMendPct":0,"vigilBelow":0,"vigilMult":1,"aegisWardMult":1,"aegisSelf":false,"covenantPct":0,"rewindSeconds":0,"rewindCooldown":0,"stasisDuration":0,"stasisCostMult":1,"techCooldownMult":1,"foresight":0,"echoWardDelay":0,"echoWardPct":0,"borrowedTimeSolo":0,"masteryCooldown":0,"slowDanceSpeed":0,"slowDanceWindup":0,"paradox":false,"stasisPerfectResonance":0,"telegraphTimers":false,"auraEffectMult":1,"unsuppressible":false,"auraPerExtra":0,"beamFocusMult":1,"reserveMult":1,"lifeReserveMult":1,"techCostMult":1,"techniquesCostLife":false,"lifeCapPct":1,"wardCooldownCut":0,"wardHitCap":0,"wardDurationMult":1,"staggerMult":1,"perfectResonance":0,"graceShieldPct":0,"graceShieldDuration":0,"mendLowBonus":0,"mendLowBelow":0,"mendWarded":0,"empowerLinger":0,"heroLifeMult":1,"inFieldDamage":0,"wardedDamage":0,"closeRanks":0,"closeRanksRadius":0,"bleedOutMult":1,"reviveSpeedMult":1,"reviveHpPct":null,"reviveInvulnerable":0,"responseBonus":0,"bloodTithe":0,"bloodTitheRefund":0,"bloodAndSilk":0,"enGarde":0,"verdantChoir":0,"guardStrand":0,"cutLockMult":1,"cutResonance":0,"chimeCooldownCut":0,"stillwaterBell":0,"stillwaterRefund":0,"sacrificialLamb":0}',
   ) as Record<string, unknown>;
 
+  // docs/solos.md: a Cue costs nothing since the Solo rework. `cueCostBonus` (Silent Cues'
+  // surcharge, one of the fields before Phase 5f) became `cueHold`, and the Conductor's
+  // `cueCostBase` and `cueKeepsWhole` went; A Tempo gained `cueResonance`.
+  delete BEFORE.cueCostBonus;
+  BEFORE.cueHold = 0;
+
   /** The Conductor's mods and the defaults that do nothing. */
   const NEW = {
-    cueCostBase: null,
     chainWindow: 0,
     duetPower: 1,
     trioPower: 1,
-    cueKeepsWhole: false,
     finaleTurns: 0,
     finaleRamp: 1,
     finaleGap: 0,
@@ -186,6 +190,7 @@ describe('the mods', () => {
     marcatoSeconds: 0,
     marcatoCooldown: 0,
     beatWindow: 0,
+    cueResonance: 0,
     repriseCharge: 0,
     ensemblePct: 0,
     ensembleMax: 0,
@@ -221,11 +226,9 @@ describe('the mods', () => {
       resolveMods(resolveConfig({ seed: 1, calling: { id: 'conductor', path } }), CONTENT);
     const base = mods([]);
     expect(base).toMatchObject({
-      cueCostBase: 20,
       chainWindow: 4,
       duetPower: 1.25,
       trioPower: 1.5,
-      cueKeepsWhole: true,
       finaleTurns: 1,
       finaleRamp: 1.2,
       finaleGap: 1,
@@ -236,6 +239,7 @@ describe('the mods', () => {
     expect(mods(['marcato'])).toMatchObject({ marcatoSeconds: 4, marcatoCooldown: 8 });
     expect(mods(['marcato']).marcatoPct).toBeCloseTo(0.1, 12);
     expect(mods(['a_tempo']).beatWindow).toBe(0.15);
+    expect(mods(['a_tempo']).cueResonance).toBe(10);
     expect(mods(['reprise']).repriseCharge).toBe(30);
     expect(mods(['upbeat']).startResonance).toBe(50);
     expect(mods(['ensemble']).ensemblePct).toBeCloseTo(0.05, 12);

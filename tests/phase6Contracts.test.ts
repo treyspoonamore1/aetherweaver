@@ -63,7 +63,9 @@ describe('Phase 6 content contracts', () => {
       'thread_range',
       'heal_received',
       'elite_vanguard',
-      'cue_cost',
+      // Silent Cues' effect, renamed in place by the Solo rework (docs/solos.md): a Cue costs
+      // nothing now, and the level asks for the Thread to be on the hero a while instead.
+      'cue_hold',
       'restless_dead',
       'no_respite_heal',
       'blind_score',
@@ -172,8 +174,8 @@ describe('Phase 6 sim contracts', () => {
     }, 60_000);
   }
 
-  it('SIM_VERSION is still 22', () => {
-    expect(SIM_VERSION).toBe(22);
+  it('SIM_VERSION is 23: moved once since Phase 6, by the Solo rework (docs/solos.md)', () => {
+    expect(SIM_VERSION).toBe(23);
   });
 
   it("the 'expert' bot kind is built: makeBot makes each kind, named after it", () => {

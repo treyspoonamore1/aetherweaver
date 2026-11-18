@@ -108,7 +108,7 @@ const fights = (path: string[] | null, skip: Skip = NONE) =>
   SEEDS.map((seed) => skilledFight(seed, path, skip));
 
 describe('the Skilled bot on the Conductor (docs/phase-5f.md)', () => {
-  it('makes a Trio and casts a Grand Finale at the Bellwarden (the golden fight)', () => {
+  it('makes a Duet and casts a Grand Finale at the Bellwarden (the golden fight)', () => {
     const sc = SCENARIO_CONDUCTING_BELLWARDEN;
     const sim = createSim({ seed: sc.seed, debug: true, ...sc.config });
     const drive = sc.driver();
@@ -121,9 +121,13 @@ describe('the Skilled bot on the Conductor (docs/phase-5f.md)', () => {
       if (finaleOn(sim.state)) finaled = true;
     }
     const c = sim.state.ledger.conducting!;
-    expect(c.trios).toBeGreaterThanOrEqual(1);
+    // As re-recorded with the Solo rework (docs/solos.md): on this seed two Solos, a bar apart
+    // by A Tempo, are followed with the Thread into a Duet, and Maestro's Finale plays its six
+    // turns. (Trios form too, in other fights: the `soloCue` test below counts them.)
+    expect(c.duets).toBeGreaterThanOrEqual(1);
+    expect(c.freeCues).toBeGreaterThanOrEqual(1);
     expect(c.finales).toBeGreaterThanOrEqual(1);
-    expect(c.finaleSolos).toBe(9);
+    expect(c.finaleSolos).toBe(6);
     expect(chained).toBe(true);
     expect(finaled).toBe(true);
   });
@@ -383,7 +387,7 @@ describe('the Conductor goldens', () => {
     expect(of('triad').some((e) => e.on)).toBe(true);
   });
 
-  it('skilled-conducting-silent: Grand Finales, a turn lost to the Grand Silence’s stilling, Marcato and a Duet; the Conductor falls', () => {
+  it('skilled-conducting-silent: Grand Finales, the Grand Silence, Marcato, a Duet and a Trio; the Conductor falls', () => {
     const { sc, state, of } = goldenFight('skilled-conducting-silent');
     expect(state.encounter.status).toBe('victory');
     expect(state.encounter.endedAt!).toBeLessThan(sc.ticks / 60);
@@ -391,13 +395,16 @@ describe('the Conductor goldens', () => {
     expect(of('crescendoStart').some((e) => e.calling === 'Grand Finale')).toBe(true);
     expect(of('finaleTurn').length).toBeGreaterThanOrEqual(1);
     expect(of('finaleEnded').length).toBeGreaterThanOrEqual(1);
-    // The Grand Silence fell, and a Finale turn was lost to its stilling.
+    // The Grand Silence fell. (As re-recorded with the Solo rework, docs/solos.md, no Finale is
+    // playing as it falls on this seed, so no turn is lost to its stilling; the sim's own tests
+    // cover that loss.)
     expect(of('silenceBegan').length).toBeGreaterThanOrEqual(1);
-    expect(of('finaleTurnLost').some((e) => e.reason === 'stilled')).toBe(true);
-    expect(state.ledger.conducting!.finaleLost).toBeGreaterThanOrEqual(1);
-    // Marcato (on its path) was given, and two Cues chained into a Duet.
+    // Marcato (on its path) was given, and Solos followed with the Thread chained into a Duet
+    // and a Trio.
     expect(of('marcato').length).toBeGreaterThanOrEqual(1);
     expect(of('cueChained').some((e) => e.link === 2)).toBe(true);
+    expect(of('cueChained').some((e) => e.link === 3)).toBe(true);
     expect(state.ledger.conducting!.duets).toBeGreaterThanOrEqual(1);
+    expect(state.ledger.conducting!.trios).toBeGreaterThanOrEqual(1);
   }, 60_000);
 });

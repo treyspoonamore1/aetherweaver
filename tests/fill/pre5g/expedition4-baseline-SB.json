@@ -8,7 +8,7 @@
    "outcome": "defeat",
    "lastEncounter": "gorehound_matriarch",
    "fights": 8,
-   "minutes": 10.1528888888896,
+   "minutes": 9.468750000000709,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1",
@@ -24,17 +24,17 @@
     "cantors_hymnal"
    ],
    "path": [],
-   "aetherEarned": 283,
-   "aetherLeft": 283,
+   "aetherEarned": 254,
+   "aetherLeft": 254,
    "bondXp": {
-    "lyra": 266,
-    "vexis": 233,
-    "seren": 229
+    "lyra": 273,
+    "vexis": 236,
+    "seren": 217
    },
    "movementReached": 2,
    "minutesByMovement": [
-    6.324208333334176,
-    3.8286805555554224
+    5.859027777778607,
+    3.6097222222221026
    ]
   },
   {
@@ -161,7 +161,7 @@
    "outcome": "victory",
    "lastEncounter": "the_silent_conductor",
    "fights": 15,
-   "minutes": 21.870222222224253,
+   "minutes": 20.624736111112863,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1",
@@ -194,19 +194,19 @@
     "prism_loom"
    ],
    "path": [],
-   "aetherEarned": 857,
-   "aetherLeft": 237,
+   "aetherEarned": 846,
+   "aetherLeft": 226,
    "bondXp": {
-    "lyra": 792,
-    "vexis": 488,
-    "seren": 470
+    "lyra": 774,
+    "vexis": 498,
+    "seren": 478
    },
    "movementReached": 4,
    "minutesByMovement": [
-    5.19350000000036,
-    6.532208333333923,
-    7.42858333333406,
-    2.7159305555559112
+    4.739180555555789,
+    6.269805555556179,
+    7.196444444445219,
+    2.41930555555568
    ]
   },
   {

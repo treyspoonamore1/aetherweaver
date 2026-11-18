@@ -1,5 +1,7 @@
 # Hero autonomy
 
+> **Replaced.** Heroes now always fire their own Solos, and the Thread on a hero as they fire is the Cue: see [Solos](solos.md). This page is kept as the record of the assist that came before.
+
 *2026-11-03 · plan: [02 §Solos](plan/02-game-design.md) · follows [health at a glance](health-ui.md)*
 
 From playtesting: "If you turn on hero autonomy, do they actually cast their Solos? I feel like the tank doesn't." He often didn't, and in the Training Grounds nobody did.

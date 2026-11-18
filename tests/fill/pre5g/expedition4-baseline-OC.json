@@ -8,7 +8,7 @@
    "outcome": "defeat",
    "lastEncounter": "bellwarden",
    "fights": 3,
-   "minutes": 4.025458333333168,
+   "minutes": 3.544291666666528,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1"
@@ -17,16 +17,16 @@
     "wardens_key"
    ],
    "path": [],
-   "aetherEarned": 47,
-   "aetherLeft": 47,
+   "aetherEarned": 49,
+   "aetherLeft": 49,
    "bondXp": {
-    "kael": 84,
-    "lyra": 65,
+    "kael": 81,
+    "lyra": 68,
     "oro": 49
    },
    "movementReached": 1,
    "minutesByMovement": [
-    4.025458333333168
+    3.544291666666528
    ]
   },
   {
@@ -148,7 +148,7 @@
    "outcome": "victory",
    "lastEncounter": "the_silent_conductor",
    "fights": 15,
-   "minutes": 26.267986111115256,
+   "minutes": 26.426305555559694,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1",
@@ -181,19 +181,19 @@
     "prism_loom"
    ],
    "path": [],
-   "aetherEarned": 856,
-   "aetherLeft": 236,
+   "aetherEarned": 846,
+   "aetherLeft": 226,
    "bondXp": {
-    "kael": 513,
-    "lyra": 804,
-    "oro": 432
+    "kael": 527,
+    "lyra": 800,
+    "oro": 423
    },
    "movementReached": 4,
    "minutesByMovement": [
-    6.33831944444547,
-    8.181138888890134,
-    8.775222222223544,
-    2.9733055555561165
+    6.379597222223168,
+    8.409347222223582,
+    8.835902777779184,
+    2.801458333333762
    ]
   },
   {

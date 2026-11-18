@@ -468,6 +468,9 @@ describe('Vexis', () => {
   it('Constellation: a Cue leaves a star that casts Vexis’s bolt until it fades', () => {
     const { sim, w, of } = setup(bonds(['constellation']));
     enemies(sim, ['bell_brute', 0, -6]);
+    // Sturdy: the heroes fire their own Solos now (docs/solos.md), and the star needs a target
+    // for the whole of its life.
+    for (const e of w.entities.list()) if (e.enemy && e.health) e.health.hp = e.health.maxHp = 1e6;
     stepFor(sim, 2, [
       { t: 'debug', op: { op: 'chargeSolos' } },
       { t: 'debug', op: { op: 'setResonance', value: 100 } },

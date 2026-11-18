@@ -6,27 +6,24 @@
    "seed": 2000,
    "bot": "novice",
    "outcome": "defeat",
-   "lastEncounter": "tolling_halls",
-   "fights": 4,
-   "minutes": 2.7142916666665986,
+   "lastEncounter": "unsung_choir",
+   "fights": 2,
+   "minutes": 1.3261805555555226,
    "motifs": [
-    "long_weave:1",
-    "bulwarks_echo:1"
+    "long_weave:1"
    ],
-   "relics": [
-    "star_chart"
-   ],
+   "relics": [],
    "path": [],
-   "aetherEarned": 95,
-   "aetherLeft": 95,
+   "aetherEarned": 26,
+   "aetherLeft": 26,
    "bondXp": {
-    "kael": 99,
-    "lyra": 95,
-    "vexis": 70
+    "kael": 47,
+    "lyra": 42,
+    "vexis": 27
    },
    "movementReached": 1,
    "minutesByMovement": [
-    2.7142916666665986
+    1.3261805555555226
    ]
   },
   {
@@ -198,9 +195,9 @@
    "seed": 2000,
    "bot": "skilled",
    "outcome": "defeat",
-   "lastEncounter": "frayed_threshold",
-   "fights": 14,
-   "minutes": 15.879541666667725,
+   "lastEncounter": "legion_vanguard",
+   "fights": 10,
+   "minutes": 9.409486111111333,
    "motifs": [
     "long_weave:1",
     "bulwarks_echo:1",
@@ -209,10 +206,7 @@
     "twin_aegis:1",
     "da_capo:1",
     "golden_filament:1",
-    "fishers_knot:2",
-    "clear_tone:1",
-    "wind_at_her_back:1",
-    "deep_breath:2"
+    "fishers_knot:1"
    ],
    "relics": [
     "star_chart",
@@ -221,27 +215,20 @@
     "prism_loom",
     "wardens_key",
     "featherweight_robes",
-    "cantors_hymnal",
-    "hollow_bell",
-    "choirmasters_baton",
-    "cracked_metronome",
-    "silver_thimble",
-    "lantern_of_the_lost",
-    "stillwater_bell"
+    "cantors_hymnal"
    ],
    "path": [],
-   "aetherEarned": 649,
-   "aetherLeft": 119,
+   "aetherEarned": 362,
+   "aetherLeft": 152,
    "bondXp": {
-    "kael": 421,
-    "lyra": 568,
-    "vexis": 367
+    "kael": 291,
+    "lyra": 340,
+    "vexis": 244
    },
-   "movementReached": 3,
+   "movementReached": 2,
    "minutesByMovement": [
-    7.923180555556102,
-    7.516916666667182,
-    0.43944444444444086
+    7.034694444444737,
+    2.374791666666596
    ]
   },
   {

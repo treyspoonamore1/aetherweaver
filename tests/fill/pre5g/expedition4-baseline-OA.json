@@ -8,7 +8,7 @@
    "outcome": "defeat",
    "lastEncounter": "bellwarden",
    "fights": 3,
-   "minutes": 3.2724999999998783,
+   "minutes": 3.4749861111109808,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1"
@@ -20,13 +20,13 @@
    "aetherEarned": 52,
    "aetherLeft": 52,
    "bondXp": {
-    "kael": 88,
-    "vexis": 64,
-    "oro": 47
+    "kael": 84,
+    "vexis": 70,
+    "oro": 44
    },
    "movementReached": 1,
    "minutesByMovement": [
-    3.2724999999998783
+    3.4749861111109808
    ]
   },
   {
@@ -150,7 +150,7 @@
    "outcome": "victory",
    "lastEncounter": "the_silent_conductor",
    "fights": 15,
-   "minutes": 35.23191666666894,
+   "minutes": 35.57130555555706,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1",
@@ -184,18 +184,18 @@
    ],
    "path": [],
    "aetherEarned": 795,
-   "aetherLeft": 175,
+   "aetherLeft": 150,
    "bondXp": {
-    "kael": 555,
-    "vexis": 756,
-    "oro": 440
+    "kael": 571,
+    "vexis": 730,
+    "oro": 448
    },
    "movementReached": 4,
    "minutesByMovement": [
-    8.403472222223117,
-    10.826611111111468,
-    11.952527777777387,
-    4.049305555556968
+    8.343458333334342,
+    10.823277777777777,
+    12.24627777777678,
+    4.158291666668166
    ]
   },
   {

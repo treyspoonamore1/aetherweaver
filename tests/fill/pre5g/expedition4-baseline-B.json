@@ -8,7 +8,7 @@
    "outcome": "defeat",
    "lastEncounter": "bellwarden",
    "fights": 3,
-   "minutes": 2.4150555555554822,
+   "minutes": 2.177222222222163,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1"
@@ -21,12 +21,12 @@
    "aetherLeft": 49,
    "bondXp": {
     "lyra": 70,
-    "vexis": 60,
+    "vexis": 59,
     "brann": 68
    },
    "movementReached": 1,
    "minutesByMovement": [
-    2.4150555555554822
+    2.177222222222163
    ],
    "harmony": {
     "silkOffered": 0,
@@ -186,30 +186,55 @@
   {
    "seed": 2000,
    "bot": "skilled",
-   "outcome": "defeat",
-   "lastEncounter": "hollow_cantor",
-   "fights": 4,
-   "minutes": 4.442125,
+   "outcome": "victory",
+   "lastEncounter": "the_silent_conductor",
+   "fights": 15,
+   "minutes": 20.33866666666825,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1",
-    "da_capo:1"
+    "da_capo:1",
+    "second_verse:2",
+    "warm_hum:1",
+    "deep_roots:1",
+    "long_weave:1",
+    "clear_tone:1",
+    "starlit_study:2",
+    "deep_breath:3",
+    "quickened_verse:1",
+    "wind_at_her_back:1",
+    "canon:1"
    ],
    "relics": [
     "wardens_key",
-    "martyrs_veil"
+    "martyrs_veil",
+    "cantors_hymnal",
+    "star_chart",
+    "choirmasters_baton",
+    "hollow_bell",
+    "lantern_of_the_lost",
+    "cracked_metronome",
+    "knotted_cord",
+    "sacrificial_lamb",
+    "spindle_of_fate",
+    "silver_thimble",
+    "featherweight_robes",
+    "prism_loom"
    ],
    "path": [],
-   "aetherEarned": 124,
-   "aetherLeft": 124,
+   "aetherEarned": 845,
+   "aetherLeft": 225,
    "bondXp": {
-    "lyra": 175,
-    "vexis": 100,
-    "brann": 89
+    "lyra": 829,
+    "vexis": 485,
+    "brann": 431
    },
-   "movementReached": 1,
+   "movementReached": 4,
    "minutesByMovement": [
-    4.442125
+    4.664125000000187,
+    6.5108888888894345,
+    6.844583333334142,
+    2.319069444444489
    ],
    "harmony": {
     "silkOffered": 0,

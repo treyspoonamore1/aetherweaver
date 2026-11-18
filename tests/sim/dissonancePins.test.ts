@@ -3,6 +3,10 @@
  * at each of its ranks and all together, on three golden scenarios and on whole runs, plays
  * exactly as it did when `dissonancePins.json` was recorded (`recordDissonancePins.ts`, once,
  * before Phase 6 changed any source). A level whose behaviour moves changes a hash here.
+ *
+ * Re-recorded once since: the Solo rework (docs/solos.md) changed how every fight and run plays
+ * (and gave Silent Cues its new rule), so every hash moved. To record them again after such a
+ * change: delete `dissonancePins.json`, then `npx tsx tests/sim/recordDissonancePins.ts`.
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -44,7 +48,8 @@ describe('the Dissonance pins (docs/phase-6.md, ground rule 2)', () => {
   }
 
   it('the file is exactly what the fixture writes now', () => {
-    expect(SIM_VERSION).toBe(22);
+    // 23: the pins were re-recorded once, with the Solo rework (docs/solos.md).
+    expect(SIM_VERSION).toBe(23);
     expect(Object.keys(fights)).toEqual(PIN_SCENARIOS.map((s) => s.name));
     expect(Object.keys(runs)).toEqual(PIN_RUNS.map((r) => r.key));
     expect(serializePins({ simVersion: SIM_VERSION, fights, runs })).toBe(FILE);

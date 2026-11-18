@@ -54,7 +54,8 @@ import {
 export { thousands };
 
 export const RUN_REPLAY_FORMAT = 'aetherweaver-run';
-export const RUN_REPLAY_VERSION = 1;
+/** 2 since the Solo rework (docs/solos.md): a fight's assists hold no `autonomy`, its commands no `cue`. */
+export const RUN_REPLAY_VERSION = 2;
 /** A replay file's extension; the file is gzipped JSON (`src/app/replayStore.ts`). */
 export const RUN_REPLAY_EXTENSION = '.awrun';
 /** The longest fight a replay may hold: an hour of ticks (a guard, far past any real fight). */

@@ -268,7 +268,7 @@ describe('Movement I is unchanged (docs/phase-5a.md)', () => {
     expect(() =>
       parseReplay({
         format: 'aetherweaver-replay',
-        version: 6,
+        version: 7,
         simVersion: SIM_VERSION,
         contentVersion: 'x',
         config: resolved,

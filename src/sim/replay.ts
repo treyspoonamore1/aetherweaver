@@ -133,7 +133,8 @@ void configSchemaMatches;
 export const ReplaySchema = z
   .object({
     format: z.literal('aetherweaver-replay'),
-    version: z.literal(6),
+    // 7 since the Solo rework (docs/solos.md): no `cue` command, no `assists.autonomy`.
+    version: z.literal(7),
     simVersion: z.number().int(),
     contentVersion: z.string(),
     config: SimConfigSchema,
@@ -179,7 +180,7 @@ export class ReplayRecorder {
   export(finalTick: number, finalHash: string): Replay {
     return {
       format: 'aetherweaver-replay',
-      version: 6,
+      version: 7,
       simVersion: SIM_VERSION,
       contentVersion: CONTENT_VERSION,
       config: JSON.parse(JSON.stringify(this.config)) as ResolvedSimConfig,

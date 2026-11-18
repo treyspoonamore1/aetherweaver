@@ -6,26 +6,29 @@
    "seed": 2000,
    "bot": "novice",
    "outcome": "defeat",
-   "lastEncounter": "choir_loft",
-   "fights": 2,
-   "minutes": 1.2527777777777493,
+   "lastEncounter": "hollow_cantor",
+   "fights": 4,
+   "minutes": 6.059083333334004,
    "motifs": [
-    "taut_release:1"
+    "taut_release:1",
+    "twin_aegis:1",
+    "da_capo:1"
    ],
    "relics": [
-    "wardens_key"
+    "wardens_key",
+    "martyrs_veil"
    ],
    "path": [],
-   "aetherEarned": 17,
-   "aetherLeft": 17,
+   "aetherEarned": 114,
+   "aetherLeft": 114,
    "bondXp": {
-    "kael": 49,
-    "lyra": 27,
-    "seren": 23
+    "kael": 163,
+    "lyra": 113,
+    "seren": 87
    },
    "movementReached": 1,
    "minutesByMovement": [
-    1.2527777777777493
+    6.059083333334004
    ]
   },
   {
@@ -145,24 +148,22 @@
   {
    "seed": 2000,
    "bot": "skilled",
-   "outcome": "victory",
-   "lastEncounter": "the_silent_conductor",
-   "fights": 15,
-   "minutes": 25.189819444448094,
+   "outcome": "defeat",
+   "lastEncounter": "frayed_threshold",
+   "fights": 10,
+   "minutes": 14.328138888890825,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1",
     "da_capo:1",
-    "second_verse:2",
+    "second_verse:1",
     "warm_hum:1",
     "deep_roots:1",
     "long_weave:1",
     "clear_tone:1",
-    "wind_at_her_back:2",
-    "deep_breath:3",
-    "quickened_verse:1",
-    "bulwarks_echo:1",
-    "canon:1"
+    "wind_at_her_back:1",
+    "deep_breath:1",
+    "quickened_verse:1"
    ],
    "relics": [
     "wardens_key",
@@ -172,28 +173,21 @@
     "choirmasters_baton",
     "hollow_bell",
     "lantern_of_the_lost",
-    "cracked_metronome",
-    "knotted_cord",
-    "sacrificial_lamb",
-    "spindle_of_fate",
-    "silver_thimble",
-    "featherweight_robes",
-    "prism_loom"
+    "cracked_metronome"
    ],
    "path": [],
-   "aetherEarned": 843,
-   "aetherLeft": 223,
+   "aetherEarned": 490,
+   "aetherLeft": 190,
    "bondXp": {
-    "kael": 512,
-    "lyra": 826,
-    "seren": 413
+    "kael": 311,
+    "lyra": 456,
+    "seren": 255
    },
-   "movementReached": 4,
+   "movementReached": 3,
    "minutesByMovement": [
-    6.030069444445221,
-    7.514791666667699,
-    8.490500000001141,
-    3.1544583333340386
+    5.769069444445184,
+    7.96256944444565,
+    0.5964999999999877
    ]
   },
   {
