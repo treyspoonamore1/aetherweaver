@@ -559,7 +559,7 @@ describe('his sounds in the fight (real sim)', () => {
 
   // Successor of "under Silent Cues a Cue on the beat still costs: no glass chime" (docs/solos.md):
   // a Cue costs nothing now, so the chime follows what A Tempo pays for, a Cued Solo begun on the
-  // downbeat, read from the sim's own flag (`cueChained.paid`), not from the event's `cost` (always 0).
+  // downbeat, read from the sim's own flag (`cueChained.paid`), not from a price (the event carries none).
   it('A Tempo’s chime sounds on each Cued Solo it pays for, Silent Cues or not, and on no other', () => {
     const onTheBeat = (t: ReturnType<typeof fight>) => {
       while (Math.abs(((t.sim.state.time + 0.05) % BAR_SECONDS) - 0.05) > 0.1) t.run(1);
@@ -579,7 +579,7 @@ describe('his sounds in the fight (real sim)', () => {
     const chained = ofType(paid.events, 'cueChained')[0]!;
     expect(chained.onBeat).toBe(true);
     expect(chained.paid).toBe(true);
-    expect(chained.cost).toBe(0);
+    expect('cost' in chained).toBe(false);
     expect(paidBy(paid.events)).toBe(true);
     expect(paid.groups).toContain(CONDUCT_SOUND_GROUPS.tempo);
     expect(silent.conduct().asked.tempo).toBe(1);

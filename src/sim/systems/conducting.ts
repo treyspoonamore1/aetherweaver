@@ -303,7 +303,6 @@ export function conductCue(world: World, hero: Entity): void {
     hero: hero.id,
     link: next.link,
     power: next.power,
-    cost: 0,
     onBeat: next.onBeat,
     paid,
     // A Trio closes the chain: no Cue can join it, so its time to join ends now.

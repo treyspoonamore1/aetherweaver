@@ -4565,8 +4565,6 @@ const chained = (hero: number, link: 1 | 2 | 3, onBeat = false) =>
     hero,
     link,
     power: link === 3 ? 1.5 : link === 2 ? 1.25 : 1,
-    // Always 0: a Cue costs nothing (the field is kept until its readers are reworked).
-    cost: 0,
     onBeat,
     // On the lab's A Tempo path a Cue on the beat is one A Tempo pays for (the sim's rule).
     paid: onBeat,

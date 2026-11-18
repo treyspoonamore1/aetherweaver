@@ -78,7 +78,7 @@ describe('the passive', () => {
     setResonance(w, 50);
     const events = stepFor(sim, 1, [cue(1)]);
     expect(ofType(events, 'cueChained')).toEqual([
-      expect.objectContaining({ link: 1, power: 1, cost: 0, onBeat: false }),
+      expect.objectContaining({ link: 1, power: 1, onBeat: false, paid: false }),
     ]);
     expect(ofType(events, 'resonanceSpent')).toHaveLength(0);
     expect(weaverOf(w).weaver!.resonance).toBeCloseTo(50, 9);
@@ -136,7 +136,7 @@ describe('Duets and Trios', () => {
   it('a third 2.9 s after the second (5.8 s after the first) is a Trio (×1.5)', () => {
     const { sim, w } = stage();
     const first = ofType(cueNow(sim, w, 0), 'cueChained')[0]!;
-    expect(first).toMatchObject({ link: 1, power: 1, cost: 0, onBeat: false });
+    expect(first).toMatchObject({ link: 1, power: 1, onBeat: false, paid: false });
     expect(first.until).toBeCloseTo(w.time - 1 / 60 + passive('chain'), 9);
     stepFor(sim, 173);
     expect(ofType(cueNow(sim, w, 1), 'cueChained')[0]!.link).toBe(2);
@@ -188,7 +188,7 @@ describe('Duets and Trios', () => {
     expect(Math.abs(w.time - 5 * BAR_SECONDS)).toBeLessThan(0.15);
     const before = weaverOf(w).weaver!.resonance;
     const paid = cueNow(sim, w, 1);
-    expect(ofType(paid, 'cueChained')[0]).toMatchObject({ link: 2, cost: 0, onBeat: true });
+    expect(ofType(paid, 'cueChained')[0]).toMatchObject({ link: 2, onBeat: true, paid: true });
     expect(ofType(paid, 'resonanceSpent')).toEqual([]);
     const gain = weaverOf(w).weaver!.resonance - before;
     expect(gain).toBeCloseTo(value('a_tempo', 'resonance') * resonanceScale(w), 9);

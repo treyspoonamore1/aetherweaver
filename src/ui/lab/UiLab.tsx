@@ -217,7 +217,7 @@ function HudStage({
           scenario === 'boss'
             ? {
                 name: 'Requiem',
-                text: 'Every hero will lose 90% of their life. Cue Kael’s dome, or Ward and heal.',
+                text: 'Every hero will lose 90% of their life. Thread Kael for his dome, or Ward and heal.',
               }
             : null
         }
@@ -994,7 +994,7 @@ function HudDissonance({
           scenario === 'boss'
             ? {
                 name: 'Requiem',
-                text: 'Every hero will lose 90% of their life. Cue Kael’s dome, or Ward and heal.',
+                text: 'Every hero will lose 90% of their life. Thread Kael for his dome, or Ward and heal.',
               }
             : null
         }

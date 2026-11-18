@@ -539,7 +539,7 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
           enrageIn: 24,
           decree: {
             name: 'Requiem',
-            text: 'Every hero will lose 90% of their life. Cue Kael’s dome, or Ward and heal.',
+            text: 'Every hero will lose 90% of their life. Thread Kael for his dome, or Ward and heal.',
           },
           foreseen: null,
         },
@@ -1112,7 +1112,8 @@ export function mockCallouts(scenario: HudScenario): Callout[] {
     case 'boss':
       return [
         c(1, 'decree', 'Requiem', {
-          detail: 'Every hero will lose 90% of their life. Cue Kael’s dome, or Ward and heal.',
+          detail:
+            'Every hero will lose 90% of their life. Thread Kael for his dome, or Ward and heal.',
           color: '#e9d5ff',
         }),
         c(2, 'save', 'Saved Vexis', { detail: 'Toll · 1,140 prevented', color: '#f5d78e' }),

@@ -704,8 +704,8 @@ export function unforgivingLine(what: 'rest' | 'skip' | 'party'): string {
 
 /**
  * A boss's decree under Blind Score: its first sentence (what's coming) without the rest (how to
- * answer it). Content writes each decree that way: "Requiem — every hero will lose 90% of their
- * life. Cue Kael’s dome, or Ward and heal."
+ * answer it). Content writes each decree that way: "Requiem: every hero will lose 90% of their
+ * life. Thread Kael for his dome, or Ward and heal."
  */
 export function blindDecree(text: string): string {
   const first = /^.*?[.!?](?=\s|$)/.exec(text.trim());

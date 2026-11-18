@@ -365,8 +365,6 @@ export interface ResonanceSpent extends At {
   type: 'resonanceSpent';
   amount: number;
   total: number;
-  /** What it bought. Only the Crescendo spends Resonance (a Cue costs nothing, docs/solos.md). */
-  on: 'crescendo';
 }
 export interface CrescendoStart extends At {
   type: 'crescendoStart';
@@ -956,15 +954,14 @@ export interface SilenceBroken extends At {
 /**
  * Every Cue on a Conductor run, after `cued`: its place in the chain (1 starts one, 2 is a Duet,
  * 3 a Trio), its power, whether A Tempo paid Resonance for it (`onBeat`: the Solo began on the
- * downbeat), and when the chain's window closes. `cost` is always 0 (a Cue costs nothing); it is
- * kept until the views that read it are reworked (docs/solos.md).
+ * downbeat), and when the chain's window closes. A Cue costs nothing (docs/solos.md), so the
+ * event carries no price.
  */
 export interface CueChained extends At {
   type: 'cueChained';
   hero: EntityId;
   link: 1 | 2 | 3;
   power: number;
-  cost: number;
   onBeat: boolean;
   /**
    * A Tempo paid Resonance for this Cue (on the beat, with A Tempo on the path). The sim always

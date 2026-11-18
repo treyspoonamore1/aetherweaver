@@ -667,11 +667,7 @@ describe('N15b: Prompt Book’s first Crescendo, as `crescendoCostOf` shows and 
       weaverOf(w).resonance = full - 15;
       const first = stepFor(sim, 1, [CRESCENDO]);
       expect(ofType(first, 'crescendoStart')).toHaveLength(1);
-      expect(
-        ofType(first, 'resonanceSpent')
-          .filter((e) => e.on === 'crescendo')
-          .map((e) => e.amount),
-      ).toEqual([full - 15]);
+      expect(ofType(first, 'resonanceSpent').map((e) => e.amount)).toEqual([full - 15]);
       expect(crescendoCostOf(w)).toBe(full);
     });
   }

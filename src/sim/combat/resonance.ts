@@ -49,7 +49,6 @@ export function spendResonance(world: World, amount: number): boolean {
     tick: world.tick,
     amount,
     total: w.resonance,
-    on: 'crescendo',
   });
   return true;
 }

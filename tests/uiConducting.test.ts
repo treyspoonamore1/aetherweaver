@@ -704,7 +704,6 @@ describe('call-outs and hints', () => {
       hero: 2,
       link: 1 as const,
       power: 1,
-      cost: 0,
       onBeat: true,
       until: 3,
     };

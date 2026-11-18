@@ -114,7 +114,8 @@ describe('A Tempo’s tallies (`freeCues`, `saved`)', () => {
       heroAt(w, 0).hero!.solo = 100;
       weaverOf(w).weaver!.resonance = 50;
       const chained = ofType(stepFor(sim, 1, [cue(0)]), 'cueChained')[0]!;
-      expect(chained).toMatchObject({ cost: 0, onBeat: true });
+      expect(chained).toMatchObject({ onBeat: true, paid: true });
+      expect('cost' in chained).toBe(false);
       expect(w.ledger.conducting!.freeCues).toBe(1);
       expect(w.ledger.conducting!.saved).toBeCloseTo(weaverOf(w).weaver!.resonance - 50, 9);
       expect(w.ledger.conducting!.saved).toBeGreaterThan(0);

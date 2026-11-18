@@ -397,6 +397,12 @@ describe('what changes the rule', () => {
     expect(ofType(events, 'resonanceSpent')).toHaveLength(0);
     expect(weaver(sim).weaver!.resonance).toBe(100);
     const sung = stepFor(sim, 1, [{ t: 'crescendo' }]);
-    expect(ofType(sung, 'resonanceSpent').map((e) => e.on)).toEqual(['crescendo']);
+    // The one spend is the Crescendo's: its price, on the tick it starts.
+    expect(ofType(sung, 'resonanceSpent').map((e) => e.amount)).toEqual([
+      CONTENT.resonance.crescendoCost,
+    ]);
+    expect(ofType(sung, 'crescendoStart').map((e) => e.tick)).toEqual(
+      ofType(sung, 'resonanceSpent').map((e) => e.tick),
+    );
   });
 });
