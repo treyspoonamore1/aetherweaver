@@ -198,8 +198,11 @@ describe('each Expert rule acts in a fight staged for it, and changes it when le
     // bot casts the Grand Finale into the untouchable boss; the Expert waits. (Heroes fire their
     // own Solos, docs/solos.md, so the Grand Finale is what the rule still holds.)
     let staged = false;
+    // Seed 8919: its party reaches the rise with the Grand Finale still unsung (found again after
+    // the Solo rework's tuning, docs/solos.md; 1000's sings it on the way).
     const config: SimConfig = {
       ...POSTLUDE,
+      seed: 8919,
       calling: { id: 'conductor', path: ['marcato', 'reprise', 'ensemble', 'triad'] },
     };
     actsIn('postludeRise', config, {
@@ -215,9 +218,10 @@ describe('each Expert rule acts in a fight staged for it, and changes it when le
   }, 120_000);
 
   it('postludePair: the Silent Conductor with True Dissonance, a pair under way', () => {
-    // Seed 16838: a pair under way meets a Ward the plain rules would spend (found again after the
-    // Solo rework, docs/solos.md, changed every fight; 1000's and 8919's meet none).
-    actsIn('postludePair', { ...POSTLUDE, seed: 16838 });
+    // Seed 1000: a pair under way meets a Ward the plain rules would spend. (Which seed's fight
+    // does is found again whenever the fights change: 16838 after the Solo rework's first step,
+    // 1000 again once it was tuned, docs/solos.md.)
+    actsIn('postludePair', POSTLUDE);
   }, 120_000);
 
   it('postludeBank: the Postlude on a Conductor run, Discord set past its line after the rise', () => {
@@ -236,8 +240,10 @@ describe('each Expert rule acts in a fight staged for it, and changes it when le
       },
       reset: () => (staged = false),
     };
+    // Seed 8919, as for the rise above.
     const config: SimConfig = {
       ...POSTLUDE,
+      seed: 8919,
       calling: { id: 'conductor', path: ['marcato', 'reprise', 'ensemble', 'triad'] },
     };
     actsIn('postludeBank', config, stage);
