@@ -646,23 +646,32 @@ describe('in a fight', () => {
     }
   });
 
-  it('the Cue hint names the alternate Solo', () => {
+  it('the Solo hint names the alternate Solo', () => {
     const vexis = HEROES[2]!;
     const alt = altSoloOf(vexis)!;
-    const base = mockBondsHud('calm', [{ heroId: vexis, talents: [], solo: alt.id }], (h) =>
-      h.defId === vexis ? { solo: 100, soloReady: true } : {},
+    // Her Solo is coming and the Thread is elsewhere: the coach names the Solo she brought.
+    const coming = { solo: 100, soloReady: true, soloIn: 0.8, soloNow: true, willCue: false };
+    const hud = mockBondsHud('calm', [{ heroId: vexis, talents: [], solo: alt.id }], (h) =>
+      h.defId === vexis ? { ...coming, threaded: false } : {},
     );
-    const hud = { ...base, weaver: { ...base.weaver, resonance: base.weaver.cueCost } };
-    const cue = evaluateHints(hud).find((x) => x.id === 'cue');
-    expect(cue?.text).toContain(alt.name);
+    const hint = evaluateHints(hud).find((x) => x.id === 'solo');
+    expect(hint?.text).toContain(alt.name);
+    expect(hint?.text).toContain('Thread them {3} to Cue it');
     const own = evaluateHints({
       ...mockHud('calm'),
-      weaver: hud.weaver,
       party: mockHud('calm').party.map((h) =>
-        h.defId === vexis ? { ...h, solo: 100, soloReady: true } : h,
+        h.defId === vexis ? { ...h, ...coming, threaded: false } : h,
       ),
-    }).find((x) => x.id === 'cue');
+    }).find((x) => x.id === 'solo');
     expect(own?.text).toContain(heroDef(vexis).solo.name);
+    // With the Thread on her it will be Cued: the coach has nothing to add.
+    const cued = evaluateHints({
+      ...mockHud('calm'),
+      party: mockHud('calm').party.map((h) =>
+        h.defId === vexis ? { ...h, ...coming, willCue: true, threaded: true } : h,
+      ),
+    }).find((x) => x.id === 'solo');
+    expect(cued).toBeUndefined();
   });
 });
 

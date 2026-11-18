@@ -9,7 +9,14 @@ import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { COLOR_VISIONS, deltaE, simulateVision, visionPalette } from '../src/app/colorVision';
 import { CONTENT, dissonanceLevel } from '../src/content';
-import type { Command, Sim, SimConfig, SimEvent, WorldState } from '../src/sim';
+import {
+  threadCues,
+  type Command,
+  type Sim,
+  type SimConfig,
+  type SimEvent,
+  type WorldState,
+} from '../src/sim';
 import { dealDamage } from '../src/sim/combat/health';
 import type { CameraRig } from '../src/render/camera';
 import { CallView } from '../src/render/calls';
@@ -19,13 +26,12 @@ import {
   DISSONANCE_HEX,
   RISEN_DESAT,
   RISE_SECONDS,
-  cueReady,
-  cueTicks,
   dissonanceLook,
   emptyDissonanceLook,
   emptyRiseShape,
   riseShape,
 } from '../src/render/dissonanceCues';
+import { soloMarkOf } from '../src/render/soloMark';
 import { EntityLayer } from '../src/render/entities';
 import { FermataView } from '../src/render/fermata';
 import { Feedback } from '../src/render/feedback';
@@ -259,7 +265,6 @@ describe('Dissonance cues', () => {
       blindScore: false,
       restless: false,
       vanguard: false,
-      cueCost: CONTENT.resonance.segment,
       segment: CONTENT.resonance.segment,
       max: CONTENT.resonance.max,
     });
@@ -269,9 +274,8 @@ describe('Dissonance cues', () => {
       risePct: value('restless_dead', 'pct') / 100,
     });
     expect(at([level('elite_vanguard')])).toMatchObject({ vanguard: true });
-    expect(at([level('cue_cost')]).cueCost).toBe(
-      CONTENT.resonance.segment + value('cue_cost', 'resonance'),
-    );
+    // Silent Cues prices nothing (docs/solos.md): the look carries no Cue cost.
+    expect('cueCost' in at([level('cue_hold')])).toBe(false);
     // A state without `dissonance` (an old fixture, a lab stand-in) reads as none.
     const sim = sandbox();
     const bare = { ...sim.state, entities: sim.state.entities } as Record<string, unknown>;
@@ -316,34 +320,39 @@ describe('Dissonance cues', () => {
     expect(ticks / 60).toBeCloseTo(RISE_SECONDS, 1);
   });
 
-  it('Silent Cues: ticks where each Cue’s cost falls on the orbit, none at the content’s cost', () => {
-    const out = new Float32Array(8);
-    const look = emptyDissonanceLook();
-    expect(cueTicks(look, out)).toBe(0);
-    look.cueCost = CONTENT.resonance.segment + value('cue_cost', 'resonance');
-    const n = cueTicks(look, out);
-    const want: number[] = [];
-    for (let k = 1; k * look.cueCost <= look.max; k++) {
-      const at = (k * look.cueCost) / look.segment;
-      if (Math.abs(at - Math.round(at)) > 1e-6) want.push(at);
-    }
-    expect(n).toBe(want.length);
-    expect(n).toBeGreaterThan(0);
-    for (let i = 0; i < n; i++) expect(out[i]).toBeCloseTo(want[i]!, 5);
-  });
-
-  it('a Cue is ready when the Weaver’s Resonance pays this fight’s cost (the Hymnal reads it)', () => {
-    const cost = CONTENT.resonance.segment + value('cue_cost', 'resonance');
-    const sim = sandbox({ dissonance: [level('cue_cost')] });
-    stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: cost - 1 } }]);
-    expect(cueReady(sim.state)).toBe(false);
-    stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: cost } }]);
-    expect(cueReady(sim.state)).toBe(true);
+  it('Silent Cues: its picture is the hold ring on the Solo mark, from the sim’s own hold', () => {
+    const need = value('cue_hold', 'seconds');
+    const sim = sandbox({ dissonance: [level('cue_hold')] });
+    const st = sim.state;
+    const lyra = () => st.entities.get(st.party[1]!)!;
+    sim.step([{ t: 'debug', op: { op: 'spawnEnemy', defId: 'bell_brute', x: 0, z: -5 } }]);
+    stepUntil(sim, () => lyra().hero!.targetId !== null);
+    (lyra().hero as { solo: number }).solo = 95;
+    sim.step([]);
+    // The Thread elsewhere: the plain mark, no hold running.
+    expect(soloMarkOf(st, lyra())).toMatchObject({ cued: false, hold: -1 });
+    // The Thread reaches her: the hold starts at nothing and fills with the sim's clock.
+    sim.step([{ t: 'thread', slot: 1 }]);
+    const w = st.entities.get(st.weaverId)!.weaver!;
+    const first = soloMarkOf(st, lyra())!;
+    expect(first.cued).toBe(false);
+    expect(first.hold).toBeCloseTo((st.time - w.threadSince) / need, 9);
+    stepFor(sim, need / 2);
+    const half = soloMarkOf(st, lyra());
+    if (half && !half.cued) expect(half.hold).toBeCloseTo((st.time - w.threadSince) / need, 9);
+    // Held long enough: the sim's threadCues turns the mark to the Cued look.
+    stepUntil(sim, () => threadCues(st, lyra()) || soloMarkOf(st, lyra()) === null);
+    const held = soloMarkOf(st, lyra());
+    if (held) expect(held).toMatchObject({ cued: true, hold: -1 });
+    // Without the level no hold ever runs: the Thread Cues the moment it is there.
     const plain = sandbox();
-    stepFor(plain, 1, [
-      { t: 'debug', op: { op: 'setResonance', value: CONTENT.resonance.segment } },
-    ]);
-    expect(cueReady(plain.state)).toBe(true);
+    const p = plain.state;
+    plain.step([{ t: 'debug', op: { op: 'spawnEnemy', defId: 'bell_brute', x: 0, z: -5 } }]);
+    stepUntil(plain, () => p.entities.get(p.party[1]!)!.hero!.targetId !== null);
+    (p.entities.get(p.party[1]!)!.hero as { solo: number }).solo = 95;
+    plain.step([{ t: 'thread', slot: 1 }]);
+    plain.step([]);
+    expect(soloMarkOf(p, p.entities.get(p.party[1]!)!)).toMatchObject({ cued: true, hold: -1 });
   });
 
   it('its colours stay apart from danger and from a living enemy’s life bar, in every vision', () => {
@@ -773,14 +782,12 @@ describe('the numbers follow the sim', () => {
     expect(fragile.tension).toBeGreaterThan(plain.tension + 0.5);
   });
 
-  it('Silent Cues: the orbit ticks the Cue’s cost; at the content’s cost it looks as it did', () => {
-    const ticks = (dissonance: SimConfig['dissonance']) => {
+  it('Silent Cues: the Weaver’s orbit carries no Cue ticks (a Cue has no price)', () => {
+    for (const dissonance of [[], [level('cue_hold')]]) {
       const { h } = setup({ dissonance });
       h.run(2);
-      return h.entities.drawnDis.cueTicks;
-    };
-    expect(ticks([])).toBe(0);
-    expect(ticks([level('cue_cost')])).toBeGreaterThan(0);
+      expect('cueTicks' in h.entities.drawnDis).toBe(false);
+    }
   });
 
   it('Short Fuse: a telegraph is drawn over the sim’s shorter wind-up', () => {

@@ -88,16 +88,18 @@ describe('a stilled hero is not Cue-ready', () => {
     encounter: { ...hud.encounter, status: 'fighting' },
   });
 
-  it('a full Solo on a stilled frame is not READY, and no hint says to Cue it', async () => {
+  it('a full Solo on a stilled frame is not READY: no tell, no Solo strip, no hint', async () => {
     const { sim, world } = stillAll(true);
     const hud = buildHudSnapshot(sim.state, { seed: 7, hovered: null });
     for (const h of hud.party) {
       expect(h.stilled).toBe(true);
       expect(h.solo).toBe(100);
       expect(h.soloReady).toBe(false);
+      // A stilled hero does not fire (docs/solos.md): nothing is coming.
+      expect(h.soloIn).toBeNull();
     }
-    expect(evaluateHints(fighting(hud)).map((x) => x.id)).not.toContain('cue');
-    // The frame: no READY, no glowing Cue key.
+    expect(evaluateHints(fighting(hud)).map((x) => x.id)).not.toContain('solo');
+    // The frame: no READY, no Solo strip.
     const { PartyFrames } = await tsx<{ PartyFrames: FunctionComponent<Props> }>(
       '../src/ui/hud/PartyFrames',
     );
@@ -105,6 +107,7 @@ describe('a stilled hero is not Cue-ready', () => {
       createElement(PartyFrames, { party: hud.party, threadMode: 'mend', barks: [] }),
     );
     expect(frames).not.toContain('READY');
+    expect(frames).not.toContain('data-testid="solo-strip"');
     // The song returns: the same Solos are ready again.
     for (const id of world.party) {
       const list = world.entities.get(id)!.health!.statuses as Status[];
@@ -115,7 +118,12 @@ describe('a stilled hero is not Cue-ready', () => {
     }
     const after = buildHudSnapshot(sim.state, { seed: 7, hovered: null });
     for (const h of after.party) expect(h.soloReady).toBe(true);
-    expect(evaluateHints(fighting(after)).map((x) => x.id)).toContain('cue');
+    // With someone to fight, their Solos are coming and the coach says what the Thread does.
+    const engaged = () => world.party.some((id) => world.entities.get(id)!.hero!.targetId !== null);
+    for (let i = 0; i < 600 && !engaged(); i++) sim.step([]);
+    const coming = buildHudSnapshot(sim.state, { seed: 7, hovered: null });
+    expect(coming.party.some((h) => h.soloIn !== null && !h.willCue)).toBe(true);
+    expect(evaluateHints(fighting(coming)).map((x) => x.id)).toContain('solo');
   });
 
   it('the Empower hint stays quiet in the Grand Silence', () => {

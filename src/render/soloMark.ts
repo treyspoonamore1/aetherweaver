@@ -19,25 +19,27 @@ import { flareScale } from './relicCues';
  *   Solo is full and its 1 s wait is running (the moment to move the Thread) it is full size,
  *   brighter, and breathes quickly.
  * - **Solo coming, your Thread on them** (the sim's `threadCues`: it will be Cued): a solid ring
- *   with eight rays, white-gold and a third larger, round the Thread's glyph. It pops once as the
- *   Thread arrives.
+ *   with eight rays and a soft light behind it, a third larger, round the Thread's glyph. It pops
+ *   once as the Thread arrives.
  *
- * Under Silent Cues (Dissonance) the Thread must have been on the hero for a second. While it is on
- * them and that second is running, the plain look gains a second ring outside the first that fills
- * as the Thread holds; full, the mark turns to the Cued look.
+ * Under Silent Cues (Dissonance) the Thread must have been on the hero for a second. While it is
+ * on them and that second is running, the plain look gains a second ring outside the first that
+ * fills as the Thread holds; full, the mark turns to the Cued look.
  *
  * Every rule is the sim's: when the tell shows and how long is left (`soloDueIn`), and whether it
  * would be Cued now (`threadCues`: Silent Cues' hold and Hollow Crown included). Nothing here
  * decides one.
  *
  * Comfort: with Reduced motion On (`still`) nothing breathes or pops: the ring stands and only its
- * fill moves (the loud stage is still larger and brighter). Its light follows the Flashes setting (`flareScale`). The two golds are not in
- * the colour-vision palettes on purpose: under every palette they stay light warm tones, far from
- * the enemies' red outline and from Mend's teal, and the two looks differ in shape (dashed against
- * solid, a note against rays), so neither rests on hue (tests/renderSoloMark.test.ts).
+ * fill moves (the loud stage is still larger and brighter). Its light follows the Flashes setting
+ * (`flareScale`), never below a floor: it is information, not a flash. Its colour is the live
+ * palette's `call` (gold; white under the colour-vision palettes), the colour of a hero's offer to
+ * the Weaver, which every palette keeps apart from the threat and lethal colours, from Mend and
+ * from the enemies' red outline. The two looks differ in shape (dashed against solid, a note
+ * against rays) and in size, so neither rests on hue (tests/renderSoloMark.test.ts).
  *
- * Cost: two sprites a hero at most (three under Silent Cues' hold), through the overhead batch every other mark uses
- * (`kit.spritesTop`): no new draw call, no allocation per frame.
+ * Cost: two sprites a hero at most (three under Silent Cues' hold), through the overhead batch
+ * every other mark uses (`kit.spritesTop`): no new draw call, no allocation per frame.
  */
 
 /** What SoloMarkView needs of an entity's render record (EntityRec satisfies it). */
@@ -163,9 +165,9 @@ export class SoloMarkView {
         const k = still ? 1 : clamp01(m.cuedFor / POP);
         const pop = still ? 0 : Math.sin(k * Math.PI) * 0.3;
         const size = SOLO_MARK_CUED_SIZE * (1 + pop);
-        kit.spritesTop.push(r.x, y, r.z, size, SPRITE.solo, C.goldHot, flare, 0, 1, 2 + mark.fill);
+        kit.spritesTop.push(r.x, y, r.z, size, SPRITE.solo, C.call, flare, 0, 1, 2 + mark.fill);
         // A soft light behind it: the "spotlight is on" read at a distance.
-        kit.spritesTop.push(r.x, y, r.z, size * 1.25, SPRITE.glow, C.gold, 0.3 * flare);
+        kit.spritesTop.push(r.x, y, r.z, size * 1.25, SPRITE.glow, C.call, 0.3 * flare);
       } else {
         // Two stages. Coming (the last seconds of charge): quiet and smaller, so the hand can
         // get ready. Now (full, the wait running): full size, bright, and it beckons with a
@@ -173,8 +175,7 @@ export class SoloMarkView {
         const breath = still || !mark.now ? 0 : 0.5 + 0.5 * Math.sin(time * 9 + i * 1.7);
         const size = SOLO_MARK_SIZE * (mark.now ? 1 + 0.08 * breath : SOLO_MARK_QUIET);
         const alpha = (mark.now ? 0.86 + 0.14 * breath : 0.6) * flare;
-        const tint = mark.now ? C.goldHot : C.gold;
-        kit.spritesTop.push(r.x, y, r.z, size, SPRITE.solo, tint, alpha, 0, 1, mark.fill);
+        kit.spritesTop.push(r.x, y, r.z, size, SPRITE.solo, C.call, alpha, 0, 1, mark.fill);
         // Silent Cues: the Thread is on them and must stay. A second ring outside the first
         // fills as it holds; full, the mark turns to the Cued look.
         if (mark.hold >= 0)
@@ -184,7 +185,7 @@ export class SoloMarkView {
             r.z,
             size * SOLO_MARK_HOLD,
             SPRITE.timer,
-            C.goldHot,
+            C.call,
             0.95 * flare,
             0,
             1,

@@ -1,7 +1,7 @@
 /**
  * Phase 4d UI: Dissonance (docs/phase-4d.md, docs/phase-4d/ui.md). Prep's panel, the Summary's
  * cards, a relic's depth (the Enshrine panel, the Reliquary), the HUD's readout, Blind Score's
- * hidden answers, the Cue's cost and the Codex's page are pure models over content
+ * hidden answers, Silent Cues' hold and the Codex's page are pure models over content
  * (`CONTENT.dissonance`, `dissonanceText`, `CONTENT.dissonanceRules`, `CONTENT.reliquary.bands`)
  * and meta (`dissonancePoints`, `maxDissonance`, `xpMult`, `shardsMult`, `tearsFor`, `bestKey`,
  * `band`, `nextBandDepth`, `playedDissonance`); the choice, the records and the enshrine also run
@@ -41,7 +41,7 @@ import type {
   OwnedRelic,
   RunState,
 } from '../src/meta/types';
-import { createSim } from '../src/sim';
+import { createSim, threadCues } from '../src/sim';
 import { emptyLedger } from '../src/sim/world';
 import { ANSWER_HINTS, evaluateHints } from '../src/ui/hud/hints';
 import { STATUS, statusTitle } from '../src/ui/hud/labels';
@@ -65,7 +65,6 @@ import {
   bonusPct,
   closedLines,
   codexBands,
-  cueTicks,
   deeperLine,
   depthView,
   dissonanceUnlockLine,
@@ -487,8 +486,8 @@ describe('the Summary', () => {
 });
 
 describe('in a fight', () => {
-  it('the HUD reads the fight’s Dissonance: its points, its levels, Blind Score, the Cue’s cost', () => {
-    const silent = byEffect('cue_cost');
+  it('the HUD reads the fight’s Dissonance: its points, its levels, Blind Score, Silent Cues’ hold', () => {
+    const silent = byEffect('cue_hold');
     const blind = byEffect('blind_score');
     const levels = [L(silent.id), L(blind.id), L(CONTENT.dissonance[1]!.id, 2)];
     const hud = buildHudSnapshot(createSim({ seed: 7, dissonance: levels }).state, {
@@ -500,16 +499,19 @@ describe('in a fight', () => {
       points: dissonancePoints(levels),
       blindScore: true,
     });
-    expect(hud.weaver.cueCost).toBe(CONTENT.resonance.segment + (silent.values.resonance ?? 0));
-    const v = hudDissonanceView(hud.dissonance!.levels, hud.weaver.cueCost);
+    // Silent Cues (docs/solos.md): the Thread must have been on the hero this long. No price.
+    expect(hud.weaver.cueHold).toBe(silent.values.seconds);
+    expect('cueCost' in hud.weaver).toBe(false);
+    const v = hudDissonanceView(hud.dissonance!.levels);
     expect(v.points).toBe(hud.dissonance!.points);
-    expect([v.blind, v.cueRaised]).toEqual([true, true]);
+    expect(v.blind).toBe(true);
     for (const l of fitLevels(levels)) expect(v.label).toContain(dissonanceLevel(l.id).name);
+    expect(v.label).not.toMatch(/A Cue costs/);
     expect(takenRows(levels).map((r) => r.id)).toEqual(fitLevels(levels).map((l) => l.id));
-    // Without Dissonance: no readout, and a Cue costs the content's.
+    // Without Dissonance: no readout, and no hold.
     const plain = buildHudSnapshot(createSim({ seed: 7 }).state, { seed: 7, hovered: null });
     expect(plain.dissonance).toBeNull();
-    expect(plain.weaver.cueCost).toBe(CONTENT.resonance.segment);
+    expect(plain.weaver.cueHold).toBe(0);
   });
 
   it('the par the HUD counts to is the one the run grades with, lengthened by Dissonance', () => {
@@ -579,32 +581,53 @@ describe('in a fight', () => {
     expect(blindDecree('No answer here')).toBe('No answer here');
   });
 
-  it('the Cue’s cost: the hint and the arc follow the fight’s', () => {
-    const silent = [L(byEffect('cue_cost').id)];
-    const base = mockDissonanceHud('crisis', silent);
-    const cost = base.weaver.cueCost;
-    expect(cost).toBeGreaterThan(base.weaver.segment);
-    const ready = (resonance: number) => ({
-      ...base,
-      weaver: { ...base.weaver, resonance },
+  it('Silent Cues: the frame says Hold until the Thread has been there long enough, then Cued', () => {
+    const silent = byEffect('cue_hold');
+    const need = silent.values.seconds!;
+    const sim = createSim({
+      seed: 7,
+      encounter: 'sandbox',
+      debug: true,
+      dissonance: [L(silent.id)],
     });
-    const cue = (resonance: number) => evaluateHints(ready(resonance)).find((h) => h.id === 'cue');
-    // A segment's worth isn't enough any more; the Cue's own cost is.
-    expect(cue(base.weaver.segment)).toBeUndefined();
-    expect(cue(cost)!.text).toContain(`${cost} Resonance`);
-    // Content's cost: one segment, as before.
-    const plain = mockHud('crisis');
-    expect(
-      evaluateHints({
-        ...plain,
-        weaver: { ...plain.weaver, resonance: plain.weaver.segment },
-      }).find((h) => h.id === 'cue')!.text,
-    ).toContain('one Resonance segment');
-    // The arc marks each multiple of the cost (none when a Cue is a segment).
-    const ticks = cueTicks(base.weaver);
-    expect(ticks[0]).toBe(cost);
-    expect(ticks.every((t, i) => t === cost * (i + 1) && t <= base.weaver.resonanceMax)).toBe(true);
-    expect(cueTicks(plain.weaver)).toEqual([]);
+    const st = sim.state;
+    const snap = () => buildHudSnapshot(st, { seed: 7, hovered: null });
+    const lyra = () => snap().party[1]!;
+    sim.step([{ t: 'debug', op: { op: 'spawnEnemy', defId: 'bell_brute', x: 0, z: -5 } }]);
+    for (let i = 0; i < 240 && st.entities.get(st.party[1]!)!.hero!.targetId === null; i++)
+      sim.step([]);
+    // Her Solo a little short of full: the tell is on, the Thread elsewhere.
+    st.entities.get(st.party[1]!)!.hero!.solo = 95;
+    sim.step([]);
+    expect(lyra().soloIn).not.toBeNull();
+    expect(lyra()).toMatchObject({ willCue: false, soloNow: false });
+    expect(lyra().cueHold).toBeUndefined();
+    // The Thread reaches her: not Cued yet, and the frame counts the hold down from the sim's.
+    sim.step([{ t: 'thread', slot: 1 }]);
+    const at = lyra();
+    expect(at.willCue).toBe(false);
+    expect(at.cueHold).toBeCloseTo(
+      need - (st.time - st.entities.get(st.weaverId)!.weaver!.threadSince),
+      9,
+    );
+    expect(at.cueHold!).toBeGreaterThan(need - 0.1);
+    // Once it has held, the sim's threadCues says Cued and the hold is gone.
+    for (let i = 0; i < need * 60 + 2 && !threadCues(st, st.entities.get(st.party[1]!)!); i++)
+      sim.step([]);
+    const held = lyra();
+    if (held.soloIn !== null) {
+      expect(held.willCue).toBe(true);
+      expect(held.cueHold).toBeUndefined();
+    }
+    // The coach: its Solo lesson waits while the Thread is holding (nothing more to do).
+    const hud = mockDissonanceHud('resonance', [L(silent.id)]);
+    expect(hud.weaver.cueHold).toBe(need);
+    const holding = {
+      ...hud,
+      party: hud.party.map((p) => (p.defId === 'lyra' ? { ...p, cueHold: 0.4 } : p)),
+    };
+    expect(evaluateHints(hud).map((h) => h.id)).toContain('solo');
+    expect(evaluateHints(holding).map((h) => h.id)).not.toContain('solo');
   });
 
   it('a fight’s XP lines add up to its headline at Dissonance', () => {
