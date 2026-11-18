@@ -1,8 +1,8 @@
 import { quantize } from '../sim/core/dmath';
 import {
   SOLOS,
-  soloDueIn,
-  threadCues,
+  soloQueue,
+  threadOn,
   type Command,
   type EntityId,
   type PartySlot,
@@ -1196,9 +1196,11 @@ export function partyInDanger(state: WorldState): boolean {
 /**
  * The hero whose Solo Auto-Thread follows now (docs/solos.md, rule 7), or null to leave the
  * Thread to the lowest-life rule. It is the Skilled bot's rule (`soloCue` and `soloToCue`,
- * src/bots): with nobody in danger (`partyInDanger`), the hero whose Solo is soonest due within
- * `SOLOS.lead` seconds (the sim's `soloDueIn`; Silent Cues' hold is added to the lead, so the
- * Thread has been there long enough), whom the Thread can reach. Kael may raise his wall at any
+ * src/bots): with nobody in danger (`partyInDanger`), the hero whose Solo fires next, once it is
+ * within `SOLOS.lead` seconds (Silent Cues' hold is added to the lead, so the Thread has been
+ * there long enough), whom the Thread can reach. The order and the seconds are the sim's queue
+ * (`soloQueue`): each hero's own tell, the gap between Solos, and a cast a hero is finishing
+ * first, so the Thread goes to the Solo that really fires next. Kael may raise his wall at any
  * moment once it is full, so he counts from then on, behind any hero due within the lead: the
  * wall he raises with the Thread on him is the dome over everyone.
  *
@@ -1207,43 +1209,38 @@ export function partyInDanger(state: WorldState): boolean {
  * is their own.
  *
  * Null as well when the Thread can't be moved (the Weaver down, the Thread locked), through the
- * Grand Silence, with Hollow Crown (every Solo is Cued anyway), for a hero stilled or possessed
- * (they don't fire), and for a hero whose Solo would be Cued as things stand without the Thread
- * moving (the sim's `threadCues`).
+ * Grand Silence, with Hollow Crown off a Conductor run (every Solo plays Cued anyway), and for a
+ * hero whose Solo would be a Cue as things stand without the Thread moving (the sim's
+ * `threadOn`). A hero who cannot fire (stunned, stilled, possessed, being Reeled, or full with no
+ * one to fight) has no turn in the sim's queue: the check is the sim's alone.
  */
 export function autoSoloTarget(state: WorldState): PartySlot | null {
   const weaver = state.entities.get(state.weaverId);
   const w = weaver?.weaver;
   if (!weaver || !w || weaver.health?.downed || w.threadLock > 0) return null;
-  // Hollow Crown: every Solo is Cued, Thread or not. Nothing to follow.
-  if (state.mods.alwaysCued) return null;
+  // Hollow Crown plays every Solo in its Cued form, Thread or not: nothing to follow, unless a
+  // Conductor's chain wants the Thread there (only a Solo it is on is a Cue). As the bot has it.
+  if (state.mods.alwaysCued && !state.field.conducting) return null;
   if (state.field.finale?.silence || partyInDanger(state)) return null;
   const reach = w.threadRange - AUTO_SOLO_REACH_MARGIN;
   const lead = SOLOS.lead + state.mods.cueHold;
   let soon: PartySlot | null = null;
-  let soonDue = Infinity;
   let wall: PartySlot | null = null;
-  for (let slot = 0; slot < state.party.length; slot++) {
-    const e = state.entities.get(state.party[slot]!);
+  // The Solos coming, in the order they will fire.
+  for (const turn of soloQueue(state)) {
+    const slot = turn.slot;
+    const e = state.entities.get(turn.hero);
     const c = e?.hero;
-    if (!e || !c || !e.health) continue;
-    if (e.health.statuses.some((x) => x.id === 'stilled' || x.id === 'possessed')) continue;
+    if (!e || !c) continue;
     const dx = e.x - weaver.x;
     const dz = e.z - weaver.z;
     if (dx * dx + dz * dz >= reach * reach) continue;
-    const due = soloDueIn(state, e);
-    if (due === null) continue;
-    // (A full Solo with no one to fight does not fire, and `soloDueIn` says null for it: the
-    // Thread never sits on such a hero between waves.)
-    // Cued as things stand, though the Thread is elsewhere (the rule is the sim's, and may be
+    // A Cue as things stand, though the Thread is elsewhere (the rule is the sim's, and may be
     // widened for slower hands): nothing to follow. On the threaded hero it reads true as well;
     // they stay a candidate, so that the Thread is kept on them until they fire.
-    if (slot !== w.threadSlot && threadCues(state, e)) continue;
-    if (c.soloId === 'aegisWall' && c.solo >= 100 && c.targetId !== null) wall = slot as PartySlot;
-    if (due <= lead && due < soonDue) {
-      soon = slot as PartySlot;
-      soonDue = due;
-    }
+    if (slot !== w.threadSlot && threadOn(state, e)) continue;
+    if (c.soloId === 'aegisWall' && c.solo >= 100) wall = slot;
+    if (soon === null && turn.due <= lead) soon = slot;
   }
   const pick = soon ?? wall;
   if (pick === null || pick === w.threadSlot) return pick;

@@ -119,6 +119,7 @@ export {
   cueInReach,
   soloDueIn,
   soloQueue,
+  soloTurnIn,
   threadCues,
   threadOn,
   wallWanted,

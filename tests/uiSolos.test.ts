@@ -12,6 +12,7 @@ import { SOLOS } from '../src/sim/constants';
 import {
   cueInReach,
   soloDueIn,
+  soloTurnIn,
   threadCues,
   wallWanted,
   type Command,
@@ -76,9 +77,12 @@ describe('the frames read the sim’s tell (soloDueIn) and Cue (threadCues)', ()
       for (let slot = 0; slot < 3; slot++) {
         const e = hero(slot);
         const f = h.party[slot]!;
-        const idle = e.hero!.solo >= 100 && e.hero!.targetId === null;
-        const due = idle ? null : soloDueIn(st, e);
+        // The frame's seconds are the hero's turn in the sim's queue: their own tell, the gap
+        // behind a Solo due before theirs, and a cast they are finishing first.
+        const due = soloTurnIn(st, e);
         expect(f.soloIn ?? null).toBe(due);
+        expect(due === null).toBe(soloDueIn(st, e) === null);
+        if (due !== null) expect(due).toBeGreaterThanOrEqual(soloDueIn(st, e)! - 1e-9);
         if (due === null) {
           expect(f.willCue).toBe(false);
           continue;

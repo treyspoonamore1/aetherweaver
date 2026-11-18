@@ -1,5 +1,5 @@
 import type { EntityId, ReadonlyEntity, WorldState } from '../sim';
-import { cueInReach, soloDueIn, threadCues } from '../sim';
+import { cueInReach, soloTurnIn, threadCues } from '../sim';
 import { SOLOS } from '../sim/constants';
 import type { FxKit } from './fx/kit';
 import { SPRITE } from './fx/sprites';
@@ -93,22 +93,19 @@ export function soloTellSeconds(hero: ReadonlyEntity): number {
 }
 
 /**
- * The mark a hero shows now, or null: none while no Solo is coming (`soloDueIn`: that includes
- * full with no one to fight, the wait not begun), while they are possessed or stilled (they do
- * not fire), or held by a Fermata (its own marks take the slot).
+ * The mark a hero shows now, or null: none while no Solo is coming (the sim's `soloTurnIn`: that
+ * covers down, unable to act, and full with no one to fight), or while a Fermata holds them
+ * (its own marks take the slot). The seconds are their turn's: behind a Solo due before theirs,
+ * a gap later.
  */
 export function soloMarkOf(state: WorldState, hero: ReadonlyEntity): SoloMark | null {
   const h = hero.hero;
   const health = hero.health;
-  if (!h || !health || health.dead || health.downed) return null;
-  for (let i = 0; i < health.statuses.length; i++) {
-    const id = health.statuses[i]!.id;
-    if (id === 'possessed' || id === 'stilled') return null;
-  }
+  if (!h || !health) return null;
   // A Fermata hold owns the slot over the head (its arch, HOLD and the heal prompt) for its
   // second and a half: the mark stands down, and the frame's strip still counts.
   if (h.hold) return null;
-  const due = soloDueIn(state, hero);
+  const due = soloTurnIn(state, hero);
   if (due === null) return null;
   const cued = threadCues(state, hero);
   const need = state.mods.cueHold;

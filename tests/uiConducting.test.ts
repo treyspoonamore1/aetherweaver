@@ -211,7 +211,7 @@ describe('the Duet and Trio badge, from the sim’s nextCue', () => {
     step(30, [cue(0)]);
     for (const slot of [1, 2]) {
       const b = cueBadge(st, id(slot))!;
-      expect(b).toEqual({ link: 2, power: view.duet, label: 'Duet' });
+      expect(b).toEqual({ link: 2, power: view.duet, label: 'Duet', on: false });
     }
     expect(cueBadgeLabel(2)).toBe('Duet');
     expect(cueBadgeLabel(3)).toBe('Trio');
@@ -224,7 +224,7 @@ describe('the Duet and Trio badge, from the sim’s nextCue', () => {
     engage(sim, step);
     h = hud(sim);
     expect(h.party[1]!.soloIn).toBeCloseTo(soloDueIn(st, st.entities.get(id(1))!)!, 9);
-    expect(h.party[1]!.cue).toEqual({ link: 2, power: view.duet, label: 'Duet' });
+    expect(h.party[1]!.cue).toEqual({ link: 2, power: view.duet, label: 'Duet', on: false });
     expect(h.party[1]!.willCue).toBe(false);
     // The Thread on her as it fires: the Duet. Vexis's would be the Trio.
     step(1, [{ t: 'thread', slot: 1 }]);
@@ -232,7 +232,7 @@ describe('the Duet and Trio badge, from the sim’s nextCue', () => {
     expect(stepUntil(step, () => events.some((e) => e.type === 'cueChained' && e.link === 2))).toBe(
       true,
     );
-    expect(cueBadge(st, id(2))).toEqual({ link: 3, power: view.trio, label: 'Trio' });
+    expect(cueBadge(st, id(2))).toEqual({ link: 3, power: view.trio, label: 'Trio', on: false });
     h = hud(sim);
     expect(h.party[2]!.cue?.label).toBe('Trio');
     expect(h.party[1]!.cue).toBeUndefined();
@@ -244,7 +244,7 @@ describe('the Duet and Trio badge, from the sim’s nextCue', () => {
   });
 
   it('the badge promises only what the Solo will be: none for a Solo due after the chain has closed', () => {
-    // Lyra's Solo fires Cued and opens a chain. A second and a half later Vexis's Solo is
+    // Vexis's Solo fires Cued and opens a chain. A second and a half later Lyra's Solo is
     // staged `charge` seconds from full, the Thread on her: due a second after that.
     const staged = (charge: number) => {
       const { sim, step, events } = conductSim();
@@ -262,32 +262,42 @@ describe('the Duet and Trio badge, from the sim’s nextCue', () => {
         ];
       };
       engage(sim, step);
-      for (const slot of [0, 2]) set(slot, 0);
-      step(1, threadTo(1));
-      expect(stepUntil(step, () => events.some((e) => e.type === 'cueChained'))).toBe(true);
+      // Foes that outlast Starfall: there must be someone left for Lyra to fight.
+      for (const e of (st as unknown as World).entities.list())
+        if (e.enemy && e.health) e.health.hp = e.health.maxHp = 1e6;
+      for (const slot of [0, 1]) set(slot, 0);
+      step(1, threadTo(2));
+      expect(
+        stepUntil(step, () => {
+          for (const slot of [0, 1]) set(slot, 0);
+          return events.some((e) => e.type === 'cueChained');
+        }),
+      ).toBe(true);
       for (let i = 0; i < 90; i++) {
         set(0, 0);
-        set(2, 0);
+        set(1, 0);
         step(1);
       }
       // What one tick of fighting charges, then `charge` seconds short of full.
-      set(2, 0);
+      set(1, 0);
       step(1);
-      expect(solo(2).solo).toBeGreaterThan(0);
-      set(2, 100 - solo(2).solo * 60 * charge);
-      step(1, threadTo(2));
-      const shown: { soloIn: number; left: number | null; badge: string | null }[] = [];
+      expect(solo(1).solo).toBeGreaterThan(0);
+      set(1, 100 - solo(1).solo * 60 * charge);
+      step(1, threadTo(1));
+      const shown: { soloIn: number; left: number | null; badge: string | null; on?: boolean }[] =
+        [];
       const before = events.length;
-      for (let i = 0; i < 300 && solo(2).soloActive <= 0; i++) {
+      for (let i = 0; i < 300 && solo(1).soloActive <= 0; i++) {
         set(0, 0);
         const h = hud(sim);
-        const v = h.party[2]!;
+        const v = h.party[1]!;
         expect(v.threaded).toBe(true);
         if (v.soloIn !== null && v.soloIn !== undefined)
           shown.push({
             soloIn: v.soloIn,
             left: h.conducting!.chain?.left ?? null,
             badge: v.cue?.label ?? null,
+            on: v.cue?.on,
           });
         step(1);
       }
@@ -304,11 +314,12 @@ describe('the Duet and Trio badge, from the sim’s nextCue', () => {
     // The chain was open for part of that time: without the rule the badge would have shown.
     expect(late.shown.some((s) => s.left !== null && s.left > 0)).toBe(true);
 
-    // Due 1.5 s after staging: inside the window. The badge says Duet all the way, and it is one.
+    // Due 1.5 s after staging: inside the window. The badge says Duet all the way, filled
+    // (the Thread is on her), and it is one.
     const soon = staged(0.5);
     expect(soon.link).toBe(2);
     expect(soon.shown.length).toBeGreaterThan(30);
-    expect(soon.shown.every((s) => s.badge === 'Duet')).toBe(true);
+    expect(soon.shown.every((s) => s.badge === 'Duet' && s.on === true)).toBe(true);
     // Whenever a badge showed, the Solo was due inside the chain's time left.
     for (const s of [...late.shown, ...soon.shown])
       if (s.badge !== null) expect(s.soloIn).toBeLessThanOrEqual(s.left! + 1e-6);

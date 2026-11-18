@@ -3,13 +3,13 @@
  * restarts the real sim with the Conductor on a path and stages the moment with real commands and
  * debug ops. The heroes fire their own Solos, so a Cued Solo is staged the way a player makes one:
  * every Solo is charged (`chargeSolos`) and the Thread goes to each hero as their Solo comes due
- * (`followSolos`, by the sim's `soloDueIn`). The Grand Finale is `setResonance` and
+ * (`followSolos`, by the sim's `soloQueue`). The Grand Finale is `setResonance` and
  * `{t:'crescendo'}`, as the Weaver panel's button does it. No injected events. They only need a
  * sim, a clock and a command queue (`StageRuntime`), so the lab plays them in the browser and
  * tests/renderConducting.test.ts plays them in Node.
  */
 import { CONTENT } from '../../content';
-import { BAR_SECONDS, soloDueIn, type ChordConfig, type Command, type PartySlot } from '../../sim';
+import { BAR_SECONDS, soloQueue, type ChordConfig, type Command, type PartySlot } from '../../sim';
 import type { ConductView } from '../conduct';
 import type { StageRuntime } from './variantScenarios';
 
@@ -37,22 +37,9 @@ const TEMPO = ['a_tempo', 'upbeat', 'spotlight', 'maestro'];
 
 const debug = (op: Extract<Command, { t: 'debug' }>['op']): Command => ({ t: 'debug', op });
 
-/** The party slot whose Solo fires next (the sim's `soloDueIn`), or null when none is coming. */
+/** The party slot whose Solo fires next (the sim's `soloQueue`), or null when none is coming. */
 function nextSoloSlot(rt: StageRuntime): PartySlot | null {
-  const st = rt.sim.state;
-  let best: PartySlot | null = null;
-  let least = Infinity;
-  st.party.forEach((id, slot) => {
-    const e = st.entities.get(id);
-    const due = e ? soloDueIn(st, e) : null;
-    // Full with no one to fight: the wait has not begun.
-    if (due === null || !e?.hero || (e.hero.solo >= 100 && e.hero.targetId === null)) return;
-    if (due < least) {
-      least = due;
-      best = slot as PartySlot;
-    }
-  });
-  return best;
+  return soloQueue(rt.sim.state)[0]?.slot ?? null;
 }
 
 /**

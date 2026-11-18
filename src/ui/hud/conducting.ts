@@ -3,7 +3,7 @@
  * it: the Duet or Trio badge on a hero whose Solo is coming, the chain ring, the A Tempo beat
  * strip, the Grand Finale's pips and each hero's turn, the Calling chip's states, and the
  * call-outs. Every rule is the sim's own: `nextCue` (what a Cued Solo would be now), `onBeat` and
- * `beatAt` (the downbeat), `soloDueIn` (when the next Solo begins),
+ * `beatAt` (the downbeat), `soloQueue` (when the next Solo begins, and whose),
  * `openChain`, `finaleView` (who plays next and at what power), `finaleTurnBlock` (what stops a
  * hero's turn), `marcatoOn`, `marcatoReadyIn`, `ensembleBonus`; every number is
  * `calling.conducting` (from content, through the mods) or `field.conducting`. Nothing here
@@ -21,9 +21,9 @@ import {
   onBeat,
   openChain,
   resonanceScale,
-  soloDueIn,
+  soloQueue,
   spotlit,
-  threadCues,
+  threadOn,
   type EntityId,
   type SimEvent,
   type WorldState,
@@ -59,7 +59,7 @@ export function cueBadgeLabel(link: 2 | 3): string {
 /**
  * The badge of a hero whose Solo is coming, from the sim's `nextCue`: a Duet or a Trio (null for
  * a plain Cue, and without the Conductor). `dueIn` is how long until the Solo fires (the sim's
- * `soloDueIn`; 0: now). `nextCue` answers for a Cue given now, so the badge shows only if the
+ * `soloTurnIn`; 0: now). `nextCue` answers for a Cue given now, so the badge shows only if the
  * chain will still be open when the Solo fires: a promise the Solo keeps.
  */
 export function cueBadge(state: WorldState, heroId: EntityId, dueIn = 0): CueBadgeHud | null {
@@ -67,7 +67,14 @@ export function cueBadge(state: WorldState, heroId: EntityId, dueIn = 0): CueBad
   if (!next || next.link === 1) return null;
   const chain = openChain(state);
   if (!chain || state.time + dueIn - chain.at > state.mods.chainWindow + EPS) return null;
-  return { link: next.link, power: next.power, label: cueBadgeLabel(next.link) };
+  const hero = state.entities.get(heroId);
+  return {
+    link: next.link,
+    power: next.power,
+    label: cueBadgeLabel(next.link),
+    // Only a Solo your Thread is on joins the chain (Hollow Crown's Cued form does not).
+    on: !!hero && threadOn(state, hero),
+  };
 }
 
 // ── The beat strip (A Tempo) ───────────────────────────────────────────────────────────
@@ -90,7 +97,7 @@ export interface BeatStripView {
   inside: boolean;
   /**
    * A Solo begins on the downbeat the light is running to (or is inside): the band is lit for it.
-   * From the sim's `soloDueIn` (`beat.next`).
+   * From the sim's `soloQueue` (`beat.next`).
    */
   armed: boolean;
 }
@@ -200,27 +207,23 @@ export function beatGift(state: WorldState): number {
 }
 
 /**
- * The next Solo to begin (A Tempo's strip): the party hero whose `soloDueIn` is least, with
- * their colour and whether it would be Cued now (`threadCues`). Null: none is coming.
+ * The next Solo to begin (A Tempo's strip): the first turn of the sim's `soloQueue` (which holds
+ * no hero who cannot fire: stilled, stunned, possessed), with their colour and whether your
+ * Thread is on them (`threadOn`: only then is it a Cue, and A Tempo's gift). Null: none is coming.
  */
 function nextSolo(
   state: WorldState,
   nameOf: (id: EntityId) => string | null,
 ): NonNullable<ConductingHud['beat']>['next'] {
-  let best: NonNullable<ConductingHud['beat']>['next'] = null;
-  for (const id of state.party) {
-    const e = state.entities.get(id);
-    if (!e?.hero || !e.health) continue;
-    const due = soloDueIn(state, e);
-    if (due === null || (best && best.in <= due)) continue;
-    best = {
-      name: nameOf(id) ?? NAME_FALLBACK,
-      color: heroDef(e.hero.defId).color,
-      in: due,
-      willCue: threadCues(state, e),
-    };
-  }
-  return best;
+  const turn = soloQueue(state)[0];
+  const e = turn ? state.entities.get(turn.hero) : undefined;
+  if (!turn || !e?.hero) return null;
+  return {
+    name: nameOf(turn.hero) ?? NAME_FALLBACK,
+    color: heroDef(e.hero.defId).color,
+    in: turn.due,
+    willCue: threadOn(state, e),
+  };
 }
 
 /** The chip's Marcato from the sim's `marcatoReadyIn` (0: ready) and its bonus and seconds. */
@@ -362,7 +365,7 @@ export function finaleTurnOf(
 export function heroConducting(
   state: WorldState,
   heroId: EntityId,
-  hero: Pick<HeroHud, 'soloIn' | 'cueLate' | 'downed' | 'dead' | 'possessed' | 'stilled'>,
+  hero: Pick<HeroHud, 'soloIn' | 'cueLate' | 'downed' | 'dead'>,
   heard: FinaleHeard | null = null,
 ): Pick<HeroHud, 'cue' | 'spotlight' | 'marcato' | 'finale'> {
   const field = state.field.conducting;
@@ -371,8 +374,7 @@ export function heroConducting(
   const up = !hero.dead && !hero.downed;
   const coming = hero.soloIn !== null && hero.soloIn !== undefined;
   // No badge on a Solo that can no longer be Cued (Silent Cues): it will be no Duet.
-  const badge =
-    coming && up && !hero.possessed && !hero.cueLate ? cueBadge(state, heroId, hero.soloIn!) : null;
+  const badge = coming && up && !hero.cueLate ? cueBadge(state, heroId, hero.soloIn!) : null;
   const light = up ? spotlit(state, heroId) : 0;
   const held = field.marcato;
   const marcato =

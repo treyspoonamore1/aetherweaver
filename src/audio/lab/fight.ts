@@ -6,7 +6,8 @@ import { CONTENT } from '../../content';
 import {
   SIM_DT,
   createSim,
-  soloDueIn,
+  SOLOS,
+  soloQueue,
   type Command,
   type PartySlot,
   type Sim,
@@ -105,14 +106,12 @@ export class Fight {
     const heroes = s.party.map((id) => s.entities.get(id)).filter((e) => e?.hero && e.health);
     // Solos (docs/solos.md): a hero whose Solo is about to fire has the Thread, so it is Cued
     // (no Resonance asked: a Cue costs nothing); until it fires, the Thread is not moved for life.
-    const due = heroes.find((h) => {
-      if (!h?.hero || h.health?.downed) return false;
-      const at = soloDueIn(s, h);
-      return at !== null && at <= 0.5;
-    });
+    // (The sim's queue: who fires next and when. `SOLOS.lead` is the bots' and Auto-Thread's.)
+    const next = soloQueue(s)[0];
+    const due = next && next.due <= SOLOS.lead ? next : null;
     const threadSlot = s.entities.get(s.weaverId)?.weaver?.threadSlot;
-    if (due?.hero) {
-      if (threadSlot !== due.hero.slot) cmds.push({ t: 'thread', slot: due.hero.slot });
+    if (due) {
+      if (threadSlot !== due.slot) cmds.push({ t: 'thread', slot: due.slot });
     } else if (s.tick - this.lastThreadTick >= 40) {
       this.lastThreadTick = s.tick;
       let best: PartySlot = 0;

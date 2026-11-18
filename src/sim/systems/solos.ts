@@ -73,16 +73,21 @@ export interface SoloTurn {
  * The Solos that are coming, in the order they will fire, for the frames (docs/solos.md). Each
  * hero's `soloDueIn` already waits out the gap since the last Solo began; this also spaces the
  * heroes still waiting, so that two due together read a gap apart (and, with A Tempo, a bar
- * apart), as they will fire: the earlier slot first, as the sim takes them. A view only: neither
- * the sim nor the bots read it, and Kael's urgent wall may still jump the queue.
+ * apart), as they will fire: the earlier slot first, as the sim takes them. A hero who is casting
+ * finishes the cast first (heroes.ts `soloFires`), so their turn is no sooner than the cast's
+ * end: the frames then count to the moment the Solo really fires, and a hero behind them in the
+ * wait may go first. A view only: neither the sim nor the bots read it, and Kael's urgent wall
+ * may still jump the queue.
  */
 export function soloQueue(state: WorldState): SoloTurn[] {
   const turns: SoloTurn[] = [];
   state.party.forEach((id, i) => {
     const e = state.entities.get(id);
     if (!e) return;
-    const due = soloDueIn(state, e);
-    if (due === null) return;
+    const tell = soloDueIn(state, e);
+    if (tell === null) return;
+    const cast = e.hero?.cast;
+    const due = cast ? Math.max(tell, cast.end - state.time) : tell;
     turns.push({ hero: id, slot: i as PartySlot, due, cued: threadCues(state, e) });
   });
   turns.sort((a, b) => a.due - b.due || a.slot - b.slot);
@@ -727,30 +732,39 @@ function nearestTo(world: World, x: number, z: number, radius: number): Entity |
 }
 
 /**
- * Kael's dome on demand (docs/solos.md, rule 8), as a view: his Aegis Wall is full and coming
- * (`soloDueIn`: he can fire and has someone to fight), and a hit is about to land on two or more
- * of the party within `SOLOS.partyHit` seconds (`partyHitWithin`). With the Thread on him he
- * raises it at once, Cued, a dome over everyone (heroes.ts `soloFires`); the coach reads this to
- * say "thread Kael" (src/ui/hud/hints.ts). False for any other Solo.
+ * Kael's dome on demand (docs/solos.md): his Aegis Wall is full, he has someone to fight, and a
+ * hit is about to land on two or more of the party within `SOLOS.partyHit` seconds
+ * (`partyHitWithin`). With the Thread on him he then raises it at once, Cued, a dome over
+ * everyone: heroes.ts `soloFires` asks this, and so does the coach, to say "thread Kael"
+ * (src/ui/hud/hints.ts). One rule, one copy. False for any other Solo.
  */
 export function wallWanted(state: WorldState, hero: ReadonlyEntity): boolean {
   const h = hero.hero;
-  if (!h || h.soloId !== 'aegisWall' || h.solo < 100 || !(SOLOS.partyHit > 0)) return false;
-  if (soloDueIn(state, hero) === null) return false;
-  return partyHitWithin(state as World, SOLOS.partyHit);
+  if (!h || h.soloId !== 'aegisWall' || h.solo < 100 || h.targetId === null) return false;
+  return SOLOS.partyHit > 0 && partyHitWithin(state as World, SOLOS.partyHit);
+}
+
+/**
+ * Seconds until this hero's Solo fires, by its turn in `soloQueue` (the gap after the Solos due
+ * before theirs counted), or null when none is coming. What the frames, the mark and the badge
+ * count down: two heroes waiting on the gap read a second apart, as they will fire.
+ */
+export function soloTurnIn(state: WorldState, hero: ReadonlyEntity): number | null {
+  for (const turn of soloQueue(state)) if (turn.hero === hero.id) return turn.due;
+  return null;
 }
 
 /**
  * Could this hero's coming Solo still be Cued (docs/solos.md)? Without Silent Cues, always: the
  * Thread need only be on them on the tick it fires. Under Silent Cues the Thread must have held
  * `mods.cueHold` seconds by then, so there is a last moment to move it: true while the time until
- * the Solo is due (`soloDueIn`) covers the hold still owed, all of it with the Thread elsewhere,
+ * the Solo is due (`soloTurnIn`) covers the hold still owed, all of it with the Thread elsewhere,
  * the rest of it with the Thread already on them. False when no Solo is coming. For the views:
  * a prompt to thread a hero is shown only while doing so can work. (Kael may raise his wall
  * sooner than `soloDueIn` says; for him this is the best that can be said.)
  */
 export function cueInReach(state: WorldState, hero: ReadonlyEntity): boolean {
-  const due = soloDueIn(state, hero);
+  const due = soloTurnIn(state, hero);
   if (due === null || !hero.hero) return false;
   if (state.mods.alwaysCued) return true;
   const need = state.mods.cueHold;

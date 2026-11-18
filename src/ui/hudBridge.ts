@@ -31,7 +31,7 @@ import {
   rewindCanRevive,
   saplingInField,
   cueInReach,
-  soloDueIn,
+  soloTurnIn,
   songReserveOf,
   techniqueCost,
   threadCues,
@@ -157,12 +157,13 @@ function crescendoTotal(calling: { id: string; path: string[]; crescendo: string
 }
 
 /**
- * A hero's Solo as it comes (docs/solos.md), every rule the sim's: `soloDueIn` (the tell: seconds
- * until it fires, null when none is coming), `threadCues` (would it be Cued now: your Thread is
- * on them) and, under Silent Cues, how long the Thread must still stay. Two stages: the last
- * seconds of charge (quiet), then full with the wait running (`soloNow`: the moment to move the
- * Thread). Kael may raise his wall sooner than the count says (`soloLoose`). A possessed or
- * stilled hero does not fire, so has no tell.
+ * A hero's Solo as it comes (docs/solos.md), every rule the sim's: `soloTurnIn` (the tell:
+ * seconds until it fires, in its turn behind the Solos due before it; null when none is coming,
+ * which covers a hero who cannot fire: stunned, stilled, possessed, with no one to fight),
+ * `threadCues` (would it be Cued now: your Thread is on them) and, under Silent Cues, how long
+ * the Thread must still stay. Two stages: the last seconds of charge (quiet), then full with the
+ * wait running (`soloNow`: the moment to move the Thread). Kael may raise his wall sooner than
+ * the count says (`soloLoose`). Nothing here keeps a check of its own.
  */
 export function soloTell(
   state: WorldState,
@@ -171,12 +172,8 @@ export function soloTell(
   HeroHud,
   'soloIn' | 'soloNow' | 'soloLoose' | 'willCue' | 'cueHold' | 'cueLate' | 'wallWanted'
 > {
-  const h = e.health;
-  if (!e.hero || !h || isStilled(h) || h.statuses.some((s) => s.id === 'possessed'))
-    return { soloIn: null, willCue: false };
-  // (Full with no one to fight, the wait has not begun: `soloDueIn` says null for it.)
-  const soloIn = soloDueIn(state, e);
-  if (soloIn === null) return { soloIn: null, willCue: false };
+  const soloIn = e.hero ? soloTurnIn(state, e) : null;
+  if (!e.hero || soloIn === null) return { soloIn: null, willCue: false };
   const willCue = threadCues(state, e);
   // Silent Cues: once the Solo will fire before the Thread could have held long enough, nothing
   // the player does can Cue it. The frame then says neither "Thread to Cue" nor "Hold".
@@ -192,6 +189,7 @@ export function soloTell(
     soloNow: e.hero.solo >= 100 && !late,
     willCue,
     ...(e.hero.soloId === 'aegisWall' ? { soloLoose: true } : {}),
+    // (He has a Solo coming, so he can act: `wallWanted` is then what he fires by.)
     ...(wallWanted(state, e) ? { wallWanted: true } : {}),
     ...(hold > 0 ? { cueHold: hold } : {}),
     ...(late ? { cueLate: true } : {}),

@@ -297,6 +297,11 @@ export interface CueBadgeHud {
   power: number;
   /** "Duet", "Trio". */
   label: string;
+  /**
+   * Your Thread is on them (the sim's `threadOn`): it will be that Duet or Trio. Absent in a
+   * hand-built scene, where the frame's `willCue` stands for it.
+   */
+  on?: boolean;
 }
 
 /**

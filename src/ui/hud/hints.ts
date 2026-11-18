@@ -555,7 +555,9 @@ function conductingHints(hud: HudSnapshot): Hint[] {
   const out: Hint[] = [];
   const w = hud.weaver;
   const coming = hud.party.filter((h) => alive(h) && soloComing(h));
-  const chained = c.chain ? coming.find((h) => h.cue && !h.willCue && !h.cueLate) : undefined;
+  const chained = c.chain
+    ? coming.find((h) => h.cue && !(h.cue.on ?? h.willCue) && !h.cueLate)
+    : undefined;
   if (c.chain && chained)
     out.push({
       id: 'chain',

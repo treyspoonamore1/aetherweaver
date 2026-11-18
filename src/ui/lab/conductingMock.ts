@@ -12,7 +12,7 @@ import {
   BAR_SECONDS,
   beatAt,
   createSim,
-  soloDueIn,
+  soloQueue,
   type Command,
   type PartySlot,
   type Sim,
@@ -91,31 +91,18 @@ export function conductStage(scenario: ConductScenario): ConductStage {
     t: 'debug',
     op: { op: 'setResonance', value: CONTENT.resonance.max },
   };
-  /** The party slot whose Solo fires next (the sim's `soloDueIn`); null: none is coming. */
-  const nextSolo = (): PartySlot | null => {
-    let best: PartySlot | null = null;
-    let least = Infinity;
-    st.party.forEach((id, slot) => {
-      const e = st.entities.get(id);
-      const due = e ? soloDueIn(st, e) : null;
-      // Full with no one to fight: the wait has not begun.
-      if (due === null || !e?.hero || (e.hero.solo >= 100 && e.hero.targetId === null)) return;
-      if (due < least) {
-        least = due;
-        best = slot as PartySlot;
-      }
-    });
-    return best;
-  };
+  /** The party slot whose Solo fires next (the sim's `soloQueue`); null: none is coming. */
+  const nextSolo = (): PartySlot | null => soloQueue(st)[0]?.slot ?? null;
   /** Solos fired Cued so far. */
   const cuedSolos = () => events.filter((e) => e.type === 'soloStarted' && e.cued).length;
   /**
    * Your Thread follows the Solos as a player's would: it goes to whichever hero fires next and
    * stays until they have, until `count` Solos have fired Cued.
    */
-  const follow = (count: number, max = seconds(14)) => {
+  const follow = (count: number, max = seconds(14), each: () => void = () => {}) => {
     const from = cuedSolos();
     for (let i = 0; i < max && cuedSolos() - from < count; i++) {
+      each();
       const slot = nextSolo();
       const on = st.entities.get(st.weaverId)?.weaver?.threadSlot;
       step(1, slot !== null && slot !== on ? [{ t: 'thread', slot }] : []);
@@ -139,6 +126,10 @@ export function conductStage(scenario: ConductScenario): ConductStage {
   step(1, [
     { t: 'debug', op: { op: 'spawnEnemy', defId: 'lamenter', x: kael.x + 2, z: kael.z - 7 } },
   ]);
+  // The lab's hand: foes that outlast two Solos, so the third hero still has someone to fight
+  // (Kael raises his wall for a wound only with a foe before him).
+  for (const e of (sim.state as unknown as World).entities.list())
+    if (e.enemy && e.health) e.health.hp = e.health.maxHp = e.health.maxHp * 8;
   step(1, [charge]);
   step(1, [fill]);
   let reached = false;
@@ -156,14 +147,19 @@ export function conductStage(scenario: ConductScenario): ConductStage {
       reached = reached && st.field.conducting?.chain?.heroes.length === 2;
       break;
     case 'conduct-trio': {
-      // Marcato from a Rally, then the Thread follows the Solos: two a second apart, and Kael's
+      // Marcato from a Rally, then the Thread follows the Solos: Lyra's and Vexis's, and Kael's
       // wall, which he raises at once when a blow takes him under half his life.
       step(seconds(0.5), [{ t: 'directive', kind: 'rally' }]);
-      follow(2);
-      step(seconds(0.5), [{ t: 'thread', slot: 0 }]);
       const world = sim.state as unknown as World;
       const wall = world.entities.get(world.party[0]!)!;
-      // The lab's hand: a blow as it leaves him, whatever his armour would have turned.
+      // The lab's hand: his wall is kept back for the Trio (left alone he would raise it at his
+      // hold's end, between the other two when Vexis has a cast to finish first).
+      follow(2, seconds(14), () => {
+        wall.hero!.solo = 0;
+      });
+      wall.hero!.solo = 100;
+      step(seconds(0.5), [{ t: 'thread', slot: 0 }]);
+      // And a blow as it leaves him, whatever his armour would have turned.
       wall.health!.hp = wall.health!.maxHp * 0.45;
       reached = until(() => events.some((e) => e.type === 'cueChained' && e.link === 3), 30);
       step(seconds(0.3));

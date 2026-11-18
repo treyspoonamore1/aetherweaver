@@ -261,7 +261,7 @@ function FinalePip({ state }: { state: FinaleHud['pips'][number] }) {
 export function CueBadge({ hero: h }: { hero: HeroHud }) {
   const c = h.cue;
   if (!c) return null;
-  const on = h.willCue === true;
+  const on = c.on ?? h.willCue === true;
   return (
     <span
       className="flex items-center gap-0.5 whitespace-nowrap rounded px-1 font-mono text-[0.75rem] font-bold leading-4"

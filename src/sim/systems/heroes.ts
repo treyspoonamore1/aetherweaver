@@ -19,7 +19,7 @@ import {
   shieldOf,
 } from '../combat/health';
 import { bark } from '../combat/feedback';
-import { contains, partyHitWithin } from '../combat/telegraphs';
+import { contains } from '../combat/telegraphs';
 import { topThreat } from '../combat/threat';
 import type { Entity, Telegraph } from '../state';
 import { weaverOf, type World } from '../world';
@@ -36,6 +36,7 @@ import {
   threadOn,
   tickSoloClock,
   updateSolo,
+  wallWanted,
 } from './solos';
 import { cueSolo } from './techniques';
 import { onBeat } from './conducting';
@@ -320,14 +321,7 @@ function soloFires(world: World, e: Entity): boolean {
   if (wall && ((hero.targetId !== null && h.hp < h.maxHp * 0.5) || h.incoming > h.hp * 0.5))
     return true;
   if (hero.targetId !== null && friendFalling(world, e)) return true;
-  if (
-    wall &&
-    SOLOS.partyHit > 0 &&
-    hero.targetId !== null &&
-    threadCues(world, e) &&
-    partyHitWithin(world, SOLOS.partyHit)
-  )
-    return true;
+  if (threadCues(world, e) && wallWanted(world, e)) return true;
   // Oro (docs/phase-5e.md): target-less, his wait runs while the party fights.
   if (hero.grove && hero.targetId === null) {
     if (!groveSoloDue(world, e)) return false;

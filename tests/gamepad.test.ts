@@ -46,6 +46,7 @@ import { MENU_KEYS, padMenuKeys } from '../src/ui/kit/menuNav';
 import {
   createSim,
   soloDueIn,
+  soloQueue,
   threadCues,
   type Command,
   type PartySlot,
@@ -807,17 +808,22 @@ describe('Auto-Thread follows a Solo about to fire (docs/solos.md, rule 7)', () 
     const { threads, solos } = play(sim, input, 6);
     expect([...solos.keys()].sort()).toEqual([KAEL, LYRA, VEXIS]);
     for (const [slot, s] of solos) expect(s.cued, `slot ${slot}`).toBe(true);
-    // Lyra a second after the charge, Vexis a gap later, Kael at his hold's end: the Thread
-    // reaches each within the lead before it, never sooner than that for Lyra and Vexis.
-    for (const slot of [LYRA, VEXIS]) {
-      const fired = solos.get(slot)!.at;
-      const sent = threads.filter((t) => t.slot === slot && t.at <= fired).pop()!;
-      expect(fired - sent.at, `slot ${slot}`).toBeLessThanOrEqual(SOLOS.lead + 2 / SIM_HZ);
-      expect(fired - sent.at, `slot ${slot}`).toBeGreaterThan(SOLOS.lead / 2);
-    }
-    // Kael may raise his full wall at any moment, so the Thread waits on him between the others.
-    expect(threads.map((t) => t.slot)).toEqual([KAEL, LYRA, KAEL, VEXIS, KAEL, VEXIS]);
-    // Nobody is hurt once the last has fired: back to Vexis, where the player had left it.
+    // Lyra a second after the charge, Kael at his hold's end, then Vexis a gap behind him: she
+    // is finishing a cast when her own wait ends, and a hero finishes a cast first. The Thread
+    // reaches Lyra within the lead before her Solo, never sooner than that.
+    expect([...solos.entries()].sort((a, b) => a[1].at - b[1].at).map(([slot]) => slot)).toEqual([
+      LYRA,
+      KAEL,
+      VEXIS,
+    ]);
+    const lyraFired = solos.get(LYRA)!.at;
+    const sent = threads.filter((t) => t.slot === LYRA && t.at <= lyraFired).pop()!;
+    expect(lyraFired - sent.at).toBeLessThanOrEqual(SOLOS.lead + 2 / SIM_HZ);
+    expect(lyraFired - sent.at).toBeGreaterThan(SOLOS.lead / 2);
+    // Kael may raise his full wall at any moment, so the Thread waits on him around Lyra's.
+    // Once his wall is up no Solo is within the lead, so the Thread goes back to Vexis, where
+    // the player had left it; her Solo then fires with it there.
+    expect(threads.map((t) => t.slot)).toEqual([KAEL, LYRA, KAEL, VEXIS]);
     expect(sim.state.entities.get(sim.state.weaverId)!.weaver!.threadSlot).toBe(VEXIS);
     expect(threads[threads.length - 1]!.at - solos.get(KAEL)!.at).toBeLessThanOrEqual(2 / SIM_HZ);
     // It is an assist, and every command it sent is a `thread` a hero's key would send.
@@ -886,7 +892,7 @@ describe('Auto-Thread follows a Solo about to fire (docs/solos.md, rule 7)', () 
     // up at any moment).
     expect(threads.filter((t) => t.at < 0)).toEqual([]);
     expect(threads[0]).toEqual({ at: 1 / SIM_HZ, slot: KAEL });
-    expect(threads.map((t) => t.slot)).toEqual([KAEL, LYRA, KAEL, VEXIS, KAEL, VEXIS]);
+    expect(threads.map((t) => t.slot)).toEqual([KAEL, LYRA, KAEL, VEXIS]);
     // And it ends where the player had it.
     expect(sim.state.entities.get(sim.state.weaverId)!.weaver!.threadSlot).toBe(VEXIS);
     // The control, so that "nothing moved it" can fail: the same fight with the hands off. There
@@ -961,7 +967,9 @@ describe('Auto-Thread follows a Solo about to fire (docs/solos.md, rule 7)', () 
     sim = fight(LYRA);
     played = play(sim, controller(), 6, { busy: true, shares: { [LYRA]: AUTO_SOLO_KEEP + 0.05 } });
     for (const [slot, s] of played.solos) expect(s.cued, `slot ${slot}`).toBe(true);
-    expect(played.threads.map((t) => t.slot)).toEqual([KAEL, LYRA, KAEL, VEXIS, KAEL, LYRA]);
+    // (To Kael's wall, to her own Solo, to Kael's wall again; home to her when his is up; to
+    // Vexis's Solo, the last to fire; and home.)
+    expect(played.threads.map((t) => t.slot)).toEqual([KAEL, LYRA, KAEL, LYRA, VEXIS, LYRA]);
     expect(sim.state.entities.get(sim.state.weaverId)!.weaver!.threadSlot).toBe(LYRA);
   });
 
@@ -1052,16 +1060,14 @@ describe('Auto-Thread follows a Solo about to fire (docs/solos.md, rule 7)', () 
     const w = worldOf(sim);
     const lyra = w.entities.get(s.party[LYRA]!)!;
     const weaver = w.entities.get(s.weaverId)!;
-    // Out of the Thread's reach: not her. Vexis's is due with hers (it fires a gap after
-    // whichever goes first), so Vexis; with both out of reach, Kael's wall.
+    // Out of the Thread's reach: not her. Vexis's turn is a gap behind Lyra's (the sim's queue:
+    // they fire one at a time), so it is not within the lead yet: Kael's wall meanwhile.
     const x = lyra.x;
     lyra.x = weaver.x + weaver.weaver!.threadRange;
-    expect(autoSoloTarget(s)).toBe(VEXIS);
-    const vexisAt = w.entities.get(s.party[VEXIS]!)!;
-    const vx = vexisAt.x;
-    vexisAt.x = weaver.x + weaver.weaver!.threadRange;
+    const turns = soloQueue(s);
+    expect(turns.map((t) => t.slot).slice(0, 2)).toEqual([LYRA, VEXIS]);
+    expect(turns[1]!.due - turns[0]!.due).toBeGreaterThanOrEqual(SOLOS.gap - 1e-9);
     expect(autoSoloTarget(s)).toBe(KAEL);
-    vexisAt.x = vx;
     lyra.x = x;
     // A hero in danger, a hero down, the Thread locked, the Weaver down: nobody.
     lyra.health!.hp = lyra.health!.maxHp * (SOLOS.danger - 0.01);
