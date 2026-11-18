@@ -93,7 +93,7 @@ export const loomModel = {
     'Choose relics to carry into a run: one from Rank {one}, two from {two}, three from {three}. Each lends the run its Inscriptions, and the first, attuned, plays its own effect too.',
   'screens.loomModel.bonds': 'Bonds',
   'screens.loomModel.everyFightPaysBond':
-    'Fights pay {bondedNames} Bond XP. Each Bond rank opens a talent, an alternate Solo or a scene.',
+    'Fights pay {bondedNames} Bond XP. Each Bond rank opens a talent, an alternate Solo (a hero’s big move) or a scene.',
   'screens.loomModel.whoTheyBecome': 'Who they become',
   'screens.loomModel.onEachHeroS':
     'Choose one talent a tier and a Solo for each hero. A run keeps what it set out with.',
