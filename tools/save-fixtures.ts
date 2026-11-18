@@ -1,6 +1,8 @@
 /**
  * Save fixtures written by real builds (docs/phase-7.md, W5): for every commit that bumped a save
- * version (run save 1-5, profile 1-10, settings 1-4), and for the two playtest demos (Versions 13
+ * version (run save 1-5, profile 1-10, settings 1-4), for the last build before the Solo rework
+ * (settings 4 with everything the Cue key had in them: version 5 drops those, docs/solos.md), and
+ * for the two playtest demos (Versions 13
  * and 14, each start), this checks the commit out in a scratch git worktree, links today's
  * `node_modules` into it, and runs a small writer there that uses **that build's own code**:
  *
@@ -12,7 +14,8 @@
  *   actions it has (XP, runs, the Astrolabe, Deeds, the Reliquary, Bonds, variants, Starlight,
  *   mastery, the roster, the route), saved with its `saveProfile`;
  * - settings: that build's settings store, changed through its own `update`, as its `save`
- *   writes them;
+ *   writes them (for a `cue` build, also Hero autonomy on, the Cue key and the Cue modifier
+ *   moved, the pad's Cue button moved);
  * - the demo builds: `chooseDemo(start)`, as a tester's click wrote them.
  *
  * Each fixture is `tests/fixtures/saves/<id>.json`: the storage keys as written, byte for byte,
@@ -46,6 +49,11 @@ export interface FixtureBuild {
   why: string;
   /** A demo build: the start a tester chose. */
   demo?: 'fresh' | 'veteran';
+  /**
+   * Its settings also hold what the Cue key had (a build with the Cue key, the Cue modifier and
+   * the Hero autonomy assist): each set away from its default, as a player who used them had it.
+   */
+  cue?: true;
 }
 
 /**
@@ -68,6 +76,12 @@ export const BUILDS: readonly FixtureBuild[] = [
   { id: 'b13-a5c4ea5', commit: 'a5c4ea5', why: 'settings v4 (health at a glance)' },
   { id: 'b14-5b365b3', commit: '5b365b3', why: 'profile v9 (Phase 5a)' },
   { id: 'b15-d86b04a', commit: 'd86b04a', why: 'profile v10 (Phase 6)' },
+  {
+    id: 'b16-2a2b91b',
+    commit: '2a2b91b',
+    why: 'settings v4 with Hero autonomy on and the Cue key, modifier and pad button moved (the last build before the Solo rework)',
+    cue: true,
+  },
   { id: 'demo13-fresh', commit: '2554e69', why: 'demo Version 13, Start fresh', demo: 'fresh' },
   { id: 'demo13-veteran', commit: '2554e69', why: 'demo Version 13, Veteran', demo: 'veteran' },
   { id: 'demo14-fresh', commit: '6a2b5eb', why: 'demo Version 14, Start fresh', demo: 'fresh' },
@@ -218,6 +232,24 @@ if (demo) {
     screenShake: 0.5,
     hints: false,
   }));
+  if (process.env.FIXTURE_CUE) {
+    // What the Cue key had in the settings, each away from its default, with two neighbours a
+    // migration must leave alone: T (the Cue's default key) given to Scatter, and the right
+    // bumper (the pad's default Cue button) given to Chime.
+    S.getState().update((d: any) => ({
+      ...d,
+      bindings: { ...d.bindings, cue: ['KeyY'], directiveScatter: ['KeyT'] },
+      assists: { ...d.assists, telegraphLead: 1.25, autonomy: true },
+      input: {
+        threadMode: 'hold',
+        cueModifier: 'Control',
+        mouse: { mode: 'KeyM' },
+        padBindings: { cueReticle: ['faceUp'], chime: ['bumperRight'] },
+      },
+      aids: { autoThread: true },
+    }));
+    notes.push('settings: Hero autonomy on, the Cue key on Y, the Cue modifier on Ctrl, the pad’s Cue on the top face button');
+  }
   keys['aetherweaver.settings'] = JSON.stringify(S.getState().settings);
 }
 process.stdout.write('\n@@FIXTURE@@' + JSON.stringify({ keys, notes }) + '\n');
@@ -248,7 +280,7 @@ export function writeFixture(build: FixtureBuild, buildsDir: string): Fixture {
     const out = execFileSync(join(modules, '.bin/tsx'), ['.save-fixture-writer.ts'], {
       cwd: dir,
       encoding: 'utf8',
-      env: { ...process.env, FIXTURE_DEMO: build.demo ?? '' },
+      env: { ...process.env, FIXTURE_DEMO: build.demo ?? '', FIXTURE_CUE: build.cue ? '1' : '' },
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 300_000,
     });

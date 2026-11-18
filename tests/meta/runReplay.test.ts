@@ -10,11 +10,13 @@ import { allowanceFor, EVERYTHING, type Allowance } from '../../src/meta/profile
 import * as Run from '../../src/meta/run';
 import {
   RUN_REPLAY_FORMAT,
+  RUN_REPLAY_VERSION,
   RunRecorder,
   allowanceOf,
   allowanceRecord,
   applyStep,
   codeOnlyResult,
+  isOldRunReplay,
   logFits,
   parseRunLog,
   parseRunReplay,
@@ -30,7 +32,17 @@ import {
 import { decodeShareCode, encodeShareCode } from '../../src/meta/shareCode';
 import type { RunState } from '../../src/meta/types';
 import { weeklyScore, weeklyStart } from '../../src/meta/weekly';
-import { SIM_VERSION } from '../../src/sim';
+import {
+  OLD_REPLAY_LINE,
+  OldReplayError,
+  REPLAY_VERSION,
+  ReplayRecorder,
+  SIM_VERSION,
+  createSim,
+  oldReplayVersion,
+  parseReplay,
+  runReplay,
+} from '../../src/sim';
 import { recordBotRun } from '../../tools/run-verify';
 
 const SLOW = 240_000;
@@ -375,6 +387,151 @@ describe('tampering is caught', () => {
       message: 'Only a code: its replay hasn’t been checked.',
     });
     expect(codeOnlyResult('AW1-nope').status).toBe('mismatch');
+  });
+});
+
+describe('a replay from before the Solo rework is refused in a plain sentence (docs/solos.md)', () => {
+  /** A run replay as format 1 held it: a `cue` command in a fight, and the autonomy assist. */
+  function oldRun(r: RunReplay): Record<string, unknown> {
+    const old = JSON.parse(JSON.stringify(r)) as Record<string, unknown> & {
+      steps: { k: string; assists?: Record<string, unknown>; frames?: [number, unknown[]][] }[];
+    };
+    old.version = 1;
+    const fight = old.steps.find((s) => s.k === 'fight' && (s.frames?.length ?? 0) > 0)!;
+    fight.assists = { ...fight.assists, autonomy: false };
+    fight.frames![0]![1].push({ t: 'cue', slot: 1 });
+    return old;
+  }
+
+  it('the formats: a fight replay is 7 and a run replay 2; what came before is old', () => {
+    expect(REPLAY_VERSION).toBe(7);
+    expect(RUN_REPLAY_VERSION).toBe(2);
+    expect(oldReplayVersion({ format: 'aetherweaver-replay', version: 6 })).toBe(6);
+    expect(oldReplayVersion({ format: 'aetherweaver-replay', version: 1 })).toBe(1);
+    expect(oldReplayVersion({ format: 'aetherweaver-replay', version: 7 })).toBeNull();
+    expect(oldReplayVersion({ format: 'aetherweaver-replay', version: 8 })).toBeNull();
+    // Not a replay at all, or no whole-number version: not "old", just unreadable.
+    for (const not of [null, 7, 'replay', [], {}, { version: 6 }, { format: 'other', version: 6 }])
+      expect(oldReplayVersion(not), JSON.stringify(not)).toBeNull();
+    for (const version of ['6', 6.5, -1, null, Number.NaN])
+      expect(oldReplayVersion({ format: 'aetherweaver-replay', version })).toBeNull();
+    expect(isOldRunReplay({ format: RUN_REPLAY_FORMAT, version: 1 })).toBe(true);
+    expect(isOldRunReplay({ format: RUN_REPLAY_FORMAT, version: RUN_REPLAY_VERSION })).toBe(false);
+    expect(isOldRunReplay({ format: RUN_REPLAY_FORMAT, version: 3 })).toBe(false);
+    // A fight replay is not a run replay, whatever its number.
+    expect(isOldRunReplay({ format: 'aetherweaver-replay', version: 1 })).toBe(false);
+  });
+
+  it('the sentence is one plain line: no code word, no version number, no "didn’t match"', () => {
+    expect(OLD_REPLAY_LINE).toBe(
+      'This replay is from an earlier version of the game. Solos work differently now, so it can’t be played back.',
+    );
+    expect(OLD_REPLAY_LINE).not.toMatch(/\d|format|schema|invalid|match|verif|fail|error/i);
+    expect(OLD_REPLAY_LINE.split(/\s+/).length).toBeLessThanOrEqual(25);
+  });
+
+  it('a fight replay of format 6: refused by name, with the sentence, before the schema reads it', () => {
+    // Today's replay of a short fight, then the same file as format 6 wrote it.
+    const sim = createSim({ seed: 11, debug: true });
+    const recorder = new ReplayRecorder(sim.config);
+    for (let t = 0; t < 30; t++) {
+      const commands = sim.step(t === 3 ? [{ t: 'thread', slot: 1 }] : []);
+      recorder.record(t, commands);
+    }
+    const today = JSON.parse(JSON.stringify(recorder.export(sim.tick, sim.hash()))) as Record<
+      string,
+      unknown
+    > & { config: { assists: Record<string, unknown> }; frames: [number, unknown[]][] };
+    expect(runReplay(parseReplay(today)).matches).toBe(true);
+    const old = JSON.parse(JSON.stringify(today)) as typeof today;
+    old.version = 6;
+    old.config.assists.autonomy = true;
+    old.frames.push([10, [{ t: 'cue', slot: 2 }]]);
+    let thrown: unknown;
+    try {
+      parseReplay(old);
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(OldReplayError);
+    expect((thrown as OldReplayError).message).toBe(OLD_REPLAY_LINE);
+    expect((thrown as OldReplayError).found).toBe(6);
+    // Even one that would otherwise read (nothing of the Cue's in it) is refused: its fight was
+    // played by the old rules, and would only come out as a mismatch.
+    expect(() => parseReplay({ ...today, version: 6 })).toThrow(OldReplayError);
+    expect(() => parseReplay({ format: 'aetherweaver-replay', version: 2 })).toThrow(
+      OLD_REPLAY_LINE,
+    );
+    // What isn't an old replay is answered as before, by the schema: today's format with an old
+    // command in it, a later format, a file that is no replay.
+    for (const bad of [
+      { ...today, frames: [[10, [{ t: 'cue', slot: 2 }]]] },
+      { ...today, version: 8 },
+      { hello: 1 },
+    ]) {
+      let other: unknown;
+      try {
+        parseReplay(bad);
+      } catch (error) {
+        other = error;
+      }
+      expect(other).toBeInstanceOf(Error);
+      expect(other).not.toBeInstanceOf(OldReplayError);
+    }
+  });
+
+  it('a run replay of format 1: refused with the sentence, and never as a check that failed', () => {
+    for (const r of [weekly.replay, prelude.replay]) {
+      const old = oldRun(r);
+      // The file itself does not read as today's.
+      expect(parseRunReplay(old)).toBeNull();
+      const result = verifyRunReplay(old);
+      expect(result.message).toBe(OLD_REPLAY_LINE);
+      expect(result.refused).toBe('oldReplay');
+      // Not "Didn't match", and no problem named: nothing was checked, so nothing failed.
+      expect(result.status).toBe('claimed');
+      expect(result.status).not.toBe('mismatch');
+      expect('problem' in result).toBe(false);
+      expect('at' in result).toBe(false);
+      expect('played' in result).toBe(false);
+      expect(result.kind).toBe(r.kind);
+    }
+    // The barest old file, and one with nothing else right about it: the same answer.
+    for (const bare of [
+      { format: RUN_REPLAY_FORMAT, version: 1 },
+      { format: RUN_REPLAY_FORMAT, version: 1, kind: 'nonsense', steps: 'x' },
+    ]) {
+      const result = verifyRunReplay(bare);
+      expect(result).toEqual({ status: 'claimed', refused: 'oldReplay', message: OLD_REPLAY_LINE });
+    }
+    // Today's format is not "old": the same edits to a current file are caught as they always were.
+    const tampered = oldRun(weekly.replay);
+    tampered.version = RUN_REPLAY_VERSION;
+    const now = verifyRunReplay(tampered);
+    expect(now.refused).toBeUndefined();
+    expect(now.status).toBe('mismatch');
+    // A later format still "can't be read".
+    expect(verifyRunReplay({ ...oldRun(weekly.replay), version: 3 }).message).toBe(
+      'Can’t be read: it isn’t a run replay of this game.',
+    );
+  });
+
+  it('a code given with an old run replay stands as a claim for its week; a code with a typo says so', () => {
+    const old = oldRun(weekly.replay);
+    const code = shareCodeOf(weekly.replay);
+    const result = verifyRunReplay(old, code);
+    expect(result).toEqual({
+      status: 'claimed',
+      refused: 'oldReplay',
+      message: OLD_REPLAY_LINE,
+      kind: 'weekly',
+      week: WEEK,
+    });
+    // The typo is the code's fault, not the replay's: answered as a code alone would be.
+    const typo = verifyRunReplay(old, 'AW1-nope');
+    expect(typo).toEqual(codeOnlyResult('AW1-nope'));
+    expect(typo.problem).toBe('code');
+    expect(typo.refused).toBeUndefined();
   });
 });
 
