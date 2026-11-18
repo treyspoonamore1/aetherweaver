@@ -18,17 +18,16 @@ export const summaryScreen = {
   'screens.summaryScreen.perHero': 'Per hero',
   'screens.summaryScreen.fell': 'fell',
   'screens.summaryScreen.bestMoments': 'Best moments',
-  'screens.summaryScreen.noHighlightsYetA':
-    'No highlights yet. A Perfect Ward or a Save will show up here.',
+  'screens.summaryScreen.noHighlightsYetA': 'None yet. Perfect Wards and Saves show up here.',
   'screens.summaryScreen.relicsAndAether': 'Relics and Aether',
   'screens.summaryScreen.earnedInFightsLeft':
     '{aetherEarned} earned in fights · {aether} left unspent',
-  'screens.summaryScreen.youCarriedNoRelics': 'You carried no relics this time.',
+  'screens.summaryScreen.youCarriedNoRelics': 'No relics this run.',
   'screens.summaryScreen.enshrined': 'Enshrined',
   'screens.summaryScreen.from': 'From {pactName}',
   'screens.summaryScreen.motifsBuilt': 'Motifs built',
   'screens.summaryScreen.woven': '{length} woven',
-  'screens.summaryScreen.youDidnTWeave': 'You didn’t weave any motifs this time.',
+  'screens.summaryScreen.youDidnTWeave': 'No motifs this run.',
   'screens.summaryScreen.songs': 'Songs: {value}',
   'screens.summaryScreen.theLoom': 'The Loom',
   'screens.summaryScreen.newRun': 'New run',
@@ -45,8 +44,7 @@ export const summaryScreen = {
   'screens.summaryScreen.thePartyIsLost':
     'The party is lost, but every note you wove is on record.',
   'screens.summaryScreen.youSetDownThe': 'You set down the thread',
-  'screens.summaryScreen.theRoadWaitsHere':
-    'The road waits. Here is what you wove while you walked it.',
+  'screens.summaryScreen.theRoadWaitsHere': 'The road waits. Here is what you did.',
   'screens.summaryScreen.theSongGoesOn': 'The song goes on',
   'screens.summaryScreen.theSilentConductorLowers':
     'The Silent Conductor lowers its baton, and the song goes on.',
