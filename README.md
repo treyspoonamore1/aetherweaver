@@ -38,13 +38,12 @@ From the title screen, **Enter the Loom**, then **the Gate** starts the Prelude.
 | Input                              | Action                                                                     |
 | ---------------------------------- | -------------------------------------------------------------------------- |
 | WASD / arrows                      | Move the Weaver                                                            |
-| 1–4, click a hero or a party frame | Attach the Thread to that hero                                             |
+| 1–4, click a hero or a party frame | Attach the Thread to that hero. A Solo fired with it on them is **Cued**   |
 | Right mouse                        | Toggle the Thread: **Mend** (heal, revive) ⇄ **Empower** (more damage)     |
 | Q                                  | **Ward** the hovered (else threaded) hero; just before a hit = **Perfect** |
 | E                                  | **Chime** at the cursor (or hovered hero): cleanses marks and ailments     |
 | F                                  | **Reel** the hovered (else threaded) hero to you, out of danger            |
 | Space                              | **Glide** (dash with i-frames)                                             |
-| T · Shift+1–4                      | **Cue** a charged hero's Solo (costs one Resonance segment)                |
 | R                                  | **Crescendo** at full Resonance                                            |
 | V                                  | **Plant** your Pedal Point field at the cursor                             |
 | Hold C / hold middle mouse         | **Directive wheel**: Focus · Rally · Hold · Scatter                        |
@@ -52,7 +51,9 @@ From the title screen, **Enter the Loom**, then **the Gate** starts the Prelude.
 | Z · X                              | Directive shortcuts: Rally · Hold                                          |
 | Mouse wheel · Esc · `` ` `` · F3   | Zoom · Pause · Dev panel · Perf HUD                                        |
 
-Keys are bound by physical position (`KeyboardEvent.code`), so they work on AZERTY and QWERTZ layouts too. **Settings → Controls** lists every binding and rebinds them: every key action, and also the three mouse roles (Thread the hovered hero, Mend ⇄ Empower, and the Directive wheel, each onto any mouse button, side buttons included, or a key) and the **Cue modifier** (Shift by default; Ctrl, Alt or any key). It also sets Thread mode and the wheel to hold or toggle, turns mouseover casting off (techniques then go to the threaded hero only), and turns on Auto-Thread. This table is the short list; Settings has the rest.
+Keys are bound by physical position (`KeyboardEvent.code`), so they work on AZERTY and QWERTZ layouts too. **Settings → Controls** lists every binding and rebinds them: every key action, and also the three mouse roles (Thread the hovered hero, Mend ⇄ Empower, and the Directive wheel, each onto any mouse button, side buttons included, or a key). It also sets Thread mode and the wheel to hold or toggle, turns mouseover casting off (techniques then go to the threaded hero only), and turns on Auto-Thread. This table is the short list; Settings has the rest.
+
+**Solos have no key.** Heroes fire their own Solos. A Solo fired with your Thread on the hero is Cued, the stronger form, so the key that matters is the hero's number. `T` and Shift+1–4 Cued a Solo in earlier versions; `T` is now unbound and Shift+number threads like the number alone ([docs/solos.md](docs/solos.md)).
 
 **Gamepad.** A standard-mapping pad works in the menus and in combat. Its buttons are named by position, not by brand, and each can be remapped in **Settings → Controls → Gamepad**. The digit shortcuts of some screens (the Draft, the Respite) stay on the keyboard.
 
@@ -62,7 +63,7 @@ Keys are bound by physical position (`KeyboardEvent.code`), so they work on AZER
 | Right stick (flick)                  | Step the reticle from hero to hero (it stands in for the hovered hero)     |
 | Right trigger · left trigger         | Thread the reticle's hero · Mend ⇄ Empower                                 |
 | Bottom · left · top · right face     | **Glide** · **Ward** · **Chime** · **Reel**                                |
-| Right bumper · left bumper           | **Cue** the reticle's hero · **Crescendo**                                 |
+| Left bumper                          | **Crescendo** (the right bumper is unbound: it Cued a Solo before)         |
 | D-pad up · right · down · left       | Directives: Focus · Rally · Hold · Scatter                                 |
 | Right stick press · left stick press | **Directive wheel** (the right stick aims it) · **Plant** Pedal Point      |
 | Start                                | Pause                                                                      |

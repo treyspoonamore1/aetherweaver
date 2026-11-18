@@ -1,6 +1,6 @@
 # Hero autonomy
 
-> **Replaced.** Heroes now always fire their own Solos, and the Thread on a hero as they fire is the Cue: see [Solos](solos.md). This page is kept as the record of the assist that came before.
+> **Replaced.** Heroes now always fire their own Solos, and the Thread on a hero as they fire is the Cue: see [Solos](solos.md). This page is kept as the record of the assist that came before. Nothing on it describes the game as it is: there is no Hero autonomy setting, no Cue key and no AUTO tag, `AUTONOMY` in the sim's constants is `SOLOS`, and `tests/sim/autonomy.test.ts` became `tests/sim/solos.test.ts`. What it found about Kael (he holds his wall at most 3 seconds, and raises it at once when hurt) is kept in the new rules.
 
 *2026-11-03 · plan: [02 §Solos](plan/02-game-design.md) · follows [health at a glance](health-ui.md)*
 

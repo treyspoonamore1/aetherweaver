@@ -39,7 +39,7 @@ npm run build:demo        # VITE_DEMO=1, relative paths, no source maps → dist
 - **New since the first build:** the Thread dial over the Weaver bar, and a glyph over the hero you've threaded, show at a glance whether you're Mending or Empowering ([docs/thread-dial.md](thread-dial.md)).
 - **Also new:** bars over the heroes, healer-style party frames, a low-life sound, and a HUD layout of your own: pause, then Edit HUD layout to move and resize the party frames and the Weaver bar ([docs/health-ui.md](health-ui.md)).
 - **New in this build: Movement II.** From Rank 2, Prep's Route switch picks the Prelude (Movement I, about 17 minutes) or the Expedition (Movement I, then the Crimson Spire's seven stops: about 28 minutes in all). A Veteran start can choose it at once; a fresh one opens it at Rank 2. The Crimson Legion brings bleeds, pins, latches, Blood Pacts and shielded Sentinels, each introduced by a "New foe" card the first time you meet it, then the Gorehound Matriarch and Vharun, the Crimson Warden ([docs/phase-5a.md](phase-5a.md)).
-- **Also new: hero autonomy works.** With the assist on, heroes fire their own Solos a moment after they charge; Kael saves his wall for a big hit, never more than 3 seconds ([docs/hero-autonomy.md](hero-autonomy.md)).
+- **Also new: hero autonomy works.** With the assist on, heroes fire their own Solos a moment after they charge; Kael saves his wall for a big hit, never more than 3 seconds ([docs/hero-autonomy.md](hero-autonomy.md)). *Since the Solo rework this is how every fight plays, with no assist to turn on: heroes fire their own Solos, and a Solo fired with your Thread on the hero is Cued, the stronger form. No key Cues a Solo ([docs/solos.md](solos.md)). Where this guide says "Cue" below, read "have your Thread on them as their Solo fires".*
 - **Play on a computer** with a keyboard and mouse. From Version 15 a standard gamepad also works, in the menus and in fights; no one has yet played with a real one (see *Version 15*).
 - **Sound starts with your first click** (browsers require it).
 - **Nothing is collected.** There's no feedback form or telemetry in this build; tell its owner what you found.
@@ -142,7 +142,7 @@ The published link has the Finale since version 1794096200-d582 (2026-11-08). It
   - Eight notes bring the song back. Every hero wakes with a full Solo, and the fallen stand up again.
   - If you can't make eight, the Coda wakes them after about 50 s, but the fallen stay down.
   - The stave in the boss bar fills one pip per note, with the note's glyph.
-- **The last burn:** Cue your heroes' Solos and finish it.
+- **The last burn:** your heroes' Solos fire again. Follow them with your Thread, so they are Cued, and finish it.
 
 **The epilogue.**
 
@@ -197,7 +197,7 @@ The published link has the Finale since version 1794096200-d582 (2026-11-08). It
 - **The Saplings in your field.** Two rooted Saplings sprout 4 m ahead of you. Each one in your field shows your songs on its rim and its mini bar (under Oro's frame). Outside it, the arcs grey and a leaf mark shows: walk back over them, or Rally, and they burrow and re-sprout ahead of you.
 - **Rootbond.** Your Thread on Oro, in Mend, also heals his Saplings (green motes along his roots).
 - **Gentle.** He won't fight without a Focus: a closed leaf on his portrait. While he tends, his Saplings hit harder.
-- **The Ancient.** His Solo, Wildgrowth, raises an Ancient that roots and taunts the small foes near it. Cue it, and its 6 m disc is your field for its 8 s: your songs reach whoever stands in it (a second dashed disc).
+- **The Ancient.** His Solo, Wildgrowth, raises an Ancient that roots and taunts the small foes near it. Cued (your Thread on Oro as it fires), its 6 m disc is your field for its 8 s: your songs reach whoever stands in it (a second dashed disc).
 - **Bosses and the biggest foes ignore Saplings.** They hold the pack, never the boss.
 
 **Playing with the sound off.** Every state has a shape, so please try a fight muted (and with Flashes at 0, if you can): crossed blades (armed), the PARRIED flash, the KILL SHOT star, the duel tether and crown, the overextended chip and arrow ring, the grey Sapling arcs and leaf mark, the burrow trail, the closed leaf, the root vines and the Ancient's rings. Settings → *Captions* writes their barks and key sounds as words.
@@ -222,7 +222,7 @@ The cold read (≥ 4 of 5 testers answering the first two questions) uses the pr
 
 ### Phase 5f: the Conductor
 
-*The one who makes them great.* The Luminary lights the heroes, the Martyr takes their wounds, the Chronomancer bends the seconds. The Conductor leads them: Cues are cheap, Solos called close together grow stronger, and his Crescendo plays every hero's Solo in turn.
+*The one who makes them great.* The Luminary lights the heroes, the Martyr takes their wounds, the Chronomancer bends the seconds. The Conductor leads them: Solos Cued close together grow stronger, and his Crescendo plays every hero's Solo in turn.
 
 **How to get him.**
 
@@ -235,37 +235,37 @@ The cold read (≥ 4 of 5 testers answering the first two questions) uses the pr
 
 **What he does.**
 
-- **Cheap Cues.** A Cue costs 20 Resonance, and you gain 10% more Resonance. (A Cue is Shift plus the hero's number; the cost shows as ticks on the Resonance meter.)
-- **Duets and Trios.** Cue a Solo within 4 seconds of your last Cue and it plays as a **Duet**, 25% stronger. A third hero Cued within 4 seconds of the second plays as a **Trio**, 50% stronger. A chain needs different heroes: Cue the same hero again and it starts over.
-- **Only Cues count.** A Solo a hero fires on their own (with the assist on, a full Solo fires itself a moment after it is ready) neither joins nor breaks a chain, and neither does a Grand Finale turn. So with the assist on, build your chain quickly.
-- **Grand Finale** replaces Sunrise. Every hero plays their Solo in turn, as if Cued, each 20% stronger than the one before; when it ends, every Solo is full again. It costs the Crescendo's 100 Resonance.
+- **More Resonance.** You gain 10% more Resonance. A Cue costs nothing for anyone now: a Solo is Cued when your Thread is on the hero as it fires, and the meter shows no price.
+- **Duets and Trios.** A Solo Cued within 4 seconds of the last Cued Solo plays as a **Duet**, 25% stronger. A third hero Cued within 4 seconds of the second plays as a **Trio**, 50% stronger. So follow each Solo with your Thread as it fires: the heroes fire a second apart. A chain needs different heroes: the same hero Cued again starts it over.
+- **Only Cued Solos count.** A Solo that fires plain, with your Thread elsewhere, neither joins nor breaks a chain, and neither does a Grand Finale turn.
+- **Grand Finale** replaces Sunrise. Every hero plays their Solo in turn, Cued, each 20% stronger than the last. Then every Solo is full again, and the three fire a second apart: a Trio for the taking. It costs the Crescendo's 100 Resonance.
 
 **His path.**
 
 - **Tier I:**
   - **Marcato:** heroes who answer one of your orders (Focus, Rally, Hold or Scatter) deal 10% more damage for 4 seconds. It comes again 8 seconds after it was given.
-  - **A Tempo:** a Cue given on the downbeat, within 0.15 seconds either side, costs no Resonance. A strip under your Resonance meter shows the beat.
+  - **A Tempo:** your heroes begin their Solos on the downbeat. Each one you Cue gives 15 Resonance. The strip under your Resonance shows the beat, and whose Solo begins on the next one.
 - **Tier II:**
   - **Reprise:** when a Trio lands, every hero's Solo charges 30%.
   - **Upbeat:** every fight begins with 50 Resonance.
 - **Tier III:**
-  - **Ensemble:** each different hero you Cue in a row makes your heroes deal 5% more damage, up to 15%, until you Cue one of them again.
-  - **Spotlight:** a hero you Cue is Empowered at double strength while their Solo lasts, Thread or not.
+  - **Ensemble:** each different hero Cued in a row makes your heroes deal 5% more damage, up to 15%, until one of them is Cued again.
+  - **Spotlight:** a hero whose Solo is Cued stays Empowered at double strength while it lasts, wherever your Thread goes.
 - **Tier IV:**
   - **Triad:** while three or more heroes stand in your field, your Resonance never fades.
   - **Maestro:** Grand Finale needs only 75 Resonance, and it plays every hero's turn twice, still rising.
 
 **What to look for.**
 
-- **Cueing a Solo and its cost.** Ready heroes show a badge on their frame (*Duet ×1.25* or *Trio ×1.5* when a Cue now would chain). Did the cost on the meter match what you expected?
-- **The chain.** After a Cue, a gold arc drains around the Cue strip for 4 seconds, and a gold ribbon runs from the last hero Cued to those who could join. A Duet links two small sigils; a Trio closes a triangle of light over the three. DUET and TRIO are called out. Could you say what a Duet is after one fight?
-- **The downbeat (A Tempo).** Four marks under the Resonance meter, with a light running along them. While the light is inside the band around the first mark, the band glows and a hero's badge reads *Free*. A faint ring pulses from the Weaver's feet on each downbeat. Did you notice it, and did you Cue on it on purpose?
+- **Cueing a Solo.** A hero whose Solo is coming shows a strip on their frame, and a badge on it (*Duet* or *Trio*) when a Cue now would chain. The badge is outlined until your Thread is on that hero, then filled. Did you know where to put your Thread, and when?
+- **The chain.** After a Cued Solo, a gold ring drains for 4 seconds, and a gold ribbon runs from the last hero Cued to those who could join. A Duet links two small sigils; a Trio closes a triangle of light over the three. DUET and TRIO are called out. Could you say what a Duet is after one fight?
+- **The downbeat (A Tempo).** Four marks under the Resonance meter, with a light running along them. The band around the first mark glows when a Solo is about to begin there, with that hero's initial beside the strip, ringed gold when your Thread is on them. A faint ring pulses from the Weaver's feet on each downbeat. Did you notice it, and did you have your Thread there on purpose?
 - **Orders and Marcato (tier I).** The Calling chip reads *Marcato* when it is ready and *Marcato* with seconds while it is held; a small accent mark sits over each hero who has it.
 - **Ensemble and Spotlight.** Gold motes circle the Weaver, one to three, for Ensemble. Spotlight puts a cone of white light on the hero for the length of their Solo.
 - **Triad.** A faint gold triangle on the ground between three heroes, and *holding* on the Calling chip, while your Resonance is not fading.
 - **The Grand Finale.** A banner, then each hero's turn: a baton stroke from the Weaver to the hero, a callout building up as *Kael ×1 · Lyra ×1.2 · Vexis ×1.44*, and pips on the Weaver bar (six with Maestro) that light as they are played. On the party frames each hero shows their place in the queue, *waits* or *lost*. A hero who is down, possessed or stilled when their turn comes loses it, and a *can't play* callout says so. When it ends, *Every Solo is full*.
-- **The Result and the Summary** count his work: Duets, Trios, the Grand Finale's Solos and free Cues.
-- **In Movement III and the Finale.** A possessed hero cannot take a Cue, and the Silent Conductor's stilled heroes lose Finale turns. A Grand Finale cast while the Grand Silence stills the party plays no Solo for its Resonance. Did a Finale ever fail you that way?
+- **The Result and the Summary** count his work: Duets, Trios, the Grand Finale's Solos and Solos Cued on the beat.
+- **In Movement III and the Finale.** A possessed hero does not fire a Solo, and the Silent Conductor's stilled heroes lose Finale turns. A Grand Finale cast while the Grand Silence stills the party plays no Solo for its Resonance. Did a Finale ever fail you that way?
 
 **Playing with the sound off.** Everything above has a shape as well as a sound: the beat strip's light and band, the chain arc and ribbon, the DUET and TRIO call-outs and their sigils and triangle, the *Free* badge, and the Finale's turn chips and pips. With reduced motion the beat light steps from mark to mark instead of sliding, and stands on the downbeat mark exactly while the window is open. Settings has a **Captions** switch (off by default) that also writes the key sounds as words.
 
@@ -278,11 +278,11 @@ The cold read (≥ 4 of 5 testers answering the first two questions) uses the pr
 **Please tell us:**
 
 - After one fight, could you say what a Duet is? A Trio?
-- Did you notice the downbeat? Did the strip's light make sense, and did you Cue on it?
-- Did a Cue ever feel too expensive, or too cheap to think about?
+- Did you notice the downbeat? Did the strip's light make sense, and did you have your Thread on the hero whose Solo began on it?
+- Was following a Solo with your Thread too hard, or too easy to think about?
 - Did the Finale's order make sense (who played first, who waited, who was lost)? Did the rising numbers tell you anything?
 - Which tier option did you pick, and why? Which did you wish you could have kept?
-- With the assist on, did heroes fire their Solos before you could chain them?
+- Did heroes fire their Solos before your Thread could reach them?
 
 ### Phase 5g: the content fill
 
@@ -302,9 +302,9 @@ The Expedition's pools are much larger: **63 new motifs** (30 common, 22 rare an
 - **Shatterglass** (rare): when a Ward breaks, shards strike the three nearest enemies for 100 / 150 / 200 damage each. It pays on a Ward that was used up, not on a Perfect Ward.
 - **Breath Between** (rare): after 4 seconds without casting a technique, your next costs 30 / 45 / 60% less Spirit. It rewards pacing your casts.
 - **Iron Answer** (Kael, common): each Ward you cast on Kael brings his Challenge 2 / 3 / 4 seconds closer. The other Bond motifs are Penitent Shield (Kael), Split Fletching and Steady Draw (Lyra), Constellation Lines and Inner Orbit (Vexis), Bloodsong and Edge of the Red (Brann), Cold Steel and Second Intention (Seren), and Graft and Seed Vault (Oro). Each is offered only when its hero is in your party.
-- **Opening Bars** (rare, a Finale motif): your first Cue in each fight costs 10 / 15 / 25 less Resonance.
+- **Opening Bars** (rare, a Finale motif): the first Solo Cued in each fight gives 5 / 7.5 / 12.5 Resonance.
 - **Concert Pitch** (Harmony, needs Steady Hands and Thread the Needle): a Perfect Ward rings out, and every hero deals 15% more damage for 4 seconds.
-- **Tempo Rubato** (Harmony, needs Canon and Opening Bars): one Cue in every three costs no Resonance.
+- **Tempo Rubato** (Harmony, needs Canon and Opening Bars): one Cue in every three gives half a segment of Resonance.
 - **Everbell** (legendary relic): your Chime holds two charges.
 - **Water Clock** (legendary relic): once a fight, when a hero goes down, time turns back for them. They stand again with the life and the place they had 3 seconds before.
 - **Iron Mask** (cursed relic): your heroes take 12% less damage, but your Thread can't Empower.
@@ -554,10 +554,10 @@ Every new option starts at "not set", which plays exactly as Version 14 did. Ope
 
 **Controls** is the last section of the Settings screen.
 - **Every key** can be changed, with a second key beside it. Click a key, then press the new one (Esc cancels). If it is taken, you are asked: swap, use it here (and unbind the other), or cancel.
-- **The mouse** has three roles you can move to any mouse button or key: *Thread the hovered hero* (left button), *Mend ⇄ Empower* (right) and the *Directive wheel* (middle). **Cue modifier** is the key held with a hero's Thread key to Cue their Solo (Shift to begin with, and Ctrl or Alt work too).
-- **How the controls behave:** Thread mode, Toggle or Hold (Hold: Empower while the button is held); the wheel, Hold or Toggle; **Mouseover casting** off (Ward, Reel, Cue and Chime go to the threaded hero only); and **Auto-Thread**, an assist that moves the Thread to the hero lowest on life after 2 seconds with no input.
+- **The mouse** has three roles you can move to any mouse button or key: *Thread the hovered hero* (left button), *Mend ⇄ Empower* (right) and the *Directive wheel* (middle). There is no Cue key and no Cue modifier since the Solo rework: a hero's key threads them, whatever is held with it.
+- **How the controls behave:** Thread mode, Toggle or Hold (Hold: Empower while the button is held); the wheel, Hold or Toggle; **Mouseover casting** off (Ward, Reel and Chime go to the threaded hero only); and **Auto-Thread**, an assist. Left alone for 2 seconds, the Thread follows each Solo, so it is Cued. With no input at all, it goes to the hero lowest on life.
 - *Reset all keys* resets the keys only; *Restore defaults* resets the mouse roles, the modifier and these options as well.
-- **Gamepad.** A standard pad plays fights and every menu screen. The Gamepad section lists the layout, which you can change the same way (click a slot, press a pad button). The start layout: left stick moves; right stick flicks a reticle from hero to hero; right trigger Threads the reticle's hero; left trigger Mend ⇄ Empower; bottom button Glide, left Ward, top Chime, right Reel; right bumper Cues the reticle's hero; left bumper Crescendo; d-pad up Focus, right Rally, down Hold, left Scatter; right stick press the wheel; left stick press Plant; Start pauses. In menus the d-pad or left stick moves, the bottom button chooses and the right button goes back. Buttons are named by where they sit. There is no rumble. The reticle shows only as the usual highlight on the hero.
+- **Gamepad.** A standard pad plays fights and every menu screen. The Gamepad section lists the layout, which you can change the same way (click a slot, press a pad button). The start layout: left stick moves; right stick flicks a reticle from hero to hero; right trigger Threads the reticle's hero; left trigger Mend ⇄ Empower; bottom button Glide, left Ward, top Chime, right Reel; left bumper Crescendo (the right bumper is unbound: it Cued a Solo before); d-pad up Focus, right Rally, down Hold, left Scatter; right stick press the wheel; left stick press Plant; Start pauses. In menus the d-pad or left stick moves, the bottom button chooses and the right button goes back. Buttons are named by where they sit. There is no rumble. The reticle shows only as the usual highlight on the hero.
 
 **Saves** is in Settings → Progress.
 - **Download save file** and **Show save code** export your profile, your settings and any run in progress. A file is `aetherweaver-save.json`; a code is a long text that starts `AWSAVE1.`, to keep anywhere or paste into another browser.
@@ -585,7 +585,7 @@ Every new option starts at "not set", which plays exactly as Version 14 did. Ope
 - **Reduced motion On.** In a fight, does the screen hold still? Is anything that should have stopped still moving, or anything you needed stopped?
 - **Captions.** With Captions on, do the words help? Too many, too few, too late?
 - **Game speed.** At 70% does the same fight feel like more time to think? Did the sounds (the wind-ups) still end on the hit?
-- **Remapping.** Move a key, a mouse role and the Cue modifier; play a fight. Did the swap prompt make sense? Did the hints on screen show your keys?
+- **Remapping.** Move a key and a mouse role; play a fight. Did the swap prompt make sense? Did the hints on screen show your keys?
 - **Gamepad.** If you have a pad: does the layout feel right, can you find the reticle, does the left stick move where you push it? Can you get from the Title to the end of a fight without the keyboard?
 - **Saves.** Export a file and a code, then import each back. Did the preview tell you what you were about to replace? Did the page come back on the same Weaver, and did Continue offer your run? Did you ever see the "A save couldn't be loaded" notice?
 - **Hero voices.** Switch them on and play. Are they pleasant or tiring? Is any hero too loud or too frequent? Does anything cover a warning sound?

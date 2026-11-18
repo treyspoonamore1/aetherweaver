@@ -2,6 +2,8 @@
 
 *2026-10-30 · plan: [docs/plan/02-game-design.md §10](plan/02-game-design.md#10-endgame-and-mastery), [03 §11](plan/03-content-bible.md#11-dissonance-difficulty-levels-after-the-first-finale-clear) · follows [Phase 4c](phase-4c.md)*
 
+> **Since the Solo rework (2026-11-18, [docs/solos.md](solos.md)).** A Cue costs nothing, so **Silent Cues** no longer adds 10 to a price. It now reads: "A Solo is Cued only if your Thread was on the hero for 1 s." Its look changed with it: the gold ticks on the Weaver's Resonance orbit and the Cue's cost on the meter are gone, and a second ring fills round the mark over the hero as your Thread holds, with "Hold 0.6 s" on their frame. The Cantor's Hymnal call-out says "HYMNAL", with no "CUE READY". What this page and `docs/phase-4d/` say about the Cue's cost, the Cue arc and the orbit's ticks is the record of how it was.
+
 **Dissonance** is the endgame's difficulty: opt-in levels, each worth points, chosen before a run. A run's total raises its rewards. The relics it finds remember it, which unlocks the Reliquary's top tiers. The Astrolabe and the Reliquary finally have something to push against. The user chose how it works:
 
 | Question | Choice |

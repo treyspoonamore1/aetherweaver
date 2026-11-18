@@ -187,7 +187,7 @@ The playtest is the half of the gate that can't be automated. For each tester, r
 - Do the heroes feel like they "play themselves"? (Goal: nobody says so.)
 - Where did they lose, and did the death recap explain why?
 
-Use **Settings → Assists** for anyone who struggles (wider Perfect window, slower wind-ups, hero autonomy).
+Use **Settings → Assists** for anyone who struggles (wider Perfect window, slower wind-ups). Hero autonomy was a third assist until the Solo rework: heroes now fire their own Solos for everyone ([docs/solos.md](solos.md)).
 
 ## Known gaps
 

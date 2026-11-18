@@ -6,6 +6,18 @@ The fourth **Calling**: the one who makes them great. The Luminary makes the her
 
 It unlocks at **Rank 12** (6,650 XP), the same Rank as Oro's recruit (`recruit.oro`, docs/phase-5e.md:621). Like the Martyr's Vow and the Chronomancer's Stasis, its Crescendo, **Grand Finale**, replaces Sunrise. It takes no key: Cues stay on Shift+1 to Shift+4 and the Crescendo on its own key.
 
+> **Since the Solo rework (2026-11-18, [docs/solos.md](solos.md)).** Heroes fire their own Solos, and a Solo is Cued when your Thread is on the hero as it fires. No key Cues a Solo and a Cue costs nothing. The Conductor is still the Calling of chains, and everything below about Duets, Trios, the Grand Finale, Marcato, Reprise, Upbeat, Ensemble, Spotlight, Triad and Maestro holds. What no longer holds on this page:
+>
+> - **"Cues are cheap" and every price** (*Cue cost and the meter*, decision 7, the passive's "Cues 20"). There is no price, the meter has no Cue ticks, and it fades as it does for everyone: the rule that kept whole Cues is gone. The passive is 10% more Resonance, and Duets and Trios.
+> - **How a chain is made.** Not by pressing Shift and a number. A Duet is a Solo Cued within 4 s of the last Cued Solo: follow each Solo with the Thread as it fires. A plain Solo still neither joins a chain nor breaks one.
+> - **A Tempo** (decision 6, *A Tempo*). It no longer makes a Cue free. The heroes begin their Solos on the downbeat, within 0.15 s of it, and each one Cued gives 15 Resonance. The beat strip shows when the next Solo begins and whose it is.
+> - **Silent Cues** adds no surcharge. A Solo is Cued only if your Thread was on the hero for 1 s.
+> - **The badge** says "Duet" or "Trio" and nothing else: no price, no "Free", no "On the beat · 10". It is outlined until your Thread is on that hero, then filled. A Solo Cued on the beat raises "On the beat · +N Resonance".
+> - **The chime** sounds on each Cued Solo A Tempo pays for, Silent Cues or not (the event's `paid` flag).
+> - **The bots** time no Cue. `conductChain`, `conductHold` and `conductBeat` are gone: Duets and Trios come of the Thread following each Solo (`soloCue`).
+> - **The tallies** `freeCues` and `saved` keep their names in the save. They count the Cued Solos A Tempo paid for and the Resonance it gave. The Result says "4 Solos Cued on the beat".
+> - **The browser test** makes its Duet by moving the Thread.
+
 This doc is the spec. Implementers build from it and their brief, nothing else. Every number below is a starting value that W5 tunes, inside the levers listed under *Bands*. W5 has tuned the passive: the text below gives the as-built numbers (Cues 20, gain 10%, a 4 s window) and notes the earlier value where a reader would be confused. *As built* and *Tuning* hold the rest.
 
 ## Decisions for you

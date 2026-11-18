@@ -74,4 +74,5 @@ Each of these was in the game. The round 11 menu audit quotes them and counts th
 - Screen and card text ends with a full stop. Coach hints and labels don't.
 - A screen reader gets a whole sentence. An `aria-label` can say more than the text on screen.
 - Check every number against the code before the line ships.
-- Auras, ornaments and the songs' rules are the owner's words. So are the lines about Solos, Cues, hero autonomy and Resonance while that mechanic is being redesigned. Leave them as they are.
+- Auras, ornaments and the songs' rules are the owner's words. Leave them as they are.
+- Solos and Cues follow this guide like any other line, since the rework ([docs/solos.md](solos.md)). No key Cues a Solo, so a line never tells the player to "Cue". It says what to do with the Thread: "Thread Kael for his dome". "Cued" is a state of a Solo, explained in one phrase everywhere: "fired with your Thread on them".
