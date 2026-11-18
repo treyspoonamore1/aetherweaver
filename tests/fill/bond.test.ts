@@ -274,7 +274,7 @@ describe('Steady Draw: Cueing Lyra brings her Piercing Shot closer', () => {
       const { sim, w, of } = staged(id, level);
       const lyra = of('lyra');
       const kael = of('kael');
-      weaverOf(w).weaver!.resonance = 100;
+      weaverOf(w).weaver!.resonance = 200;
       for (const h of [lyra, kael]) h.hero!.solo = 100;
       lyra.hero!.abilityCooldowns = [50, 50];
       // Cueing Kael: not Lyra, so nothing.
@@ -283,7 +283,7 @@ describe('Steady Draw: Cueing Lyra brings her Piercing Shot closer', () => {
       ]);
       expect(ofType(k, 'cued')).toHaveLength(1);
       expect(lyra.hero!.abilityCooldowns[0]).toBeCloseTo(50 - SIM_DT, 9);
-      weaverOf(w).weaver!.resonance = 100;
+      weaverOf(w).weaver!.resonance = 200;
       const events = stepFor(sim, 1, [
         { t: 'debug', op: { op: 'fireSolo', slot: lyra.hero!.slot, cued: true } },
       ]);

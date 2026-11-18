@@ -367,7 +367,7 @@ export const CRUCIBLE_ATTACKS: ContentInput['attacks'] = [
     followUp: { attack: FORTISSIMO[1], delay: 0 },
     scripted: true,
     decree: `Fortissimo Silence — every hero loses ${FORTISSIMO_TOTAL}% of their life over ${FORTISSIMO_SPAN} s. Crescendo to cancel it, or dome, Ward and heal.`,
-    decreeNoDome: `Fortissimo Silence — ${FORTISSIMO_TOTAL}% of every hero’s life over ${FORTISSIMO_SPAN} s. No dome: keep 100 Resonance and cancel it with your Crescendo; Ward the one you can’t lose.`,
+    decreeNoDome: `Fortissimo Silence — ${FORTISSIMO_TOTAL}% of every hero’s life over ${FORTISSIMO_SPAN} s. No dome: keep 200 Resonance and cancel it with your Crescendo; Ward the one you can’t lose.`,
   },
   {
     ...BASE,

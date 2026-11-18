@@ -49,7 +49,7 @@ interface Timed {
 }
 
 /** Casts the Finale with a full meter (or `resonance`), then plays `ticks`; events with sim times. */
-function finale(sim: Sim, w: World, ticks = 60 * 14, resonance = 100): Timed[] {
+function finale(sim: Sim, w: World, ticks = 60 * 14, resonance = 200): Timed[] {
   weaverOf(w).weaver!.resonance = resonance;
   const out: Timed[] = [];
   for (let i = 0; i < ticks; i++) {
@@ -107,7 +107,7 @@ describe('Grand Finale', () => {
 
   it('the Solos it plays carry the ramp as their power', () => {
     const { sim, w } = stage();
-    weaverOf(w).weaver!.resonance = 100;
+    weaverOf(w).weaver!.resonance = 200;
     stepFor(sim, 1, [CRESCENDO]);
     expect(w.field.conducting!.solos).toEqual([{ hero: w.party[0], power: 1, finale: true }]);
     expect(finaleView(w)).toEqual({
@@ -118,15 +118,15 @@ describe('Grand Finale', () => {
     });
   });
 
-  it('Maestro: six turns rising to ×2.48832; it costs 75 and keeps the rest', () => {
+  it('Maestro: six turns rising to ×2.48832; it costs 150 and keeps the rest', () => {
     const { sim, w } = stage(['maestro']);
-    const timed = finale(sim, w, 60 * 14, 90);
+    const timed = finale(sim, w, 60 * 14, 180);
     const t = turns(timed);
     expect(t.map((x) => x.hero)).toEqual([...w.party, ...w.party]);
     expect(t.map((x) => x.pass)).toEqual([1, 1, 1, 2, 2, 2]);
     const want = [1, 1.2, 1.44, 1.728, 2.0736, 2.48832];
     t.forEach((x, i) => expect(x.power).toBeCloseTo(want[i]!, 9));
-    expect(ofType(events(timed), 'resonanceSpent')[0]).toMatchObject({ amount: 75, total: 15 });
+    expect(ofType(events(timed), 'resonanceSpent')[0]).toMatchObject({ amount: 150, total: 30 });
     // A hero's second turn waits for their first Finale Solo to end.
     for (let i = 3; i < 6; i++) {
       const first = t[i - 3]!;
@@ -140,18 +140,18 @@ describe('Grand Finale', () => {
 
   it('Maestro can be cast at 75; without it, 75 is refused', () => {
     const plain = stage();
-    weaverOf(plain.w).weaver!.resonance = 75;
+    weaverOf(plain.w).weaver!.resonance = 150;
     const refused = stepFor(plain.sim, 1, [CRESCENDO]);
     expect(ofType(refused, 'techniqueRejected')[0]).toMatchObject({ reason: 'resonance' });
     const maestro = stage(['maestro']);
-    weaverOf(maestro.w).weaver!.resonance = 75;
+    weaverOf(maestro.w).weaver!.resonance = 150;
     expect(ofType(stepFor(maestro.sim, 1, [CRESCENDO]), 'crescendoStart')).toHaveLength(1);
   });
 
   it('a hero mid-Solo waits, and plays when it ends; the next free hero goes first', () => {
     const { sim, w } = stage();
     heroAt(w, 1).hero!.solo = 100;
-    weaverOf(w).weaver!.resonance = 100;
+    weaverOf(w).weaver!.resonance = 200;
     stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: 1, cued: true } }]);
     const timed = finale(sim, w);
     const t = turns(timed);
@@ -192,7 +192,7 @@ describe('Grand Finale', () => {
     const lyra = heroAt(w, 1);
     startHold(w, lyra, 1.5, 'a staged blow', lyra.health!.maxHp);
     expect(lyra.hero!.hold).not.toBeNull();
-    weaverOf(w).weaver!.resonance = 100;
+    weaverOf(w).weaver!.resonance = 200;
     stepFor(sim, 1, [CRESCENDO]);
     expect(finaleView(w)!.queue).toEqual([w.party[1], w.party[2]]);
     expect(finaleView(w)!.next).toBe(w.party[2]);
@@ -203,7 +203,7 @@ describe('Grand Finale', () => {
     const lyra = heroAt(w, 1);
     // Staged: a Solo that outlasts the Finale.
     lyra.hero!.solo = 100;
-    weaverOf(w).weaver!.resonance = 100;
+    weaverOf(w).weaver!.resonance = 200;
     stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: 1, cued: true } }]);
     lyra.hero!.soloActive = 30;
     const timed = finale(sim, w, 60 * 14);
@@ -236,20 +236,20 @@ describe('Grand Finale', () => {
     expect(vexis.hero!.solo).toBe(0);
   });
 
-  it('no Resonance while it plays; Da Capo’s 25 when it ends', () => {
+  it('no Resonance while it plays; Da Capo’s 50 when it ends', () => {
     const { sim, w } = stage([], { motifs: [{ id: 'da_capo', level: 1 }] });
     // A Solo that keeps the Finale playing a while.
     heroAt(w, 1).hero!.solo = 100;
-    weaverOf(w).weaver!.resonance = 100;
+    weaverOf(w).weaver!.resonance = 200;
     stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: 1, cued: true } }]);
-    weaverOf(w).weaver!.resonance = 100;
+    weaverOf(w).weaver!.resonance = 200;
     stepFor(sim, 1, [CRESCENDO]);
     expect(weaverOf(w).weaver!.resonance).toBeCloseTo(0, 9);
     gainResonance(w, 20, 'perfect');
     expect(weaverOf(w).weaver!.resonance).toBeCloseTo(0, 9);
     const rest = stepUntil(sim, (ev) => ev.some((e) => e.type === 'crescendoEnd'), 60 * 14);
     expect(ofType(rest, 'finaleEnded')).toHaveLength(1);
-    expect(weaverOf(w).weaver!.resonance).toBe(25);
+    expect(weaverOf(w).weaver!.resonance).toBe(50);
   });
 
   it('no aura surge and no heal: field.crescendo stays false, every aura as on a plain tick', () => {
@@ -257,7 +257,7 @@ describe('Grand Finale', () => {
     const b = stage([], { chords: GUARDIAN });
     for (const s of [a, b]) {
       for (const slot of [0, 1, 2]) heroAt(s.w, slot).health!.hp = 100;
-      weaverOf(s.w).weaver!.resonance = 100;
+      weaverOf(s.w).weaver!.resonance = 200;
     }
     const cast = stepFor(a.sim, 1, [CRESCENDO]);
     stepFor(b.sim, 1);
@@ -284,7 +284,7 @@ describe('Grand Finale', () => {
     });
     // The same set-up does sing on a Cue.
     heroAt(w, 0).hero!.solo = 100;
-    weaverOf(w).weaver!.resonance = 100;
+    weaverOf(w).weaver!.resonance = 200;
     const cued = stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: 0, cued: true } }]);
     expect(ofType(cued, 'chorusPulse')).toHaveLength(1);
     expect(
@@ -312,10 +312,10 @@ describe('Grand Finale', () => {
 
   it('Cues during the Finale are allowed: a hero Cued before their turn waits for it', () => {
     const { sim, w } = stage();
-    weaverOf(w).weaver!.resonance = 100;
+    weaverOf(w).weaver!.resonance = 200;
     stepFor(sim, 1, [CRESCENDO]);
     heroAt(w, 2).hero!.solo = 100;
-    weaverOf(w).weaver!.resonance = 20;
+    weaverOf(w).weaver!.resonance = 40;
     const cued = stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: 2, cued: true } }]);
     expect(ofType(cued, 'cued')).toHaveLength(1);
     expect(finaleView(w)!.next).toBe(w.party[1]);
@@ -340,7 +340,7 @@ describe('Grand Finale', () => {
     w.internal.m4!.nextRaiseAt = 1e9;
     w.field.finale!.discord!.value = 100;
     stepUntil(sim, () => w.telegraphs.some((t) => t.attackId === FORTISSIMO[0]), 600);
-    weaverOf(w).weaver!.resonance = 100;
+    weaverOf(w).weaver!.resonance = 200;
     const cast = stepFor(sim, 1, [CRESCENDO]);
     expect(ofType(cast, 'crescendoStart')[0]!.calling).toBe('Grand Finale');
     expect(ofType(cast, 'fortissimoCancelled')).toEqual([
@@ -351,7 +351,7 @@ describe('Grand Finale', () => {
   it('the run’s Crescendo kind is the Finale; Sunrise’s numbers stay the content’s', () => {
     const { w } = stage();
     expect(w.calling!.crescendo).toBe('finale');
-    expect(CONTENT.resonance.crescendoCost).toBe(100);
+    expect(CONTENT.resonance.crescendoCost).toBe(200);
     expect(w.mods.finaleWait).toBe(12);
   });
 });

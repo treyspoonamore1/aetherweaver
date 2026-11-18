@@ -180,18 +180,18 @@ describe('cutThread: an enemy cuts the Thread', () => {
     }
   });
 
-  it('Knotted Cord halves a cut’s lock and gives 5 Resonance a cut', () => {
+  it('Knotted Cord halves a cut’s lock and gives 10 Resonance a cut', () => {
     const sim = rift({ relics: ['knotted_cord'] });
     const w = worldOf(sim);
     expect(w.mods.cutLockMult).toBe(0.5);
-    expect(w.mods.cutResonance).toBe(5);
+    expect(w.mods.cutResonance).toBe(10);
     thread(sim, 0);
     const wv = weaverEntity(w).weaver!;
     const before = wv.resonance;
     sim.drainEvents();
     expect(cutThread(w, 'snip', 3, null)).toBe('cut');
     expect(wv.threadLock).toBe(1.5);
-    expect(wv.resonance - before).toBeCloseTo(5 * resonanceScale(w), 9);
+    expect(wv.resonance - before).toBeCloseTo(10 * resonanceScale(w), 9);
     const events = sim.drainEvents();
     expect(ofType(events, 'threadSnapped')[0]).toMatchObject({ cause: 'snip', lock: 1.5 });
     // It acted, so the view hears it (its sound, W7).
@@ -392,10 +392,10 @@ describe('the Null rune silences the Weaver', () => {
     ok([{ t: 'directive', kind: 'rally' }], 'directiveAck');
     stepFor(sim, 1, [
       { t: 'debug', op: { op: 'chargeSolos' } },
-      { t: 'debug', op: { op: 'setResonance', value: 100 } },
+      { t: 'debug', op: { op: 'setResonance', value: 200 } },
     ]);
     ok([{ t: 'debug', op: { op: 'fireSolo', slot: 1, cued: true } }], 'cued');
-    stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: 100 } }]);
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: 200 } }]);
     ok([{ t: 'crescendo' }], 'crescendoStart');
     ok([{ t: 'glide', x: 1, z: 0 }], 'glided');
   });
@@ -451,7 +451,7 @@ describe('a possessed hero', () => {
     const sim = sandbox();
     stepFor(sim, 1, [
       { t: 'debug', op: { op: 'chargeSolos' } },
-      { t: 'debug', op: { op: 'setResonance', value: 100 } },
+      { t: 'debug', op: { op: 'setResonance', value: 200 } },
     ]);
     const w = worldOf(sim);
     addStatus(w, heroAt(w, 0), 'possessed', 5, null);
@@ -602,7 +602,7 @@ describe('Unravel: your Mend wounds', () => {
 
   it('under Stasis Mend heals as usual and the window waits', () => {
     const { sim, w, source, open } = unravelled({ calling: { id: 'chronomancer', path: [] } });
-    stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: 100 } }]);
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: 200 } }]);
     stepFor(sim, 1, [{ t: 'crescendo' }]);
     expect(w.field.stasis).toBe(true);
     const kael = heroAt(w, 0);
@@ -732,7 +732,7 @@ describe('Steal Verse: a stolen aura sings for nothing', () => {
       const { sim } = sung(steal);
       stepFor(sim, 1, [
         { t: 'debug', op: { op: 'chargeSolos' } },
-        { t: 'debug', op: { op: 'setResonance', value: 50 } },
+        { t: 'debug', op: { op: 'setResonance', value: 100 } },
       ]);
       const events = stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: 0, cued: true } }]);
       expect(ofType(events, 'chorusPulse')[0]).toMatchObject({ auras });
@@ -884,7 +884,7 @@ describe('the Rift relics sleep outside a Movement III fight', () => {
     expect(mods).toMatchObject({
       sacrificialLamb: 1,
       cutLockMult: 0.5,
-      cutResonance: 5,
+      cutResonance: 10,
       chimeCooldownCut: 2,
       stillwaterBell: 1,
       stillwaterRefund: 0.5,

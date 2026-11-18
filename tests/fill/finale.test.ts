@@ -54,15 +54,15 @@ type Id = (typeof IDS)[number];
 const TABLE: Record<Id, { rarity: 'common' | 'rare'; values: number[] }> = {
   call_and_response: { rarity: 'rare', values: [3, 4, 5] },
   taking_bows: { rarity: 'common', values: [20, 30, 40] },
-  opening_bars: { rarity: 'rare', values: [5, 7.5, 12.5] },
+  opening_bars: { rarity: 'rare', values: [10, 15, 25] },
   ringing_on: { rarity: 'rare', values: [2, 3, 4] },
-  saving_grace: { rarity: 'common', values: [2.5, 4, 5] },
+  saving_grace: { rarity: 'common', values: [5, 8, 10] },
   tenuto: { rarity: 'common', values: [2, 3, 4] },
   laments_answer: { rarity: 'common', values: [15, 22, 30] },
   footlights: { rarity: 'common', values: [8, 12, 16] },
   fanfare: { rarity: 'rare', values: [10, 15, 20] },
-  vigil_song: { rarity: 'rare', values: [0.5, 0.75, 1] },
-  answering_phrase: { rarity: 'rare', values: [1.5, 2.5, 3.5] },
+  vigil_song: { rarity: 'rare', values: [1, 1.5, 2] },
+  answering_phrase: { rarity: 'rare', values: [3, 5, 7] },
   tuning_up: { rarity: 'common', values: [15, 22, 30] },
 };
 
@@ -207,7 +207,7 @@ describe('Call and Response: a Cued hero is Empowered for v s, Thread or not', (
     const { sim, w } = stage('call_and_response', level);
     const lyra = heroAt(w, LYRA);
     expect(weaverOf(w).threadSlot).not.toBe(LYRA);
-    weaverOf(w).resonance = 50;
+    weaverOf(w).resonance = 100;
     const events = cueNow(sim, w, LYRA);
     const cuedAt = w.time;
     expect(ofType(events, 'cued')).toHaveLength(1);
@@ -224,7 +224,7 @@ describe('Call and Response: a Cued hero is Empowered for v s, Thread or not', (
 
   it('without it a Cue Empowers no one', () => {
     const { sim, w } = stage(null, null);
-    weaverOf(w).resonance = 50;
+    weaverOf(w).resonance = 100;
     cueNow(sim, w, LYRA);
     expect(heroAt(w, LYRA).hero!.afterglowUntil).toBe(0);
     expect(empowerBonus(w, heroAt(w, LYRA)).more).toBe(0);
@@ -236,7 +236,7 @@ describe('Taking Bows: when the Crescendo ends, every hero’s Solo charges v%',
   /** Plays a Crescendo to its end; every hero's Solo charge just before and after its last tick. */
   function bows(level: number | null) {
     const { sim, w } = stage(level === null ? null : 'taking_bows', level);
-    weaverOf(w).resonance = 100;
+    weaverOf(w).resonance = 200;
     stepFor(sim, 1, [CRESCENDO]);
     expect(weaverOf(w).crescendo).toBeGreaterThan(0);
     for (const slot of [KAEL, LYRA, VEXIS]) heroAt(w, slot).hero!.solo = 10;
@@ -292,11 +292,11 @@ describe('Opening Bars: the fight’s first Cue gives v Resonance', () => {
 
   it('without it a Cue gives nothing and costs nothing', () => {
     const { sim, w } = stage(null, null);
-    weaverOf(w).resonance = 40;
+    weaverOf(w).resonance = 80;
     const events = cueNow(sim, w, KAEL);
     expect(ofType(events, 'resonanceSpent')).toEqual([]);
     expect(ofType(events, 'resonanceGained')).toEqual([]);
-    expect(weaverOf(w).resonance).toBe(40);
+    expect(weaverOf(w).resonance).toBe(80);
     inert(w);
   });
 });
@@ -313,7 +313,7 @@ describe('Ringing On: each Perfect Ward in the Crescendo lengthens it 1 s, up to
 
   function ring(level: number | null, perfects: number) {
     const { sim, w } = stage(level === null ? null : 'ringing_on', level);
-    weaverOf(w).resonance = 100;
+    weaverOf(w).resonance = 200;
     stepFor(sim, 1, [CRESCENDO]);
     const before = weaverOf(w).crescendo;
     expect(before).toBeGreaterThan(0);
@@ -346,7 +346,7 @@ describe('Ringing On: each Perfect Ward in the Crescendo lengthens it 1 s, up to
     weaverOf(w).crescendo = 1e-6;
     stepFor(sim, 1);
     expect(weaverOf(w).crescendo).toBe(0);
-    weaverOf(w).resonance = 100;
+    weaverOf(w).resonance = 200;
     stepFor(sim, 1, [CRESCENDO]);
     const before = weaverOf(w).crescendo;
     during(w, perfect(w, LYRA));
@@ -453,7 +453,7 @@ describe('Footlights: a Cued hero gains a barrier of v% of their life for 4 s', 
   it.each(LEVELS)('level %i', (level) => {
     const v = valueAt('footlights', level);
     const { sim, w } = stage('footlights', level);
-    weaverOf(w).resonance = 50;
+    weaverOf(w).resonance = 100;
     const lyra = heroAt(w, LYRA);
     const events = cueNow(sim, w, LYRA);
     const shield = weaverShield(lyra);
@@ -467,7 +467,7 @@ describe('Footlights: a Cued hero gains a barrier of v% of their life for 4 s', 
 
   it('without it a Cue guards no one', () => {
     const { sim, w } = stage(null, null);
-    weaverOf(w).resonance = 50;
+    weaverOf(w).resonance = 100;
     cueNow(sim, w, LYRA);
     expect(weaverShield(heroAt(w, LYRA))).toBeUndefined();
     inert(w);
@@ -478,7 +478,7 @@ describe('Fanfare: when the Crescendo begins, every hero gains a barrier of v% f
   it.each(LEVELS)('level %i', (level) => {
     const v = valueAt('fanfare', level);
     const { sim, w } = stage('fanfare', level);
-    weaverOf(w).resonance = 100;
+    weaverOf(w).resonance = 200;
     const events = stepFor(sim, 1, [CRESCENDO]);
     expect(ofType(events, 'crescendoStart')).toHaveLength(1);
     for (const slot of [KAEL, LYRA, VEXIS]) {
@@ -494,7 +494,7 @@ describe('Fanfare: when the Crescendo begins, every hero gains a barrier of v% f
 
   it('without it the Crescendo shields no one', () => {
     const { sim, w } = stage(null, null);
-    weaverOf(w).resonance = 100;
+    weaverOf(w).resonance = 200;
     stepFor(sim, 1, [CRESCENDO]);
     expect(weaverOf(w).crescendo).toBeGreaterThan(0);
     for (const slot of [KAEL, LYRA, VEXIS]) expect(weaverShield(heroAt(w, slot))).toBeUndefined();

@@ -43,7 +43,7 @@ function stage(path: string[] = [], config: Partial<SimConfig> = {}) {
 /** A full Solo and a full meter, then the Cue; the tick's events. */
 function cueNow(sim: Sim, w: World, slot: number): SimEvent[] {
   heroAt(w, slot).hero!.solo = 100;
-  weaverOf(w).weaver!.resonance = 100;
+  weaverOf(w).weaver!.resonance = 200;
   return stepFor(sim, 1, [cue(slot)]);
 }
 
@@ -63,7 +63,7 @@ interface Timed {
 
 /** Casts the Finale with a full meter, then plays `ticks`; events with sim times. */
 function finale(sim: Sim, w: World, ticks = 60 * 14, each: () => void = () => {}): Timed[] {
-  weaverOf(w).weaver!.resonance = 100;
+  weaverOf(w).weaver!.resonance = 200;
   const out: Timed[] = [];
   for (let i = 0; i < ticks; i++) {
     sim.step(i === 0 ? [CRESCENDO] : []);
@@ -85,7 +85,7 @@ describe('Spotlight counts as Empower for an Empowered kill', () => {
     expect(weaverOf(w).weaver!.threadSlot).not.toBe(1);
     for (let i = 0; i < 4; i++) foe(w, 'bell_brute', lyra.x + i * 0.5, lyra.z - 6, 5);
     lyra.hero!.solo = 100;
-    weaverOf(w).weaver!.resonance = 50;
+    weaverOf(w).weaver!.resonance = 100;
     const all = stepFor(sim, 1, [cue(1)]);
     all.push(...stepFor(sim, 120));
     const kills = ofType(all, 'enemyKilled').filter((k) => k.killer === lyra.id);
@@ -112,12 +112,12 @@ describe('A Tempo’s tallies (`freeCues`, `saved`)', () => {
       const { sim, w } = stage(['a_tempo'], config);
       w.time = 3 * BAR_SECONDS;
       heroAt(w, 0).hero!.solo = 100;
-      weaverOf(w).weaver!.resonance = 50;
+      weaverOf(w).weaver!.resonance = 100;
       const chained = ofType(stepFor(sim, 1, [cue(0)]), 'cueChained')[0]!;
       expect(chained).toMatchObject({ onBeat: true, paid: true });
       expect('cost' in chained).toBe(false);
       expect(w.ledger.conducting!.freeCues).toBe(1);
-      expect(w.ledger.conducting!.saved).toBeCloseTo(weaverOf(w).weaver!.resonance - 50, 9);
+      expect(w.ledger.conducting!.saved).toBeCloseTo(weaverOf(w).weaver!.resonance - 100, 9);
       expect(w.ledger.conducting!.saved).toBeGreaterThan(0);
     }
   });
@@ -193,7 +193,7 @@ describe('Grand Finale: what its turns don’t touch', () => {
   it('no aura surge on any tick of the Finale', () => {
     const a = stage([], { chords: GUARDIAN });
     const b = stage([], { chords: GUARDIAN });
-    weaverOf(a.w).weaver!.resonance = 100;
+    weaverOf(a.w).weaver!.resonance = 200;
     let during = 0;
     for (let i = 0; i < 60 * 4; i++) {
       a.sim.step(i === 0 ? [CRESCENDO] : []);
@@ -215,7 +215,7 @@ describe('Grand Finale: when it stops', () => {
   for (const status of ['victory', 'defeat'] as const) {
     it(`turns stop once the fight is a ${status}`, () => {
       const { sim, w } = stage();
-      weaverOf(w).weaver!.resonance = 100;
+      weaverOf(w).weaver!.resonance = 200;
       expect(ofType(stepFor(sim, 1, [CRESCENDO]), 'finaleTurn')).toHaveLength(1);
       w.encounter.status = status;
       const rest = stepFor(sim, 60 * 4);
@@ -229,7 +229,7 @@ describe('Grand Finale: when it stops', () => {
       const lyra = heroAt(w, 1);
       cueNow(sim, w, 1);
       lyra.hero!.soloActive = 30;
-      weaverOf(w).weaver!.resonance = 100;
+      weaverOf(w).weaver!.resonance = 200;
       const cast = stepFor(sim, 60 * 3, [CRESCENDO]);
       expect(ofType(cast, 'finaleTurn').map((t) => t.hero)).toEqual([w.party[0], w.party[2]]);
       expect(w.field.conducting!.finale!.queue).toEqual([lyra.id]);
@@ -327,14 +327,14 @@ describe('Grand Finale: when it stops', () => {
     ]);
   });
 
-  it('Da Capo keeps its 25 when the Finale ends at the 12 s cap', () => {
+  it('Da Capo keeps its 50 when the Finale ends at the 12 s cap', () => {
     const { w, timed, start, end, length } = capped({ motifs: [{ id: 'da_capo', level: 1 }] });
     expect(start.duration).toBe(12);
     expect(length).toBeCloseTo(12, 1);
     expect(end).toMatchObject({ fired: 2, lost: 1 });
     const order = events(timed).map((e) => e.type);
     expect(order.indexOf('finaleEnded')).toBeLessThan(order.indexOf('crescendoEnd'));
-    expect(weaverOf(w).weaver!.resonance).toBe(25);
+    expect(weaverOf(w).weaver!.resonance).toBe(50);
   });
 
   it('held by Fermata, a hero plays their turn once the hold ends', () => {

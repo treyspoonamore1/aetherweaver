@@ -6,6 +6,7 @@
 import { performance } from 'node:perf_hooks';
 import { BENCH_SCENES, benchEndTick } from '../src/app/bench';
 import { makeBot } from '../src/bots';
+import { CONTENT } from '../src/content';
 import { CHOIR, CONDUCTOR } from '../src/content/crucibleIds';
 import { ARRIVAL3_KIT, ARRIVAL4_KIT, ARRIVAL_KIT, kitConfig } from './kits';
 import { runScenario } from './runScenario';
@@ -150,7 +151,7 @@ export const SCENARIO_GROVE_PEAK: Scenario = {
             op: { op: 'spawnEnemy', defId: 'sanguine_hound', x: 8 - i * 4, z: -12 },
           });
         out.push({ t: 'debug', op: { op: 'chargeSolos' } });
-        out.push({ t: 'debug', op: { op: 'setResonance', value: 100 } });
+        out.push({ t: 'debug', op: { op: 'setResonance', value: CONTENT.resonance.max } });
       }
       // Wildgrowth, Cued, once the hounds are in (and again whenever it's ready): the Thread on Oro.
       if (tick >= 660 && tick % 60 === 0) out.push({ t: 'thread', slot: 2 });

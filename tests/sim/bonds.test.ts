@@ -473,7 +473,7 @@ describe('Vexis', () => {
     for (const e of w.entities.list()) if (e.enemy && e.health) e.health.hp = e.health.maxHp = 1e6;
     stepFor(sim, 2, [
       { t: 'debug', op: { op: 'chargeSolos' } },
-      { t: 'debug', op: { op: 'setResonance', value: 100 } },
+      { t: 'debug', op: { op: 'setResonance', value: 200 } },
     ]);
     const kael = of(KAEL);
     let events = stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: KAEL, cued: true } }]);
@@ -744,7 +744,7 @@ describe('the review’s fixes', () => {
     for (const e of w.entities.list()) if (e.enemy && e.health) e.health.hp = e.health.maxHp = 1e6;
     stepFor(sim, 2, [
       { t: 'debug', op: { op: 'chargeSolos' } },
-      { t: 'debug', op: { op: 'setResonance', value: 100 } },
+      { t: 'debug', op: { op: 'setResonance', value: 200 } },
     ]);
     stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: KAEL, cued: true } }]);
     expect(w.internal.stars).toHaveLength(1);

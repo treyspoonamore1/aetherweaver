@@ -266,14 +266,14 @@ describe('motifs in play', () => {
         { id: 'da_capo', level: 1 },
       ],
     });
-    stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: 100 } }]);
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: 200 } }]);
     const events = stepFor(sim, 1, [{ t: 'crescendo' }]);
     expect(ofType(events, 'crescendoStart')[0]!.duration).toBeCloseTo(
       CONTENT.crescendo.duration + 2,
       6,
     );
     stepUntil(sim, (ev) => ev.some((e) => e.type === 'crescendoEnd'), 60 * 10);
-    expect(weaver(sim).weaver!.resonance).toBe(25);
+    expect(weaver(sim).weaver!.resonance).toBe(50);
   });
 
   it('Standing Ovation multiplies Resonance gains; Quickened Verse speeds Solo charge', () => {

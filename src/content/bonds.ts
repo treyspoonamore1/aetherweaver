@@ -83,7 +83,7 @@ export const TALENTS: ContentInput['talents'] = [
     hero: 'lyra',
     tier: 1,
     name: 'Hawk Eye',
-    values: { range: 2, resonance: 0.5 },
+    values: { range: 2, resonance: 1 },
     text: 'Lyra shoots from {range} m farther, and her Empowered crits give you {resonance} Resonance.',
   },
   {

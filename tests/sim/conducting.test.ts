@@ -98,12 +98,12 @@ describe('the passive', () => {
     }
   });
 
-  it('the fade keeps whole segments, as for every Calling: 45 → 25, 65 → 50, 100 stays', () => {
+  it('the fade keeps whole segments, as for every Calling: 90 → 50, 130 → 100, 200 stays', () => {
     for (const [start, want, calling] of [
-      [45, 25, true],
-      [65, 50, true],
-      [100, 100, true],
-      [45, 25, false],
+      [90, 50, true],
+      [130, 100, true],
+      [200, 200, true],
+      [90, 50, false],
     ] as const) {
       const sim = calling ? sandbox(conductor()) : sandbox();
       const w = worldOf(sim);
@@ -674,15 +674,15 @@ describe('Reprise', () => {
 });
 
 describe('Upbeat', () => {
-  it('every fight begins with 50; with the Cantor’s Hymnal, its 50 more (to 100)', () => {
-    expect(weaverOf(worldOf(sandbox(conductor('upbeat')))).weaver!.resonance).toBe(50);
+  it('every fight begins with 100; with the Cantor’s Hymnal, its 100 more (to 200)', () => {
+    expect(weaverOf(worldOf(sandbox(conductor('upbeat')))).weaver!.resonance).toBe(100);
     const hymnal = worldOf(sandbox({ ...conductor('upbeat'), relics: ['cantors_hymnal'] }));
-    expect(weaverOf(hymnal).weaver!.resonance).toBe(100);
-    expect(hymnal.calling!.conducting!.upbeat).toBe(50);
-    // 50 is two whole segments: it doesn't fade.
+    expect(weaverOf(hymnal).weaver!.resonance).toBe(200);
+    expect(hymnal.calling!.conducting!.upbeat).toBe(100);
+    // 100 is two whole segments: it doesn't fade.
     const sim = sandbox(conductor('upbeat'));
     stepFor(sim, 60 * 10);
-    expect(weaverOf(worldOf(sim)).weaver!.resonance).toBe(50);
+    expect(weaverOf(worldOf(sim)).weaver!.resonance).toBe(100);
   });
 });
 
@@ -754,9 +754,9 @@ describe('Triad', () => {
     expect(w.party.every((id) => w.entities.get(id)!.hero!.inField)).toBe(true);
     const on = sim.drainEvents();
     void on;
-    setResonance(w, 45);
+    setResonance(w, 90);
     const held = stepFor(sim, 60 * 8);
-    expect(weaverOf(w).weaver!.resonance).toBe(45);
+    expect(weaverOf(w).weaver!.resonance).toBe(90);
     expect(weaverOf(w).weaver!.resonanceIdle).toBe(0);
     expect(w.field.conducting!.triad).toBe(true);
     void held;
@@ -772,10 +772,10 @@ describe('Triad', () => {
     expect(ofType(off, 'triad')).toEqual([expect.objectContaining({ on: false })]);
     expect(w.field.conducting!.triad).toBeUndefined();
     stepFor(sim, 60 * 4);
-    expect(weaverOf(w).weaver!.resonance).toBe(45);
+    expect(weaverOf(w).weaver!.resonance).toBe(90);
     stepFor(sim, 60 * 3);
-    // 2 s of fading at 4 a second, towards the whole segment below (25).
-    expect(weaverOf(w).weaver!.resonance).toBeCloseTo(45 - 2 * 4, 0);
+    // 2 s of fading at 8 a second, towards the whole segment below (50).
+    expect(weaverOf(w).weaver!.resonance).toBeCloseTo(90 - 2 * 8, 0);
   });
 
   it('the `triad` event marks the edge it starts on', () => {
@@ -833,24 +833,24 @@ describe('the view and the cost of the Crescendo', () => {
     const { w } = stage(['a_tempo', 'upbeat', 'spotlight', 'maestro']);
     expect(w.calling!.crescendo).toBe('finale');
     expect(w.calling!.conducting).toEqual({
-      crescendoCost: 75,
+      crescendoCost: 150,
       chainWindow: 4,
       duet: 1.25,
       trio: 1.5,
       finale: { turns: 2, ramp: 1.2, gap: 1, wait: 12 },
       beat: { bar: BAR_SECONDS, within: 0.15 },
-      cueResonance: 15,
+      cueResonance: 30,
       marcato: null,
       reprise: 0,
       ensemble: null,
       spotlight: 2,
       triad: 0,
-      upbeat: 50,
+      upbeat: 100,
     });
-    expect(crescendoCostOf(w)).toBe(75);
+    expect(crescendoCostOf(w)).toBe(150);
     const plain = stage(['marcato', 'reprise', 'ensemble', 'triad']).w;
     expect(plain.calling!.conducting).toMatchObject({
-      crescendoCost: 100,
+      crescendoCost: 200,
       finale: { turns: 1 },
       beat: null,
       marcato: { cooldown: 8, seconds: 4 },

@@ -201,20 +201,20 @@ describe('the Thread', () => {
 describe('Resonance, Cues and the Crescendo', () => {
   it('partial segments decay when idle; filled segments are kept', () => {
     const sim = sandbox();
-    stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: 60 } }]);
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: 120 } }]);
     stepFor(sim, 60 * 12);
-    expect(weaver(sim).weaver!.resonance).toBe(50);
+    expect(weaver(sim).weaver!.resonance).toBe(100);
   });
 
   it('a Cued Solo costs no Resonance (docs/solos.md)', () => {
     const sim = sandbox();
-    stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: 50 } }]);
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: 100 } }]);
     const events = stepFor(sim, 1, [{ t: 'debug', op: { op: 'fireSolo', slot: 0, cued: true } }]);
     const started = ofType(events, 'soloStarted')[0]!;
     expect(started.cued).toBe(true);
     expect(started.solo).toBe('aegisWall');
     expect(ofType(events, 'resonanceSpent')).toHaveLength(0);
-    expect(weaver(sim).weaver!.resonance).toBeCloseTo(50, 6);
+    expect(weaver(sim).weaver!.resonance).toBeCloseTo(100, 6);
     // Cued Aegis Wall: a dome on every hero.
     for (let s = 0; s < 3; s++)
       expect(hero(sim, s).health!.shields.some((x) => x.kind === 'dome')).toBe(true);
@@ -225,7 +225,7 @@ describe('Resonance, Cues and the Crescendo', () => {
     hurt(sim, 1, 400);
     let events = stepFor(sim, 1, [{ t: 'crescendo' }]);
     expect(ofType(events, 'techniqueRejected')[0]?.reason).toBe('resonance');
-    stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: 100 } }]);
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: 200 } }]);
     const hp = hero(sim, 1).health!.hp;
     events = stepFor(sim, 1, [{ t: 'crescendo' }]);
     expect(ofType(events, 'crescendoStart')).toHaveLength(1);

@@ -275,7 +275,7 @@ const NODES: Node[] = [
     x: -5.6,
     y: -2.15,
     effect: 'ringing_parry',
-    values: { pct: 25, resonance: 1.25 },
+    values: { pct: 25, resonance: 2.5 },
     text: 'A Perfect Ward’s stagger lasts {pct}% longer and gives {resonance} more Resonance',
   },
   travel('aegis_a3', 'aegis', -6.44, -2.74, 'Guard', 'ward', { pct: 2 }, 'Ward barrier +{pct}%'),
@@ -476,7 +476,7 @@ const NODES: Node[] = [
     x: -2.15,
     y: -5.6,
     effect: 'ready_answer',
-    values: { resonance: 1.25 },
+    values: { resonance: 2.5 },
     text: 'Answering a hero’s call gives {resonance} more Resonance',
   },
   travel(

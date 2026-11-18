@@ -327,10 +327,10 @@ describe('the Conductor readers (src/bots/common.ts)', () => {
 
   it('read Maestro’s cost, and without A Tempo there is no beat', () => {
     const maestro = createSim(conductorConfig(3, 'bellwarden', TEMPO_MAESTRO));
-    expect(crescendoCostOf(maestro.state)).toBe(75);
+    expect(crescendoCostOf(maestro.state)).toBe(150);
     expect(conductingOf(maestro.state)!.view.finale.turns).toBe(2);
     const triad = createSim(conductorConfig(3, 'bellwarden', MARCATO_TRIAD));
-    expect(crescendoCostOf(triad.state)).toBe(100);
+    expect(crescendoCostOf(triad.state)).toBe(200);
     expect(conductingOf(triad.state)!.view.beat).toBeNull();
     expect(marcatoReady(triad.state)).toBe(true);
   });

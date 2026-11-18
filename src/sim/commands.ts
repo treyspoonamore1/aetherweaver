@@ -72,7 +72,7 @@ export type Command =
   | { t: 'tech'; id: TechniqueId; slot?: PartySlot; point?: Vec2 }
   /** Glide (dash) in a direction. */
   | { t: 'glide'; x: number; z: number }
-  /** Spend 100 Resonance on the Crescendo. */
+  /** Spend a full song of Resonance on the Crescendo. */
   | { t: 'crescendo' }
   /** Party command. `target` is an enemy entity id (Focus), `point` a location. */
   | { t: 'directive'; kind: DirectiveKind; target?: number; point?: Vec2 }

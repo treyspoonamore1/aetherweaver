@@ -1,6 +1,6 @@
 /**
  * Resonance (docs/plan/02 §4): earned by answering threats well, spent on the Crescendo (a full
- * song) and on nothing else (a Cue costs nothing: docs/solos.md). Partial segments decay when
+ * song: the whole meter, 200) and on nothing else (a Cue costs nothing: docs/solos.md). Partial segments decay when
  * idle; filled segments are kept. Nothing is gained or lost during a Crescendo.
  */
 import { CONTENT } from '../../content';
