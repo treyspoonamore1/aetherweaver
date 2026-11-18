@@ -20,8 +20,10 @@ import { z } from 'zod';
 import { CONTENT, CONTENT_VERSION } from '../content';
 import {
   CommandSchema,
+  OLD_REPLAY_LINE,
   SIM_VERSION,
   createSim,
+  oldReplayVersion,
   type ChordLoadout,
   type Command,
   type Replay,
@@ -304,7 +306,7 @@ const RunLogSchema = z.object({
 });
 export type RunLog = Omit<z.infer<typeof RunLogSchema>, 'start'> & { start: RunState };
 
-/** A finished run's replay file, `aetherweaver-run` version 1. */
+/** A finished run's replay file, `aetherweaver-run` version `RUN_REPLAY_VERSION`. */
 const RunReplaySchema = z.object({
   ...LogShape,
   /** The name its maker gave it. */
@@ -786,6 +788,12 @@ export interface VerifyResult {
   /** What the player reads. */
   message: string;
   problem?: VerifyProblem;
+  /**
+   * The replay was not played at all, and why: `oldReplay`, it was recorded before the Solo
+   * rework (run replay format 1) and can't be played back (`refusedOldResult`). Never with a
+   * `problem`: a refusal is not a check that failed.
+   */
+  refused?: 'oldReplay';
   kind?: ReplayKind;
   week?: number;
   /** Where it parted ways: the step (1 the first) and, for a fight, its number and encounter. */
@@ -854,6 +862,36 @@ export function unreadableResult(
   return { status: 'mismatch', problem: 'file', message };
 }
 const unreadable = unreadableResult;
+
+/**
+ * A run replay from before the Solo rework (format 1: its fights hold `cue` commands and were
+ * played by the old Solo rules) can't be played back. It is refused in one plain sentence
+ * (`OLD_REPLAY_LINE`), never shown as a check that failed: no `problem`, and the status is
+ * `claimed`, the one that means "its replay hasn't been checked". A code given with it stands as
+ * a claim for its week, as a code alone does (`codeOnlyResult`); a code that doesn't read is
+ * answered as a code alone would be, since that is the code's fault and not the replay's.
+ */
+export function refusedOldResult(file: unknown, code?: string): VerifyResult {
+  let week: number | undefined;
+  if (code !== undefined) {
+    const read = decodeShareCode(code);
+    if (!read.ok) return { status: 'mismatch', problem: 'code', message: read.error };
+    week = read.claim.week;
+  }
+  const kind = KindSchema.safeParse((file as { kind?: unknown } | null)?.kind);
+  return {
+    status: 'claimed',
+    refused: 'oldReplay',
+    message: OLD_REPLAY_LINE,
+    ...(kind.success ? { kind: kind.data } : {}),
+    ...(week !== undefined ? { week } : {}),
+  };
+}
+
+/** Is this file a run replay of a format older than this build reads (`refusedOldResult`)? */
+export function isOldRunReplay(file: unknown): boolean {
+  return oldReplayVersion(file, RUN_REPLAY_FORMAT, RUN_REPLAY_VERSION) !== null;
+}
 
 /** Is this file's JSON nested too deep to be a run replay (checked before it is passed on)? */
 export function replayTooDeep(file: unknown): boolean {
@@ -959,7 +997,8 @@ const PROGRESS_EVERY = 6000;
 
 /**
  * Verifies a run replay (docs/phase-6.md, "Verifying a shared run"): reads the file (and the code,
- * if given: its check letters, its week); for a weekly checks the start is exactly what its week
+ * if given: its check letters, its week); refuses one from before the Solo rework in a plain
+ * sentence (`refusedOldResult`); for a weekly checks the start is exactly what its week
  * builds from its Chords and variants and that every step had everything open; refuses debug
  * commands; checks the claim's digest covers the file's steps; plays every step through the run
  * layer and every fight through the sim from the run's own config, each to its recorded hash at
@@ -975,6 +1014,7 @@ export function verifyRunReplay(
   // here (the worker would have nothing to send back).
   try {
     if (nestedPast(file, MAX_REPLAY_DEPTH)) return unreadable();
+    if (isOldRunReplay(file)) return refusedOldResult(file, code);
     const replay = parseRunReplay(file);
     if (!replay) return unreadable();
     return verifyParsed(replay, code, opts);

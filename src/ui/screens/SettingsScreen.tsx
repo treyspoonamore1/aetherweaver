@@ -197,12 +197,6 @@ export function SettingsPanel({
           options={GAME_SPEEDS.map((v) => ({ value: v, label: percent(v) }))}
           onChange={(v) => update((d) => ({ ...d, aids: { ...d.aids, gameSpeed: v } }))}
         />
-        <Toggle
-          label={t('a11y.settings.heroAutonomy')}
-          hint={t('a11y.settings.heroesFireTheirOwn')}
-          checked={settings.assists.autonomy}
-          onChange={(v) => setAssist('autonomy', v)}
-        />
         <p className="text-xs text-muted">{t('a11y.settings.assistsNeverBlockAnything')}</p>
         {context && (
           <p className="text-xs text-gold-200" data-testid="assists-when">

@@ -20,9 +20,6 @@ import {
   DEFAULT_KEY_MAP,
   MOUSE_ROLES,
   bindCode,
-  isModifierToken,
-  modifierCode,
-  modifierOf,
   mouseCode,
   resetBinder,
   roleCode,
@@ -80,9 +77,6 @@ function hintOf(action: Action, hint: string | undefined): string | undefined {
   });
 }
 
-/** The hero keys' hint names the Cue modifier as bound (Phase 7: it is bindable). */
-const HERO_KEYS: ReadonlySet<Action> = new Set<Action>(['focus1', 'focus2', 'focus3', 'focus4']);
-
 /** Actions that also have a mouse role: shown beside their keys, as the player has it. */
 const MOUSE: Partial<Record<Action, { role: MouseRole; how?: string }>> = {
   threadMode: { role: 'mode' },
@@ -101,7 +95,6 @@ function padActionLabel(action: PadBindable): string {
 type Capture =
   | { kind: 'key'; action: Action; slot: number }
   | { kind: 'role'; role: MouseRole }
-  | { kind: 'modifier' }
   | { kind: 'pad'; action: PadBindable; slot: number };
 
 /** A code already in use, waiting for swap / clear / cancel. */
@@ -118,14 +111,12 @@ type Pending =
 
 function binderLabel(b: Binder): string {
   if (b.kind === 'action') return labelOf(b.action);
-  if (b.kind === 'role') return t(`input.role.${b.role}` as TextKey);
-  return t('input.controls.modifierName');
+  return t(`input.role.${b.role}` as TextKey);
 }
 
 function rowOf(capture: Capture): string {
   if (capture.kind === 'key') return `key:${capture.action}`;
   if (capture.kind === 'role') return `role:${capture.role}`;
-  if (capture.kind === 'modifier') return 'modifier';
   return `pad:${capture.action}`;
 }
 
@@ -135,10 +126,11 @@ function same(a: readonly string[], b: readonly string[]): boolean {
 
 /**
  * Settings > Controls: every action with its keys, the mouse roles, how Thread mode, the wheel
- * and smart-cast behave, the Cue modifier, Auto-Thread, the gamepad's buttons and the fixed menu
- * keys. Click a slot (or Enter on it) and press the new key, button or pad button; Esc cancels.
- * Anything already in use asks whether to swap or to clear the other. A setting is written only
- * when the player changes it (docs/phase-7.md, W1).
+ * and smart-cast behave, Auto-Thread, the gamepad's buttons and the fixed menu keys. Click a slot
+ * (or Enter on it) and press the new key, button or pad button; Esc cancels. Anything already in
+ * use asks whether to swap or to clear the other. A setting is written only when the player
+ * changes it (docs/phase-7.md, W1). There is no Cue key, Cue modifier or pad Cue button to bind
+ * (docs/solos.md): heroes fire their own Solos.
  */
 export function ControlsSettings({ compact = false }: { compact?: boolean }) {
   const settings = useSettings((s) => s.settings);
@@ -146,12 +138,8 @@ export function ControlsSettings({ compact = false }: { compact?: boolean }) {
   const opts = optionsOf(settings);
   const input = opts.input;
   const map: KeyMap = useMemo(
-    () => ({
-      bindings: effectiveBindings(settings.bindings),
-      mouse: input.mouse,
-      cueModifier: input.cueModifier,
-    }),
-    [settings.bindings, input.mouse, input.cueModifier],
+    () => ({ bindings: effectiveBindings(settings.bindings), mouse: input.mouse }),
+    [settings.bindings, input.mouse],
   );
   const bindings = map.bindings;
   const padOverrides = settings.input?.padBindings;
@@ -168,7 +156,7 @@ export function ControlsSettings({ compact = false }: { compact?: boolean }) {
   const commit = (next: KeyMap) => update((d) => writeKeyMap(d, next));
   const commitPad = (next: FullPadBindings) => update((d) => writeInput(d, { padBindings: next }));
 
-  /** A code arrives for `target` (a key slot, a role, the modifier). */
+  /** A code arrives for `target` (a key slot, or a role). */
   const offer = (target: Binder, slot: number, code: string, row: string) => {
     const m = now.current.map;
     const other = userOf(m, code, target);
@@ -199,18 +187,10 @@ export function ControlsSettings({ compact = false }: { compact?: boolean }) {
         if (!bindableCode(e.code)) return;
         done();
         offer({ kind: 'action', action: capture.action }, capture.slot, e.code, rowOf(capture));
-      } else if (capture.kind === 'role') {
+      } else {
         if (!roleCode(e.code)) return;
         done();
         offer({ kind: 'role', role: capture.role }, 0, e.code, rowOf(capture));
-      } else {
-        if (!modifierCode(e.code)) return;
-        done();
-        const code = modifierOf(e.code);
-        if (isModifierToken(code)) {
-          playUi('confirm');
-          commit(bindCode(now.current.map, { kind: 'modifier' }, 0, code));
-        } else offer({ kind: 'modifier' }, 0, code, rowOf(capture));
       }
     };
     const onUp = (e: KeyboardEvent) => e.stopImmediatePropagation();
@@ -310,7 +290,6 @@ export function ControlsSettings({ compact = false }: { compact?: boolean }) {
     ) : null;
 
   const custom = Object.keys(settings.bindings).length > 0;
-  const modLabel = inputLabel(input.cueModifier || 'Shift');
   return (
     <div className="flex flex-col gap-4" data-testid="controls-settings">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -343,13 +322,8 @@ export function ControlsSettings({ compact = false }: { compact?: boolean }) {
                 const row = `key:${info.action}`;
                 const mouse = MOUSE[info.action];
                 const roleCodeNow = mouse ? input.mouse[mouse.role] : '';
-                const hint = HERO_KEYS.has(info.action)
-                  ? input.cueModifier
-                    ? t('input.controls.cueHint', { mod: modLabel })
-                    : undefined
-                  : info.action === 'threadMode'
-                    ? undefined
-                    : hintOf(info.action, info.hint);
+                const hint =
+                  info.action === 'threadMode' ? undefined : hintOf(info.action, info.hint);
                 return (
                   <li key={info.action} className="px-3 py-1.5">
                     <div className="flex items-center gap-2">
@@ -492,30 +466,6 @@ export function ControlsSettings({ compact = false }: { compact?: boolean }) {
             checked={input.mouseoverCast}
             onChange={(v) => update((d) => writeInput(d, { mouseoverCast: v }))}
           />
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm text-text">{t('input.options.cueModifier')}</p>
-                <p className="text-xs text-muted">{t('input.options.cueModifier.hint')}</p>
-              </div>
-              <CodeSlot
-                label={t('input.options.cueModifier')}
-                code={input.cueModifier || undefined}
-                shown={input.cueModifier ? inputLabel(input.cueModifier) : undefined}
-                capturing={capturing('modifier')}
-                prompt={t('input.controls.pressModifier')}
-                promptAria={t('input.controls.pressModifierAria')}
-                onCapture={() => start({ kind: 'modifier' })}
-                onClear={() => commit(unbindCode(map, { kind: 'modifier' }))}
-              />
-              <ResetButton
-                disabled={input.cueModifier === DEFAULT_KEY_MAP.cueModifier}
-                label={t('input.options.cueModifier')}
-                onReset={() => commit(resetBinder(map, { kind: 'modifier' }))}
-              />
-            </div>
-            {conflictFor('modifier')}
-          </div>
           <Toggle
             label={t('input.options.autoThread')}
             hint={t('input.options.autoThread.hint')}
@@ -751,7 +701,7 @@ function KeySlot({
   );
 }
 
-/** A slot for a mouse role, the Cue modifier or a pad button (Phase 7). */
+/** A slot for a mouse role or a pad button (Phase 7). */
 function CodeSlot({
   label,
   code,
@@ -766,7 +716,7 @@ function CodeSlot({
 }: {
   label: string;
   code: string | undefined;
-  /** How the code reads ("RMB", "Ctrl", the pad glyph). */
+  /** How the code reads ("RMB", the pad glyph). */
   shown: string | undefined;
   pad?: boolean;
   /** A second slot: empty, it reads "+". */
@@ -853,9 +803,7 @@ function ConflictPrompt({
     const previous =
       p.target.kind === 'action'
         ? map.bindings[p.target.action][p.slot]
-        : p.target.kind === 'role'
-          ? map.mouse[p.target.role]
-          : map.cueModifier;
+        : map.mouse[p.target.role];
     if (previous) {
       const holder = userOf(swapped, previous);
       if (holder && JSON.stringify(holder) === JSON.stringify(p.other))

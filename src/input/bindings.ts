@@ -4,7 +4,7 @@
  * the Settings screen (rebinding, conflicts, resets) and by the InputController (live).
  */
 import { useSettings } from '../app/settings';
-import { DEFAULT_BINDINGS, type Action, type Bindings } from './actions';
+import { DEFAULT_BINDINGS, withRetired, type Action, type Bindings } from './actions';
 
 /** At most this many keys per action (matches the settings schema). */
 export const MAX_KEYS = 3;
@@ -13,8 +13,9 @@ export type Overrides = Readonly<Record<string, readonly string[]>>;
 
 const ACTIONS = Object.keys(DEFAULT_BINDINGS) as Action[];
 
+/** An action a key can be bound to (never a name the game has retired, such as the old `cue`). */
 function isAction(key: string): key is Action {
-  return Object.prototype.hasOwnProperty.call(DEFAULT_BINDINGS, key);
+  return Object.prototype.propertyIsEnumerable.call(DEFAULT_BINDINGS, key);
 }
 
 /**
@@ -25,7 +26,8 @@ export const FIXED_KEYS: Readonly<Partial<Record<Action, string>>> = { pause: 'E
 
 /** Defaults with the overrides applied. Unknown actions in the overrides are ignored. */
 export function effectiveBindings(overrides: Overrides): Bindings {
-  const out = { ...DEFAULT_BINDINGS } as Record<Action, readonly string[]>;
+  // `withRetired`: the SOLO-JOIN stand-in (actions.ts), until the HUD stops asking for `cue`.
+  const out = withRetired({ ...DEFAULT_BINDINGS }) as Record<Action, readonly string[]>;
   const claimed = new Set<string>();
   for (const [key, codes] of Object.entries(overrides)) {
     if (!isAction(key)) continue;
@@ -184,10 +186,10 @@ export const ACTION_GROUPS: readonly { title: string; actions: readonly ActionIn
   {
     title: 'Thread',
     actions: [
-      { action: 'focus1', label: 'Thread hero 1', hint: 'With Shift: Cue their Solo' },
-      { action: 'focus2', label: 'Thread hero 2', hint: 'With Shift: Cue their Solo' },
-      { action: 'focus3', label: 'Thread hero 3', hint: 'With Shift: Cue their Solo' },
-      { action: 'focus4', label: 'Thread hero 4', hint: 'With Shift: Cue their Solo' },
+      { action: 'focus1', label: 'Thread hero 1' },
+      { action: 'focus2', label: 'Thread hero 2' },
+      { action: 'focus3', label: 'Thread hero 3' },
+      { action: 'focus4', label: 'Thread hero 4' },
       { action: 'threadMode', label: 'Mend ⇄ Empower', hint: 'Right mouse always works too' },
       {
         action: 'bear',
@@ -202,7 +204,6 @@ export const ACTION_GROUPS: readonly { title: string; actions: readonly ActionIn
       { action: 'ward', label: 'Ward', hint: 'The hovered, else threaded, hero' },
       { action: 'chime', label: 'Chime', hint: 'At the cursor or hovered hero' },
       { action: 'reel', label: 'Reel', hint: 'The hovered, else threaded, hero' },
-      { action: 'cue', label: 'Cue a Solo', hint: 'The hovered, else threaded, hero' },
       { action: 'crescendo', label: 'Crescendo' },
       { action: 'plant', label: 'Plant Pedal Point', hint: 'At the cursor' },
     ],

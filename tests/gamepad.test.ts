@@ -2,8 +2,9 @@
  * Phase 7 W1 (docs/phase-7.md, *Tests*): the gamepad in a fight. A fake `getGamepads` drives the
  * InputController: the stick is quantised as the keys are, with no allocation over 1,000 polls;
  * each pad binding (default or rebound) plays its keyboard command; the reticle's order; the
- * reticle smart-casts as a hovering mouse; Auto-Thread's timing and target; and a scripted pad
- * plays a Training fight to the same command list as a scripted keyboard.
+ * reticle smart-casts as a hovering mouse; Auto-Thread's timing and target, and how it follows a
+ * Solo about to fire (docs/solos.md); and a scripted pad plays a Training fight to the same
+ * command list as a scripted keyboard.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { useSettings } from '../src/app/settings';
@@ -23,9 +24,13 @@ import {
   type PadLike,
 } from '../src/input/gamepad';
 import {
+  AUTO_SOLO_DANGER,
+  AUTO_SOLO_LEAD,
   AUTO_THREAD_IDLE_SECONDS,
   InputController,
+  autoSoloTarget,
   autoThreadTarget,
+  partyInDanger,
 } from '../src/input/InputController';
 import { writeInput } from '../src/input/inputMap';
 import {
@@ -39,8 +44,18 @@ import {
 } from '../src/input/padBindings';
 import { useWheel } from '../src/input/wheel';
 import { MENU_KEYS, padMenuKeys } from '../src/ui/kit/menuNav';
-import { createSim, type Command, type PartySlot, type Sim } from '../src/sim';
+import {
+  createSim,
+  soloDueIn,
+  threadCues,
+  type Command,
+  type PartySlot,
+  type Sim,
+  type SimEvent,
+} from '../src/sim';
+import { SIM_HZ, SOLOS } from '../src/sim/constants';
 import { quantize } from '../src/sim/core/dmath';
+import { hero, sandbox, spawn, stepFor, stepUntil, worldOf } from './sim/helpers';
 
 /** A standard-mapping pad whose buttons and sticks a test sets. */
 class FakePad implements PadLike {
@@ -411,7 +426,6 @@ describe('the pad in a fight', () => {
       ['faceLeft', 'KeyQ'],
       ['faceUp', 'KeyE'],
       ['faceRight', 'KeyF'],
-      ['bumperRight', 'KeyT'],
       ['bumperLeft', 'KeyR'],
       ['dpadUp', 'KeyG', 'enemy'],
       ['dpadRight', 'KeyZ'],
@@ -423,6 +437,10 @@ describe('the pad in a fight', () => {
       expect(gamepad(b), b).toEqual(want);
     }
     expect(gamepad('dpadLeft')).toEqual([{ t: 'directive', kind: 'scatter' }]);
+    // The right bumper Cued the reticle's hero, and T the hovered one, until heroes fired their
+    // own Solos (docs/solos.md). Both are free now: they play nothing.
+    expect(gamepad('bumperRight')).toEqual([]);
+    expect(keyboard('KeyT')).toEqual([]);
     // Plant: on the reticle's hero (the keyboard's cursor over that hero).
     const hero = sim.state.entities.get(sim.state.party[2]!)!;
     const q = (v: number) => quantize(v, 1 / 16);
@@ -667,6 +685,275 @@ describe('Auto-Thread', () => {
     expect(autoThreadTarget(s)).toBe(2);
     ent(s.weaverId).health.downed = true;
     expect(autoThreadTarget(s)).toBeNull();
+  });
+});
+
+describe('Auto-Thread follows a Solo about to fire (docs/solos.md, rule 7)', () => {
+  const KAEL = 0;
+  const LYRA = 1;
+  const VEXIS = 2;
+  const CHARGE: Command = { t: 'debug', op: { op: 'chargeSolos' } };
+  let win: EventTarget;
+  let canvas: EventTarget;
+  const made: InputController[] = [];
+
+  beforeEach(() => {
+    win = new EventTarget();
+    canvas = new EventTarget();
+    (globalThis as unknown as { window: EventTarget }).window = win;
+  });
+
+  afterEach(() => {
+    for (const m of made.splice(0)) m.dispose();
+    useSettings.getState().reset();
+    delete (globalThis as unknown as { window?: EventTarget }).window;
+  });
+
+  /** The party in a fight with a brute that won't die, every hero with a target, the Thread on `slot`. */
+  const fight = (slot: PartySlot = VEXIS): Sim => {
+    const sim = sandbox();
+    const k = hero(sim, KAEL);
+    stepFor(sim, 1, [spawn('bell_brute', k.x, k.z - 4), { t: 'thread', slot }]);
+    for (const e of worldOf(sim).entities.list())
+      if (e.enemy && e.health) e.health.hp = e.health.maxHp = 1e6;
+    stepUntil(sim, () => [KAEL, LYRA, VEXIS].every((s) => hero(sim, s).hero!.targetId !== null));
+    return sim;
+  };
+
+  const controller = (): InputController => {
+    const input = new InputController(
+      canvas as unknown as HTMLElement,
+      () => false,
+      () => {},
+      undefined,
+      { sound: () => {}, pads: () => [] },
+    );
+    made.push(input);
+    return input;
+  };
+
+  /** Sets every hero's life each tick: full, or the share given for a slot. */
+  const life = (sim: Sim, shares: Partial<Record<number, number>> = {}): void => {
+    for (const slot of [KAEL, LYRA, VEXIS]) {
+      const h = worldOf(sim).entities.get(sim.state.party[slot]!)!.health!;
+      h.hp = h.maxHp * (shares[slot] ?? 1);
+    }
+  };
+
+  interface Played {
+    /** Every `thread` the controller sent, with the second (from the charge) it was sent in. */
+    threads: { at: number; slot: number }[];
+    /** Each hero's first Solo: when it began (s from the charge) and its form. */
+    solos: Map<number, { at: number; cued: boolean }>;
+    events: SimEvent[];
+  }
+
+  /**
+   * Hands off for `lull` seconds, then every Solo is charged at once (or `charge` stages them),
+   * then `seconds` more with the controller's own commands and nothing else (or `act` on given
+   * frames after the charge).
+   */
+  const play = (
+    sim: Sim,
+    input: InputController,
+    seconds: number,
+    opts: {
+      lull?: number;
+      shares?: Partial<Record<number, number>>;
+      act?(frame: number): void;
+      charge?(sim: Sim): void;
+    } = {},
+  ): Played => {
+    const out: Played = { threads: [], solos: new Map(), events: [] };
+    const lull = Math.round((opts.lull ?? AUTO_THREAD_IDLE_SECONDS + 0.5) * SIM_HZ);
+    for (let f = -lull; f < seconds * SIM_HZ; f++) {
+      life(sim, opts.shares);
+      if (f >= 0) opts.act?.(f);
+      if (f === 0) opts.charge?.(sim);
+      input.updatePointer(sim.state);
+      const cmds = input.collect();
+      for (const c of cmds) if (c.t === 'thread') out.threads.push({ at: f / SIM_HZ, slot: c.slot });
+      const events = stepFor(sim, 1, f === 0 && !opts.charge ? [...cmds, CHARGE] : cmds);
+      out.events.push(...events);
+      for (const e of events) {
+        if (e.type !== 'soloStarted') continue;
+        const slot = sim.state.party.indexOf(e.hero);
+        if (!out.solos.has(slot)) out.solos.set(slot, { at: f / SIM_HZ, cued: e.cued });
+      }
+    }
+    return out;
+  };
+
+  it('off (the default): the Thread stays put, and only the hero it is on plays Cued', () => {
+    const sim = fight(VEXIS);
+    const { threads, solos } = play(sim, controller(), 5);
+    expect(threads).toEqual([]);
+    expect(solos.get(LYRA)!.cued).toBe(false);
+    expect(solos.get(KAEL)!.cued).toBe(false);
+    expect(solos.get(VEXIS)!.cued).toBe(true);
+  });
+
+  it('on, hands off, nobody hurt: the Thread is on each hero as their Solo fires, so each is Cued; then it goes back', () => {
+    useSettings.getState().update((d) => ({ ...d, aids: { autoThread: true } }));
+    const sim = fight(VEXIS);
+    const input = controller();
+    const { threads, solos } = play(sim, input, 6);
+    expect([...solos.keys()].sort()).toEqual([KAEL, LYRA, VEXIS]);
+    for (const [slot, s] of solos) expect(s.cued, `slot ${slot}`).toBe(true);
+    // Lyra a second after the charge, Vexis a gap later, Kael at his hold's end: the Thread
+    // reaches each within the lead before it, never sooner than that for Lyra and Vexis.
+    for (const slot of [LYRA, VEXIS]) {
+      const fired = solos.get(slot)!.at;
+      const sent = threads.filter((t) => t.slot === slot && t.at <= fired).pop()!;
+      expect(fired - sent.at, `slot ${slot}`).toBeLessThanOrEqual(AUTO_SOLO_LEAD + 2 / SIM_HZ);
+      expect(fired - sent.at, `slot ${slot}`).toBeGreaterThan(AUTO_SOLO_LEAD / 2);
+    }
+    // Kael may raise his full wall at any moment, so the Thread waits on him between the others.
+    expect(threads.map((t) => t.slot)).toEqual([KAEL, LYRA, KAEL, VEXIS, KAEL, VEXIS]);
+    // Nobody is hurt once the last has fired: back to Vexis, where the player had left it.
+    expect(sim.state.entities.get(sim.state.weaverId)!.weaver!.threadSlot).toBe(VEXIS);
+    expect(threads[threads.length - 1]!.at - solos.get(KAEL)!.at).toBeLessThanOrEqual(2 / SIM_HZ);
+    // It is an assist, and every command it sent is a `thread` a hero's key would send.
+    expect(input.autoThreadSent).toBe(true);
+  });
+
+  it('a hero in danger keeps it: no Solo is followed while one is under 30% of their life', () => {
+    useSettings.getState().update((d) => ({ ...d, aids: { autoThread: true } }));
+    const sim = fight(VEXIS);
+    const { threads, solos } = play(sim, controller(), 5, {
+      shares: { [LYRA]: AUTO_SOLO_DANGER - 0.05 },
+    });
+    // The lowest-life rule sends it to Lyra once, after the idle wait, and there it stays.
+    expect(threads.map((t) => t.slot)).toEqual([LYRA]);
+    expect(threads[0]!.at).toBeLessThan(0);
+    expect(solos.get(VEXIS)!.cued).toBe(false);
+    // Hers is Cued, as any Solo is with the Thread on its hero as it fires.
+    expect(solos.get(LYRA)!.cued).toBe(true);
+  });
+
+  it('hurt, but not in danger: the Solos are followed, and the Thread goes back to the hurt hero between them', () => {
+    useSettings.getState().update((d) => ({ ...d, aids: { autoThread: true } }));
+    const sim = fight(VEXIS);
+    const { threads, solos } = play(sim, controller(), 6, { shares: { [LYRA]: 0.6 } });
+    for (const [slot, s] of solos) expect(s.cued, `slot ${slot}`).toBe(true);
+    // After the last Solo the Thread is on Lyra, the lowest on life, not where it started.
+    expect(sim.state.entities.get(sim.state.weaverId)!.weaver!.threadSlot).toBe(LYRA);
+    expect(threads[threads.length - 1]!.slot).toBe(LYRA);
+  });
+
+  it('only with the hands off: an input every second, and it follows nothing', () => {
+    useSettings.getState().update((d) => ({ ...d, aids: { autoThread: true } }));
+    const sim = fight(VEXIS);
+    const { threads, solos } = play(sim, controller(), 5, {
+      lull: 0.5,
+      act: (f) => {
+        if (f % SIM_HZ === 0) win.dispatchEvent(key('keydown', 'KeyZ'));
+        if (f % SIM_HZ === 1) win.dispatchEvent(key('keyup', 'KeyZ'));
+      },
+    });
+    expect(threads).toEqual([]);
+    expect(solos.get(LYRA)!.cued).toBe(false);
+  });
+
+  it('a press takes the Thread back: the follow ends, and starts again only after the idle wait', () => {
+    useSettings.getState().update((d) => ({ ...d, aids: { autoThread: true } }));
+    const sim = fight(VEXIS);
+    // Just before Lyra's Solo (due a second after the charge) the player threads Vexis herself.
+    const at = Math.round((SOLOS.wait - 0.2) * SIM_HZ);
+    const { threads, solos } = play(sim, controller(), 2.5, {
+      act: (f) => {
+        if (f === at) win.dispatchEvent(key('keydown', 'Digit3'));
+        if (f === at + 1) win.dispatchEvent(key('keyup', 'Digit3'));
+      },
+    });
+    // Her press is the last word for the idle wait: Lyra's and Vexis's Solos fire as she left it.
+    const after = threads.filter((t) => t.at > at / SIM_HZ);
+    expect(after).toEqual([]);
+    expect(solos.get(LYRA)!.cued).toBe(false);
+    expect(solos.get(VEXIS)!.cued).toBe(true);
+  });
+
+  it('its target: the soonest Solo within the lead, in reach; Kael’s full wall behind it', () => {
+    const sim = fight(VEXIS);
+    const s = sim.state;
+    life(sim);
+    expect(autoSoloTarget(s)).toBeNull();
+    stepFor(sim, 1, [CHARGE]);
+    life(sim);
+    // Every Solo full: Lyra's is due in a second (not yet within the lead), so Kael's wall.
+    expect(soloDueIn(s, hero(sim, LYRA))!).toBeGreaterThan(AUTO_SOLO_LEAD);
+    expect(autoSoloTarget(s)).toBe(KAEL);
+    // Within the lead: Lyra.
+    for (let i = 0; soloDueIn(s, hero(sim, LYRA))! > AUTO_SOLO_LEAD && i < 2 * SIM_HZ; i++) {
+      life(sim);
+      stepFor(sim, 1);
+    }
+    expect(soloDueIn(s, hero(sim, LYRA))!).toBeLessThanOrEqual(AUTO_SOLO_LEAD);
+    expect(autoSoloTarget(s)).toBe(LYRA);
+    const w = worldOf(sim);
+    const lyra = w.entities.get(s.party[LYRA]!)!;
+    const weaver = w.entities.get(s.weaverId)!;
+    // Out of the Thread's reach: not her. Vexis's is due with hers (it fires a gap after
+    // whichever goes first), so Vexis; with both out of reach, Kael's wall.
+    const x = lyra.x;
+    lyra.x = weaver.x + weaver.weaver!.threadRange;
+    expect(autoSoloTarget(s)).toBe(VEXIS);
+    const vexisAt = w.entities.get(s.party[VEXIS]!)!;
+    const vx = vexisAt.x;
+    vexisAt.x = weaver.x + weaver.weaver!.threadRange;
+    expect(autoSoloTarget(s)).toBe(KAEL);
+    vexisAt.x = vx;
+    lyra.x = x;
+    // A hero in danger, a hero down, the Thread locked, the Weaver down: nobody.
+    lyra.health!.hp = lyra.health!.maxHp * (AUTO_SOLO_DANGER - 0.01);
+    expect(partyInDanger(s)).toBe(true);
+    expect(autoSoloTarget(s)).toBeNull();
+    lyra.health!.hp = lyra.health!.maxHp * (AUTO_SOLO_DANGER + 0.01);
+    expect(partyInDanger(s)).toBe(false);
+    expect(autoSoloTarget(s)).toBe(LYRA);
+    const vexis = w.entities.get(s.party[VEXIS]!)!;
+    vexis.health!.downed = true;
+    expect(partyInDanger(s)).toBe(true);
+    expect(autoSoloTarget(s)).toBeNull();
+    vexis.health!.downed = false;
+    weaver.weaver!.threadLock = 1;
+    expect(autoSoloTarget(s)).toBeNull();
+    weaver.weaver!.threadLock = 0;
+    weaver.health!.downed = true;
+    expect(autoSoloTarget(s)).toBeNull();
+    weaver.health!.downed = false;
+    expect(autoSoloTarget(s)).toBe(LYRA);
+    // Hollow Crown: every Solo is Cued wherever the Thread is (the sim's `threadCues`), so
+    // there is nothing to follow.
+    w.mods.alwaysCued = true;
+    expect(threadCues(s, hero(sim, LYRA))).toBe(true);
+    expect(autoSoloTarget(s)).toBeNull();
+    w.mods.alwaysCued = false;
+  });
+
+  it('Silent Cues: the Thread goes a second sooner, so it has been on the hero long enough', () => {
+    // Lyra's Solo nearly charged, as it comes in a fight (the others' empty): due in a few
+    // seconds, with the tell to see it coming by.
+    const nearly = (sim: Sim) => {
+      for (const slot of [KAEL, LYRA, VEXIS])
+        worldOf(sim).entities.get(sim.state.party[slot]!)!.hero!.solo = slot === LYRA ? 85 : 0;
+    };
+    const run = (cueHold: number) => {
+      useSettings.getState().update((d) => ({ ...d, aids: { autoThread: true } }));
+      const sim = fight(VEXIS);
+      worldOf(sim).mods.cueHold = cueHold;
+      const { threads, solos } = play(sim, controller(), 8, { charge: nearly });
+      const lyra = solos.get(LYRA)!;
+      const sent = threads.filter((t) => t.slot === LYRA && t.at <= lyra.at).pop()!;
+      return { lead: lyra.at - sent.at, cued: lyra.cued };
+    };
+    const plain = run(0);
+    expect(plain.cued).toBe(true);
+    expect(plain.lead).toBeLessThanOrEqual(AUTO_SOLO_LEAD + 2 / SIM_HZ);
+    const silent = run(1);
+    expect(silent.cued).toBe(true);
+    expect(silent.lead).toBeGreaterThan(1);
+    expect(silent.lead).toBeLessThanOrEqual(1 + AUTO_SOLO_LEAD + 2 / SIM_HZ);
   });
 });
 

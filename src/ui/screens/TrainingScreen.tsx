@@ -49,7 +49,7 @@ export function TrainingScreen() {
   const [techniques, setTechniques] = useState<Techniques>(() =>
     trainingChoice(useProfile.getState().profile),
   );
-  // The assists (hero autonomy, the Perfect window, telegraph lead), as Settings has them. A
+  // The assists (the Perfect window, telegraph lead), as Settings has them. A
   // change made from the pause menu takes effect as the fight resumes (a fresh session), never
   // under the pause.
   const paused = useUi((s) => s.paused);
@@ -116,9 +116,5 @@ export function TrainingScreen() {
 }
 
 function sameAssists(a: Settings['assists'], b: Settings['assists']): boolean {
-  return (
-    a.autonomy === b.autonomy &&
-    a.perfectWindowBonus === b.perfectWindowBonus &&
-    a.telegraphLead === b.telegraphLead
-  );
+  return a.perfectWindowBonus === b.perfectWindowBonus && a.telegraphLead === b.telegraphLead;
 }

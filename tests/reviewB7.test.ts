@@ -231,7 +231,6 @@ describe('finding 4: a Phase 7 settings value this build can’t read reads as a
           wheel: 'toggle',
           mouseoverCast: false,
           mouse: { thread: 'Mouse0', mode: 'KeyM', wheel: 'Mouse1' },
-          cueModifier: 'Control',
           padBindings: { glide: ['faceDown'], reticleNext: ['bumperRight'] },
         },
         aids: { gameSpeed: 0.8, autoThread: true },
@@ -258,7 +257,8 @@ describe('finding 4: a Phase 7 settings value this build can’t read reads as a
   });
 
   it('settings no version reads are still refused, and so is a bad older key', () => {
-    expect(migrateSettings({ ...mine, version: 5 })).toBeNull();
+    // A version later than today's (5, since the Solo rework).
+    expect(migrateSettings({ ...mine, version: 6 })).toBeNull();
     expect(migrateSettings({ ...mine, uiScale: 9, locale: 'fr' })).toBeNull();
     expect(migrateSettings('settings')).toBeNull();
     expect(migrateSettings(null)).toBeNull();

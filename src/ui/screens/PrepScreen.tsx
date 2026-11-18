@@ -29,7 +29,7 @@ import { Button } from '../kit/Button';
 import { Chip } from '../kit/Chip';
 import { Icon } from '../kit/Icon';
 import { Panel } from '../kit/Panel';
-import { Segmented, Toggle } from '../kit/Slider';
+import { Segmented } from '../kit/Slider';
 import { useMood } from '../kit/sound';
 import { useUi } from '../store';
 import { HeroDisc, SectionTitle } from './shared';
@@ -539,14 +539,6 @@ export function PrepView({
                   ]}
                   onChange={(v) =>
                     update((d) => ({ ...d, assists: { ...d.assists, perfectWindowBonus: v } }))
-                  }
-                />
-                <Toggle
-                  label={txt('screens.prepScreen.heroAutonomy')}
-                  hint={txt('screens.prepScreen.heroesFireTheirOwn')}
-                  checked={settings.assists.autonomy}
-                  onChange={(v) =>
-                    update((d) => ({ ...d, assists: { ...d.assists, autonomy: v } }))
                   }
                 />
               </div>
