@@ -32,13 +32,14 @@ export function pastSamples(seconds: number): number {
  * Skilled bot, Auto-Thread): the Thread goes to a hero `lead` seconds before their Solo is due,
  * and not while any hero is below `danger` of their life.
  *
- * The heroes' judgement (heroes.ts `soloFires`), each 0 to leave it off:
+ * The heroes' judgement (heroes.ts `soloFires`):
  * - `partyHit`: with the Thread on him, Kael raises his wall at once for a hit about to land on
  *   two or more of the party within this many seconds (his Cued wall is a dome over everyone);
- * - `rootHold`: a hero whose Solo would root them in place and is not about to be Cued holds it
- *   while a hit is coming at them, for at most this many seconds past the wait.
+ *   0 leaves it off;
+ * - a hero finishes what they are casting before they begin their Solo (no number).
  * (Measured and left out, docs/solos.md: holding a Solo on a wave's last, nearly dead enemy, and
- * while its target cannot be hurt. Neither changed one fight in 780.)
+ * while its target cannot be hurt. Neither changed one fight in 780. A plain Solo no longer
+ * roots its hero, so the hold that kept a rooting Solo out of a hit is gone too.)
  */
 export const SOLOS = {
   wait: 1,
@@ -48,7 +49,6 @@ export const SOLOS = {
   lead: 0.5,
   danger: 0.3,
   partyHit: 1.5,
-  rootHold: 2,
 } as const;
 
 /**

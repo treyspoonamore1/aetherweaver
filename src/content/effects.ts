@@ -35,7 +35,6 @@ export const StatKeySchema = z.enum([
   'heroMaxHp',
   'heroDamageTaken',
   'soloCharge',
-  'cueCost',
   // Enemies
   'enemyDamage',
   'enemyDamageTaken',

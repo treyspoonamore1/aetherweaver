@@ -79,7 +79,8 @@ export const DISSONANCE: ContentInput['dissonance'] = [
     effect: 'cue_hold',
     ranks: 1,
     points: 1,
-    values: { seconds: 1 },
+    // Half the wait (`SOLOS.wait`): a Thread sent as the Solo fills is still in time.
+    values: { seconds: 0.5 },
     text: 'A Solo is Cued only if your Thread was on the hero for {seconds} s.',
   },
   {

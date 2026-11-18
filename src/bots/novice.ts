@@ -74,7 +74,6 @@ import {
   chainOpen,
   crescendoCostOf,
   finaleOn,
-  soloToCue,
   type HeroView,
 } from './common';
 import { MEASURE } from '../content/crucibleIds';
@@ -99,16 +98,24 @@ const NOVICE_M3 = {
 
 /**
  * Solos (docs/solos.md): heroes fire their own, and a Solo is Cued if her Thread is on the hero
- * as it fires. Now and then she sees one coming and swings the Thread over; once she has, it
- * stays there until the Solo fires. Starting values: tuning moves them.
+ * as it fires. She follows them with a beginner's hands: she sees a Solo only once it is full,
+ * she is late to it (half its wait is gone before her Thread moves), and as often as not she
+ * does not go at all. She never leaves a hero in danger for one, and she does not sit on Kael
+ * while he holds his wall: he too is followed only in his Solo's last half second. Once she has
+ * gone, the Thread stays there until the Solo fires.
  */
 export const NOVICE_SOLO = {
-  /** A Solo due within `within` s on a hero she isn't threading: the chance, each decision. */
-  follow: 0.3,
-  /** How near (s) a Solo must be to firing for her to see it coming: its wait. */
-  within: 1,
+  /**
+   * A full Solo on a hero she isn't threading: the chance she goes to it at all. Drawn once for
+   * that Solo (`look`), not each decision: a chance drawn three times a second is a certainty.
+   */
+  follow: 0.4,
+  /** She goes only once the Solo is this near to firing (s): half of `SOLOS.wait`. */
+  within: 0.5,
   /** She gives a followed Solo this long (s) to fire, then goes back to her usual Thread. */
-  patience: 4,
+  patience: 2,
+  /** Not while a hero is below this share of their life (one who sits low on purpose aside). */
+  danger: 0.3,
 } as const;
 
 /**
@@ -205,6 +212,8 @@ export class NoviceBot implements Bot {
   private readonly silenceWatch = new SilenceWatch();
   /** The Solo she is following (`NOVICE_SOLO`): the hero her Thread stays on, and since when. */
   private following: { slot: PartySlot; since: number } | null = null;
+  /** Her one look at each full Solo, by slot and rule (`look`): kept until that Solo has fired. */
+  private readonly looks = new Map<string, boolean>();
 
   constructor(
     seed: number,
@@ -466,8 +475,12 @@ export class NoviceBot implements Bot {
     // coming, nobody down or held, and none followed already (a Conductor's or the last burn's
     // stands in for it).
     if (conducted !== 'cue' && this.following === null && !downed && !held) {
-      const soloist = soloToCue(state, party, w, NOVICE_SOLO.within);
-      if (soloist && soloist.slot !== wc.threadSlot && this.rng.chance(NOVICE_SOLO.follow))
+      const soloist = this.soloToFollow(state, party, w);
+      if (
+        soloist &&
+        soloist.slot !== wc.threadSlot &&
+        this.look(soloist, 'solo', NOVICE_SOLO.follow)
+      )
         this.follow(soloist, now, wc, out);
     }
     if (wc.resonance >= crescendoCostOf(state) && conducted !== 'finale') {
@@ -481,9 +494,63 @@ export class NoviceBot implements Bot {
     return out;
   }
 
+  /** A hero below `NOVICE_SOLO.danger` of their life, other than one who sits low on purpose. */
+  private endangered(party: readonly HeroView[]): boolean {
+    return party.some(
+      (h) =>
+        h.e.hero!.blood === undefined && h.e.health!.hp < h.e.health!.maxHp * NOVICE_SOLO.danger,
+    );
+  }
+
+  /**
+   * The hero whose full Solo is about to fire (within `NOVICE_SOLO.within` s, by the sim's
+   * `soloDueIn`), in her Thread's reach: the one she could go to now. Null while a hero is in
+   * danger. It also forgets her looks at Solos that are no longer full (`look`).
+   */
+  private soloToFollow(
+    state: WorldState,
+    party: readonly HeroView[],
+    w: ReadonlyEntity,
+  ): HeroView | null {
+    for (const h of party) {
+      const c = h.e.hero!;
+      if (c.solo >= 100 && c.soloActive <= 0) continue;
+      for (const key of [...this.looks.keys()])
+        if (key.startsWith(`${h.slot}:`)) this.looks.delete(key);
+    }
+    if (state.mods.alwaysCued && !state.field.conducting) return null;
+    if (this.endangered(party)) return null;
+    const reach = w.weaver!.threadRange - 0.5;
+    let soon: HeroView | null = null;
+    let soonDue = Infinity;
+    for (const h of party) {
+      if (h.e.hero!.solo < 100 || dist(h.e, w) >= reach) continue;
+      const due = soloDueIn(state, h.e);
+      if (due === null || due > NOVICE_SOLO.within || due >= soonDue) continue;
+      soon = h;
+      soonDue = due;
+    }
+    return soon;
+  }
+
+  /**
+   * Her one look at a full Solo, for a rule: the chance is drawn once and kept until that Solo
+   * has fired, so "now and then" means now and then, however often she decides.
+   */
+  private look(h: HeroView, rule: string, chance: number): boolean {
+    const key = `${h.slot}:${rule}`;
+    let goes = this.looks.get(key);
+    if (goes === undefined) {
+      goes = this.rng.chance(chance);
+      this.looks.set(key, goes);
+    }
+    return goes;
+  }
+
   /**
    * The hero she is following, or null: the follow ends when their Solo fires, is no longer
-   * coming, has taken longer than her patience, or a hero is down or held (`needed`).
+   * coming, has taken longer than her patience, a hero is down or held (`needed`), or one is in
+   * danger.
    */
   private followed(
     state: WorldState,
@@ -496,6 +563,7 @@ export class NoviceBot implements Bot {
     if (
       needed ||
       !h ||
+      this.endangered(party) ||
       h.e.hero!.soloActive > 0 ||
       soloDueIn(state, h.e) === null ||
       state.time - f.since > NOVICE_SOLO.patience
@@ -537,7 +605,7 @@ export class NoviceBot implements Bot {
     let cued = false;
     // Playing the Finale, the heroes keep their Solos for their turns: nothing to follow.
     if (!finaleOn(state) && this.following === null) {
-      const soloist = soloToCue(state, party, w, NOVICE_SOLO.within);
+      const soloist = this.soloToFollow(state, party, w);
       const fresh = soloist && soloist.slot !== wc.threadSlot ? soloist : null;
       const chain = chainOpen(state);
       if (
@@ -545,7 +613,7 @@ export class NoviceBot implements Bot {
         fresh &&
         chain &&
         !chain.heroes.includes(fresh.e.id) &&
-        this.rng.chance(NOVICE_CONDUCTING.chain)
+        this.look(fresh, 'chain', NOVICE_CONDUCTING.chain)
       ) {
         this.follow(fresh, state.time, wc, out);
         cued = true;
@@ -555,7 +623,7 @@ export class NoviceBot implements Bot {
         !cued &&
         cond.view.beat &&
         fresh &&
-        this.rng.chance(NOVICE_CONDUCTING.beat)
+        this.look(fresh, 'beat', NOVICE_CONDUCTING.beat)
       ) {
         this.follow(fresh, state.time, wc, out);
         cued = true;
@@ -728,8 +796,12 @@ export class NoviceBot implements Bot {
     }
     // The last burn: the reignited Solos fire themselves, and she follows them more surely.
     if (this.on('reigniteCue') && this.silenceWatch.burn(state) && this.following === null) {
-      const soloist = soloToCue(state, party, w, NOVICE_SOLO.within);
-      if (soloist && soloist.slot !== wc.threadSlot && this.rng.chance(NOVICE_M4.reigniteCue))
+      const soloist = this.soloToFollow(state, party, w);
+      if (
+        soloist &&
+        soloist.slot !== wc.threadSlot &&
+        this.look(soloist, 'reignite', NOVICE_M4.reigniteCue)
+      )
         this.follow(soloist, now, wc, out);
     }
   }

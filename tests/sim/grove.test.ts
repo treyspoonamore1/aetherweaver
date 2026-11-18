@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { makeBot } from '../../src/bots';
 import { attackDef, heroDef } from '../../src/content';
 import { CONDUCTOR, SHATTER_ARIA } from '../../src/content/crucibleIds';
-import { createSim, type Sim, type SimConfig } from '../../src/sim';
+import { createSim, soloDueIn, type Sim, type SimConfig } from '../../src/sim';
 import {
   addStatus,
   applyStatusPayload,
@@ -341,6 +341,45 @@ describe('Gentle (docs/phase-5e.md)', () => {
     expect(started).toHaveLength(1);
     expect(started[0]!.cued).toBe(false);
     expect(oro.hero!.targetId).toBeNull();
+  });
+});
+
+describe('his Solo with no Sapling fighting (docs/solos.md)', () => {
+  it('his wait runs while another hero fights, every Sapling felled: it does not sit unfired', () => {
+    const { sim, w, oro } = grove();
+    // Lyra is held out of it; Kael fights an enemy that will not die.
+    freeze(w, [1]);
+    const kael = w.entities.get(w.party[0]!)!;
+    kael.health!.hp = kael.health!.maxHp = 1e6;
+    const foe = enemy(w, 'hollow_chorister', kael.x + 1.2, kael.z);
+    foe.health!.hp = foe.health!.maxHp = 1e7;
+    for (const s of saplings(w, oro))
+      dealDamage(w, s, { source: null, sourceName: 'test', amount: 5000 });
+    stepFor(sim, 30);
+    expect(kael.hero!.targetId).not.toBeNull();
+    expect(oro.hero!.targetId).toBeNull();
+    oro.hero!.solo = 100;
+    // The tell counts down from the wait: it does not stand still at 1.
+    stepFor(sim, 20);
+    const due = soloDueIn(sim.state, oro);
+    expect(due).not.toBeNull();
+    expect(due!).toBeLessThan(SOLOS.wait - 0.2);
+    const events = stepFor(sim, 60);
+    expect(ofType(events, 'soloStarted').filter((e) => e.hero === oro.id)).toHaveLength(1);
+  });
+
+  it('with nobody fighting at all his Solo waits, and the tell says nothing is coming', () => {
+    const { sim, w, oro } = grove();
+    freeze(w, [0, 1]);
+    for (const s of saplings(w, oro))
+      dealDamage(w, s, { source: null, sourceName: 'test', amount: 5000 });
+    const foe = enemy(w, 'hollow_chorister', 30, 30);
+    foe.health!.hp = foe.health!.maxHp = 1e7;
+    addStatus(w, foe, 'stun', 1e6, null);
+    oro.hero!.solo = 100;
+    const events = stepFor(sim, 120);
+    expect(ofType(events, 'soloStarted').filter((e) => e.hero === oro.id)).toHaveLength(0);
+    expect(soloDueIn(sim.state, oro)).toBeNull();
   });
 });
 

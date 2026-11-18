@@ -859,7 +859,7 @@ describe('the view and the cost of the Crescendo', () => {
       triad: 3,
     });
     expect(plain.calling!.conducting!.marcato!.pct).toBeCloseTo(0.1, 12);
-    expect(crescendoCostOf(plain)).toBe(100);
+    expect(crescendoCostOf(plain)).toBe(200);
   });
 
   it('heals and Resonance outside a Crescendo work as before', () => {

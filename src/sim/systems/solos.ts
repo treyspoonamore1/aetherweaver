@@ -17,7 +17,8 @@ import {
 } from '../combat/health';
 import { bark } from '../combat/feedback';
 import { SOLOS } from '../constants';
-import type { Entity, ReadonlyEntity, WorldState } from '../state';
+import type { PartySlot } from '../commands';
+import type { Entity, EntityId, ReadonlyEntity, WorldState } from '../state';
 import type { World } from '../world';
 import { hasTalent, ricochet, soloValue, talentFired, talentHolder, talentValue } from '../bonds';
 import { inAnyField } from './field';
@@ -30,22 +31,85 @@ import { attackRange, heroDamage } from './heroDamage';
 const EPS = 1e-9;
 
 /**
- * Would this hero's Solo be Cued if it fired now (docs/solos.md)? The Thread is on them and the
- * Weaver stands. Silent Cues asks that it has been on them for `cueHold` seconds; with Hollow
- * Crown every Solo is Cued, Thread or not.
+ * Would this hero's Solo be a Cue if it fired now (docs/solos.md)? The Thread is on them and the
+ * Weaver stands; Silent Cues asks that it has been on them for `cueHold` seconds.
  *
  * This is the one place the rule lives: the sim (heroes.ts `fireSolo`), the HUD and the bots all
  * read it. To widen it for slower hands (say, "on them at any time in the last half second"),
  * change it here, and keep what it needs on the Weaver beside `threadSince`.
  */
-export function threadCues(state: WorldState, hero: ReadonlyEntity): boolean {
+export function threadOn(state: WorldState, hero: ReadonlyEntity): boolean {
   if (!hero.hero) return false;
-  if (state.mods.alwaysCued) return true;
   const weaver = state.entities.get(state.weaverId);
   const w = weaver?.weaver;
   if (!w || !weaver.health || weaver.health.downed || weaver.health.dead) return false;
   if (w.threadSlot !== hero.hero.slot) return false;
   return state.time - w.threadSince >= state.mods.cueHold - EPS;
+}
+
+/**
+ * Would this hero's Solo play in its Cued form if it fired now? With the Thread on them
+ * (`threadOn`), or with Hollow Crown, under which every Solo plays Cued. The Crown gives the
+ * form and nothing else: only a Solo the Thread is on is a Cue, with what a Cue brings (the
+ * tally, the Conductor's chain, A Tempo's gift, the chorus pulse, every "when you Cue").
+ */
+export function threadCues(state: WorldState, hero: ReadonlyEntity): boolean {
+  if (!hero.hero) return false;
+  return state.mods.alwaysCued || threadOn(state, hero);
+}
+
+/** A hero's turn in `soloQueue`. */
+export interface SoloTurn {
+  hero: EntityId;
+  slot: PartySlot;
+  /** Seconds until their Solo fires, the gap after the Solo before theirs counted. */
+  due: number;
+  /** It would play Cued if it fired now (`threadCues`). */
+  cued: boolean;
+}
+
+/**
+ * The Solos that are coming, in the order they will fire, for the frames (docs/solos.md). Each
+ * hero's `soloDueIn` already waits out the gap since the last Solo began; this also spaces the
+ * heroes still waiting, so that two due together read a gap apart (and, with A Tempo, a bar
+ * apart), as they will fire: the earlier slot first, as the sim takes them. A view only: neither
+ * the sim nor the bots read it, and Kael's urgent wall may still jump the queue.
+ */
+export function soloQueue(state: WorldState): SoloTurn[] {
+  const turns: SoloTurn[] = [];
+  state.party.forEach((id, i) => {
+    const e = state.entities.get(id);
+    if (!e) return;
+    const due = soloDueIn(state, e);
+    if (due === null) return;
+    turns.push({ hero: id, slot: i as PartySlot, due, cued: threadCues(state, e) });
+  });
+  turns.sort((a, b) => a.due - b.due || a.slot - b.slot);
+  let before = -Infinity;
+  for (const t of turns) {
+    if (t.due < before + SOLOS.gap) {
+      t.due = before + SOLOS.gap;
+      t.due += beatWait(state, state.time + t.due);
+    }
+    before = t.due;
+  }
+  return turns;
+}
+
+/** Stunned, staggered, asleep, possessed or stilled (combat/health.ts `isDisabled`, for a view). */
+function cannotAct(e: ReadonlyEntity): boolean {
+  const statuses = e.health?.statuses;
+  if (!statuses) return false;
+  for (const s of statuses)
+    if (
+      s.id === 'stun' ||
+      s.id === 'stagger' ||
+      s.id === 'sleep' ||
+      s.id === 'possessed' ||
+      s.id === 'stilled'
+    )
+      return true;
+  return false;
 }
 
 /** How long this hero's Solo takes to charge from empty (their own, or their Bond's alternate). */
@@ -57,16 +121,19 @@ function chargeTimeOf(h: { defId: string; soloId: string }): number {
 
 /**
  * The tell (docs/solos.md): seconds until this hero fires their Solo, as near as can be said
- * now, or null when none is coming: down, mid-Solo, not charging, kept for a Grand Finale turn,
- * full with no one to fight, or further off than `SOLOS.tell` seconds of charge plus the wait. Kael may raise his wall
- * sooner than this says (hurt, a big hit coming); a gap in the fight (no one to fight, a stun)
- * starts the wait over. For the HUD and the bots; the sim's own rule is heroes.ts `soloFires`.
+ * now, or null when none is coming: down, mid-Solo, unable to act (stunned, staggered, asleep,
+ * stilled, possessed, being Reeled), not charging, kept for a Grand Finale turn, full with no
+ * one to fight, or further off than `SOLOS.tell` seconds of charge plus the wait. Kael may raise
+ * his wall sooner than this says (hurt, a big hit coming); a gap in the fight (no one to fight,
+ * a stun) starts the wait over. For the HUD, Auto-Thread and the bots, none of which keeps a
+ * check of its own; the sim's own rule is heroes.ts `soloFires`.
  */
 export function soloDueIn(state: WorldState, hero: ReadonlyEntity): number | null {
   const h = hero.hero;
   const health = hero.health;
   if (!h || !health || health.dead || health.downed || h.soloActive > 0) return null;
   if (state.encounter.status !== 'fighting') return null;
+  if (h.reel || cannotAct(hero)) return null;
   if (state.field.conducting?.finale?.queue.includes(hero.id)) return null;
   let full = 0;
   if (h.solo < 100) {
@@ -75,9 +142,9 @@ export function soloDueIn(state: WorldState, hero: ReadonlyEntity): number | nul
     if (!(rate > 0)) return null;
     full = (100 - h.solo) / rate;
     if (full > SOLOS.tell) return null;
-  } else if (h.targetId === null && !h.grove) {
-    // Full, with no one to fight: it waits, and its wait has not begun (Oro's runs while a
-    // Sapling fights, grove.ts).
+  } else if (h.targetId === null && (!h.grove || h.grove.held === undefined)) {
+    // Full, with no one to fight: it waits, and its wait has not begun. (Oro takes no target:
+    // his wait runs while the party fights, grove.ts `groveHeld`, and `grove.held` says so.)
     return null;
   }
   const wait = h.soloId === 'aegisWall' ? SOLOS.kaelHold : SOLOS.wait;
@@ -206,10 +273,17 @@ export function updateSolo(world: World, hero: Entity, dt: number): boolean {
     finishSolo(world, hero);
     return false;
   }
-  // Gale Barrage and Hawk's Vigil root Lyra unless cued; Starfall always roots Vexis; the
-  // others never root (Red Frenzy: Brann keeps chasing as he spins).
-  if (id === 'galeBarrage' || id === 'hawks_vigil') return !h.soloCued;
-  return id === 'starfall';
+  return soloRoots(id, h.soloCued);
+}
+
+/**
+ * Does this Solo root its hero in place while it plays? Only a Cued Starfall: Vexis stands to
+ * call it down inside your field. No plain Solo roots its hero (docs/solos.md): a hero who fires
+ * on their own, the Thread elsewhere, is never pinned for it. (Gale Barrage, Hawk's Vigil and a
+ * plain Starfall once were; measured, the roots cost fights and bought nothing.)
+ */
+export function soloRoots(id: string, cued: boolean): boolean {
+  return id === 'starfall' && cued;
 }
 
 /**

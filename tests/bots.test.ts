@@ -3213,9 +3213,11 @@ describe('the Novice bot in the Finale (NOVICE_M4, staged)', () => {
         worldOf(sim).encounter.bossId = boss.id;
         weaverE(sim).weaver!.resonance = 100;
         heroE(sim, 1).hero!.solo = 100;
+        // Full for 0.6 s: she goes to a Solo only in its last half second (`NOVICE_SOLO.within`).
+        heroE(sim, 1).hero!.soloHeld = 0.6;
         const bot = makeBot('novice', seed);
         const w = worldOf(sim);
-        // Lyra's Solo is full and due within its wait: following it is a Thread to her.
+        // Lyra's Solo is full and about to fire: following it is a Thread to her.
         const decide = () => bot.decide(sim.state).some((c) => c.t === 'thread' && c.slot === 1);
         if (when === 'burn') {
           // A first decision (as in 'none'), then the silence seen between her decisions (it is

@@ -724,6 +724,7 @@ export function emptyLedger(): Ledger {
     clutchCleanses: 0,
     reels: 0,
     cues: 0,
+    plainSolos: 0,
     crescendos: 0,
     downs: 0,
     deaths: [],

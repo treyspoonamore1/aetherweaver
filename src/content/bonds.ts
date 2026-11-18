@@ -165,7 +165,7 @@ export const TALENTS: ContentInput['talents'] = [
     tier: 3,
     name: 'Constellation',
     values: { interval: 1.5, seconds: 6 },
-    text: 'Each Cue leaves a star where the hero stands, casting Vexis’s arcane bolt at the nearest enemy every {interval} s for {seconds} s.',
+    text: 'Each Cued Solo leaves a star where its hero stands. The star casts Vexis’s arcane bolt at the nearest enemy every {interval} s for {seconds} s.',
   },
   // ── Brann (docs/phase-5b.md), appended after the starters. ──
   {
@@ -333,9 +333,8 @@ export const ALT_SOLOS: ContentInput['altSolos'] = [
     chargeTime: 25,
     // `power`: each shot, in her basic attacks.
     values: { seconds: 6, power: 8, pct: 25, mark: 4 },
-    text: 'For {seconds} s, Lyra holds still and shoots every enemy that starts an attack within her range, once each, as hard as {power} of her arrows. A cast she can interrupt is interrupted.',
-    cuedText:
-      'Cued: she can move, and each shot marks its target to take {pct}% more damage for {mark} s.',
+    text: 'For {seconds} s, Lyra shoots every enemy that starts an attack within her range, once each, as hard as {power} of her arrows. A cast she can interrupt is interrupted.',
+    cuedText: 'Cued: each shot marks its target to take {pct}% more damage for {mark} s.',
   },
   {
     id: 'celestial_sphere',

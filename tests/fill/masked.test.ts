@@ -15,8 +15,10 @@
  *   on the pre-W0 tree (`maps.json`);
  * - the first Novice and the first Skilled run of every Expedition baseline file, as frozen.
  *
- * The frozen copies are re-frozen when a rule every fight plays by changes (so far once: the Solo
- * rework, docs/solos.md, which changed every seeded run and the base content's version). To
+ * The frozen copies are re-frozen when a rule every fight plays by changes (so far for the Solo
+ * rework alone, docs/solos.md, which changed every seeded run and the base content's version).
+ * Since then they no longer show the fill was inert against a tree from before the fill: they
+ * pin the masked content from here on. To
  * re-freeze, with the reason in the commit: `AW_REFREEZE_PRE5G=1 npx vitest run
  * tests/fill/masked.test.ts`. It rewrites `pre5g/golden.json`'s `contentVersion` and the two runs
  * this file reads of each `pre5g/expedition*-baseline*.json`, from the masked content as it is.
@@ -101,12 +103,13 @@ describe('the masked replay (docs/phase-5g.md, ground rule 5)', () => {
 
   it('the recomputed contentVersion equals the pre-W0 one', () => {
     if (REFREEZE) {
-      const text = pre5g('golden.json');
-      const next = text.replace(
-        /"contentVersion": "[^"]*"/,
-        `"contentVersion": "${contentVersionOf(CONTENT)}"`,
+      // Only the masked content's version is read from this file. (It once held the sim version
+      // and 32 scenario hashes of the tree it was first frozen from; nothing read them, and
+      // after a re-freeze they described no tree at all, so they are no longer kept.)
+      writeFileSync(
+        pre5gPath('golden.json'),
+        `${JSON.stringify({ contentVersion: contentVersionOf(CONTENT) }, null, 2)}\n`,
       );
-      writeFileSync(pre5gPath('golden.json'), next);
     }
     const { contentVersion } = frozen<{ contentVersion: string }>('golden.json');
     expect(contentVersionOf(CONTENT)).toBe(contentVersion);

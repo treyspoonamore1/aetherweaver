@@ -28,7 +28,15 @@ import { canCall, flourishing, settleCall, startCall, tendCall } from './calls';
 import { formationSlot } from './formation';
 import { attackRange, flourishHit, heroAttackSpeed, heroDamage } from './heroDamage';
 import { hasTalent, ricochet, talentFired, talentValue } from '../bonds';
-import { nearestEnemy, soloSpec, startSolo, threadCues, tickSoloClock, updateSolo } from './solos';
+import {
+  nearestEnemy,
+  soloSpec,
+  startSolo,
+  threadCues,
+  threadOn,
+  tickSoloClock,
+  updateSolo,
+} from './solos';
 import { cueSolo } from './techniques';
 import { onBeat } from './conducting';
 import { approachVelocity, arrive } from './steering';
@@ -301,15 +309,17 @@ function lowHpCheck(world: World, e: Entity): void {
  * Thread on him, a hit is about to land on the party. Otherwise every hero waits `SOLOS.wait`
  * seconds with someone to fight (Kael holds for a big hit, at most `SOLOS.kaelHold`), then for
  * `SOLOS.gap` since the last hero's Solo began, then, with A Tempo, for the downbeat. A hero
- * with a Grand Finale turn still to come keeps the Solo for it; one whose Solo would be wasted
- * right now holds it a little longer (`wasted`).
+ * with a Grand Finale turn still to come keeps the Solo for it, and a hero who is casting
+ * finishes the cast first.
  */
 function soloFires(world: World, e: Entity): boolean {
   const h = e.health!;
   const hero = e.hero!;
   const wall = hero.soloId === 'aegisWall';
-  if (wall && (h.hp < h.maxHp * 0.5 || h.incoming > h.hp * 0.5)) return true;
-  if (friendFalling(world, e)) return true;
+  // (Hurt, he raises it only with someone to fight: not for a wound carried out of a wave.)
+  if (wall && ((hero.targetId !== null && h.hp < h.maxHp * 0.5) || h.incoming > h.hp * 0.5))
+    return true;
+  if (hero.targetId !== null && friendFalling(world, e)) return true;
   if (
     wall &&
     SOLOS.partyHit > 0 &&
@@ -318,44 +328,35 @@ function soloFires(world: World, e: Entity): boolean {
     partyHitWithin(world, SOLOS.partyHit)
   )
     return true;
-  // Oro (docs/phase-5e.md): target-less, his wait runs while a Sapling fights.
+  // Oro (docs/phase-5e.md): target-less, his wait runs while the party fights.
   if (hero.grove && hero.targetId === null) {
     if (!groveSoloDue(world, e)) return false;
   } else if (hero.targetId === null) return false;
-  else if (hero.soloHeld < (wall ? SOLOS.kaelHold : SOLOS.wait)) return false;
+  else if (hero.soloHeld < (wall ? SOLOS.kaelHold : SOLOS.wait) - 1e-9) return false;
   const last = world.field.lastSoloAt;
   if (last !== null && world.time - last < SOLOS.gap - 1e-9) return false;
   // The Conductor (docs/phase-5f.md): the Grand Finale will play this hero's Solo in its turn,
   // and A Tempo starts every Solo on the downbeat.
   if (world.field.conducting?.finale?.queue.includes(e.id)) return false;
   if (world.mods.beatWindow > 0 && !onBeat(world)) return false;
-  return !wasted(world, e);
+  // A hero finishes what they are casting first: a Solo that began now would throw the cast
+  // away, a Flourish the Weaver has just answered a call for among them.
+  return hero.cast === null;
 }
 
 /**
- * The heroes' judgement (docs/solos.md): would this Solo, due now, be wasted? Kael's wall never
- * is. A Solo that roots its hero in place (Starfall, Gale Barrage, Hawk's Vigil) and is not about
- * to be Cued is held while a hit is coming at them, at most `SOLOS.rootHold` seconds past the
- * wait: rooted, they would stand in it. With the Thread on them it fires on time, so a Weaver
- * following the Solo is never kept waiting.
- */
-function wasted(world: World, e: Entity): boolean {
-  const hero = e.hero!;
-  if (!(SOLOS.rootHold > 0) || hero.targetId === null) return false;
-  const id = hero.soloId;
-  if (id !== 'starfall' && id !== 'galeBarrage' && id !== 'hawks_vigil') return false;
-  if (hero.soloHeld - SOLOS.wait >= SOLOS.rootHold) return false;
-  return e.health!.incoming > 0 && !threadCues(world, e);
-}
-
-/**
- * The hero fires their own Solo: Cued if the Thread is on them at this moment (`threadCues`),
- * with everything a Cue brings (techniques.ts `cueSolo`); plain if not.
+ * The hero fires their own Solo: a Cue if the Thread is on them at this moment (`threadOn`),
+ * with everything a Cue brings (techniques.ts `cueSolo`); plain if not. Under Hollow Crown a
+ * Solo without the Thread still plays in its Cued form, but it is no Cue.
  */
 function fireSolo(world: World, e: Entity): void {
   world.field.lastSoloAt = world.time;
-  if (threadCues(world, e)) cueSolo(world, e);
-  else startSolo(world, e, false);
+  if (threadOn(world, e)) cueSolo(world, e);
+  else {
+    const crowned = world.mods.alwaysCued;
+    if (!crowned) world.ledger.plainSolos++;
+    startSolo(world, e, crowned);
+  }
 }
 
 /**

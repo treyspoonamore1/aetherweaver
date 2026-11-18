@@ -16,11 +16,13 @@
  *
  * Numbers a run may change (the fight is played with them; nothing is written anywhere):
  *   --wait S  --kael-hold S  --gap S  --tell S   `SOLOS` (src/sim/constants.ts)
- *   --party-hit S  --root-hold S                 the heroes' judgement (0: off)
+ *   --party-hit S                                Kael's dome for a hit on the party (0: off)
+ *   --lead S  --danger X                         the Skilled bot's Thread: how early, how careful
  *   --gain-scale X                               every Resonance gain times X
  *   --reaction S  --miss X                       the person's hands (tools/person.ts `PERSON`)
  *   --set a_tempo.resonance=10,upbeat.resonance=40   a Calling option's own numbers
  *
+ * `--dissonance silent_cues`, `--relics hollow_crown`, `--solos hawks_vigil` set the fights up.
  * `--label` names the run in the file (default: the numbers changed, or `built`). `--eager`: a
  * full song is sung at once. `--calling ID --path a,b,c,d`, `--party kael,lyra,vexis`, `--fights`,
  * `--seeds N`, `--seed-base N` as the harness has them.
@@ -101,6 +103,9 @@ export interface StudyRow {
   onBeat: number;
   /** Duets and Trios formed with a plain Solo fired since the chain's last Cue. */
   overPlain: number;
+  /** Solos that cut short a cast their own hero had under way, and those that were Flourishes. */
+  castsCut: number;
+  flourishesCut: number;
 }
 
 /** The numbers a run may change. */
@@ -112,11 +117,12 @@ export interface StudyKnobs {
   /** A Calling option's values: `{ 'a_tempo.resonance': 10 }` (option id, then the value's key). */
   options?: Record<string, number>;
   partyHit?: number;
-  rootHold?: number;
+  lead?: number;
+  danger?: number;
   gainScale?: number;
 }
 
-const SOLO_KNOBS = ['wait', 'kaelHold', 'gap', 'tell', 'partyHit', 'rootHold'] as const;
+const SOLO_KNOBS = ['wait', 'kaelHold', 'gap', 'tell', 'lead', 'danger', 'partyHit'] as const;
 
 /**
  * Plays `fn` with the Solo numbers changed, then puts them back. The constants are the sim's own
@@ -192,6 +198,12 @@ function eager(state: WorldState, commands: Command[]): Command[] {
 export interface StudySetup {
   calling?: SimConfig['calling'];
   party?: readonly string[];
+  /** Alternate Solos the heroes bring (their Bonds'), e.g. `hawks_vigil`. */
+  solos?: readonly string[];
+  /** Dissonance levels the fight is played at (`silent_cues`, or `id:rank`). */
+  dissonance?: readonly { id: string; rank: number }[];
+  /** Relics added to the kit's (`hollow_crown`). */
+  relics?: readonly string[];
   eager?: boolean;
   /** The person's hands, where they differ from `PERSON`. */
   person?: Partial<PersonOptions>;
@@ -213,7 +225,10 @@ export function studyFight(
     ...kitConfig(kitById(defaultKit(movement))),
     ...(setup.calling ? { calling: setup.calling } : {}),
     ...(setup.party ? { party: setup.party.map((heroId) => ({ heroId })) } : {}),
+    ...(setup.solos ? { bonds: { talents: [], solos: [...setup.solos] } } : {}),
+    ...(setup.dissonance ? { dissonance: setup.dissonance.map((d) => ({ ...d })) } : {}),
   };
+  if (setup.relics) config.relics = [...(config.relics ?? []), ...setup.relics];
   const sim = createSim(config);
   const bot = studyPlayer(player, seed, setup.person);
   const row: StudyRow = {
@@ -242,12 +257,19 @@ export function studyFight(
     trios: 0,
     onBeat: 0,
     overPlain: 0,
+    castsCut: 0,
+    flourishesCut: 0,
   };
   const finaleTurns = new Set<number>();
   let plainSinceCue = false;
   for (let t = 0; t < MAX_SECONDS * 60; t++) {
     let commands = bot.decide(sim.state);
     if (setup.eager) commands = eager(sim.state, commands);
+    const casting = new Map<number, boolean>();
+    for (const id of sim.state.party) {
+      const cast = sim.state.entities.get(id)?.hero?.cast;
+      if (cast) casting.set(id, cast.flourish);
+    }
     sim.step(commands);
     const events = sim.drainEvents();
     finaleTurns.clear();
@@ -258,6 +280,10 @@ export function studyFight(
         if (finaleTurns.has(e.hero)) {
           row.finaleSolos++;
           continue;
+        }
+        if (casting.has(e.hero)) {
+          row.castsCut++;
+          if (casting.get(e.hero)) row.flourishesCut++;
         }
         if (e.cued) row.cued++;
         else {
@@ -363,6 +389,8 @@ export function studyReport(rows: readonly StudyRow[], by: StudyGroup): string[]
       'trios',
       'on beat',
       'over plain',
+      'casts cut',
+      'flourishes cut',
       'finale solos',
       'dmg/s',
     ],
@@ -390,6 +418,8 @@ export function studyReport(rows: readonly StudyRow[], by: StudyGroup): string[]
       fmt(mean(g.map((r) => r.trios))),
       fmt(mean(g.map((r) => r.onBeat))),
       fmt(mean(g.map((r) => r.overPlain ?? 0)), 2),
+      fmt(mean(g.map((r) => r.castsCut ?? 0)), 2),
+      fmt(mean(g.map((r) => r.flourishesCut ?? 0)), 2),
       fmt(mean(g.map((r) => r.finaleSolos))),
       fmt(mean(g.map((r) => r.partyDamage / Math.max(1, r.duration))), 0),
     ]);
@@ -436,7 +466,8 @@ function main(): void {
   set('gap', 'gap');
   set('tell', 'tell');
   set('partyHit', 'party-hit');
-  set('rootHold', 'root-hold');
+  set('lead', 'lead');
+  set('danger', 'danger');
   set('gainScale', 'gain-scale');
   const sets = arg('set');
   if (sets)
@@ -466,11 +497,19 @@ function main(): void {
   const callingId = arg('calling');
   const path = arg('path');
   const party = arg('party')?.split(',');
+  const solos = arg('solos')?.split(',');
+  const relics = arg('relics')?.split(',');
+  const dissonance = arg('dissonance')
+    ?.split(',')
+    .map((d) => ({ id: d.split(':')[0]!, rank: Number(d.split(':')[1] ?? 1) }));
   const setup: StudySetup = {
     ...(callingId
       ? { calling: { id: callingId, ...(path ? { path: path.split(',') } : {}) } }
       : {}),
     ...(party ? { party } : {}),
+    ...(solos ? { solos } : {}),
+    ...(relics ? { relics } : {}),
+    ...(dissonance ? { dissonance } : {}),
     eager: process.argv.includes('--eager'),
     person,
   };

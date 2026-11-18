@@ -1076,7 +1076,10 @@ export interface Ledger {
   cleanses: number;
   clutchCleanses: number;
   reels: number;
+  /** Solos fired with the Thread on their hero: Cues (docs/solos.md). */
   cues: number;
+  /** Solos the heroes fired in the plain form, the Thread elsewhere (Grand Finale turns aside). */
+  plainSolos: number;
   crescendos: number;
   downs: number;
   deaths: DeathRecord[];

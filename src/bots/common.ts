@@ -1226,17 +1226,19 @@ export function soloToCue(
   w: ReadonlyEntity,
   within: number,
 ): HeroView | null {
-  if (state.mods.alwaysCued) return null;
+  // Hollow Crown plays every Solo Cued: only a Conductor still wants the Thread there, for his chain.
+  if (state.mods.alwaysCued && !state.field.conducting) return null;
   const reach = w.weaver!.threadRange - 0.5;
   let soon: HeroView | null = null;
   let soonDue = Infinity;
   let wall: HeroView | null = null;
   for (const h of party) {
     const c = h.e.hero!;
-    if (isStilled(h.e) || isPossessed(h.e) || dist(h.e, w) >= reach) continue;
+    if (dist(h.e, w) >= reach) continue;
+    // Null for a hero who cannot fire now (stunned, stilled, possessed, no one to fight…).
     const due = soloDueIn(state, h.e);
     if (due === null) continue;
-    if (c.soloId === 'aegisWall' && c.solo >= 100 && c.targetId !== null) wall = h;
+    if (c.soloId === 'aegisWall' && c.solo >= 100) wall = h;
     if (due <= within && due < soonDue) {
       soon = h;
       soonDue = due;

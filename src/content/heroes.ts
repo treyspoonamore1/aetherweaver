@@ -160,8 +160,8 @@ export const HEROES: ContentInput['heroes'] = [
     solo: {
       id: 'galeBarrage',
       name: 'Gale Barrage',
-      description: 'Lyra roots herself and looses twelve arrows a second for three seconds.',
-      cuedDescription: 'Cued: she can move while firing and her arrows crit 40% more often.',
+      description: 'Lyra looses twelve arrows a second for three seconds.',
+      cuedDescription: 'Cued: her arrows hit a third harder and crit 40% more often.',
       chargeTime: 25,
       duration: 3,
       power: 36,
