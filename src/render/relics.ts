@@ -7,6 +7,7 @@ import { PARTICLE } from './fx/particles';
 import { RING } from './fx/rings';
 import { SHELL } from './fx/shells';
 import { SPRITE } from './fx/sprites';
+import { HERO_DRAWN } from './models/artFlag';
 import { C, VISION_HEX, approach, clamp01, color } from './palette';
 import {
   PrismScan,
@@ -435,7 +436,7 @@ export class RelicView {
       m,
       2,
       h.x,
-      h.height + 1.85,
+      h.height * HERO_DRAWN + 1.85,
       h.z,
       'THIMBLE',
       SILVER_HEX,
@@ -736,7 +737,17 @@ export class RelicView {
       kit.particles.burst(bx, by, bz, 18, 3, 2, 0.6, 0.13, VEIL, 1, PARTICLE.shard, 3, 3, w.radius);
       this.d.rig?.addTrauma(0.16);
     }
-    this.callout(m, 2, bx, w.height + 1.9, bz, 'VEIL', VEIL_HEX, 28, 'rgba(58,40,82,0.95)');
+    this.callout(
+      m,
+      2,
+      bx,
+      w.height * HERO_DRAWN + 1.9,
+      bz,
+      'VEIL',
+      VEIL_HEX,
+      28,
+      'rgba(58,40,82,0.95)',
+    );
     const v = seg(m.age, UNFURL, m.life);
     const fade = 1 - v;
     kit.shells.push(
@@ -771,7 +782,8 @@ export class RelicView {
   /** Where the metronome stands over the Weaver (its pivot). */
   private pivot(w: RelicRec, out: { x: number; y: number; z: number }): typeof out {
     out.x = w.x;
-    out.y = w.y + w.height + 0.42;
+    // Over her drawn head (the Weaver is drawn HERO_DRAWN tall): the same lift over it as before.
+    out.y = w.y + w.height * HERO_DRAWN + 0.42;
     out.z = w.z;
     return out;
   }
@@ -931,7 +943,7 @@ export class RelicView {
       m,
       2,
       h.x,
-      h.height + 2,
+      h.height * HERO_DRAWN + 2,
       h.z,
       'METRONOME',
       BRASS_HEX,
@@ -1070,7 +1082,8 @@ export class RelicView {
     const h = this.d.recs.get(m.hero);
     if (!h) return false;
     const kit = this.d.kit;
-    const top = h.y + h.height + 0.32;
+    // Over the drawn head (heroes are drawn HERO_DRAWN tall): the same clearance as before.
+    const top = h.y + h.height * HERO_DRAWN + 0.32;
     if (m.age < HALO_FORM) {
       // A glass halo forms over the warded hero…
       const f = easeOut(m.age / HALO_FORM);
@@ -1098,7 +1111,7 @@ export class RelicView {
         );
         this.d.overlay?.callout(
           h.x,
-          h.height + 2.35,
+          h.height * HERO_DRAWN + 2.35,
           h.z,
           'GLASS HALO',
           GLASS_HEX,
@@ -1282,7 +1295,7 @@ export class RelicView {
       m,
       2,
       w.x,
-      w.height + 1.5,
+      w.height * HERO_DRAWN + 1.5,
       w.z,
       cueReady(state) ? 'HYMNAL · CUE READY' : 'HYMNAL',
       '#fff4d6',
@@ -1301,7 +1314,8 @@ export class RelicView {
     if (m.age < DROP) {
       // The score's weight drops on the Weaver…
       const t = m.age / DROP;
-      const y = w.y + w.height + 2 - 2 * t * t;
+      // …onto her drawn head.
+      const y = w.y + w.height * HERO_DRAWN + 2 - 2 * t * t;
       kit.beams.push(w.x, y + 0.9, w.z, w.x, y, w.z, 0.3, BEAM.glow, IRON, 0.7);
       kit.sprites.push(w.x, y, w.z, 0.45, SPRITE.diamond, IRON, 1);
       return true;
@@ -1345,7 +1359,7 @@ export class RelicView {
       this.d.rig?.addTrauma(0.1);
       this.d.overlay?.callout(
         w.x,
-        w.height + 1.1,
+        w.height * HERO_DRAWN + 1.1,
         w.z,
         'NO GLIDE',
         IRON_HEX,

@@ -14,6 +14,7 @@ import { PARTICLE } from './fx/particles';
 import { RING } from './fx/rings';
 import { SPRITE } from './fx/sprites';
 import { ORO_SEED } from './models/library';
+import { HERO_DRAWN } from './models/artFlag';
 import { clamp01, color } from './palette';
 
 /**
@@ -487,7 +488,7 @@ export class GroveFx {
         const f = 1 - seg(t, 0, m.life);
         kit.sprites.push(
           r.x,
-          r.y + r.height + 0.55,
+          r.y + r.height * HERO_DRAWN + 0.55,
           r.z,
           0.36 + 0.12 * f,
           SPRITE.drop,

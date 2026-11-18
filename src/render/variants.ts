@@ -7,6 +7,7 @@ import { PARTICLE } from './fx/particles';
 import { RING } from './fx/rings';
 import { SHELL } from './fx/shells';
 import { SPRITE } from './fx/sprites';
+import { HERO_DRAWN } from './models/artFlag';
 import { C, clamp01, color, rgba, threadColor } from './palette';
 import { flareScale } from './relicCues';
 import {
@@ -902,8 +903,8 @@ export class VariantsView {
       const my = (chestY(ra) + chestY(rb)) / 2 + this.lift(ra, rb) * 0.5 + 0.45;
       kit.sprites.push(mx, my, mz, 0.34, SPRITE.timer, C.shield, 0.9 * a, 0, 1, frac);
     } else if (alone && ra && aUp) {
-      // Alone, its seconds over the hero's head.
-      const y = ra.y + ra.height + 0.55;
+      // Alone, its seconds over the hero's head (the drawn head: heroes are HERO_DRAWN tall).
+      const y = ra.y + ra.height * HERO_DRAWN + 0.55;
       kit.sprites.push(ra.x, y, ra.z, 0.34, SPRITE.timer, C.shield, 0.9 * fade, 0, 1, frac);
     }
     if (rw && ra && this.strandVis[1]! > 0.01) {

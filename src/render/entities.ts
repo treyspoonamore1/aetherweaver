@@ -54,7 +54,7 @@ import {
   recolorModel,
 } from './models/library';
 import { WEAVER_HANDS } from './models/art/weaver';
-import { HERO_DRAWN, HOSTILE_EDGE, HOSTILE_OUTLINE } from './models/artFlag';
+import { HERO_DRAWN, HOSTILE_EDGE, HOSTILE_OUTLINE, drawnHeight } from './models/artFlag';
 import {
   SEREN_FLASH,
   SEREN_VIOLET,
@@ -2435,7 +2435,8 @@ export class EntityLayer {
     d5.notched++;
     if (enGarde(e)) {
       // En garde: two blades crossed over her head (a shape, never the Ward's cyan or silver).
-      const y = rec.y + rec.height + 0.5 + 0.05 * Math.sin(this.now * 3);
+      // Over the drawn head (heroes are drawn HERO_DRAWN tall): the same lift over it as before.
+      const y = rec.y + rec.height * HERO_DRAWN + 0.5 + 0.05 * Math.sin(this.now * 3);
       kit.spritesTop.push(x, y, z, 0.42, SPRITE.needle, SEREN_FLASH, 0.95, 0.75);
       kit.spritesTop.push(x, y, z, 0.42, SPRITE.needle, SEREN_FLASH, 0.95, -0.75);
       kit.sprites.push(x, y, z, 0.6, SPRITE.glow, SEREN_VIOLET, 0.35);
@@ -2553,7 +2554,8 @@ export class EntityLayer {
       d5.rootTethers++;
     }
     if (tending(state, e)) {
-      const y = rec.y + rec.height + 0.45 + 0.04 * Math.sin(this.now * 2);
+      // Over the drawn head, as every mark over a hero is.
+      const y = rec.y + rec.height * HERO_DRAWN + 0.45 + 0.04 * Math.sin(this.now * 2);
       kit.spritesTop.push(rec.x, y, rec.z, 0.26, SPRITE.drop, GROVE_MOSS, 0.95, 0, 1, 0);
       kit.sprites.push(rec.x, y, rec.z, 0.4, SPRITE.glow, GROVE_SEED, 0.25);
       d5.tending++;
@@ -2752,7 +2754,8 @@ export class EntityLayer {
       if (!parryGlyph(state, t)) continue;
       const r = this.recs.get(t.target!);
       if (!r) continue;
-      const y = r.y + r.height + 0.95;
+      // Over her drawn head (the target is Seren: parryGlyph), beside the marks already there.
+      const y = r.y + r.height * HERO_DRAWN + 0.95;
       kit.spritesTop.push(r.x, y, r.z, 0.34, SPRITE.needle, SEREN_VIOLET, 0.95, 0.75);
       kit.spritesTop.push(r.x, y, r.z, 0.34, SPRITE.needle, SEREN_VIOLET, 0.95, -0.75);
       this.drawn5e.parryGlyphs++;
@@ -3443,7 +3446,9 @@ export class EntityLayer {
     if (!crimsonStatuses(e, look)) return;
     const x = rec.x;
     const z = rec.z;
-    const top = rec.height + rec.y;
+    // The drawn head (a hero and the Weaver are drawn HERO_DRAWN tall): the pips and the heart keep
+    // their place over the bar, which is lifted from it too (partyBars.ts).
+    const top = drawnHeight(rec) + rec.y;
     if (look.bleed > 0) {
       const n = Math.min(look.bleed, MAX_PIPS);
       const hot = look.bleed >= BLEED_CHIME_AT;
@@ -3552,7 +3557,8 @@ export class EntityLayer {
   private rift(rec: EntityRec, e: ReadonlyEntity, state: WorldState, kit: FxKit, dt: number): void {
     const x = rec.x;
     const z = rec.z;
-    const top = rec.height + rec.y;
+    // The drawn head: the mask, the Doom pips and the rune lock are over a hero or the Weaver.
+    const top = drawnHeight(rec) + rec.y;
     const enemy = e.enemy;
     if (enemy) {
       if (isTetherDef(rec.defId)) this.tetherRecs.push(rec);
@@ -3840,7 +3846,8 @@ export class EntityLayer {
         const a = this.now * 5 + (i * Math.PI * 2) / 3;
         kit.sprites.push(
           x + Math.cos(a) * rec.radius * 0.8,
-          rec.height + 0.15 + rec.y,
+          // Over the drawn head: a hero's is HERO_DRAWN tall, an enemy's as it was.
+          drawnHeight(rec) + 0.15 + rec.y,
           z + Math.sin(a) * rec.radius * 0.8,
           0.14,
           SPRITE.star,
