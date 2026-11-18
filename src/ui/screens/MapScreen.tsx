@@ -609,14 +609,16 @@ function MapNodeView({
         </span>
       </span>
     );
-  // A stop out of reach with a name of its own (a fight's, an event's) shows that name on hover:
-  // its glyph and its rewards say what it is, and its name matters once it can be chosen. A stop
-  // named for its kind (Merchant, Forge, Respite, Shrine), a mini-boss and a boss keep theirs.
+  // A stop out of reach with a name of its own (a fight's, an event's) shows that name on hover
+  // and on focus: its glyph and its rewards say what it is, and its name matters once it can be
+  // chosen. A stop named for its kind (Merchant, Forge, Respite, Shrine), a mini-boss and a boss
+  // keep theirs. Every stop out of reach takes focus (Tab, the pad's d-pad), which shows its name
+  // and its card as hover does; its label is read out either way.
   const quiet =
     state === 'locked' && title !== look.label && node.kind !== 'boss' && node.kind !== 'miniboss';
   const label = (
     <span
-      className={`pointer-events-none block w-[5.4rem] text-center text-xs leading-tight ${chips.length > 0 ? 'mt-3' : 'mt-1'} ${state === 'locked' ? 'text-muted/70' : 'text-text'} ${quiet ? 'opacity-0 group-hover:opacity-100' : ''}`}
+      className={`pointer-events-none block w-[5.4rem] text-center text-xs leading-tight ${chips.length > 0 ? 'mt-3' : 'mt-1'} ${state === 'locked' ? 'text-muted/70' : 'text-text'} ${quiet ? 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100' : ''}`}
       data-quiet={quiet || undefined}
     >
       {title}
@@ -641,9 +643,11 @@ function MapNodeView({
         </button>
       ) : (
         <div
-          className="flex flex-col items-center"
+          className="flex flex-col items-center rounded-lg focus-visible:outline-offset-4"
           aria-label={`${title}, ${look.label}${state === 'visited' ? txt('screens.mapScreen.visited') : state === 'locked' ? txt('screens.mapScreen.notReachableYet') : txt('screens.mapScreen.youAreHere')}${rewardsSaid ? `.${rewardsSaid}` : ''}`}
           role="img"
+          tabIndex={state === 'locked' ? 0 : undefined}
+          data-stop={state}
         >
           {stop}
           {label}
