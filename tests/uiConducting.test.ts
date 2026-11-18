@@ -243,6 +243,77 @@ describe('the Duet and Trio badge, from the sim’s nextCue', () => {
     expect(hud(sim).conducting!.chain).toBeNull();
   });
 
+  it('the badge promises only what the Solo will be: none for a Solo due after the chain has closed', () => {
+    // Lyra's Solo fires Cued and opens a chain. A second and a half later Vexis's Solo is
+    // staged `charge` seconds from full, the Thread on her: due a second after that.
+    const staged = (charge: number) => {
+      const { sim, step, events } = conductSim();
+      const st = sim.state;
+      const solo = (slot: number) => st.entities.get(st.party[slot]!)!.hero!;
+      const set = (slot: number, value: number) => {
+        (solo(slot) as { solo: number }).solo = value;
+      };
+      // The Thread to a hero, the Weaver standing by them so that it holds.
+      const threadTo = (slot: number): Command[] => {
+        const e = st.entities.get(st.party[slot]!)!;
+        return [
+          { t: 'debug', op: { op: 'teleportWeaver', x: e.x, z: e.z + 2 } },
+          { t: 'thread', slot: slot as PartySlot },
+        ];
+      };
+      engage(sim, step);
+      for (const slot of [0, 2]) set(slot, 0);
+      step(1, threadTo(1));
+      expect(stepUntil(step, () => events.some((e) => e.type === 'cueChained'))).toBe(true);
+      for (let i = 0; i < 90; i++) {
+        set(0, 0);
+        set(2, 0);
+        step(1);
+      }
+      // What one tick of fighting charges, then `charge` seconds short of full.
+      set(2, 0);
+      step(1);
+      expect(solo(2).solo).toBeGreaterThan(0);
+      set(2, 100 - solo(2).solo * 60 * charge);
+      step(1, threadTo(2));
+      const shown: { soloIn: number; left: number | null; badge: string | null }[] = [];
+      const before = events.length;
+      for (let i = 0; i < 300 && solo(2).soloActive <= 0; i++) {
+        set(0, 0);
+        const h = hud(sim);
+        const v = h.party[2]!;
+        expect(v.threaded).toBe(true);
+        if (v.soloIn !== null && v.soloIn !== undefined)
+          shown.push({
+            soloIn: v.soloIn,
+            left: h.conducting!.chain?.left ?? null,
+            badge: v.cue?.label ?? null,
+          });
+        step(1);
+      }
+      const chained = events.slice(before).find((e) => e.type === 'cueChained');
+      return { shown, link: chained?.type === 'cueChained' ? chained.link : null };
+    };
+
+    // Due 3 s after staging, 1.5 s into a 4 s window: the chain closes first. Her Solo is a
+    // plain Cue (link 1), and her strip never said "Duet".
+    const late = staged(2);
+    expect(late.link).toBe(1);
+    expect(late.shown.length).toBeGreaterThan(100);
+    expect(late.shown.filter((s) => s.badge !== null)).toEqual([]);
+    // The chain was open for part of that time: without the rule the badge would have shown.
+    expect(late.shown.some((s) => s.left !== null && s.left > 0)).toBe(true);
+
+    // Due 1.5 s after staging: inside the window. The badge says Duet all the way, and it is one.
+    const soon = staged(0.5);
+    expect(soon.link).toBe(2);
+    expect(soon.shown.length).toBeGreaterThan(30);
+    expect(soon.shown.every((s) => s.badge === 'Duet')).toBe(true);
+    // Whenever a badge showed, the Solo was due inside the chain's time left.
+    for (const s of [...late.shown, ...soon.shown])
+      if (s.badge !== null) expect(s.soloIn).toBeLessThanOrEqual(s.left! + 1e-6);
+  });
+
   it('on the downbeat (A Tempo) the badge names no price and nothing is called free', async () => {
     const { sim, step } = conductSim(['a_tempo']);
     const st = sim.state;

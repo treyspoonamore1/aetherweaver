@@ -58,11 +58,15 @@ export function cueBadgeLabel(link: 2 | 3): string {
 
 /**
  * The badge of a hero whose Solo is coming, from the sim's `nextCue`: a Duet or a Trio (null for
- * a plain Cue, and without the Conductor).
+ * a plain Cue, and without the Conductor). `dueIn` is how long until the Solo fires (the sim's
+ * `soloDueIn`; 0: now). `nextCue` answers for a Cue given now, so the badge shows only if the
+ * chain will still be open when the Solo fires: a promise the Solo keeps.
  */
-export function cueBadge(state: WorldState, heroId: EntityId): CueBadgeHud | null {
+export function cueBadge(state: WorldState, heroId: EntityId, dueIn = 0): CueBadgeHud | null {
   const next = nextCue(state, heroId);
   if (!next || next.link === 1) return null;
+  const chain = openChain(state);
+  if (!chain || state.time + dueIn - chain.at > state.mods.chainWindow + EPS) return null;
   return { link: next.link, power: next.power, label: cueBadgeLabel(next.link) };
 }
 
@@ -366,7 +370,7 @@ export function heroConducting(
   if (!field || !view) return {};
   const up = !hero.dead && !hero.downed;
   const coming = hero.soloIn !== null && hero.soloIn !== undefined;
-  const badge = coming && up && !hero.possessed ? cueBadge(state, heroId) : null;
+  const badge = coming && up && !hero.possessed ? cueBadge(state, heroId, hero.soloIn!) : null;
   const light = up ? spotlit(state, heroId) : 0;
   const held = field.marcato;
   const marcato =
