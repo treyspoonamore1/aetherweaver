@@ -355,24 +355,26 @@ function rosterBand(
  * (docs/phase-5d.md, "Bands", on ARRIVAL4_KIT).
  *
  * The Novice's were set again after the Solo rework (docs/solos.md): her heroes use their Solos
- * now, so she wins more, and the fights were left as they are. Each is her measured result (40
- * fights a cell) with about 15 points either side. The Skilled bot's are as they were.
+ * now, and she follows them with a beginner's hands, and the fights were left as they are. Each
+ * is her measured result on the rework's final rules (40 fights a cell) with about 15 points
+ * either side; the skirmish floors are as they were, and she clears them. The Skilled bot's are as
+ * they were.
  */
 const MOVEMENT_BANDS: Readonly<Record<number, Record<string, Record<BandBot, string>>>> = {
   2: {
     skirmish: { idle: '≤15%', novice: '≥65%', skilled: '≥85% · share ≥35% · 35-60 s' },
-    elite: { idle: '0%', novice: '55-90%', skilled: '≥85% · share ≥35% · 50-80 s' },
-    miniboss: { idle: '0%', novice: '65-95%', skilled: '≥90% · share ≥35% · 60-110 s' },
+    elite: { idle: '0%', novice: '65-95%', skilled: '≥85% · share ≥35% · 50-80 s' },
+    miniboss: { idle: '0%', novice: '≥75%', skilled: '≥90% · share ≥35% · 60-110 s' },
     boss: { idle: '0%', novice: '55-85%', skilled: '≥85% · share ≥30% · 180-300 s' },
   },
   3: {
     skirmish: { idle: '≤10%', novice: '≥45%', skilled: '≥85% · share ≥35% · 40-65 s' },
-    elite: { idle: '0%', novice: '30-65%', skilled: '≥85% · share ≥35% · 55-85 s' },
+    elite: { idle: '0%', novice: '20-50%', skilled: '≥85% · share ≥35% · 55-85 s' },
     miniboss: { idle: '0%', novice: '45-75%', skilled: '≥90% · share ≥35% · 70-120 s' },
-    boss: { idle: '0%', novice: '50-80%', skilled: '≥80% · share ≥30% · 180-280 s' },
+    boss: { idle: '0%', novice: '60-90%', skilled: '≥80% · share ≥30% · 180-280 s' },
   },
   4: {
-    boss: { idle: '0%', novice: '25-55%', skilled: '≥80% · share ≥30% · 170-230 s' },
+    boss: { idle: '0%', novice: '20-50%', skilled: '≥80% · share ≥30% · 170-230 s' },
   },
 };
 

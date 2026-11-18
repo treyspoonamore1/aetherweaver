@@ -866,7 +866,7 @@ describe('the harness’s Finale tables', () => {
     expect(ARRIVAL3_KIT.motifs.length).toBe(10);
     expect(ARRIVAL3_KIT.relics.length).toBe(6);
     expect(band(CONDUCTOR, 'skilled')).toBe('≥80% · share ≥30% · 170-230 s');
-    expect(band(CONDUCTOR, 'novice')).toBe('25-55%');
+    expect(band(CONDUCTOR, 'novice')).toBe('20-50%');
     expect(band(CONDUCTOR, 'idle')).toBe('0%');
     expect(band(CONDUCTOR, 'skilled', NAMED_PARTIES.B)).toBe('≥ default − 15 · share ≥30%');
     expect(band(CONDUCTOR, 'skilled', NAMED_PARTIES.A)).toContain('≤280 s');
