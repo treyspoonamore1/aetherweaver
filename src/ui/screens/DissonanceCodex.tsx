@@ -2,6 +2,7 @@ import { CONTENT } from '../../content';
 import { UNLOCKS } from '../../meta/profile';
 import { maxDissonance } from '../../meta/dissonance';
 import { Chip } from '../kit/Chip';
+import { Fold } from '../kit/Fold';
 import { Icon } from '../kit/Icon';
 import { Panel } from '../kit/Panel';
 import { DISCORD_LOOK, depthColor } from '../kit/dissonanceLook';
@@ -137,202 +138,229 @@ export function DissonanceCodexPage({
         </Panel>
       </div>
 
-      <Panel tone="solid" className="p-5" data-testid="codex-dissonance-levels">
-        <h3 className="font-display text-lg font-bold" style={{ color: DISCORD }}>
-          {txt('screens.dissonanceCodex.theLevels')}
-        </h3>
-        <p className="mt-1 text-sm text-muted">
-          {txt('screens.dissonanceCodex.levelsInAllMost', {
-            length: rows.length,
-            pointsText: pointsText(max),
-          })}
-        </p>
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full min-w-[44rem] text-left text-sm">
-            <thead className="text-xs uppercase tracking-wider text-muted">
-              <tr>
-                <th className="py-1 pr-3 font-semibold">{txt('screens.dissonanceCodex.level')}</th>
-                <th className="py-1 pr-3 font-semibold">
-                  {txt('screens.dissonanceCodex.whatItDoes')}
-                </th>
-                <th className="py-1 pr-3 text-right font-semibold">
-                  {txt('screens.dissonanceCodex.ranks')}
-                </th>
-                <th className="py-1 pr-3 text-right font-semibold">
-                  {txt('screens.dissonanceCodex.points')}
-                </th>
-                <th className="py-1 text-right font-semibold">
-                  {txt('screens.dissonanceCodex.atMost')}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="align-top">
-              {rows.map((r) => (
-                <tr key={r.id} className="border-t border-ink-600/70" data-level={r.id}>
-                  <td className="py-1.5 pr-3 font-semibold text-text">{r.name}</td>
-                  <td className="py-1.5 pr-3 text-muted">
-                    {r.text}
-                    {r.expeditionsOnly && (
-                      <span
-                        className="ml-1 text-xs font-semibold text-text"
-                        data-testid="level-expeditions"
-                      >
-                        {expeditionsOnlyText()}
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-1.5 pr-3 text-right font-mono text-text">{r.ranks}</td>
-                  <td className="py-1.5 pr-3 text-right font-mono text-text">
-                    {r.points}
-                    {r.ranks > 1 && (
-                      <span className="text-muted"> {txt('screens.dissonanceCodex.each')}</span>
-                    )}
-                  </td>
-                  <td className="py-1.5 text-right font-mono" style={{ color: DISCORD }}>
-                    {r.points * r.ranks}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {later.length > 0 && (
-          <p className="mt-3 flex items-start gap-1.5 text-xs text-muted" data-testid="codex-later">
-            <Icon name="hourglass" size={13} className="mt-px shrink-0" />
-            <span>
-              {txt('screens.dissonanceCodex.stillToComeWith')}
-              {later.map((l, i) => (
-                <span key={l.name}>
-                  {i > 0 && (i === later.length - 1 ? ' and ' : ', ')}
-                  <b className="text-text">{l.name}</b> ({l.text})
-                </span>
-              ))}
-              .
-            </span>
+      {/* The tables fold: the levels, then what they pay (the second menu text pass, round 11). */}
+      <Fold
+        heading={txt('screens.dissonanceCodex.theLevels')}
+        count={rows.length}
+        style={{ color: DISCORD }}
+        testId="codex-fold-levels"
+      >
+        <Panel tone="solid" className="p-5" data-testid="codex-dissonance-levels">
+          <p className="mt-1 text-sm text-muted">
+            {txt('screens.dissonanceCodex.levelsInAllMost', {
+              length: rows.length,
+              pointsText: pointsText(max),
+            })}
           </p>
-        )}
-      </Panel>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel tone="solid" className="p-5" data-testid="codex-dissonance-rewards">
-          <h3 className="font-display text-lg font-bold text-gold-300">
-            {txt('screens.dissonanceCodex.whatItPays')}
-          </h3>
-          <ul className="mt-2 flex flex-col gap-1.5 text-sm">
-            <li className="flex items-center gap-2">
-              <Icon name="star" size={15} solid className="shrink-0 text-gold-300" />
-              <span>
-                <b className="font-mono text-text">+{rules.xpPerPoint}%</b>{' '}
-                <span className="text-muted">{txt('screens.dissonanceCodex.weaverXpForEach')}</span>
-              </span>
-            </li>
-            <li className="flex items-center gap-2">
-              <Icon
-                name="shard"
-                size={15}
-                className="shrink-0"
-                style={{ color: SHARD_LOOK.color }}
-              />
-              <span>
-                <b className="font-mono text-text">+{rules.shardsPerPoint}%</b>{' '}
-                <span className="text-muted">
-                  {txt('screens.dissonanceCodex.tuningShardsForEach')}
-                </span>
-              </span>
-            </li>
-            {tearRules(Infinity).map((t) => (
-              <li key={t.from} className="flex items-start gap-2" data-from={t.from}>
-                <Icon
-                  name="tear"
-                  size={15}
-                  className="mt-0.5 shrink-0"
-                  style={{ color: TEAR_LOOK.color }}
-                />
-                <span className="text-text">{t.text}</span>
-              </li>
-            ))}
-          </ul>
-          <table className="mt-3 w-full text-left text-sm" data-testid="codex-dissonance-totals">
-            <thead className="text-xs uppercase tracking-wider text-muted">
-              <tr>
-                <th className="py-1 pr-3 font-semibold">{txt('screens.dissonanceCodex.at')}</th>
-                <th className="py-1 pr-3 font-semibold">
-                  {txt('screens.dissonanceCodex.weaverXp')}
-                </th>
-                <th className="py-1 pr-3 font-semibold">
-                  {txt('screens.dissonanceCodex.tuningShards')}
-                </th>
-                <th className="py-1 font-semibold">{txt('screens.dissonanceCodex.relicsReach')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {totals.map((n) => {
-                const pays = rewardView(n);
-                const cap = codexBands()
-                  .filter((b) => b.from <= n)
-                  .at(-1)!.cap;
-                return (
-                  <tr key={n} className="border-t border-ink-600/70" data-total={n}>
-                    <td className="py-1 pr-3 font-mono font-semibold" style={{ color: DISCORD }}>
-                      {n}
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[44rem] text-left text-sm">
+              <thead className="text-xs uppercase tracking-wider text-muted">
+                <tr>
+                  <th className="py-1 pr-3 font-semibold">
+                    {txt('screens.dissonanceCodex.level')}
+                  </th>
+                  <th className="py-1 pr-3 font-semibold">
+                    {txt('screens.dissonanceCodex.whatItDoes')}
+                  </th>
+                  <th className="py-1 pr-3 text-right font-semibold">
+                    {txt('screens.dissonanceCodex.ranks')}
+                  </th>
+                  <th className="py-1 pr-3 text-right font-semibold">
+                    {txt('screens.dissonanceCodex.points')}
+                  </th>
+                  <th className="py-1 text-right font-semibold">
+                    {txt('screens.dissonanceCodex.atMost')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="align-top">
+                {rows.map((r) => (
+                  <tr key={r.id} className="border-t border-ink-600/70" data-level={r.id}>
+                    <td className="py-1.5 pr-3 font-semibold text-text">{r.name}</td>
+                    <td className="py-1.5 pr-3 text-muted">
+                      {r.text}
+                      {r.expeditionsOnly && (
+                        <span
+                          className="ml-1 text-xs font-semibold text-text"
+                          data-testid="level-expeditions"
+                        >
+                          {expeditionsOnlyText()}
+                        </span>
+                      )}
                     </td>
-                    <td className="py-1 pr-3 font-mono text-text">+{pays.xpPct}%</td>
-                    <td className="py-1 pr-3 font-mono text-text">+{pays.shardsPct}%</td>
-                    <td className="py-1">
-                      <TierBadge tier={cap} size="sm" />
+                    <td className="py-1.5 pr-3 text-right font-mono text-text">{r.ranks}</td>
+                    <td className="py-1.5 pr-3 text-right font-mono text-text">
+                      {r.points}
+                      {r.ranks > 1 && (
+                        <span className="text-muted"> {txt('screens.dissonanceCodex.each')}</span>
+                      )}
+                    </td>
+                    <td className="py-1.5 text-right font-mono" style={{ color: DISCORD }}>
+                      {r.points * r.ranks}
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {later.length > 0 && (
+            <p
+              className="mt-3 flex items-start gap-1.5 text-xs text-muted"
+              data-testid="codex-later"
+            >
+              <Icon name="hourglass" size={13} className="mt-px shrink-0" />
+              <span>
+                {txt('screens.dissonanceCodex.stillToComeWith')}
+                {later.map((l, i) => (
+                  <span key={l.name}>
+                    {i > 0 && (i === later.length - 1 ? ' and ' : ', ')}
+                    <b className="text-text">{l.name}</b> ({l.text})
+                  </span>
+                ))}
+                .
+              </span>
+            </p>
+          )}
         </Panel>
-        <Panel tone="solid" className="p-5" data-testid="codex-dissonance-bands">
-          <h3 className="font-display text-lg font-bold text-gold-300">
+      </Fold>
+
+      <Fold
+        heading={
+          <>
+            {txt('screens.dissonanceCodex.whatItPays')} ·{' '}
             {txt('screens.dissonanceCodex.howDeepTheRelics')}
-          </h3>
-          <p className="mt-1 text-sm text-muted">
-            {txt('screens.dissonanceCodex.aRelicSDepth', { tierName: tierName(1) })}
-          </p>
-          <table className="mt-3 w-full text-left text-sm">
-            <thead className="text-xs uppercase tracking-wider text-muted">
-              <tr>
-                <th className="py-1 pr-3 font-semibold">{txt('screens.dissonanceCodex.depth2')}</th>
-                <th className="py-1 pr-3 font-semibold">
-                  {txt('screens.dissonanceCodex.ascendReaches')}
-                </th>
-                <th className="py-1 pr-3 font-semibold">
-                  {txt('screens.dissonanceCodex.inscribeRollsT5T4')}
-                </th>
-                <th className="py-1 font-semibold">
-                  {txt('screens.dissonanceCodex.cursedRaisesTo')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {bands.map((b) => (
-                <tr key={b.from} className="border-t border-ink-600/70" data-band={b.from}>
-                  <td
-                    className="py-1.5 pr-3 font-mono font-semibold"
-                    style={{ color: depthColor(b.cap) }}
-                  >
-                    {rangeLabel(b)}
-                  </td>
-                  <td className="py-1.5 pr-3">
-                    <TierBadge tier={b.cap} size="sm" />
-                  </td>
-                  <td className="py-1.5 pr-3 font-mono text-text">
-                    {b.odds.map((p) => Math.round(p * 10) / 10).join(' / ')}
-                  </td>
-                  <td className="py-1.5">
-                    <TierBadge tier={b.cursedCap} size="sm" />
-                  </td>
-                </tr>
+          </>
+        }
+        headingClass="text-gold-300"
+        testId="codex-fold-pays"
+      >
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Panel tone="solid" className="p-5" data-testid="codex-dissonance-rewards">
+            <h3 className="font-display text-lg font-bold text-gold-300">
+              {txt('screens.dissonanceCodex.whatItPays')}
+            </h3>
+            <ul className="mt-2 flex flex-col gap-1.5 text-sm">
+              <li className="flex items-center gap-2">
+                <Icon name="star" size={15} solid className="shrink-0 text-gold-300" />
+                <span>
+                  <b className="font-mono text-text">+{rules.xpPerPoint}%</b>{' '}
+                  <span className="text-muted">
+                    {txt('screens.dissonanceCodex.weaverXpForEach')}
+                  </span>
+                </span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Icon
+                  name="shard"
+                  size={15}
+                  className="shrink-0"
+                  style={{ color: SHARD_LOOK.color }}
+                />
+                <span>
+                  <b className="font-mono text-text">+{rules.shardsPerPoint}%</b>{' '}
+                  <span className="text-muted">
+                    {txt('screens.dissonanceCodex.tuningShardsForEach')}
+                  </span>
+                </span>
+              </li>
+              {tearRules(Infinity).map((t) => (
+                <li key={t.from} className="flex items-start gap-2" data-from={t.from}>
+                  <Icon
+                    name="tear"
+                    size={15}
+                    className="mt-0.5 shrink-0"
+                    style={{ color: TEAR_LOOK.color }}
+                  />
+                  <span className="text-text">{t.text}</span>
+                </li>
               ))}
-            </tbody>
-          </table>
-        </Panel>
-      </div>
+            </ul>
+            <table className="mt-3 w-full text-left text-sm" data-testid="codex-dissonance-totals">
+              <thead className="text-xs uppercase tracking-wider text-muted">
+                <tr>
+                  <th className="py-1 pr-3 font-semibold">{txt('screens.dissonanceCodex.at')}</th>
+                  <th className="py-1 pr-3 font-semibold">
+                    {txt('screens.dissonanceCodex.weaverXp')}
+                  </th>
+                  <th className="py-1 pr-3 font-semibold">
+                    {txt('screens.dissonanceCodex.tuningShards')}
+                  </th>
+                  <th className="py-1 font-semibold">
+                    {txt('screens.dissonanceCodex.relicsReach')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {totals.map((n) => {
+                  const pays = rewardView(n);
+                  const cap = codexBands()
+                    .filter((b) => b.from <= n)
+                    .at(-1)!.cap;
+                  return (
+                    <tr key={n} className="border-t border-ink-600/70" data-total={n}>
+                      <td className="py-1 pr-3 font-mono font-semibold" style={{ color: DISCORD }}>
+                        {n}
+                      </td>
+                      <td className="py-1 pr-3 font-mono text-text">+{pays.xpPct}%</td>
+                      <td className="py-1 pr-3 font-mono text-text">+{pays.shardsPct}%</td>
+                      <td className="py-1">
+                        <TierBadge tier={cap} size="sm" />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </Panel>
+          <Panel tone="solid" className="p-5" data-testid="codex-dissonance-bands">
+            <h3 className="font-display text-lg font-bold text-gold-300">
+              {txt('screens.dissonanceCodex.howDeepTheRelics')}
+            </h3>
+            <p className="mt-1 text-sm text-muted">
+              {txt('screens.dissonanceCodex.aRelicSDepth', { tierName: tierName(1) })}
+            </p>
+            <table className="mt-3 w-full text-left text-sm">
+              <thead className="text-xs uppercase tracking-wider text-muted">
+                <tr>
+                  <th className="py-1 pr-3 font-semibold">
+                    {txt('screens.dissonanceCodex.depth2')}
+                  </th>
+                  <th className="py-1 pr-3 font-semibold">
+                    {txt('screens.dissonanceCodex.ascendReaches')}
+                  </th>
+                  <th className="py-1 pr-3 font-semibold">
+                    {txt('screens.dissonanceCodex.inscribeRollsT5T4')}
+                  </th>
+                  <th className="py-1 font-semibold">
+                    {txt('screens.dissonanceCodex.cursedRaisesTo')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {bands.map((b) => (
+                  <tr key={b.from} className="border-t border-ink-600/70" data-band={b.from}>
+                    <td
+                      className="py-1.5 pr-3 font-mono font-semibold"
+                      style={{ color: depthColor(b.cap) }}
+                    >
+                      {rangeLabel(b)}
+                    </td>
+                    <td className="py-1.5 pr-3">
+                      <TierBadge tier={b.cap} size="sm" />
+                    </td>
+                    <td className="py-1.5 pr-3 font-mono text-text">
+                      {b.odds.map((p) => Math.round(p * 10) / 10).join(' / ')}
+                    </td>
+                    <td className="py-1.5">
+                      <TierBadge tier={b.cursedCap} size="sm" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Panel>
+        </div>
+      </Fold>
     </div>
   );
 }

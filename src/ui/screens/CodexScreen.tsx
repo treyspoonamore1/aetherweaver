@@ -1659,10 +1659,17 @@ function Ranks({ deeds }: { deeds: number }) {
           </ul>
         </Panel>
       </div>
-      <section aria-label={txt('screens.codexScreen.ranks')}>
-        <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-gold-300">
-          <Icon name="lock" size={20} /> {txt('screens.codexScreen.whatEachRankOpens')}
-        </h2>
+      <Fold
+        label={txt('screens.codexScreen.ranks')}
+        count={RANK_XP.length}
+        headingClass="text-gold-300"
+        testId="codex-ranks"
+        heading={
+          <>
+            <Icon name="lock" size={20} /> {txt('screens.codexScreen.whatEachRankOpens')}
+          </>
+        }
+      >
         <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {RANK_XP.map((xp, i) => {
             const rank = i + 1;
@@ -1738,7 +1745,7 @@ function Ranks({ deeds }: { deeds: number }) {
             );
           })}
         </ol>
-      </section>
+      </Fold>
     </div>
   );
 }

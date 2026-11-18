@@ -11,6 +11,7 @@ export const bondsCodex = {
   'screens.bondsCodex.rank': 'Rank',
   'screens.bondsCodex.opens': 'Opens',
   'screens.bondsCodex.talents': 'Talents',
+  'screens.bondsCodex.whatTheBondOpens': 'What the Bond opens',
   'screens.bondsCodex.solos': 'Solos',
   'screens.bondsCodex.scenes': 'Scenes',
   'screens.bondsCodex.rankReadItAgain': 'rank {rank} · read it again',
