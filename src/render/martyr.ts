@@ -21,6 +21,7 @@ import {
   vigilBelow,
   vowSeals,
 } from './martyrCues';
+import { HERO_DRAWN } from './models/artFlag';
 import { C, approach, clamp01, color } from './palette';
 import { flareScale } from './relicCues';
 import { weaverHand } from './thread';
@@ -388,7 +389,8 @@ export class MartyrView {
       if (a < 0.01) continue;
       const fl = this.sealFlash[slot]!;
       const held = !!e.health && e.health.hp <= 1.5;
-      const sy = r.y + r.height + 0.72 + Math.sin(time * 1.8 + slot) * 0.03;
+      // Over the drawn head (heroes are drawn HERO_DRAWN tall): the same lift over it as before.
+      const sy = r.y + r.height * HERO_DRAWN + 0.72 + Math.sin(time * 1.8 + slot) * 0.03;
       const size = 0.44 * (1 + 0.7 * pop + 0.45 * fl);
       kit.sprites.push(r.x, sy, r.z, size * 1.7, SPRITE.glow, BLOOD, (0.5 + 0.6 * fl) * a);
       kit.sprites.push(r.x, sy, r.z, size, SPRITE.seal, PALE_GOLD, 0.9 * a);
@@ -524,7 +526,7 @@ export class MartyrView {
     if (look.aegis) this.aegisShell(w, e, state.weaverId + 5);
     if (look.undyingReady) {
       // Undying Devotion, still unused: a small ember of old gold over her head.
-      const y = w.y + w.height + 0.42 + Math.sin(time * 1.5) * 0.03;
+      const y = w.y + w.height * HERO_DRAWN + 0.42 + Math.sin(time * 1.5) * 0.03;
       kit.sprites.push(
         w.x,
         y,
@@ -691,7 +693,7 @@ export class MartyrView {
           this.sealFlash[slot] = Math.max(this.sealFlash[slot]!, 1);
         kit.particles.burst(
           r.x,
-          r.y + r.height + 0.7,
+          r.y + r.height * HERO_DRAWN + 0.7,
           r.z,
           8,
           2.2,
@@ -913,7 +915,7 @@ export class MartyrView {
         if (!r || !vowSeals(state, e)) continue;
         kit.particles.burst(
           r.x,
-          r.y + r.height + 0.7,
+          r.y + r.height * HERO_DRAWN + 0.7,
           r.z,
           6,
           1.6,
@@ -956,7 +958,7 @@ export class MartyrView {
         if (!r || !e?.health || e.health.dead) continue;
         kit.particles.burst(
           r.x,
-          r.y + r.height + 0.72,
+          r.y + r.height * HERO_DRAWN + 0.72,
           r.z,
           10,
           1.2,
@@ -1019,7 +1021,7 @@ export class MartyrView {
       );
       this.d.overlay?.callout(
         w.x,
-        w.y + w.height + 1.2,
+        w.y + w.height * HERO_DRAWN + 1.2,
         w.z,
         'UNDYING',
         MARTYR_HEX.paleGold,
