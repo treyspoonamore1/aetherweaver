@@ -1186,6 +1186,10 @@ export function autoSoloTarget(state: WorldState): PartySlot | null {
     if (dx * dx + dz * dz >= reach * reach) continue;
     const due = soloDueIn(state, e);
     if (due === null) continue;
+    // A full Solo with no one to fight does not fire (heroes.ts `soloFires`), though the tell
+    // still reads its whole wait: nothing to follow, or the Thread would sit there between
+    // waves. (Oro is the exception: target-less, his wait runs while a Sapling fights.)
+    if (c.solo >= 100 && c.targetId === null && !c.grove) continue;
     // Cued as things stand, though the Thread is elsewhere (the rule is the sim's, and may be
     // widened for slower hands): nothing to follow. On the threaded hero it reads true as well;
     // they stay a candidate, so that the Thread is kept on them until they fire.

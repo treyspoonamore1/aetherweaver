@@ -932,6 +932,27 @@ describe('Auto-Thread follows a Solo about to fire (docs/solos.md, rule 7)', () 
     w.mods.alwaysCued = false;
   });
 
+  it('a full Solo with no one to fight is not followed, even with Silent Cues’ longer lead', () => {
+    const sim = fight(VEXIS);
+    const s = sim.state;
+    const w = worldOf(sim);
+    stepFor(sim, 1, [CHARGE]);
+    // Every enemy gone: the heroes keep their full Solos and wait for someone to fight.
+    for (const e of w.entities.list()) if (e.enemy) w.entities.despawn(e.id);
+    for (let i = 0; i < SIM_HZ; i++) {
+      life(sim);
+      stepFor(sim, 1);
+    }
+    for (const slot of [KAEL, LYRA, VEXIS]) {
+      expect(hero(sim, slot).hero!.solo).toBe(100);
+      expect(hero(sim, slot).hero!.targetId).toBeNull();
+    }
+    // The tell still reads the whole wait for Lyra: under Silent Cues' lead, but she won't fire.
+    w.mods.cueHold = 1;
+    expect(soloDueIn(s, hero(sim, LYRA))!).toBeLessThanOrEqual(AUTO_SOLO_LEAD + 1);
+    expect(autoSoloTarget(s)).toBeNull();
+  });
+
   it('Silent Cues: the Thread goes a second sooner, so it has been on the hero long enough', () => {
     // Lyra's Solo nearly charged, as it comes in a fight (the others' empty): due in a few
     // seconds, with the tell to see it coming by.
