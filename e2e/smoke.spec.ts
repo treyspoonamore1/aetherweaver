@@ -212,6 +212,14 @@ test('a Prelude run: Prep → Map → an autoplayed fight → Result → Draft �
   await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('map');
   expect(await page.evaluate(() => window.__AWRUN__!.party())).toEqual(CONTENT.defaultParty);
 
+  // A stop out of reach takes focus (keyboard, pad), and focus shows its card with its name, as
+  // hover does (the second menu text pass, round 11).
+  const far = page.locator('[data-stop="locked"]').first();
+  await expect(far).toHaveAttribute('tabindex', '0');
+  await far.focus();
+  await expect(far.locator('xpath=following-sibling::*[@role="tooltip"]')).toBeVisible();
+  await expect(far).toHaveAttribute('aria-label', /not reachable yet/);
+
   // The first node is always First Light.
   expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
   await page.waitForFunction(() => window.__AW__ !== undefined);
@@ -2256,6 +2264,17 @@ test('Phase 5g: the Codex in the app — the 18 relics each with their own glyph
   // Motifs: all 63 (Skip the unlocks opens every hero's), each Expedition-only; a Harmony names
   // its two prerequisites.
   await page.getByRole('tab', { name: 'Motifs' }).click();
+  // The page folds by family (the second menu text pass, round 11): the first is open, the next
+  // opens from the keyboard, and a filter opens every family that holds a match.
+  const families = page.locator('[data-testid^="codex-motifs-"]');
+  await expect(families.first()).toHaveAttribute('data-open', 'true');
+  await expect(families.nth(1)).toHaveAttribute('data-open', 'false');
+  await families.nth(1).locator('[data-fold]').focus();
+  await page.keyboard.press('Enter');
+  await expect(families.nth(1)).toHaveAttribute('data-open', 'true');
+  await page.getByTestId('codex-motif-filter').fill(FILL_MOTIFS[0]!.name);
+  await expect(page.locator(`[data-motif="${FILL_MOTIFS[0]!.id}"]`)).toBeVisible();
+  await page.getByTestId('codex-motif-filter').fill('');
   expect(FILL_MOTIFS).toHaveLength(63);
   for (const m of FILL_MOTIFS) {
     const panel = page.locator(`[data-motif="${m.id}"]`);
