@@ -215,6 +215,8 @@ export class PortraitStudio {
    */
   async prepare(subject: PortraitSubject): Promise<void> {
     if (this.contextLost) return;
+    // Asking three.js for the extension where it is missing logs a console warning; `has` does not.
+    if (!this.renderer.extensions.has('KHR_parallel_shader_compile')) return;
     const batch = ownRandom(() => this.stage(subject));
     try {
       await Promise.race([
