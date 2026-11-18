@@ -7,6 +7,11 @@
  * Re-recorded once since: the Solo rework (docs/solos.md) changed how every fight and run plays
  * (and gave Silent Cues its new rule), so every hash moved. To record them again after such a
  * change: delete `dissonancePins.json`, then `npx tsx tests/sim/recordDissonancePins.ts`.
+ *
+ * The whole runs' `results` and `state` digests were recorded again at the rework's join, when
+ * each fight's saved stats gained the optional `plainSolos` (the Result's "7 of 9 Solos Cued").
+ * Compared first: with that one key left out, every run's digests are as recorded, and every
+ * fight pin, outcome, fight count and relic list is unchanged.
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
