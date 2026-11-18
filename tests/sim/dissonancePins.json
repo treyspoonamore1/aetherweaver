@@ -21,41 +21,41 @@
       "all": "6155d5c1eeb3bdcd"
     },
     "skilled-vharun": {
-      "none": "362fdb3ba2009dc6",
-      "brisk_foes:1": "fa8e64a61044d52a",
-      "hardened:1": "c78a9967883fbdd2",
-      "hardened:2": "631d0baf908f8237",
-      "short_fuse:1": "0adafcb81b526b9c",
-      "short_fuse:2": "5190a11037baaa83",
+      "none": "c8e7f45e337583b2",
+      "brisk_foes:1": "684713caace6bd01",
+      "hardened:1": "fd3d47db3449ed29",
+      "hardened:2": "e1859e130634ce93",
+      "short_fuse:1": "cf263b44e390b178",
+      "short_fuse:2": "98e29b96a2d1f644",
       "muted_choir:1": "d3a7de6bb010c23c",
       "fragile_threads:1": "8a60bd9bc23a7012",
-      "wounding_strikes:1": "cb61399718808488",
-      "wounding_strikes:2": "dd3bb9f8196029a9",
-      "elite_vanguard:1": "db9c92fd16fa32fc",
-      "silent_cues:1": "e8388cde265c3018",
-      "restless_dead:1": "4b9e27f85240ee74",
-      "unforgiving:1": "117f90f84c1a6acc",
-      "blind_score:1": "70b86c3ecd34e87e",
-      "discordant_pact:1": "b0dc70d2db3e3ffa",
+      "wounding_strikes:1": "78dc46e33de90988",
+      "wounding_strikes:2": "50415f07f47f3a88",
+      "elite_vanguard:1": "118f1b348c570d68",
+      "silent_cues:1": "46ff86718725f773",
+      "restless_dead:1": "007b986721e54788",
+      "unforgiving:1": "eb3e9767d4b9a325",
+      "blind_score:1": "98d12cd98a8f6c64",
+      "discordant_pact:1": "52ea0add6f55dd21",
       "all": "fcc35d22163935a8"
     },
     "skilled-conductor": {
-      "none": "8db32ebe5ec9adf6",
-      "brisk_foes:1": "6a0d066b69bb99c1",
-      "hardened:1": "18e1bdde36d587b8",
+      "none": "d41123da95739e18",
+      "brisk_foes:1": "fd27080718ae058e",
+      "hardened:1": "a3baccdb29478bfe",
       "hardened:2": "4ac70b6c1e5f5c8d",
-      "short_fuse:1": "3cf0ce78d0c357af",
-      "short_fuse:2": "7200f52a85cde32e",
+      "short_fuse:1": "a50a0ef82a004f64",
+      "short_fuse:2": "469d075cf1ef44d5",
       "muted_choir:1": "086268fd1c51f2e0",
-      "fragile_threads:1": "78204edc50be599c",
+      "fragile_threads:1": "7d5fcbeff9650a65",
       "wounding_strikes:1": "3d0985e2f1473271",
-      "wounding_strikes:2": "e3957fc48631b862",
-      "elite_vanguard:1": "44aaf1d024e32b4e",
-      "silent_cues:1": "30152ce22a342c4b",
-      "restless_dead:1": "e70d3f0b3fb21835",
-      "unforgiving:1": "f5cd88ed8258398b",
-      "blind_score:1": "2049fb6b233824d1",
-      "discordant_pact:1": "d081f5073a5a45c0",
+      "wounding_strikes:2": "33ac3b60227aceb5",
+      "elite_vanguard:1": "8e0b4810688aaf92",
+      "silent_cues:1": "83b751e941e7e9e2",
+      "restless_dead:1": "b8507ffb2df16125",
+      "unforgiving:1": "f3adb51b86570218",
+      "blind_score:1": "a31a05d5a08b2b61",
+      "discordant_pact:1": "89a2b81118362175",
       "all": "1ec64c6fc9654d4c"
     }
   },
@@ -91,10 +91,10 @@
       "state": "fdab3a70d669a5f7"
     },
     "finale-10": {
-      "outcome": "defeat",
-      "lastEncounter": "frayed_threshold",
-      "fights": 9,
-      "movementReached": 3,
+      "outcome": "victory",
+      "lastEncounter": "the_silent_conductor",
+      "fights": 14,
+      "movementReached": 4,
       "relics": [
         "prism_loom",
         "cracked_metronome",
@@ -108,10 +108,12 @@
         "everbell",
         "lantern_of_the_lost",
         "glass_halo",
-        "sand_glass"
+        "sand_glass",
+        "sacrificial_lamb",
+        "heartwood_lute"
       ],
-      "results": "3bc3d1240f13d3b5",
-      "state": "cf9196b2cac06fdd"
+      "results": "f8764e4f9f0642cd",
+      "state": "723d9c48eaa43678"
     },
     "prelude-light": {
       "outcome": "victory",
@@ -129,8 +131,8 @@
         "choirmasters_baton",
         "cantors_hymnal"
       ],
-      "results": "1d6c861baa89ae73",
-      "state": "3ef06a2db0eab8b7"
+      "results": "dbe5fb8aa8d34429",
+      "state": "61382450764133c6"
     },
     "finale-light": {
       "outcome": "victory",
@@ -153,8 +155,8 @@
         "silver_thimble",
         "choirmasters_baton"
       ],
-      "results": "b5ea359e68b83ef4",
-      "state": "e6ff098be3dcae3d"
+      "results": "5a171a28602e2264",
+      "state": "68430c93d6c57405"
     }
   }
 }

@@ -19313,7 +19313,7 @@
     "outcome": "victory",
     "lastEncounter": "hollow_cantor",
     "fights": 5,
-    "minutes": 6.705875000000451,
+    "minutes": 6.357888888888973,
     "motifs": [
      "deep_roots:2",
      "canon:1",
@@ -19332,13 +19332,13 @@
     "aetherEarned": 166,
     "aetherLeft": 6,
     "bondXp": {
-     "kael": 235,
-     "lyra": 193,
-     "vexis": 164
+     "kael": 232,
+     "lyra": 198,
+     "vexis": 163
     },
     "movementReached": 1,
     "minutesByMovement": [
-     6.705875000000451
+     6.357888888888973
     ]
    },
    {
@@ -19347,7 +19347,7 @@
     "outcome": "defeat",
     "lastEncounter": "bellwarden",
     "fights": 5,
-    "minutes": 3.6304027777776797,
+    "minutes": 3.6759583333332326,
     "motifs": [
      "lingering_aegis:1",
      "wind_at_her_back:1",
@@ -19361,13 +19361,13 @@
     "aetherEarned": 124,
     "aetherLeft": 124,
     "bondXp": {
-     "kael": 149,
-     "lyra": 125,
-     "vexis": 89
+     "kael": 151,
+     "lyra": 122,
+     "vexis": 90
     },
     "movementReached": 1,
     "minutesByMovement": [
-     3.6304027777776797
+     3.6759583333332326
     ]
    },
    {
@@ -19376,7 +19376,7 @@
     "outcome": "defeat",
     "lastEncounter": "bellwarden",
     "fights": 4,
-    "minutes": 3.768180555555428,
+    "minutes": 4.039916666666523,
     "motifs": [
      "bulwarks_echo:2",
      "golden_filament:1"
@@ -19388,16 +19388,16 @@
      "featherweight_robes"
     ],
     "path": [],
-    "aetherEarned": 115,
-    "aetherLeft": 65,
+    "aetherEarned": 109,
+    "aetherLeft": 59,
     "bondXp": {
-     "kael": 121,
-     "lyra": 126,
-     "vexis": 82
+     "kael": 136,
+     "lyra": 110,
+     "vexis": 83
     },
     "movementReached": 1,
     "minutesByMovement": [
-     3.768180555555428
+     4.039916666666523
     ]
    },
    {
@@ -19406,7 +19406,7 @@
     "outcome": "victory",
     "lastEncounter": "hollow_cantor",
     "fights": 6,
-    "minutes": 7.332930555556027,
+    "minutes": 7.225305555555946,
     "motifs": [
      "lingering_aegis:2",
      "lifeline:1",
@@ -19425,13 +19425,13 @@
     "aetherEarned": 180,
     "aetherLeft": 15,
     "bondXp": {
-     "kael": 260,
-     "lyra": 201,
-     "vexis": 164
+     "kael": 262,
+     "lyra": 197,
+     "vexis": 167
     },
     "movementReached": 1,
     "minutesByMovement": [
-     7.332930555556027
+     7.225305555555946
     ]
    },
    {
@@ -19440,7 +19440,7 @@
     "outcome": "victory",
     "lastEncounter": "hollow_cantor",
     "fights": 6,
-    "minutes": 7.191777777778311,
+    "minutes": 7.087402777778335,
     "motifs": [
      "da_capo:1",
      "hammerfall:2",
@@ -19456,16 +19456,16 @@
      "silver_thimble"
     ],
     "path": [],
-    "aetherEarned": 159,
-    "aetherLeft": 4,
+    "aetherEarned": 164,
+    "aetherLeft": 9,
     "bondXp": {
-     "kael": 259,
-     "lyra": 206,
-     "vexis": 161
+     "kael": 249,
+     "lyra": 212,
+     "vexis": 164
     },
     "movementReached": 1,
     "minutesByMovement": [
-     7.191777777778311
+     7.087402777778335
     ]
    },
    {
@@ -19500,7 +19500,7 @@
     "outcome": "victory",
     "lastEncounter": "hollow_cantor",
     "fights": 5,
-    "minutes": 6.159777777778293,
+    "minutes": 6.207263888889486,
     "motifs": [
      "warm_hum:1",
      "riposte_bloom:1",
@@ -19519,48 +19519,37 @@
     "aetherEarned": 137,
     "aetherLeft": 2,
     "bondXp": {
-     "kael": 219,
+     "kael": 222,
      "lyra": 167,
-     "vexis": 142
+     "vexis": 137
     },
     "movementReached": 1,
     "minutesByMovement": [
-     6.159777777778293
+     6.207263888889486
     ]
    },
    {
     "seed": 839832,
     "bot": "novice",
-    "outcome": "victory",
-    "lastEncounter": "hollow_cantor",
-    "fights": 7,
-    "minutes": 8.290291666667224,
+    "outcome": "defeat",
+    "lastEncounter": "glass_gallery",
+    "fights": 2,
+    "minutes": 1.399236111111075,
     "motifs": [
-     "golden_filament:1",
-     "steady_hands:1",
-     "taut_release:1",
-     "long_weave:1",
-     "da_capo:1"
+     "golden_filament:1"
     ],
-    "relics": [
-     "spindle_of_fate",
-     "cantors_hymnal",
-     "prism_loom",
-     "cracked_metronome",
-     "choirmasters_baton",
-     "hollow_bell"
-    ],
+    "relics": [],
     "path": [],
-    "aetherEarned": 224,
-    "aetherLeft": 14,
+    "aetherEarned": 26,
+    "aetherLeft": 26,
     "bondXp": {
-     "kael": 301,
-     "lyra": 239,
-     "vexis": 187
+     "kael": 43,
+     "lyra": 29,
+     "vexis": 26
     },
     "movementReached": 1,
     "minutesByMovement": [
-     8.290291666667224
+     1.399236111111075
     ]
    },
    {
@@ -19569,7 +19558,7 @@
     "outcome": "victory",
     "lastEncounter": "hollow_cantor",
     "fights": 6,
-    "minutes": 6.691166666666877,
+    "minutes": 6.78995833333369,
     "motifs": [
      "quickened_verse:2",
      "twin_aegis:1",
@@ -19585,16 +19574,16 @@
      "tuning_fork"
     ],
     "path": [],
-    "aetherEarned": 187,
-    "aetherLeft": 7,
+    "aetherEarned": 190,
+    "aetherLeft": 10,
     "bondXp": {
-     "kael": 259,
-     "lyra": 196,
+     "kael": 250,
+     "lyra": 206,
      "vexis": 171
     },
     "movementReached": 1,
     "minutesByMovement": [
-     6.691166666666877
+     6.78995833333369
     ]
    }
   ],
@@ -19605,7 +19594,7 @@
     "outcome": "victory",
     "lastEncounter": "hollow_cantor",
     "fights": 7,
-    "minutes": 7.034694444444737,
+    "minutes": 7.046916666666959,
     "motifs": [
      "long_weave:1",
      "bulwarks_echo:1",
@@ -19626,12 +19615,12 @@
     "aetherLeft": 19,
     "bondXp": {
      "kael": 239,
-     "lyra": 265,
+     "lyra": 266,
      "vexis": 190
     },
     "movementReached": 1,
     "minutesByMovement": [
-     7.034694444444737
+     7.046916666666959
     ]
    },
    {
@@ -19640,7 +19629,7 @@
     "outcome": "victory",
     "lastEncounter": "hollow_cantor",
     "fights": 5,
-    "minutes": 5.826236111111088,
+    "minutes": 5.768958333333314,
     "motifs": [
      "deep_roots:2",
      "canon:1",
@@ -19659,13 +19648,13 @@
     "aetherEarned": 193,
     "aetherLeft": 33,
     "bondXp": {
-     "kael": 198,
-     "lyra": 225,
-     "vexis": 170
+     "kael": 196,
+     "lyra": 227,
+     "vexis": 169
     },
     "movementReached": 1,
     "minutesByMovement": [
-     5.826236111111088
+     5.768958333333314
     ]
    },
    {
@@ -19674,7 +19663,7 @@
     "outcome": "victory",
     "lastEncounter": "hollow_cantor",
     "fights": 6,
-    "minutes": 6.163944444444896,
+    "minutes": 6.439166666667102,
     "motifs": [
      "lingering_aegis:1",
      "wind_at_her_back:1",
@@ -19690,22 +19679,22 @@
     "aetherEarned": 199,
     "aetherLeft": 199,
     "bondXp": {
-     "kael": 203,
-     "lyra": 260,
+     "kael": 207,
+     "lyra": 256,
      "vexis": 165
     },
     "movementReached": 1,
     "minutesByMovement": [
-     6.163944444444896
+     6.439166666667102
     ]
    },
    {
     "seed": 316187,
     "bot": "skilled",
-    "outcome": "victory",
+    "outcome": "defeat",
     "lastEncounter": "hollow_cantor",
     "fights": 5,
-    "minutes": 6.795861111111791,
+    "minutes": 5.400652777777577,
     "motifs": [
      "bulwarks_echo:2",
      "golden_filament:1",
@@ -19722,13 +19711,13 @@
     "aetherEarned": 207,
     "aetherLeft": 157,
     "bondXp": {
-     "kael": 203,
-     "lyra": 225,
-     "vexis": 165
+     "kael": 164,
+     "lyra": 203,
+     "vexis": 128
     },
     "movementReached": 1,
     "minutesByMovement": [
-     6.795861111111791
+     5.400652777777577
     ]
    },
    {
@@ -19806,7 +19795,7 @@
     "outcome": "victory",
     "lastEncounter": "hollow_cantor",
     "fights": 6,
-    "minutes": 6.324472222222606,
+    "minutes": 6.487583333333706,
     "motifs": [
      "twin_aegis:1",
      "lingering_aegis:3",
@@ -19824,13 +19813,13 @@
     "aetherEarned": 233,
     "aetherLeft": 173,
     "bondXp": {
-     "kael": 195,
-     "lyra": 295,
-     "vexis": 168
+     "kael": 199,
+     "lyra": 290,
+     "vexis": 170
     },
     "movementReached": 1,
     "minutesByMovement": [
-     6.324472222222606
+     6.487583333333706
     ]
    },
    {
@@ -19839,7 +19828,7 @@
     "outcome": "victory",
     "lastEncounter": "hollow_cantor",
     "fights": 5,
-    "minutes": 6.006125000000477,
+    "minutes": 6.007513888889365,
     "motifs": [
      "warm_hum:1",
      "riposte_bloom:1",
@@ -19864,38 +19853,43 @@
     },
     "movementReached": 1,
     "minutesByMovement": [
-     6.006125000000477
+     6.007513888889365
     ]
    },
    {
     "seed": 839832,
     "bot": "skilled",
-    "outcome": "defeat",
-    "lastEncounter": "bellwarden",
-    "fights": 6,
-    "minutes": 5.114680555555392,
+    "outcome": "victory",
+    "lastEncounter": "hollow_cantor",
+    "fights": 7,
+    "minutes": 7.13863888888895,
     "motifs": [
      "golden_filament:1",
      "steady_hands:1",
      "taut_release:1",
-     "long_weave:1"
+     "long_weave:1",
+     "da_capo:1"
     ],
     "relics": [
      "spindle_of_fate",
      "cantors_hymnal",
-     "prism_loom"
+     "prism_loom",
+     "cracked_metronome",
+     "choirmasters_baton",
+     "hollow_bell",
+     "martyrs_veil"
     ],
     "path": [],
-    "aetherEarned": 171,
-    "aetherLeft": 171,
+    "aetherEarned": 246,
+    "aetherLeft": 6,
     "bondXp": {
-     "kael": 152,
-     "lyra": 179,
-     "vexis": 130
+     "kael": 231,
+     "lyra": 287,
+     "vexis": 207
     },
     "movementReached": 1,
     "minutesByMovement": [
-     5.114680555555392
+     7.13863888888895
     ]
    },
    {

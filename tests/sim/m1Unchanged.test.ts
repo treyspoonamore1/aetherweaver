@@ -32,14 +32,14 @@ const M1_HASHES: Readonly<Record<string, string>> = {
   crowd: '6368ad57ebbf44b0',
   'skilled-first-light': '2e20da90497bc019',
   'skilled-bellwarden': '62d3ddd3ebe238ca',
-  'novice-cantor': 'c334cf223d327d9c',
+  'novice-cantor': '1c2ed6e4b12a8095',
 };
 
 /** Movement II's three default-party goldens (docs/phase-5b.md: pinned before Brann lands). */
 const M2_HASHES: Readonly<Record<string, string>> = {
   'skilled-crimson-gate': 'f0d42eab0ebe313f',
   'novice-matriarch': '485f8be301e7dc5b',
-  'skilled-vharun': '362fdb3ba2009dc6',
+  'skilled-vharun': 'c8e7f45e337583b2',
 };
 
 /** Brann's three goldens (docs/phase-5c.md, W0a: pinned before any Movement III content lands). */
@@ -53,15 +53,15 @@ const PINNED: Readonly<Record<string, string>> = { ...M1_HASHES, ...M2_HASHES, .
 
 /** Movement III's four goldens (docs/phase-5c.md, "Hand-off": pinned for the Finale slice). */
 const M3_HASHES: Readonly<Record<string, string>> = {
-  'skilled-unstitched-threshold': '41181b0941ee2038',
-  'novice-seamstress': 'e3c76c26d175a800',
-  'skilled-unweaver': 'f2d7fe4d5ab74b11',
+  'skilled-unstitched-threshold': '4d52f3e5473e9644',
+  'novice-seamstress': '01a47f92c7d06c18',
+  'skilled-unweaver': '7c041a8f2568cc39',
   'skilled-brann-mirror-hall': '5a71cbd5f54ed1b2',
 };
 
 /** The Finale's four goldens (docs/phase-5d.md, "Hand-off": pinned for the next slice). */
 const M4_HASHES: Readonly<Record<string, string>> = {
-  'skilled-conductor': '8db32ebe5ec9adf6',
+  'skilled-conductor': 'd41123da95739e18',
   'novice-grand-silence': '66748d7c00f437cf',
   'skilled-brann-conductor': 'e081f52b64227122',
   'skilled-chrono-silence': 'a162025d709f9f74',
@@ -83,8 +83,8 @@ const ROSTER_HASHES: Readonly<Record<string, string>> = {
   'skilled-seren-crimson-gate': 'bc73314d67e0a69b',
   'novice-seren-first-light': '8c0a8935d74ed7ca',
   'skilled-oro-bellwarden': '487de70fcb4f2af8',
-  'skilled-red-line-vharun': 'e9e38422b811ea45',
-  'skilled-oro-conductor': '6e72f8d623de4fcf',
+  'skilled-red-line-vharun': 'cb9a1d34a73ed448',
+  'skilled-oro-conductor': 'cd59c147463bff65',
   'novice-grove-mirror-hall': 'c9fa3b51c6583e69',
 };
 
@@ -97,7 +97,7 @@ const ALL_PINNED: Readonly<Record<string, string>> = { ...NINETEEN, ...ROSTER_HA
  * (W5); the twenty-five never are.
  */
 const CONDUCTING_HASHES: Readonly<Record<string, string>> = {
-  'skilled-conducting-bellwarden': '0510594d224f1ccf',
+  'skilled-conducting-bellwarden': '610c8c92460cbc75',
   'novice-conducting-first-light': '59a9498620b7dcbb',
   'skilled-conducting-silent': 'b16b7a1aaa6a3165',
 };
@@ -111,9 +111,9 @@ const TWENTY_EIGHT: Readonly<Record<string, string>> = { ...ALL_PINNED, ...CONDU
  * tunes Phase 6's numbers; the twenty-eight never are.
  */
 const PHASE6_HASHES: Readonly<Record<string, string>> = {
-  'skilled-tyrant-vharun': '078e53f6f930bb2c',
+  'skilled-tyrant-vharun': '201eb6a7ff21b6bd',
   'novice-mimicry-first-light': 'df2772569557301c',
-  'skilled-postlude': '6cf58d82959e8fef',
+  'skilled-postlude': 'b3386e4065ddc505',
 };
 
 /** The thirty-one goldens W7's Echo golden found, in golden.json's order (first, and unchanged). */
@@ -125,7 +125,7 @@ const THIRTY_ONE: Readonly<Record<string, string>> = { ...TWENTY_EIGHT, ...PHASE
  * no leg scale as built).
  */
 const ECHO_HASHES: Readonly<Record<string, string>> = {
-  'skilled-echo-bells-in-the-rift': '24f5b76e25299e99',
+  'skilled-echo-bells-in-the-rift': 'dd1a452412d11c96',
 };
 
 /** All thirty-two goldens, in golden.json's order. */

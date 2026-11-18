@@ -197,7 +197,7 @@
    "outcome": "defeat",
    "lastEncounter": "legion_vanguard",
    "fights": 10,
-   "minutes": 9.409486111111333,
+   "minutes": 9.421708333333555,
    "motifs": [
     "long_weave:1",
     "bulwarks_echo:1",
@@ -222,12 +222,12 @@
    "aetherLeft": 152,
    "bondXp": {
     "kael": 291,
-    "lyra": 340,
+    "lyra": 341,
     "vexis": 244
    },
    "movementReached": 2,
    "minutesByMovement": [
-    7.034694444444737,
+    7.046916666666959,
     2.374791666666596
    ]
   },
