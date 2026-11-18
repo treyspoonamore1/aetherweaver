@@ -56,18 +56,18 @@ The fight's tallies `freeCues` and `saved` now count the Cued Solos A Tempo paid
 
 ## What it does to the numbers
 
-Measured before the build with a prototype (13 fights across the four Movements, 20 seeds, both bots), and again on the built rules (6 seeds):
+Measured before the build with a prototype, and again on the built rules: 13 fights across the four Movements, 20 seeds, both bots.
 
 | | Skilled, bosses: win | Seconds | Heroes downed | Solos Cued / plain |
 |---|---|---|---|---|
 | Before, the bot Cueing | 96% | 133 | 0.90 | 10.1 / 0.2 |
 | Before, a player who never Cued | 91% | 226 | 1.79 | 0 / 1.0 |
 | Prototype, Resonance halved | 95% | 134 | 0.71 | 11.2 / 1.2 |
-| As built | 100% | 130 | 0.60 | 11.3 / 1.1 |
+| As built | 96% | 133 | 0.74 | 11.5 / 1.1 |
 
-The Conductor (Marcato, Reprise, Ensemble, Triad), Skilled, bosses: 96 s before, 93 s as built, with 2.3 Duets and 1.1 Trios a fight (2.8 and 1.0 before).
+The Conductor (Marcato, Reprise, Ensemble, Triad), Skilled, bosses: 99% in 96 s before, 99% in 94 s as built, with 2.3 Duets and 1.1 Trios a fight (2.8 and 1.0 before).
 
-The Novice wins more than before, because her heroes now use their Solos. The fights are left as they are; her bands are re-set in tuning.
+The Novice wins more boss fights than before (65% against 46%), because her heroes now use their Solos. The fights are left as they are; her bands are re-set in tuning.
 
 ## Versions
 
