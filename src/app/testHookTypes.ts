@@ -55,6 +55,34 @@ export interface TestHook {
    * Grand Silence), burrowed (a Rally re-plant under way) and where it stands.
    */
   summons(): SummonView[];
+  /**
+   * Solos (docs/solos.md): each party hero's Solo as the sim has it now, and the fight's tallies
+   * of them. Read-only, every value the sim's own (`soloDueIn`, `threadCues`, the ledger).
+   */
+  solos(): SolosView;
+}
+
+/** What `__AW__.solos()` returns. */
+export interface SolosView {
+  /** By slot. */
+  heroes: {
+    heroId: string;
+    slot: number;
+    /** 0 to 100. */
+    charge: number;
+    /** Seconds until it fires, as near as the sim can say; null when none is coming. */
+    dueIn: number | null;
+    /** It would be Cued if it fired now: the Thread is on them (and has held, under Silent Cues). */
+    willCue: boolean;
+    /** A Solo of theirs is playing now, and whether that one was Cued. */
+    playing: boolean;
+    cued: boolean;
+  }[];
+  /** Cued Solos so far this fight. */
+  cuedSoFar: number;
+  /** The Conductor's Duets and Trios so far (0 on any other run). */
+  duets: number;
+  trios: number;
 }
 
 /** What `__AW__.framing()` returns. */

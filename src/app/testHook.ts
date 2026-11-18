@@ -14,7 +14,7 @@ import type { Reliquary } from '../meta/reliquary';
 import { saveProfile } from '../meta/save';
 import type { CombatOutcome, MapNode, RunState } from '../meta/types';
 import { encounterDef, heroDef, inscriptionDef } from '../content';
-import { saplingInField, summonsOf } from '../sim';
+import { saplingInField, soloDueIn, summonsOf, threadCues } from '../sim';
 import { emptyLedger } from '../sim/world';
 import { useUi } from '../ui/store';
 import { startDemo } from './demo';
@@ -97,6 +97,30 @@ export function installTestHook(runtime: GameRuntime): () => void {
       if (!t) return null;
       const slot = t.target === null ? -1 : st.party.indexOf(t.target);
       return { time: st.time, perfectFrom: t.perfectFrom, impact: t.impact, slot };
+    },
+    solos: () => {
+      const st = runtime.sim.state;
+      return {
+        heroes: st.party.flatMap((id, slot) => {
+          const e = st.entities.get(id);
+          if (!e?.hero) return [];
+          const playing = e.hero.soloActive > 0;
+          return [
+            {
+              heroId: e.hero.defId,
+              slot,
+              charge: e.hero.solo,
+              dueIn: soloDueIn(st, e),
+              willCue: threadCues(st, e),
+              playing,
+              cued: playing && e.hero.soloCued,
+            },
+          ];
+        }),
+        cuedSoFar: st.ledger.cues,
+        duets: st.ledger.conducting?.duets ?? 0,
+        trios: st.ledger.conducting?.trios ?? 0,
+      };
     },
   };
   return () => {

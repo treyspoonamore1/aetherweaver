@@ -745,7 +745,7 @@ test('Phase 3e: the Chronomancer — choose him in Prep, Rewind in Reel’s slot
   expect(errors).toEqual([]);
 });
 
-test('Phase 5f: the Conductor — choose him in Prep, Cue cost on the meter, two Cues within the window make a Duet', async ({
+test('Phase 5f: the Conductor — choose him in Prep, no price on the meter, the Thread on two Solos in a row makes a Duet', async ({
   page,
 }) => {
   // The Solos take about 30 s of the fight to charge (SwiftShader runs it slower than that).
@@ -783,52 +783,94 @@ test('Phase 5f: the Conductor — choose him in Prep, Cue cost on the meter, two
   expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
   await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('combat');
   await page.waitForFunction(() => window.__AW__ !== undefined);
-  // A new profile's first fight opens the primer; on his run its Cue row teaches Duets.
+  // A new profile's first fight opens the primer; on his run its Solo row teaches Duets.
   const begin = page.getByRole('button', { name: /Begin the fight/i });
   if (await begin.isVisible().catch(() => false)) {
-    await expect(page.getByText('Lead them: Duets and Trios')).toBeVisible();
+    await expect(page.getByText('Duets and Trios', { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(
+        `A Solo fired with your Thread on them is Cued. Cue two within ${conductor.values.chain} s for a Duet, three for a Trio.`,
+      ),
+    ).toBeVisible();
     await begin.click();
   }
-  // His Cue cost (content's), marked on the Resonance meter; his chip is up.
-  await expect(page.getByTestId('cue-cost')).toHaveText(`Cue ${conductor.values.cue}`);
+  // A Cue costs nothing (docs/solos.md): the Resonance meter marks no price. His chip is up.
   await expect(page.getByTestId('calling-chip')).toBeVisible();
-  // Thread Lyra and Empower her: Empower fills Resonance while the Solos charge.
+  await expect(page.getByTestId('cue-cost')).toHaveCount(0);
+  await expect(page.getByTestId('cue-tick')).toHaveCount(0);
+  // What the HUD shows of the chain, collected in the page: its ring and the Duet badge last a
+  // second or so between two Solos, and a poll on a slow page could miss them.
+  await page.evaluate(() => {
+    const seen = { ring: false, badges: [] as string[], callouts: [] as string[] };
+    (window as unknown as { __CHAIN__: typeof seen }).__CHAIN__ = seen;
+    const add = (list: string[], line: string) => {
+      if (line && !list.includes(line)) list.push(line);
+    };
+    const look = () => {
+      if (document.querySelector('[data-testid="chain-ring"]')) seen.ring = true;
+      for (const b of document.querySelectorAll('[data-testid="cue-badge"]'))
+        add(seen.badges, `${b.textContent}|${b.getAttribute('data-on') ?? 'false'}`);
+      const callouts = document.querySelector<HTMLElement>('[data-testid="callouts"]');
+      for (const line of (callouts?.innerText ?? '').split('\n')) add(seen.callouts, line.trim());
+    };
+    new MutationObserver(look).observe(document.body, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['data-on'],
+    });
+  });
+  const chain = () =>
+    page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            __CHAIN__: { ring: boolean; badges: string[]; callouts: string[] };
+          }
+        ).__CHAIN__,
+    );
+  // The Thread on Kael to begin with, as a player keeps the tank alive.
   await page.mouse.move(640, 300);
-  await page.keyboard.press('Digit2');
+  await page.keyboard.press('Digit1');
   await waitTicks(page, 2);
-  await page.mouse.click(640, 360, { button: 'right' });
-  await waitTicks(page, 2);
-  expect((await weaverOf(page)).threadMode).toBe('empower');
-  // Two heroes ready, with Resonance for two Cues (the meter's own value).
-  const frames = page.getByTestId('party-frames').getByRole('button');
-  const readySlots = async () => {
-    const out: number[] = [];
-    for (let i = 0; i < 3; i++)
-      if (/READY/.test((await frames.nth(i).textContent()) ?? '')) out.push(i);
-    return out;
-  };
-  const meter = page.getByRole('meter', { name: 'Resonance' });
-  // The wait runs the fight faster; the Cues are given at its own pace.
+  expect((await weaverOf(page)).threadSlot).toBe(0);
+  // The wait runs the fight faster; the Solos are followed at its own pace.
   await page.evaluate(() => window.__AW__!.setDevTimeScale(3));
   await expect
     .poll(
       async () =>
-        (await readySlots()).length >= 2 &&
-        Number(await meter.getAttribute('aria-valuenow')) >= 2 * conductor.values.cue!,
+        Math.max(
+          ...(await page.evaluate(() => window.__AW__!.solos())).heroes.map((h) => h.charge),
+        ),
       { timeout: 300_000, intervals: [250] },
     )
-    .toBe(true);
+    .toBeGreaterThanOrEqual(75);
   await page.evaluate(() => window.__AW__!.setDevTimeScale(1));
-  const [a, b] = await readySlots();
-  // The first Cue opens a chain: the other ready hero's badge reads Duet, its ring drains.
-  await page.keyboard.press(`Shift+Digit${a! + 1}`);
-  await expect(page.getByTestId('chain-ring')).toBeVisible();
-  await expect(frames.nth(b!).getByTestId('cue-badge')).toContainText(
-    `Duet ×${1 + conductor.values.duet! / 100}`,
-  );
-  // The second within the window: a Duet, and its gold call-out.
-  await page.keyboard.press(`Shift+Digit${b! + 1}`);
-  await expect(page.getByText(/^DUET · /)).toBeVisible();
+  // A Duet is made by moving the Thread: to each hero as their Solo comes due (the soonest due
+  // within 0.8 s, by the sim's own tell), one after the other. No key Cues anything.
+  await expect
+    .poll(
+      async () => {
+        const s = await page.evaluate(() => window.__AW__!.solos());
+        if (s.duets >= 1) return true;
+        const due = s.heroes
+          .filter((h) => h.dueIn !== null && h.dueIn <= 0.8 && !h.playing)
+          .sort((a, b) => a.dueIn! - b.dueIn! || a.slot - b.slot)[0];
+        if (due && !due.willCue) await page.keyboard.press(`Digit${due.slot + 1}`);
+        return false;
+      },
+      { timeout: 240_000, intervals: [40] },
+    )
+    .toBe(true);
+  const made = await page.evaluate(() => window.__AW__!.solos());
+  expect(made.cuedSoFar).toBeGreaterThanOrEqual(2);
+  // The first Cued Solo opened the chain (its ring), the next hero's badge read Duet, outlined
+  // and then filled as the Thread reached them, and the Duet has its gold call-out.
+  await expect.poll(async () => (await chain()).callouts.join('\n')).toMatch(/DUET · /);
+  const shown = await chain();
+  expect(shown.ring).toBe(true);
+  expect(shown.badges).toContain('Duet|true');
   expect(errors).toEqual([]);
 });
 
