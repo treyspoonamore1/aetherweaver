@@ -7,12 +7,12 @@
  *
  * It refuses to overwrite the file: recording it again on a later tree would pin that tree, which
  * proves nothing. `presentationPin.test.ts` computes the pin again, with default settings and with
- * every comfort option at its strongest, and compares both with the file. Only the owner, in
- * person, may approve a change to an aura's or an ornament's look or sound (docs/phase-7.md).
+ * every comfort option at its strongest, and compares both with the file.
  *
- * Since then the owner has approved changes that move recorded entries, and only those entries
- * were re-recorded, each time by computing the pin on the approved tree and checking that nothing
- * else differs. They are listed in `AURA_APPROVED` (tools/release-check.ts) and docs/phase-8.md.
+ * It is a regression pin (the owner lifted the aura rule on 18 November 2026): when a change means
+ * to move an aura's or an ornament's look or sound, compute the pin on the changed tree, compare it
+ * with the file entry by entry, and copy it over only if exactly the entries the change means to
+ * move differ, naming them in the commit (docs/phase-8.md).
  */
 import { existsSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

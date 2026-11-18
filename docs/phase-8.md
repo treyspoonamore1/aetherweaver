@@ -836,7 +836,7 @@ commit and one "Now / Proposed" sheet each):
 
 | | Mark | Entries of `tests/aura/presentationPin.json` it moves (of 627) | State |
 |---|---|---|---|
-| P1 | the pour's label | 80 (`beam`, all 8 samples of the ten beam-song cases) | waits for the pin to be re-recorded |
+| P1 | the pour's label | 80 (`beam`, all 8 samples of the ten beam-song cases) | landed with the marks, pin re-recorded |
 | P2 | the Luminary's Dawn callout, Radiance shaft and Sovereign circlet | none | in `p11/int-a` |
 | P3 | the Martyr's seals and ember | none | in `p11/int-a` |
 | P4 | the Chronomancer's mastery mark and Stasis clock | none | in `p11/int-a` |
@@ -851,12 +851,17 @@ anchor whose move shows at all, and only close up; the song's glow, the pour's s
 tethers and a call's answer beam were built and compared and show no difference. The Tyrant's
 crown and edict are over the boss, which is not drawn larger: nothing to raise.
 
-P1 is one line in `src/render/thread.ts` (`p11/pour-label`): the label has come to sit on the
-raised mode glyph. On the integration tree the pin was computed and compared entry by entry:
-exactly those 80 entries differ and nothing else. Re-recording them, and retiring the release
-check's approval guard (`AURA_APPROVED`), which the orchestrator's note of 18 November 2026 asks
-for on the owner's word that the aura restriction is lifted, were not done in this pass: they
-wait for the person running the work to allow them.
+P1 is one line in `src/render/thread.ts`: the label had come to sit on the raised mode glyph. The
+pin was computed on the landing tree and compared entry by entry: exactly those 80 entries differ
+and nothing else, and they were re-recorded in a commit of their own that names them.
+
+**The aura rule is lifted.** On 18 November 2026 the owner said "You can change the auras, remove
+that restriction." Auras, ornaments, their text and the eight aura files are ordinary parts of the
+game now. The two aura pins stay as regression pins: an entry is re-recorded only when a change
+means to move it, compared entry by entry first, with the entries named in the commit. The release
+check's approval guard is retired with the marks' landing: `AURA_APPROVED`, `AURA_BASE`, the
+eight-files diff and the glyph comparison are gone, and row 9 is green when both aura pin tests
+pass in the suite log.
 
 ## 8d: portraits and the map's rewards
 

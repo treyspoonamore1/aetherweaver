@@ -23,14 +23,10 @@ import {
   type Paths,
 } from '../tools/licenses';
 import {
-  AURA_APPROVED,
-  AURA_BASE,
-  AURA_FILES,
-  AURA_PIN,
+  AURA_PIN_TESTS,
   checkRows,
   exitCode,
   gather,
-  glyphPaths,
   parseStamp,
   PHASE7_OPTION_TESTS,
   parseFullRun,
@@ -387,8 +383,6 @@ function greenInputs(): Inputs {
     build: { titleBytes: 1.7e6, totalBytes: 7.2e6 },
     licenses: { problems: [], rows: [], shipped: 0 },
     pins: pins.map(([name, v]) => ({ name, expected: v, actual: v })),
-    auraChanged: [],
-    glyphsChanged: [],
     ran: {
       goldens: { code: 0, tail: 'Goldens are up to date.' },
       'sim-bench': { code: 0, tail: '✔ within budget' },
@@ -425,7 +419,7 @@ describe('tools/release-check.ts', () => {
     inputs.fullrun = { run: { ...FULLRUN, warnings: 2, errors: 1 }, text: '', stamp: STAMP };
     inputs.baselines = [{ name: 'm1-A.log', text: 'M1 baseline drifted' }];
     inputs.pins = [{ name: 'SIM_VERSION', expected: 22, actual: 23 }];
-    inputs.auraChanged = ['src/render/field.ts'];
+    inputs.suite!.files.set('tests/aura/presentationPin.test.ts', 'failed');
     inputs.licenses = { problems: ['baz: no licence text in the record'], rows: [], shipped: 1 };
     inputs.build = { titleBytes: 1, totalBytes: 30 * 1024 * 1024 };
     inputs.e2e = {
@@ -442,25 +436,19 @@ describe('tools/release-check.ts', () => {
       expect(byId(rows, id).status, id).toBe('red');
     expect(byId(rows, '1').parts[0]!.text).toContain('tests/sim/golden.test.ts > the goldens');
     expect(byId(rows, '6').parts[0]!.text).toContain('1 console errors; 2 console warnings');
-    expect(byId(rows, '9').parts[0]!.text).toContain('src/render/field.ts');
+    expect(byId(rows, '9').parts[0]!.text).toContain('aura presentation pin');
     expect(byId(rows, '8').parts[0]!.text).toContain('SIM_VERSION 22 -> 23');
     expect(exitCode(rows, false)).toBe(1);
   });
 
-  it('row 9 (review B, finding 2): the eight files, the glyphs and both aura pins, nothing more', () => {
-    // WeaverBar and ChordBuilder are no longer compared whole: their aura parts are pinned.
-    expect(AURA_FILES).toHaveLength(8);
-    expect(AURA_FILES).not.toContain('src/ui/hud/WeaverBar.tsx');
-    expect(AURA_FILES).not.toContain('src/ui/screens/ChordBuilder.tsx');
-    expect(AURA_FILES).not.toContain('src/ui/kit/iconPaths.ts');
+  it('row 9: both aura pins pass, and nothing else (the owner lifted the aura rule, 18 November 2026)', () => {
+    expect(AURA_PIN_TESTS.map((p) => p.what)).toEqual([
+      'the aura presentation pin',
+      'the Chord builder’s cards pin',
+    ]);
     const green9 = byId(checkRows(greenInputs()), '9');
     expect(green9.status).toBe('green');
-    expect(green9.parts.map((p) => p.status)).toEqual(['green', 'green', 'green', 'green']);
-    // A glyph changed: red, by name.
-    const glyph = greenInputs();
-    glyph.glyphsChanged = ['diamond'];
-    expect(byId(checkRows(glyph), '9').status).toBe('red');
-    expect(byId(checkRows(glyph), '9').parts[1]!.text).toContain('diamond');
+    expect(green9.parts.map((p) => p.status)).toEqual(['green', 'green']);
     // The cards pin failing, or missing from the log: red.
     const failing = greenInputs();
     failing.suite!.files.set('tests/aura/chordCardsPin.test.ts', 'failed');
@@ -468,50 +456,10 @@ describe('tools/release-check.ts', () => {
     const missing = greenInputs();
     missing.suite!.files.delete('tests/aura/chordCardsPin.test.ts');
     expect(byId(checkRows(missing), '9').status).toBe('red');
-    // git could not say: not run.
-    const unknown = greenInputs();
-    unknown.glyphsChanged = null;
-    expect(byId(checkRows(unknown), '9').status).toBe('not run');
-  });
-
-  it('glyphPaths reads each glyph’s path, on its line or the next', () => {
-    const text = [
-      'export const PATHS = {',
-      "  note: 'M9 17.5V6',",
-      '  scatter:',
-      "    'M4 4h1',",
-      "  notes: 'other',",
-      '};',
-    ].join('\n');
-    expect(glyphPaths(text, ['note', 'scatter', 'pin'])).toEqual({
-      note: "'M9 17.5V6'",
-      scatter: "'M4 4h1'",
-      pin: null,
-    });
-  });
-
-  it('at HEAD, the eight aura files and the aura and ornament glyphs are as at the base', () => {
-    const inputs = gather([], REPO, REPO);
-    expect(inputs.glyphsChanged).toEqual([]);
-    expect(inputs.auraChanged).toEqual([]);
-  });
-
-  it('the owner-approved aura changes are whole commits in this history that touched the aura pin', () => {
-    expect(AURA_APPROVED.length).toBeGreaterThan(0);
-    expect(AURA_BASE).toBe(AURA_APPROVED.at(-1)!.commit);
-    const pinLog = execFileSync('git', ['log', '--format=%H', '--', AURA_PIN], {
-      cwd: REPO,
-      encoding: 'utf8',
-    })
-      .split('\n')
-      .filter(Boolean);
-    for (const a of AURA_APPROVED) {
-      expect(a.commit, a.what).toMatch(/^[0-9a-f]{40}$/);
-      expect(a.approved, a.what).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-      expect(pinLog, a.what).toContain(a.commit);
-    }
-    // The pin has the commit that recorded it and the approved ones, nothing else.
-    expect(pinLog).toHaveLength(1 + AURA_APPROVED.length);
+    // No suite log at all: not run.
+    const none = greenInputs();
+    none.suite = null;
+    expect(byId(checkRows(none), '9').status).toBe('not run');
   });
 
   it('evidence from another commit, a dirty tree or an unstamped log is red (review B, finding 3)', () => {
