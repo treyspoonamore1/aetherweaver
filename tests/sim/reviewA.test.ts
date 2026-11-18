@@ -78,7 +78,7 @@ describe('review A, F2: Stasis holds Tyrant’s clock as it holds the boss’s o
     expect(cast).toBe(!firstCast);
     const r0 = hold.readyAt - w.time;
     const own0 = [...b.enemy!.specialCooldowns];
-    sim.step([{ t: 'debug', op: { op: 'setResonance', value: 100 } } as Command]);
+    sim.step([{ t: 'debug', op: { op: 'setResonance', value: 200 } } as Command]);
     sim.step([{ t: 'crescendo' }]);
     expect(w.field.stasis).toBe(true);
     let n = 0;

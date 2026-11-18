@@ -646,7 +646,7 @@ describe('Fortissimo Silence', () => {
   });
 
   it('any Calling’s Crescendo cancels one due behind a Solo: Stasis outlasts no Solo it holds', () => {
-    const resonance: Command = { t: 'debug', op: { op: 'setResonance', value: 100 } };
+    const resonance: Command = { t: 'debug', op: { op: 'setResonance', value: 200 } };
     for (const calling of [undefined, { id: 'chronomancer' as const, path: [] }]) {
       const name = calling?.id ?? 'none';
       const { sim, w, boss } = conductor(calling ? { calling } : {}, { untouchable: true });
@@ -1103,7 +1103,7 @@ describe('Stasis, Foresight, the enrages and the end', () => {
     m4.nextRaiseAt = 101;
     m4.nextDownbeatAt = 102;
     m4.nextSforzandoAt = 103;
-    stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: 100 } }]);
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: 200 } }]);
     stepFor(sim, 1, [{ t: 'crescendo' }]);
     expect(w.field.stasis).toBe(true);
     const before = { ...m4, until: w.field.finale!.silence!.until, time: w.time };

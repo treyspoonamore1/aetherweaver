@@ -443,7 +443,7 @@ describe('borne', () => {
       results.push(
         dealDamage(w, at(w, slot), { source: null, sourceName: 't', amount: 150, telegraph: null }),
       );
-    stepFor(sim, 1, [RESONANCE(100)]);
+    stepFor(sim, 1, [RESONANCE(200)]);
     stepFor(sim, 1, [CRESCENDO]);
     expect(w.field.vow).toBe(true);
     results.push(
@@ -468,7 +468,7 @@ describe('stilled', () => {
     expect(oldDisabled(lyra)).toBe(false);
     cleanseAilments(w, lyra);
     expect(hasStatus(lyra, 'stilled')).toBe(true);
-    const events = stepFor(sim, 2, [RESONANCE(100)]);
+    const events = stepFor(sim, 2, [RESONANCE(200)]);
     events.push(
       ...stepFor(sim, 2, [{ t: 'debug', op: { op: 'fireSolo', slot: LYRA, cued: true } }]),
     );
@@ -574,7 +574,7 @@ describe('the Crescendo hook', () => {
     it(`${name} cancels a live Fortissimo Silence at once`, () => {
       const { sim, w, boss } = fortissimo(config);
       expect(w.field.finale!.fortissimo).toEqual({ pulse: 1, impact: expect.any(Number) });
-      stepFor(sim, 1, [RESONANCE(100)]);
+      stepFor(sim, 1, [RESONANCE(200)]);
       const events = stepFor(sim, 1, [CRESCENDO]);
       expect(ofType(events, 'crescendoStart')).toHaveLength(1);
       expect(ofType(events, 'fortissimoCancelled')).toEqual([
@@ -592,7 +592,7 @@ describe('the Crescendo hook', () => {
 
   it('a Crescendo already running cancels one as it would begin', () => {
     const { sim, w } = stage();
-    stepFor(sim, 1, [RESONANCE(100)]);
+    stepFor(sim, 1, [RESONANCE(200)]);
     stepFor(sim, 1, [CRESCENDO]);
     w.field.finale!.discord!.value = 100;
     const events = stepFor(sim, 30);
@@ -607,7 +607,7 @@ describe('the Crescendo hook', () => {
     for (const config of [{}, { calling: { id: 'chronomancer', path: [] } }]) {
       const sim = sandbox(config as Partial<SimConfig>);
       stepFor(sim, 1, [spawn('the_unweaver', 0, -18)]);
-      stepFor(sim, 60, [RESONANCE(100)]);
+      stepFor(sim, 60, [RESONANCE(200)]);
       const events = stepFor(sim, 2, [CRESCENDO]);
       expect(ofType(events, 'crescendoStart')).toHaveLength(1);
       expect(ofType(events, 'fortissimoCancelled')).toHaveLength(0);

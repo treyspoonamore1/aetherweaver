@@ -210,7 +210,7 @@ describe('each Expert rule acts in a fight staged for it, and changes it when le
         const p = state.field.finale?.postlude;
         if (staged || !p) return;
         const w = state.entities.get(state.weaverId)!.weaver! as { resonance: number };
-        w.resonance = 100;
+        w.resonance = 200;
         staged = true;
       },
       reset: () => (staged = false),
@@ -235,7 +235,7 @@ describe('each Expert rule acts in a fight staged for it, and changes it when le
         const d = state.field.finale?.discord;
         if (staged || !p || !d || state.time < p.riseUntil) return;
         (d as { value: number }).value = 80;
-        (state.entities.get(state.weaverId)!.weaver! as { resonance: number }).resonance = 100;
+        (state.entities.get(state.weaverId)!.weaver! as { resonance: number }).resonance = 200;
         staged = true;
       },
       reset: () => (staged = false),

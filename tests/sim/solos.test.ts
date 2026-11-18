@@ -391,11 +391,11 @@ describe('what changes the rule', () => {
   it('Resonance is spent on the Crescendo and on nothing else', () => {
     const sim = fight();
     const w = worldOf(sim).entities.get(sim.state.weaverId)!.weaver!;
-    w.resonance = 100;
+    w.resonance = 200;
     const { events } = firstSolos(sim, HOLD + 5, (t) => (t === 0 ? [CHARGE, thread(1)] : []));
     expect(ofType(events, 'soloStarted').length).toBeGreaterThanOrEqual(3);
     expect(ofType(events, 'resonanceSpent')).toHaveLength(0);
-    expect(weaver(sim).weaver!.resonance).toBe(100);
+    expect(weaver(sim).weaver!.resonance).toBe(200);
     const sung = stepFor(sim, 1, [{ t: 'crescendo' }]);
     expect(ofType(sung, 'resonanceSpent').map((e) => e.on)).toEqual(['crescendo']);
   });

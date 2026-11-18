@@ -2531,7 +2531,7 @@ describe('the Skilled bot reads the Finale (staged)', () => {
       for (const label of CALLING_LABELS) {
         const at = (ago: number) => {
           const sim = finaleRift(party, label);
-          weaverE(sim).weaver!.resonance = 100;
+          weaverE(sim).weaver!.resonance = 200;
           fortissimoOn(sim, 1, ago, 3 - ago);
           return makeBot('skilled', 1).decide(sim.state);
         };
@@ -2541,13 +2541,13 @@ describe('the Skilled bot reads the Finale (staged)', () => {
       }
     // A later pulse (one already landed): at once.
     const sim = finaleRift(undefined);
-    weaverE(sim).weaver!.resonance = 100;
+    weaverE(sim).weaver!.resonance = 200;
     fortissimoOn(sim, 2, 0, 1.5);
     expect(has(makeBot('skilled', 1).decide(sim.state), { t: 'crescendo' })).toBe(true);
   });
 
   it('banks the Crescendo as Discord climbs: no early Crescendo', () => {
-    const decide = (discord: { value: number; rate: number } | null, resonance = 100) => {
+    const decide = (discord: { value: number; rate: number } | null, resonance = 200) => {
       const sim = rift({ hp: 0.5, thread: null });
       const boss = tough(sim, 'hollow_chorister', 0, -10);
       worldOf(sim).encounter.bossId = boss.id;
@@ -2568,7 +2568,7 @@ describe('the Skilled bot reads the Finale (staged)', () => {
     // The dome before the first pulse: the Thread on Kael, whose wall, raised for the pulse, is
     // then the dome over everyone (docs/solos.md).
     const dome = finaleRift(undefined);
-    weaverE(dome).weaver!.resonance = 50;
+    weaverE(dome).weaver!.resonance = 100;
     heroE(dome, 0).hero!.solo = 100;
     fortissimoOn(dome, 1, 2, 1);
     expect(makeBot('skilled', 1).decide(dome.state)).toContainEqual({ t: 'thread', slot: 0 });
@@ -2577,7 +2577,7 @@ describe('the Skilled bot reads the Finale (staged)', () => {
     for (const [name, party] of Object.entries(FINALE_PARTIES))
       for (const low of [0, 1, 2]) {
         const sim = finaleRift(party);
-        weaverE(sim).weaver!.resonance = 50;
+        weaverE(sim).weaver!.resonance = 100;
         heroE(sim, low).health!.hp = heroE(sim, low).health!.maxHp * 0.6;
         fortissimoOn(sim, 1, 2.8, 0.2);
         const out = makeBot('skilled', 1).decide(sim.state);
@@ -2588,7 +2588,7 @@ describe('the Skilled bot reads the Finale (staged)', () => {
     const calm = finaleRift(undefined);
     const plain = makeBot('skilled', 1).decide(calm.state);
     expect(plain).toContainEqual({ t: 'mode' });
-    weaverE(calm).weaver!.resonance = 50;
+    weaverE(calm).weaver!.resonance = 100;
     fortissimoOn(calm, 1, 1, 2);
     expect(makeBot('skilled', 1).decide(calm.state)).not.toContainEqual({ t: 'mode' });
 
@@ -2600,8 +2600,8 @@ describe('the Skilled bot reads the Finale (staged)', () => {
       fortissimoOn(sim, 1, 1, 2);
       return makeBot('skilled', 1).decide(sim.state);
     };
-    expect(rally(50)).toContainEqual({ t: 'directive', kind: 'rally' });
-    expect(rally(100)).not.toContainEqual({ t: 'directive', kind: 'rally' });
+    expect(rally(100)).toContainEqual({ t: 'directive', kind: 'rally' });
+    expect(rally(200)).not.toContainEqual({ t: 'directive', kind: 'rally' });
   });
 
   it('as the Martyr with no Vow ready, Bears each pulse on the lowest', () => {
@@ -2609,7 +2609,7 @@ describe('the Skilled bot reads the Finale (staged)', () => {
       const sim = rift({ thread: 1, config: callingConfig('martyr') });
       expect(sim.state.calling?.bearShare ?? 0).toBeGreaterThan(0);
       heroE(sim, 1).health!.hp = heroE(sim, 1).health!.maxHp * 0.9;
-      weaverE(sim).weaver!.resonance = 50;
+      weaverE(sim).weaver!.resonance = 100;
       if (pulse) fortissimoOn(sim, 1, 2.5, 0.5);
       else blowOn(sim, 'test_blow', 1, 0.5, 0.5);
       return makeBot('skilled', 1).decide(sim.state);
@@ -3149,11 +3149,11 @@ describe('the Novice bot in the Finale (NOVICE_M4, staged)', () => {
 
   it('Crescendos in Fortissimo Silence with a full song, and Focuses a Cued soloist, now and then', () => {
     const fort = rift({ thread: null });
-    weaverE(fort).weaver!.resonance = 100;
+    weaverE(fort).weaver!.resonance = 200;
     finaleOf(fort).fortissimo = { pulse: 1, impact: 1e9 };
     expect(novice(fort)).toContainEqual({ t: 'crescendo' });
     const calm = rift({ thread: null });
-    weaverE(calm).weaver!.resonance = 100;
+    weaverE(calm).weaver!.resonance = 200;
     expect(novice(calm)).not.toContainEqual({ t: 'crescendo' });
 
     const cued = rift({ thread: null });
@@ -3211,7 +3211,7 @@ describe('the Novice bot in the Finale (NOVICE_M4, staged)', () => {
           boss.enemy!.phase = 3;
         }
         worldOf(sim).encounter.bossId = boss.id;
-        weaverE(sim).weaver!.resonance = 50;
+        weaverE(sim).weaver!.resonance = 100;
         heroE(sim, 1).hero!.solo = 100;
         const bot = makeBot('novice', seed);
         const w = worldOf(sim);

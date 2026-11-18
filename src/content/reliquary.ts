@@ -366,7 +366,7 @@ export const INSCRIPTIONS: ContentInput['inscriptions'] = [
     name: 'Deep Well',
     category: 'weaver',
     kind: 'dissonant',
-    effects: [{ effect: 'start_resonance', value: 12 }],
+    effects: [{ effect: 'start_resonance', value: 24 }],
     text: 'Start every fight with {a} Resonance',
   },
 ];

@@ -344,7 +344,7 @@ describe('True Dissonance: the Postlude (docs/phase-6.md)', () => {
       m4.nextSforzandoAt = NEVER;
       w.field.finale!.discord!.value = 100;
       next(sim, FORTISSIMO[0], 600);
-      w.entities.get(w.weaverId)!.weaver!.resonance = 100;
+      w.entities.get(w.weaverId)!.weaver!.resonance = 200;
       const cast = stepFor(sim, 1, [CRESCENDO]);
       expect(ofType(cast, 'fortissimoCancelled')).toEqual([
         { type: 'fortissimoCancelled', tick: w.tick - 1, boss: boss.id, by: 'crescendo' },

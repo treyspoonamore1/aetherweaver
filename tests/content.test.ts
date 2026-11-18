@@ -180,7 +180,7 @@ describe('Brann, the Bloodsworn (docs/phase-5b.md)', () => {
     const brannMotifs = preFill(brannAll);
     expect(brannMotifs.map((m) => [m.id, m.rarity, m.values])).toEqual([
       ['blood_tithe', 'rare', [50, 60, 70]],
-      ['blood_and_silk', 'epic', [1.5]],
+      ['blood_and_silk', 'epic', [3]],
     ]);
     const harmony = CONTENT.motifs.find((m) => m.id === 'blood_and_silk')!;
     expect(harmony.requires).toEqual({
@@ -1255,7 +1255,7 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
       'Fortissimo Silence — every hero loses 120% of their life over 3 s. Crescendo to cancel it, or dome, Ward and heal.',
     );
     expect(pulses[0]!.decreeNoDome).toBe(
-      'Fortissimo Silence — 120% of every hero’s life over 3 s. No dome: keep 100 Resonance and cancel it with your Crescendo; Ward the one you can’t lose.',
+      'Fortissimo Silence — 120% of every hero’s life over 3 s. No dome: keep 200 Resonance and cancel it with your Crescendo; Ward the one you can’t lose.',
     );
     expect(pulses.slice(1).every((a) => a.decree === undefined)).toBe(true);
   });

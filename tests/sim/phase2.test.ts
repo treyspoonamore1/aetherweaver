@@ -208,7 +208,7 @@ describe('Chords and ornaments', () => {
 
   it('the Crescendo grows every field by half and doubles every aura', () => {
     const sim = sandbox(fieldSong(['fortissimo'], ['reverb']));
-    stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: 100 } }]);
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: 200 } }]);
     stepFor(sim, 2, [{ t: 'crescendo' }]);
     expect(sim.state.field.chords[1]!.radius).toBeCloseTo(8 * 1.4 * 1.5, 6);
     const w = worldOf(sim);
@@ -303,7 +303,7 @@ describe('the chorus pulse', () => {
     const sim = sandbox({ chords: three });
     stepFor(sim, 2, [
       { t: 'debug', op: { op: 'chargeSolos' } },
-      { t: 'debug', op: { op: 'setResonance', value: 50 } },
+      { t: 'debug', op: { op: 'setResonance', value: 100 } },
     ]);
     hurt(sim, 1, 400);
     const before = hero(sim, 1).health!.hp;
@@ -315,7 +315,7 @@ describe('the chorus pulse', () => {
     const two = sandbox({ auras: ['sostenuto', 'fortissimo'] });
     stepFor(two, 2, [
       { t: 'debug', op: { op: 'chargeSolos' } },
-      { t: 'debug', op: { op: 'setResonance', value: 50 } },
+      { t: 'debug', op: { op: 'setResonance', value: 100 } },
     ]);
     expect(
       ofType(

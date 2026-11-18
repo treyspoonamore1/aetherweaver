@@ -326,7 +326,7 @@ describe('every call site N1-N30 reaches its stub, behind its guard', () => {
   it('N15b Prompt Book, in crescendoCostOf and the Crescendo itself', () => {
     guarded([finale.crescendoCostCut], { firstCrescendoCut: 15 }, (w) => void crescendoCostOf(w));
     guarded([finale.crescendoCostCut], { firstCrescendoCut: 15 }, (w) => {
-      weaverOf(w).weaver!.resonance = 100;
+      weaverOf(w).weaver!.resonance = 200;
       crescendo(w);
       expect(w.ledger.crescendos).toBe(1);
     });
@@ -335,7 +335,7 @@ describe('every call site N1-N30 reaches its stub, behind its guard', () => {
   it('N16 Tenuto, once the content’s idle wait is over', () => {
     guarded([finale.tenutoDelay], { fadeDelay: 2 }, (w) => {
       const ww = weaverOf(w).weaver!;
-      ww.resonance = 30;
+      ww.resonance = 60;
       ww.resonanceIdle = 10;
       decayResonance(w, SIM_DT);
     });

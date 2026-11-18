@@ -46,7 +46,7 @@ function scenario(path: readonly string[], seed: number, extra: Omit<SimConfig, 
         if (tick === 60 * 8 || tick === 60 * 20)
           out.push(
             { t: 'debug', op: { op: 'chargeSolos' } },
-            { t: 'debug', op: { op: 'setResonance', value: 100 } },
+            { t: 'debug', op: { op: 'setResonance', value: 200 } },
           );
         if (tick === 60 * 20 + 1) out.push({ t: 'crescendo' });
         return out;
@@ -239,14 +239,14 @@ describe('the mods', () => {
     expect(mods(['marcato'])).toMatchObject({ marcatoSeconds: 4, marcatoCooldown: 8 });
     expect(mods(['marcato']).marcatoPct).toBeCloseTo(0.1, 12);
     expect(mods(['a_tempo']).beatWindow).toBe(0.15);
-    expect(mods(['a_tempo']).cueResonance).toBe(15);
+    expect(mods(['a_tempo']).cueResonance).toBe(30);
     expect(mods(['reprise']).repriseCharge).toBe(30);
-    expect(mods(['upbeat']).startResonance).toBe(50);
+    expect(mods(['upbeat']).startResonance).toBe(100);
     expect(mods(['ensemble']).ensemblePct).toBeCloseTo(0.05, 12);
     expect(mods(['ensemble']).ensembleMax).toBeCloseTo(0.15, 12);
     expect(mods(['spotlight']).spotlightMult).toBe(2);
     expect(mods(['triad']).triadCount).toBe(3);
-    expect(mods(['maestro'])).toMatchObject({ crescendoCostBase: 75, finaleTurns: 2 });
+    expect(mods(['maestro'])).toMatchObject({ crescendoCostBase: 150, finaleTurns: 2 });
     // Standing Ovation III and the passive multiply.
     const both = resolveMods(
       resolveConfig({

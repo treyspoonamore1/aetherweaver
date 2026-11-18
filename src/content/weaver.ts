@@ -63,27 +63,30 @@ export const TECHNIQUES: ContentInput['techniques'] = {
 };
 
 export const RESONANCE: ContentInput['resonance'] = {
-  max: 100,
-  segment: 25,
+  // The meter holds 200 in four segments of 50, and a full song costs all of it. It was 100 while a
+  // Cue cost Resonance too (docs/solos.md): now that the meter pays for the Crescendo alone it is
+  // twice as deep, so a song comes about as often as before with every gain left the whole number
+  // it always was. What is a share of the meter doubled with it: the fade, every "start with N",
+  // Da Capo, Prompt Book, Maestro's price.
+  max: 200,
+  segment: 50,
   gains: {
-    perfectWard: 10,
-    save: 12.5,
-    clutchChime: 7.5,
-    reelDodge: 7.5,
-    cleanse: 2.5,
-    wardAbsorb: 2.5,
-    empowerPerSec: 0.5,
-    empoweredKill: 1,
-    response: 5,
+    perfectWard: 20,
+    save: 25,
+    clutchChime: 15,
+    reelDodge: 15,
+    cleanse: 5,
+    wardAbsorb: 5,
+    empowerPerSec: 1,
+    empoweredKill: 2,
+    response: 10,
   },
   decayDelay: 5,
-  decayPerSec: 4,
-  // Every gain above, and every gain a motif, relic, Bond or Calling names, is half what it was
-  // while a Cue cost Resonance (docs/solos.md): the meter now pays for the Crescendo alone. The
-  // numbers are written as what they give, so this stays 1; the Solo study varies it for a run
+  decayPerSec: 8,
+  // 1: the gains are written as what they give. The Solo study varies it for a run
   // (tools/solo-study.ts `--gain-scale`).
   gainScale: 1,
-  crescendoCost: 100,
+  crescendoCost: 200,
 };
 
 export const CRESCENDO: ContentInput['crescendo'] = {

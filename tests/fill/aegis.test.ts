@@ -100,7 +100,7 @@ describe('the Aegis content', () => {
       sister_ward: ['rare', [12, 18, 24]],
       clean_strike: ['common', [6, 9, 12]],
       ringing_steel: ['common', [30, 50, 70]],
-      clutch_peal: ['common', [2.5, 4, 5]],
+      clutch_peal: ['common', [5, 8, 10]],
       bright_peal: ['common', [8, 12, 16]],
       safe_harbour: ['common', [10, 15, 20]],
       light_step: ['common', [4, 6, 8]],

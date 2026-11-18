@@ -335,7 +335,7 @@ describe('the new mods, the registry and the lifecycle', () => {
       resolveMods(resolveConfig(config), CONTENT);
     expect(mods({ seed: 1, relics: ['knotted_cord'] })).toMatchObject({
       cutLockMult: 0.5,
-      cutResonance: 5,
+      cutResonance: 10,
     });
     expect(mods({ seed: 1, relics: ['stillwater_bell'] })).toMatchObject({
       chimeCooldownCut: 2,
