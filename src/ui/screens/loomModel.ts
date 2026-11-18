@@ -164,8 +164,10 @@ export interface StationView {
   open: boolean;
   /** Lit, and its intro not seen yet: the hub draws the eye to it; its first visit plays it. */
   fresh: boolean;
-  /** Dark: when it lights ("Opens at Weaver Rank 4."). Lit: what it's for, in a few words. */
+  /** Dark: what it is and when it lights, read out and shown on focus. Lit: what it's for. */
   line: string;
+  /** Dark: when it lights, alone ("Opens at Rank 4"), which is all its card shows. Lit: null. */
+  when: string | null;
   /** What waits there (lit only): "3 points to spend", "Best won: 14". Null: nothing to say. */
   badge: string | null;
 }
@@ -188,6 +190,7 @@ export function stationViews(
       open,
       fresh,
       line: open ? litLine(id, opts.run ?? null) : darkLine(id, rank, rosterHeroes(p, unlockAll)),
+      when: open ? null : darkWhen(id, rank),
       badge: open ? badgeOf(id, p, unlockAll, opts.shop ?? []) : null,
     };
   });
@@ -279,6 +282,33 @@ export function darkLine(
     case 'atlas':
       // It lights with Dissonance (docs/phase-6.md, "Design: the Atlas of Echoes").
       return txt('screens.loomModel.oldRoadsPlayedStrangely');
+    default:
+      return '';
+  }
+}
+
+/**
+ * When a dark station opens, and nothing else: what its card shows. What it is waits for the
+ * player's focus (`darkLine`): a mechanic is explained where it can be used.
+ */
+export function darkWhen(id: StationId, rank: number): string {
+  switch (id) {
+    case 'astrolabe':
+      return txt('screens.loomModel.opensAtRank', { rank: ASTROLABE_RANK });
+    case 'atelier':
+      return txt('screens.loomModel.opensAtRank', { rank: atelierRank() });
+    case 'reliquary':
+      return txt('screens.loomModel.opensAtRank', { rank: CONTENT.reliquary.slotRanks[0] });
+    case 'bonds':
+      return txt('screens.loomModel.opensAtBondRank2');
+    case 'deeds':
+      return txt('screens.loomModel.opensWithADeed');
+    case 'dissonance':
+      return opensAt(rank)
+        ? txt('screens.loomModel.opensWithAFinale')
+        : txt('screens.loomModel.opensAtRankAfter', { rank: CONTENT.dissonanceRules.openRank });
+    case 'atlas':
+      return txt('screens.loomModel.opensWithDissonance');
     default:
       return '';
   }
@@ -380,16 +410,12 @@ function badgeOf(
 }
 
 /**
- * What Starlight is for, beside the hub's balance: a line while the Atelier is still dark (where
- * it's spent, and from when), and the chip's tooltip (how it's earned, what it buys).
+ * What Starlight is for: the tooltip of the hub's balance (how it's earned, what it buys, and
+ * from when while the Atelier is still dark). The Atelier's own card says when it opens.
  */
-export function starlightAbout(
-  rank: number,
-  unlockAll: boolean,
-): { line: string | null; tip: string } {
+export function starlightAbout(rank: number, unlockAll: boolean): { tip: string } {
   const open = atelierOpen(rank, unlockAll);
   return {
-    line: open ? null : txt('screens.loomModel.spentAtTheAtelier', { atelierRank: atelierRank() }),
     tip: txt('screens.loomModel.starlightEveryWonFight', {
       value: open
         ? ''
@@ -404,18 +430,18 @@ export function affordable(shop: readonly ShopItem[], starlight: number): number
     .length;
 }
 
-/** The lit stations whose intro waits (the welcome's three aside): "The Atelier has lit up." */
+/**
+ * The lit stations whose intro waits (the welcome's three aside): "The Atelier has opened."
+ * Three or more are counted: their cards are marked New.
+ */
 export function freshLine(stations: readonly StationView[]): string | null {
   const names = stations
     .filter((s) => s.fresh && !WELCOME.includes(s.id))
     .map((s) => stationProse(s.id));
   if (names.length === 0) return null;
-  const list =
-    names.length === 1
-      ? names[0]!
-      : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  if (names.length > 2) return txt('screens.loomModel.stationsOpened', { n: names.length });
   return txt('screens.loomModel.litUpVisitTo', {
-    capital: capital(list),
+    capital: capital(names.join(txt('screens.loomModel.and'))),
     value: names.length === 1 ? txt('screens.loomModel.has') : txt('screens.loomModel.have'),
   });
 }

@@ -8,10 +8,8 @@ export const loomScreen = {
   'screens.loomScreen.frontDoor': 'Front door',
   'screens.loomScreen.you': 'You',
   'screens.loomScreen.rank': 'Rank {rank}',
-  'screens.loomScreen.arrowKeysToMove':
-    'Arrow keys to move between stations · Enter to open · Esc for the front door',
-  'screens.loomScreen.startingANewRun':
-    'Starting a new run replaces your saved one. What it earned is kept.',
+  'screens.loomScreen.arrowKeysToMove': 'Arrows to move · Enter to open',
+  'screens.loomScreen.startingANewRun': 'A new run replaces your saved one. You keep what it earned.',
   'screens.loomScreen.keepIt': 'Keep it',
   'screens.loomScreen.newRun': 'New run',
   'screens.loomScreen.new': 'New',

@@ -25,6 +25,14 @@ export const loomModel = {
     'Opens at Weaver Rank {openRank} once you have cleared the Finale.',
   'screens.loomModel.oldRoadsPlayedStrangely':
     'Old roads played strangely, with stars to light. Opens with Dissonance.',
+  'screens.loomModel.opensAtRank': 'Opens at Rank {rank}',
+  'screens.loomModel.opensAtBondRank2': 'Opens at Bond rank 2',
+  'screens.loomModel.opensWithADeed': 'Opens with your first Deed',
+  'screens.loomModel.opensWithAFinale': 'Opens with a Finale clear',
+  'screens.loomModel.opensAtRankAfter': 'Opens at Rank {rank}, after a Finale clear',
+  'screens.loomModel.opensWithDissonance': 'Opens with Dissonance',
+  'screens.loomModel.stationsOpened': '{n} stations have opened.',
+  'screens.loomModel.and': ' and ',
   'screens.loomModel.practiseWithNothingAt': 'Practise, with nothing at stake',
   'screens.loomModel.everyEnemySongAnd': 'Every enemy, song and system',
   'screens.loomModel.bonusesChosenBetweenRuns': 'Bonuses chosen between runs',
@@ -40,21 +48,15 @@ export const loomModel = {
   'screens.loomModel.youCanAfford': '{n} you can afford',
   'screens.loomModel.ofEarned': '{earned} of {total} earned',
   'screens.loomModel.bestWon': 'Best won: {best}',
-  'screens.loomModel.spentAtTheAtelier':
-    'Spent at the Atelier, which opens at Weaver Rank {atelierRank}',
-  'screens.loomModel.starlightEveryWonFight':
-    'Starlight: every won fight pays it, and every Deed. Spend it at the Atelier{value}, on technique variants, robes, Thread looks and titles.',
-  'screens.loomModel.whichOpensAtWeaver': ', which opens at Weaver Rank {atelierRank}',
-  'screens.loomModel.litUpVisitTo': '{capital} {value} lit up: visit to see what’s there.',
+  'screens.loomModel.starlightEveryWonFight': 'Won fights and Deeds pay Starlight. Spend it at the Atelier{value} on technique variants, robes, Thread looks and titles.',
+  'screens.loomModel.whichOpensAtWeaver': ' (opens at Weaver Rank {atelierRank})',
+  'screens.loomModel.litUpVisitTo': '{capital} {value} opened.',
   'screens.loomModel.theLoom': 'The Loom',
-  'screens.loomModel.yourSanctumBetweenRuns': 'Your sanctum between runs',
-  'screens.loomModel.betweenRunsYouCome':
-    'Between runs you come back here. Each station is a place to go: to set out, to practise, to read up and, as you play, to grow the Weaver. The dark ones open one by one, and the first visit to each shows you around.',
-  'screens.loomModel.everyRunStartsHere':
-    'Every run starts here. Through the Gate is Prep, where you choose your songs (the auras you sing to your heroes as they fight: healing them, or making them hit harder), then set out on the road. A run you leave waits at the Gate to be continued.',
+  'screens.loomModel.yourSanctumBetweenRuns': 'Your base between runs',
+  'screens.loomModel.betweenRunsYouCome': 'You come back here after every run. Lit stations are open. Dark ones open as you play, and each shows you around on your first visit.',
+  'screens.loomModel.everyRunStartsHere': 'Runs start here. In Prep you choose your songs (the auras you sing to your heroes as they fight: healing them, or making them hit harder), then set out. A run you leave waits at the Gate.',
   'screens.loomModel.theTrainingGroundsAnd': 'The Training Grounds and the Codex',
-  'screens.loomModel.theTrainingGroundsAre':
-    'The Training Grounds are a sandbox: your party, enemies to spawn and your build to try, with nothing at stake. Their drill rings a training bell at a hero: Ward them just before the blow lands and it’s a Perfect Ward, the hit negated. The Codex explains every enemy, song and system you meet.',
+  'screens.loomModel.theTrainingGroundsAre': 'The Training Grounds are a sandbox: spawn enemies and try your build, with nothing at stake. The Codex explains every enemy, song and system.',
   'screens.loomModel.tryItContinueYour': 'Try it: continue your run',
   'screens.loomModel.tryItBeginA': 'Try it: begin a run',
   'screens.loomModel.tryItOpen': 'Try it: open {stationProse}',

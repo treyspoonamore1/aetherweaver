@@ -1,5 +1,10 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
-import { dissonancePoints, maxDissonance, type DissonanceChoice } from '../../meta/dissonance';
+import {
+  dissonancePoints,
+  maxDissonance,
+  opensAt,
+  type DissonanceChoice,
+} from '../../meta/dissonance';
 import { playedDissonance } from '../../meta/run';
 import type { RunState } from '../../meta/types';
 import { Button } from '../kit/Button';
@@ -326,7 +331,12 @@ export interface PrepDissonanceProps {
  * Calling. Closed, it says how it opens.
  */
 export function PrepDissonancePanel(props: PrepDissonanceProps) {
-  if (!props.open) return <DissonanceClosed rank={props.rank} className={props.className} />;
+  // Closed and Ranks away: Prep says nothing of it (its station in the Loom says when it opens).
+  // From its Rank on, the closed panel says what is still missing.
+  if (!props.open)
+    return opensAt(props.rank) ? (
+      <DissonanceClosed rank={props.rank} className={props.className} />
+    ) : null;
   const { run, best, onChange, className = '' } = props;
   const levels = run.dissonance;
   // What it will play (a Pact with nothing to give drops out): the total and all it means.

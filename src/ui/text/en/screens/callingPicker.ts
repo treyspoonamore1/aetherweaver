@@ -6,6 +6,7 @@ export const callingPicker = {
   'screens.callingPicker.theWeaverSClass': 'The Weaver’s class for this run, chosen here.',
   'screens.callingPicker.itGrowsAsYou':
     ' It grows as you win: {schedule} picks, one of two each, {tierWhenList}.',
+  'screens.callingPicker.theFirstOpensAt': 'The first opens at Weaver Rank {rank}.',
   'screens.callingPicker.playingACallingEarns':
     'Playing a Calling earns mastery, which opens its path.',
   'screens.callingPicker.noCalling': 'No Calling',

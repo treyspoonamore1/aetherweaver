@@ -67,6 +67,8 @@ export function CallingPicker({
   // Every Calling picks at the same milestones: say when once, above the cards.
   const counts = new Set(callings.map((c) => c.tiers.length));
   const schedule = counts.size === 1 ? callings[0]!.tiers.length : null;
+  const anyOpen = callings.some((c) => callingOpen(allowance, c.id));
+  const firstRank = Math.min(...callings.map((c) => unlockRank('calling', c.id) ?? 1));
   return (
     <section className="mt-5" aria-labelledby="calling-title" data-testid="calling-picker">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -78,15 +80,15 @@ export function CallingPicker({
         </h2>
         <p className="text-right text-xs leading-relaxed text-muted">
           {t('screens.callingPicker.theWeaverSClass')}
-          {schedule !== null && (
+          {anyOpen ? (
             <>
-              {t('screens.callingPicker.itGrowsAsYou', {
-                schedule,
-                tierWhenList: tierWhenList(schedule, at),
-              })}
+              {schedule !== null && t('screens.callingPicker.itGrowsAsYou', { schedule })}
+              {mastery && <> {t('screens.callingPicker.playingACallingEarns')}</>}
             </>
+          ) : (
+            // None can be chosen yet: when the first opens, and nothing about how they grow.
+            <> {t('screens.callingPicker.theFirstOpensAt', { rank: firstRank })}</>
           )}
-          {mastery && <> {t('screens.callingPicker.playingACallingEarns')}</>}
         </p>
       </div>
       <div
@@ -266,16 +268,14 @@ function CallingCard({
             )}
           </span>
         )}
-        <span className={`flex flex-col gap-1.5 ${open ? '' : 'opacity-75'}`}>
-          <span className="text-sm leading-snug text-text">{def.summary}</span>
-          <CrescendoLine def={def} compact />
-          {!open && (
-            <span className="flex items-start gap-1.5 text-xs font-semibold leading-snug text-muted">
-              <Icon name="lock" size={12} className="mt-0.5 shrink-0" />{' '}
-              {t('screens.callingPicker.reachWeaverRankTo', { rank })}
-            </span>
-          )}
-        </span>
+        {/* A locked Calling shows its name and its Rank; what it does is in its path (See the
+            path) and on hover: a card explains a class once it can be chosen. */}
+        {open && (
+          <span className="flex flex-col gap-1.5">
+            <span className="text-sm leading-snug text-text">{def.summary}</span>
+            <CrescendoLine def={def} compact />
+          </span>
+        )}
       </button>
       {schedule && (
         <span className="block text-xs leading-relaxed text-muted">

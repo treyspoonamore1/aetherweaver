@@ -5,6 +5,7 @@ export const rank = {
   'screens.rank.weaverRank': 'Weaver Rank',
   'screens.rank.settingsTheUnlocksAre': 'Settings: the unlocks are skipped, everything is open.',
   'screens.rank.rank': 'Rank {rank}',
+  'screens.rank.xp': '{into} / {span} XP',
   'screens.rank.theLoomRemembers': 'The Loom remembers',
   'screens.rank.chooseItInYour': 'Choose it in your next Prep, above the song builder.',
   'screens.rank.openItFromThe': 'Open it from the Loom or from Prep.',
