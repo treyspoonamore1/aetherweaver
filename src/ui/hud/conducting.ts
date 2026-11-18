@@ -169,7 +169,7 @@ export function conductingHud(
           bar: view.beat.bar,
           within: view.beat.within,
           on: onBeat(state),
-          gift: Math.round(view.cueResonance * resonanceScale(state)),
+          gift: beatGift(state),
           next: nextSolo(state, nameOf),
         }
       : null,
@@ -184,6 +184,15 @@ export function conductingHud(
       : null,
     triad: view.triad > 0 ? { holding: field.triad === true, count: view.triad } : null,
   };
+}
+
+/**
+ * A Tempo: the Resonance a Solo Cued on the downbeat adds to the meter (0 without it): the path's
+ * number at the fight's scale (the sim's `resonanceScale`), to one decimal.
+ */
+export function beatGift(state: WorldState): number {
+  const gift = (state.calling?.conducting?.cueResonance ?? 0) * resonanceScale(state);
+  return Number(gift.toFixed(1));
 }
 
 /**

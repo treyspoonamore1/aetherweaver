@@ -23,7 +23,6 @@ import {
   FixedStepper,
   ReplayRecorder,
   createSim,
-  resonanceScale,
   type Command,
   type PartySlot,
   type Replay,
@@ -47,7 +46,13 @@ import {
   type ThreadCutHeard,
 } from '../ui/hudBridge';
 import { callingLook } from '../ui/kit/callingLook';
-import { CONDUCT_GOLD, FINALE_TURNS_KEY, beatNow, conductingCallouts } from '../ui/hud/conducting';
+import {
+  CONDUCT_GOLD,
+  FINALE_TURNS_KEY,
+  beatGift,
+  beatNow,
+  conductingCallouts,
+} from '../ui/hud/conducting';
 import { takeHudCommits } from '../ui/perfCounters';
 import { useBeatNow, useUi } from '../ui/store';
 import { useProfile } from './profileStore';
@@ -1037,9 +1042,7 @@ export class GameRuntime {
               ? (callingDef(state.calling.id).crescendoName ?? undefined)
               : undefined,
             marcato: state.calling?.conducting?.marcato,
-            gift: Math.round(
-              (state.calling?.conducting?.cueResonance ?? 0) * resonanceScale(state),
-            ),
+            gift: beatGift(state),
           });
           for (const c of conducted) {
             // A keyed one replaces its last (the Finale's turns, a hero's lost turns, the Duet).

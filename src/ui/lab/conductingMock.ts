@@ -1,7 +1,8 @@
 /**
- * The UI lab's Conductor (docs/phase-5f.md): real fights with his Calling, staged with debug
- * commands (Solos charged, Resonance set, Cues and the Grand Finale given) and stepped to the
- * moment each view is for. The HUD is the bridge's own snapshot, and the call-outs are the ones
+ * The UI lab's Conductor (docs/phase-5f.md, docs/solos.md): real fights with his Calling, staged
+ * with debug commands (Solos charged, Resonance set, the Grand Finale given) and stepped to the
+ * moment each view is for. The heroes fire their own Solos; a Duet and a Trio are made the way a
+ * player makes them, the Thread going to each hero as their Solo comes due (`follow`). The HUD is the bridge's own snapshot, and the call-outs are the ones
  * the runtime would push for the same events, so the lab shows the sim's rules, not a copy.
  */
 import { encounterDef, heroDef } from '../../content';
@@ -11,7 +12,7 @@ import {
   BAR_SECONDS,
   beatAt,
   createSim,
-  onBeat,
+  soloDueIn,
   type Command,
   type PartySlot,
   type Sim,
@@ -19,7 +20,7 @@ import {
 } from '../../sim';
 import { dealDamage } from '../../sim/combat/health';
 import type { World } from '../../sim/world';
-import { FINALE_TURNS_KEY, conductingCallouts, heardFinale } from '../hud/conducting';
+import { FINALE_TURNS_KEY, beatGift, conductingCallouts, heardFinale } from '../hud/conducting';
 import { buildHudSnapshot } from '../hudBridge';
 import type { Callout, HudSnapshot } from '../store';
 import { GUARDIAN_CHORDS, fakeOutcome, luminaryRun } from './mock';
@@ -87,6 +88,42 @@ export function conductStage(scenario: ConductScenario): ConductStage {
   });
   const charge: Command = { t: 'debug', op: { op: 'chargeSolos' } };
   const fill: Command = { t: 'debug', op: { op: 'setResonance', value: 100 } };
+  /** The party slot whose Solo fires next (the sim's `soloDueIn`); null: none is coming. */
+  const nextSolo = (): PartySlot | null => {
+    let best: PartySlot | null = null;
+    let least = Infinity;
+    st.party.forEach((id, slot) => {
+      const e = st.entities.get(id);
+      const due = e ? soloDueIn(st, e) : null;
+      // Full with no one to fight: the wait has not begun.
+      if (due === null || !e?.hero || (e.hero.solo >= 100 && e.hero.targetId === null)) return;
+      if (due < least) {
+        least = due;
+        best = slot as PartySlot;
+      }
+    });
+    return best;
+  };
+  /** Solos fired Cued so far. */
+  const cuedSolos = () => events.filter((e) => e.type === 'soloStarted' && e.cued).length;
+  /**
+   * Your Thread follows the Solos as a player's would: it goes to whichever hero fires next and
+   * stays until they have, until `count` Solos have fired Cued.
+   */
+  const follow = (count: number, max = seconds(14)) => {
+    const from = cuedSolos();
+    for (let i = 0; i < max && cuedSolos() - from < count; i++) {
+      const slot = nextSolo();
+      const on = st.entities.get(st.weaverId)?.weaver?.threadSlot;
+      step(1, slot !== null && slot !== on ? [{ t: 'thread', slot }] : []);
+    }
+    return cuedSolos() - from >= count;
+  };
+  /** The next Solo is coming (its tell is on) for a hero the Thread is not on. */
+  const comingElsewhere = () => {
+    const slot = nextSolo();
+    return slot !== null && st.entities.get(st.weaverId)?.weaver?.threadSlot !== slot;
+  };
   // The Weaver a step behind her party; Kael threaded.
   step(1, [{ t: 'debug', op: { op: 'teleportWeaver', x: 0, z: 5 } }]);
   step(2, [{ t: 'thread', slot: 0 }]);
@@ -104,35 +141,53 @@ export function conductStage(scenario: ConductScenario): ConductStage {
   let reached = false;
   switch (scenario) {
     case 'conduct-open':
-      // One Cue: the chain is open, the others' badges read "Duet".
-      step(seconds(0.6), [cue(0)]);
-      reached = st.field.conducting?.chain?.heroes.length === 1;
+      // One Solo Cued: the chain is open, and the next hero's strip reads "Duet".
+      reached = follow(1) && until(comingElsewhere, seconds(2));
+      step(seconds(0.3));
+      reached = reached && st.field.conducting?.chain?.heroes.length === 1;
       break;
     case 'conduct-duet':
-      step(seconds(1.2), [cue(0)]);
-      step(seconds(0.4), [cue(1)]);
-      reached = st.field.conducting?.chain?.heroes.length === 2;
+      // Two Solos Cued a second apart: a Duet, and the third hero's strip reads "Trio".
+      reached = follow(2) && until(comingElsewhere, seconds(2));
+      step(seconds(0.3));
+      reached = reached && st.field.conducting?.chain?.heroes.length === 2;
       break;
-    case 'conduct-trio':
-      // Marcato from a Rally, then three Cues a second apart.
+    case 'conduct-trio': {
+      // Marcato from a Rally, then the Thread follows the Solos: two a second apart, and Kael's
+      // wall, which he raises at once when a blow takes him under half his life.
       step(seconds(0.5), [{ t: 'directive', kind: 'rally' }]);
-      step(seconds(1), [cue(0)]);
-      step(seconds(1), [cue(1)]);
-      step(seconds(0.3), [cue(2)]);
-      reached = events.some((e) => e.type === 'cueChained' && e.link === 3);
+      follow(2);
+      step(seconds(0.5), [{ t: 'thread', slot: 0 }]);
+      const world = sim.state as unknown as World;
+      const wall = world.entities.get(world.party[0]!)!;
+      // The lab's hand: a blow as it leaves him, whatever his armour would have turned.
+      wall.health!.hp = wall.health!.maxHp * 0.45;
+      reached = until(() => events.some((e) => e.type === 'cueChained' && e.link === 3), 30);
+      step(seconds(0.3));
       break;
-    case 'conduct-beat':
-      // Into the next downbeat's window: every ready hero's Cue is free.
-      reached = until(() => st.time > 1 && onBeat(st), seconds(BAR_SECONDS * 2));
+    }
+    case 'conduct-beat': {
+      // A Solo waits for the downbeat, your Thread on its hero: a third of a second before it.
+      const slot = until(() => nextSolo() !== null, seconds(3)) ? nextSolo() : null;
+      if (slot !== null) step(1, [{ t: 'thread', slot }]);
+      reached = until(
+        () => {
+          const b = beatAt(st.time, BAR_SECONDS);
+          return st.time > 1 && nextSolo() === slot && b.next - st.time < 0.35;
+        },
+        seconds(BAR_SECONDS * 2),
+      );
       break;
+    }
     case 'conduct-offbeat': {
-      // Mid-bar, between the second and third beats.
+      // Mid-bar, between the second and third beats: a Solo waits for the downbeat, and the
+      // Thread is on another hero.
       reached = until(
         () => {
           const p = beatAt(st.time, BAR_SECONDS).phase;
-          return st.time > 1 && p > 0.55 && p < 0.6;
+          return st.time > 1 && p > 0.55 && p < 0.6 && comingElsewhere();
         },
-        seconds(BAR_SECONDS * 2),
+        seconds(BAR_SECONDS * 3),
       );
       break;
     }
@@ -213,6 +268,7 @@ function calloutsOf(sim: Sim, events: readonly SimEvent[]): Callout[] {
       turns,
       crescendoName: st.calling?.conducting ? 'Grand Finale' : undefined,
       marcato: st.calling?.conducting?.marcato,
+      gift: beatGift(st),
     })) {
       // A keyed call-out replaces its last, as the runtime drops it.
       if (c.callout.key) {
