@@ -6,19 +6,19 @@
    "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 132
   },
   "skilled-bellwarden": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 267
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 260
   },
   "novice-cantor": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 500
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 495
   },
   "skilled-crimson-gate": {
    "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 308
   },
   "novice-matriarch": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 789
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 792
   },
   "skilled-vharun": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 795
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 827
   },
   "skilled-brann-crimson-gate": {
    "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 356
@@ -27,28 +27,28 @@
    "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 257
   },
   "novice-brann-first-light": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 150
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 154
   },
   "skilled-unstitched-threshold": {
    "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 266
   },
   "novice-seamstress": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 514
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 493
   },
   "skilled-unweaver": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 1143
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 1203
   },
   "skilled-brann-mirror-hall": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 201
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 203
   },
   "skilled-conductor": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 1119
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 975
   },
   "novice-grand-silence": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 172
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 156
   },
   "skilled-brann-conductor": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 683
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 769
   },
   "skilled-chrono-silence": {
    "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 113
@@ -81,7 +81,7 @@
   "novice-seamstress": 0,
   "skilled-unweaver": 0,
   "skilled-brann-mirror-hall": 0,
-  "skilled-conductor": 0,
+  "skilled-conductor": 1,
   "novice-grand-silence": 1,
   "skilled-brann-conductor": 0,
   "skilled-chrono-silence": 0

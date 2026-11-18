@@ -6,27 +6,26 @@
    "seed": 2000,
    "bot": "novice",
    "outcome": "defeat",
-   "lastEncounter": "bellwarden",
-   "fights": 3,
-   "minutes": 2.576166666666585,
+   "lastEncounter": "choir_loft",
+   "fights": 2,
+   "minutes": 0.9738888888888764,
    "motifs": [
-    "taut_release:1",
-    "twin_aegis:1"
+    "taut_release:1"
    ],
    "relics": [
     "wardens_key"
    ],
    "path": [],
-   "aetherEarned": 46,
-   "aetherLeft": 46,
+   "aetherEarned": 23,
+   "aetherLeft": 23,
    "bondXp": {
-    "kael": 85,
-    "vexis": 64,
-    "seren": 49
+    "kael": 42,
+    "vexis": 34,
+    "seren": 24
    },
    "movementReached": 1,
    "minutesByMovement": [
-    2.576166666666585
+    0.9738888888888764
    ]
   },
   {
@@ -133,24 +132,22 @@
   {
    "seed": 2000,
    "bot": "skilled",
-   "outcome": "victory",
-   "lastEncounter": "the_silent_conductor",
-   "fights": 15,
-   "minutes": 32.548500000002896,
+   "outcome": "defeat",
+   "lastEncounter": "frayed_threshold",
+   "fights": 10,
+   "minutes": 17.057861111112825,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1",
     "da_capo:1",
-    "second_verse:2",
+    "second_verse:1",
     "warm_hum:1",
     "deep_roots:1",
     "long_weave:1",
     "clear_tone:1",
-    "starlit_study:2",
-    "deep_breath:3",
-    "quickened_verse:1",
-    "bulwarks_echo:1",
-    "canon:1"
+    "starlit_study:1",
+    "deep_breath:1",
+    "quickened_verse:1"
    ],
    "relics": [
     "wardens_key",
@@ -160,28 +157,21 @@
     "choirmasters_baton",
     "hollow_bell",
     "lantern_of_the_lost",
-    "cracked_metronome",
-    "knotted_cord",
-    "sacrificial_lamb",
-    "spindle_of_fate",
-    "silver_thimble",
-    "featherweight_robes",
-    "prism_loom"
+    "cracked_metronome"
    ],
    "path": [],
-   "aetherEarned": 787,
-   "aetherLeft": 167,
+   "aetherEarned": 460,
+   "aetherLeft": 160,
    "bondXp": {
-    "kael": 580,
-    "vexis": 726,
-    "seren": 441
+    "kael": 354,
+    "vexis": 410,
+    "seren": 260
    },
-   "movementReached": 4,
+   "movementReached": 3,
    "minutesByMovement": [
-    8.29629166666871,
-    10.559236111111026,
-    10.35206944444453,
-    3.3409027777786315
+    6.749861111112076,
+    9.740319444445207,
+    0.5676805555555444
    ]
   },
   {

@@ -2159,12 +2159,12 @@ describe('the Movement III bots: the tools review fixes', () => {
 
   it('the Decree gate fails a Stolen Verse still standing when the party wipes', () => {
     // A Skilled Weaver who walks off as the Unweaver nears phase 2 (70% of its life) and does
-    // nothing more: at 32676 and 80190 a verse is stolen and the party wipes with it up, which no
-    // 'verseReturned' ends. (The seeds were found again after the Solo rework, docs/solos.md,
-    // changed every fight: 1000 no longer stages it.) (The Novice no longer wipes with one up: since W9 she Focuses
+    // nothing more: at 8919 and 80190 a verse is stolen and the party wipes with it up, which no
+    // 'verseReturned' ends. (The seeds were found again after each round of the Solo rework,
+    // docs/solos.md, changed every fight: 1000, then 32676, no longer stage it.) (The Novice no longer wipes with one up: since W9 she Focuses
     // Spindles and outlasts the Shear; and a party left only at the theft now outlives the
     // verse's 30 s.)
-    for (const seed of [32676, 80190]) {
+    for (const seed of [8919, 80190]) {
       const skilled = makeBot('skilled', seed);
       let gone = false;
       let up = false;

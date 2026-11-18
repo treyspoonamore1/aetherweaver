@@ -1,272 +1,272 @@
 {
  "skilled:frayed_threshold:1000": {
-  "commands": "2be2ac27dd82dc2b",
-  "count": 650,
-  "final": "57f849858e0c292c"
+  "commands": "ab5c8b8c00acb61a",
+  "count": 667,
+  "final": "e2c574dc2cd0c22d"
  },
  "skilled:maw_hollow:1000": {
   "commands": "f53aa4e74000f32b",
   "count": 716,
-  "final": "d4583f96382e6fcf"
+  "final": "9382ba8d67abe91a"
  },
  "skilled:wraith_vigil:1000": {
-  "commands": "d5b5892140784bae",
-  "count": 669,
-  "final": "fb2bfab9df1c075e"
+  "commands": "5c0733d101cafb48",
+  "count": 694,
+  "final": "f0dee7032d6a9fcd"
  },
  "skilled:null_chapel:1000": {
   "commands": "bf257faa2ed123bf",
   "count": 694,
-  "final": "e1fb8736f734494b"
+  "final": "ad4fde23b112ac67"
  },
  "skilled:mirror_hall:1000": {
   "commands": "c9e9801a35295472",
   "count": 738,
-  "final": "43b5ac7e24954e4b"
+  "final": "1147e5e710dbcedf"
  },
  "skilled:frayed_court:1000": {
-  "commands": "69d5db3c6fe645ab",
-  "count": 577,
-  "final": "c588e2db72046ce3"
+  "commands": "7eb6eb3a6e0c015e",
+  "count": 555,
+  "final": "d10b4b826eca376f"
  },
  "skilled:the_seamstress:1000": {
   "commands": "1c3a70957117995f",
   "count": 644,
-  "final": "db920596fe7b3b36"
+  "final": "d3c04cff76c48437"
  },
  "skilled:the_unweaver:1000": {
   "commands": "74eb9d228890dcf3",
   "count": 389,
-  "final": "205c30b770ee948b"
+  "final": "498e470037b2a7f2"
  },
  "skilled:unstitched_vanguard:1000": {
   "commands": "ca3dfb2a030152ad",
   "count": 626,
-  "final": "0f3b409b06d2f661"
+  "final": "9a8e2b1c0ea70bed"
  },
  "skilled:frayed_threshold:8919": {
-  "commands": "4cb6628b67237e07",
-  "count": 674,
-  "final": "ff00634b89b18833"
+  "commands": "dc43fe6b695f770f",
+  "count": 666,
+  "final": "3d87950c1aeb305e"
  },
  "skilled:maw_hollow:8919": {
   "commands": "aa3d720561851f48",
   "count": 561,
-  "final": "be1ff01d4aedb8ec"
+  "final": "1a0c7ebc52c0f46c"
  },
  "skilled:wraith_vigil:8919": {
-  "commands": "c8a1087dcc5bc901",
-  "count": 683,
-  "final": "e9255406d639b784"
+  "commands": "cea4be8fd19b1bef",
+  "count": 686,
+  "final": "da0758059e3eb8d9"
  },
  "skilled:null_chapel:8919": {
   "commands": "1c8e10c51f543d29",
   "count": 704,
-  "final": "beb1ac80656db1ff"
+  "final": "50407aa5f08f45ce"
  },
  "skilled:mirror_hall:8919": {
   "commands": "f64e973b59f06454",
   "count": 744,
-  "final": "4704a69135d43213"
+  "final": "bf72152c059593c5"
  },
  "skilled:frayed_court:8919": {
   "commands": "851acf9c50194f2d",
   "count": 539,
-  "final": "ee80f5b36862b426"
+  "final": "c544a48a689a47e9"
  },
  "skilled:the_seamstress:8919": {
   "commands": "3b03fce7631f28e9",
   "count": 640,
-  "final": "51d96114fcdf7b87"
+  "final": "d9ce8941f97b0e88"
  },
  "skilled:the_unweaver:8919": {
   "commands": "cac5eefc99defcd9",
   "count": 386,
-  "final": "e8852da11c5b31db"
+  "final": "5ac5e22a36766fb3"
  },
  "skilled:unstitched_vanguard:8919": {
   "commands": "07e41e01baa27536",
   "count": 549,
-  "final": "b5b9097d9efc32fb"
+  "final": "b490fd06d2f05dcf"
  },
  "skilled:frayed_threshold:16838": {
   "commands": "5995fb1b541485be",
   "count": 749,
-  "final": "78dc63bf7bd4d97c"
+  "final": "66c681f81a558283"
  },
  "skilled:maw_hollow:16838": {
   "commands": "aa65fe549c8915a0",
   "count": 698,
-  "final": "cc578e3ab193d350"
+  "final": "49b86c8d2dc51c3c"
  },
  "skilled:wraith_vigil:16838": {
-  "commands": "4f1e4b27e79b607a",
+  "commands": "3442c5e7301ffe76",
   "count": 816,
-  "final": "b4d1f7a71ae06246"
+  "final": "a22eeed822c57a4f"
  },
  "skilled:null_chapel:16838": {
   "commands": "3add2b1f0f7a2393",
   "count": 712,
-  "final": "4c5c19f08d5b6d60"
+  "final": "e2d7e61115e9fb62"
  },
  "skilled:mirror_hall:16838": {
   "commands": "8bbe584a0cea9032",
   "count": 733,
-  "final": "5b00ad5fc20bc565"
+  "final": "17fbb2deb6ef3c48"
  },
  "skilled:frayed_court:16838": {
   "commands": "d8e22b865f93cb9d",
   "count": 402,
-  "final": "1f333be3893ecaed"
+  "final": "6f78a8bc0ccf2837"
  },
  "skilled:the_seamstress:16838": {
-  "commands": "f2207c90f0563905",
-  "count": 612,
-  "final": "f927336a2b9f5788"
+  "commands": "79d6c64363c67fee",
+  "count": 608,
+  "final": "d9d04a276fa5f30d"
  },
  "skilled:the_unweaver:16838": {
   "commands": "dc1502794812e06d",
   "count": 473,
-  "final": "3a19086e14348b1f"
+  "final": "da25aeed725a0759"
  },
  "skilled:unstitched_vanguard:16838": {
   "commands": "b166d4e7322eca1c",
   "count": 787,
-  "final": "aaf6d4be037eb567"
+  "final": "d80c5ff71b162046"
  },
  "novice:frayed_threshold:1000": {
   "commands": "4c0a042902883b15",
   "count": 85,
-  "final": "423b6664898e5583"
+  "final": "c9b719e378068c90"
  },
  "novice:maw_hollow:1000": {
-  "commands": "8ea4bfd1a57ad2c2",
+  "commands": "b74bd82c447aa379",
   "count": 81,
-  "final": "4b0007d507dddedb"
+  "final": "852bfc97cc3d1615"
  },
  "novice:wraith_vigil:1000": {
   "commands": "b0e9aa2bc2cea155",
   "count": 97,
-  "final": "c5353188c23919ac"
+  "final": "90c27bebf4695d48"
  },
  "novice:null_chapel:1000": {
   "commands": "bd39aa2100dda5b1",
   "count": 106,
-  "final": "c77774932deef531"
+  "final": "9d420b362f235da0"
  },
  "novice:mirror_hall:1000": {
-  "commands": "bed681efe92a0d6b",
-  "count": 98,
-  "final": "9b3a0c9941e9d638"
+  "commands": "7985af67c49d1c70",
+  "count": 104,
+  "final": "32bd06363ff3dcaa"
  },
  "novice:frayed_court:1000": {
-  "commands": "1e740842ad89d28e",
-  "count": 125,
-  "final": "66e6a0a3257d9d47"
+  "commands": "1d7490c16b90ef10",
+  "count": 115,
+  "final": "b4f46e83ef65e869"
  },
  "novice:the_seamstress:1000": {
   "commands": "a17fa8c305c0abc6",
   "count": 34,
-  "final": "03774b8cb3b0d965"
+  "final": "7a2250fe83f35f9d"
  },
  "novice:the_unweaver:1000": {
-  "commands": "316c5b7352d066b3",
-  "count": 40,
-  "final": "6bd8180fdb1cd972"
+  "commands": "a637d2dc7b6f5ef8",
+  "count": 37,
+  "final": "6f49a523b9645834"
  },
  "novice:unstitched_vanguard:1000": {
-  "commands": "7d43f76465c1c947",
-  "count": 83,
-  "final": "12eec0254d9b9a1c"
+  "commands": "5f85f8c851629a10",
+  "count": 80,
+  "final": "b244c571c21e7cd1"
  },
  "novice:frayed_threshold:8919": {
   "commands": "02424906d001b1e2",
   "count": 89,
-  "final": "4ad5e1900996bed0"
+  "final": "2b425d7df0f6c2f8"
  },
  "novice:maw_hollow:8919": {
-  "commands": "0d85a08a492ce640",
-  "count": 81,
-  "final": "ed51ca44749c4ca2"
+  "commands": "7feeccce7efa6359",
+  "count": 86,
+  "final": "c3072bb0eac8ef4a"
  },
  "novice:wraith_vigil:8919": {
-  "commands": "13dd9acd8d3982ac",
-  "count": 114,
-  "final": "64f548def8a8bc3d"
+  "commands": "0faa71d0b0f2f6d5",
+  "count": 121,
+  "final": "c996eda468e347d2"
  },
  "novice:null_chapel:8919": {
-  "commands": "ce6926f83f962766",
-  "count": 98,
-  "final": "a53dba0479b9af73"
+  "commands": "a06b6f3417e783ed",
+  "count": 90,
+  "final": "d6bb485eabb43ad4"
  },
  "novice:mirror_hall:8919": {
-  "commands": "a105ae1ab8a3428c",
-  "count": 105,
-  "final": "1e77a109148606e1"
+  "commands": "de3a1d3e3e167c9c",
+  "count": 102,
+  "final": "6a067711407d713e"
  },
  "novice:frayed_court:8919": {
   "commands": "9df829d21e5bbe59",
   "count": 118,
-  "final": "32be2098f4a2b691"
+  "final": "f1a8548787cb6fa6"
  },
  "novice:the_seamstress:8919": {
   "commands": "e7bbd37b7551af92",
   "count": 17,
-  "final": "f983b673db575a33"
+  "final": "8a3c92f64d8e6a97"
  },
  "novice:the_unweaver:8919": {
-  "commands": "6e0168347b3c8414",
-  "count": 31,
-  "final": "3d0b45db489cb20d"
+  "commands": "71491e909ef37c86",
+  "count": 34,
+  "final": "194efa40f98fe097"
  },
  "novice:unstitched_vanguard:8919": {
   "commands": "3b5a7e9b164ce529",
   "count": 91,
-  "final": "14242f616fe4003c"
+  "final": "c54d6f7434b7701d"
  },
  "novice:frayed_threshold:16838": {
   "commands": "13558870de7bf6c6",
   "count": 76,
-  "final": "69bb039a4461a096"
+  "final": "b00ae2d140b2e4c3"
  },
  "novice:maw_hollow:16838": {
   "commands": "61175aec44293ccc",
   "count": 73,
-  "final": "80abc5e7c33df3b5"
+  "final": "4e333db36ee081e3"
  },
  "novice:wraith_vigil:16838": {
   "commands": "91b98b9b56dbc38a",
   "count": 100,
-  "final": "ddf2be16826d641b"
+  "final": "5b458359f6279b30"
  },
  "novice:null_chapel:16838": {
   "commands": "95c678ce9fb2ccf9",
   "count": 120,
-  "final": "85ec59bb49b9c2ff"
+  "final": "087a744cf3a5487f"
  },
  "novice:mirror_hall:16838": {
-  "commands": "b68195ab2a395439",
+  "commands": "9ca178bcd2b3d696",
   "count": 102,
-  "final": "ccc258276bfc7a0e"
+  "final": "37336864e2e1728c"
  },
  "novice:frayed_court:16838": {
-  "commands": "21526e8d394a27f4",
-  "count": 111,
-  "final": "5b2cbe0442b0eb36"
+  "commands": "42153cf4a2ae3c5b",
+  "count": 124,
+  "final": "8e3369527d594562"
  },
  "novice:the_seamstress:16838": {
-  "commands": "65433c2c671a56c7",
-  "count": 38,
-  "final": "47e57391cd7b4d9f"
+  "commands": "48bea9f3b84455a6",
+  "count": 37,
+  "final": "2f31818f0ad1ba7b"
  },
  "novice:the_unweaver:16838": {
-  "commands": "8c9308a0d7c27544",
-  "count": 40,
-  "final": "8fafefd7f0e6ee3f"
+  "commands": "103dc75ccf8ea7c9",
+  "count": 33,
+  "final": "a8348377e556415a"
  },
  "novice:unstitched_vanguard:16838": {
-  "commands": "f6bf44f699385eee",
-  "count": 85,
-  "final": "86c296b3d2eb5993"
+  "commands": "eecd719848404698",
+  "count": 86,
+  "final": "94bd31cd9d69ae84"
  }
 }

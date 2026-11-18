@@ -2,361 +2,361 @@
  "A:skilled:crimson_gate:1000": {
   "commands": "67cb22de2817d0b0",
   "count": 719,
-  "final": "79f1899f7d9abb61"
+  "final": "cd298da8bb436c34"
  },
  "A:skilled:bellwarden:1000": {
   "commands": "cba5c9a9675d82df",
   "count": 434,
-  "final": "703e346befb23e6e"
+  "final": "de837392c7dc267a"
  },
  "A:skilled:mirror_hall:1000": {
-  "commands": "e0f2ce5057ca6984",
-  "count": 857,
-  "final": "afb3858d2c2cc6a6"
+  "commands": "a7581ec9c1e8a5f0",
+  "count": 872,
+  "final": "d9e3d182ebf4930b"
  },
  "A:skilled:the_silent_conductor:1000": {
-  "commands": "ef6b898dd391f7a0",
-  "count": 452,
-  "final": "c50b9a2b75be8f00"
+  "commands": "a456066b2f5042c0",
+  "count": 477,
+  "final": "23db955cabd59e42"
  },
  "A:skilled:crimson_gate:8919": {
   "commands": "416f5d78b19dc113",
   "count": 716,
-  "final": "c98b2016cb78ab4b"
+  "final": "84c951e5b3199aec"
  },
  "A:skilled:bellwarden:8919": {
   "commands": "78685b1b53c47762",
   "count": 464,
-  "final": "f770ec05cbfa827b"
+  "final": "ffca83d437de8d4c"
  },
  "A:skilled:mirror_hall:8919": {
-  "commands": "1cb80afaa89aa916",
-  "count": 705,
-  "final": "0627e0831bb7a05e"
+  "commands": "e3eb74902aa34664",
+  "count": 713,
+  "final": "93765b8ebefe4bd7"
  },
  "A:skilled:the_silent_conductor:8919": {
-  "commands": "38de685f762ec720",
-  "count": 431,
-  "final": "fba2fa8f928e4ee9"
+  "commands": "6931c41a7343a9ae",
+  "count": 407,
+  "final": "ec71825b596b6f12"
  },
  "A:skilled:crimson_gate:16838": {
   "commands": "2f47310ac9d4acde",
   "count": 729,
-  "final": "a5257092347667f4"
+  "final": "4f17ae01024b2248"
  },
  "A:skilled:bellwarden:16838": {
   "commands": "85d3d83e0c861475",
   "count": 462,
-  "final": "57e9d25f01d8a78c"
+  "final": "43ffeb7283cba3a6"
  },
  "A:skilled:mirror_hall:16838": {
   "commands": "e292e4e2839be11f",
   "count": 704,
-  "final": "d87902c72a5cb2d4"
+  "final": "26429dde1b8e7052"
  },
  "A:skilled:the_silent_conductor:16838": {
-  "commands": "ea947497d799cbee",
-  "count": 440,
-  "final": "03a334c7da35f54d"
+  "commands": "4e5eab977f0c1e78",
+  "count": 383,
+  "final": "9ed8a11a3aae4a07"
  },
  "A:novice:crimson_gate:1000": {
   "commands": "c8f23e1888afa35c",
   "count": 111,
-  "final": "58d9db736ff2bdbf"
+  "final": "b0eb5d4c2d159b10"
  },
  "A:novice:bellwarden:1000": {
   "commands": "48c81f46ec201768",
   "count": 44,
-  "final": "a8af1b3fd27800d1"
+  "final": "b381795c8b1d225d"
  },
  "A:novice:mirror_hall:1000": {
   "commands": "99905461f732f86e",
   "count": 82,
-  "final": "3cc0580f58948e0a"
+  "final": "7bdf8932764b7a94"
  },
  "A:novice:the_silent_conductor:1000": {
-  "commands": "00ce5bd749b683cf",
-  "count": 88,
-  "final": "4b357370a4911c96"
+  "commands": "0f4c447c4ce864c9",
+  "count": 86,
+  "final": "38bde1c9bd066993"
  },
  "A:novice:crimson_gate:8919": {
   "commands": "20a57d6d91f7f83f",
   "count": 101,
-  "final": "8a714db5da07e6e4"
+  "final": "6f9d875ebc65ee86"
  },
  "A:novice:bellwarden:8919": {
   "commands": "f488ad1761db7dae",
   "count": 39,
-  "final": "31ac2d55af788bb7"
+  "final": "81b0de94db772660"
  },
  "A:novice:mirror_hall:8919": {
-  "commands": "40e9292ae203327a",
-  "count": 112,
-  "final": "d2662435631ae61d"
+  "commands": "3cb00a29a10f4406",
+  "count": 108,
+  "final": "3a7392e4458c7fdc"
  },
  "A:novice:the_silent_conductor:8919": {
-  "commands": "80ef43842783b7a9",
-  "count": 88,
-  "final": "fd1f4480de4ad406"
+  "commands": "b3a8c918601018d2",
+  "count": 81,
+  "final": "d7b9d12a79554e19"
  },
  "A:novice:crimson_gate:16838": {
   "commands": "a7504e5332f96e7a",
   "count": 94,
-  "final": "2215b6d395facd8a"
+  "final": "7f579b1640b9389c"
  },
  "A:novice:bellwarden:16838": {
   "commands": "5a3c87d1cbdff572",
   "count": 39,
-  "final": "711f2a9ede1c46ab"
+  "final": "e990d90388e22bec"
  },
  "A:novice:mirror_hall:16838": {
   "commands": "41589f2da802291a",
   "count": 92,
-  "final": "14e1d905a474c11c"
+  "final": "cdaeb41cbe8c5552"
  },
  "A:novice:the_silent_conductor:16838": {
-  "commands": "63743469e14d2200",
-  "count": 78,
-  "final": "b05ec9ff37be7b65"
+  "commands": "79cd3e2d0a1a9edf",
+  "count": 74,
+  "final": "b83f6385d6ab0196"
  },
  "B:skilled:crimson_gate:1000": {
   "commands": "f443697eb6ee1958",
   "count": 768,
-  "final": "d8a3a1b0c74a4c7f"
+  "final": "fd9579ebcee5844c"
  },
  "B:skilled:bellwarden:1000": {
   "commands": "068dbf1b07145051",
   "count": 588,
-  "final": "89f668d25231d4b0"
+  "final": "cee326cb163c1f3e"
  },
  "B:skilled:mirror_hall:1000": {
   "commands": "8d2f61a30defe0c6",
   "count": 858,
-  "final": "69661c72d4fe9e79"
+  "final": "6e6eea67ec527487"
  },
  "B:skilled:the_silent_conductor:1000": {
   "commands": "525ab4c9d8555b0a",
   "count": 668,
-  "final": "c4b4cdde1ee05ce1"
+  "final": "1af45c190f824045"
  },
  "B:skilled:crimson_gate:8919": {
   "commands": "d32fcd3ed0489e61",
   "count": 780,
-  "final": "1624e5dd2360eb36"
+  "final": "77ac24cc838150e1"
  },
  "B:skilled:bellwarden:8919": {
   "commands": "9770af0c4ebc2b6c",
   "count": 620,
-  "final": "e87c0fa157b18117"
+  "final": "369e2e640ed288cf"
  },
  "B:skilled:mirror_hall:8919": {
   "commands": "eb65beaa1b3aae5b",
   "count": 789,
-  "final": "2b2ccff07dfed50d"
+  "final": "b9e4c0b14e365633"
  },
  "B:skilled:the_silent_conductor:8919": {
   "commands": "a022433f88f87a78",
   "count": 746,
-  "final": "f2311810c0e47bb1"
+  "final": "94fe1e3d7316a7e6"
  },
  "B:skilled:crimson_gate:16838": {
   "commands": "7a21897cdd472881",
   "count": 749,
-  "final": "bcee19fe01cad9df"
+  "final": "6d3c6d1dcefa2d30"
  },
  "B:skilled:bellwarden:16838": {
   "commands": "1c6173c83e3f93b7",
   "count": 592,
-  "final": "7d77c75fe09a0ca6"
+  "final": "fa7d47f4a591c54d"
  },
  "B:skilled:mirror_hall:16838": {
   "commands": "d22484efb194cdac",
   "count": 854,
-  "final": "c2e310d9c41e001b"
+  "final": "428c56328bf9faff"
  },
  "B:skilled:the_silent_conductor:16838": {
   "commands": "17c4092de15238bf",
   "count": 694,
-  "final": "c4dfac1c4f50331b"
+  "final": "24ebf2a3b69ddfab"
  },
  "B:novice:crimson_gate:1000": {
   "commands": "c3ccf28233198624",
   "count": 89,
-  "final": "21a0afa2cbc6a03e"
+  "final": "646cebfbd72404a6"
  },
  "B:novice:bellwarden:1000": {
   "commands": "4b1de47370cdc31d",
   "count": 58,
-  "final": "6c60f69ec6b9166e"
+  "final": "0bf6bac3f9c239df"
  },
  "B:novice:mirror_hall:1000": {
   "commands": "90f83e1979f8faec",
   "count": 93,
-  "final": "658bbdadcf03d287"
+  "final": "2fc647fe8bc7db57"
  },
  "B:novice:the_silent_conductor:1000": {
-  "commands": "7bea51f40a588614",
-  "count": 68,
-  "final": "4b9b8f5dc8ace1e7"
+  "commands": "928be6e0b8d8203f",
+  "count": 70,
+  "final": "3d272ae2b25dce2d"
  },
  "B:novice:crimson_gate:8919": {
   "commands": "e52d2679bf2f5e38",
   "count": 97,
-  "final": "e2c2ff188664cf35"
+  "final": "cc1f8f4700882d7c"
  },
  "B:novice:bellwarden:8919": {
   "commands": "55c89ff856f72c72",
   "count": 53,
-  "final": "6c5b47a64de52a08"
+  "final": "10ffec252acf0ac7"
  },
  "B:novice:mirror_hall:8919": {
   "commands": "1a9c46e7b8cdd0db",
   "count": 104,
-  "final": "9b004e5e967f13b0"
+  "final": "5c0157954e8225c5"
  },
  "B:novice:the_silent_conductor:8919": {
-  "commands": "61d4f5e0b69b45ea",
-  "count": 74,
-  "final": "4ade8e56cd9e94bd"
+  "commands": "b6860c8823a7823d",
+  "count": 66,
+  "final": "509b2ddfb3aba702"
  },
  "B:novice:crimson_gate:16838": {
   "commands": "fd816d2ffeed3a74",
   "count": 100,
-  "final": "37dddbab6c3b0675"
+  "final": "88c53022c79f37cf"
  },
  "B:novice:bellwarden:16838": {
-  "commands": "92e65d18c597cc00",
-  "count": 62,
-  "final": "75bdef93d0f37996"
+  "commands": "377e2b420481f361",
+  "count": 61,
+  "final": "9ae50f7e3ca31fe0"
  },
  "B:novice:mirror_hall:16838": {
   "commands": "221c3b1962261f01",
   "count": 83,
-  "final": "33d23786768de855"
+  "final": "8987f82d6b7a29f0"
  },
  "B:novice:the_silent_conductor:16838": {
-  "commands": "0d9093ce64489bfe",
-  "count": 76,
-  "final": "354bcf53ce6207cf"
+  "commands": "ed86a3175cf925f6",
+  "count": 72,
+  "final": "5c02b1ec7b590917"
  },
  "C:skilled:crimson_gate:1000": {
-  "commands": "30ee647731a00be8",
-  "count": 833,
-  "final": "64b1f57caef6fad0"
+  "commands": "b8b49b1514fad947",
+  "count": 837,
+  "final": "0b6ee84f977c1c02"
  },
  "C:skilled:bellwarden:1000": {
   "commands": "774e3dd5c6869703",
   "count": 608,
-  "final": "ddf637ffcab61792"
+  "final": "4c38b1c2dfbe81cc"
  },
  "C:skilled:mirror_hall:1000": {
   "commands": "bcef757bfe765cae",
   "count": 698,
-  "final": "5b1afa057b90a3c0"
+  "final": "29e226b0ece112d9"
  },
  "C:skilled:the_silent_conductor:1000": {
   "commands": "b954cca4ead13779",
   "count": 686,
-  "final": "684f93e162b17cf0"
+  "final": "439fa570d09ccdde"
  },
  "C:skilled:crimson_gate:8919": {
-  "commands": "3e671415c2ebcdb9",
-  "count": 694,
-  "final": "f73de260775b74b0"
+  "commands": "8c1b81f961f3cbf0",
+  "count": 695,
+  "final": "4c21fcc02379016c"
  },
  "C:skilled:bellwarden:8919": {
   "commands": "2a42fcdeba7b199d",
   "count": 578,
-  "final": "7d54fe5d0a83521c"
+  "final": "0e96fb048a5fb253"
  },
  "C:skilled:mirror_hall:8919": {
   "commands": "f9cdf6b65a1ca664",
   "count": 668,
-  "final": "d5dafe0b124840f8"
+  "final": "f5877416701ee2a9"
  },
  "C:skilled:the_silent_conductor:8919": {
-  "commands": "db3f0659e06bff4e",
-  "count": 599,
-  "final": "555341ec5bac2a38"
+  "commands": "15dde2698052d730",
+  "count": 610,
+  "final": "ccae6162884bdf5c"
  },
  "C:skilled:crimson_gate:16838": {
   "commands": "37c0cc2f68f50553",
   "count": 704,
-  "final": "e7847d50dec75563"
+  "final": "7d2bce11c621e7bb"
  },
  "C:skilled:bellwarden:16838": {
   "commands": "1e1c9ebb9809e0ef",
   "count": 580,
-  "final": "b9d33750dbd1afe4"
+  "final": "34a0b7cdd8d91d51"
  },
  "C:skilled:mirror_hall:16838": {
-  "commands": "b177a9bb6b6234a5",
-  "count": 642,
-  "final": "e1a82ceedea7f383"
+  "commands": "9db5821fff522e13",
+  "count": 673,
+  "final": "3e67aa75f18994d2"
  },
  "C:skilled:the_silent_conductor:16838": {
   "commands": "f108b33242e84c14",
   "count": 666,
-  "final": "953960245f61b0df"
+  "final": "3606489d087ff0ce"
  },
  "C:novice:crimson_gate:1000": {
-  "commands": "6a9632e0e105daac",
-  "count": 90,
-  "final": "ab7a44616965500b"
+  "commands": "317da562198785c3",
+  "count": 93,
+  "final": "69140f613413faf9"
  },
  "C:novice:bellwarden:1000": {
-  "commands": "96e305f69ef619b0",
+  "commands": "82cb7d63608f489b",
   "count": 46,
-  "final": "0c68c8f74ea2e4fb"
+  "final": "5d3e0393f8e017f2"
  },
  "C:novice:mirror_hall:1000": {
-  "commands": "d68c31fc968c1712",
-  "count": 84,
-  "final": "a7d3dc945a3c072d"
+  "commands": "420f94c1be643a9a",
+  "count": 89,
+  "final": "0bf2f3ca8db25fde"
  },
  "C:novice:the_silent_conductor:1000": {
-  "commands": "b809fc09c2c38ea9",
-  "count": 66,
-  "final": "1c414b977ccf184f"
+  "commands": "27a99bcefeec629e",
+  "count": 70,
+  "final": "90525d9b11b11713"
  },
  "C:novice:crimson_gate:8919": {
-  "commands": "99cbb7c79d1594c7",
-  "count": 112,
-  "final": "c046da050d87437b"
+  "commands": "60e2f1a679ab103a",
+  "count": 111,
+  "final": "99071eb2a890b766"
  },
  "C:novice:bellwarden:8919": {
-  "commands": "068ac3eabfb31cda",
-  "count": 44,
-  "final": "5ad4f08d05ede1c3"
+  "commands": "572d0394512fa792",
+  "count": 37,
+  "final": "cb0a1552ea2bcb94"
  },
  "C:novice:mirror_hall:8919": {
-  "commands": "7e92e913054e0af1",
-  "count": 117,
-  "final": "a42d822039727d03"
+  "commands": "d464299b5e12abd3",
+  "count": 118,
+  "final": "6be67bf3d49095d6"
  },
  "C:novice:the_silent_conductor:8919": {
-  "commands": "36809ec7dc31a885",
-  "count": 96,
-  "final": "dcfc0750d9df0737"
+  "commands": "73a8dc034969e438",
+  "count": 99,
+  "final": "d744a05ac296efea"
  },
  "C:novice:crimson_gate:16838": {
-  "commands": "22bfa85e14491773",
-  "count": 113,
-  "final": "3b35f1fb4dbd84e4"
+  "commands": "29473a4c00f7f114",
+  "count": 115,
+  "final": "f4c6df5d3e9865e6"
  },
  "C:novice:bellwarden:16838": {
-  "commands": "6272842dfefe8982",
-  "count": 46,
-  "final": "4d25881d5bcf8890"
+  "commands": "3e10bb9ea432679b",
+  "count": 47,
+  "final": "8046548ac5f805ca"
  },
  "C:novice:mirror_hall:16838": {
   "commands": "a26e3a22bcd0a468",
   "count": 111,
-  "final": "2a9d7fa81e6748a0"
+  "final": "cad93f6b22fe9e1b"
  },
  "C:novice:the_silent_conductor:16838": {
-  "commands": "2e9661a508c04dc7",
-  "count": 84,
-  "final": "dec8ba208c26ac9a"
+  "commands": "01058e0803f53fe0",
+  "count": 77,
+  "final": "bbdda33c4b18fd39"
  }
 }

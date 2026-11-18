@@ -8,7 +8,7 @@
    "outcome": "defeat",
    "lastEncounter": "hollow_cantor",
    "fights": 4,
-   "minutes": 5.855402777778564,
+   "minutes": 4.969361111111221,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1",
@@ -22,13 +22,13 @@
    "aetherEarned": 114,
    "aetherLeft": 114,
    "bondXp": {
-    "kael": 142,
-    "lyra": 115,
-    "brann": 107
+    "kael": 147,
+    "lyra": 111,
+    "brann": 105
    },
    "movementReached": 1,
    "minutesByMovement": [
-    5.855402777778564
+    4.969361111111221
    ],
    "harmony": {
     "silkOffered": 0,
@@ -196,7 +196,7 @@
    "outcome": "victory",
    "lastEncounter": "the_silent_conductor",
    "fights": 15,
-   "minutes": 24.384152777781352,
+   "minutes": 24.024069444447743,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1",
@@ -229,18 +229,18 @@
     "prism_loom"
    ],
    "path": [],
-   "aetherEarned": 854,
-   "aetherLeft": 234,
+   "aetherEarned": 856,
+   "aetherLeft": 236,
    "bondXp": {
-    "kael": 522,
-    "lyra": 792,
-    "brann": 435
+    "kael": 512,
+    "lyra": 809,
+    "brann": 430
    },
    "movementReached": 4,
    "minutesByMovement": [
-    5.498805555556097,
-    7.565819444445432,
-    8.133208333334652,
+    5.512472222222763,
+    7.6189166666677,
+    7.706361111112111,
     3.186319444445169
    ],
    "harmony": {

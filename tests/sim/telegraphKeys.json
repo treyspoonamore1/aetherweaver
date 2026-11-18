@@ -8,12 +8,12 @@
   },
   "skilled-bellwarden": {
    "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,a,b,r": 720,
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,innerR,outerR": 396,
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r": 448,
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r,dirX,dirZ,halfAngleCos": 480
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,innerR,outerR": 407,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r": 600,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r,dirX,dirZ,halfAngleCos": 384
   },
   "novice-cantor": {
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,target": 1989,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,target": 2028,
    "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r": 240,
    "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r,dirX,dirZ,halfAngleCos": 840
   },
@@ -23,10 +23,10 @@
    "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r,dirX,dirZ,halfAngleCos": 780
   },
   "skilled-vharun": {
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r": 485,
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r,dirX,dirZ,halfAngleCos": 2009,
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,toX,toZ,width": 504,
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity,executeBelow | shape kind,target": 684,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r": 492,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r,dirX,dirZ,halfAngleCos": 2357,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,toX,toZ,width": 495,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity,executeBelow | shape kind,target": 611,
    "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity,linkStatus | shape kind,a,b,r": 1800
   },
   "skilled-brann-crimson-gate": {},
@@ -37,6 +37,7 @@
    "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r,dirX,dirZ,halfAngleCos": 238
   },
   "novice-brann-first-light": {
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,target": 41,
    "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r,dirX,dirZ,halfAngleCos": 420
   },
   "skilled-unstitched-threshold": {
@@ -44,15 +45,16 @@
    "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity,threadAtCast | shape kind,x,z,toX,toZ,width": 429
   },
   "novice-seamstress": {
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r": 1692,
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity,linkStatus | shape kind,a,b,r": 750,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r": 1499,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity,linkStatus | shape kind,a,b,r": 600,
    "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity,threadAtCast | shape kind": 300
   },
   "skilled-unweaver": {
    "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind": 366,
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r": 584,
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r,dirX,dirZ,halfAngleCos": 1610,
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity,threadAtCast | shape kind,x,z,toX,toZ,width": 1062
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r": 932,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r,dirX,dirZ,halfAngleCos": 1884,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,toX,toZ,width": 96,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity,threadAtCast | shape kind,x,z,toX,toZ,width": 1020
   },
   "skilled-brann-mirror-hall": {
    "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,target": 113,
@@ -60,11 +62,11 @@
    "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity,threadAtCast | shape kind,x,z,toX,toZ,width": 214
   },
   "skilled-conductor": {
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind": 21,
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,target": 785,
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r": 2194,
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r,dirX,dirZ,halfAngleCos": 1344,
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,toX,toZ,width": 1613,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind": 22,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,target": 901,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r": 1819,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r,dirX,dirZ,halfAngleCos": 1264,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,toX,toZ,width": 1414,
    "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity,sole | shape kind,x,z,r": 660
   },
   "novice-grand-silence": {
@@ -75,11 +77,11 @@
    "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity,sole | shape kind,x,z,r": 1350
   },
   "skilled-brann-conductor": {
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind": 23,
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,target": 787,
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r": 1169,
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r,dirX,dirZ,halfAngleCos": 576,
-   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,toX,toZ,width": 714,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind": 21,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,target": 645,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r": 1353,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,r,dirX,dirZ,halfAngleCos": 874,
+   "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity | shape kind,x,z,toX,toZ,width": 948,
    "id,owner,target,attackId,name,kind,shape,start,impact,perfectFrom,damage,pctMaxHp,effect,answers,severity,sole | shape kind,x,z,r": 660
   },
   "skilled-chrono-silence": {

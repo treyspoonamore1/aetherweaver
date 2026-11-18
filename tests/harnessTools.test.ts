@@ -514,12 +514,12 @@ describe('the Decree gate (tools/decrees.ts)', () => {
   }, 60_000);
 
   it('judges an Unpick the win leaves inside its lock on the fight, not as a missed re-thread', () => {
-    // Seed 8919 (1000 + 7919; 64352 until the Solo rework's tuning, docs/solos.md; 72271, then
-    // 16838, before W9's tuning rounds): an Unpick
+    // Seed 40595 (1000 + 5 × 7919; 8919 and 64352 before the Solo rework's two rounds,
+    // docs/solos.md; 72271, then 16838, before W9's tuning rounds): an Unpick
     // cuts and the Seamstress falls before its 1 s lock runs out, so no re-thread was possible.
     // It once read as a failure (Skilled's Unpicking 93% over 30 seeds, where every Unpick it
     // could judge was answered).
-    const f = decreeFight('the_seamstress', 8919, 'skilled');
+    const f = decreeFight('the_seamstress', 40595, 'skilled');
     expect(f.won).toBe(true);
     const open = f.unpicks!.filter((u) => u.open);
     expect(open.length).toBeGreaterThan(0);
@@ -557,9 +557,9 @@ describe('verb ablation (tools/verbs.ts)', () => {
   it('meets the mawHold rule on a Brann party with Swap, never on the default setup', () => {
     // mawHold fires only for a Bloodlusting Brann whom no plain Reel takes out of an Inhale:
     // with the default party and techniques every row read 'no change (not met here)'. Seed
-    // 96028 (1000 + 12 × 7919) meets it on the tuned waves (80190 did until the Solo rework,
-    // docs/solos.md: about one seed in ten meets it, before and since).
-    const seed = 96028;
+    // 8919 (1000 + 7919) meets it on the tuned waves (80190 did until the Solo rework, 96028
+    // after its first round, docs/solos.md: about one seed in ten meets it, before and since).
+    const seed = 8919;
     const holds = (setup: Parameters<typeof verbConfig>[3]) => {
       const sim = createSim(verbConfig('maw_hollow', seed, 3, setup));
       const bot = new SkilledBot(seed, { every: 4, attention: 1, callReaction: 0.4 });
@@ -781,11 +781,11 @@ describe('the Bands tool (tools/brann-bands.ts)', () => {
 
 describe('the Finale route (playRun --movements 4)', () => {
   /**
-   * Skilled seed 2000's Finale-route Expedition reaches the Silent Conductor. Which seed does is
-   * the pools' and the rules' business: it was 2003 from Phase 5g's pools until the Solo rework
-   * (docs/solos.md), since when 2003's dies in Movement III and 2000's plays the Conductor.
+   * Skilled seed 2002's Finale-route Expedition reaches the Silent Conductor. Which seed does is
+   * the pools' and the rules' business: it was 2003 from Phase 5g's pools, 2000 after the Solo
+   * rework's first round, and 2002 since its second (docs/solos.md): the lowest from 2000 up.
    */
-  const SEED = 2000;
+  const SEED = 2002;
 
   it('reaches the Conductor, its minutes in 4 Movements, well inside MAX_PHASES', () => {
     let phases = 0;
@@ -1104,12 +1104,12 @@ describe('the Finale verbs (FinaleWatch)', () => {
     expect(play([{ type: 'encounterEnded', tick: 60, outcome: 'defeat' }])).toBe(1);
   });
 
-  it('a real fight fails no Cue its soloist’s death or a phase shift cleared (Skilled, 1006)', () => {
+  it('a real fight fails no Cue its soloist’s death or a phase shift cleared (Skilled, 1000)', () => {
     let cue: number | null = null;
     let excused = 0;
     let unsung = 0;
     const run = playEncounter(
-      { seed: 1006, encounter: CONDUCTOR, ...kit4 },
+      { seed: 1000, encounter: CONDUCTOR, ...kit4 },
       'skilled',
       (sim, events) => {
         for (const e of events) {
@@ -1129,10 +1129,10 @@ describe('the Finale verbs (FinaleWatch)', () => {
         }
       },
     );
-    // Seed 1006's fight (a win) has two Cues cleared by a phase shift or their soloist's death.
+    // Seed 1000's fight (a win) has two Cues cleared by a phase shift or their soloist's death.
     // Neither counts as failed, and only the Cues that landed on a voice that couldn't sing do.
     // (Which seed's fight shows it moves with the fights: 1002 before the Finale was tuned, 1001
-    // after it, 1006 since the Solo rework's tuning, docs/solos.md.)
+    // after it, 1006 and then 1000 with the Solo rework's two rounds, docs/solos.md.)
     expect(run.outcome).toBe('victory');
     expect(excused).toBeGreaterThan(0);
     expect(unsung).toBeGreaterThan(0);

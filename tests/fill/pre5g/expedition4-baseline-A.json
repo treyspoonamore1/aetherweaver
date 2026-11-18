@@ -6,27 +6,35 @@
    "seed": 2000,
    "bot": "novice",
    "outcome": "defeat",
-   "lastEncounter": "bellwarden",
-   "fights": 3,
-   "minutes": 2.70699999999991,
+   "lastEncounter": "gorehound_matriarch",
+   "fights": 8,
+   "minutes": 12.011111111112317,
    "motifs": [
     "taut_release:1",
-    "twin_aegis:1"
+    "twin_aegis:1",
+    "da_capo:1",
+    "second_verse:1",
+    "warm_hum:1",
+    "deep_roots:1",
+    "long_weave:1"
    ],
    "relics": [
-    "wardens_key"
+    "wardens_key",
+    "martyrs_veil",
+    "cantors_hymnal"
    ],
    "path": [],
-   "aetherEarned": 52,
-   "aetherLeft": 52,
+   "aetherEarned": 235,
+   "aetherLeft": 235,
    "bondXp": {
-    "kael": 83,
-    "vexis": 55,
-    "brann": 60
+    "kael": 288,
+    "vexis": 221,
+    "brann": 218
    },
-   "movementReached": 1,
+   "movementReached": 2,
    "minutesByMovement": [
-    2.70699999999991
+    6.784194444445601,
+    5.226916666666718
    ],
    "harmony": {
     "silkOffered": 0,
@@ -179,7 +187,7 @@
    "outcome": "victory",
    "lastEncounter": "the_silent_conductor",
    "fights": 15,
-   "minutes": 29.852555555557867,
+   "minutes": 28.961513888891428,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1",
@@ -212,19 +220,19 @@
     "prism_loom"
    ],
    "path": [],
-   "aetherEarned": 829,
-   "aetherLeft": 209,
+   "aetherEarned": 812,
+   "aetherLeft": 192,
    "bondXp": {
-    "kael": 570,
-    "vexis": 709,
-    "brann": 471
+    "kael": 557,
+    "vexis": 727,
+    "brann": 465
    },
    "movementReached": 4,
    "minutesByMovement": [
-    6.202305555556389,
-    9.960777777777924,
-    9.957347222222397,
-    3.7321250000011603
+    6.176305555556362,
+    9.391972222222638,
+    9.651888888889038,
+    3.7413472222233892
    ],
    "harmony": {
     "silkOffered": 0,

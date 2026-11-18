@@ -8,7 +8,7 @@
    "outcome": "defeat",
    "lastEncounter": "hollow_cantor",
    "fights": 4,
-   "minutes": 5.142680555555578,
+   "minutes": 6.126458333334143,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1",
@@ -19,16 +19,16 @@
     "martyrs_veil"
    ],
    "path": [],
-   "aetherEarned": 114,
-   "aetherLeft": 114,
+   "aetherEarned": 106,
+   "aetherLeft": 106,
    "bondXp": {
-    "kael": 164,
+    "kael": 160,
     "lyra": 111,
-    "seren": 88
+    "seren": 92
    },
    "movementReached": 1,
    "minutesByMovement": [
-    5.142680555555578
+    6.126458333334143
    ]
   },
   {
@@ -148,22 +148,24 @@
   {
    "seed": 2000,
    "bot": "skilled",
-   "outcome": "defeat",
-   "lastEncounter": "frayed_threshold",
-   "fights": 10,
-   "minutes": 14.317375000001935,
+   "outcome": "victory",
+   "lastEncounter": "the_silent_conductor",
+   "fights": 15,
+   "minutes": 24.567111111114617,
    "motifs": [
     "taut_release:1",
     "twin_aegis:1",
     "da_capo:1",
-    "second_verse:1",
+    "second_verse:2",
     "warm_hum:1",
     "deep_roots:1",
     "long_weave:1",
     "clear_tone:1",
-    "wind_at_her_back:1",
-    "deep_breath:1",
-    "quickened_verse:1"
+    "wind_at_her_back:2",
+    "deep_breath:3",
+    "quickened_verse:1",
+    "bulwarks_echo:1",
+    "canon:1"
    ],
    "relics": [
     "wardens_key",
@@ -173,21 +175,28 @@
     "choirmasters_baton",
     "hollow_bell",
     "lantern_of_the_lost",
-    "cracked_metronome"
+    "cracked_metronome",
+    "knotted_cord",
+    "sacrificial_lamb",
+    "spindle_of_fate",
+    "silver_thimble",
+    "featherweight_robes",
+    "prism_loom"
    ],
    "path": [],
-   "aetherEarned": 490,
-   "aetherLeft": 190,
+   "aetherEarned": 854,
+   "aetherLeft": 234,
    "bondXp": {
-    "kael": 312,
-    "lyra": 456,
-    "seren": 255
+    "kael": 531,
+    "lyra": 794,
+    "seren": 424
    },
-   "movementReached": 3,
+   "movementReached": 4,
    "minutesByMovement": [
-    5.769069444445184,
-    7.973736111112316,
-    0.5745694444444329
+    5.758791666667398,
+    7.764944444445453,
+    7.98240277777891,
+    3.060972222222852
    ]
   },
   {
