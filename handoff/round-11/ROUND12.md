@@ -57,3 +57,24 @@ Session https://claude.ai/code/session_01Ufyqn2mkV4tgoiGTmeGECM, 18 November 202
   bullet about the primer's "Cue their Solos" row: the word is kept on purpose).
 - Next: land (ff main to the join), build and check the demo, publish Version 21, docs/demo.md
   notes, tell the owner; then the third menu pass.
+
+## Landed (about 02:10 UTC, 19 November)
+
+- **Solos on main**: `8f17fe2` (fast-forward from the join), verify-land clean and the whole e2e
+  suite passing on it (73 passed, 4 skipped, in two parts because of a restart).
+- **Demo Version 21** published (`1795051959-f590`, built from `8f17fe2`); notes on main `74820e1`.
+  The host now wraps the published page in a document shell of its own (V20 was not wrapped); the
+  demo checks pass on the wrapped page too and the screens look the same.
+- The owner was sent the Version 20 sheets and the Version 21 play-through sheets.
+
+## Running
+
+- Third menu pass, two agents from main `8f17fe2`:
+  `p12/menu3-ui` (`/home/user/aw-work/wt-menu3`; brief `aw-work/12/menu3/BRIEF-UI.md`: Result and
+  Summary as tiles, Prep's hero cards, em dashes, Codex Auras fold, profile.ts lines, Solo lines) and
+  `p12/menu3-content` (`/home/user/aw-work/wt-menu3c`; brief `aw-work/12/menu3/BRIEF-CONTENT.md`:
+  prove display text reaches no fight, take it out of `contentVersion` once, then reword the
+  content to the voice guide). Their notes: `/home/user/aw-work/12/menu3/{ui,content}/PROGRESS.md`.
+- When both hand back: review, merge one into the other (expect conflicts only in text pins and the
+  Codex hashes: re-dump and compare), verify-land and e2e on the merged commit, land, publish
+  Version 22 with notes (replays from Version 21 are refused once if the content hash changed).

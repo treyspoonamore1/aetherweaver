@@ -7,8 +7,9 @@ WebAudio, a deterministic 60 Hz sim in `src/sim`, views in `src/render`, UI in `
 Read `/home/user/aw-work/9/COMMON.md` and `/home/user/aw-work/11/COMMON.md` for the house rules.
 Everything there holds **except** what this file changes:
 
-- **Main is at `6c345ad`.** Since round 11's notes: both menu text passes, every mark over the
-  larger heroes (the pour's label included), and demo Version 20 are on main.
+- **Main is at `8f17fe2`.** Since round 11's notes: both menu text passes, every mark over the
+  larger heroes (the pour's label included), demo Version 20, and the Solo rework (heroes fire
+  their own Solos; the Thread is the Cue; `docs/solos.md`) are on main.
 - **The aura restriction is lifted** (`/home/user/aw-work/11/AURAS-UNLOCKED.md`). The release
   check's aura approval guard (`AURA_APPROVED`, `AURA_BASE`) is retired on main (`a762658`). The
   two aura pins (`tests/aura/presentationPin.json`, `chordCardsPin.json`) are **regression pins**:

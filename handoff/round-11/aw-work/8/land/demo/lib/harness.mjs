@@ -7,7 +7,7 @@ import { createRequire } from 'node:module';
 export const { chromium } = createRequire('/home/user/aetherweaver/package.json')('playwright');
 
 export const ROOT = process.env.DEMO_ROOT ?? '/home/user/aetherweaver/dist-demo';
-export const SHOTS = '/home/user/aw-work/8/land/demo/shots';
+export const SHOTS = process.env.DEMO_SHOTS ?? '/home/user/aw-work/8/land/demo/shots';
 export const PORT = 4440;
 export const ORIGIN = `http://localhost:${PORT}`;
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2' };
