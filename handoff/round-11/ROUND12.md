@@ -78,3 +78,21 @@ Session https://claude.ai/code/session_01Ufyqn2mkV4tgoiGTmeGECM, 18 November 202
 - When both hand back: review, merge one into the other (expect conflicts only in text pins and the
   Codex hashes: re-dump and compare), verify-land and e2e on the merged commit, land, publish
   Version 22 with notes (replays from Version 21 are refused once if the content hash changed).
+
+## Third menu pass, review (about 04:00 UTC, 19 November)
+
+- `p12/menu3-content` (words): `ad63214` takes the words no fight copies out of `contentVersion`
+  (`UNHASHED_TEXT`, 70 fields; names and decree lines stay hashed because the fight copies them
+  into its hashed state; guard test `tests/content/unhashedText.test.ts`). Rewording `da2a42e..af8ce2d`.
+  `088044b`: the content hash's second lane multiplied by an even number (0x5cd1eb28), so half the
+  version remembered only the last ~11 characters; now odd (0x5bd1e995). contentVersion is
+  `c-a31908032435488a` (moved once for players: Version 21 replays refused once in Version 22).
+  No other hash in the game has an even multiplier.
+- An independent check of all 141 reworded lines found 13 faults (Guard Strand's new line was false:
+  bolts and cuts share one clock; Retrograde, Chronomancer, Chorale misleading; 5 lost meaning;
+  4 style) plus 5 lines wrong before the pass (Feint, Last Rehearsal, Fermata once per hero, Vow
+  and Stasis time limits, Bloodlust). All sent back to the words agent to fix, then verify.
+- `DECREES.md` (names and decree lines, suggested rewrites, not applied): `aw-work/12/menu3/content/`.
+  Applying it needs the fight to keep ids instead of words (a later change).
+- `p12/menu3-ui` (screens) at `5035ce6`: verify-land clean; e2e queued. Sheets and counts in
+  `aw-work/12/menu3/ui/shots/`.
