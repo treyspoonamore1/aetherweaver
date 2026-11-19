@@ -259,7 +259,7 @@ export const ENEMIES: ContentInput['enemies'] = [
     specials: [],
     suppressRadius: 0,
     codex:
-      'Porcelain choristers emptied of their song. Alone they are nothing; in a crowd they wear the frontline down.',
+      'Porcelain choristers emptied of their song. Alone they are nothing. In a crowd they wear the frontline down.',
   },
   {
     id: 'bell_brute',
@@ -390,7 +390,7 @@ export const ENEMIES: ContentInput['enemies'] = [
     ],
     suppressRadius: 0,
     codex:
-      'The choir-master of the Sunlit Reliquary, singing the world quiet. Its Toll crushes the tank, its Silent Verse mutes your auras outside the hymn circles, and its Requiem must be answered.',
+      'The choir-master of the Sunlit Reliquary, singing the world quiet. Its Toll crushes the tank. Its Silent Verse mutes your auras outside the hymn circles. Its Requiem must be answered.',
   },
 ];
 
@@ -399,13 +399,13 @@ export const AFFIXES: ContentInput['affixes'] = [
     id: 'shielded',
     name: 'Shielded',
     description:
-      'A discord barrier worth 40% of its life. Empowered heroes shatter it; everyone else barely scratches it.',
+      'A discord barrier worth 40% of its life. Empowered heroes shatter it. Everyone else barely scratches it.',
     color: '#f472b6',
   },
   {
     id: 'volatile',
     name: 'Volatile',
-    description: 'Shatters three seconds after death, hitting everything within 5 m.',
+    description: 'Shatters 3 s after death, hitting everything within 5 m.',
     color: '#fb923c',
   },
   {

@@ -599,7 +599,7 @@ export const CRUCIBLE_ENEMIES: ContentInput['enemies'] = [
     preferredRange: BODIES.mirror_alto.keep,
     specials: [LAMENT],
     suppressRadius: 0,
-    codex: `A glass chorister singing Lyra’s line back, inverted. Cued, its Lament marks a hero for ${SOLO_WINDUP} s, then takes ${pct(LAMENT_PCT * VOICE_PCT_MULT)}% of their life. Chime the mark away (in its last second, a Clutch), Ward it, or interrupt the Alto.`,
+    codex: `A glass chorister singing Lyra’s line back, inverted. Cued, its Lament marks a hero for ${SOLO_WINDUP} s, then takes ${pct(LAMENT_PCT * VOICE_PCT_MULT)}% of their life. Chime the mark away, Ward it, or interrupt the Alto. A Chime in its last second is a Clutch.`,
     material: 'glass',
     movement: FINALE_MOVEMENT,
   },
@@ -672,7 +672,7 @@ export const CRUCIBLE_ENEMIES: ContentInput['enemies'] = [
     ],
     suppressRadius: 0,
     codex:
-      'The first Weaver. It held the song longer than anyone, and believes the world has earned its rest. Its baton Cues a mirror-choir that sings your heroes’ Solos back at you; every blow you leave unanswered feeds its Discord, and at the last it stops the music.',
+      'The first Weaver. It held the song longer than anyone, and believes the world has earned its rest. Its baton Cues a mirror-choir that sings your heroes’ Solos back at you. Every blow you leave unanswered feeds its Discord. At the last it stops the music.',
     material: 'glass',
     movement: FINALE_MOVEMENT,
   },
