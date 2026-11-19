@@ -27,7 +27,7 @@ export const TALENTS: ContentInput['talents'] = [
     tier: 1,
     name: 'Steady Vanguard',
     values: {},
-    text: 'Glory Hound waits for your Focus: when a new pack arrives, Kael charges only if you’ve set a Focus, and charges that enemy.',
+    text: 'When a new pack arrives, Kael charges only if you’ve set a Focus, and charges that enemy.',
   },
   {
     id: 'vanguards_roar',
@@ -43,7 +43,7 @@ export const TALENTS: ContentInput['talents'] = [
     tier: 2,
     name: 'Riposte Bash',
     values: { range: 6, pct: 50, seconds: 6 },
-    text: 'When a Ward on Kael takes a blow, he answers with Shield Bash at the attacker, if it’s within {range} m, whatever its cooldown (once every {seconds} s). A Perfect Ward does every time, and sends back {pct}% of the blow.',
+    text: 'When a Ward on Kael takes a blow, he Shield Bashes an attacker within {range} m, whatever its cooldown, once every {seconds} s. A Perfect Ward sets it off every time and sends back {pct}% of the blow.',
   },
   {
     id: 'bulwark_of_faith',
@@ -84,7 +84,7 @@ export const TALENTS: ContentInput['talents'] = [
     tier: 1,
     name: 'Hawk Eye',
     values: { range: 2, resonance: 1 },
-    text: 'Lyra shoots from {range} m farther, and her Empowered crits give you {resonance} Resonance.',
+    text: 'Lyra shoots from {range} m farther. Her Empowered crits give you {resonance} Resonance.',
   },
   {
     id: 'ricochet',
@@ -108,7 +108,7 @@ export const TALENTS: ContentInput['talents'] = [
     tier: 3,
     name: 'Storm Queen',
     values: { pct: 50 },
-    text: 'During Gale Barrage, the hero you Thread (if it isn’t Lyra) looses an arrow with each of hers, at {pct}% damage.',
+    text: 'During Gale Barrage, any other hero you Thread looses an arrow with each of hers, at {pct}% damage.',
   },
   {
     id: 'last_light',
@@ -125,7 +125,7 @@ export const TALENTS: ContentInput['talents'] = [
     tier: 1,
     name: 'Arcane Ward',
     values: { metres: 6, seconds: 12 },
-    text: 'When an enemy strikes Vexis up close, she blinks {metres} m away from it (once every {seconds} s).',
+    text: 'When an enemy strikes Vexis up close, she blinks {metres} m away from it, once every {seconds} s.',
   },
   {
     id: 'overchannel',
@@ -141,7 +141,7 @@ export const TALENTS: ContentInput['talents'] = [
     tier: 2,
     name: 'Starthread',
     values: { pct: 15 },
-    text: 'Starbolt also strikes the enemy nearest the hero you Thread (if it isn’t Vexis), at {pct}% damage.',
+    text: 'Starbolt also strikes the enemy nearest any other hero you Thread, at {pct}% damage.',
   },
   {
     id: 'event_horizon',
@@ -190,7 +190,7 @@ export const TALENTS: ContentInput['talents'] = [
     tier: 2,
     name: 'Blood Oath',
     values: { cap: 25 },
-    text: 'Your healing on Brann is no longer halved, and what overheals him, up to {cap}% of his life, rides on his next swing.',
+    text: 'Your healing on Brann is no longer halved. What overheals him, up to {cap}% of his life, rides on his next swing.',
   },
   {
     id: 'scar_tissue',
@@ -247,7 +247,7 @@ export const TALENTS: ContentInput['talents'] = [
     tier: 2,
     name: 'Unflinching',
     values: { seconds: 1.5 },
-    text: 'While Warded, Seren can’t be staggered, and your Wards on her last {seconds} s longer.',
+    text: 'While Warded, Seren can’t be staggered. Your Wards on her last {seconds} s longer.',
   },
   {
     id: 'thousandfold',
@@ -323,7 +323,7 @@ export const ALT_SOLOS: ContentInput['altSolos'] = [
     name: 'Oathkeeper',
     chargeTime: 25,
     values: { seconds: 6, radius: 9, pct: 40, cuedRadius: 12, cuedPct: 25, guard: 30 },
-    text: 'For {seconds} s, hits on you and on the heroes within {radius} m of Kael land on him instead, at {pct}%, and he takes {guard}% less of everything. Keep him standing.',
+    text: 'For {seconds} s, hits on you and on the heroes within {radius} m of Kael land on him instead, at {pct}%. He takes {guard}% less of everything. Keep him standing.',
     cuedText: 'Cued: within {cuedRadius} m, and he takes {cuedPct}%.',
   },
   {

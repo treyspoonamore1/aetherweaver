@@ -863,6 +863,8 @@ describe('Brann’s and the default party’s UI are byte-equal to before', () =
   // line ("Wards and barriers over heals"), his Bloodlust ("… for a Rally. He holds his ground."),
   // and the Solo tooltips "Lyra looses 12 arrows a second for 3 s." and "For 3 s, meteors fall
   // on nearby enemies.".
+  // And for 1 key (`frames:brann-oath`) when the Bonds' lines were reworded: Blood Oath's
+  // tooltip reads "…no longer halved. What overheals him, …", and nothing else moved.
   it('every pinned text and frame hashes as recorded at W3’s head', async () => {
     const want = JSON.parse(
       readFileSync(join(__dirname, 'uiPhase5e.brann.json'), 'utf8'),
