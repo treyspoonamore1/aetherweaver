@@ -22,7 +22,7 @@ export const INSCRIPTIONS: ContentInput['inscriptions'] = [
       [3, 3.5],
     ],
     step: 0.5,
-    text: '+{v}% Thread potency (Mend and Empower)',
+    text: 'Mend and Empower +{v}%',
   },
   {
     id: 'deep_mend',
@@ -326,7 +326,7 @@ export const INSCRIPTIONS: ContentInput['inscriptions'] = [
       { effect: 'thread', value: 5 },
       { effect: 'thread_range', value: 0.5 },
     ],
-    text: 'Thread potency +{a}%, and the Thread reaches {b} m farther',
+    text: 'Mend and Empower +{a}%, and the Thread reaches {b} m farther',
   },
   {
     id: 'choral_swell',
@@ -395,7 +395,7 @@ export const CURSES: ContentInput['curses'] = [
     id: 'dull_thread',
     name: 'Dull Thread',
     effects: [{ effect: 'thread', value: -3 }],
-    text: 'Thread potency −{a}%',
+    text: 'Mend and Empower −{a}%',
   },
 ];
 
