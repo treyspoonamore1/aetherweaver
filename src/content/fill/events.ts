@@ -46,7 +46,7 @@ export const FILL_EVENTS: ContentInput['events'] = [
       {
         id: 'hear',
         label: 'Hear them out',
-        text: `Every hero heals ${pct(DOUBT.heal)}% of their life, and your heroes deal ${STEADIED.pct}% more damage for the next ${STEADIED.fights} fights.`,
+        text: `Every hero heals ${pct(DOUBT.heal)}% of their life. Your heroes deal ${STEADIED.pct}% more damage for the next ${STEADIED.fights} fights.`,
         effects: [
           { kind: 'heal', pct: DOUBT.heal },
           { kind: 'boon', boon: 'steadied' },
@@ -122,7 +122,7 @@ export const FILL_EVENTS: ContentInput['events'] = [
       {
         id: 'ring',
         label: 'Ring it yourself',
-        text: `A gamble. ${pct(BELL.chance)}%: gain a legendary relic. Otherwise every hero loses ${pct(BELL.hurt)}% of their life.`,
+        text: `${pct(BELL.chance)}%: gain a legendary relic. Otherwise every hero loses ${pct(BELL.hurt)}% of their life.`,
         chance: BELL.chance,
         effects: [{ kind: 'relic', rarity: 'legendary' }],
         outcome: 'The bell rings true, and something falls from its mouth into your hands.',
@@ -141,7 +141,7 @@ export const FILL_EVENTS: ContentInput['events'] = [
   {
     id: 'lost_weavers_echo',
     name: 'Lost Weaver’s Echo',
-    text: 'In a cracked mirror a Weaver lifts a Thread the moment you do. It isn’t your reflection; it’s later than you.',
+    text: 'In a cracked mirror a Weaver lifts a Thread the moment you do. It isn’t your reflection. It’s later than you.',
     teaser: 'A Weaver in the mirror, a moment later than you.',
     icon: 'spindle',
     movement: 3,

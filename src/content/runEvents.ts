@@ -48,7 +48,7 @@ export const RUN_EVENTS: ContentInput['events'] = [
       {
         id: 'offer',
         label: 'Offer a motif',
-        text: '60%: it gains 2 levels. 40%: it shatters, and is lost.',
+        text: '60%: it gains 2 levels. 40%: it shatters and is lost.',
         motif: 'upgradable',
         chance: 0.6,
         effects: [{ kind: 'motifLevels', levels: 2 }],
