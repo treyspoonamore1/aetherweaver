@@ -107,7 +107,7 @@ export const ECHOES: ContentInput['echoes'] = [
     id: 'choir_of_blood',
     name: 'Choir of Blood',
     constellation: 'borrowed_crowns',
-    text: 'The Reliquary Road at the Crimson Ascent’s strength, and the Gorehound Matriarch and Vharun wait at its end.',
+    text: 'The Reliquary Road at the Crimson Ascent’s strength. The Gorehound Matriarch and Vharun wait at its end.',
     legs: [{ movement: 'hollow_choir', miniboss: 'gorehound_matriarch', boss: 'vharun', scale: 2 }],
     twists: {},
   },
@@ -115,7 +115,7 @@ export const ECHOES: ContentInput['echoes'] = [
     id: 'bells_in_the_rift',
     name: 'Bells in the Rift',
     constellation: 'borrowed_crowns',
-    text: 'The Unravelling Descent, but the Bellwarden and the Hollow Cantor wait at its end, grown to its strength.',
+    text: 'The Unravelling Descent. The Bellwarden and the Hollow Cantor wait at its end, grown to its strength.',
     legs: [
       {
         movement: 'unstitched',
@@ -135,7 +135,7 @@ export const ECHOES: ContentInput['echoes'] = [
     id: 'seamstress_court',
     name: 'The Seamstress’s Court',
     constellation: 'borrowed_crowns',
-    text: 'The Crimson Ascent at the Unravelling Descent’s strength, with no Respite, and the Seamstress and the Unweaver wait at its end.',
+    text: 'The Crimson Ascent at the Unravelling Descent’s strength, with no Respite. The Seamstress and the Unweaver wait at its end.',
     legs: [
       {
         movement: 'crimson_legion',
@@ -165,7 +165,7 @@ export const ECHOES: ContentInput['echoes'] = [
     id: 'retrograde',
     name: 'Retrograde',
     constellation: 'strange_roads',
-    text: 'The Expedition backwards, with no Respite: the Unravelling Descent and then the Crimson Ascent at the Ascent’s strength, then the Reliquary Road at the Descent’s, ending at the Hollow Cantor.',
+    text: 'The Expedition backwards, with no Respite. The Unravelling Descent, then the Crimson Ascent at the Ascent’s strength, then the Reliquary Road at the Descent’s. It ends at the Hollow Cantor.',
     legs: [
       {
         movement: 'unstitched',
@@ -198,7 +198,7 @@ export const ECHOES: ContentInput['echoes'] = [
     id: 'last_rehearsal',
     name: 'The Last Rehearsal',
     constellation: 'strange_roads',
-    text: 'Nothing but bosses: the Hollow Cantor and Vharun grown to the Unravelling Descent’s strength, then the Unweaver and the Silent Conductor, with a Respite and a Merchant after each.',
+    text: 'Only bosses: the Hollow Cantor and Vharun grown to the Unravelling Descent’s strength, then the Unweaver and the Silent Conductor. A Respite and a Merchant follow each.',
     legs: [
       {
         movement: 'hollow_choir',
@@ -262,7 +262,7 @@ export const ECHOES: ContentInput['echoes'] = [
     id: 'a_cappella',
     name: 'A Cappella',
     constellation: 'hard_bargains',
-    text: 'The Reliquary Road and the Crimson Ascent, ending at Vharun, with no Calling, no Astrolabe and no carried relics. Your Chords and techniques are your own.',
+    text: 'The Reliquary Road and the Crimson Ascent, ending at Vharun. No Calling, no Astrolabe and no carried relics. Your Chords and techniques are your own.',
     legs: [REHEARSED_CHOIR, SHORT_ASCENT],
     twists: { noCalling: true, noTree: true, noCarry: true },
   },

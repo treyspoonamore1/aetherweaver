@@ -90,7 +90,7 @@ export const DISSONANCE: ContentInput['dissonance'] = [
     ranks: 1,
     points: 5,
     values: { pct: 30 },
-    text: 'Enemies rise once at {pct}% of their life (not bosses or mini-bosses).',
+    text: 'Enemies other than bosses and mini-bosses rise once at {pct}% of their life.',
   },
   {
     id: 'unforgiving',
@@ -99,7 +99,7 @@ export const DISSONANCE: ContentInput['dissonance'] = [
     ranks: 1,
     points: 1,
     values: {},
-    text: 'Respites no longer heal.',
+    text: 'Respites don’t heal.',
   },
   {
     id: 'blind_score',
@@ -138,7 +138,7 @@ export const DISSONANCE: ContentInput['dissonance'] = [
     points: 3,
     values: { perWave: 1 },
     // One enemy of each wave that has one besides its boss or mini-boss (director.ts, `mimicry`).
-    text: 'In each wave, {perWave} enemy that isn’t a boss or a mini-boss carries Mimicking: it copies your Empower, Ward or Chime.',
+    text: 'In each wave, {perWave} enemy that isn’t a boss or a mini-boss carries Mimicking. It copies your Empower, Ward or Chime.',
   },
   {
     id: 'true_dissonance',

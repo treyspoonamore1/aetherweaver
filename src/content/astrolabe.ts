@@ -74,7 +74,7 @@ const NODES: Node[] = [
     y: 8.16,
     effect: 'overflowing_grace',
     values: { cap: 20, seconds: 4, ward: 40 },
-    text: 'Mend’s overheal becomes a shield on the hero, up to {cap}% of their life, lasting {seconds} s. Your Ward’s barrier is {ward}% smaller',
+    text: 'Mend’s overheal becomes a barrier on the hero, up to {cap}% of their life, for {seconds} s. Your Ward’s barrier is {ward}% smaller',
   },
   travel('silk_b1', 'silk', 0.71, 4.04, 'Gilding', 'empower', { pct: 1 }, 'Empower +{pct}%'),
   travel('silk_b2', 'silk', 1.46, 4.78, 'Gilding', 'empower', { pct: 1 }, 'Empower +{pct}%'),
@@ -89,8 +89,8 @@ const NODES: Node[] = [
     values: { seconds: 2 },
     text: 'Empower lingers on a hero for {seconds} s after you thread another',
   },
-  travel('silk_b3', 'silk', 2.74, 6.44, 'Blood', 'life', { pct: 1.5 }, '+{pct}% Life'),
-  travel('silk_b4', 'silk', 3.21, 7.22, 'Blood', 'life', { pct: 1.5 }, '+{pct}% Life'),
+  travel('silk_b3', 'silk', 2.74, 6.44, 'Blood', 'life', { pct: 1.5 }, 'Life +{pct}%'),
+  travel('silk_b4', 'silk', 3.21, 7.22, 'Blood', 'life', { pct: 1.5 }, 'Life +{pct}%'),
   {
     id: 'sanguine_font',
     name: 'Sanguine Font',
@@ -239,7 +239,7 @@ const NODES: Node[] = [
     y: -3.8,
     effect: 'unbroken_chorus',
     values: { pct: 5, thread: 20 },
-    text: 'Mutes can’t crack your fields or silence you (the Silent Verse still can). Every aura beyond the second makes all of them {pct}% stronger. The Thread is {thread}% weaker',
+    text: 'Mutes can’t crack your fields or silence you, but the Silent Verse still can. Every aura beyond the second makes all of them {pct}% stronger. The Thread is {thread}% weaker',
   },
 
   // ── Aegis: the techniques (west) ────────────────────────────────────────────────────
@@ -360,7 +360,7 @@ const NODES: Node[] = [
     y: 3.8,
     effect: 'eldritch_conduit',
     values: { reserve: 30 },
-    text: 'Your techniques cost Life instead of Spirit (the same amounts). Your songs reserve {reserve}% less',
+    text: 'Your techniques cost Life instead of Spirit, the same amounts. Your songs reserve {reserve}% less',
   },
 
   // ── Bond: the heroes (south) ────────────────────────────────────────────────────────
