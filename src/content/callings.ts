@@ -10,8 +10,8 @@ export const CALLINGS: ContentInput['callings'] = [
     id: 'luminary',
     name: 'Luminary',
     title: 'the aura sovereign',
-    summary: 'Heroes in your field shine: every aura they hear makes their hits brighter.',
-    text: 'Radiance: heroes standing in your field shine, dealing {radiance}% more damage for every aura they hear. Your field song reaches {reach}% farther.',
+    summary: 'Heroes in your field hit harder for every aura they hear.',
+    text: 'Radiance: heroes in your field deal {radiance}% more damage for every aura they hear. Your field song reaches {reach}% farther.',
     crescendo: 'Sunrise burns brighter: Radiance is ×{sunrise} while it lasts.',
     flavor: 'Stand where the light is. Bring them into it.',
     values: { radiance: 4, reach: 15, sunrise: 3 },
@@ -66,7 +66,7 @@ export const CALLINGS: ContentInput['callings'] = [
           {
             id: 'lantern_bearer',
             name: 'Lantern Bearer',
-            text: 'A planted field (Pedal Point) sings {pct}% stronger.',
+            text: 'A field planted with Pedal Point sings {pct}% stronger.',
             values: { pct: 30 },
             icon: 'stake',
           },
@@ -84,7 +84,7 @@ export const CALLINGS: ContentInput['callings'] = [
           {
             id: 'eclipse',
             name: 'Eclipse',
-            text: 'During Sunrise, enemies in your field take {pct}% more damage from your heroes, and Sunrise reaches ×{reach} instead of ×1.5.',
+            text: 'During Sunrise, enemies in your field take {pct}% more damage from your heroes. Sunrise reaches ×{reach} instead of ×1.5.',
             values: { pct: 15, reach: 2 },
             icon: 'eclipse',
           },
@@ -96,10 +96,10 @@ export const CALLINGS: ContentInput['callings'] = [
     id: 'martyr',
     name: 'Martyr',
     title: 'the one who bleeds for them',
-    summary: 'You take their wounds: Bear a hero’s damage, and sing with your own Life.',
-    text: 'Your Life is {life}% greater, and your songs reserve Life instead of Spirit. Bear (B): you take {bear}% of what your threaded hero would lose, softened by {cut}%, and never more than leaves you at 1 life.',
+    summary: 'Bear a hero’s damage, and sing with your own Life.',
+    text: 'Your Life is {life}% greater. Your songs reserve Life instead of Spirit. Press B to Bear: you take {bear}% of what your threaded hero would lose, softened by {cut}%. Bearing never takes you below 1 life.',
     crescendo:
-      'Martyr’s Vow replaces Sunrise: for {vow} s heroes can’t drop below 1 life. Damage past that comes to you at −{redirect}%, and your healing received is ×{healing}.',
+      'Martyr’s Vow replaces Sunrise: for {vow} s heroes can’t drop below 1 life. Damage past that comes to you at −{redirect}%. Healing on you is ×{healing}.',
     crescendoName: 'Martyr’s Vow',
     flavor: 'Let it come to me.',
     values: { life: 100, bear: 35, cut: 50, vow: 5, redirect: 70, healing: 2 },
@@ -130,7 +130,7 @@ export const CALLINGS: ContentInput['callings'] = [
           {
             id: 'blood_font',
             name: 'Blood Font',
-            text: 'While you’re below {below}% of your Life, the Life your songs reserve regenerates you: {pct}% of it per second.',
+            text: 'While you’re below {below}% of your Life, you regain {pct}% of the Life your songs reserve each second.',
             values: { pct: 2, below: 50 },
             icon: 'font',
           },
@@ -148,7 +148,7 @@ export const CALLINGS: ContentInput['callings'] = [
           {
             id: 'undying_devotion',
             name: 'Undying Devotion',
-            text: 'Once a fight, a hit that would down you instead leaves you at 1 life, untouchable for {seconds} s, and Mends every hero for {pct}% of their life.',
+            text: 'Once a fight, a hit that would down you leaves you at 1 life instead. You are untouchable for {seconds} s, and every hero is Mended for {pct}% of their life.',
             values: { seconds: 3, pct: 30 },
             icon: 'undying',
           },
@@ -166,7 +166,7 @@ export const CALLINGS: ContentInput['callings'] = [
           {
             id: 'martyrs_aegis',
             name: 'Martyr’s Aegis',
-            text: 'Your Wards are {pct}% stronger, and each one shields you too.',
+            text: 'Your Wards are {pct}% stronger. Each one shields you too.',
             values: { pct: 50 },
             icon: 'aegis',
           },
@@ -185,10 +185,10 @@ export const CALLINGS: ContentInput['callings'] = [
     id: 'chronomancer',
     name: 'Chronomancer',
     title: 'the one who was ready',
-    summary: 'You bend time: Rewind a hero’s last seconds, and stop the fight in Stasis.',
-    text: 'Perfect Wards are {perfect} s more forgiving, and every telegraph shows its timer. Rewind replaces Reel: your threaded hero’s life and place return to {rewind} s ago, never to less life than now ({cooldown} s cooldown). Once a run, it stands back up a hero who went down in that time.',
+    summary: 'Rewind a hero’s last seconds, and stop the fight in Stasis.',
+    text: 'Perfect Wards are {perfect} s more forgiving. Every telegraph shows its timer. Rewind replaces Reel: your threaded hero’s life and place return to {rewind} s ago, with no less life than now. Its cooldown is {cooldown} s. Once a run, it stands up a hero who went down in that time.',
     crescendo:
-      'Stasis replaces Sunrise: for {stasis} s every enemy and its attacks stand still, and your techniques have no cooldowns and cost {cost}% less Spirit.',
+      'Stasis replaces Sunrise: for {stasis} s every enemy and its attacks stand still. Your techniques have no cooldowns and cost {cost}% less Spirit.',
     crescendoName: 'Stasis',
     flavor: 'Again. I was ready this time.',
     values: { perfect: 0.1, rewind: 3, cooldown: 18, stasis: 3, cost: 50 },
@@ -261,7 +261,7 @@ export const CALLINGS: ContentInput['callings'] = [
           {
             id: 'eternal_moment',
             name: 'Eternal Moment',
-            text: 'Stasis lasts {seconds} s longer, and a Ward cast during it that turns out Perfect gives {resonance} Resonance.',
+            text: 'Stasis lasts {seconds} s longer. A Perfect Ward cast during it gives {resonance} Resonance.',
             values: { seconds: 2, resonance: 10 },
             icon: 'eternal',
           },
@@ -274,7 +274,7 @@ export const CALLINGS: ContentInput['callings'] = [
     id: 'conductor',
     name: 'Conductor',
     title: 'the one who makes them great',
-    summary: 'You lead the heroes: Solos chained into Duets and Trios, and a Grand Finale.',
+    summary: 'Chain Solos into Duets and Trios. Your Crescendo is a Grand Finale.',
     text: 'You gain {gain}% more Resonance. A Solo Cued within {chain} s of the last is a Duet, {duet}% stronger. A third is a Trio, {trio}% stronger.',
     crescendo:
       'Grand Finale replaces Sunrise: every hero plays their Solo in turn, Cued, each {ramp}% stronger than the last. Then every Solo is full again.',
@@ -352,7 +352,7 @@ export const CALLINGS: ContentInput['callings'] = [
           {
             id: 'maestro',
             name: 'Maestro',
-            text: 'Grand Finale needs only {cost} Resonance, and it plays every hero’s turn twice, still rising.',
+            text: 'Grand Finale costs only {cost} Resonance. It plays every hero’s turn twice, still rising.',
             // loops: passes of the Finale's queue.
             values: { cost: 150, loops: 2 },
             icon: 'maestro',

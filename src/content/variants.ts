@@ -12,14 +12,14 @@ export const TECHNIQUE_VARIANTS: ContentInput['techniqueVariants'] = [
     name: 'Chorale',
     cost: 25,
     values: { radius: 6, pct: 17, flat: 70, seconds: 3 },
-    text: 'A burst around the hero you Ward: every hero within {radius} m gets a barrier of {pct}% of their life + {flat}, for {seconds} s. The one you Ward is Perfect as a Ward is. It costs more Spirit.',
+    text: 'Every hero within {radius} m of the hero you Ward gets a barrier of {pct}% of their life + {flat} for {seconds} s. It can be Perfect, as a Ward can. It costs more Spirit.',
   },
   {
     id: 'aegis_link',
     slot: 'ward',
     name: 'Aegis Link',
     values: { seconds: 5, pct: 33 },
-    text: 'Link the hero you Ward with the hero you Thread (or the one nearest them) for {seconds} s: what hits either is {pct}% lighter, and split evenly between them. Perfect when the first hit lands on either in time: it’s negated, and you join the link, three ways.',
+    text: 'Link the hero you Ward with the hero you Thread, or the one nearest them, for {seconds} s. What hits either is {pct}% lighter and split evenly between them. When it is Perfect, the first hit on either is negated and you join the link, three ways.',
   },
   // ── Chime (E) ─────────────────────────────────────────────────────────────────────────
   {
@@ -35,7 +35,7 @@ export const TECHNIQUE_VARIANTS: ContentInput['techniqueVariants'] = [
     name: 'Absolve',
     cooldown: 14,
     values: { heal: 25, seconds: 2, pct: 25 },
-    text: 'The Chime heals {heal}% of their life and leaves {seconds} s of {pct}% less damage taken. A longer cooldown.',
+    text: 'The Chime heals {heal}% of their life and leaves {seconds} s of {pct}% less damage taken. It has a longer cooldown.',
   },
   // ── Reel (F) ──────────────────────────────────────────────────────────────────────────
   {
@@ -58,7 +58,7 @@ export const TECHNIQUE_VARIANTS: ContentInput['techniqueVariants'] = [
     slot: 'glide',
     name: 'Phase Step',
     values: { metres: 8, seconds: 2 },
-    text: 'Blink {metres} m at once. Enemies hunting you lose you for {seconds} s and turn on the nearest hero; a decoy of you lingers where you were.',
+    text: 'Blink {metres} m at once. Enemies hunting you lose you for {seconds} s and turn on the nearest hero. A decoy of you lingers where you were.',
   },
   {
     id: 'skate',
