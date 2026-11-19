@@ -177,7 +177,7 @@ describe('Oro’s Saplings: one list of names', () => {
     expect(RENDER_NAMES).toBe(SAPLING_NAMES);
     const lines = heroDef('oro').barks.saplingFelled!;
     // The two he had keep their words; the third (Seedling Swarm's) is mourned by its own name.
-    expect(lines).toEqual(['No — not Moss!', 'No — not Fern!', 'No — not Sorrel!']);
+    expect(lines).toEqual(['No! Not Moss!', 'No! Not Fern!', 'No! Not Sorrel!']);
     const swarm = CONTENT.talents.find((t) => t.id === 'seedling_swarm');
     const most = Math.max(heroDef('oro').summons!.sapling.count, swarm!.values.count!);
     expect(lines.length).toBeGreaterThanOrEqual(most);

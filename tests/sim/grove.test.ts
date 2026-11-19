@@ -798,7 +798,7 @@ describe('review fixes (docs/phase-5e.md)', () => {
     expect(grove.respawnAt[0]).toBeGreaterThan(0);
   });
 
-  it('“No — not Moss!” on its own 8 s clock: another bark just now never swallows it', () => {
+  it('“No! Not Moss!” on its own 8 s clock: another bark just now never swallows it', () => {
     const swarm = grove({ bonds: { talents: ['seedling_swarm'], solos: [] } });
     const { sim, w, oro } = swarm;
     freeze(w, [0, 1]);

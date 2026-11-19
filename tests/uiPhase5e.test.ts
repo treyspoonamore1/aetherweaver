@@ -776,8 +776,12 @@ describe('review fixes: the Mirror Choir decree, and Brann’s Codex entry', () 
     // Re-recorded at the join of the Solo rework with that pass, compared with both parents: the
     // page is main's folds around the rework's words (Lyra's two lines, Brann's Cued line and his
     // needs line), and nothing else differs from either.
+    // Re-recorded in round 12's content words pass, compared line by line with the page before:
+    // 17 lines differ, each a content line reworded to the voice guide (four Codex entries, three
+    // abilities, four flourishes and two Solos, with numbers as the game states them, three
+    // quirks, Brann's needs line), and nothing else.
     expect(createHash('sha256').update(stripped).digest('hex')).toBe(
-      '92afebccdd2ba53a2f872cfbc201910b2e4a11d7a517b6a43c2364bb73e2981c',
+      '84b095eef2d90f8af02ea2b4be59ae0549584cadf8a4c489975335d1491eba20',
     );
   });
 });
@@ -852,6 +856,13 @@ describe('Brann’s and the default party’s UI are byte-equal to before', () =
   // from the menu branch are the Solo rework's own, as told above (the Solo ring and its count,
   // the Cue key cap gone, Brann's and Lyra's reworded Solo lines, the coach's Solo and dome
   // lessons).
+  //
+  // Re-recorded in round 12's content words pass, for 19 keys (`needs`, `fresh`, the 11
+  // `frames:brann-*` and the 6 other `frames:*` with Lyra or Vexis in the party), compared piece
+  // by piece with the tree before: four reworded content lines and nothing else. Brann's needs
+  // line ("Wards and barriers over heals"), his Bloodlust ("… for a Rally. He holds his ground."),
+  // and the Solo tooltips "Lyra looses 12 arrows a second for 3 s." and "For 3 s, meteors fall
+  // on nearby enemies.".
   it('every pinned text and frame hashes as recorded at W3’s head', async () => {
     const want = JSON.parse(
       readFileSync(join(__dirname, 'uiPhase5e.brann.json'), 'utf8'),

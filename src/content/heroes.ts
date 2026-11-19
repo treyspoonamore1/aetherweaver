@@ -29,7 +29,7 @@ export const HEROES: ContentInput['heroes'] = [
       {
         id: 'shieldBash',
         name: 'Shield Bash',
-        description: 'Stuns his target for a moment and interrupts its cast.',
+        description: 'Stuns his target for 1.2 s and interrupts its cast.',
         cooldown: 8,
         castTime: 0,
         damage: 100,
@@ -54,15 +54,15 @@ export const HEROES: ContentInput['heroes'] = [
       answer: 'ward',
       answerTime: 2.5,
       lines: [
-        'Weaver — shield me, I’m pulling them!',
+        'Weaver, shield me! I’m pulling them!',
         'Ward me and I’ll take them all!',
-        'Cover me — I’ll draw them in!',
+        'Cover me! I’ll draw them in!',
       ],
       thanks: ['Now they’re mine!', 'Ha! Come and try!', 'Bulwark!'],
       flourish: {
         name: 'Bulwark',
         description:
-          'Ward Kael while he calls: his Challenge reaches half again as far, holds them 2 seconds longer and gives him a barrier for every enemy it catches.',
+          'Ward Kael while he calls. His Challenge reaches half again as far and holds them 2 s longer. He gains a barrier for every enemy it catches.',
         radiusMult: 1.5,
         barrierPerTarget: 0.05,
         barrierCap: 0.3,
@@ -87,15 +87,15 @@ export const HEROES: ContentInput['heroes'] = [
     },
     barks: {
       quirk: ['Leave this pack to me!', 'They’re mine!', 'Bulwark, forward!'],
-      lowHp: ['Weaver — I need you!', 'Shield’s cracking!', 'Can’t hold much longer!'],
-      saved: ['That was close. Thank you.', 'Still standing — because of you.', 'I owe you one.'],
+      lowHp: ['Weaver, I need you!', 'Shield’s cracking!', 'Can’t hold much longer!'],
+      saved: ['That was close. Thank you.', 'Still standing. Because of you.', 'I owe you one.'],
       perfect: ['Not a scratch!', 'Ha! Like a wall!', 'Perfect.'],
       cued: ['Aegis!', 'Behind me, all of you!', 'Hold the line!'],
       downed: ['Kael is down!', 'Get… up…'],
       revived: ['Back on my feet.', 'Again. Let’s go.'],
     },
     codex:
-      'An oath-bound knight who needs to be needed. Kael soaks the blows meant for others, but when a new pack appears he can’t resist charging it.',
+      'An oath-bound knight who needs to be needed. Kael soaks the blows meant for others. When a new pack appears, he can’t resist charging it.',
   },
   {
     id: 'lyra',
@@ -142,15 +142,15 @@ export const HEROES: ContentInput['heroes'] = [
       answer: 'empower',
       answerTime: 2.5,
       lines: [
-        'Lining it up — lend me your strength!',
-        'Empower me — I have the shot!',
+        'Lining it up. Lend me your strength!',
+        'Empower me! I have the shot!',
         'One clean shot. Give me the gold!',
       ],
       thanks: ['Got it!', 'Heartseeker!', 'Right through them!'],
       flourish: {
         name: 'Heartseeker',
         description:
-          'Empower Lyra while she calls: her Piercing Shot always crits, hits two and a half times as hard, cuts a wider line and refunds a fifth of her Solo.',
+          'Empower Lyra while she calls. Her Piercing Shot always crits, hits 2.5 times as hard and cuts a wider line. It refunds a fifth of her Solo.',
         damageMult: 2.5,
         radiusMult: 1.6,
         crit: true,
@@ -160,7 +160,7 @@ export const HEROES: ContentInput['heroes'] = [
     solo: {
       id: 'galeBarrage',
       name: 'Gale Barrage',
-      description: 'Lyra looses twelve arrows a second for three seconds.',
+      description: 'Lyra looses 12 arrows a second for 3 s.',
       cuedDescription: 'Cued: her arrows hit a third harder and crit 40% more often.',
       chargeTime: 25,
       duration: 3,
@@ -170,20 +170,19 @@ export const HEROES: ContentInput['heroes'] = [
     quirk: {
       id: 'greedyShot',
       name: 'Greedy Shot',
-      description:
-        'While channelling, Lyra won’t step out of danger that is less than a second away.',
+      description: 'While channelling, Lyra won’t step out of danger less than 1 s away.',
     },
     barks: {
-      quirk: ['Just one more shot…', 'Almost — hold still!', 'Not leaving yet!'],
-      lowHp: ['I’m hit — help!', 'Weaver?!', 'This is bad!'],
-      saved: ['You pulled me out of that.', 'Thanks — I didn’t see it.', 'Nice catch, Weaver.'],
+      quirk: ['Just one more shot…', 'Almost. Hold still!', 'Not leaving yet!'],
+      lowHp: ['I’m hit! Help!', 'Weaver?!', 'This is bad!'],
+      saved: ['You pulled me out of that.', 'Thanks. I didn’t see it.', 'Nice catch, Weaver.'],
       perfect: ['Clean!', 'Didn’t even feel it.', 'Perfect timing!'],
       cued: ['Let it storm!', 'On your mark!', 'Wind, carry them!'],
       downed: ['Lyra is down!', 'I can’t — '],
       revived: ['Back in the fight.', 'Okay. Okay. Let’s go.'],
     },
     codex:
-      'An exiled windrunner who trusts no one to have her back. Lyra deals the most single-target damage in the party, and stays in danger a beat too long when she’s mid-shot.',
+      'An exiled windrunner who trusts no one to have her back. Lyra deals the most single-target damage in the party. Mid-shot, she stays in danger a beat too long.',
   },
   {
     id: 'vexis',
@@ -216,7 +215,7 @@ export const HEROES: ContentInput['heroes'] = [
       {
         id: 'starbolt',
         name: 'Starbolt',
-        description: 'A two-second cast that ends in a large explosion.',
+        description: 'A 2 s cast that ends in a large explosion.',
         cooldown: 8,
         castTime: 2,
         damage: 320,
@@ -230,15 +229,15 @@ export const HEROES: ContentInput['heroes'] = [
       answer: 'chime',
       answerTime: 3,
       lines: [
-        'Ring the bell on me — I’ll tune the star!',
+        'Ring the bell on me. I’ll tune the star!',
         'A Chime, Weaver! The equation needs a note!',
-        'Strike your bell over me — now!',
+        'Strike your bell over me. Now!',
       ],
       thanks: ['Resonant!', 'The star sings!', 'Exquisite.'],
       flourish: {
         name: 'Resonant Starbolt',
         description:
-          'Chime on Vexis while she calls: her Starbolt hits 60% harder, bursts half again as wide and stuns everything it hits.',
+          'Chime on Vexis while she calls. Her Starbolt hits 60% harder, bursts half again as wide and stuns everything it hits.',
         damageMult: 1.6,
         radiusMult: 1.5,
         stun: 1.2,
@@ -247,7 +246,7 @@ export const HEROES: ContentInput['heroes'] = [
     solo: {
       id: 'starfall',
       name: 'Starfall',
-      description: 'For three seconds, meteors fall on nearby enemies.',
+      description: 'For 3 s, meteors fall on nearby enemies.',
       cuedDescription: 'Cued: the meteors fall inside your aura field and each one stuns.',
       chargeTime: 25,
       duration: 3,
@@ -258,23 +257,19 @@ export const HEROES: ContentInput['heroes'] = [
       id: 'spellbound',
       name: 'Spellbound',
       description:
-        'Vexis commits to long casts and is the favourite target of anything that dives.',
+        'Vexis commits to long casts. She is the favourite target of anything that dives.',
     },
     barks: {
-      quirk: [
-        'Don’t interrupt — this is the good part.',
-        'Almost there…',
-        'The equation resolves!',
-      ],
+      quirk: ['Don’t interrupt. This is the good part.', 'Almost there…', 'The equation resolves!'],
       lowHp: ['I calculated this wrong!', 'Weaver, assistance!', 'Too close, too close!'],
-      saved: ['An elegant intervention.', 'Noted. And appreciated.', 'Thank you — truly.'],
+      saved: ['An elegant intervention.', 'Noted. And appreciated.', 'Thank you. Truly.'],
       perfect: ['Flawless timing.', 'Precisely.', 'Remarkable.'],
       cued: ['Let the heavens answer!', 'Starfall!', 'Observe!'],
       downed: ['Vexis is down!', 'Miscalculated…'],
       revived: ['Recalibrating.', 'Where were we?'],
     },
     codex:
-      'A star-scholar who thinks the song can be solved like an equation. Vexis levels whole packs with slow casts, which makes Vexis an easy target while casting.',
+      'A star-scholar who thinks the song can be solved like an equation. Vexis levels whole packs with slow casts. While she casts, she is an easy target.',
   },
   // ── Brann, the Bloodsworn (docs/phase-5b.md): the first hero you earn, appended. ──
   {
@@ -319,7 +314,7 @@ export const HEROES: ContentInput['heroes'] = [
         id: 'bloodletting',
         name: 'Bloodletting',
         description:
-          'Above half life, he cuts his own palm: 12% of his life for three swings that hit 40% harder all round him.',
+          'Above half life, he cuts his palm for 12% of his life. His next three swings hit 40% harder, all round him.',
         cooldown: 14,
         castTime: 0,
         damage: 0,
@@ -337,7 +332,7 @@ export const HEROES: ContentInput['heroes'] = [
       answer: 'ward',
       answerTime: 2,
       lines: [
-        'Ward me — I’m going in!',
+        'Ward me! I’m going in!',
         'Shield on me, Weaver, then watch!',
         'Cover me. I’m jumping.',
       ],
@@ -345,7 +340,7 @@ export const HEROES: ContentInput['heroes'] = [
       flourish: {
         name: 'Red Comet',
         description:
-          'Ward Brann while he calls: his Sunder Leap lands half again as wide, hits 60% harder and stuns for a second.',
+          'Ward Brann while he calls. His Sunder Leap lands half again as wide, hits 60% harder and stuns for 1 s.',
         damageMult: 1.6,
         radiusMult: 1.5,
         stun: 1,
@@ -367,7 +362,7 @@ export const HEROES: ContentInput['heroes'] = [
     quirk: {
       id: 'bloodlust',
       name: 'Bloodlust',
-      description: 'Below 40% life, Brann won’t come back for a Rally and never gives ground.',
+      description: 'Below 40% life, Brann won’t come back for a Rally. He holds his ground.',
       below: 0.4,
     },
     barks: {
@@ -378,10 +373,10 @@ export const HEROES: ContentInput['heroes'] = [
       cued: ['Red Frenzy!', 'Stand clear!'],
       downed: ['Brann is down!', 'Not… like this…'],
       revived: ['Again.', 'The war song isn’t done.'],
-      defiant: ['I don’t run!', 'Rally yourself!', 'They’re bleeding — I stay!'],
+      defiant: ['I don’t run!', 'Rally yourself!', 'They’re bleeding. I stay!'],
     },
     codex:
-      'A Legion champion who broke his oath rather than kill prisoners. Brann is calm only in pain: the lower his life, the harder his axe falls, and it drinks from what it cuts. Your healing barely takes on him; your Wards do. He steps out of a blow swung at the others, never one meant for him: that one is yours to Ward. Fermata still holds him — one touch of the Thread saves him.',
+      'A Legion champion who broke his oath rather than kill prisoners. Brann is calm only in pain. The lower his life, the harder his axe falls, and it drinks from what it cuts. Your healing barely takes on him. Your Wards do. He steps out of a blow swung at the others. A blow meant for him is yours to Ward. Fermata still holds him: one touch of the Thread saves him.',
     passive: {
       id: 'bloodRage',
       perMissing: 1,
@@ -390,7 +385,7 @@ export const HEROES: ContentInput['heroes'] = [
       weaverHealMult: 0.5,
     },
     needs:
-      'Kept low but alive: Wards and barriers, not heals · Ward the blows aimed at him and the room: he steps out of those swung at the others · Fermata holds him: one Mend tick saves him · Reel him when he won’t Rally · Thread him as Red Frenzy fires: Cued, it heals him.',
+      'Kept low but alive: Wards and barriers over heals · Ward the blows aimed at him and the room: he steps out of those swung at the others · Fermata holds him: one Mend tick saves him · Reel him when he won’t Rally · Thread him as Red Frenzy fires: Cued, it heals him.',
     recruit: {
       event: 'bloodsworn_cell',
       fallback: 'vharun',
@@ -423,7 +418,7 @@ export const HEROES: ContentInput['heroes'] = [
         id: 'lunge',
         name: 'Lunge',
         description:
-          'Dashes onto an enemy up to 9 m away and strikes for 100. Against a caster within 3.5 m it is a thrust with no dash. It interrupts the cast it lands on.',
+          'Dashes onto an enemy up to 9 m away and strikes for 100. A caster within 3.5 m gets a thrust with no dash. It interrupts the cast it lands on.',
         cooldown: 8,
         castTime: 0,
         damage: 100,
@@ -436,7 +431,7 @@ export const HEROES: ContentInput['heroes'] = [
         id: 'feint',
         name: 'Feint',
         description:
-          'A sure 2.5 m sidestep to her opponent’s flank, then a 3 s hard taunt of it (not bosses).',
+          'A sure 2.5 m sidestep to her opponent’s flank, then a 3 s hard taunt of it. A boss gets only the sidestep.',
         cooldown: 10,
         castTime: 0,
         damage: 0,
@@ -456,7 +451,7 @@ export const HEROES: ContentInput['heroes'] = [
       flourish: {
         name: 'Flèche',
         description:
-          'Ward Seren while she calls: her Lunge hits 60% harder, always crits and stuns for a second, and she arrives armed to parry.',
+          'Ward Seren while she calls. Her Lunge hits 60% harder, always crits and stuns for 1 s. She arrives ready to parry.',
         damageMult: 1.6,
         stun: 1,
         crit: true,
@@ -479,13 +474,13 @@ export const HEROES: ContentInput['heroes'] = [
       id: 'showboat',
       name: 'Showboat',
       description:
-        'Seren leaves the group to duel the strongest enemy near you: outside your songs, but never beyond your reach. She always answers a Rally.',
+        'Seren leaves the group to duel the strongest enemy near you, outside your songs but within your reach. She always answers a Rally.',
       leash: 12,
       seconds: 8,
     },
     barks: {
       quirk: ['That one’s mine.', 'Finally, a real opponent.', 'Stand aside. This one’s my debt.'],
-      lowHp: ['First blood to them.', 'Ward me — now.'],
+      lowHp: ['First blood to them.', 'Ward me. Now.'],
       saved: ['I owe you one. I’m keeping count.', 'Into the ledger.'],
       perfect: ['Kill shot.', 'Your timing, my blade.'],
       cued: ['Thousand Cuts!', 'Hold still.'],
@@ -494,7 +489,7 @@ export const HEROES: ContentInput['heroes'] = [
       parried: ['Too slow.', 'Parried.'],
     },
     codex:
-      'A duellist paying off a debt one bout at a time. Ward Seren and she stands her ground: the next blade swung at her is turned aside and answered threefold. Time the Ward Perfectly and she kills. She goes looking for the strongest enemy, outside your songs but never beyond your reach. When they surround her, Reel her home, or Rally: she always comes.',
+      'A duellist paying off a debt one bout at a time. Ward Seren and she stands her ground: the next blade swung at her is turned aside and answered threefold. Time the Ward Perfectly and she kills. She hunts the strongest enemy, outside your songs but within your reach. When they surround her, Reel her home, or Rally. She always comes.',
     passive: {
       id: 'parry',
       counterPct: 3,
@@ -537,7 +532,7 @@ export const HEROES: ContentInput['heroes'] = [
         id: 'regrowth',
         name: 'Regrowth',
         description:
-          'Re-sprouts a felled Sapling beside him at 60% life; with both standing, heals the more hurt one for 40% of its life.',
+          'Re-sprouts a felled Sapling beside him at 60% life. With both standing, it heals the more hurt one for 40% of its life.',
         cooldown: 12,
         castTime: 0.6,
         damage: 0,
@@ -551,7 +546,7 @@ export const HEROES: ContentInput['heroes'] = [
         id: 'bramble',
         name: 'Bramble',
         description:
-          'A 3 m bramble patch: roots the lesser enemies inside for 1.5 s and pricks them for 40.',
+          'A 3 m bramble patch. It roots the lesser enemies inside for 1.5 s and pricks them for 40.',
         cooldown: 14,
         castTime: 0.4,
         damage: 40,
@@ -570,7 +565,7 @@ export const HEROES: ContentInput['heroes'] = [
       flourish: {
         name: 'Spring Rain',
         description:
-          'Chime while Oro calls: his Regrowth comes back half again as strong, and his Solo gains 20 charge.',
+          'Chime while Oro calls. His Regrowth comes back half again as strong, and his Solo gains 20 charge.',
         damageMult: 1.5,
         soloCharge: 20,
       },
@@ -593,7 +588,7 @@ export const HEROES: ContentInput['heroes'] = [
       id: 'gentle',
       name: 'Gentle',
       description:
-        'Without a Focus, Oro won’t raise a hand and steps away from the fighting; his Saplings fight harder for him.',
+        'Without a Focus, Oro won’t raise a hand and steps away from the fighting. His Saplings fight harder for him.',
       retreat: 4,
     },
     barks: {
@@ -605,10 +600,10 @@ export const HEROES: ContentInput['heroes'] = [
       downed: ['Oro is down!', 'Look after them…'],
       revived: ['Still rooted.'],
       focus: ['If I must.', 'Forgive me.'],
-      saplingFelled: SAPLING_NAMES.map((n) => `No — not ${n}!`),
+      saplingFelled: SAPLING_NAMES.map((n) => `No! Not ${n}!`),
     },
     codex:
-      'A gentle grovekeeper who hates fighting. Oro plants two Saplings ahead of you, and they hold off the small things that bite. Keep your songs over them and they flourish; Rally and they re-sprout in front of you. Your Thread on Oro Mends them too, at half. He won’t raise a hand unless you set a Focus; until then his Saplings fight for him, and harder. Bosses and the biggest foes ignore them.',
+      'A gentle grovekeeper who hates fighting. Oro plants two Saplings ahead of you to hold off the small things that bite. Keep your songs over them and they flourish. Rally and they re-sprout in front of you. Your Thread on Oro Mends them too, at half. He won’t raise a hand until you set a Focus. Until then his Saplings fight for him, and harder. Bosses and the biggest foes ignore them.',
     passive: { id: 'rootbond', mendShare: 0.5 },
     summons: {
       sapling: {
