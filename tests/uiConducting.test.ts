@@ -69,7 +69,7 @@ import {
 import { deedGlyph } from '../src/ui/screens/deedsModel';
 import { hudDissonanceView } from '../src/ui/screens/dissonanceModel';
 import { unlockIcon } from '../src/ui/screens/rankText';
-import { callingLine, statLines } from '../src/ui/screens/resultText';
+import { callingLine } from '../src/ui/screens/resultText';
 import { runTotals } from '../src/meta/run';
 
 /** A .tsx module's export, at run time (the node test build has no JSX to import statically). */
@@ -922,7 +922,7 @@ describe('Result and Summary', () => {
     expect(r.stats.conducting).toBeTruthy();
     const line = callingLine(r.stats, run.calling)!;
     expect(line.text).toContain(`${r.stats.conducting!.duets} Duet`);
-    expect(statLines(r, run.calling).some((l) => l.calling)).toBe(true);
+    expect(line.calling).toBe(true);
     const summary = conductSummaryRun();
     const totals = runTotals(summary);
     const labels = callingParts(totals, summary.calling).map((p) => p.label);

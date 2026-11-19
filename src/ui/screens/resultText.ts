@@ -4,8 +4,8 @@ import { CONTENT } from '../../content';
 import { downAdvice, downFallback, GROVE_FELT_OUTSIDE } from '../../meta/run';
 import { callingResultLine, rewindsFor, techniqueName } from './callingText';
 import { callingLook } from '../kit/callingLook';
-import { auraVerbs, splitContribution, type ContributionParts } from '../contribution';
-import { fmt, pct, plural } from '../kit/format';
+import { auraVerbs, type ContributionParts } from '../contribution';
+import { fmt, pct } from '../kit/format';
 import { ANSWER } from '../hud/labels';
 import { doomMax } from '../hud/riftLook';
 import {
@@ -308,206 +308,6 @@ export function callingLine(
 }
 
 /**
- * The auras' and the Thread's lines: "Your auras healed 1,840, shielded 960 and added 2,210
- * damage: 38% of everything you did." / "Your beam healed 2,630 and Empower added 1,980
- * damage." (Shared by the Result and the Summary.)
- */
-export function songLines(s: EncounterStats): StatLine[] {
-  const split = splitContribution(contributionOf(s));
-  const verbs = auraVerbs(contributionOf(s).auras);
-  const lines: StatLine[] = [];
-  lines.push(
-    verbs
-      ? {
-          icon: 'note',
-          text: txt('screens.resultText.yourAurasOfEverything', {
-            verbs,
-            auraShare: pct(split.auraShare),
-          }),
-        }
-      : {
-          icon: 'note',
-          text: txt('screens.resultText.yourAurasDidNothing'),
-          muted: true,
-        },
-  );
-  const heal = s.threadHealing >= 1;
-  const amp = s.threadAmplified >= 1;
-  lines.push({
-    icon: 'thread',
-    text:
-      heal && amp
-        ? txt('screens.resultText.yourBeamHealedAnd', {
-            threadHealing: fmt(s.threadHealing),
-            threadAmplified: fmt(s.threadAmplified),
-          })
-        : heal
-          ? txt('screens.resultText.yourBeamHealedEmpower', { threadHealing: fmt(s.threadHealing) })
-          : amp
-            ? txt('screens.resultText.empowerAddedDamageYour', {
-                threadAmplified: fmt(s.threadAmplified),
-              })
-            : txt('screens.resultText.yourThreadDidNo'),
-    muted: !heal && !amp,
-  });
-  return lines;
-}
-
-/** Plain-English lines for a fight (also reused by tests and the lab). */
-export function statLines(
-  r: EncounterResult,
-  /** The run's Calling, to name its line by the path (Radiance, Eclipse, Haloed; the Martyr). */
-  calling?: (Pick<RunCalling, 'path'> & { id?: string }) | null,
-): StatLine[] {
-  const s = r.stats;
-  const lines: StatLine[] = songLines(s);
-  const shine = callingLine(s, calling);
-  if (shine) lines.push(shine);
-  lines.push({
-    icon: 'ward',
-    text:
-      s.shielded + s.negated > 0
-        ? txt('screens.resultText.damageNeverLandedStopped', {
-            fmt: fmt(s.shielded + s.negated),
-            shielded: fmt(s.shielded),
-            negated: fmt(s.negated),
-            perfects: s.perfects,
-            perfectsWord: plural(s.perfects, 'Ward'),
-          })
-        : txt('screens.resultText.noWardsLandedA'),
-    muted: s.shielded + s.negated === 0,
-  });
-  lines.push({
-    icon: 'empower',
-    text:
-      s.healing + s.amplified > 0
-        ? txt('screens.resultText.inAllYouHealed', {
-            healing: fmt(s.healing),
-            value:
-              s.overheal > 0
-                ? txt('screens.resultText.moreWentToHeroes', { overheal: fmt(s.overheal) })
-                : '',
-            amplified: fmt(s.amplified),
-            pct: pct(s.partyDamage > 0 ? s.amplified / s.partyDamage : 0),
-          })
-        : txt('screens.resultText.youDidNoHealing'),
-    muted: s.healing + s.amplified === 0,
-  });
-  if (s.saves > 0) {
-    lines.push({
-      icon: 'heart',
-      text: txt('screens.resultText.savedAHeroFrom', {
-        saves: s.saves,
-        savesWord: plural(s.saves, 'time'),
-      }),
-    });
-  }
-  if (s.cleanses > 0) {
-    lines.push({
-      icon: 'chime',
-      text: txt('screens.resultText.cleansed', {
-        cleanses: s.cleanses,
-        cleansesWord: plural(s.cleanses, 'mark'),
-        value:
-          s.clutchCleanses > 0
-            ? txt('screens.resultText.ofThemAtThe', { clutchCleanses: s.clutchCleanses })
-            : '',
-      }),
-    });
-  }
-  if (s.reels > 0)
-    lines.push(
-      // On a Chronomancer run Reel's slot is Rewind's, and going back out of a hit dodges it.
-      rewindsFor(calling?.id)
-        ? {
-            icon: 'rewind',
-            text: txt('screens.resultText.rewindTookHeroesOut', {
-              reels: s.reels,
-              reelsWord: plural(s.reels, 'time'),
-            }),
-          }
-        : {
-            icon: 'reel',
-            text: txt('screens.resultText.reeledHeroesOutOf', {
-              reels: s.reels,
-              reelsWord: plural(s.reels, 'time'),
-            }),
-          },
-    );
-  // Every Solo the heroes fired, and how many had your Thread on them: "7 of 9 Solos Cued".
-  // (A fight saved before plain Solos were counted says only how many were Cued.)
-  const solos = s.plainSolos === undefined ? null : s.cues + s.plainSolos;
-  if ((solos ?? s.cues) + s.crescendos > 0) {
-    lines.push({
-      icon: 'note',
-      text: txt(solos === null ? 'screens.resultText.cued' : 'screens.resultText.cuedOf', {
-        cues: s.cues,
-        cuesWord: plural(s.cues, 'Solo'),
-        solos: solos ?? 0,
-        solosWord: plural(solos ?? 0, 'Solo'),
-        value:
-          s.crescendos > 0
-            ? txt('screens.resultText.andSang', {
-                crescendos: s.crescendos,
-                crescendosWord: plural(s.crescendos, 'Crescendo'),
-              })
-            : '',
-      }),
-    });
-  }
-  if (s.calls > 0) {
-    lines.push({
-      icon: 'call',
-      text:
-        s.responses > 0
-          ? txt('screens.resultText.answeredOfForHelp', {
-              responses: s.responses,
-              calls: s.calls,
-              callsWord: plural(s.calls, 'call'),
-              responsesWord: plural(s.responses, 'Flourish', 'Flourishes'),
-            })
-          : txt('screens.resultText.yourPartyCalledFor', {
-              calls: s.calls,
-              callsWord: plural(s.calls, 'time'),
-            }),
-      muted: s.responses === 0,
-    });
-  }
-  if (s.holds > 0) {
-    const healed = r.highlights.filter((h) => h.kind === 'fermata').length;
-    lines.push({
-      icon: 'fermata',
-      text: txt('screens.resultText.fermataCaughtLethalAnd', {
-        holds: s.holds,
-        holdsWord: plural(s.holds, 'hit'),
-        value:
-          healed > 0
-            ? txt('screens.resultText.youHealedThroughThe', {
-                value:
-                  healed === s.holds
-                    ? s.holds === 1
-                      ? txt('screens.resultText.them')
-                      : txt('screens.resultText.everyOne')
-                    : healed,
-              })
-            : '',
-      }),
-    });
-  }
-  if (s.telegraphsAimed > 0) {
-    lines.push({
-      icon: 'focus',
-      text: txt('screens.resultText.answeredOfEnemyAttacks', {
-        telegraphsAnswered: s.telegraphsAnswered,
-        telegraphsAimed: s.telegraphsAimed,
-      }),
-    });
-  }
-  lines.push(...triggerLines(s));
-  return lines;
-}
-
-/**
  * Phase 5g (docs/phase-5g.md): one line per motif, relic or boon whose rule is a trigger, from
  * the fight's (or the run's) `triggers`: "Clean Strike triggered 3 times.", named from content;
  * a held one that never fired reads muted. Nothing without `triggers` (no trigger held).
@@ -521,4 +321,251 @@ export function triggerLines(
     text: triggerSentence(t),
     ...(t.count <= 0 ? { muted: true } : {}),
   }));
+}
+
+/**
+ * One tile on the Result or the Summary (the third menu pass): a number, a short label, and at
+ * most a short line of the numbers under it. `sr` is the whole sentence a screen reader hears.
+ */
+export interface StatTile {
+  id: string;
+  icon: IconName;
+  value: string;
+  label: string;
+  detail?: string;
+  /** Nothing to show yet: drawn quiet. */
+  muted?: boolean;
+  color: string;
+  sr: string;
+}
+
+const TILE_COLOR = {
+  heal: 'var(--color-heal)',
+  amp: 'var(--color-amp)',
+  shield: 'var(--color-shield)',
+  save: '#f9a8d4',
+  chime: '#c4b5fd',
+  gold: 'var(--color-gold-300)',
+  call: 'var(--color-call, #fde68a)',
+  fermata: '#e2d6f8',
+} as const;
+
+function tile(t: Omit<StatTile, 'sr'>): StatTile {
+  const sr = txt('screens.resultText.tileSr', { value: t.value, label: t.label });
+  return { ...t, sr: t.detail ? `${sr} ${t.detail}.` : sr };
+}
+
+const ofN = (n: number, total: number) => txt('screens.resultText.tileOf', { n, total });
+
+/**
+ * A fight's (or a run's) support as tiles. Healed, Damage added and Damage stopped always show,
+ * quiet at zero; every other tile shows only when its number is not zero. Solos show as "7 of 9"
+ * over "Solos Cued" once any Solo fired, Cued or not.
+ */
+export function statTiles(
+  s: EncounterStats,
+  opts: {
+    callingId?: string | null;
+    /** Fermata holds the Weaver healed through in time (the fight's or run's highlights). */
+    fermataHealed?: number;
+  } = {},
+): StatTile[] {
+  const out: StatTile[] = [];
+  const join = (...parts: (string | null | false)[]) =>
+    parts.filter((p): p is string => !!p).join(' · ') || undefined;
+  out.push(
+    tile({
+      id: 'healed',
+      icon: 'mend',
+      color: TILE_COLOR.heal,
+      value: fmt(s.healing),
+      label: txt('screens.resultText.tileHealed'),
+      detail:
+        s.healing > 0
+          ? join(
+              txt('screens.resultText.tileSplitHeal', {
+                auras: fmt(s.auraHealing),
+                beam: fmt(s.threadHealing),
+              }),
+              s.overheal > 0 &&
+                txt('screens.resultText.tileOverheal', { overheal: fmt(s.overheal) }),
+            )
+          : undefined,
+      muted: s.healing <= 0,
+    }),
+  );
+  out.push(
+    tile({
+      id: 'amplified',
+      icon: 'empower',
+      color: TILE_COLOR.amp,
+      value: fmt(s.amplified),
+      label: txt('screens.resultText.tileDamageAdded'),
+      detail:
+        s.amplified > 0
+          ? join(
+              txt('screens.resultText.tileSplitDamage', {
+                auras: fmt(s.auraAmplified),
+                empower: fmt(s.threadAmplified),
+              }),
+              s.partyDamage > 0 &&
+                txt('screens.resultText.tilePartyShare', { pct: pct(s.amplified / s.partyDamage) }),
+            )
+          : undefined,
+      muted: s.amplified <= 0,
+    }),
+  );
+  const stopped = s.shielded + s.negated;
+  out.push(
+    tile({
+      id: 'stopped',
+      icon: 'ward',
+      color: TILE_COLOR.shield,
+      value: fmt(stopped),
+      label: txt('screens.resultText.tileDamageStopped'),
+      detail:
+        stopped > 0
+          ? txt('screens.resultText.tileShields', { shielded: fmt(s.shielded) })
+          : undefined,
+      muted: stopped <= 0,
+    }),
+  );
+  if (s.perfects > 0)
+    out.push(
+      tile({
+        id: 'perfects',
+        icon: 'ward',
+        color: TILE_COLOR.shield,
+        value: String(s.perfects),
+        label: txt(
+          s.perfects === 1
+            ? 'screens.resultText.tilePerfectWard'
+            : 'screens.resultText.tilePerfectWards',
+        ),
+        detail: txt('screens.resultText.tileNegated', { negated: fmt(s.negated) }),
+      }),
+    );
+  if (s.saves > 0)
+    out.push(
+      tile({
+        id: 'saves',
+        icon: 'heart',
+        color: TILE_COLOR.save,
+        value: String(s.saves),
+        label: txt(s.saves === 1 ? 'screens.resultText.tileSave' : 'screens.resultText.tileSaves'),
+      }),
+    );
+  if (s.cleanses > 0)
+    out.push(
+      tile({
+        id: 'cleanses',
+        icon: 'chime',
+        color: TILE_COLOR.chime,
+        value: String(s.cleanses),
+        label: txt(
+          s.cleanses === 1
+            ? 'screens.resultText.tileCleansedOne'
+            : 'screens.resultText.tileCleansed',
+        ),
+        detail:
+          s.clutchCleanses > 0
+            ? txt('screens.resultText.tileClutch', { n: s.clutchCleanses })
+            : undefined,
+      }),
+    );
+  if (s.reels > 0) {
+    // On a Chronomancer run Reel's slot is Rewind's.
+    const rewind = rewindsFor(opts.callingId);
+    out.push(
+      tile({
+        id: 'reels',
+        icon: rewind ? 'rewind' : 'reel',
+        color: TILE_COLOR.chime,
+        value: String(s.reels),
+        label: txt(rewind ? 'screens.resultText.tileRewound' : 'screens.resultText.tileReeled'),
+      }),
+    );
+  }
+  // Every Solo the heroes fired, and how many had your Thread on them: "7 of 9 Solos Cued". A
+  // fight saved before plain Solos were counted shows the Cued ones alone.
+  const solos = s.plainSolos === undefined ? null : s.cues + s.plainSolos;
+  if ((solos ?? s.cues) > 0)
+    out.push(
+      tile({
+        id: 'solos',
+        icon: 'note',
+        color: TILE_COLOR.gold,
+        value: solos === null ? String(s.cues) : ofN(s.cues, solos),
+        label: txt(
+          (solos ?? s.cues) === 1
+            ? 'screens.resultText.tileSoloCued'
+            : 'screens.resultText.tileSolosCued',
+        ),
+      }),
+    );
+  if (s.crescendos > 0)
+    out.push(
+      tile({
+        id: 'crescendos',
+        icon: 'sparkle',
+        color: TILE_COLOR.gold,
+        value: String(s.crescendos),
+        label: txt(
+          s.crescendos === 1
+            ? 'screens.resultText.tileCrescendo'
+            : 'screens.resultText.tileCrescendos',
+        ),
+      }),
+    );
+  if (s.calls > 0)
+    out.push(
+      tile({
+        id: 'calls',
+        icon: 'call',
+        color: TILE_COLOR.call,
+        value: ofN(s.responses, s.calls),
+        label: txt('screens.resultText.tileCalls'),
+        muted: s.responses <= 0,
+      }),
+    );
+  if (s.holds > 0)
+    out.push(
+      tile({
+        id: 'holds',
+        icon: 'fermata',
+        color: TILE_COLOR.fermata,
+        value: String(s.holds),
+        label: txt(s.holds === 1 ? 'screens.resultText.tileHold' : 'screens.resultText.tileHolds'),
+        detail:
+          (opts.fermataHealed ?? 0) > 0
+            ? txt('screens.resultText.tileHealedThrough', { n: opts.fermataHealed! })
+            : undefined,
+      }),
+    );
+  if (s.telegraphsAimed > 0)
+    out.push(
+      tile({
+        id: 'attacks',
+        icon: 'focus',
+        color: TILE_COLOR.gold,
+        value: ofN(s.telegraphsAnswered, s.telegraphsAimed),
+        label: txt('screens.resultText.tileAttacks'),
+      }),
+    );
+  return out;
+}
+
+/**
+ * At most two things to do better next time, the most useful first: the Thread unused, no Ward
+ * landed, the auras unheard, Empower never used, a call never answered. None when all went well.
+ */
+export function coachLines(s: EncounterStats): string[] {
+  const out: string[] = [];
+  const thread = s.threadHealing >= 1 || s.threadAmplified >= 1;
+  if (!thread) out.push(txt('screens.resultText.coachThread'));
+  if (s.shielded + s.negated <= 0) out.push(txt('screens.resultText.coachWard'));
+  if (!auraVerbs(contributionOf(s).auras)) out.push(txt('screens.resultText.coachAuras'));
+  if (thread && s.threadAmplified < 1) out.push(txt('screens.resultText.coachEmpower'));
+  if (s.calls > 0 && s.responses === 0) out.push(txt('screens.resultText.coachCalls'));
+  return out.slice(0, 2);
 }

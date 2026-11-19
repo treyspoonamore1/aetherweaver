@@ -41,7 +41,7 @@ import {
   withOption,
 } from '../src/ui/screens/callingText';
 import { nextStep } from '../src/ui/screens/interlude';
-import { callingLine, statLines } from '../src/ui/screens/resultText';
+import { callingLine } from '../src/ui/screens/resultText';
 import { unlockIcon } from '../src/ui/screens/rankText';
 
 const LUMINARY = callingDef('luminary');
@@ -355,13 +355,13 @@ describe('Result and Summary', () => {
     const run = callingResultRun();
     const r = run.lastResult!;
     expect(r.stats.callingAmplified).toBeGreaterThan(0);
-    const lines = statLines(r, run.calling);
-    const at = lines.findIndex((l) => l.calling);
-    expect(at).toBe(2);
-    expect(lines[at]!.text).toBe(`${callingResultLine(r.stats, run.calling)!}.`);
+    // The Result shows it under its tiles (the third menu pass).
+    expect(callingLine(r.stats, run.calling)!.text).toBe(
+      `${callingResultLine(r.stats, run.calling)!}.`,
+    );
     expect(nextStep(run)).toBe('Continue: your Calling grows');
     const quiet = { ...r, stats: { ...r.stats, callingAmplified: 0, callingShielded: 0 } };
-    expect(statLines(quiet, run.calling).some((l) => l.calling)).toBe(false);
+    expect(callingLine(quiet.stats, run.calling)).toBeNull();
   });
 
   it('the Summary totals the run and keeps the four picks', () => {

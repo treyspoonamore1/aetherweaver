@@ -852,6 +852,13 @@ describe('Brann’s and the default party’s UI are byte-equal to before', () =
   // from the menu branch are the Solo rework's own, as told above (the Solo ring and its count,
   // the Cue key cap gone, Brann's and Lyra's reworded Solo lines, the coach's Solo and dome
   // lessons).
+  //
+  // Re-recorded for 3 keys (`result:A`, `result:B`, `result:C`) by the third menu pass, which
+  // made the Result's sentences tiles. Dumped before and after and compared key by key: the other
+  // 73 are unchanged. In the three, every number is still there, as a tile ("0 of 2" over "Solos
+  // Cued", heard as "0 of 2 Solos Cued."); each hero's line reads "7,568 damage · 9% from you ·
+  // 100% life"; the XP and Aether sums moved into a "How it adds up" fold; the chart and "Also
+  // worth remembering" fold. No other text moved.
   it('every pinned text and frame hashes as recorded at W3’s head', async () => {
     const want = JSON.parse(
       readFileSync(join(__dirname, 'uiPhase5e.brann.json'), 'utf8'),

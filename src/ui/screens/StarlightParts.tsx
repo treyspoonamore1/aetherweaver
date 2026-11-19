@@ -24,15 +24,13 @@ import { t } from '../text';
 const LOOK = STARLIGHT_LOOK;
 
 /**
- * The Result: "+6 Starlight", what paid it and the balance; what it's for; and (on a Calling's
- * run) the mastery the fight earned.
+ * The Result: "+6 Starlight" and the balance (what paid it waits in the Result's fold), and (on
+ * a Calling's run) the mastery the fight earned.
  */
 export function StarlightGainPanel({
   result,
   dissonance = [],
   balance,
-  rank,
-  all = false,
   mastery = null,
 }: {
   result: Pick<EncounterResult, 'kind' | 'outcome' | 'starlight' | 'xp'> &
@@ -40,10 +38,6 @@ export function StarlightGainPanel({
   dissonance?: readonly DissonanceChoice[];
   /** The profile's Starlight now (this fight's included); omitted: not shown. */
   balance?: number;
-  /** The Weaver's Rank: before the Atelier's, the line says when it opens. */
-  rank: number;
-  /** Settings → Skip the unlocks: the Atelier is open. */
-  all?: boolean;
   /** The run's Calling and the profile's mastery XP for it now (the fight's XP included). */
   mastery?: { callingId: string; xp: number } | null;
 }) {
@@ -69,10 +63,7 @@ export function StarlightGainPanel({
           </span>
         )}
       </p>
-      <p className="mt-0.5 font-mono text-xs text-muted">{s.detail}</p>
-      <p className="mt-1 text-xs leading-snug text-text" data-testid="starlight-use">
-        {starlightUse(rank, all, true)}
-      </p>
+      {/* Why it paid, and what it is for, wait in the Result's fold (the third menu pass). */}
       {mastery && (
         <MasteryGainRow
           callingId={mastery.callingId}

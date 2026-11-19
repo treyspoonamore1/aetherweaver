@@ -42,7 +42,7 @@ import {
   passiveName,
 } from '../src/ui/screens/callingText';
 import { nextStep } from '../src/ui/screens/interlude';
-import { callingLine, statLines } from '../src/ui/screens/resultText';
+import { callingLine } from '../src/ui/screens/resultText';
 import { rankPanel, runRank, unlockIcon } from '../src/ui/screens/rankText';
 import { telegraphOn } from './sim/helpers';
 
@@ -345,10 +345,9 @@ describe('the Martyr’s words', () => {
     const run = martyrResultRun();
     const r = run.lastResult!;
     expect(r.stats.callingBorne).toBeGreaterThan(0);
-    const lines = statLines(r, run.calling);
-    const i = lines.findIndex((l) => l.calling);
-    expect(i).toBe(2);
-    expect(lines[i]!.text).toMatch(/^Bore [\d,]+ for your heroes · [\d,]+ kept off them\.$/);
+    expect(callingLine(r.stats, run.calling)!.text).toMatch(
+      /^Bore [\d,]+ for your heroes · [\d,]+ kept off them\.$/,
+    );
     expect(nextStep(run)).toMatch(/Calling grows/);
   });
 

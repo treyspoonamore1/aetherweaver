@@ -39,7 +39,7 @@ import {
   xpGain,
   xpHeadline,
 } from '../src/ui/screens/rankText';
-import { contributionOf, songLines, statLines } from '../src/ui/screens/resultText';
+import { coachLines, contributionOf, statTiles } from '../src/ui/screens/resultText';
 
 const w = CONTENT.weaver;
 
@@ -252,7 +252,8 @@ describe('what the auras and the Thread did', () => {
     expect(auraVerbs({ healing: 0, shielded: 0, amplified: 0 })).toBeNull();
   });
 
-  it('result lines: the auras and the beam separately, with the auras’ share', () => {
+  // The third menu pass made the lines tiles: the auras and the beam split under each total.
+  it('result tiles: the auras and the beam separately, under each total', () => {
     const s = stats({
       healing: 4470,
       shielded: 960,
@@ -264,32 +265,36 @@ describe('what the auras and the Thread did', () => {
       threadHealing: 2630,
       threadAmplified: 1980,
     });
-    const [auras, beam] = songLines(s);
-    const share = (1840 + 960 + 2210) / (4470 + 960 + 4190);
-    expect(auras!.text).toBe(
-      `Your auras healed 1,840, shielded 960 and added 2,210 damage: ${Math.round(share * 100)}% of everything you did.`,
+    const tiles = statTiles(s);
+    const healed = tiles.find((t) => t.id === 'healed')!;
+    expect(healed.value).toBe('4,470');
+    expect(healed.detail).toContain('auras 1,840 · beam 2,630');
+    expect(tiles.find((t) => t.id === 'amplified')!.detail).toContain(
+      'auras 2,210 · Empower 1,980',
     );
-    expect(beam!.text).toBe('Your beam healed 2,630 and Empower added 1,980 damage.');
-    const quiet = songLines(
-      stats({
-        auraHealing: 0,
-        auraShielded: 0,
-        auraAmplified: 0,
-        threadHealing: 0,
-        threadAmplified: 0,
-      }),
-    );
-    expect(quiet.every((l) => l.muted)).toBe(true);
+    expect(coachLines(s)).toEqual([]);
+    // A fight with nothing from the songs or the Thread: quiet tiles, and what to try.
+    const quiet = stats({
+      healing: 0,
+      shielded: 0,
+      negated: 0,
+      amplified: 0,
+      auraHealing: 0,
+      auraShielded: 0,
+      auraAmplified: 0,
+      threadHealing: 0,
+      threadAmplified: 0,
+    });
+    expect(statTiles(quiet).slice(0, 3).every((t) => t.muted)).toBe(true);
+    expect(coachLines(quiet)).toHaveLength(2);
     expect(contributionOf(s).total).toBe(4470 + 960 + 4190);
   });
 
-  it('the full result keeps the older lines that still make sense', () => {
-    const lines = statLines(resultRun(true).lastResult!).map((l) => l.text);
-    expect(lines[0]).toMatch(/^Your auras /);
-    expect(lines[1]).toMatch(/beam|Empower/);
-    expect(lines.some((t) => /never landed/.test(t))).toBe(true);
-    expect(lines.some((t) => /^In all you healed/.test(t))).toBe(true);
-    expect(lines.some((t) => /calls? for help/.test(t))).toBe(true);
+  it('the full result has a tile for each number it had a line for', () => {
+    const ids = statTiles(resultRun(true).lastResult!.stats).map((t) => t.id);
+    expect(ids.slice(0, 3)).toEqual(['healed', 'amplified', 'stopped']);
+    expect(ids).toContain('calls');
+    expect(ids).toContain('perfects');
   });
 
   it('a summary run has totals for both', () => {

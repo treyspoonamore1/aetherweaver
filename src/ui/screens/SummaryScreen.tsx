@@ -15,15 +15,9 @@ import type {
 } from '../../meta/types';
 import { PathPip, callingLook } from '../kit/CallingGlyph';
 import { CallingTitle } from './CallingParts';
-import {
-  callingNothingText,
-  callingParts,
-  conductingTip,
-  pathSteps,
-  techniqueName,
-} from './callingText';
+import { callingNothingText, callingParts, conductingTip, pathSteps } from './callingText';
 import { bindingLabel } from '../hud/labels';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { CONTENT } from '../../content';
 import { SONG_GOES_ON } from '../../content/crucibleIds';
 import { finaleCleared } from '../../meta/runEnd';
@@ -48,11 +42,14 @@ import { RankUpCard, XpBar, useRankUps } from './Rank';
 import { rankPanel, runRank, xpGain, xpHeadline } from './rankText';
 import {
   HIGHLIGHT_COLOR,
+  coachLines,
   contributionOf,
   runDownAdvice,
-  songLines,
+  statTiles,
   triggerLines,
 } from './resultText';
+import { StatTiles } from './StatTiles';
+import { Fold } from '../kit/Fold';
 import { HpTimeline, TimelineLegend } from './Timeline';
 import { RelicGlyph } from '../kit/RelicGlyph';
 import { aetherEarned, ownedRelicInfo } from './interlude';
@@ -359,7 +356,6 @@ export function SummaryView({
   // A win names the final boss; an Expedition's defeat, the Movement it reached (Phase 5a).
   const sub = outcomeSub(run) ?? outcome.sub;
   const heroIds = run.party.map((p) => p.heroId);
-  const mitigated = totals.shielded + totals.negated;
   const segments = run.results.map((r) => ({
     name: r.name,
     duration: r.duration,
@@ -368,9 +364,6 @@ export function SummaryView({
   }));
   const kinds = [...new Set(run.results.flatMap((r) => r.markers.map((m) => m.kind)))];
   const highlights = runHighlights(run.results);
-  const saveLines = run.results
-    .flatMap((r) => r.highlights.filter((h) => h.kind === 'save'))
-    .slice(0, 3);
 
   // Per hero totals for "your thread accounted for 31% of Lyra's damage".
   const perHero = heroIds.map((id) => {
@@ -394,8 +387,9 @@ export function SummaryView({
       advice: runDownAdvice(run.results, id, run.calling?.id, run.techniques?.reel),
     };
   });
-  const aimed = totals.telegraphsAimed;
   const tally = withoutYouTally(run.results);
+  const coach = coachLines(totals);
+  const triggers = triggerLines(totals);
   const fermataSaves = run.results.reduce(
     (n, r) => n + r.highlights.filter((h) => h.kind === 'fermata').length,
     0,
@@ -444,10 +438,11 @@ export function SummaryView({
                 {pct(totals.weaverShare)}
               </span>
             </Ring>
-            <p className="max-w-[12rem] text-sm leading-snug text-text">
-              {txt('screens.summaryScreen.ofEverythingThatMattered')}{' '}
-              <b className="text-gold-300">{txt('screens.summaryScreen.you')}</b>
-              {txt('screens.summaryScreen.healingShieldsSavesAnd')}
+            <p className="max-w-[12rem] text-sm font-semibold leading-snug text-gold-300">
+              <span aria-hidden>{txt('screens.summaryScreen.yourShare')}</span>
+              <span className="sr-only">
+                {txt('screens.summaryScreen.yourShareSr', { pct: pct(totals.weaverShare) })}
+              </span>
             </p>
           </div>
         </header>
@@ -492,46 +487,48 @@ export function SummaryView({
         )}
 
         {totals.encounters > 0 && (
+          // The third menu pass: the run's support as tiles, a number and a label each, and at
+          // most two things to try next time.
           <Panel tone="solid" className="mt-6 p-5" data-testid="summary-songs">
-            <SectionTitle>{txt('screens.summaryScreen.yourSongsAndYour')}</SectionTitle>
-            <ContributionBar parts={contributionOf(totals)} className="mb-3" />
-            <ul className="flex flex-col gap-2">
-              {songLines(totals).map((l, i) => (
-                <li
-                  key={i}
-                  className={`flex items-start gap-3 text-sm leading-relaxed ${l.muted ? 'text-muted' : 'text-text'}`}
-                >
-                  <Icon
-                    name={l.icon}
-                    size={18}
-                    className={`mt-0.5 shrink-0 ${l.muted ? 'text-ink-500' : 'text-gold-300'}`}
-                  />
-                  {l.text}
-                </li>
-              ))}
-            </ul>
-          </Panel>
-        )}
-
-        {triggerLines(totals).length > 0 && (
-          // Phase 5g: the run's triggers, named from content ("Clean Strike triggered 14 times.").
-          <Panel tone="solid" className="mt-6 p-5" data-testid="summary-triggers">
-            <SectionTitle>{txt('screens.summaryScreen.yourMotifsAndRelics')}</SectionTitle>
-            <ul className="flex flex-col gap-2">
-              {triggerLines(totals).map((l, i) => (
-                <li
-                  key={i}
-                  className={`flex items-start gap-3 text-sm leading-relaxed ${l.muted ? 'text-muted' : 'text-text'}`}
-                >
-                  <Icon
-                    name={l.icon}
-                    size={18}
-                    className={`mt-0.5 shrink-0 ${l.muted ? 'text-ink-500' : 'text-gold-300'}`}
-                  />
-                  {l.text}
-                </li>
-              ))}
-            </ul>
+            <SectionTitle>{txt('screens.summaryScreen.proofOfSupport')}</SectionTitle>
+            <ContributionBar parts={contributionOf(totals)} className="mb-4" />
+            <StatTiles
+              big
+              tiles={statTiles(totals, { callingId: run.calling?.id, fermataHealed: fermataSaves })}
+              testId="summary-tiles"
+            />
+            {coach.length > 0 && (
+              <ul className="mt-3 flex flex-col gap-1.5" data-testid="summary-coach">
+                {coach.map((c) => (
+                  <li key={c} className="flex items-start gap-2 text-sm text-gold-200">
+                    <Icon name="info" size={15} className="mt-0.5 shrink-0 text-gold-300" />
+                    {c}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {triggers.length > 0 && (
+              // Phase 5g: the run's triggers, named from content ("Clean Strike triggered 14 times.").
+              <Fold
+                small
+                className="mt-3"
+                count={triggers.length}
+                testId="summary-triggers"
+                heading={txt('screens.summaryScreen.yourMotifsAndRelics')}
+              >
+                <ul className="flex flex-col gap-1.5">
+                  {triggers.map((l, i) => (
+                    <li
+                      key={i}
+                      className={`flex items-start gap-2 text-sm ${l.muted ? 'text-muted' : 'text-text'}`}
+                    >
+                      <Icon name={l.icon} size={15} className="mt-0.5 shrink-0 text-gold-300" />
+                      {l.text}
+                    </li>
+                  ))}
+                </ul>
+              </Fold>
+            )}
           </Panel>
         )}
 
@@ -624,182 +621,34 @@ export function SummaryView({
         )}
 
         {run.results.length > 0 && (
-          <Panel tone="solid" className="mt-6 p-5">
-            <SectionTitle
-              right={
-                <ul
-                  className="flex flex-wrap gap-1.5"
-                  aria-label={txt('screens.summaryScreen.fightsAndGrades')}
-                >
-                  {run.results.map((r, i) => (
-                    <li key={i}>
-                      <Chip
-                        color={GRADE_COLOR[r.grade]}
-                        title={txt('screens.summaryScreen.grade', { name: r.name, grade: r.grade })}
-                      >
-                        <b className="font-display">{r.grade}</b> {r.name}
-                      </Chip>
-                    </li>
-                  ))}
-                </ul>
-              }
-            >
-              {txt('screens.summaryScreen.yourRunFightBy')}
-            </SectionTitle>
-            <HpTimeline segments={segments} heroIds={heroIds} height={270} />
-            <TimelineLegend heroIds={heroIds} kinds={kinds} />
-          </Panel>
+          // The chart waits for whoever wants it (the third menu pass).
+          <Fold
+            className="mt-6"
+            testId="summary-chart"
+            heading={txt('screens.summaryScreen.yourRunFightBy')}
+            count={run.results.length}
+          >
+            <Panel tone="solid" className="p-5">
+              <ul
+                className="mb-3 flex flex-wrap gap-1.5"
+                aria-label={txt('screens.summaryScreen.fightsAndGrades')}
+              >
+                {run.results.map((r, i) => (
+                  <li key={i}>
+                    <Chip
+                      color={GRADE_COLOR[r.grade]}
+                      title={txt('screens.summaryScreen.grade', { name: r.name, grade: r.grade })}
+                    >
+                      <b className="font-display">{r.grade}</b> {r.name}
+                    </Chip>
+                  </li>
+                ))}
+              </ul>
+              <HpTimeline segments={segments} heroIds={heroIds} height={270} />
+              <TimelineLegend heroIds={heroIds} kinds={kinds} />
+            </Panel>
+          </Fold>
         )}
-
-        <section className="mt-6" aria-labelledby="proof-title">
-          <SectionTitle>
-            <span id="proof-title">{txt('screens.summaryScreen.proofOfSupport')}</span>
-          </SectionTitle>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Tile
-              icon="empower"
-              color="var(--color-amp)"
-              label={txt('screens.summaryScreen.amplified')}
-              value={fmt(totals.amplified)}
-              sentence={
-                totals.amplified > 0
-                  ? txt('screens.summaryScreen.youAddedDamageAuras', {
-                      amplified: fmt(totals.amplified),
-                      auraAmplified: fmt(totals.auraAmplified),
-                      threadAmplified: fmt(totals.threadAmplified),
-                      pct: pct(totals.partyDamage > 0 ? totals.amplified / totals.partyDamage : 0),
-                    })
-                  : txt('screens.summaryScreen.yourThreadStayedOn')
-              }
-            />
-            <Tile
-              icon="mend"
-              color="var(--color-heal)"
-              label={txt('screens.summaryScreen.healed')}
-              value={fmt(totals.healing)}
-              sentence={txt('screens.summaryScreen.youHealedLifeAcross', {
-                healing: fmt(totals.healing),
-                encounters: totals.encounters,
-                encountersWord: plural(totals.encounters, 'fight'),
-                auraHealing: fmt(totals.auraHealing),
-                threadHealing: fmt(totals.threadHealing),
-                value:
-                  totals.overheal > 0
-                    ? txt('screens.summaryScreen.wasOverheal', { overheal: fmt(totals.overheal) })
-                    : '',
-              })}
-            />
-            <Tile
-              icon="ward"
-              color="var(--color-shield)"
-              label={txt('screens.summaryScreen.mitigated')}
-              value={fmt(mitigated)}
-              sentence={txt('screens.summaryScreen.damageNeverLandedStopped', {
-                mitigated: fmt(mitigated),
-                shielded: fmt(totals.shielded),
-                negated: fmt(totals.negated),
-                perfects: totals.perfects,
-                perfectsWord: plural(totals.perfects, 'Ward'),
-              })}
-            />
-            <Tile
-              icon="heart"
-              color="#f9a8d4"
-              label={txt('screens.summaryScreen.saves')}
-              value={String(totals.saves)}
-              sentence={txt('screens.summaryScreen.aHeroWouldHave', {
-                saves: totals.saves,
-                savesWord: plural(totals.saves, 'time'),
-              })}
-            >
-              {saveLines.length > 0 && (
-                <ul className="mt-2 flex flex-col gap-1 text-xs leading-snug text-muted">
-                  {saveLines.map((h, i) => (
-                    <li key={i}>{h.text}</li>
-                  ))}
-                </ul>
-              )}
-            </Tile>
-            <Tile
-              icon="chime"
-              color="#c4b5fd"
-              label={txt('screens.summaryScreen.cleanses')}
-              value={String(totals.cleanses)}
-              sentence={txt('screens.summaryScreen.cleansedAtTheLast', {
-                cleanses: totals.cleanses,
-                cleansesWord: plural(totals.cleanses, 'mark'),
-                clutchCleanses: totals.clutchCleanses,
-                value:
-                  aimed > 0
-                    ? txt('screens.summaryScreen.youAnsweredOfAimed', {
-                        telegraphsAnswered: totals.telegraphsAnswered,
-                        aimed,
-                      })
-                    : '',
-              })}
-            />
-            <Tile
-              icon="note"
-              color="var(--color-gold-300)"
-              label={txt('screens.summaryScreen.cues')}
-              // Of every Solo the heroes fired, as the calls tile counts its answers (a run with
-              // a fight saved before plain Solos were counted shows the Cued ones alone).
-              value={
-                totals.plainSolos === undefined
-                  ? String(totals.cues)
-                  : `${totals.cues}/${totals.cues + totals.plainSolos}`
-              }
-              sentence={txt(
-                totals.plainSolos === undefined
-                  ? 'screens.summaryScreen.cuedSungToSafety'
-                  : 'screens.summaryScreen.cuedOfSungToSafety',
-                {
-                  cues: totals.cues,
-                  cuesWord: plural(totals.cues, 'Solo'),
-                  solos: totals.cues + (totals.plainSolos ?? 0),
-                  solosWord: plural(totals.cues + (totals.plainSolos ?? 0), 'Solo'),
-                  crescendos: totals.crescendos,
-                  crescendosWord: plural(totals.crescendos, 'Crescendo'),
-                  reels: totals.reels,
-                  reelsWord: plural(totals.reels, techniqueName('reel', run.calling?.id)),
-                },
-              )}
-            />
-            <Tile
-              icon="call"
-              color="var(--color-call, #fde68a)"
-              label={txt('screens.summaryScreen.callsAnswered')}
-              value={totals.calls > 0 ? `${totals.responses}/${totals.calls}` : '0'}
-              sentence={
-                totals.calls > 0
-                  ? txt('screens.summaryScreen.yourPartyCalledFor', {
-                      calls: totals.calls,
-                      callsWord: plural(totals.calls, 'time'),
-                      responses: totals.responses,
-                    })
-                  : txt('screens.summaryScreen.noHeroCalledFor')
-              }
-            />
-            <Tile
-              icon="fermata"
-              color="#e2d6f8"
-              label={txt('screens.summaryScreen.fermataHolds')}
-              value={String(totals.holds)}
-              sentence={
-                totals.holds > 0
-                  ? txt('screens.summaryScreen.lethalCaughtByFermata', {
-                      holds: totals.holds,
-                      holdsWord: plural(totals.holds, 'hit'),
-                      value:
-                        fermataSaves > 0
-                          ? txt('screens.summaryScreen.healedThroughItIn', { fermataSaves })
-                          : '',
-                    })
-                  : txt('screens.summaryScreen.fermataNeverHadTo')
-              }
-            />
-          </div>
-        </section>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
           <Panel tone="solid" className="p-5">
@@ -821,13 +670,16 @@ export function SummaryView({
                           </span>
                         )}
                       </p>
-                      <p className="text-sm leading-relaxed text-muted">
-                        {h.damage > 0
-                          ? txt('screens.summaryScreen.dealtDamageYourAuras', {
-                              damage: fmt(h.damage),
-                              share: pct(share),
-                            })
-                          : txt('screens.summaryScreen.dealtNoRecordedDamage')}
+                      <p className="font-mono text-xs leading-relaxed text-muted">
+                        {txt('screens.summaryScreen.heroDamage', { damage: fmt(h.damage) })}
+                        {h.damage > 0 && (
+                          <>
+                            {' · '}
+                            <span className="text-amp">
+                              {txt('screens.summaryScreen.heroFromYou', { pct: pct(share) })}
+                            </span>
+                          </>
+                        )}
                       </p>
                       <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-ink-700">
                         <div className="h-full bg-amp" style={{ width: `${share * 100}%` }} />
@@ -913,125 +765,131 @@ export function SummaryView({
           </Panel>
         </div>
 
-        <Panel tone="solid" className="mt-6 p-5" data-testid="summary-relics">
-          <SectionTitle
-            right={
-              <span className="flex items-center gap-1.5 font-mono text-xs text-muted">
-                <Icon name="aether" size={13} className="text-gold-300" />
-                {txt('screens.summaryScreen.earnedInFightsLeft', {
-                  aetherEarned: aetherEarned(run),
-                  aether: run.aether,
-                })}
-              </span>
-            }
-          >
-            {txt('screens.summaryScreen.relicsAndAether')}
-          </SectionTitle>
-          {run.relics.length === 0 ? (
-            <p className="text-sm text-muted">{txt('screens.summaryScreen.youCarriedNoRelics')}</p>
-          ) : (
-            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {run.relics.map((r) => {
-                const info = ownedRelicInfo(r);
-                const snap = carriedSnapshot(r, run.carried);
-                return (
-                  <li
-                    key={r.id}
-                    className="flex gap-3 rounded-lg bg-ink-900/60 px-3 py-2.5"
-                    data-relic={r.id}
-                    data-carried={r.carried ? (r.dormant ? 'dormant' : 'attuned') : undefined}
-                  >
-                    <RelicGlyph
-                      icon={info.icon}
-                      rarity={info.rarity}
-                      cleansed={info.cleansed}
-                      size={36}
-                      style={info.dormant ? { opacity: 0.55, filter: 'grayscale(0.7)' } : undefined}
-                    />
-                    <div className="min-w-0">
-                      <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-text">
-                        {info.name}
-                        {r.carried && <CarriedChip role={r.dormant ? 'lends' : 'attuned'} small />}
-                        {run.reliquary?.enshrined === r.id && (
-                          <Chip color="var(--color-gold-300)" icon="reliquary">
-                            {txt('screens.summaryScreen.enshrined')}
-                          </Chip>
-                        )}
-                        {r.pact && (
-                          <Chip color={DISCORD_LOOK.color} icon="dissonance" title={pactLine()}>
-                            {txt('screens.summaryScreen.from', { pactName: pactName() })}
-                          </Chip>
-                        )}
-                      </p>
-                      {info.dormant ? (
-                        <>
-                          <p className="text-sm leading-relaxed text-muted line-through">
-                            {info.rule}
-                          </p>
-                          <p className="text-xs text-muted">{dormantLine()}</p>
-                        </>
-                      ) : (
-                        <RelicBody info={info} compact flavor={false} />
-                      )}
-                      {snap && (
-                        <InscriptionList view={relicView(snap)} compact className="mt-1.5" />
-                      )}
-                    </div>
-                  </li>
-                );
+        {/* The run's relics and motifs fold, a count each (the third menu pass). */}
+        <Fold
+          className="mt-6"
+          testId="summary-relics"
+          count={run.relics.length}
+          heading={txt('screens.summaryScreen.relicsAndAether')}
+        >
+          <Panel tone="solid" className="p-5">
+            <p className="mb-3 flex items-center gap-1.5 font-mono text-xs text-muted">
+              <Icon name="aether" size={13} className="text-gold-300" />
+              {txt('screens.summaryScreen.earnedInFightsLeft', {
+                aetherEarned: aetherEarned(run),
+                aether: run.aether,
               })}
-            </ul>
-          )}
-        </Panel>
-
-        <Panel tone="solid" className="mt-6 p-5">
-          <SectionTitle
-            right={
-              <span className="font-mono text-xs text-muted">
-                {txt('screens.summaryScreen.woven', { length: run.motifs.length })}
-              </span>
-            }
-          >
-            {txt('screens.summaryScreen.motifsBuilt')}
-          </SectionTitle>
-          {run.motifs.length === 0 ? (
-            <p className="text-sm text-muted">{txt('screens.summaryScreen.youDidnTWeave')}</p>
-          ) : (
-            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {run.motifs.map((m) => {
-                const def = motifDef(m.id);
-                const cat = CATEGORY[def.category];
-                return (
-                  <li key={m.id} className="rounded-lg bg-ink-900/60 px-3 py-2.5">
-                    <p
-                      className="flex items-center justify-between gap-2 text-sm font-semibold"
-                      style={{ color: cat.color }}
+            </p>
+            {run.relics.length === 0 ? (
+              <p className="text-sm text-muted">
+                {txt('screens.summaryScreen.youCarriedNoRelics')}
+              </p>
+            ) : (
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {run.relics.map((r) => {
+                  const info = ownedRelicInfo(r);
+                  const snap = carriedSnapshot(r, run.carried);
+                  return (
+                    <li
+                      key={r.id}
+                      className="flex gap-3 rounded-lg bg-ink-900/60 px-3 py-2.5"
+                      data-relic={r.id}
+                      data-carried={r.carried ? (r.dormant ? 'dormant' : 'attuned') : undefined}
                     >
-                      <span className="flex items-center gap-1.5">
-                        <Icon name={cat.icon} size={15} /> {def.name}
-                      </span>
-                      <Pips level={m.level} max={def.values.length} color={cat.color} />
-                    </p>
-                    <p className="mt-0.5 text-xs leading-relaxed text-muted">
-                      {motifLine(m.id, m.level)}
-                    </p>
-                  </li>
-                );
+                      <RelicGlyph
+                        icon={info.icon}
+                        rarity={info.rarity}
+                        cleansed={info.cleansed}
+                        size={36}
+                        style={
+                          info.dormant ? { opacity: 0.55, filter: 'grayscale(0.7)' } : undefined
+                        }
+                      />
+                      <div className="min-w-0">
+                        <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-text">
+                          {info.name}
+                          {r.carried && (
+                            <CarriedChip role={r.dormant ? 'lends' : 'attuned'} small />
+                          )}
+                          {run.reliquary?.enshrined === r.id && (
+                            <Chip color="var(--color-gold-300)" icon="reliquary">
+                              {txt('screens.summaryScreen.enshrined')}
+                            </Chip>
+                          )}
+                          {r.pact && (
+                            <Chip color={DISCORD_LOOK.color} icon="dissonance" title={pactLine()}>
+                              {txt('screens.summaryScreen.from', { pactName: pactName() })}
+                            </Chip>
+                          )}
+                        </p>
+                        {info.dormant ? (
+                          <>
+                            <p className="text-sm leading-relaxed text-muted line-through">
+                              {info.rule}
+                            </p>
+                            <p className="text-xs text-muted">{dormantLine()}</p>
+                          </>
+                        ) : (
+                          <RelicBody info={info} compact flavor={false} />
+                        )}
+                        {snap && (
+                          <InscriptionList view={relicView(snap)} compact className="mt-1.5" />
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Panel>
+        </Fold>
+
+        <Fold
+          className="mt-4"
+          testId="summary-motifs"
+          count={run.motifs.length}
+          heading={txt('screens.summaryScreen.motifsBuilt')}
+        >
+          <Panel tone="solid" className="p-5">
+            {run.motifs.length === 0 ? (
+              <p className="text-sm text-muted">{txt('screens.summaryScreen.youDidnTWeave')}</p>
+            ) : (
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {run.motifs.map((m) => {
+                  const def = motifDef(m.id);
+                  const cat = CATEGORY[def.category];
+                  return (
+                    <li key={m.id} className="rounded-lg bg-ink-900/60 px-3 py-2.5">
+                      <p
+                        className="flex items-center justify-between gap-2 text-sm font-semibold"
+                        style={{ color: cat.color }}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Icon name={cat.icon} size={15} /> {def.name}
+                        </span>
+                        <Pips level={m.level} max={def.values.length} color={cat.color} />
+                      </p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-muted">
+                        {motifLine(m.id, m.level)}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <p className="mt-3 text-xs text-muted">
+              {txt('screens.summaryScreen.songs', {
+                value:
+                  run.chords
+                    .map(
+                      (c, i) =>
+                        `${songName(i)}: ${c.auras.map((id) => auraDef(id).name).join(' + ') || '—'}${c.ornaments.length ? ` (${c.ornaments.map((id) => ornamentDef(id).name).join(', ')})` : ''}`,
+                    )
+                    .join(' · ') || txt('screens.summaryScreen.none'),
               })}
-            </ul>
-          )}
-          <p className="mt-3 text-xs text-muted">
-            {txt('screens.summaryScreen.songs', {
-              value:
-                run.chords
-                  .map(
-                    (c, i) =>
-                      `${songName(i)}: ${c.auras.map((id) => auraDef(id).name).join(' + ') || '—'}${c.ornaments.length ? ` (${c.ornaments.map((id) => ornamentDef(id).name).join(', ')})` : ''}`,
-                  )
-                  .join(' · ') || txt('screens.summaryScreen.none'),
-            })}
-          </p>
-        </Panel>
+            </p>
+          </Panel>
+        </Fold>
       </div>
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 flex justify-end gap-3 bg-gradient-to-t from-ink-950 via-ink-950/80 to-transparent px-6 pb-5 pt-10">
         <Button className="pointer-events-auto" size="lg" onClick={onLoom} sound="back">
@@ -1251,7 +1109,8 @@ function RunRankPanel({ run, profileXp }: { run: RunState; profileXp: number }) 
           <p className="flex items-center gap-2 font-display text-2xl font-bold text-gold-200">
             <Icon name="star" size={20} solid className="text-gold-300" /> {xpHeadline(run.xp)}
           </p>
-          <p className="mt-0.5 text-sm text-text">{rr.line}</p>
+          {/* The XP is said once above and once on the bar: the line says only a Rank reached. */}
+          {rr.to > rr.from && <p className="mt-0.5 text-sm text-text">{rr.line}</p>}
         </div>
         <div className="min-w-[16rem] flex-1">
           <div className="flex items-center gap-2">
@@ -1283,39 +1142,6 @@ function RunRankPanel({ run, profileXp }: { run: RunState; profileXp: number }) 
         </ul>
       )}
     </Panel>
-  );
-}
-
-function Tile({
-  icon,
-  color,
-  label,
-  value,
-  sentence,
-  children,
-}: {
-  icon: IconName;
-  color: string;
-  label: string;
-  value: string;
-  sentence: string;
-  children?: ReactNode;
-}) {
-  return (
-    <article
-      className="rounded-xl border border-ink-600/70 bg-ink-800/85 p-4"
-      style={{ borderTopColor: color, borderTopWidth: 3 }}
-    >
-      <p
-        className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider"
-        style={{ color }}
-      >
-        <Icon name={icon} size={16} /> {label}
-      </p>
-      <p className="mt-1 font-display text-5xl font-bold leading-tight text-text">{value}</p>
-      <p className="mt-1 text-sm leading-relaxed text-muted">{sentence}</p>
-      {children}
-    </article>
   );
 }
 

@@ -30,44 +30,43 @@ export const resultText = {
   'screens.resultText.theConductorSBaton':
     'The Conductor’s baton: keep the tank Warded and Mended, or {value}',
   'screens.resultText.reelThemOutOf': 'Reel them out of reach',
-  'screens.resultText.yourAurasOfEverything':
-    'Your auras {verbs}: {auraShare} of everything you did.',
-  'screens.resultText.yourAurasDidNothing':
-    'Your auras did nothing this time. Sing them where the party is: the beam song on whoever you thread, the field song around you.',
-  'screens.resultText.yourBeamHealedAnd':
-    'Your beam healed {threadHealing} and Empower added {threadAmplified} damage.',
-  'screens.resultText.yourBeamHealedEmpower':
-    'Your beam healed {threadHealing}. Empower added no damage: right-click when everyone is healthy.',
-  'screens.resultText.empowerAddedDamageYour':
-    'Empower added {threadAmplified} damage. Your beam healed nothing.',
-  'screens.resultText.yourThreadDidNo':
-    'Your Thread did no healing or damage. Thread a hero with 1–4 or a click.',
-  'screens.resultText.damageNeverLandedStopped':
-    '{fmt} damage never landed: {shielded} stopped by your shields and auras, and {negated} negated by {perfects} Perfect {perfectsWord}.',
-  'screens.resultText.noWardsLandedA': 'No Wards landed. A Ward just before a big hit absorbs it.',
-  'screens.resultText.inAllYouHealed':
-    'In all you healed {healing} life{value} and added {amplified} damage, {pct} of everything your party dealt.',
-  'screens.resultText.moreWentToHeroes': ' ({overheal} more went to heroes already full)',
-  'screens.resultText.youDidNoHealing': 'You did no healing and added no damage this fight.',
-  'screens.resultText.savedAHeroFrom': 'Saved a hero from a lethal blow {saves} {savesWord}.',
-  'screens.resultText.cleansed': 'Cleansed {cleanses} {cleansesWord}{value}.',
-  'screens.resultText.ofThemAtThe': ', {clutchCleanses} of them at the last moment',
-  'screens.resultText.rewindTookHeroesOut': 'Rewind took heroes out of danger {reels} {reelsWord}.',
-  'screens.resultText.reeledHeroesOutOf': 'Reeled heroes out of danger {reels} {reelsWord}.',
-  'screens.resultText.cued': '{cues} {cuesWord} Cued{value}.',
-  'screens.resultText.cuedOf': '{cues} of {solos} {solosWord} Cued{value}.',
-  'screens.resultText.andSang': ', {crescendos} {crescendosWord} sung',
-  'screens.resultText.answeredOfForHelp':
-    'Answered {responses} of {calls} {callsWord} for help: {responses} {responsesWord}.',
-  'screens.resultText.yourPartyCalledFor':
-    'Your party called for help {calls} {callsWord}. Answer with what they ask for and the move becomes a Flourish.',
-  'screens.resultText.fermataCaughtLethalAnd':
-    'Fermata caught {holds} lethal {holdsWord} and held the hero at 1 life{value}.',
-  'screens.resultText.youHealedThroughThe': '; you healed {value} through the hold',
-  'screens.resultText.everyOne': 'every one',
-  'screens.resultText.answeredOfEnemyAttacks':
-    'Answered {telegraphsAnswered} of {telegraphsAimed} enemy attacks aimed at your party.',
-  'screens.resultText.them': 'them',
   'screens.resultText.answer': 'Answer',
   'screens.resultText.answers': 'Answers',
+  // The Result's and the Summary's tiles: a number and a short label each (the third menu pass).
+  'screens.resultText.tileHealed': 'Healed',
+  'screens.resultText.tileDamageAdded': 'Damage added',
+  'screens.resultText.tileDamageStopped': 'Damage stopped',
+  'screens.resultText.tileSaves': 'Saves',
+  'screens.resultText.tileSave': 'Save',
+  'screens.resultText.tileCleansed': 'Marks cleansed',
+  'screens.resultText.tileCleansedOne': 'Mark cleansed',
+  'screens.resultText.tileReeled': 'Reeled out',
+  'screens.resultText.tileRewound': 'Rewound out',
+  'screens.resultText.tileSolosCued': 'Solos Cued',
+  'screens.resultText.tileSoloCued': 'Solo Cued',
+  'screens.resultText.tileCrescendos': 'Crescendos',
+  'screens.resultText.tileCrescendo': 'Crescendo',
+  'screens.resultText.tileCalls': 'Calls answered',
+  'screens.resultText.tileHolds': 'Fermata holds',
+  'screens.resultText.tileHold': 'Fermata hold',
+  'screens.resultText.tileAttacks': 'Attacks answered',
+  'screens.resultText.tileOf': '{n} of {total}',
+  'screens.resultText.tileSplitHeal': 'auras {auras} · beam {beam}',
+  'screens.resultText.tileSplitDamage': 'auras {auras} · Empower {empower}',
+  'screens.resultText.tileOverheal': '{overheal} overheal',
+  'screens.resultText.tilePartyShare': '{pct} of party damage',
+  'screens.resultText.tileShields': 'shields {shielded}',
+  'screens.resultText.tilePerfectWards': 'Perfect Wards',
+  'screens.resultText.tilePerfectWard': 'Perfect Ward',
+  'screens.resultText.tileNegated': '{negated} negated',
+  'screens.resultText.tileClutch': '{n} at the last second',
+  'screens.resultText.tileHealedThrough': '{n} healed in time',
+  'screens.resultText.tileSr': '{value} {label}.',
+  'screens.resultText.coachThread': 'Thread a hero with 1–4 or a click.',
+  'screens.resultText.coachWard': 'Ward just before a big hit to absorb it.',
+  'screens.resultText.coachAuras':
+    'Keep the party in your field, and thread a hero for your beam song.',
+  'screens.resultText.coachEmpower': 'Right-click to Empower when everyone is healthy.',
+  'screens.resultText.coachCalls':
+    'Answer a hero’s call with what they ask for. The move becomes a Flourish.',
 } satisfies Catalogue;

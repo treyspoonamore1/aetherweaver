@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { EncounterResult, WithoutYou } from '../src/meta/types';
 import { evaluateHints } from '../src/ui/hud/hints';
 import { mockHud, resultRun } from '../src/ui/lab/mock';
-import { statLines } from '../src/ui/screens/resultText';
+import { statTiles } from '../src/ui/screens/resultText';
 import {
   madeTheDifference,
   tallyLine,
@@ -67,11 +67,11 @@ describe('"Without you"', () => {
     expect(resultRun(true, 0, null).lastResult!.withoutYou).toBeNull();
   });
 
-  it('result stat lines mention calls answered and Fermata holds', () => {
+  it('result tiles count calls answered and Fermata holds', () => {
     const r = resultRun(true).lastResult!;
-    const text = statLines(r).map((l) => l.text);
-    expect(text.some((t) => /Answered \d+ of \d+ calls/.test(t))).toBe(true);
-    expect(text.some((t) => /Fermata caught/.test(t))).toBe(true);
+    const sr = statTiles(r.stats).map((t) => t.sr);
+    expect(sr.some((t) => /^\d+ of \d+ Calls answered\.$/.test(t))).toBe(true);
+    expect(sr.some((t) => /^\d+ Fermata holds?\./.test(t))).toBe(true);
   });
 });
 

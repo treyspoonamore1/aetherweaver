@@ -5,10 +5,11 @@ export const summaryScreen = {
   'screens.summaryScreen.inCombat': '{duration} in combat',
   'screens.summaryScreen.seed': 'seed {seed}',
   'screens.summaryScreen.assistsOn': 'Assists on',
-  'screens.summaryScreen.ofEverythingThatMattered': 'of everything that mattered in this run was',
-  'screens.summaryScreen.healingShieldsSavesAnd': ': healing, shields, saves and added damage.',
-  'screens.summaryScreen.you': 'you',
-  'screens.summaryScreen.yourSongsAndYour': 'Your songs and your Thread',
+  'screens.summaryScreen.yourShare': 'Your share',
+  'screens.summaryScreen.yourShareSr':
+    'Your share of the healing, shields, saves and added damage: {pct}.',
+  'screens.summaryScreen.heroDamage': '{damage} damage',
+  'screens.summaryScreen.heroFromYou': '{pct} from you',
   'screens.summaryScreen.yourMotifsAndRelics': 'Your motifs and relics at work',
   'screens.summaryScreen.withoutYou': 'Without you',
   'screens.summaryScreen.you2': 'You: {value}',
@@ -26,7 +27,6 @@ export const summaryScreen = {
   'screens.summaryScreen.enshrined': 'Enshrined',
   'screens.summaryScreen.from': 'From {pactName}',
   'screens.summaryScreen.motifsBuilt': 'Motifs built',
-  'screens.summaryScreen.woven': '{length} woven',
   'screens.summaryScreen.youDidnTWeave': 'No motifs this run.',
   'screens.summaryScreen.songs': 'Songs: {value}',
   'screens.summaryScreen.theLoom': 'The Loom',
@@ -66,39 +66,6 @@ export const summaryScreen = {
   'screens.summaryScreen.notReRun': 'Not re-run',
   'screens.summaryScreen.fightsAndGrades': 'Fights and grades',
   'screens.summaryScreen.grade': '{name}: grade {grade}',
-  'screens.summaryScreen.amplified': 'Amplified',
-  'screens.summaryScreen.youAddedDamageAuras':
-    'You added {amplified} damage (auras {auraAmplified}, Empower {threadAmplified}): {pct} of everything your party dealt.',
-  'screens.summaryScreen.yourThreadStayedOn':
-    'Your Thread stayed on Mend and no aura added damage. Empower adds damage when the party is healthy.',
-  'screens.summaryScreen.healed': 'Healed',
-  'screens.summaryScreen.youHealedLifeAcross':
-    'You healed {healing} life across {encounters} {encountersWord} (auras {auraHealing}, your beam {threadHealing}){value}.',
-  'screens.summaryScreen.mitigated': 'Mitigated',
-  'screens.summaryScreen.damageNeverLandedStopped':
-    '{mitigated} damage never landed: {shielded} stopped by your shields and auras, and {negated} negated by {perfects} Perfect {perfectsWord}.',
-  'screens.summaryScreen.saves': 'Saves',
-  'screens.summaryScreen.aHeroWouldHave': '{saves} {savesWord} a hero would have died and didn’t.',
-  'screens.summaryScreen.cleanses': 'Cleanses',
-  'screens.summaryScreen.cleansedAtTheLast':
-    '{cleanses} {cleansesWord} cleansed, {clutchCleanses} at the last moment.{value}',
-  'screens.summaryScreen.cues': 'Cued Solos',
-  'screens.summaryScreen.cuedSungToSafety':
-    '{cues} {cuesWord} Cued, {crescendos} {crescendosWord} sung, {reels} {reelsWord} to safety.',
-  'screens.summaryScreen.cuedOfSungToSafety':
-    '{cues} of {solos} {solosWord} Cued, {crescendos} {crescendosWord} sung, {reels} {reelsWord} to safety.',
-  'screens.summaryScreen.callsAnswered': 'Calls answered',
-  'screens.summaryScreen.yourPartyCalledFor':
-    'Your party called for help {calls} {callsWord}; you answered {responses}, and each became a Flourish.',
-  'screens.summaryScreen.noHeroCalledFor': 'No hero called for help this run.',
-  'screens.summaryScreen.fermataHolds': 'Fermata holds',
-  'screens.summaryScreen.lethalCaughtByFermata':
-    '{holds} lethal {holdsWord} caught by Fermata and held at 1 life{value}.',
-  'screens.summaryScreen.fermataNeverHadTo':
-    'Fermata never had to hold anyone. Slot it to catch a lethal hit once per fight.',
-  'screens.summaryScreen.dealtDamageYourAuras':
-    'Dealt {damage} damage. Your auras and Empower accounted for {share} of it.',
-  'screens.summaryScreen.dealtNoRecordedDamage': 'Dealt no recorded damage.',
   'screens.summaryScreen.thePathYouTook': 'The path you took',
   'screens.summaryScreen.tierLockedByMastery': 'Tier {numeral}: locked by mastery',
   'screens.summaryScreen.tierNotReached': 'Tier {numeral}: not reached',
@@ -111,10 +78,6 @@ export const summaryScreen = {
   'screens.summaryScreen.waitsInPrep': 'waits in Prep',
   'screens.summaryScreen.isAmongItsLevels': 'is among its levels',
   'screens.summaryScreen.notReRun2': 'not re-run',
-  'screens.summaryScreen.wasOverheal': '; {overheal} was overheal',
-  'screens.summaryScreen.youAnsweredOfAimed':
-    ' You answered {telegraphsAnswered} of {aimed} aimed attacks.',
-  'screens.summaryScreen.healedThroughItIn': '; {fermataSaves} healed through it in time',
   'screens.summaryScreen.won': 'won',
   'screens.summaryScreen.won2': 'won {duration}',
   'screens.summaryScreen.fell2': 'fell {duration}',

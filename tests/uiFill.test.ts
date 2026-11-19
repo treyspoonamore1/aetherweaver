@@ -33,7 +33,7 @@ import {
 import { FILL_GLYPHS, PATHS, glyphKey } from '../src/ui/kit/iconPaths';
 import { FIXTURE_TRIGGERS, fillFixtureContent } from '../src/ui/lab/fillFixture';
 import { boonInfo, gainLines, relicInfo } from '../src/ui/screens/interlude';
-import { statLines, triggerLines } from '../src/ui/screens/resultText';
+import { triggerLines } from '../src/ui/screens/resultText';
 import {
   harmonyHint,
   harmonyLeads,
@@ -471,10 +471,9 @@ describe('the Result and the Summary: "X triggered N times"', () => {
   it('a fight without triggers reads as before; ids content doesn’t know are left out', async () => {
     const { resultRun } = await import('../src/ui/lab/mock');
     const r = resultRun(true).lastResult!;
-    const before = statLines(r);
     expect(r.stats.triggers).toBeUndefined();
-    const unknown = statLines({ ...r, stats: { ...r.stats, triggers: { no_such_entry: 3 } } });
-    expect(unknown).toEqual(before);
+    expect(triggerLines(r.stats)).toEqual([]);
+    expect(triggerLines({ triggers: { no_such_entry: 3 } })).toEqual([]);
   });
 
   it('every fill trigger names itself on the Result and the Summary (bound once the fill merges)', async () => {
@@ -488,7 +487,7 @@ describe('the Result and the Summary: "X triggered N times"', () => {
     const run = resultRun(true);
     const r = run.lastResult!;
     const triggers = Object.fromEntries(triggered.map((x, i) => [x.id, i + 2]));
-    const lines = statLines({ ...r, stats: { ...r.stats, triggers } }).map((l) => l.text);
+    const lines = triggerLines({ ...r.stats, triggers }).map((l) => l.text);
     triggered.forEach((x, i) =>
       expect(lines).toContain(
         `${(x as unknown as { name: string }).name} triggered ${i + 2} times.`,

@@ -20,11 +20,19 @@ import { RankUpCard, XpGainPanel, useRankUps } from './Rank';
 import {
   HIGHLIGHT_COLOR,
   HIGHLIGHT_ICON,
+  callingLine,
+  coachLines,
   contributionOf,
   deathAdviceLine,
   deathReadyLine,
-  statLines,
+  statTiles,
+  triggerLines,
 } from './resultText';
+import { StatTiles } from './StatTiles';
+import { Fold } from '../kit/Fold';
+import { fightXp } from './rankText';
+import { fightStarlight, starlightUse } from './starlightModel';
+import type { XpLine } from '../../meta/profile';
 import { WithoutYouPanel } from './WithoutYou';
 import { callingLook } from '../kit/CallingGlyph';
 import type { Bond } from '../../meta/bonds';
@@ -38,7 +46,7 @@ import { CONTENT } from '../../content';
 import { recruitCause, rowThreat } from '../../meta/run';
 import { t } from '../text';
 
-export { HIGHLIGHT_COLOR, HIGHLIGHT_ICON, statLines };
+export { HIGHLIGHT_COLOR, HIGHLIGHT_ICON };
 
 const GRADE: Record<Grade, { color: string; label: string }> = {
   S: {
@@ -148,6 +156,12 @@ export function ResultView({
     ? threatLine(rankedChoice(run) ? rowThreat(run, node) : node.reward.threat)
     : null;
   const gained = aether && r.aether > 0;
+  // An Echo's leg pays Starlight as the Movement it is built over.
+  const starlightResult =
+    run.echo !== undefined ? { ...r, movement: contentMovementOf(run, r.movement ?? 1) } : r;
+  const coach = coachLines(r.stats);
+  const callLine = callingLine(r.stats, run.calling);
+  const triggers = triggerLines(r.stats);
   // Phase 4e: what the fight paid each hero's Bond.
   const bondRows = bonds ? bondXpRows(heroIds, fightBondXp(r), bonds) : [];
   // Phase 4g: the fight's Starlight counts up after the Aether (docs/phase-4g/vfx-audio.md).
@@ -227,15 +241,9 @@ export function ResultView({
               {loom && (
                 // Phase 4g: beside the XP, the Starlight the fight paid and its Calling's mastery.
                 <StarlightGainPanel
-                  result={
-                    run.echo !== undefined
-                      ? { ...r, movement: contentMovementOf(run, r.movement ?? 1) }
-                      : r
-                  }
+                  result={starlightResult}
                   dissonance={run.dissonance}
                   balance={loom.starlight}
-                  rank={loom.rank}
-                  all={loom.all}
                   mastery={
                     run.calling && loom.mastery !== undefined
                       ? { callingId: run.calling.id, xp: loom.mastery }
@@ -256,9 +264,18 @@ export function ResultView({
                       {t('screens.resultScreen.inYourPurse', { aether: run.aether })}
                     </span>
                   </p>
-                  <p className="mt-0.5 font-mono text-xs text-muted">{aether.detail}</p>
                 </div>
               )}
+              <RewardBreakdown
+                xpLines={
+                  profileXp !== undefined
+                    ? fightXp(r, run.dissonance, contentMovementOf(run, node?.movement ?? 1)).lines
+                    : []
+                }
+                starlight={loom ? fightStarlight(starlightResult, run.dissonance) : null}
+                starlightUse={loom ? starlightUse(loom.rank, loom.all, true) : null}
+                aether={aether ? aether.detail : null}
+              />
             </div>
           )}
         </header>
@@ -323,28 +340,67 @@ export function ResultView({
           <Panel tone="solid" className="p-5">
             <SectionTitle>{t('screens.resultScreen.whatYouDid')}</SectionTitle>
             <ContributionBar parts={contributionOf(r.stats)} className="mb-4" />
-            <ul className="flex flex-col gap-3">
-              {statLines(r, run.calling).map((l, i) => (
-                <li
-                  key={i}
-                  className={`flex items-start gap-3 text-sm leading-relaxed ${l.muted ? 'text-muted' : 'text-text'}`}
-                  data-testid={l.calling ? 'calling-line' : undefined}
-                >
-                  <Icon
-                    name={l.icon}
-                    size={18}
-                    className={`mt-0.5 shrink-0 ${l.muted ? 'text-ink-500' : 'text-gold-300'}`}
-                    style={l.calling ? { color: callingLook(run.calling?.id).text } : undefined}
-                  />
-                  {l.text}
-                </li>
-              ))}
-            </ul>
+            {/* The third menu pass: a number and a label each; a screen reader hears each tile as
+                a sentence, and the whole lines below. */}
+            <StatTiles
+              tiles={statTiles(r.stats, {
+                callingId: run.calling?.id,
+                fermataHealed: r.highlights.filter((h) => h.kind === 'fermata').length,
+              })}
+              testId="result-tiles"
+            />
+            {callLine && (
+              <p
+                className="mt-3 flex items-start gap-3 text-sm leading-relaxed text-text"
+                data-testid="calling-line"
+              >
+                <Icon
+                  name={callLine.icon}
+                  size={18}
+                  className="mt-0.5 shrink-0"
+                  style={{ color: callingLook(run.calling?.id).text }}
+                />
+                {callLine.text}
+              </p>
+            )}
+            {coach.length > 0 && (
+              <ul className="mt-3 flex flex-col gap-1.5" data-testid="result-coach">
+                {coach.map((c) => (
+                  <li key={c} className="flex items-start gap-2 text-sm text-gold-200">
+                    <Icon name="info" size={15} className="mt-0.5 shrink-0 text-gold-300" />
+                    {c}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {triggers.length > 0 && (
+              <Fold
+                small
+                className="mt-3"
+                count={triggers.length}
+                testId="result-triggers"
+                heading={t('screens.resultScreen.motifsAndRelics')}
+              >
+                <ul className="flex flex-col gap-1.5">
+                  {triggers.map((l, i) => (
+                    <li
+                      key={i}
+                      className={`flex items-start gap-2 text-sm ${l.muted ? 'text-muted' : 'text-text'}`}
+                    >
+                      <Icon name={l.icon} size={15} className="mt-0.5 shrink-0 text-gold-300" />
+                      {l.text}
+                    </li>
+                  ))}
+                </ul>
+              </Fold>
+            )}
             {r.highlights.length > 1 && (
-              <>
-                <h3 className="mb-2 mt-5 font-display text-sm font-bold uppercase tracking-wider text-muted">
-                  {t('screens.resultScreen.alsoWorthRemembering')}
-                </h3>
+              <Fold
+                small
+                className="mt-3"
+                count={r.highlights.length - 1}
+                heading={t('screens.resultScreen.alsoWorthRemembering')}
+              >
                 <ul className="flex flex-col gap-2 text-sm">
                   {r.highlights.slice(1).map((h, i) => (
                     <li
@@ -373,7 +429,7 @@ export function ResultView({
                     </li>
                   ))}
                 </ul>
-              </>
+              </Fold>
             )}
           </Panel>
 
@@ -406,15 +462,20 @@ export function ResultView({
                           {state}
                         </Chip>
                       </div>
-                      <p className="text-xs leading-relaxed text-muted">
-                        {t('screens.resultScreen.dealtDamage', { damage: fmt(h.damage) })}
+                      <p className="font-mono text-xs leading-relaxed text-muted">
+                        {t('screens.resultScreen.heroDamage', { damage: fmt(h.damage) })}
                         {h.amplified > 0 && h.damage > 0 && (
                           <>
-                            , <span className="text-amp">{pct(h.amplified / h.damage)}</span>{' '}
-                            {t('screens.resultScreen.ofItFromYou')}
+                            {' · '}
+                            <span className="text-amp">
+                              {t('screens.resultScreen.heroFromYou', {
+                                pct: pct(h.amplified / h.damage),
+                              })}
+                            </span>
                           </>
                         )}
-                        {t('screens.resultScreen.endsAtLife', { hpPct: pct(h.hpPct) })}
+                        {' · '}
+                        {t('screens.resultScreen.heroLife', { hpPct: pct(h.hpPct) })}
                       </p>
                       {h.blood && (
                         // Phase 5b: Brann's fight, from his Blood Rage stats.
@@ -447,17 +508,23 @@ export function ResultView({
           </Panel>
         </div>
 
-        <Panel tone="solid" className="mt-6 p-5">
-          <SectionTitle>{t('screens.resultScreen.partyHealthOverThe')}</SectionTitle>
-          <HpTimeline
-            segments={[{ duration: r.duration, timeline: r.timeline, markers: r.markers }]}
-            heroIds={heroIds}
-          />
-          <TimelineLegend heroIds={heroIds} kinds={kinds} />
-          <p className="mt-2 text-xs text-muted">
-            {t('screens.resultScreen.glyphsAlongTheBottom')}
-          </p>
-        </Panel>
+        {/* The chart waits for whoever wants it (the third menu pass). */}
+        <Fold
+          className="mt-6"
+          testId="result-chart"
+          heading={t('screens.resultScreen.partyHealthOverThe')}
+        >
+          <Panel tone="solid" className="p-5">
+            <HpTimeline
+              segments={[{ duration: r.duration, timeline: r.timeline, markers: r.markers }]}
+              heroIds={heroIds}
+            />
+            <TimelineLegend heroIds={heroIds} kinds={kinds} />
+            <p className="mt-2 text-xs text-muted">
+              {t('screens.resultScreen.glyphsAlongTheBottom')}
+            </p>
+          </Panel>
+        </Fold>
 
         {r.deaths.length > 0 && (
           <Panel tone="solid" className="mt-6 border-lethal/50 p-5">
@@ -563,6 +630,49 @@ export function ResultView({
         <BondRankUpCard {...bondCard} />
       )}
     </ScreenFrame>
+  );
+}
+
+/**
+ * How the fight's rewards add up (the third menu pass): the XP's lines, why the Starlight paid
+ * and what it is for, and the Aether's sum, one fold under the three totals.
+ */
+function RewardBreakdown({
+  xpLines,
+  starlight,
+  starlightUse: use,
+  aether,
+}: {
+  xpLines: readonly XpLine[];
+  starlight: { detail: string } | null;
+  starlightUse: string | null;
+  aether: string | null;
+}) {
+  if (xpLines.length === 0 && !starlight && !aether) return null;
+  return (
+    <Fold small testId="result-breakdown" heading={t('screens.resultScreen.howItAddsUp')}>
+      <div className="flex flex-col gap-1.5 font-mono text-xs text-muted">
+        {xpLines.length > 0 && (
+          <ul className="flex flex-col gap-0.5">
+            {xpLines.map((l) => (
+              <li key={l.label} className="flex justify-between gap-4">
+                <span className="truncate text-text">{l.label}</span>
+                <span className="text-gold-300">
+                  {t('screens.resultScreen.plusXp', { xp: fmt(l.xp) })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {starlight && <p>{starlight.detail}</p>}
+        {use && (
+          <p className="font-sans text-text" data-testid="starlight-use">
+            {use}
+          </p>
+        )}
+        {aether && <p>{aether}</p>}
+      </div>
+    </Fold>
   );
 }
 

@@ -1320,7 +1320,8 @@ test('Phase 4d: Dissonance — choose levels in Prep, embark, the fight plays th
   // Win it: the Result's XP has its Dissonance line. Then the run (the hook walks to the boss).
   expect(await page.evaluate(() => window.__AWRUN__!.winFight())).toBe(true);
   await expect.poll(phase).toBe('result');
-  await expect(page.getByTestId('xp-gain')).toContainText(`Dissonance ${points}`);
+  // (The XP's lines are in the Result's "How it adds up" fold since the third menu pass.)
+  await expect(page.getByTestId('result-breakdown')).toContainText(`Dissonance ${points}`);
   await page.evaluate(() => window.__AWRUN__!.continue());
   await expect.poll(phase).toBe('draft');
   await page.evaluate(() => window.__AWRUN__!.pick(0));
@@ -1858,7 +1859,8 @@ test('Phase 4g: Starlight — a won fight’s Result shows what it paid', async 
   await expect(page.getByTestId('xp-gain')).toBeVisible();
   await expect(gain).toContainText(`${pay} to spend`);
   // A new profile is below the Atelier's Rank: the line says when it opens.
-  await expect(gain.getByTestId('starlight-use')).toContainText(
+  // (In the Result's "How it adds up" fold since the third menu pass.)
+  await expect(page.getByTestId('result-breakdown').getByTestId('starlight-use')).toContainText(
     `Weaver Rank ${CONTENT.starlight.atelierRank}`,
   );
   expect(errors).toEqual([]);
@@ -2191,6 +2193,8 @@ test('Phase 5g: the UI lab’s Fill group — each view renders without an error
   await openLabView(page, 'fill-trigger-lines');
   await expect(stage.locator('li')).toHaveText(lines);
   await openLabView(page, 'fill-result');
+  // They fold under the tiles since the third menu pass: one press opens them.
+  await stage.getByTestId('result-triggers').getByRole('button').click();
   for (const line of lines) await expect(stage.getByText(line, { exact: true })).toBeVisible();
   await openLabView(page, 'fill-summary');
   const summary = stage.getByTestId('summary-triggers');

@@ -594,31 +594,36 @@ describe('an old replay is refused in one plain sentence', () => {
 });
 
 describe('the Result and the Summary count every Solo the heroes fired', () => {
-  it('“7 of 9 Solos Cued” when the fight counted its plain Solos; the old line when it did not', async () => {
-    const { statLines } = await tsx<{
-      statLines: (r: { stats: Record<string, unknown> }) => { text: string }[];
+  // The third menu pass made the Result's lines tiles: "7 of 9" over "Solos Cued", and a
+  // screen reader hears "7 of 9 Solos Cued." A Crescendo has its own tile.
+  it('“7 of 9 Solos Cued” when the fight counted its plain Solos; the old count when it did not', async () => {
+    const { statTiles } = await tsx<{
+      statTiles: (
+        s: Record<string, unknown>,
+      ) => { id: string; value: string; label: string; sr: string }[];
     }>('../src/ui/screens/resultText');
     const { resultRun } = await tsx<{
       resultRun: (v: boolean) => { lastResult: { stats: Record<string, unknown> } };
     }>('../src/ui/lab/mock');
     const r = resultRun(true).lastResult;
-    const cuedLine = (over: Record<string, unknown>) => {
+    const cued = (over: Record<string, unknown>) => {
       const stats: Record<string, unknown> = { ...r.stats, crescendos: 0, ...over };
       if (!('plainSolos' in over)) delete stats.plainSolos;
-      return statLines({ ...r, stats })
-        .map((l) => l.text)
-        .find((t) => /Cued/.test(t));
+      return statTiles(stats).find((t) => t.id === 'solos');
     };
-    expect(cuedLine({ cues: 7, plainSolos: 2 })).toBe('7 of 9 Solos Cued.');
-    expect(cuedLine({ cues: 1, plainSolos: 0 })).toBe('1 of 1 Solo Cued.');
+    expect(cued({ cues: 7, plainSolos: 2 })).toMatchObject({
+      value: '7 of 9',
+      label: 'Solos Cued',
+      sr: '7 of 9 Solos Cued.',
+    });
+    expect(cued({ cues: 1, plainSolos: 0 })?.sr).toBe('1 of 1 Solo Cued.');
     // None Cued is said too: it is what tells a player the Thread could have been there.
-    expect(cuedLine({ cues: 0, plainSolos: 3 })).toBe('0 of 3 Solos Cued.');
-    expect(cuedLine({ cues: 7, plainSolos: 2, crescendos: 1 })).toBe(
-      '7 of 9 Solos Cued, 1 Crescendo sung.',
-    );
+    expect(cued({ cues: 0, plainSolos: 3 })?.sr).toBe('0 of 3 Solos Cued.');
+    const withCrescendo = { ...r.stats, cues: 7, plainSolos: 2, crescendos: 1 };
+    expect(statTiles(withCrescendo).find((t) => t.id === 'crescendos')?.sr).toBe('1 Crescendo.');
     // A fight saved before plain Solos were counted: only what is known.
-    expect(cuedLine({ cues: 7 })).toBe('7 Solos Cued.');
-    expect(cuedLine({ cues: 0 })).toBeUndefined();
+    expect(cued({ cues: 7 })?.sr).toBe('7 Solos Cued.');
+    expect(cued({ cues: 0 })).toBeUndefined();
   });
 
   it('a fight’s stats carry the sim’s count of plain Solos, and a run’s totals add them up', async () => {

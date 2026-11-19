@@ -55,7 +55,7 @@ import {
   techniqueName,
 } from '../src/ui/screens/callingText';
 import { nextStep } from '../src/ui/screens/interlude';
-import { callingLine, readyName, statLines } from '../src/ui/screens/resultText';
+import { callingLine, readyName, statTiles } from '../src/ui/screens/resultText';
 import { rankPanel, unlockIcon } from '../src/ui/screens/rankText';
 import { rejectBuzz } from '../src/ui/hud/buzz';
 import { ofType, spawn, stepFor, stepUntil, telegraphOn, worldOf } from './sim/helpers';
@@ -417,12 +417,12 @@ describe('the Chronomancer’s words', () => {
     const run = chronoResultRun();
     const r = run.lastResult!;
     expect(r.stats.callingRewound).toBeGreaterThan(0);
-    const lines = statLines(r, run.calling);
-    const i = lines.findIndex((l) => l.calling);
-    expect(i).toBe(2);
-    expect(lines[i]!.text).toMatch(/^Rewind gave back [\d,]+ life · stood 1 hero back up\.$/);
-    expect(lines.some((l) => /^Rewind took heroes out of danger/.test(l.text))).toBe(true);
-    expect(lines.some((l) => /Reeled/.test(l.text))).toBe(false);
+    expect(callingLine(r.stats, run.calling)!.text).toMatch(
+      /^Rewind gave back [\d,]+ life · stood 1 hero back up\.$/,
+    );
+    // Reel's tile is Rewind's on her run.
+    const reels = statTiles(r.stats, { callingId: run.calling!.id }).find((t) => t.id === 'reels');
+    expect(reels).toMatchObject({ label: 'Rewound out', icon: 'rewind' });
     // The death recap's ready techniques: Reel's slot is Rewind.
     expect(r.deaths[0]!.readyTechniques).toContain('reel');
     expect(readyName('reel', run.calling!.id)).toBe('Rewind');

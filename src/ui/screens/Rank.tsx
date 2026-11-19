@@ -257,7 +257,7 @@ export function RankPanelView({
   );
 }
 
-/** Result: "+26 Weaver XP", the lines, and the bar toward the next Rank. */
+/** Result: "+26 Weaver XP" and the bar toward the next Rank. */
 export function XpGainPanel({
   result,
   profileXp,
@@ -276,20 +276,11 @@ export function XpGainPanel({
   const gain = xpGain(profileXp, xp.total);
   const p = rankPanel({ xp: profileXp, runs: 0, wins: 0 });
   return (
-    <Panel tone="solid" className="p-5" data-testid="xp-gain">
-      <p className="flex items-center gap-2 font-display text-2xl font-bold text-gold-200">
-        <Icon name="star" size={20} solid className="text-gold-300" /> {xpHeadline(xp.total)}
+    <Panel tone="solid" className="px-4 py-3" data-testid="xp-gain">
+      <p className="flex items-center gap-2 font-display text-lg font-bold text-gold-200">
+        <Icon name="star" size={18} solid className="text-gold-300" /> {xpHeadline(xp.total)}
       </p>
-      {xp.lines.length > 0 && (
-        <ul className="mt-2 flex flex-col gap-0.5 font-mono text-xs">
-          {xp.lines.map((l) => (
-            <li key={l.label} className="flex justify-between gap-4 text-muted">
-              <span className="truncate text-text">{l.label}</span>
-              <span className="text-gold-300">+{fmt(l.xp)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      {/* The lines that add up to the total wait in the Result's fold (the third menu pass). */}
       <div className="mt-3 flex items-center gap-2">
         <span className="shrink-0 text-xs font-semibold text-gold-300">
           {txt('screens.rank.rank', { rank: gain.rank })}
