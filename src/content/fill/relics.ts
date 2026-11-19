@@ -44,7 +44,7 @@ export const FILL_RELICS: ContentInput['relics'] = [
     id: 'black_ribbon',
     name: 'Black Ribbon',
     rarity: 'common',
-    text: 'When a heavy foe falls (a Bell Brute, Impaler, Crimson Sentinel, Void Maw, Hollow Champion, or the Mirror Bass or Tenor), every hero heals {heal}% of their life.',
+    text: 'When a heavy foe falls, every hero heals {heal}% of their life. Heavy foes: Bell Brutes, Impalers, Crimson Sentinels, Void Maws, Hollow Champions, and the Mirror Bass and Tenor.',
     flavor: 'Tied on the bell rope after the big ones. The rope is mostly ribbon now.',
     values: { heal: 10 },
     icon: 'ribbon',
