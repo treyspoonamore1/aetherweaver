@@ -281,38 +281,39 @@ export function ChordBuilder({
                       </span>
                     )}
                   </span>
-                  {/* A locked preset shows its name and its Rank; what it holds and what it does
-                      wait for the Rank, and show on hover (the third menu pass). */}
-                  {lock === null && (
-                    <span className="mt-1 flex flex-col gap-0.5" aria-hidden>
-                      {p.chords.map((c, ci) =>
-                        c.auras.length + c.ornaments.length === 0 ? null : (
-                          <span key={ci} className="flex flex-wrap items-center gap-1">
-                            <Icon
-                              name={SONG_LOOK[chordRole(ci)].icon}
-                              size={12}
-                              style={{ color: SONG_LOOK[chordRole(ci)].color }}
+                  {/* A locked preset shows its name, its Rank and its chips; what it does waits
+                      for the Rank, and shows on hover (the third menu pass). */}
+                  <span
+                    className={`mt-1 flex flex-col gap-0.5 ${lock !== null ? 'opacity-50' : ''}`}
+                    aria-hidden
+                  >
+                    {p.chords.map((c, ci) =>
+                      c.auras.length + c.ornaments.length === 0 ? null : (
+                        <span key={ci} className="flex flex-wrap items-center gap-1">
+                          <Icon
+                            name={SONG_LOOK[chordRole(ci)].icon}
+                            size={12}
+                            style={{ color: SONG_LOOK[chordRole(ci)].color }}
+                          />
+                          {c.auras.map((id) => (
+                            <Dot
+                              key={`a${id}`}
+                              color={auraDef(id).color}
+                              label={auraDef(id).name}
                             />
-                            {c.auras.map((id) => (
-                              <Dot
-                                key={`a${id}`}
-                                color={auraDef(id).color}
-                                label={auraDef(id).name}
-                              />
-                            ))}
-                            {c.ornaments.map((id) => (
-                              <Dot
-                                key={`o${id}`}
-                                color={ornamentDef(id).color}
-                                label={ornamentDef(id).name}
-                                diamond
-                              />
-                            ))}
-                          </span>
-                        ),
-                      )}
-                    </span>
-                  )}
+                          ))}
+                          {c.ornaments.map((id) => (
+                            <Dot
+                              key={`o${id}`}
+                              color={ornamentDef(id).color}
+                              label={ornamentDef(id).name}
+                              diamond
+                            />
+                          ))}
+                        </span>
+                      ),
+                    )}
+                  </span>
                   {lock === null && (
                     <span className="mt-1 block text-xs leading-relaxed text-muted">
                       {p.summary}
@@ -884,7 +885,6 @@ function Palette({
                 type="button"
                 aria-pressed={here}
                 disabled={blocked}
-                title={it.lock !== null ? it.description : undefined}
                 onClick={() => (here || blocked ? undefined : onPlace(it.id))}
                 aria-label={`${it.name}, ${it.subtitle}. ${it.lock !== null ? `Unlocks at Rank ${it.lock}.` : `${it.stat}.`}${it.misfit ? ` ${it.misfit}.` : ''}${elsewhere ? ` Now ${elsewhere}: choosing moves it.` : ''}${it.warn ? ` ${it.warn}.` : ''}`}
                 className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
@@ -929,13 +929,11 @@ function Palette({
                 {it.lock === null && it.stat && (
                   <span className="mt-0.5 block font-mono text-xs text-muted">{it.stat}</span>
                 )}
-                {/* A locked aura or ornament shows its name and Rank; its rule waits for the Rank
-                    and shows on hover (the third menu pass). */}
-                {it.lock === null && (
-                  <span className="mt-0.5 block text-xs leading-relaxed text-text">
-                    {it.description}
-                  </span>
-                )}
+                <span
+                  className={`mt-0.5 block text-xs leading-relaxed ${it.lock !== null ? 'text-muted' : 'text-text'}`}
+                >
+                  {it.description}
+                </span>
                 {it.misfit && it.lock === null && (
                   <span className="mt-1 flex items-center gap-1 text-xs font-medium text-muted">
                     <Icon name="thread" size={12} /> {it.misfit}
