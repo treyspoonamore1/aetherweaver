@@ -249,9 +249,8 @@ export function freshHeroes(
       return {
         id: `hero.${id}`,
         name: `${def.name}, ${def.title}`,
-        text: txt('screens.rosterModel.joinsYourRosterChoose', {
-          description: def.quirk.description,
-        }),
+        // Their Quirk and the rest are on their card's Kit (the third menu pass).
+        text: txt('screens.rosterModel.joinsYourRosterChoose'),
       };
     });
 }

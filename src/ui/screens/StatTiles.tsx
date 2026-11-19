@@ -46,7 +46,7 @@ export function StatTiles({
               <Icon name={t.icon} size={13} className="shrink-0" /> {t.label}
             </span>
             {t.detail && (
-              <span className="mt-1 block font-mono text-[11px] leading-snug text-muted">
+              <span className="mt-1 block font-mono text-xs leading-snug text-muted">
                 {t.detail}
               </span>
             )}

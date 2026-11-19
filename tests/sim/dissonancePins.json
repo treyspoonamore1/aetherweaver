@@ -111,8 +111,8 @@
         "glass_halo",
         "sand_glass"
       ],
-      "results": "3ee080e455fa2661",
-      "state": "d5ee7c0d29c8d2e6"
+      "results": "963ff9d8b6c1ec6e",
+      "state": "fea3542b01c18569"
     },
     "prelude-light": {
       "outcome": "victory",
@@ -130,8 +130,8 @@
         "choirmasters_baton",
         "cantors_hymnal"
       ],
-      "results": "4937ce4a332b4995",
-      "state": "6b2d979b62689204"
+      "results": "82e55c2f9b5aff87",
+      "state": "8bf378321fa93195"
     },
     "finale-light": {
       "outcome": "victory",
@@ -154,8 +154,8 @@
         "silver_thimble",
         "choirmasters_baton"
       ],
-      "results": "1c0ea984956a610b",
-      "state": "299cf1fab36e490d"
+      "results": "75d6d2b96751547c",
+      "state": "be4682a03652044c"
     }
   }
 }

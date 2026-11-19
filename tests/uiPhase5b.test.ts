@@ -320,7 +320,7 @@ describe('decrees and answers', () => {
 
   it('Execution on Brann says to Ward him; on anyone else it is as it was', () => {
     expect(shownDecree(execution.decree!, party(B, 'brann'))).toBe(
-      'Execution — Brann is condemned. Ward him: your healing barely takes on him.',
+      'Execution. Brann is condemned. Ward him: your healing barely takes on him.',
     );
     expect(shownDecree(execution.decree!, party(B, 'lyra'))).toBe(execution.decree);
     expect(shownDecree(execution.decree!, party(CONTENT.defaultParty, 'lyra'))).toBe(

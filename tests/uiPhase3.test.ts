@@ -285,7 +285,11 @@ describe('what the auras and the Thread did', () => {
       threadHealing: 0,
       threadAmplified: 0,
     });
-    expect(statTiles(quiet).slice(0, 3).every((t) => t.muted)).toBe(true);
+    expect(
+      statTiles(quiet)
+        .slice(0, 3)
+        .every((t) => t.muted),
+    ).toBe(true);
     expect(coachLines(quiet)).toHaveLength(2);
     expect(contributionOf(s).total).toBe(4470 + 960 + 4190);
   });

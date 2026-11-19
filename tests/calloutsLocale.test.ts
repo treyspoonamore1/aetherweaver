@@ -31,7 +31,7 @@ function made(locale: Locale): Callout[] {
   const last = noteCallout(8, 8, 'clutch').callout;
   return [
     // src/app/runtime.ts, crescendoStart and perfectWard.
-    { id: 1, kind: 'perfect', text: say('Crescendo — Sunrise'), color: '#fde68a', ...at },
+    { id: 1, kind: 'perfect', text: say('Crescendo: Sunrise'), color: '#fde68a', ...at },
     {
       id: 2,
       kind: 'perfect',
@@ -63,7 +63,7 @@ const lit = (html: string) => pips(html).filter((m) => !m[0].includes('transpare
 describe('callouts decide on what they carry, never their words', () => {
   it('in English: the Crescendo’s sparkle, Perfect Ward’s ward, a note’s number and pips', async () => {
     const [crescendo, ward, note, last] = await shown('en');
-    expect(crescendo).toContain('Crescendo — Sunrise');
+    expect(crescendo).toContain('Crescendo: Sunrise');
     expect(glyphs(crescendo, 'sparkle')).toBe(2);
     expect(glyphs(ward, 'sparkle')).toBe(0);
     expect(glyphs(ward, 'ward')).toBe(2);

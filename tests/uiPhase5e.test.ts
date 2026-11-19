@@ -720,7 +720,7 @@ describe('review fixes: the Mirror Choir decree, and Brann’s Codex entry', () 
     expect(shownDecree(text, look('kael', 'seren', 'oro'))).toBe(mirrorChoirOthers());
     expect(shownDecree(text, look('lyra', 'vexis', 'oro'))).toBe(mirrorChoirOthers());
     expect(shownDecree(text, look('kael', 'brann', 'seren'))).toBe(mirrorChoirOthers());
-    expect(mirrorChoirOthers()).toContain('your other heroes still sing');
+    expect(mirrorChoirOthers()).toContain('Your other heroes still sing');
     expect(mirrorChoirOthers()).not.toContain('every voice of your party');
     // Every party of the first four reads the sim's text, unchanged.
     for (const p of [
@@ -859,6 +859,12 @@ describe('Brann’s and the default party’s UI are byte-equal to before', () =
   // Cued", heard as "0 of 2 Solos Cued."); each hero's line reads "7,568 damage · 9% from you ·
   // 100% life"; the XP and Aether sums moved into a "How it adds up" fold; the chart and "Also
   // worth remembering" fold. No other text moved.
+  //
+  // Re-recorded again by the same pass for 5 keys, compared key by key with the dump before: the
+  // em dashes went (`decree`: "Execution. Brann is condemned…", the line ours, not content's
+  // second; `result:A/B/C`: the lab's Fermata highlight "…through Toll Cleave. You healed them in
+  // time"), and `fresh`: a recruit's Newly unlocked line is "joins your heroes. Choose your party
+  // below." in place of the old sentence and his Quirk. The other 71 are unchanged.
   it('every pinned text and frame hashes as recorded at W3’s head', async () => {
     const want = JSON.parse(
       readFileSync(join(__dirname, 'uiPhase5e.brann.json'), 'utf8'),

@@ -21,8 +21,7 @@ export const rosterModel = {
     'No Lyra: {value} is your interrupter. Break guards with Focus.',
   'screens.rosterModel.noLyraOnlyInterrupt':
     'No Lyra: only {list} interrupt. Break guards with Focus.',
-  'screens.rosterModel.joinsYourRosterChoose':
-    'joins your roster. Choose your three under Your party: {description}',
+  'screens.rosterModel.joinsYourRosterChoose': 'joins your heroes. Choose your party below.',
   'screens.rosterModel.bloodRage': 'Blood Rage',
   'screens.rosterModel.whileWardedTheNext':
     'While Warded, the next melee blow on her is parried and countered for {round}%. A Perfect Ward on a blow at her is a kill shot: it executes a lesser foe (an elite at {round2}% life or less) and hits anything bigger {killShotMult}×.',

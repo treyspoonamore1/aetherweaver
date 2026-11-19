@@ -142,14 +142,12 @@ describe('a recruit unlock after the hero joined', () => {
   });
 
   it('reads as joined on the rank-up card and the Summary, not how to earn her', () => {
-    expect(seren.text).toMatch(/Pay her debt/);
+    expect(seren.text).toMatch(/pay her debt/);
     expect(unlockAsRecruited(seren, undefined)).toBe(seren);
     expect(unlockAsRecruited(seren, ['brann'])).toBe(seren);
     const joined = unlockAsRecruited(seren, ['brann', 'seren']);
     expect(joined.id).toBe('recruit.seren');
-    expect(joined.text).toBe(
-      'Seren has joined your heroes. Choose your three under Your party in Prep.',
-    );
+    expect(joined.text).toBe('Seren has joined your heroes. Choose your party in Prep.');
     for (const u of UNLOCKS.filter((x) => x.kind !== 'recruit'))
       expect(unlockAsRecruited(u, ['seren', 'oro'])).toBe(u);
     const r = runRank({ xp: RANK_XP[7]! - RANK_XP[6]! }, RANK_XP[7]!, ['seren']);

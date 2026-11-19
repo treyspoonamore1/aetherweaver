@@ -260,7 +260,10 @@ export interface Unlock {
   /** The aura, ornament or Calling id, the song ('beam' | 'field'), or the slot count ("1", "2"). */
   target: string;
   name: string;
-  /** One or two sentences introducing it (rank-up card, Prep). */
+  /**
+   * One or two sentences introducing it (rank-up card, Prep), written to docs/voice.md (the third
+   * menu pass). Only `id` is saved (`introduced`), so the words can change freely.
+   */
   text: string;
 }
 
@@ -335,7 +338,7 @@ export const UNLOCKS: readonly Unlock[] = [
     kind: 'song',
     target: 'beam',
     name: 'The beam song',
-    text: 'Your first Chord rides the Thread: the hero you thread hears it at double strength, and everyone else near you hears an echo.',
+    text: 'Your first Chord. The hero you thread hears it at double strength. Everyone else near you hears an echo.',
   },
   aura(1, 'sostenuto', 'Regeneration. On the beam, it keeps your threaded hero standing.'),
   aura(1, 'fortissimo', 'Might. On the beam, it turns your threaded hero into a weapon.'),
@@ -346,7 +349,7 @@ export const UNLOCKS: readonly Unlock[] = [
     kind: 'song',
     target: 'field',
     name: 'The field song',
-    text: 'A second Chord that surrounds you: everyone near you hears it at full strength. Make one ally a monster with the beam, and the whole party stronger with the field.',
+    text: 'A second Chord. Everyone near you hears it at full strength.',
   },
   aura(2, 'ostinato', 'Barrier. Heroes carry a shield that refills after a few seconds unhit.'),
   {
@@ -355,7 +358,7 @@ export const UNLOCKS: readonly Unlock[] = [
     kind: 'expedition',
     target: 'expedition',
     name: 'Expeditions',
-    text: `Beyond the Hollow Cantor, the Crimson Spire: an Expedition climbs on through ${expeditionReach()}. Choose the route in Prep; the Prelude stays open.`,
+    text: `An Expedition climbs on past the Hollow Cantor, through ${expeditionReach()}. Choose the route in Prep.`,
   },
   {
     id: 'ornamentSlot.1',
@@ -365,20 +368,20 @@ export const UNLOCKS: readonly Unlock[] = [
     name: 'Ornaments',
     text: 'Each song gets an ornament slot. An ornament changes both auras in its song.',
   },
-  ornament(3, 'grace_note', 'Its auras cost less Spirit: room for one more.'),
+  ornament(3, 'grace_note', 'Its auras cost less Spirit. Room for one more.'),
   ornament(3, 'reverb', 'A wider field, for a party that spreads out.'),
-  aura(4, 'lullaby', 'A hex: enemies in it slow down, and their wind-ups take longer.'),
-  ornament(4, 'pedal_point', 'Plant a field where you want it (V) and roam free.'),
+  aura(4, 'lullaby', 'A hex. Enemies in it slow down, and their wind-ups take longer.'),
+  ornament(4, 'pedal_point', 'Plant your field where you want it, and roam free.'),
   {
     id: 'astrolabe',
     rank: 4,
     kind: 'astrolabe',
     target: 'astrolabe',
     name: 'The Astrolabe',
-    text: 'A star map of passives, between runs: a point for every Rank and for each Deed on the ladder, spent on the Thread, the songs, your techniques or the heroes. Change it freely before you embark.',
+    text: 'A star map of passives. Each Rank and each Deed on the ladder gives a point. Change it freely before you embark.',
   },
   aura(5, 'fermata', 'A lethal hit holds a hero at 1 life for a moment. Heal them in time.'),
-  ornament(5, 'unison', 'All in: the beam song pours into one hero at ×2.5, with no echo.'),
+  ornament(5, 'unison', 'The beam song pours into one hero at ×2.5, with no echo.'),
   {
     id: 'ornamentSlot.2',
     rank: 6,
@@ -393,7 +396,7 @@ export const UNLOCKS: readonly Unlock[] = [
     kind: 'calling',
     target: c.id,
     name: `The ${c.name}`,
-    text: `A Calling: ${c.summary} Choose it in Prep; playing it earns mastery, which opens its path.`,
+    text: `A Calling. ${c.summary} Choose it in Prep. Playing it earns mastery.`,
   })),
   ...CONTENT.reliquary.slotRanks.map((rank, i): Unlock =>
     i === 0
@@ -403,7 +406,7 @@ export const UNLOCKS: readonly Unlock[] = [
           kind: 'reliquary',
           target: '1',
           name: 'The Reliquary',
-          text: 'Relics that outlive their runs. Reach Movement II (or win a Prelude) to enshrine one the run found, craft its Inscriptions between runs, and carry it into the next. Open it from the Loom or from Prep.',
+          text: 'Relics that outlive their runs. Reach Movement II or win a Prelude to enshrine one. Open it from the Loom.',
         }
       : {
           id: `carrySlot.${i + 1}`,
@@ -411,7 +414,7 @@ export const UNLOCKS: readonly Unlock[] = [
           kind: 'carrySlot',
           target: String(i + 1),
           name: i === 1 ? 'A second relic to carry' : 'A third relic to carry',
-          text: `Each run can carry ${i + 1} relics from the Reliquary: the first (attuned) plays its own effect, the others lend their Inscriptions.`,
+          text: `Each run can carry ${i + 1} relics. The first plays its own effect. The others lend their Inscriptions.`,
         },
   ),
   {
@@ -420,17 +423,17 @@ export const UNLOCKS: readonly Unlock[] = [
     kind: 'dissonance',
     target: 'dissonance',
     name: 'Dissonance',
-    text: `The endgame: opt-in levels that make the fight harder and pay more, and relics won deeper craft further. Opens at Weaver Rank ${CONTENT.dissonanceRules.openRank} once you have cleared the Finale.`,
+    text: `Levels that make fights harder and pay more. Opens at Weaver Rank ${CONTENT.dissonanceRules.openRank} once you clear the Finale.`,
   },
   // Phase 5e: the Rank-gated recruits (docs/phase-5e.md), appended last, each at its hero's
   // `recruit.rank`. Never `hero.<id>`: that is the Prep FreshStrip's key for the join itself.
   recruitUnlock(
     'seren',
-    'A duellist in silver kneels at the Tithe Altar in Movement II. Pay her debt and win the fight, or face the Gorehound Matriarch, and she joins your heroes.',
+    'At the Tithe Altar in Movement II, pay her debt or face the Gorehound Matriarch. Win, and she joins your heroes.',
   ),
   recruitUnlock(
     'oro',
-    'Someone holds a thread in the Rift. Follow the Loose Thread in Movement III and win the fight, or face the Seamstress, and he joins your heroes.',
+    'In Movement III, follow the Loose Thread or face the Seamstress. Win, and he joins your heroes.',
   ),
 ];
 
@@ -467,7 +470,7 @@ export function unlockAsRecruited(u: Unlock, recruited: readonly string[] | unde
   const def = CONTENT.heroes.find((h) => h.id === u.target)!;
   return {
     ...u,
-    text: `${def.name} has joined your heroes. Choose your three under Your party in Prep.`,
+    text: `${def.name} has joined your heroes. Choose your party in Prep.`,
   };
 }
 

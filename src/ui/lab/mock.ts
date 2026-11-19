@@ -1116,7 +1116,7 @@ export function mockCallouts(scenario: HudScenario): Callout[] {
         c(3, 'bark', 'I’m hit — help!', { speaker: 'Lyra', color: heroDef('lyra').color }),
       ];
     case 'downed':
-      return [c(1, 'system', 'Kael is down — Mend them back up!', { color: '#fca5a5' })];
+      return [c(1, 'system', 'Kael is down. Mend them back up!', { color: '#fca5a5' })];
     case 'boss':
       return [
         c(1, 'decree', 'Requiem', {
@@ -1128,7 +1128,7 @@ export function mockCallouts(scenario: HudScenario): Callout[] {
       ];
     case 'resonance':
       return [
-        c(1, 'perfect', 'Crescendo — Sunrise', { color: '#fde68a' }),
+        c(1, 'perfect', 'Crescendo: Sunrise', { color: '#fde68a' }),
         c(2, 'solo', 'Cued · Kael: Aegis Wall', { color: heroDef('kael').color }),
       ];
     case 'calls':
@@ -1147,7 +1147,7 @@ export function mockCallouts(scenario: HudScenario): Callout[] {
       ];
     case 'fermata':
       return [
-        c(1, 'hold', 'Kael is holding on — heal them!', {
+        c(1, 'hold', 'Kael is holding on. Heal them!', {
           detail: 'Fermata caught Toll Cleave',
           color: '#e2d6f8',
         }),
@@ -1156,10 +1156,10 @@ export function mockCallouts(scenario: HudScenario): Callout[] {
     case 'relics':
       return [c(1, 'perfect', 'Perfect Ward', { detail: 'Kael · 480 negated', color: '#f5d78e' })];
     case 'luminary-sunrise':
-      return [c(1, 'perfect', 'Crescendo — Sunrise', { color: '#fff1c4' })];
+      return [c(1, 'perfect', 'Crescendo: Sunrise', { color: '#fff1c4' })];
     case 'martyr-vow':
       return [
-        c(1, 'perfect', 'Crescendo — Martyr’s Vow', { color: '#ffd9cf' }),
+        c(1, 'perfect', 'Crescendo: Martyr’s Vow', { color: '#ffd9cf' }),
         c(2, 'save', 'Your Vow held Vexis', {
           detail: 'Toll Cleave · 610 prevented',
           color: '#ffd9cf',
@@ -1487,7 +1487,7 @@ export function resultRun(
         kind: 'fermata',
         time: r.duration * 0.7,
         slot: 0,
-        text: 'Kael held on through Toll Cleave — and you healed them in time',
+        text: 'Kael held on through Toll Cleave. You healed them in time',
       },
       {
         kind: 'response',
@@ -2219,7 +2219,7 @@ function chronoCallouts(
       return out;
     }
     case 'chrono-stasis':
-      return [c(1, 'perfect', 'Crescendo — Stasis', { color: light, icon: 'stasis' })];
+      return [c(1, 'perfect', 'Crescendo: Stasis', { color: light, icon: 'stasis' })];
     case 'chrono-reach':
       return [c(1, 'reject', 'Rewind: out of reach', { key: 'reject:reel' })];
     case 'chrono-spent':

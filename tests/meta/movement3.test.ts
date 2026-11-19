@@ -119,7 +119,7 @@ describe('the Expedition is every Movement in content', () => {
     expect(expeditionReach(2)).toBe('Movement II to Vharun, the Crimson Warden');
     const unlock = UNLOCKS.find((u) => u.id === 'expedition')!;
     expect(unlock.text).toBe(
-      'Beyond the Hollow Cantor, the Crimson Spire: an Expedition climbs on through Movements II–III and the Finale, to the Silent Conductor. Choose the route in Prep; the Prelude stays open.',
+      'An Expedition climbs on past the Hollow Cantor, through Movements II–III and the Finale, to the Silent Conductor. Choose the route in Prep.',
     );
   });
 });

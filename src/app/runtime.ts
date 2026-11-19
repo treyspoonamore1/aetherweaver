@@ -878,7 +878,7 @@ export class GameRuntime {
           ui.pushCallout(
             {
               kind: 'hold',
-              text: `${who?.name ?? 'A hero'} is holding on — heal them!`,
+              text: `${who?.name ?? 'A hero'} is holding on. Heal them!`,
               detail: `Fermata caught ${event.attack}`,
               color: '#e2d6f8',
               key: `hold:${event.hero}`,
@@ -951,7 +951,7 @@ export class GameRuntime {
             {
               kind: 'perfect',
               // The Grand Finale's banner is its name alone: one line at 1280 wide.
-              text: finale ? event.calling : `Crescendo — ${event.calling}`,
+              text: finale ? event.calling : `Crescendo: ${event.calling}`,
               color: stasis ? chrono : finale ? CONDUCT_GOLD : '#fde68a',
               ...(stasis ? { icon: 'stasis' as const } : finale ? { icon: 'finale' as const } : {}),
             },
@@ -965,7 +965,7 @@ export class GameRuntime {
           ui.pushCallout(
             {
               kind: 'system',
-              text: `${who?.name ?? 'A hero'} is down — Mend them back up!`,
+              text: `${who?.name ?? 'A hero'} is down. Mend them back up!`,
               color: '#fca5a5',
             },
             now,

@@ -2590,7 +2590,7 @@ export function summarize(
       time: s.time,
       slot: outcome.party.find((p) => p.heroId === s.heroDefId)?.slot ?? null,
       text: fermata
-        ? `${name(s.heroDefId)} held on through ${s.attack} — and you healed them in time`
+        ? `${name(s.heroDefId)} held on through ${s.attack}. You healed them in time`
         : `Saved ${name(s.heroDefId)} from ${s.attack} ${how(s.cause)} (${Math.round(s.prevented).toLocaleString('en-US')} prevented)`,
       score: 1000 + s.prevented,
     });
@@ -2639,7 +2639,7 @@ export function summarize(
       kind: 'crescendo',
       time: m?.time ?? 0,
       slot: null,
-      text: `Crescendo — ${(calling && callingDef(calling.id).crescendoName) || CONTENT.crescendo.name}`,
+      text: `Crescendo: ${(calling && callingDef(calling.id).crescendoName) || CONTENT.crescendo.name}`,
       score: 400,
     });
   }

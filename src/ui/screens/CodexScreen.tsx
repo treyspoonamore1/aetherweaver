@@ -1277,32 +1277,41 @@ function WeaverCard({ look, portrait }: { look: Readonly<WeaverLook>; portrait: 
 }
 
 function Auras() {
+  // One aura open, the others a fold away, as the other long pages (the third menu pass).
   return (
-    <div className={GRID}>
-      {CONTENT.auras.map((a) => (
-        <Panel
+    <div className="flex flex-col gap-3" data-testid="codex-auras">
+      {CONTENT.auras.map((a, i) => (
+        <Fold
           key={a.id}
-          tone="solid"
-          className="p-5"
-          style={{ borderTopColor: a.color, borderTopWidth: 3 }}
+          label={a.name}
+          open={i === 0}
+          testId={`codex-aura-${a.id}`}
+          style={{ borderLeftColor: a.color, borderLeftWidth: 3 }}
+          heading={
+            <>
+              <span className="flex items-center gap-2" style={{ color: a.color }}>
+                <Icon name="note" size={20} /> {a.name}
+              </span>
+              <span className="text-sm font-normal text-muted">{a.subtitle}</span>
+            </>
+          }
         >
-          <h2
-            className="flex items-center gap-2 font-display text-xl font-bold"
-            style={{ color: a.color }}
+          <Panel
+            tone="solid"
+            className="p-5"
+            style={{ borderTopColor: a.color, borderTopWidth: 3 }}
           >
-            <Icon name="note" size={20} /> {a.name}
-          </h2>
-          <p className="text-sm text-muted">{a.subtitle}</p>
-          <p className="mt-2 text-sm leading-relaxed text-text">{a.description}</p>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            <Chip icon="sparkle">
-              {txt('screens.codexScreen.reservesOfSpirit', { reserve: pct(a.reserve) })}
-            </Chip>
-            <Chip icon="lock">
-              {txt('screens.codexScreen.rank2', { unlockRank: unlockRank('aura', a.id) })}
-            </Chip>
-          </div>
-        </Panel>
+            <p className="text-sm leading-relaxed text-text">{a.description}</p>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <Chip icon="sparkle">
+                {txt('screens.codexScreen.reservesOfSpirit', { reserve: pct(a.reserve) })}
+              </Chip>
+              <Chip icon="lock">
+                {txt('screens.codexScreen.rank2', { unlockRank: unlockRank('aura', a.id) })}
+              </Chip>
+            </div>
+          </Panel>
+        </Fold>
       ))}
     </div>
   );

@@ -12,6 +12,12 @@
  * each fight's saved stats gained the optional `plainSolos` (the Result's "7 of 9 Solos Cued").
  * Compared first: with that one key left out, every run's digests are as recorded, and every
  * fight pin, outcome, fight count and relic list is unchanged.
+ *
+ * Three runs' `results` and `state` digests were recorded again by the third menu pass (finale-10,
+ * prelude-light, finale-light), when a Crescendo's highlight lost its em dash ("Crescendo —
+ * Sunrise" became "Crescendo: Sunrise", in `src/meta/run.ts`). Compared first: the five runs
+ * were dumped whole before and after, and the only differences are that highlight's text, four
+ * times; every fight pin, outcome, fight count and relic list is unchanged.
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';

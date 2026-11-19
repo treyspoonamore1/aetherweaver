@@ -249,8 +249,8 @@ describe('the Martyr in a run', () => {
     const vow = callingDef('martyr').crescendoName!;
     const texts = (calling: RunState['calling']) =>
       Run.summarize(node, outcome, calling).highlights.map((h) => h.text);
-    expect(texts(run.calling)).toContain(`Crescendo — ${vow}`);
-    expect(texts(null)).toContain('Crescendo — Sunrise');
+    expect(texts(run.calling)).toContain(`Crescendo: ${vow}`);
+    expect(texts(null)).toContain('Crescendo: Sunrise');
   });
 });
 
@@ -277,7 +277,7 @@ describe('the Chronomancer in a run', () => {
     const result = Run.summarize(node, outcome, run.calling);
     expect(result.stats).toMatchObject({ callingRewound: 640, callingRevived: 1 });
     expect(result.highlights.map((h) => h.text)).toContain(
-      `Crescendo — ${callingDef('chronomancer').crescendoName!}`,
+      `Crescendo: ${callingDef('chronomancer').crescendoName!}`,
     );
     run = Run.finishCombat(run, outcome);
     expect(Run.runTotals(run)).toMatchObject({ callingRewound: 640, callingRevived: 1 });

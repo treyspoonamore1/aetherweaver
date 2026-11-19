@@ -33,10 +33,16 @@ import { simText, t as txt } from '../text';
  * first sentence under Blind Score), with the borrowed foe's accent beside the crown: the accent is
  * never alone, the foe and the attack are named.
  */
-/** A decree's words after its own name ("Tyrant — the Bellwarden …" → "the Bellwarden …"). */
+/**
+ * A decree's words after its own name ("Tyrant — the Bellwarden …" → "the Bellwarden …"), the
+ * name set off by a dash, a colon or a full stop.
+ */
 function decreeBody(name: string, text: string): string {
-  const head = `${name} — `;
-  return text.startsWith(head) ? text.slice(head.length) : text;
+  for (const sep of [' — ', ': ', '. ']) {
+    const head = `${name}${sep}`;
+    if (text.startsWith(head)) return text.slice(head.length);
+  }
+  return text;
 }
 
 function TyrantLine({ tyrant }: { tyrant: TyrantDecree }) {
@@ -51,7 +57,7 @@ function TyrantLine({ tyrant }: { tyrant: TyrantDecree }) {
     >
       <Icon name="crown" size={14} className="mt-px shrink-0" style={{ color: tyrant.accent }} />
       <span>
-        <b className="uppercase tracking-wider text-gold-200">{tyrant.name}</b> —{' '}
+        <b className="uppercase tracking-wider text-gold-200">{tyrant.name}</b>:{' '}
         {decreeBody(tyrant.name, tyrant.text)}
       </span>
     </p>

@@ -600,7 +600,7 @@ describe('the Grand Finale, from finaleView', () => {
     expect(html.match(/data-pip="lost"/g)).toHaveLength(f.lost);
     expect(html.match(/data-pip="played"/g)).toHaveLength(f.fired);
     // Its call-outs: a lost turn says why.
-    expect(stage.callouts.some((c) => c.text === 'Vexis can’t play — down')).toBe(true);
+    expect(stage.callouts.some((c) => c.text === 'Vexis can’t play: down')).toBe(true);
   });
 
   it('a hero who played and then went down reads played, not lost (the heard events)', () => {
@@ -658,9 +658,7 @@ describe('the Grand Finale, from finaleView', () => {
     const turn = finaleTurnOf(st, lyra, heardFinale(events, null))!;
     expect(turn).toEqual({ place: 1, state: 'losing', block: 'down' });
     expect(finaleTurnLabel(turn)).toBe('can’t play');
-    expect(finaleTurnSentence('Lyra', turn)).toBe(
-      'Lyra can’t play — down: their turn will be lost',
-    );
+    expect(finaleTurnSentence('Lyra', turn)).toBe('Lyra can’t play: down. Their turn will be lost');
     // The sim drops it when the next turn comes due.
     for (let i = 0; i < 120 && !events.some((e) => e.type === 'finaleTurnLost'); i++) step(1);
     expect(events).toContainEqual(
@@ -680,7 +678,7 @@ describe('the Grand Finale, from finaleView', () => {
     // A possessed or stilled hero likewise: the reason is the sim's.
     for (const block of ['possessed', 'stilled'] as const)
       expect(finaleTurnSentence('Kael', { place: 2, state: 'losing', block })).toBe(
-        `Kael can’t play — ${block}: their turn will be lost`,
+        `Kael can’t play: ${block}. Their turn will be lost`,
       );
   });
 

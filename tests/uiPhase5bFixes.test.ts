@@ -37,7 +37,7 @@ const at = (rank: number) => R.ranks[rank - 1]!;
 const run = () => useRun.getState().run!;
 const profile = () => useProfile.getState().profile;
 const execution = CONTENT.attacks.find((a) => a.executeBelow !== undefined)!;
-const BRANN_WARD = 'Execution — Brann is condemned. Ward him: your healing barely takes on him.';
+const BRANN_WARD = 'Execution. Brann is condemned. Ward him: your healing barely takes on him.';
 
 beforeEach(() => {
   useSettings.getState().reset();

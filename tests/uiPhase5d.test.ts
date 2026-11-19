@@ -624,7 +624,7 @@ describe('the route, the map and the ending', () => {
     );
     expect(html).toContain('The song goes on');
     expect(html).toContain('data-testid="epilogue"');
-    expect(html).toContain('The Song Goes On — your first Finale clear');
+    expect(html).toContain('The Song Goes On: your first Finale clear');
     expect(html).toContain('Dissonance opens with a Finale clear at Weaver Rank 15 or above');
     // Phase 6: only what content doesn't hold yet is "coming later" (the Atlas is built; True
     // Dissonance arrives with its level), and every line the card shows is in the page.

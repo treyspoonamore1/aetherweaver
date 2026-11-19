@@ -58,7 +58,7 @@ export const summaryScreen = {
   'screens.summaryScreen.theAtlasOfEchoes3': 'The Atlas of Echoes opens with Dissonance',
   'screens.summaryScreen.trueDissonanceTheFinale':
     'True Dissonance {value}: the Finale gains a fourth phase, on Expeditions',
-  'screens.summaryScreen.theSongGoesOn2': 'The Song Goes On — your first Finale clear',
+  'screens.summaryScreen.theSongGoesOn2': 'The Song Goes On: your first Finale clear',
   'screens.summaryScreen.dissonanceIsOpen': 'Dissonance is open',
   'screens.summaryScreen.comingLater': 'Coming later: {later}',
   'screens.summaryScreen.assistsWereOnFor': 'Assists were on for this run',
