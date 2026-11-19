@@ -28,6 +28,7 @@ function prepWeeklyInput(week: number): PrepWeeklyInput | null {
 import { Button } from '../kit/Button';
 import { Chip } from '../kit/Chip';
 import { Fold } from '../kit/Fold';
+import { possessive } from '../kit/format';
 import { Icon } from '../kit/Icon';
 import { Panel } from '../kit/Panel';
 import { Segmented } from '../kit/Slider';
@@ -672,7 +673,12 @@ function PartyPicker({
   );
 }
 
-/** A hero's kit, with the talents and Solo the run plays (Phase 4e: `run.bonds`). */
+/**
+ * A hero's card: the name, the role and one line (what they need of you, or their Solo), with
+ * the kit a fold away (the third menu pass): abilities, the Solo and talents the run plays
+ * (Phase 4e: `run.bonds`), the Quirk, and a passive, Saplings and needs for the heroes who have
+ * them.
+ */
 function HeroCard({ heroId, bond }: { heroId: string; bond?: RunBond }) {
   const def = CONTENT.heroes.find((h) => h.id === heroId)!;
   const solo = soloView(heroId, bond?.solo ?? null);
@@ -712,93 +718,116 @@ function HeroCard({ heroId, bond }: { heroId: string; bond?: RunBond }) {
           </div>
         </div>
       </div>
-      <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-        {def.abilities.map((a) => (
-          <div key={a.id} className="rounded-lg bg-ink-900/60 px-3 py-2">
+      <p className="mt-2 text-sm leading-relaxed text-text" data-testid={`prep-line-${heroId}`}>
+        {needs ? (
+          firstPart(needs)
+        ) : (
+          <>
+            <Icon name="note" size={14} className="mr-1 inline text-gold-300" />
+            <b className="font-semibold text-gold-200">{solo.name}</b> {solo.text}
+          </>
+        )}
+      </p>
+      <Fold
+        small
+        className="mt-2"
+        testId={`prep-kit-${heroId}`}
+        heading={txt('screens.prepScreen.kit')}
+        label={txt('screens.prepScreen.kitOf', { name: possessive(def.name) })}
+      >
+        <dl className="grid gap-2 text-sm sm:grid-cols-2">
+          {def.abilities.map((a) => (
+            <div key={a.id} className="rounded-lg bg-ink-900/60 px-3 py-2">
+              <dt className="font-semibold text-text">
+                {a.name}{' '}
+                <span className="font-mono text-xs font-normal text-muted">
+                  {txt('screens.prepScreen.s', { cooldown: a.cooldown })}
+                </span>
+              </dt>
+              <dd className="text-xs leading-relaxed text-muted">{a.description}</dd>
+            </div>
+          ))}
+          <div
+            className="rounded-lg bg-gold-400/5 px-3 py-2 ring-1 ring-gold-500/30 sm:col-span-2"
+            data-testid={`prep-solo-${heroId}`}
+            data-solo={solo.id}
+          >
+            <dt className="flex items-center gap-1.5 font-semibold text-gold-200">
+              <Icon name="note" size={14} /> {txt('screens.prepScreen.solo', { name: solo.name })}
+              {solo.alt && (
+                <span className="text-xs font-normal text-muted">
+                  {txt('screens.prepScreen.alternateFromTheirBond')}
+                </span>
+              )}
+            </dt>
+            <dd className="text-xs leading-relaxed text-muted">
+              {solo.text} <span className="text-gold-300">{solo.cued}</span>
+            </dd>
+          </div>
+          {talents.map((t) => (
+            <div
+              key={t.id}
+              className="rounded-lg bg-ink-900/60 px-3 py-2 sm:col-span-2"
+              data-talent={t.id}
+            >
+              <dt className="flex items-center gap-1.5 font-semibold text-text">
+                <Icon name="talent" size={14} className="text-muted" />{' '}
+                {txt('screens.prepScreen.talent', { numeral: t.numeral, name: t.name })}
+              </dt>
+              <dd className="text-xs leading-relaxed text-muted">{t.text}</dd>
+            </div>
+          ))}
+          <div className="rounded-lg bg-ink-900/60 px-3 py-2 sm:col-span-2">
             <dt className="font-semibold text-text">
-              {a.name}{' '}
-              <span className="font-mono text-xs font-normal text-muted">
-                {txt('screens.prepScreen.s', { cooldown: a.cooldown })}
-              </span>
+              {txt('screens.prepScreen.quirk', { name: def.quirk.name })}
             </dt>
-            <dd className="text-xs leading-relaxed text-muted">{a.description}</dd>
+            <dd className="text-xs leading-relaxed text-muted">{def.quirk.description}</dd>
           </div>
-        ))}
-        <div
-          className="rounded-lg bg-gold-400/5 px-3 py-2 ring-1 ring-gold-500/30 sm:col-span-2"
-          data-testid={`prep-solo-${heroId}`}
-          data-solo={solo.id}
-        >
-          <dt className="flex items-center gap-1.5 font-semibold text-gold-200">
-            <Icon name="note" size={14} /> {txt('screens.prepScreen.solo', { name: solo.name })}
-            {solo.alt && (
-              <span className="text-xs font-normal text-muted">
-                {txt('screens.prepScreen.alternateFromTheirBond')}
-              </span>
-            )}
-          </dt>
-          <dd className="text-xs leading-relaxed text-muted">
-            {solo.text} <span className="text-gold-300">{solo.cued}</span>
-          </dd>
-        </div>
-        {talents.map((t) => (
-          <div
-            key={t.id}
-            className="rounded-lg bg-ink-900/60 px-3 py-2 sm:col-span-2"
-            data-talent={t.id}
-          >
-            <dt className="flex items-center gap-1.5 font-semibold text-text">
-              <Icon name="talent" size={14} className="text-muted" />{' '}
-              {txt('screens.prepScreen.talent', { numeral: t.numeral, name: t.name })}
-            </dt>
-            <dd className="text-xs leading-relaxed text-muted">{t.text}</dd>
-          </div>
-        ))}
-        <div className="rounded-lg bg-ink-900/60 px-3 py-2 sm:col-span-2">
-          <dt className="font-semibold text-text">
-            {txt('screens.prepScreen.quirk', { name: def.quirk.name })}
-          </dt>
-          <dd className="text-xs leading-relaxed text-muted">{def.quirk.description}</dd>
-        </div>
-        {passive && (
-          <div
-            className="rounded-lg bg-ink-900/60 px-3 py-2 sm:col-span-2"
-            data-testid={`prep-passive-${heroId}`}
-          >
-            <dt className="flex items-center gap-1.5 font-semibold text-text">
-              <Icon name={passiveIcon(def)} size={14} className="text-muted" />{' '}
-              {txt('screens.prepScreen.passive', { name: passive.name })}
-            </dt>
-            <dd className="text-xs leading-relaxed text-muted">{passive.text}</dd>
-          </div>
-        )}
-        {summons && (
-          <div
-            className="rounded-lg bg-ink-900/60 px-3 py-2 sm:col-span-2"
-            data-testid={`prep-summons-${heroId}`}
-          >
-            <dt className="flex items-center gap-1.5 font-semibold text-text">
-              <Icon name="leaf" size={14} className="text-muted" />{' '}
-              {txt('screens.prepScreen.saplings')}
-            </dt>
-            <dd className="text-xs leading-relaxed text-muted">{summons}</dd>
-          </div>
-        )}
-        {needs && (
-          <div
-            className="rounded-lg bg-ink-900/60 px-3 py-2 ring-1 ring-ink-500 sm:col-span-2"
-            data-testid={`prep-needs-${heroId}`}
-          >
-            <dt className="flex items-center gap-1.5 font-semibold text-text">
-              <Icon name="heart" size={14} className="text-muted" />{' '}
-              {txt('screens.prepScreen.needs')}
-            </dt>
-            <dd className="text-xs leading-relaxed text-muted">{needs}</dd>
-          </div>
-        )}
-      </dl>
+          {passive && (
+            <div
+              className="rounded-lg bg-ink-900/60 px-3 py-2 sm:col-span-2"
+              data-testid={`prep-passive-${heroId}`}
+            >
+              <dt className="flex items-center gap-1.5 font-semibold text-text">
+                <Icon name={passiveIcon(def)} size={14} className="text-muted" />{' '}
+                {txt('screens.prepScreen.passive', { name: passive.name })}
+              </dt>
+              <dd className="text-xs leading-relaxed text-muted">{passive.text}</dd>
+            </div>
+          )}
+          {summons && (
+            <div
+              className="rounded-lg bg-ink-900/60 px-3 py-2 sm:col-span-2"
+              data-testid={`prep-summons-${heroId}`}
+            >
+              <dt className="flex items-center gap-1.5 font-semibold text-text">
+                <Icon name="leaf" size={14} className="text-muted" />{' '}
+                {txt('screens.prepScreen.saplings')}
+              </dt>
+              <dd className="text-xs leading-relaxed text-muted">{summons}</dd>
+            </div>
+          )}
+          {needs && (
+            <div
+              className="rounded-lg bg-ink-900/60 px-3 py-2 ring-1 ring-ink-500 sm:col-span-2"
+              data-testid={`prep-needs-${heroId}`}
+            >
+              <dt className="flex items-center gap-1.5 font-semibold text-text">
+                <Icon name="heart" size={14} className="text-muted" />{' '}
+                {txt('screens.prepScreen.needs')}
+              </dt>
+              <dd className="text-xs leading-relaxed text-muted">{needs}</dd>
+            </div>
+          )}
+        </dl>
+      </Fold>
     </article>
   );
+}
+
+/** A content line's first part, before its first " · " (a hero's needs list several). */
+function firstPart(text: string): string {
+  return text.split(' · ')[0]!;
 }
 
 export function PrepScreen() {

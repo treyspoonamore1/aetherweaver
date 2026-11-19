@@ -9,6 +9,7 @@ export const callingPicker = {
   'screens.callingPicker.playingACallingEarns':
     'Playing one earns mastery, which opens more of its path.',
   'screens.callingPicker.noCalling': 'No Calling',
+  'screens.callingPicker.seeTheCallings': 'The Callings',
   'screens.callingPicker.yourSongsAndYour': 'No class: your songs and your Thread, nothing added.',
   'screens.callingPicker.chosen': 'Chosen',
   'screens.callingPicker.picksAlongTheWay':

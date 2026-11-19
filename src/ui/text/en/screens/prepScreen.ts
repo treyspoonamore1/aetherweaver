@@ -35,6 +35,8 @@ export const prepScreen = {
   'screens.prepScreen.passive': 'Passive · {name}',
   'screens.prepScreen.saplings': 'Saplings',
   'screens.prepScreen.needs': 'Needs',
+  'screens.prepScreen.kit': 'Kit',
+  'screens.prepScreen.kitOf': '{name} kit',
   'screens.prepScreen.prepareYourSongs': 'Prepare your songs',
   'screens.prepScreen.settingsTheUnlocksAre': 'Settings: the unlocks are skipped',
   'screens.prepScreen.yourStarMapOf':

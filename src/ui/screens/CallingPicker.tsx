@@ -5,6 +5,7 @@ import { Button } from '../kit/Button';
 import { PathPip, callingLook } from '../kit/CallingGlyph';
 import { Icon } from '../kit/Icon';
 import { Modal } from '../kit/Modal';
+import { Fold } from '../kit/Fold';
 import { playUi } from '../kit/sound';
 import { callingText } from '../../content';
 import { LockTag, NewTag } from './ChordBuilder';
@@ -25,8 +26,8 @@ export function callingOpen(allowance: Allowance, id: string): boolean {
 
 /**
  * Prep's Calling picker (Phase 3c, 3d, 3e): "No Calling" and each Calling as a compact card,
- * side by side (emblem, its one-line summary, its Crescendo, the four picks), with the passive
- * and the whole path in a dialog. Locked Callings show their Rank and what they are, and can't
+ * side by side (emblem, its one-line summary, its Crescendo once chosen, the four picks), with
+ * the passive and the whole path in a dialog. With none open yet, the cards fold. Locked Callings show their Rank and what they are, and can't
  * be chosen. Four Callings and "No Calling" fit a 1280×720 screen above Embark, with the
  * "Newly unlocked" strip; below 74rem they wrap to two rows (Phase 5f). Phase 4g: each card's
  * picks show the tiers its mastery keeps shut as locked, and the chosen Calling's mastery, what
@@ -69,6 +70,34 @@ export function CallingPicker({
   const schedule = counts.size === 1 ? callings[0]!.tiers.length : null;
   const anyOpen = callings.some((c) => callingOpen(allowance, c.id));
   const firstRank = Math.min(...callings.map((c) => unlockRank('calling', c.id) ?? 1));
+  const grid = (
+    <div
+      // Four Callings beside No Calling fill one row from 74rem (1184 px); narrower, they wrap
+      // to two rows of three (Phase 5f), so no card is squeezed below its footer's width.
+      className="grid gap-3 md:grid-cols-3 min-[74rem]:grid-cols-[11rem_repeat(var(--callings),minmax(0,1fr))]"
+      style={{ '--callings': Math.max(1, callings.length) } as CSSProperties}
+      role="radiogroup"
+      aria-labelledby="calling-title"
+    >
+      {/* "No Calling" stands to the left of every Calling's card. */}
+      <NoCalling selected={chosen === null} onChoose={() => choose(null)} />
+      {callings.map((def) => (
+        <CallingCard
+          key={def.id}
+          def={def}
+          selected={chosen === def.id}
+          open={callingOpen(allowance, def.id)}
+          isNew={fresh.has(`calling.${def.id}`)}
+          schedule={schedule === null}
+          onChoose={() => choose(def.id)}
+          onView={() => setViewing(def.id)}
+          tiersOpen={mastery?.tiersOpen(def.id)}
+          level={mastery ? masteryLevel(mastery.xp[def.id] ?? 0) : undefined}
+          at={at}
+        />
+      ))}
+    </div>
+  );
   return (
     <section className="mt-5" aria-labelledby="calling-title" data-testid="calling-picker">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -91,32 +120,20 @@ export function CallingPicker({
           )}
         </p>
       </div>
-      <div
-        // Four Callings beside No Calling fill one row from 74rem (1184 px); narrower, they wrap
-        // to two rows of three (Phase 5f), so no card is squeezed below its footer's width.
-        className="grid gap-3 md:grid-cols-3 min-[74rem]:grid-cols-[11rem_repeat(var(--callings),minmax(0,1fr))]"
-        style={{ '--callings': Math.max(1, callings.length) } as CSSProperties}
-        role="radiogroup"
-        aria-labelledby="calling-title"
-      >
-        {/* "No Calling" stands to the left of every Calling's card. */}
-        <NoCalling selected={chosen === null} onChoose={() => choose(null)} />
-        {callings.map((def) => (
-          <CallingCard
-            key={def.id}
-            def={def}
-            selected={chosen === def.id}
-            open={callingOpen(allowance, def.id)}
-            isNew={fresh.has(`calling.${def.id}`)}
-            schedule={schedule === null}
-            onChoose={() => choose(def.id)}
-            onView={() => setViewing(def.id)}
-            tiersOpen={mastery?.tiersOpen(def.id)}
-            level={mastery ? masteryLevel(mastery.xp[def.id] ?? 0) : undefined}
-            at={at}
-          />
-        ))}
-      </div>
+      {anyOpen ? (
+        grid
+      ) : (
+        // None can be chosen yet (the third menu pass): the cards wait behind one fold, since
+        // each would only say its Rank.
+        <Fold
+          small
+          count={callings.length}
+          testId="calling-locked"
+          heading={t('screens.callingPicker.seeTheCallings')}
+        >
+          {grid}
+        </Fold>
+      )}
       {mastery && chosen && callings.some((c) => c.id === chosen) && (
         <MasteryStrip
           callingId={chosen}
@@ -269,11 +286,12 @@ function CallingCard({
           </span>
         )}
         {/* A locked Calling shows its name and its Rank; what it does is in its path (See the
-            path) and on hover: a card explains a class once it can be chosen. */}
+            path) and on hover: a card explains a class once it can be chosen. Its Crescendo shows
+            once chosen, and in its path (the third menu pass). */}
         {open && (
           <span className="flex flex-col gap-1.5">
             <span className="text-sm leading-snug text-text">{def.summary}</span>
-            <CrescendoLine def={def} compact />
+            {selected && <CrescendoLine def={def} compact />}
           </span>
         )}
       </button>

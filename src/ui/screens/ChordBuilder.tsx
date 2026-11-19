@@ -242,6 +242,7 @@ export function ChordBuilder({
                   type="button"
                   aria-pressed={on}
                   disabled={lock !== null}
+                  title={lock !== null ? p.summary : undefined}
                   aria-label={
                     lock !== null
                       ? txt('screens.chordBuilder.unlocksAtRank2', { name: p.name, lock })
@@ -280,42 +281,43 @@ export function ChordBuilder({
                       </span>
                     )}
                   </span>
-                  <span
-                    className={`mt-1 flex flex-col gap-0.5 ${lock !== null ? 'opacity-50' : ''}`}
-                    aria-hidden
-                  >
-                    {p.chords.map((c, ci) =>
-                      c.auras.length + c.ornaments.length === 0 ? null : (
-                        <span key={ci} className="flex flex-wrap items-center gap-1">
-                          <Icon
-                            name={SONG_LOOK[chordRole(ci)].icon}
-                            size={12}
-                            style={{ color: SONG_LOOK[chordRole(ci)].color }}
-                          />
-                          {c.auras.map((id) => (
-                            <Dot
-                              key={`a${id}`}
-                              color={auraDef(id).color}
-                              label={auraDef(id).name}
+                  {/* A locked preset shows its name and its Rank; what it holds and what it does
+                      wait for the Rank, and show on hover (the third menu pass). */}
+                  {lock === null && (
+                    <span className="mt-1 flex flex-col gap-0.5" aria-hidden>
+                      {p.chords.map((c, ci) =>
+                        c.auras.length + c.ornaments.length === 0 ? null : (
+                          <span key={ci} className="flex flex-wrap items-center gap-1">
+                            <Icon
+                              name={SONG_LOOK[chordRole(ci)].icon}
+                              size={12}
+                              style={{ color: SONG_LOOK[chordRole(ci)].color }}
                             />
-                          ))}
-                          {c.ornaments.map((id) => (
-                            <Dot
-                              key={`o${id}`}
-                              color={ornamentDef(id).color}
-                              label={ornamentDef(id).name}
-                              diamond
-                            />
-                          ))}
-                        </span>
-                      ),
-                    )}
-                  </span>
-                  <span
-                    className={`mt-1 block text-xs leading-relaxed ${lock !== null ? 'text-ink-500' : 'text-muted'}`}
-                  >
-                    {p.summary}
-                  </span>
+                            {c.auras.map((id) => (
+                              <Dot
+                                key={`a${id}`}
+                                color={auraDef(id).color}
+                                label={auraDef(id).name}
+                              />
+                            ))}
+                            {c.ornaments.map((id) => (
+                              <Dot
+                                key={`o${id}`}
+                                color={ornamentDef(id).color}
+                                label={ornamentDef(id).name}
+                                diamond
+                              />
+                            ))}
+                          </span>
+                        ),
+                      )}
+                    </span>
+                  )}
+                  {lock === null && (
+                    <span className="mt-1 block text-xs leading-relaxed text-muted">
+                      {p.summary}
+                    </span>
+                  )}
                 </button>
               </li>
             );
@@ -354,7 +356,11 @@ export function ChordBuilder({
               astrolabe={astrolabe}
             />
           ) : (
-            <BudgetPanel budget={budget} astrolabe={astrolabe} />
+            <BudgetPanel
+              budget={budget}
+              astrolabe={astrolabe}
+              chorusInReach={allowance.all || allowance.songs > 1}
+            />
           )}
           {problems.length > 0 && (
             <div
@@ -502,9 +508,10 @@ function SongCard({
         <div className="mt-2 flex flex-1 flex-col items-start justify-center gap-1.5 rounded-lg border border-dashed border-ink-600 bg-ink-950/40 px-4 py-5">
           <p className="flex items-center gap-2 text-sm font-semibold text-text">
             <Icon name="lock" size={16} className="text-muted" />{' '}
-            {txt('screens.chordBuilder.unlocksAtRank', { lock })}
+            <span title={unlock?.text}>{txt('screens.chordBuilder.unlocksAtRank', { lock })}</span>
           </p>
-          {unlock && <p className="text-xs leading-relaxed text-muted">{unlock.text}</p>}
+          {/* What the song does waits for its Rank (the third menu pass): on hover, and in
+              the Codex. */}
         </div>
       ) : (
         <>
@@ -877,6 +884,7 @@ function Palette({
                 type="button"
                 aria-pressed={here}
                 disabled={blocked}
+                title={it.lock !== null ? it.description : undefined}
                 onClick={() => (here || blocked ? undefined : onPlace(it.id))}
                 aria-label={`${it.name}, ${it.subtitle}. ${it.lock !== null ? `Unlocks at Rank ${it.lock}.` : `${it.stat}.`}${it.misfit ? ` ${it.misfit}.` : ''}${elsewhere ? ` Now ${elsewhere}: choosing moves it.` : ''}${it.warn ? ` ${it.warn}.` : ''}`}
                 className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
@@ -921,11 +929,13 @@ function Palette({
                 {it.lock === null && it.stat && (
                   <span className="mt-0.5 block font-mono text-xs text-muted">{it.stat}</span>
                 )}
-                <span
-                  className={`mt-0.5 block text-xs leading-relaxed ${it.lock !== null ? 'text-muted' : 'text-text'}`}
-                >
-                  {it.description}
-                </span>
+                {/* A locked aura or ornament shows its name and Rank; its rule waits for the Rank
+                    and shows on hover (the third menu pass). */}
+                {it.lock === null && (
+                  <span className="mt-0.5 block text-xs leading-relaxed text-text">
+                    {it.description}
+                  </span>
+                )}
                 {it.misfit && it.lock === null && (
                   <span className="mt-1 flex items-center gap-1 text-xs font-medium text-muted">
                     <Icon name="thread" size={12} /> {it.misfit}
@@ -981,9 +991,15 @@ function LifeTechniques({ budget: b }: { budget: SpiritBudget }) {
 function BudgetPanel({
   budget: b,
   astrolabe,
+  chorusInReach,
 }: {
   budget: ReturnType<typeof spiritBudget>;
   astrolabe: readonly string[];
+  /**
+   * The chorus needs more auras than one song holds: before the second song opens, its line
+   * waits (the third menu pass).
+   */
+  chorusInReach: boolean;
 }) {
   const scale = Math.max(b.max, b.reserved);
   const width = (v: number) => `${(v / scale) * 100}%`;
@@ -1092,18 +1108,20 @@ function BudgetPanel({
           })}
         </p>
       )}
-      <p
-        className={`mt-2 flex items-center gap-1.5 text-xs ${b.chorus ? 'text-gold-200' : 'text-muted'}`}
-      >
-        <Icon name="sparkle" size={13} />
-        {b.chorus
-          ? txt('screens.chordBuilder.chorusAurasSoEvery', {
-              auraCount: b.auraCount,
-              pct: pct(c.healPctPerAura * b.auraCount, 1),
-              pct2: pct(c.barrierPctPerAura * b.auraCount, 1),
-            })
-          : txt('screens.chordBuilder.withAurasEveryCue', { minAuras: c.minAuras })}
-      </p>
+      {(b.chorus || chorusInReach) && (
+        <p
+          className={`mt-2 flex items-center gap-1.5 text-xs ${b.chorus ? 'text-gold-200' : 'text-muted'}`}
+        >
+          <Icon name="sparkle" size={13} />
+          {b.chorus
+            ? txt('screens.chordBuilder.chorusAurasSoEvery', {
+                auraCount: b.auraCount,
+                pct: pct(c.healPctPerAura * b.auraCount, 1),
+                pct2: pct(c.barrierPctPerAura * b.auraCount, 1),
+              })
+            : txt('screens.chordBuilder.withAurasEveryCue', { minAuras: c.minAuras })}
+        </p>
+      )}
     </Panel>
   );
 }
