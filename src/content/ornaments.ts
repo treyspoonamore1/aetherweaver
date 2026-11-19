@@ -12,7 +12,7 @@ export const ORNAMENTS: ContentInput['ornaments'] = [
     subtitle: 'Lighter',
     color: '#f9a8d4',
     description:
-      'Its auras reserve 30% less Spirit but work 10% less well. Room for one more aura.',
+      'Its auras reserve 30% less Spirit and work 10% less well. Room for one more aura.',
     reserveMult: 0.7,
     effectMult: 0.9,
   },
@@ -22,7 +22,7 @@ export const ORNAMENTS: ContentInput['ornaments'] = [
     subtitle: 'Wider',
     color: '#67e8f9',
     description:
-      'Its field reaches 40% farther but works 10% less well. Covers a spread-out party. On the beam song, it widens the echo.',
+      'Its field reaches 40% farther and works 10% less well. On the beam song, it widens the echo.',
     radiusMult: 1.4,
     effectMult: 0.9,
     excludes: ['unison'],
@@ -33,7 +33,7 @@ export const ORNAMENTS: ContentInput['ornaments'] = [
     subtitle: 'All in',
     color: '#fcd34d',
     description:
-      'Beam song only. It pours entirely into your threaded hero at two and a half times the strength, and nobody else hears an echo.',
+      'Beam song only. It pours into your threaded hero at 2.5 times the strength. Nobody else hears an echo.',
     focusMult: 1.25,
     echoMult: 0,
     roles: ['beam'],
@@ -45,7 +45,7 @@ export const ORNAMENTS: ContentInput['ornaments'] = [
     subtitle: 'Planted',
     color: '#bef264',
     description:
-      'Its field stays where you plant it (V at the cursor, every 2 s) and is 15% smaller. You roam; the party holds the ground. On the beam song, it plants the echo.',
+      'Its field is 15% smaller and stays where you plant it. Press V to plant it at the cursor, once every 2 s. On the beam song, it plants the echo.',
     radiusMult: 0.85,
     anchor: 'planted',
     excludes: ['unison'],

@@ -93,7 +93,7 @@ export const CRESCENDO: ContentInput['crescendo'] = {
   id: 'sunrise',
   name: 'Sunrise',
   description:
-    'Spend a full song: for 6 seconds your auras burn twice as bright and reach half again as far, and every hero is healed for 20% of their life.',
+    'Spend a full song. For 6 s your auras burn twice as bright and reach half again as far. Every hero heals 20% of their life.',
   duration: 6,
   auraEffectMult: 2,
   radiusMult: 1.5,
