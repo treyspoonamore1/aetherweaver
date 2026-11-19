@@ -42,3 +42,18 @@ Session https://claude.ai/code/session_01Ufyqn2mkV4tgoiGTmeGECM, 18 November 202
   summaries in `aw-work/12/w1/`. Sent to the join agent for its step 7.
 - Still running: the join agent (`aw-work/12/join/BRIEF.md`; its notes in `/home/user/aw-work/12/join/PROGRESS.md`,
   not in this branch until copied).
+
+## Later (about 01:20 UTC, 19 November), after two container restarts
+
+- `p11/solo-join` at `8f17fe2` (pushed) is the landing candidate: main `6c345ad` and `p11/solo`
+  `8e7f950` merged in; 11 sound snapshots, Dissonance pins and the b16 save re-recorded (compared);
+  docs/solos.md has the second round's numbers; two browser tests fixed (Settings' Controls tab;
+  the Conductor test follows the frames' queue).
+- `verify-land` CLEAN on `8f17fe2` (264 files, 5,498 passed). Whole e2e on `8f17fe2`: the run was
+  cut by a restart after 56 passed with none failed; the 17 tests left are being run as
+  `/home/user/aw-work/12/join/e2e3.log`. Earlier full run on `6c1af0c`: 70 passed, 3 failed, all
+  three fixed by the two test commits above.
+- Play-through sheets: `pictures/v21/`. Draft tester notes: `aw-work/12/join/DEMO-V21.md` (drop its
+  bullet about the primer's "Cue their Solos" row: the word is kept on purpose).
+- Next: land (ff main to the join), build and check the demo, publish Version 21, docs/demo.md
+  notes, tell the owner; then the third menu pass.
