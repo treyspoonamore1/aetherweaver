@@ -70,11 +70,12 @@ export interface RowResult {
  * content's version (the `contentVersion` in tests/sim/golden.json), the fight replay 6 to 7, the
  * run replay 1 to 2, and settings 4 to 5 (the Hero autonomy setting, the Cue key and the Cue
  * modifier left them). Run saves and profiles did not move. The content's version moved once
- * more when the words no fight copies left its hash (`UNHASHED_TEXT`, src/content/index.ts).
+ * more when the words no fight copies left its hash (`UNHASHED_TEXT`, src/content/index.ts),
+ * in the same pass as its second lane gained an odd multiplier (`contentHash`).
  */
 export const RELEASE_PINS = {
   simVersion: 23,
-  contentVersion: 'c-a31908032800d748',
+  contentVersion: 'c-a31908032435488a',
   runSave: 5,
   profile: 10,
   settings: 5,

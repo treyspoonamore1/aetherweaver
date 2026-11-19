@@ -96,6 +96,18 @@ describe('display text out of contentVersion', () => {
     expect(contentVersionOf(longer)).not.toBe(CONTENT_VERSION);
   });
 
+  it('a change at the very start of the content moves both halves of the version', () => {
+    // Each half is its own lane of the hash. A lane whose multiplier is even forgets all but the
+    // last few characters it read, so a change near the start would leave that half as it was.
+    const first = JSON.parse(JSON.stringify(CONTENT)) as Content;
+    expect(Object.keys(first)[0]).toBe('weaver');
+    first.weaver.maxLife += 1;
+    const [a, b] = [CONTENT_VERSION.slice(2, 10), CONTENT_VERSION.slice(10)];
+    const moved = contentVersionOf(first);
+    expect(moved.slice(2, 10)).not.toBe(a);
+    expect(moved.slice(10)).not.toBe(b);
+  });
+
   it('every golden fight ends on the same hash with every unhashed line replaced', () => {
     const before = finalHashes();
     const undo = replaceText(CONTENT, UNHASHED_TEXT);

@@ -140,14 +140,18 @@ export const CONTENT: Content = ContentSchema.parse({
   },
 });
 
-/** FNV-1a over the canonical JSON, in two independent 32-bit lanes. */
+/**
+ * FNV-1a over the canonical JSON, in two independent 32-bit lanes. Each lane's multiplier is odd:
+ * an even one (lane b's was 0x01000193 + 0x5bd1e995 = 0x5cd1eb28) shifts what it has read out of
+ * the word, so that lane remembered only the last few characters of the content.
+ */
 function contentHash(text: string): string {
   let a = 0x811c9dc5;
   let b = 0x01000193 ^ 0x9e3779b9;
   for (let i = 0; i < text.length; i++) {
     const c = text.charCodeAt(i);
     a = Math.imul(a ^ c, 0x01000193) >>> 0;
-    b = Math.imul(b ^ c, 0x01000193 + 0x5bd1e995) >>> 0;
+    b = Math.imul(b ^ c, 0x5bd1e995) >>> 0;
   }
   return a.toString(16).padStart(8, '0') + b.toString(16).padStart(8, '0');
 }
