@@ -374,7 +374,7 @@ export const UNSTITCHED_DEEDS: DeedDef[] = [
     test: 'fight',
     encounter: 'the_unweaver',
     values: { downs: 0 },
-    text: 'Beat {encounter}, with no hero going down.',
+    text: 'Beat {encounter} with no hero going down.',
   },
   {
     id: 'needle_sure',

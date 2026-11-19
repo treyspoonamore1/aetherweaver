@@ -18,7 +18,7 @@ export const ROSTER_DEEDS: DeedDef[] = [
     encounter: 'gorehound_matriarch',
     tally: 'parries',
     values: { atLeast: 8 },
-    text: 'Beat {encounter} with {hero}, parrying {atLeast} blows: the hounds’ swings count too.',
+    text: 'Beat {encounter} with {hero}, parrying {atLeast} blows. The hounds’ swings count.',
   },
   // Oro: the Frayed Court's Shears and Choristers are the melee foes his Saplings must hold.
   {

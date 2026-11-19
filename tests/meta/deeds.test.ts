@@ -375,7 +375,7 @@ describe('the Deeds', () => {
     expect(deedText(deed('final_bar'))).toBe('Beat the Silent Conductor’s Postlude.');
     expect(deedText(deed('every_week_a_song'))).toBe('Win This Week’s Song in 4 different weeks.');
     expect(deedText(deed('debt_paid'))).toBe(
-      'Beat the Gorehound Matriarch with Seren, parrying 8 blows: the hounds’ swings count too.',
+      'Beat the Gorehound Matriarch with Seren, parrying 8 blows. The hounds’ swings count.',
     );
     expect(deedText(deed('not_a_leaf_lost'))).toBe(
       'Beat the Frayed Court with Oro, losing none of his Saplings.',
@@ -387,7 +387,7 @@ describe('the Deeds', () => {
       'Beat Vharun, the Crimson Warden, with no hero going down.',
     );
     expect(deedText(deed('pack_leader'))).toBe('Beat the Gorehound Matriarch with an S.');
-    expect(deedText(deed('whole_cloth'))).toBe('Beat the Unweaver, with no hero going down.');
+    expect(deedText(deed('whole_cloth'))).toBe('Beat the Unweaver with no hero going down.');
     expect(deedText(deed('needle_sure'))).toBe('Beat the Seamstress with an S.');
     expect(deedText(deed('song_goes_on'))).toBe('Beat the Silent Conductor.');
     expect(deedText(deed('not_one_silent'))).toBe(
