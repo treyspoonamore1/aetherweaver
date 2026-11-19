@@ -12,7 +12,7 @@ export const TECHNIQUE_VARIANTS: ContentInput['techniqueVariants'] = [
     name: 'Chorale',
     cost: 25,
     values: { radius: 6, pct: 17, flat: 70, seconds: 3 },
-    text: 'Every hero within {radius} m of the hero you Ward gets a barrier of {pct}% of their life + {flat} for {seconds} s. It can be Perfect, as a Ward can. It costs more Spirit.',
+    text: 'Every hero within {radius} m of the hero you Ward gets a barrier of {pct}% of their life + {flat} for {seconds} s. The one on the hero you Ward can be Perfect, as a Ward can. It costs more Spirit.',
   },
   {
     id: 'aegis_link',
@@ -35,7 +35,7 @@ export const TECHNIQUE_VARIANTS: ContentInput['techniqueVariants'] = [
     name: 'Absolve',
     cooldown: 14,
     values: { heal: 25, seconds: 2, pct: 25 },
-    text: 'The Chime heals {heal}% of their life and leaves {seconds} s of {pct}% less damage taken. It has a longer cooldown.',
+    text: 'The Chime heals {heal}% of their life, then {pct}% less damage taken for {seconds} s. Its cooldown is longer.',
   },
   // ── Reel (F) ──────────────────────────────────────────────────────────────────────────
   {

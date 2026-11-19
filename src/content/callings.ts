@@ -99,7 +99,7 @@ export const CALLINGS: ContentInput['callings'] = [
     summary: 'Bear a hero’s damage, and sing with your own Life.',
     text: 'Your Life is {life}% greater. Your songs reserve Life instead of Spirit. Press B to Bear: you take {bear}% of what your threaded hero would lose, softened by {cut}%. Bearing never takes you below 1 life.',
     crescendo:
-      'Martyr’s Vow replaces Sunrise: for {vow} s heroes can’t drop below 1 life. Damage past that comes to you at −{redirect}%. Healing on you is ×{healing}.',
+      'Martyr’s Vow replaces Sunrise: for {vow} s heroes can’t drop below 1 life. While it lasts, damage past that comes to you at −{redirect}% and healing on you is ×{healing}.',
     crescendoName: 'Martyr’s Vow',
     flavor: 'Let it come to me.',
     values: { life: 100, bear: 35, cut: 50, vow: 5, redirect: 70, healing: 2 },
@@ -186,9 +186,9 @@ export const CALLINGS: ContentInput['callings'] = [
     name: 'Chronomancer',
     title: 'the one who was ready',
     summary: 'Rewind a hero’s last seconds, and stop the fight in Stasis.',
-    text: 'Perfect Wards are {perfect} s more forgiving. Every telegraph shows its timer. Rewind replaces Reel: your threaded hero’s life and place return to {rewind} s ago, with no less life than now. Its cooldown is {cooldown} s. Once a run, it stands up a hero who went down in that time.',
+    text: 'Perfect Wards are {perfect} s more forgiving. Every telegraph shows its timer. Rewind replaces Reel: your threaded hero’s life and place return to {rewind} s ago, with no less life than now. Once a run, it stands up a hero who went down in those {rewind} s. Its cooldown is {cooldown} s.',
     crescendo:
-      'Stasis replaces Sunrise: for {stasis} s every enemy and its attacks stand still. Your techniques have no cooldowns and cost {cost}% less Spirit.',
+      'Stasis replaces Sunrise: for {stasis} s every enemy and its attacks stand still. While it lasts, your techniques have no cooldowns and cost {cost}% less Spirit.',
     crescendoName: 'Stasis',
     flavor: 'Again. I was ready this time.',
     values: { perfect: 0.1, rewind: 3, cooldown: 18, stasis: 3, cost: 50 },

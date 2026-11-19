@@ -599,7 +599,7 @@ export const CRUCIBLE_ENEMIES: ContentInput['enemies'] = [
     preferredRange: BODIES.mirror_alto.keep,
     specials: [LAMENT],
     suppressRadius: 0,
-    codex: `A glass chorister singing Lyra’s line back, inverted. Cued, its Lament marks a hero for ${SOLO_WINDUP} s, then takes ${pct(LAMENT_PCT * VOICE_PCT_MULT)}% of their life. Chime the mark away, Ward it, or interrupt the Alto. A Chime in its last second is a Clutch.`,
+    codex: `A glass chorister singing Lyra’s line back, inverted. Cued, its Lament marks a hero for ${SOLO_WINDUP} s, then takes ${pct(LAMENT_PCT * VOICE_PCT_MULT)}% of their life. Chime the mark away, Ward it, or interrupt the Alto. A Chime in the mark’s last second is a Clutch.`,
     material: 'glass',
     movement: FINALE_MOVEMENT,
   },

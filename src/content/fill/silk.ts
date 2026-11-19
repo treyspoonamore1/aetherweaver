@@ -119,7 +119,7 @@ export const FILL_SILK: ContentInput['motifs'] = [
     category: 'silk',
     rarity: 'rare',
     values: [5, 4, 3],
-    text: `Every {v} s you spend Mending, added up, heals the most hurt other hero in your field ${STITCH_PCT}% of their life.`,
+    text: `Every {v} s you spend Mending, added up, heals the most hurt other hero in your field for ${STITCH_PCT}% of their life.`,
     requires: { expedition: true },
     tags: ['thread', 'heal', 'field'],
     triggers: [

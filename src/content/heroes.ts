@@ -362,7 +362,8 @@ export const HEROES: ContentInput['heroes'] = [
     quirk: {
       id: 'bloodlust',
       name: 'Bloodlust',
-      description: 'Below 40% life, Brann won’t come back for a Rally. He holds his ground.',
+      description:
+        'Below 40% life, Brann won’t come back for a Rally, and he no longer keeps near you.',
       below: 0.4,
     },
     barks: {
@@ -431,7 +432,7 @@ export const HEROES: ContentInput['heroes'] = [
         id: 'feint',
         name: 'Feint',
         description:
-          'A sure 2.5 m sidestep to her opponent’s flank, then a 3 s hard taunt of it. A boss gets only the sidestep.',
+          'A sure 2.5 m sidestep to her opponent’s flank, then a 3 s hard taunt of it. A boss or mini-boss gets only the sidestep.',
         cooldown: 10,
         castTime: 0,
         damage: 0,
@@ -603,7 +604,7 @@ export const HEROES: ContentInput['heroes'] = [
       saplingFelled: SAPLING_NAMES.map((n) => `No! Not ${n}!`),
     },
     codex:
-      'A gentle grovekeeper who hates fighting. Oro plants two Saplings ahead of you to hold off the small things that bite. Keep your songs over them and they flourish. Rally and they re-sprout in front of you. Your Thread on Oro Mends them too, at half. He won’t raise a hand until you set a Focus. Until then his Saplings fight for him, and harder. Bosses and the biggest foes ignore them.',
+      'A gentle grovekeeper who hates fighting. Oro plants two Saplings ahead of you to hold off the small things that bite. Keep your songs over them and they flourish. Rally and they re-sprout in front of you. Your Thread on Oro Mends them too, at half. He won’t raise a hand without a Focus. Without one, his Saplings fight for him, and harder. Bosses and the biggest foes ignore them.',
     passive: { id: 'rootbond', mendShare: 0.5 },
     summons: {
       sapling: {

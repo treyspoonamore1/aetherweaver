@@ -780,8 +780,10 @@ describe('review fixes: the Mirror Choir decree, and Brann’s Codex entry', () 
     // 17 lines differ, each a content line reworded to the voice guide (four Codex entries, three
     // abilities, four flourishes and two Solos, with numbers as the game states them, three
     // quirks, Brann's needs line), and nothing else.
+    // Again after an independent check of those lines, compared the same way: one line differs,
+    // Brann's Bloodlust ("…for a Rally, and he no longer keeps near you.").
     expect(createHash('sha256').update(stripped).digest('hex')).toBe(
-      '84b095eef2d90f8af02ea2b4be59ae0549584cadf8a4c489975335d1491eba20',
+      '3687d80f7cb2fb44b2b8996a6632f11b0a9c207838a370f97d9f1e880a056d5f',
     );
   });
 });
@@ -865,6 +867,9 @@ describe('Brann’s and the default party’s UI are byte-equal to before', () =
   // on nearby enemies.".
   // And for 1 key (`frames:brann-oath`) when the Bonds' lines were reworded: Blood Oath's
   // tooltip reads "…no longer halved. What overheals him, …", and nothing else moved.
+  // And for 1 key (`fresh`) when an independent check of the pass's lines found Bloodlust's
+  // "He holds his ground." untrue as a Bloodlust rule (he never gives ground at any life; what
+  // Bloodlust adds is no leash to you, src/sim/systems/heroes.ts): the line, nothing else.
   it('every pinned text and frame hashes as recorded at W3’s head', async () => {
     const want = JSON.parse(
       readFileSync(join(__dirname, 'uiPhase5e.brann.json'), 'utf8'),

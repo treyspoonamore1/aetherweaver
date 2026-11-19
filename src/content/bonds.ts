@@ -43,7 +43,7 @@ export const TALENTS: ContentInput['talents'] = [
     tier: 2,
     name: 'Riposte Bash',
     values: { range: 6, pct: 50, seconds: 6 },
-    text: 'When a Ward on Kael takes a blow, he Shield Bashes an attacker within {range} m, whatever its cooldown, once every {seconds} s. A Perfect Ward sets it off every time and sends back {pct}% of the blow.',
+    text: 'When a Ward on Kael takes a blow, he Shield Bashes the attacker if it is within {range} m, whatever its cooldown, once every {seconds} s. A Perfect Ward sets it off every time and sends back {pct}% of the blow.',
   },
   {
     id: 'bulwark_of_faith',

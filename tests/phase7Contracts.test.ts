@@ -444,7 +444,7 @@ describe('the text layer', () => {
   it('tc looks content text up by id: English from CONTENT, unchanged', () => {
     expect(tc('auras', 'sostenuto', 'name')).toBe('Sostenuto');
     expect(tc('auras', 'fermata', 'description')).toBe(
-      'Heroes in your field below 35% life take 30% less damage. Once per fight, a hit that would down a hero holds them at 1 life for 1.5 s instead. Heal them in time and they live.',
+      'Heroes in your field below 35% life take 30% less damage. Once per fight for each hero, a hit that would down them holds them at 1 life for 1.5 s instead. Heal them in time and they live.',
     );
     expect(tc('ornaments', 'unison', 'subtitle')).toBe('All in');
     expect(tc('heroes', 'kael', 'name')).toBe('Kael');

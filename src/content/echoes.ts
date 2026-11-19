@@ -165,7 +165,7 @@ export const ECHOES: ContentInput['echoes'] = [
     id: 'retrograde',
     name: 'Retrograde',
     constellation: 'strange_roads',
-    text: 'The Expedition backwards, with no Respite. The Unravelling Descent, then the Crimson Ascent at the Ascent’s strength, then the Reliquary Road at the Descent’s. It ends at the Hollow Cantor.',
+    text: 'The Expedition backwards, with no Respite. The Unravelling Descent and the Crimson Ascent, both at the Ascent’s strength. Then the Reliquary Road at the Descent’s. It ends at the Hollow Cantor.',
     legs: [
       {
         movement: 'unstitched',
@@ -198,7 +198,7 @@ export const ECHOES: ContentInput['echoes'] = [
     id: 'last_rehearsal',
     name: 'The Last Rehearsal',
     constellation: 'strange_roads',
-    text: 'Only bosses: the Hollow Cantor and Vharun grown to the Unravelling Descent’s strength, then the Unweaver and the Silent Conductor. A Respite and a Merchant follow each.',
+    text: 'Only bosses: the Hollow Cantor and Vharun grown to the Unravelling Descent’s strength, then the Unweaver and the Silent Conductor. A Respite and a Merchant come before each boss after the first.',
     legs: [
       {
         movement: 'hollow_choir',
