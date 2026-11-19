@@ -160,13 +160,117 @@ function contentHash(text: string): string {
 const HASHED_ONCE_FILLED: ReadonlySet<string> = new Set(['echoes', 'constellations', 'weekly']);
 
 /**
+ * The display text the hash does not read: a word cannot change a fight, and a reworded line
+ * should not refuse a replay. Each path is a field's place in the content, through its lists
+ * (`heroes.codex` is every hero's Codex line). The hash still sees that each field is there, and
+ * how many lines a list of lines holds: only the words are left out.
+ *
+ * Only words the fight never copies into its own state are here. A fight copies names (of heroes,
+ * their abilities, flourishes and Solos, enemies, attacks, encounters, auras, motifs, relics,
+ * boons, the Crescendo) and decree lines into what it hashes, so a replay's final hash holds
+ * them: every `name`, title and label, and `decree` and `decreeNoDome`, stay hashed.
+ * `tests/content/unhashedText.test.ts` plays fights with every field below changed and checks
+ * that their hashes do not move.
+ */
+export const UNHASHED_TEXT: readonly string[] = [
+  // Heroes: their Codex and Needs lines, the descriptions of abilities, flourishes, Solos and
+  // quirks, the Call's lines, every bark, and the recruit's lines.
+  'heroes.codex',
+  'heroes.needs',
+  'heroes.abilities.description',
+  'heroes.call.flourish.description',
+  'heroes.call.lines',
+  'heroes.call.thanks',
+  'heroes.solo.description',
+  'heroes.solo.cuedDescription',
+  'heroes.quirk.description',
+  'heroes.recruit.lockedText',
+  'heroes.recruit.fallbackText',
+  'heroes.barks.quirk',
+  'heroes.barks.lowHp',
+  'heroes.barks.saved',
+  'heroes.barks.perfect',
+  'heroes.barks.cued',
+  'heroes.barks.downed',
+  'heroes.barks.revived',
+  'heroes.barks.defiant',
+  'heroes.barks.parried',
+  'heroes.barks.focus',
+  'heroes.barks.saplingFelled',
+  'barks.rally',
+  'barks.hold',
+  'barks.scatter',
+  'barks.focus',
+  // Songs, foes and places.
+  'crescendo.description',
+  'auras.description',
+  'ornaments.description',
+  'affixes.description',
+  'enemies.codex',
+  'encounters.flavor',
+  // The run's pools and events.
+  'motifs.text',
+  'relics.text',
+  'relics.flavor',
+  'relics.curse',
+  'boons.text',
+  'events.text',
+  'events.teaser',
+  'events.choices.label',
+  'events.choices.text',
+  'events.choices.outcome',
+  'events.choices.failOutcome',
+  'events.choices.partyText',
+  'events.choices.recruitedText',
+  // Between runs: Callings and their paths, the Astrolabe, Deeds, the Reliquary, Dissonance,
+  // Bonds (talents, alternate Solos, scenes), technique variants and Echoes.
+  'callings.text',
+  'callings.flavor',
+  'callings.summary',
+  'callings.crescendo',
+  'callings.tiers.options.text',
+  'astrolabe.nodes.text',
+  'deeds.text',
+  'inscriptions.text',
+  'curses.text',
+  'dissonance.text',
+  'talents.text',
+  'altSolos.text',
+  'altSolos.cuedText',
+  'techniqueVariants.text',
+  'scenes.lines.text',
+  'scenes.replies.text',
+  'scenes.replies.response',
+  'echoes.text',
+];
+
+/** Blanks the words at `keys` under `node`, through every list on the way. */
+function blankText(node: unknown, keys: readonly string[]): void {
+  if (Array.isArray(node)) {
+    for (const item of node) blankText(item, keys);
+    return;
+  }
+  if (node === null || typeof node !== 'object') return;
+  const record = node as Record<string, unknown>;
+  const [key, ...rest] = keys;
+  if (key === undefined || !(key in record)) return;
+  const value = record[key];
+  if (rest.length > 0) blankText(value, rest);
+  else if (typeof value === 'string') record[key] = '';
+  else if (Array.isArray(value)) record[key] = value.map((x) => (typeof x === 'string' ? '' : x));
+}
+
+/**
  * The version of a validated content (docs/phase-5g.md): what `CONTENT_VERSION` is for
  * `CONTENT`, and what the masked replay recomputes for `CONTENT` without the slice's entries.
+ * The words at `UNHASHED_TEXT` are left out.
  */
 export function contentVersionOf(content: Content): string {
-  const text = JSON.stringify(content, function (this: unknown, key: string, value: unknown) {
+  const hashed = JSON.parse(JSON.stringify(content)) as Content;
+  for (const path of UNHASHED_TEXT) blankText(hashed, path.split('.'));
+  const text = JSON.stringify(hashed, function (this: unknown, key: string, value: unknown) {
     const empty = Array.isArray(value) && value.length === 0;
-    return this === content && empty && HASHED_ONCE_FILLED.has(key) ? undefined : value;
+    return this === hashed && empty && HASHED_ONCE_FILLED.has(key) ? undefined : value;
   });
   return `c-${contentHash(text)}`;
 }

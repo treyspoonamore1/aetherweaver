@@ -69,11 +69,12 @@ export interface RowResult {
  * and moved once since, on purpose, by the Solo rework (docs/solos.md): the sim 22 to 23, the
  * content's version (the `contentVersion` in tests/sim/golden.json), the fight replay 6 to 7, the
  * run replay 1 to 2, and settings 4 to 5 (the Hero autonomy setting, the Cue key and the Cue
- * modifier left them). Run saves and profiles did not move.
+ * modifier left them). Run saves and profiles did not move. The content's version moved once
+ * more when the words no fight copies left its hash (`UNHASHED_TEXT`, src/content/index.ts).
  */
 export const RELEASE_PINS = {
   simVersion: 23,
-  contentVersion: 'c-7781374df5775748',
+  contentVersion: 'c-a31908032800d748',
   runSave: 5,
   profile: 10,
   settings: 5,
