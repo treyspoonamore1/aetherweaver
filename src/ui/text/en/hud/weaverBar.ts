@@ -55,7 +55,7 @@ export const weaverBar = {
   'hud.weaverBar.aVariant': ' (a {defaultName} variant)',
   'hud.weaverBar.theNextInSeconds': ', the next in {remaining} seconds',
   'hud.weaverBar.crescendoReady': ', Crescendo ready',
-  'hud.weaverBar.aFullSongResonance': 'a full song ({crescendoCost} Resonance)',
+  'hud.weaverBar.aFullSongResonance': 'a full song, {crescendoCost} Resonance',
   'hud.weaverBar.on2': ' (on)',
   'hud.weaverBar.resonance2': '{crescendoCost} Resonance',
   'hud.weaverBar.mend': 'Mend',

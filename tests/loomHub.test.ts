@@ -340,7 +340,7 @@ describe('first contact', () => {
     );
     // Bonds: who earns Bond XP, and what a Solo is.
     for (const h of bondedHeroes()) expect(text('bonds')).toContain(heroDef(h).name);
-    expect(text('bonds')).toMatch(/Solo \(a hero’s big move/);
+    expect(text('bonds')).toMatch(/an alternate Solo or a scene/);
     // The Hall: the Deeds that keep a count.
     expect(text('deeds')).toContain('the Deeds that keep a count');
     // Dissonance: optional difficulty, and what each point pays.

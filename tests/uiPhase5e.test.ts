@@ -472,12 +472,11 @@ describe('the per-hero copy', () => {
     // Uncued it rises after its 1 s ground warning and leaves as the 8 s Solo ends (7 s up);
     // only the Cued Ancient stands `life` (8 s) from rising. Neither line says it stands 8 s.
     const line = summonsEntry(heroDef('oro'))[1]!;
-    expect(line).toContain('for the rest of Wildgrowth’s 8 s (Cued, 8 s from rising)');
+    expect(line).toContain('for the rest of Wildgrowth’s 8 s. Cued, it stands 8 s from rising');
     expect(line).not.toContain('life for 8 s');
     const term = heroTerms(['oro']).find((t) => t.term === 'Ancient')!.text;
-    expect(term).toContain(
-      'rises for the rest of Wildgrowth’s 8 s (Cued, it stands 8 s from rising)',
-    );
+    expect(term).toContain('rises for the rest of Wildgrowth’s 8 s.');
+    expect(term).toContain('Cued, it stands 8 s from rising');
     expect(term).not.toContain('rises for 8 s');
   });
 

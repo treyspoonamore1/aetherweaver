@@ -18,7 +18,7 @@ export const bondsModel = {
   'screens.bondsModel.noTalentInTier': '{name}: no talent in tier {numeral}.',
   'screens.bondsModel.brings': '{name} brings {name2}.',
   'screens.bondsModel.settingsSkipTheUnlocks':
-    'Settings → Skip the unlocks: every talent and Solo can be chosen, as if each Bond were at rank {maxBondRank}. Scenes still wait for real ranks.',
+    'Every talent and Solo can be chosen, as if each Bond were at rank {maxBondRank}. Scenes wait for real ranks.',
   'screens.bondsModel.noTalentChosen': 'No talent chosen',
   'screens.bondsModel.talentsFromBondRank': 'Talents from Bond rank {tierRank}',
   'screens.bondsModel.talentsTier2': 'Talents, tier {numeral}',
@@ -37,9 +37,9 @@ export const bondsModel = {
   'screens.bondsModel.growWithYouEvery':
     '{listAnd} grow with you. Every fight pays each of them Bond XP, and more for your support of them: your healing, shields and saves, and the damage you add to theirs.',
   'screens.bondsModel.theirBondRanksOpen':
-    'Their Bond ranks open talents (at ranks {listAnd}: one of two each), an alternate Solo (rank {soloRank}) and {countWord} scenes each (ranks {listAnd2}), told at a Respite instead of resting.',
+    'Bond ranks {listAnd} each open a talent, one of two. An alternate Solo opens at rank {soloRank}, and {countWord} scenes each at ranks {listAnd2}, told at a Respite.',
   'screens.bondsModel.chooseTalentsAndSolos':
-    'Choose talents and Solos {WHERE_TO_CHOOSE}. They change freely between runs; a run keeps the ones it embarks with.',
+    'Choose talents and Solos {WHERE_TO_CHOOSE}. A run keeps the ones it embarks with.',
   'screens.bondsModel.bondXp': '+{xp} Bond XP',
   'screens.bondsModel.sitWith': 'Sit with {name}',
   'screens.bondsModel.aFewWordsWith': '“{title}”: a few words with {name} by the fire.',
@@ -61,9 +61,9 @@ export const bondsModel = {
   'screens.bondsModel.bondXp2': '{who} ({sceneXp} Bond XP)',
   'screens.bondsModel.openWithSkipThe': 'Open now',
   'screens.bondsModel.yourRunUnderWay':
-    'Your run under way keeps the talents and Solos it embarked with: what you change here is for the next one.',
+    'Your run keeps the talents and Solos it embarked with. Changes here are for the next one.',
   'screens.bondsModel.onTheBondsScreen': 'on the Bonds screen, from the Loom or from Prep',
   'screens.bondsModel.skipTheUnlocksEvery':
-    'Skip the unlocks: every talent and Solo can be chosen already. Scenes wait for these ranks.',
+    'Every talent and Solo can be chosen already. Scenes wait for these ranks.',
   'screens.bondsModel.seen': 'Seen.',
 } satisfies Catalogue;

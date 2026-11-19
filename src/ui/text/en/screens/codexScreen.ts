@@ -106,7 +106,7 @@ export const codexScreen = {
   'screens.codexScreen.beforeABigMove':
     'Before a big move, a hero calls for a specific answer: their frame shows a gold glyph, the key that answers it and a countdown. Answer in time and the move becomes a ',
   'screens.codexScreen.aStrongerVersionOf':
-    ', a stronger version of it, and you gain {response} Resonance. Ignoring a call costs nothing but a short delay: they use the plain move when the window closes.',
+    ', a stronger version of it, and you gain {response} Resonance. Ignore a call and they use the plain move when the window closes.',
   'screens.codexScreen.flourish': 'Flourish',
   'screens.codexScreen.firstCallAfterS': 'first call after {firstAfter} s',
   'screens.codexScreen.aHeroCallsAt': 'a hero calls at most every {heroCooldown} s',
@@ -165,7 +165,7 @@ export const codexScreen = {
   'screens.codexScreen.sCooldown': '{cooldown}s cooldown',
   'screens.codexScreen.mRange': '{range} m range',
   'screens.codexScreen.aBellLandsUnder':
-    "A bell lands under your cursor, cleanses every ailment in {radius} m and leaves heroes immune for {immunity}s. Clutch Chimes (within {clutchWindow}s of a mark's end) feed Resonance.",
+    'A bell lands under your cursor, cleanses every ailment in {radius} m and leaves heroes immune for {immunity}s. A Chime in a mark’s last {clutchWindow}s is a Clutch, and feeds Resonance.',
   'screens.codexScreen.yankAHeroTo':
     'Yank a hero to your side along a ribbon. Out of a lethal zone or a beam, and into your aura field.{value}',
   'screens.codexScreen.aShortDashWith':
