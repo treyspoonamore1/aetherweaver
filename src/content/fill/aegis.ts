@@ -27,7 +27,7 @@ export const FILL_AEGIS: ContentInput['motifs'] = [
     category: 'aegis',
     rarity: 'rare',
     values: [100, 150, 200],
-    text: `When a Ward breaks, its shards strike the ${SHARDS.nearest} nearest enemies within ${SHARDS.radius} m of whoever held it for {v} damage each.`,
+    text: `When a Ward breaks, its shards strike the ${SHARDS.nearest} nearest enemies within ${SHARDS.radius} m of its hero, for {v} damage each.`,
     requires: { expedition: true },
     tags: ['ward', 'damage'],
     triggers: [

@@ -98,8 +98,8 @@ export const FILL_SILK: ContentInput['motifs'] = [
     rarity: 'epic',
     values: [50],
     text:
-      'Moving the Thread onto a hero within 0.35 s before a telegraph strikes them negates {v}% ' +
-      'of the hit and gives half a Perfect Ward’s Resonance.',
+      'Move the Thread onto a hero in the last 0.35 s before a telegraph strikes them: it ' +
+      'negates {v}% of the hit. It also gives half a Perfect Ward’s Resonance.',
     requires: { expedition: true },
     tags: ['thread', 'perfect', 'resonance'],
   },
@@ -119,7 +119,7 @@ export const FILL_SILK: ContentInput['motifs'] = [
     category: 'silk',
     rarity: 'rare',
     values: [5, 4, 3],
-    text: `For every {v} s you spend Mending, in all, the most hurt other hero in your field heals ${STITCH_PCT}% of their life.`,
+    text: `Every {v} s you spend Mending, added up, heals the most hurt other hero in your field ${STITCH_PCT}% of their life.`,
     requires: { expedition: true },
     tags: ['thread', 'heal', 'field'],
     triggers: [

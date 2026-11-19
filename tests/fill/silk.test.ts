@@ -92,10 +92,10 @@ describe('the Silk fill: content', () => {
     expect(def('whiplash').text).toContain('within 3 m');
     const stitch = effect('stray_stitch');
     expect(stitch.kind === 'heal' && stitch.pct).toBe(4);
-    expect(def('stray_stitch').text).toContain('heals 4% of');
+    expect(def('stray_stitch').text).toContain('field 4% of');
     expect(rule('spindle_turn').every).toBe(3);
     expect(def('spindle_turn').text).toContain('every 3 s');
-    expect(def('thread_the_needle').text).toContain(`within ${NEEDLE_LEAD} s`);
+    expect(def('thread_the_needle').text).toContain(`the last ${NEEDLE_LEAD} s`);
     expect(def('brimming_thread').text).toContain(`for ${BRIMMING_SECONDS} s`);
     expect(def('razor_silk').text).toContain('{v} damage a second');
   });
